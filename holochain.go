@@ -17,10 +17,7 @@ const (
 
 type Holochain struct {
 	Id uuid.UUID
-}
-
-type Config struct {
-	H Holochain
+	LinkEncoding string
 }
 
 func IsInitialized() bool {
@@ -28,13 +25,33 @@ func IsInitialized() bool {
 	return err == nil;
 }
 
+// New creates a new holochain structure with a randomly generated ID and default values
 func New() Holochain {
 	u,err := uuid.NewUUID()
 	if err != nil {panic(err)}
-	return Holochain {Id:u}
+	return Holochain {Id:u,LinkEncoding:"JSON"}
 }
 
-func Init() (hP *Holochain, err error) {
+// Load creates a holochain structure from the configuration files
+func Load() (h Holochain,err error) {
+	if IsInitialized() {
+		_,err = toml.DecodeFile(ConfigPath, &h)
+	} else {
+		err = errors.New("holochain: missing .holochain directory")
+	}
+	return h,err
+}
+
+// Init setts up a holochain by creating the initial genesis links.
+// It assumes a properly set up .holochain sub-directory with a config file and
+// keys for signing.  See Gen
+func Init() error {
+
+	return nil
+}
+
+// Gen initializes the current directory with a template config file suitable for editing.
+func Gen() (hP *Holochain, err error) {
 	var h Holochain
 	if !IsInitialized() {
 		if err := os.Mkdir(DirectoryName,os.ModePerm); err == nil {
@@ -47,9 +64,9 @@ func Init() (hP *Holochain, err error) {
 			defer f.Close()
 
 			enc := toml.NewEncoder(f)
-			var config Config
-			config.H = h
-			if err := enc.Encode(config); err == nil {
+			//var config Config
+			//config.H = h
+			if err := enc.Encode(h); err == nil {
 				hP = &h
 			}
 		}

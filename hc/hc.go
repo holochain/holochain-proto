@@ -29,14 +29,28 @@ func main() {
 
 	app.Commands = []cli.Command{
 		{
-			Name:    "init",
+			Name:    "gen",
 			Aliases: []string{"i"},
-			Usage:   "initialize a new holochain in the current directory",
+			Usage:   "set up the current directory for a new holochain",
 			Action:  func(c *cli.Context) error {
-				h,err := holo.Init()
+				h,err := holo.Gen()
 				if err == nil {
 					if (verbose) {
-						fmt.Printf("initialized new holochain with id: %v\n",h.Id);
+						fmt.Printf("created .holochain/config with new id: %v\n",h.Id);
+					}
+				}
+				return err
+			},
+		},
+		{
+			Name:    "init",
+			Aliases: []string{"i"},
+			Usage:   "initialize a holochain by generating the genesis blocks",
+			Action:  func(c *cli.Context) error {
+				err := holo.Init()
+				if err == nil {
+					if (verbose) {
+						fmt.Printf("initialized\n");
 					}
 				}
 				return err

@@ -3,10 +3,10 @@ package main
 import (
 	"fmt"
 	"os"
+	"errors"
 
 	holo "github.com/metacurrency/holochain"
 	"github.com/urfave/cli"
-	"github.com/BurntSushi/toml"
 
 	//"github.com/google/uuid"
 )
@@ -30,39 +30,43 @@ func main() {
 	app.Commands = []cli.Command{
 		{
 			Name:    "gen",
-			Aliases: []string{"i"},
-			Usage:   "set up the current directory for a new holochain",
-			Action:  func(c *cli.Context) error {
-				h,err := holo.Gen()
-				if err == nil {
-					if (verbose) {
-						fmt.Printf("created .holochain/config with new id: %v\n",h.Id);
-					}
-				}
-				return err
-			},
-		},
-		{
-			Name:    "init",
-			Aliases: []string{"i"},
-			Usage:   "initialize a holochain by generating the genesis blocks",
-			Action:  func(c *cli.Context) error {
-				err := holo.Init()
-				if err == nil {
-					if (verbose) {
-						fmt.Printf("initialized\n");
-					}
-				}
-				return err
+			Aliases: []string{"g"},
+			Subcommands: []cli.Command{
+				{
+					Name:  "dna",
+					Usage: "generate a default configuration files",
+					Action: func(c *cli.Context) error {
+						h,err := holo.GenDNA()
+						if err == nil {
+							if (verbose) {
+								fmt.Printf("created .holochain/config with new id: %v\n",h.Id);
+							}
+						}
+						return err
+					},
+				},
+				{
+					Name:  "key",
+					Usage: "generate a key pair for entry signing",
+					Action: func(c *cli.Context) error {
+						return errors.New("not implemented")
+					},
+				},
+				{
+					Name:  "chain",
+					Usage: "generate the genesis blocks from the configuration and keys",
+					Action: func(c *cli.Context) error {
+						return holo.GenChain()
+					},
+				},
 			},
 		},
 		{
 			Name:    "link",
 			Aliases: []string{"l"},
-			Usage:   "add a link onto the chain",
+			Usage:   "add an entry onto the chain",
 			Action:  func(c *cli.Context) error {
-				fmt.Println("link unimplemented (args:", c.Args().First(),")")
-				return nil
+				return errors.New("not implemented")
 			},
 		},
 	}
@@ -79,12 +83,12 @@ func main() {
 		if (!initialized) {
 			cli.ShowAppHelp(c)
 		} else {
-			var config holo.Config
-			if _, err := toml.DecodeFile(holo.ConfigPath, &config); err != nil {
-				fmt.Println("Error parsing config file")
+
+			h,err := holo.Load()
+			if  err != nil {
 				return err
 			}
-			fmt.Printf("current config: \n%v\n",config)
+			fmt.Printf("current config: \n%v\n",h)
 		}
 		return nil
 	}

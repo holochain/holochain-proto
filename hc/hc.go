@@ -3,7 +3,9 @@ package main
 import (
 	"fmt"
 	"os"
+	"os/user"
 	"errors"
+	"io/ioutil"
 
 	holo "github.com/metacurrency/holochain"
 	"github.com/urfave/cli"
@@ -16,7 +18,10 @@ func main() {
 	app := cli.NewApp()
 	app.Name = "hc"
 	app.Usage = "holochain command line interface"
+	app.Version = "0.0.1"
 	var verbose,initialized bool
+	var root,userPath string
+	var uninitialized error
 
 	app.Flags = []cli.Flag {
 		cli.BoolFlag{
@@ -33,13 +38,14 @@ func main() {
 			Aliases: []string{"g"},
 			Subcommands: []cli.Command{
 				{
-					Name:  "dna",
-					Usage: "generate a default configuration files",
+					Name:  "dev",
+					Usage: "generate a default configuration files, suit",
+					ArgsUsage: "name",
 					Action: func(c *cli.Context) error {
-						h,err := holo.GenDNA()
+						h,err := holo.GenDev(root+"/"+c.Args().First())
 						if err == nil {
 							if (verbose) {
-								fmt.Printf("created .holochain/config with new id: %v\n",h.Id);
+								fmt.Printf("created %s with new id: %v\n",h.Id);
 							}
 						}
 						return err
@@ -56,9 +62,27 @@ func main() {
 					Name:  "chain",
 					Usage: "generate the genesis blocks from the configuration and keys",
 					Action: func(c *cli.Context) error {
+						if !initialized {return uninitialized}
 						return holo.GenChain()
 					},
 				},
+			},
+		},
+		{
+			Name:    "init",
+			Aliases: []string{"i"},
+			Usage:   "boostrap the holochain service",
+			Action:  func(c *cli.Context) error {
+				err := holo.Init(root)
+				if err == nil {
+					fmt.Println("Holochain service initialized")
+					if (verbose) {
+						fmt.Println("    ~/.holochain directory created")
+						fmt.Println("    default system.conf generated")
+						fmt.Println("    key-pair generated")
+					}
+				}
+				return err
 			},
 		},
 		{
@@ -66,16 +90,33 @@ func main() {
 			Aliases: []string{"l"},
 			Usage:   "add an entry onto the chain",
 			Action:  func(c *cli.Context) error {
+				if !initialized {return uninitialized}
 				return errors.New("not implemented")
+			},
+		},
+		{
+			Name:    "status",
+			Aliases: []string{"s"},
+			Usage:   "display information about installed chains",
+			Action:  func(c *cli.Context) error {
+				if !initialized {return uninitialized}
+				listChains(root)
+				return nil
 			},
 		},
 	}
 
 	app.Before = func(c *cli.Context) error {
 		if (verbose) {
-			fmt.Println("Holochain version ",holo.Version)
+			fmt.Printf("app version: %s; Holochain lib version %s\n ",app.Version,holo.Version)
 		}
-		initialized = holo.IsInitialized()
+		u,err := user.Current()
+		if err != nil {return err}
+		userPath = u.HomeDir
+		root = userPath+"/"+holo.DirectoryName
+		if initialized = holo.IsInitialized(userPath); !initialized {
+			uninitialized = errors.New("service not initialized, run 'hc init'")
+		}
 		return nil
 	}
 
@@ -83,15 +124,25 @@ func main() {
 		if (!initialized) {
 			cli.ShowAppHelp(c)
 		} else {
-
-			h,err := holo.Load()
-			if  err != nil {
-				return err
-			}
-			fmt.Printf("current config: \n%v\n",h)
+			listChains(root)
 		}
 		return nil
 	}
 
 	app.Run(os.Args)
+}
+
+func listChains(root string) {
+	files, _ := ioutil.ReadDir(root)
+	chains := make([]string,0)
+	for _, f := range files {
+		if f.IsDir() && holo.IsConfigured(root+"/"+f.Name()) {
+			chains = append(chains,f.Name())
+		}
+	}
+	if len(chains) > 0 {
+		fmt.Println("installed holochains: ",chains)
+	} else {
+		fmt.Println("no installed chains")
+	}
 }

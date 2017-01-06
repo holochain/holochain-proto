@@ -1,11 +1,15 @@
 package holochain
 
 import (
-//	"fmt"
+	"strconv"
 	"testing"
 	"time"
 	"github.com/google/uuid"
 	"os"
+//	"crypto/ecdsa"
+
+//	"github.com/BurntSushi/toml"
+
 
 )
 
@@ -20,41 +24,67 @@ func TestNew(t *testing.T) {
 	}
 }
 
-func TestInit(t *testing.T) {
-	Init()
-	t.Error("not implmented")
+func TestGenChain(t *testing.T) {
+	err := GenChain()
+	ExpectNoErr(t,err)
 }
 
-func TestGen(t *testing.T) {
+func TestInit(t *testing.T) {
 	pwd, err := os.Getwd()
 	if err != nil {panic(err)}
 	defer func() {os.Chdir(pwd)}()
-	d := "/tmp/holochain_test"+string(time.Now().Unix());
+	d := mkTestDir();
+
+	if IsInitialized(d) != false {
+		t.Error("expected no directory")
+	}
+	err = Init(d)
+	ExpectNoErr(t,err)
+
+	if IsInitialized(d) != true {
+		t.Error("expected directory")
+	}
+/*
+	var priv ecdsa.PrivateKey
+	_,err = toml.DecodeFile(d+"/"+PrivKeyFileName, &priv)
+	ExpectNoErr(t,err)
+
+	var pub ecdsa.PublicKey
+	_,err = toml.DecodeFile(d+"/"+PubKeyFileName, &pub)
+	ExpectNoErr(t,err)
+
+	if priv.Public() != pub {t.Error("pub key doesn't match!")} */
+}
+
+func TestGenDev(t *testing.T) {
+	pwd, err := os.Getwd()
+	if err != nil {panic(err)}
+	defer func() {os.Chdir(pwd)}()
+	d := mkTestDir()
 	if err := os.Mkdir(d,os.ModePerm); err == nil {
 		defer func() {os.RemoveAll(d)}()
 		if err := os.Chdir(d); err != nil {
 			panic(err)
 		}
 
-		if IsInitialized() != false {
-			t.Error("expected false")
+		if IsConfigured(d) != false {
+			t.Error("expected no config")
 		}
 
-		_, err := Load()
-		if  err.Error() != "holochain: missing .holochain directory" {
-			t.Error("expected 'holochain: missing .holochain directory' got",err)
-		}
+		_, err := Load(d)
+		ExpectErrString(t,err,"holochain: missing dna.conf")
 
-		h,err := Gen()
+		h,err := GenDev(d)
 		if err != nil {
 			t.Error("expected no error got",err)
 		}
 
-		if IsInitialized() != true {
-			t.Error("expected true")
+		if IsConfigured(d) != true {
+			t.Error("expected config")
 		}
 
-		lh, err := Load()
+
+		lh, err := Load(d)
 		if  err != nil {
 			t.Error("Error parsing loading",err)
 		}
@@ -66,9 +96,24 @@ func TestGen(t *testing.T) {
 			t.Error("expected matching ids!")
 		}
 
-		_,err = Gen()
-		if err.Error() != "holochain: already initialized" {
-			t.Error("expected 'holochain: already initialized' got",err)
-		}
+		_,err = GenDev(d)
+		ExpectErrString(t,err,"holochain: dna.conf already exists")
+
 	}
+}
+
+func ExpectErrString(t *testing.T,err error,text string) {
+	if err.Error() != text {
+		t.Error("expected '"+text+"' got",err)
+	}
+}
+
+func ExpectNoErr(t *testing.T,err error) {
+	if err != nil {
+		t.Error("expected no err, got",err)
+	}
+}
+
+func mkTestDir() string {
+	return "/tmp/holochain_test"+strconv.FormatInt(time.Now().Unix(),10);
 }

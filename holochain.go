@@ -1,11 +1,14 @@
 package holochain
 
 import (
+	_ "fmt"
 	"os"
+	"io/ioutil"
 	"errors"
-//	"crypto/ecdsa"
-//	"crypto/elliptic"
-//	"crypto/rand"
+	"crypto/ecdsa"
+	"crypto/elliptic"
+	"crypto/rand"
+	"crypto/x509"
 	"github.com/google/uuid"
 	"github.com/BurntSushi/toml"
 )
@@ -31,9 +34,8 @@ type Holochain struct {
 	LinkEncoding string
 }
 
-
 func IsInitialized(path string) bool {
-	return dirExists(path+"/"+DirectoryName) && fileExists(path+"/"+SysFileName)
+	return dirExists(path+"/"+DirectoryName) && fileExists(path+"/"+DirectoryName+"/"+SysFileName)
 }
 
 func IsConfigured(path string) bool {
@@ -74,13 +76,21 @@ func Init(path string) error {
 	err := writeToml(path,SysFileName,c)
 	if err != nil {return err}
 
-/*	priv,err := ecdsa.GenerateKey(elliptic.P256(),rand.Reader)
+	priv,err := ecdsa.GenerateKey(elliptic.P256(),rand.Reader)
 	if err != nil {return err}
 
-	err = writeToml(path,PrivKeyFileName,priv)
+	mpriv,err := x509.MarshalECPrivateKey(priv)
 	if err != nil {return err}
 
-	err = writeToml(path,PubKeyFileName,priv.Public())*/
+	err = writeFile(path,PrivKeyFileName,mpriv)
+	if err != nil {return err}
+
+	var pub *ecdsa.PublicKey
+	pub = priv.Public().(*ecdsa.PublicKey)
+	mpub,err := x509.MarshalPKIXPublicKey(pub)
+	if err != nil {return err}
+
+	err = writeFile(path,PubKeyFileName,mpub)
 	return err
 }
 
@@ -116,6 +126,29 @@ func writeToml(path string,file string,data interface{}) error {
 	enc := toml.NewEncoder(f)
 	err = enc.Encode(data);
 	return err
+}
+
+func writeFile(path string,file string,data []byte) error {
+	p := path+"/"+file
+	if fileExists(p) {
+		return mkErr(path+" already exists")
+	}
+	f, err := os.Create(p)
+	if err != nil {return err}
+
+	defer f.Close()
+	l,err := f.Write(data)
+	if (err != nil) {return err}
+
+	if (l != len(data)) {return mkErr("unable to write all data")}
+	f.Sync()
+	return err
+}
+
+func readFile(path string,file string) (data []byte, err error) {
+	p := path+"/"+file
+	data, err = ioutil.ReadFile(p)
+	return data,err
 }
 
 func mkErr(err string) error {

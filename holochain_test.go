@@ -1,12 +1,14 @@
 package holochain
 
 import (
+	"fmt"
 	"strconv"
 	"testing"
 	"time"
 	"github.com/google/uuid"
 	"os"
-//	"crypto/ecdsa"
+	"crypto/ecdsa"
+	"crypto/x509"
 
 //	"github.com/BurntSushi/toml"
 
@@ -39,21 +41,30 @@ func TestInit(t *testing.T) {
 		t.Error("expected no directory")
 	}
 	err = Init(d)
+	if err != nil {t.Error(err)}
+
 	ExpectNoErr(t,err)
 
 	if IsInitialized(d) != true {
 		t.Error("expected directory")
 	}
-/*
-	var priv ecdsa.PrivateKey
-	_,err = toml.DecodeFile(d+"/"+PrivKeyFileName, &priv)
+
+	mpriv,err := readFile(d,PrivKeyFileName)
 	ExpectNoErr(t,err)
 
-	var pub ecdsa.PublicKey
-	_,err = toml.DecodeFile(d+"/"+PubKeyFileName, &pub)
+	privP,err := x509.ParseECPrivateKey(mpriv)
 	ExpectNoErr(t,err)
 
-	if priv.Public() != pub {t.Error("pub key doesn't match!")} */
+	mpub,err := readFile(d,PubKeyFileName)
+	ExpectNoErr(t,err)
+
+	pub,err := x509.ParsePKIXPublicKey(mpub)
+	pub2 := pub.(*ecdsa.PublicKey)
+
+	if (fmt.Sprintf("%v",*pub2) != fmt.Sprintf("%v",privP.PublicKey)) {t.Error("expected pubkey match!")}
+
+	ExpectNoErr(t,err)
+
 }
 
 func TestGenDev(t *testing.T) {

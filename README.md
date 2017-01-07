@@ -1,8 +1,18 @@
 # Holochain
-Holographic storage for distributed applications. A holochain is a monotonic distributed hash table (DHT) where every node enforces validation rules on data before publishing that data against the signed chains where the data originated.
+**Holographic storage for distributed applications.** A holochain is a monotonic distributed hash table (DHT) where every node enforces validation rules on data before publishing that data against the signed chains where the data originated.
 
-In other words, a holochain functions very much like a blockchain when it comes to enforcing validation rules, but it has no transactional bottlenecks and can be fully distributed with each node only needing to hold a small portion of the data instead of everything needing a full copy of a global ledger. This makes it feasible to run blockchain-like applications on devices as lightweight as mobile phones.
+In other words, a holochain functions very much **like a blockchain without bottlenecks** when it comes to enforcing validation rules, but is designed to  be fully distributed with each node only needing to hold a small portion of the data instead of everything needing a full copy of a global ledger. This makes it feasible to run blockchain-like applications on devices as lightweight as mobile phones.
 
+**Code Status:** Active development for **proof-of-concept stage**. Pre-alpha. Not for production use yet. We still expect to need to destructively restructure data chains at this time. [See milestones](https://github.com/metacurrency/holochain/milestones?direction=asc&sort=due_date&state=all)
+
+<table style="font-size:150%;"><tr>
+<td><b>Holochain Info</b>
+<td><a href="https://github.com/metacurrency/holochain/FAQ.md">FAQ</a></td>
+<td><a href="http://holochain.org/whitepaper">White Paper</a></td>
+<td><a href="http://ceptr.org">Ceptr Architecture</a></td></tr></table>
+
+<br/>
+**Table of Contents**
 <!-- TOC START min:2 max:4 link:true update:true -->
   - [Installation](#installation)
   - [Usage](#usage)
@@ -69,13 +79,13 @@ These agreements are encoded in the validation rules which are checked before au
 In essence these ensure holochain participants operate according the same rules. Just like in blockchains, if you collude to break validation rules, you essentially have forked the chain. If you commit things to your chain, or try to publish things which don't comply with the validation rules, the rest of the network/DHT rejects it.
 
 #### Group DNA / Holochain configuration
-Group/Holochain name, UUID, address/name spaces, data schema, validation rules,
+At this stage, a developer needs to set up the technical configuration of the collective agreements enforced by a holochain. This includes such things as: the holochain name, UUID, address & name spaces, data schemas, validation rules for chain entries and data propagation on the DHT,
 
 #### Individuals Authoring Content
-...Keys, ID, Chain, Node, App-chains
+As an individual, you can join a holochain by installing its holochain configuration and configuring your ID, keys, chain, and DHT node in accord with the DNA specs.
 
 #### Application API
-Holochains are kind of like a database. They don't have much end-user interface, but are used by program developers to store data. Unless you're a developer building one of these applications, you're not likely to do much directly with your holochains. Hopefully, they stay nice and invisible just allowing your application to store its information in a decentralized manner.
+Holochains function like a database. They don't have much end-user interface, and are primarily used by an application or program to store data. Unless you're a developer building one of these applications, you're not likely interact directly with a holochains. Hopefully, you install an application that does all that for you and the holochain stays nice and invisible enabling the application to store its information in a decentralized manner.
 
 ### Peering Modes
 There are two modes to participate in a holochain: as a **chain author**, and as a **DHT node**. We expect most installations will be doing both things and acting as full peers in a P2P data system.
@@ -106,24 +116,20 @@ To compile and run all the tests:
     go test
 
 ## Development
+We welcome your participation. See our [milestones for current progress](https://github.com/metacurrency/holochain/milestones?direction=asc&sort=due_date&state=all), or our [GitHub issue tracking kanban in waffle](https://waffle.io/metacurrency/holochain).
 
 [![In Progress](https://badge.waffle.io/metacurrency/holochain.svg?label=in%20progress&title=In%20Progress)](http://waffle.io/metacurrency/holochain)
-
-We welcome participation. Check our our waffle for [Roadmap & kanban](https://waffle.io/metacurrency/holochain) or if you prefer you can just use github's [issue tracking](https://github.com/metacurrency/holochain/issues).
-
-Finally, zippy314 does some [livecoding](https://www.livecoding.tv/zippy/)..
 
 ### Contributor Guidelines
 
 #### Tech
-
-* We use test driven development.  Adding a new function or feature, should mean you've added a new test!
+* We use **test driven development**. Adding a new function or feature, should mean you've added the tests that make sure it works.
+* Contact us to set up a **pair coding session** with one of our developers
+* Or contact us to **join our dev documentation calls** twice weekly on Tuesdays and Fridays.
 
 #### Social
-
-* Protocols for Inclusion.
-
-We recognize the need to actively foster vibrant thriving community, which means among other things, building a culture that breaks cycles of marginalization and dominance behavior.  To that end many open source communities adopt Codes of Conduct like [this one](http://contributor-covenant.org/version/1/3/0/).  We are in the process of addressing the goals of such codes in what we feel is a more general way, by establishing meta requirements for each membrane within our social organism to describe its <i>Protocols for Inclusion</i>.  Until we have done so please operate using the above referenced code as a general protocol for inclusion.
+<!-- * Protocols for Inclusion. -->
+We are committed to foster a vibrant thriving community, including growing a culture that breaks cycles of marginalization and dominance behavior. In support of this, some open source communities adopt [Codes of Conduct](http://contributor-covenant.org/version/1/3/0/).  We are still working on our social protocols, and empower each team to describe its own <i>Protocols for Inclusion</i>.  Until our teams have published their guidelines, please use the link above as a general guideline.
 
 ## License
 
@@ -134,8 +140,8 @@ This program is free software: you can redistribute it and/or modify it under th
 This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
 
 ## Acknowledgements
+* **MetaCurrency & Ceptr**: Holochains are a sub-project of [Ceptr](http://ceptr.org) which is a semantic, distributed computing platform under development by the [MetaCurrency Project](http://metacurrency.org).
+&nbsp;
 * **Ian Grigg**: Some of the initial ideas for this approach were inspired in 2006 by [his paper about Triple Entry Accounting](http://iang.org/papers/triple_entry.html) and his work on [Ricardian Contracts](http://iang.org/papers/ricardian_contract.html).
-
 <!-- * **Juan Benet**: For all his work on IPFS and being a generally cool guy. We're planning to piggyback a bunch of the networking communications for Holochains on the libP2P libary of IPFS and hopefully leverage their S/Kademlia DHT implementation. -->
-
 * And of course the people who paved the road before us by **preaching the blockchain gospel**. Nobody understood what we were talking about when we started sharing our designs. The main reason people want it now, is because blockchains have opened their eyes to new patterns of power available from decentralized architectures.

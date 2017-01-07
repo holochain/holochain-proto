@@ -7,8 +7,6 @@ import (
 	"time"
 	"github.com/google/uuid"
 	"os"
-	"crypto/ecdsa"
-	"crypto/x509"
 
 //	"github.com/BurntSushi/toml"
 
@@ -36,30 +34,23 @@ func TestInit(t *testing.T) {
 	if err != nil {panic(err)}
 	defer func() {os.Chdir(pwd)}()
 	d := mkTestDir();
+	defer func() {os.RemoveAll(d)}()
 
 	if IsInitialized(d) != false {
 		t.Error("expected no directory")
 	}
 	err = Init(d)
-	if err != nil {t.Error(err)}
-
 	ExpectNoErr(t,err)
 
 	if IsInitialized(d) != true {
-		t.Error("expected directory")
+		t.Error("expected initialized")
 	}
-
-	mpriv,err := readFile(d,PrivKeyFileName)
+	p := d+"/"+DirectoryName
+	privP,err := UnmarshalPrivateKey(p, PrivKeyFileName)
 	ExpectNoErr(t,err)
 
-	privP,err := x509.ParseECPrivateKey(mpriv)
+	pub2,err := UnmarshalPublicKey(p,PubKeyFileName)
 	ExpectNoErr(t,err)
-
-	mpub,err := readFile(d,PubKeyFileName)
-	ExpectNoErr(t,err)
-
-	pub,err := x509.ParsePKIXPublicKey(mpub)
-	pub2 := pub.(*ecdsa.PublicKey)
 
 	if (fmt.Sprintf("%v",*pub2) != fmt.Sprintf("%v",privP.PublicKey)) {t.Error("expected pubkey match!")}
 
@@ -72,8 +63,8 @@ func TestGenDev(t *testing.T) {
 	if err != nil {panic(err)}
 	defer func() {os.Chdir(pwd)}()
 	d := mkTestDir()
+	defer func() {os.RemoveAll(d)}()
 	if err := os.Mkdir(d,os.ModePerm); err == nil {
-		defer func() {os.RemoveAll(d)}()
 		if err := os.Chdir(d); err != nil {
 			panic(err)
 		}
@@ -108,7 +99,7 @@ func TestGenDev(t *testing.T) {
 		}
 
 		_,err = GenDev(d)
-		ExpectErrString(t,err,"holochain: dna.conf already exists")
+		ExpectErrString(t,err,"holochain: "+d+" already exists")
 
 	}
 }
@@ -126,5 +117,7 @@ func ExpectNoErr(t *testing.T,err error) {
 }
 
 func mkTestDir() string {
-	return "/tmp/holochain_test"+strconv.FormatInt(time.Now().Unix(),10);
+	t := time.Now()
+	d := "/tmp/holochain_test"+strconv.FormatInt(t.Unix(),10)+"."+strconv.Itoa(t.Nanosecond())
+	return d
 }

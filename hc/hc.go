@@ -73,7 +73,7 @@ func main() {
 			Aliases: []string{"i"},
 			Usage:   "boostrap the holochain service",
 			Action:  func(c *cli.Context) error {
-				err := holo.Init(root)
+				err := holo.Init(userPath)
 				if err == nil {
 					fmt.Println("Holochain service initialized")
 					if (verbose) {

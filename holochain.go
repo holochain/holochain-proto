@@ -34,10 +34,13 @@ type Holochain struct {
 	LinkEncoding string
 }
 
+//IsInitialized checks a path for a correctly set up .holochain directory
 func IsInitialized(path string) bool {
-	return dirExists(path+"/"+DirectoryName) && fileExists(path+"/"+DirectoryName+"/"+SysFileName)
+	root := path+"/"+DirectoryName
+	return dirExists(root) && fileExists(root+"/"+SysFileName)
 }
 
+//IsConfigured checks a directory for correctly set up holochain configuration files
 func IsConfigured(path string) bool {
 	return fileExists(path+"/"+DNAFileName)
 }
@@ -59,6 +62,39 @@ func Load(path string) (h Holochain,err error) {
 	return h,err
 }
 
+// MarshalPublicKey stores a PublicKey to a serialized x509 format file
+func MarshalPublicKey(path string, file string, key *ecdsa.PublicKey) error {
+	k,err := x509.MarshalPKIXPublicKey(key)
+	if err != nil {return err}
+	err = writeFile(path,file,k)
+	return err
+}
+
+// UnmarshalPublicKey loads a PublicKey from the serialized x509 format file
+func UnmarshalPublicKey(path string, file string) (key *ecdsa.PublicKey,err error) {
+	k,err := readFile(path,file)
+	if (err != nil) {return nil,err}
+	kk,err := x509.ParsePKIXPublicKey(k)
+	key = kk.(*ecdsa.PublicKey)
+	return key,err
+}
+
+// MarshalPrivateKey stores a PublicKey to a serialized x509 format file
+func MarshalPrivateKey(path string, file string, key *ecdsa.PrivateKey) error {
+	k,err := x509.MarshalECPrivateKey(key)
+	if err != nil {return err}
+	err = writeFile(path,file,k)
+	return err
+}
+
+// UnmarshalPrivateKey loads a PublicKey from the serialized x509 format file
+func UnmarshalPrivateKey(path string, file string) (key *ecdsa.PrivateKey,err error) {
+	k,err := readFile(path,file)
+	if (err != nil) {return nil,err}
+	key,err = x509.ParseECPrivateKey(k)
+	return key,err
+}
+
 // GenChain setts up a holochain by creating the initial genesis links.
 // It assumes a properly set up .holochain sub-directory with a config file and
 // keys for signing.  See Gen
@@ -69,28 +105,25 @@ func GenChain() (err error) {
 
 //Init initializes service defaults and a new key pair in the dirname directory
 func Init(path string) error {
-	if err := os.MkdirAll(path+"/"+DirectoryName,os.ModePerm); err != nil {
+	p := path+"/"+DirectoryName
+	if err := os.MkdirAll(p,os.ModePerm); err != nil {
 		return err
 	}
 	c := Config {}
-	err := writeToml(path,SysFileName,c)
+	err := writeToml(p,SysFileName,c)
 	if err != nil {return err}
 
 	priv,err := ecdsa.GenerateKey(elliptic.P256(),rand.Reader)
 	if err != nil {return err}
 
-	mpriv,err := x509.MarshalECPrivateKey(priv)
-	if err != nil {return err}
-
-	err = writeFile(path,PrivKeyFileName,mpriv)
+	err = MarshalPrivateKey(p,PrivKeyFileName,priv)
 	if err != nil {return err}
 
 	var pub *ecdsa.PublicKey
 	pub = priv.Public().(*ecdsa.PublicKey)
-	mpub,err := x509.MarshalPKIXPublicKey(pub)
+	err = MarshalPublicKey(p,PubKeyFileName,pub)
 	if err != nil {return err}
 
-	err = writeFile(path,PubKeyFileName,mpub)
 	return err
 }
 
@@ -160,7 +193,8 @@ func dirExists(name string) bool {
 	return err == nil &&  info.Mode().IsDir();
 }
 
-func fileExists(name string) bool {
-	info, err := os.Stat(name)
-	return err == nil && info.Mode().IsRegular();
+func fileExists(path string) bool {
+	info, err := os.Stat(path)
+	if err != nil {return false}
+	return info.Mode().IsRegular();
 }

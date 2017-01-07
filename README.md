@@ -136,6 +136,6 @@ This program is distributed in the hope that it will be useful, but WITHOUT ANY 
 ## Acknowledgements
 * **Ian Grigg**: Some of the initial ideas for this approach were inspired in 2006 by [his paper about Triple Entry Accounting](http://iang.org/papers/triple_entry.html) and his work on [Ricardian Contracts](http://iang.org/papers/ricardian_contract.html).
 
-* **Juan Benet**: For all his work on IPFS and being a generally cool guy. We're planning to piggyback a bunch of the networking communications for Holochains on the libP2P libary of IPFS and hopefully leverage their S/Kademlia DHT implementation.
+<!-- * **Juan Benet**: For all his work on IPFS and being a generally cool guy. We're planning to piggyback a bunch of the networking communications for Holochains on the libP2P libary of IPFS and hopefully leverage their S/Kademlia DHT implementation. -->
 
 * And of course the people who paved the road before us by **preaching the blockchain gospel**. Nobody understood what we were talking about when we started sharing our designs. The main reason people want it now, is because blockchains have opened their eyes to new patterns of power available from decentralized architectures.

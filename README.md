@@ -111,8 +111,6 @@ To compile and run all the tests:
 
 We welcome participation. Check our our waffle for [Roadmap & kanban](https://waffle.io/metacurrency/holochain) or if you prefer you can just use github's [issue tracking](https://github.com/metacurrency/holochain/issues).
 
-Finally, zippy314 does some [livecoding](https://www.livecoding.tv/zippy/)..
-
 ### Contributor Guidelines
 
 #### Tech

@@ -3,7 +3,28 @@ Holographic storage for distributed applications. A holochain is a monotonic dis
 
 In other words, a holochain functions very much like a blockchain when it comes to enforcing validation rules, but it has no transactional bottlenecks and can be fully distributed with each node only needing to hold a small portion of the data instead of everything needing a full copy of a global ledger. This makes it feasible to run blockchain-like applications on devices as lightweight as mobile phones.
 
-[TOC]
+<!-- TOC START min:2 max:4 link:true update:true -->
+  - [Installation](#installation)
+  - [Usage](#usage)
+  - [Documentation](#documentation)
+  - [Architecture](#architecture)
+    - [Layers](#layers)
+      - [Group DNA](#group-dna)
+      - [Individual Participants](#individual-participants)
+      - [Application UI](#application-ui)
+    - [Peering Modes](#peering-modes)
+      - [Authoring your Local Chain](#authoring-your-local-chain)
+      - [DHT Node -- Validating and Publishing](#dht-node----validating-and-publishing)
+  - [Testing](#testing)
+  - [Development](#development)
+    - [Contributor Guidelines](#contributor-guidelines)
+      - [Tech](#tech)
+      - [Social](#social)
+  - [License](#license)
+  - [Acknowledgements](#acknowledgements)
+  - [FAQ (this text should move to another doc)](#faq-this-text-should-move-to-another-doc)
+
+<!-- TOC END -->
 
 
 ## Installation

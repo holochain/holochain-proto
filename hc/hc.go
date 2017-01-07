@@ -5,7 +5,6 @@ import (
 	"os"
 	"os/user"
 	"errors"
-	"io/ioutil"
 
 	holo "github.com/metacurrency/holochain"
 	"github.com/urfave/cli"
@@ -17,7 +16,7 @@ import (
 func main() {
 	app := cli.NewApp()
 	app.Name = "hc"
-	app.Usage = "holochain command line interface"
+	app.Usage = "holochain peer command line interface"
 	app.Version = "0.0.1"
 	var verbose,initialized bool
 	var root,userPath string
@@ -39,8 +38,9 @@ func main() {
 			Subcommands: []cli.Command{
 				{
 					Name:  "dev",
-					Usage: "generate a default configuration files, suit",
-					ArgsUsage: "name",
+					Aliases: []string{"d"},
+					Usage: "generate a default configuration files, suitable for editing",
+					ArgsUsage: "holochain-name",
 					Action: func(c *cli.Context) error {
 						h,err := holo.GenDev(root+"/"+c.Args().First())
 						if err == nil {
@@ -52,15 +52,23 @@ func main() {
 					},
 				},
 				{
-					Name:  "key",
-					Usage: "generate a key pair for entry signing",
+					Name:  "keys",
+					Aliases: []string{"k"},
+					Usage: "generate separate key pair for entry signing on a specific holochain",
+					ArgsUsage: "holochain-name",
 					Action: func(c *cli.Context) error {
-						return errors.New("not implemented")
+						if !initialized {return uninitialized}
+						name := c.Args().First()
+						chains := holo.ConfiguredChains(root)
+						if !chains[name] {return errors.New(name+" doesn't exist")}
+						return holo.GenKeys(root+"/"+name)
 					},
 				},
 				{
 					Name:  "chain",
+					Aliases: []string{"c"},
 					Usage: "generate the genesis blocks from the configuration and keys",
+					ArgsUsage: "holochain-name",
 					Action: func(c *cli.Context) error {
 						if !initialized {return uninitialized}
 						return holo.GenChain()
@@ -133,15 +141,12 @@ func main() {
 }
 
 func listChains(root string) {
-	files, _ := ioutil.ReadDir(root)
-	chains := make([]string,0)
-	for _, f := range files {
-		if f.IsDir() && holo.IsConfigured(root+"/"+f.Name()) {
-			chains = append(chains,f.Name())
-		}
-	}
+	chains := holo.ConfiguredChains(root)
 	if len(chains) > 0 {
-		fmt.Println("installed holochains: ",chains)
+		fmt.Println("installed holochains: ")
+		for k := range chains {
+			fmt.Println("     ",k)
+		}
 	} else {
 		fmt.Println("no installed chains")
 	}

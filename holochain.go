@@ -18,11 +18,11 @@ const Version string = "0.0.1"
 const (
 	DirectoryName string = ".holochain"
 	DNAFileName string = "dna.conf"
-	ChanFileName string = "chain.db"
 	LocalFileName string = "local.conf"
 	SysFileName string = "system.conf"
 	PubKeyFileName string = "pub.key"
 	PrivKeyFileName string = "priv.key"
+	ChainFileName string = "chain.db"
 )
 
 type Config struct {
@@ -95,13 +95,27 @@ func UnmarshalPrivateKey(path string, file string) (key *ecdsa.PrivateKey,err er
 	return key,err
 }
 
-// GenChain setts up a holochain by creating the initial genesis links.
+// GenKeys creates a new pub/priv key pair and stores them at the given path.
+func GenKeys(path string) error {
+	if fileExists(path+"/"+PrivKeyFileName) {return errors.New("keys already exist")}
+	priv,err := ecdsa.GenerateKey(elliptic.P256(),rand.Reader)
+	if err != nil {return err}
+
+	err = MarshalPrivateKey(path,PrivKeyFileName,priv)
+	if err != nil {return err}
+
+	var pub *ecdsa.PublicKey
+	pub = priv.Public().(*ecdsa.PublicKey)
+	err = MarshalPublicKey(path,PubKeyFileName,pub)
+	return err
+}
+
+// GenChain sets up a holochain by creating the initial genesis links.
 // It assumes a properly set up .holochain sub-directory with a config file and
 // keys for signing.  See Gen
 func GenChain() (err error) {
 	return errors.New("not implemented")
 }
-
 
 //Init initializes service defaults and a new key pair in the dirname directory
 func Init(path string) error {
@@ -113,16 +127,7 @@ func Init(path string) error {
 	err := writeToml(p,SysFileName,c)
 	if err != nil {return err}
 
-	priv,err := ecdsa.GenerateKey(elliptic.P256(),rand.Reader)
-	if err != nil {return err}
-
-	err = MarshalPrivateKey(p,PrivKeyFileName,priv)
-	if err != nil {return err}
-
-	var pub *ecdsa.PublicKey
-	pub = priv.Public().(*ecdsa.PublicKey)
-	err = MarshalPublicKey(p,PubKeyFileName,pub)
-	if err != nil {return err}
+	err = GenKeys(p)
 
 	return err
 }
@@ -145,6 +150,20 @@ func GenDev(path string) (hP *Holochain, err error) {
 /*func Link(h *Holochain, data interface{}) error {
 
 }*/
+
+// ConfiguredChains returns a list of the configured chains in the given holochain directory
+func ConfiguredChains(root string) map[string]bool {
+	files, _ := ioutil.ReadDir(root)
+	chains := make(map[string]bool)
+	for _, f := range files {
+		if f.IsDir() && IsConfigured(root+"/"+f.Name()) {
+			chains[f.Name()] = true
+		}
+	}
+	return chains
+}
+
+//----------------------------------------------------------------------------------------
 
 func writeToml(path string,file string,data interface{}) error {
 	p := path+"/"+file

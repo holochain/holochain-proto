@@ -9,10 +9,13 @@ import (
 	"crypto/elliptic"
 	"crypto/rand"
 	"crypto/x509"
+	"crypto/sha256"
 	"math/big"
 	"path/filepath"
+	"encoding/json"
 	"github.com/google/uuid"
 	"github.com/BurntSushi/toml"
+	_ "github.com/jbenet/go-base58"
 )
 
 const Version string = "0.0.1"
@@ -48,7 +51,7 @@ type Holochain struct {
 	path string
 }
 
-type EntryHash []byte
+type EntryHash [32]byte
 type PartyLink struct {
 	Party Agent
 	Link EntryHash
@@ -60,8 +63,8 @@ type Content struct {
 	UserContent interface{}
 }
 type HashSig struct {
-	r big.Int
-	s big.Int
+	R big.Int
+	S big.Int
 }
 type Signature struct {
 	Signer Agent
@@ -219,10 +222,33 @@ function validateChain(entry,user_data) {
 	return
 }
 
-// AddEntry adds the content data to a holochain
-func AddEntry(h *Holochain,links []PartyLink, data interface{}) (Entry,error) {
+//LoadSigner gets the agent and signing key from the specified directory
+func LoadSigner(path string) (agent Agent ,key *ecdsa.PrivateKey,err error) {
+	a,err := readFile(path,AgentFileName)
+	if err != nil {return}
+	agent = Agent(a)
+	key,err = UnmarshalPrivateKey(path,PrivKeyFileName)
+	return
+}
+
+// NewEntry builds an Entry structure suitable for passing to AddEntry
+func NewEntry(agent Agent ,key *ecdsa.PrivateKey,h *Holochain,t EntryType,links []PartyLink, userContent interface{}) (*Entry,error) {
 	var e Entry
-	return e,nil
+	if t != EntryType("JSON") {return nil,errors.New("entry type "+string(t)+" not supported")}
+	e.Data.Type = t
+	e.Data.Links = links
+	e.Data.UserContent = userContent
+	j,err := json.Marshal(e.Data)
+	if err != nil {return nil,err}
+	hash := sha256.Sum256([]byte(j))
+	e.Address = EntryHash(hash)
+
+	r,s,err := ecdsa.Sign(rand.Reader,key,hash[:])
+	if err != nil {return nil,err}
+	hs := HashSig{R:*r,S:*s}
+	sig := Signature{Signer:agent,Sig:hs}
+	e.Signatures = append(e.Signatures,sig)
+	return &e,nil
 }
 
 // ConfiguredChains returns a list of the configured chains in the given holochain directory

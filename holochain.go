@@ -47,7 +47,7 @@ type Holochain struct {
 //IsInitialized checks a path for a correctly set up .holochain directory
 func IsInitialized(path string) bool {
 	root := path+"/"+DirectoryName
-	return dirExists(root) && fileExists(root+"/"+SysFileName)
+	return dirExists(root) && fileExists(root+"/"+SysFileName) && fileExists(root+"/"+AgentFileName)
 }
 
 //IsConfigured checks a directory for correctly set up holochain configuration files
@@ -144,7 +144,7 @@ func GenChain() (err error) {
 }
 
 //Init initializes service defaults and a new key pair in the dirname directory
-func Init(path string) error {
+func Init(path string,agent string) error {
 	p := path+"/"+DirectoryName
 	if err := os.MkdirAll(p,os.ModePerm); err != nil {
 		return err
@@ -153,6 +153,9 @@ func Init(path string) error {
 		PeerModeAuthor:true,
 	}
 	err := writeToml(p,SysFileName,c)
+	if err != nil {return err}
+
+	writeFile(p,AgentFileName,[]byte(agent))
 	if err != nil {return err}
 
 	err = GenKeys(p)

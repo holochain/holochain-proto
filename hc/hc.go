@@ -53,7 +53,7 @@ func main() {
 				},
 				{
 					Name:  "keys",
-					Aliases: []string{"k"},
+					Aliases: []string{"k","key"},
 					Usage: "generate separate key pair for entry signing on a specific holochain",
 					ArgsUsage: "holochain-name",
 					Action: func(c *cli.Context) error {
@@ -80,8 +80,11 @@ func main() {
 			Name:    "init",
 			Aliases: []string{"i"},
 			Usage:   "boostrap the holochain service",
+			ArgsUsage: "agent-id",
 			Action:  func(c *cli.Context) error {
-				err := holo.Init(userPath)
+				agent := c.Args().First()
+				if agent == "" {return errors.New("missing required agent-id argument to init")}
+				err := holo.Init(userPath,agent)
 				if err == nil {
 					fmt.Println("Holochain service initialized")
 					if (verbose) {

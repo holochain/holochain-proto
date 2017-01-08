@@ -39,7 +39,8 @@ func TestInit(t *testing.T) {
 	if IsInitialized(d) != false {
 		t.Error("expected no directory")
 	}
-	err = Init(d)
+	agent := "Fred Flintstone <fred@flintstone.com>"
+	err = Init(d, agent)
 	ExpectNoErr(t,err)
 
 	if IsInitialized(d) != true {
@@ -54,7 +55,9 @@ func TestInit(t *testing.T) {
 
 	if (fmt.Sprintf("%v",*pub2) != fmt.Sprintf("%v",privP.PublicKey)) {t.Error("expected pubkey match!")}
 
+	a,err := readFile(p,AgentFileName)
 	ExpectNoErr(t,err)
+	if string(a) != agent {t.Error("expected "+agent+" got ",a)}
 
 }
 

@@ -9,6 +9,7 @@ import (
 	"crypto/elliptic"
 	"crypto/rand"
 	"crypto/x509"
+	"math/big"
 	"path/filepath"
 	"github.com/google/uuid"
 	"github.com/BurntSushi/toml"
@@ -40,9 +41,37 @@ type Holochain struct {
 	ShortName string
 	FullName string
 	Description string
+	HashType string
 	Types []string
 	Schemas map[string]string
 	Validators map[string]string
+	path string
+}
+
+type EntryHash []byte
+type PartyLink struct {
+	Party Agent
+	Link EntryHash
+}
+type EntryType string
+type Content struct {
+	Type EntryType
+	Links []PartyLink
+	UserContent interface{}
+}
+type HashSig struct {
+	r big.Int
+	s big.Int
+}
+type Signature struct {
+	Signer Agent
+	Sig HashSig
+}
+type Entry struct {
+	Address EntryHash
+	Data Content
+	Signatures []Signature
+	Meta interface{}
 }
 
 //IsInitialized checks a path for a correctly set up .holochain directory
@@ -76,6 +105,7 @@ func New() Holochain {
 	if err != nil {panic(err)}
 	h := Holochain {
 		Id:u,
+		HashType: "SHA256",
 		Types: []string{"myData"},
 		Schemas: map[string]string{"myData":"JSON"},
 		Validators: map[string]string{"myData":"valid_myData.js"},
@@ -86,6 +116,7 @@ func New() Holochain {
 // Load creates a holochain structure from the configuration files
 func Load(path string) (h Holochain,err error) {
 	_,err = toml.DecodeFile(path+"/"+DNAFileName, &h)
+	h.path = path
 	return h,err
 }
 
@@ -125,7 +156,7 @@ func UnmarshalPrivateKey(path string, file string) (key *ecdsa.PrivateKey,err er
 // GenKeys creates a new pub/priv key pair and stores them at the given path.
 func GenKeys(path string) error {
 	if fileExists(path+"/"+PrivKeyFileName) {return errors.New("keys already exist")}
-	priv,err := ecdsa.GenerateKey(elliptic.P256(),rand.Reader)
+	priv,err := ecdsa.GenerateKey(elliptic.P224(),rand.Reader)
 	if err != nil {return err}
 
 	err = MarshalPrivateKey(path,PrivKeyFileName,priv)
@@ -188,9 +219,11 @@ function validateChain(entry,user_data) {
 	return
 }
 
-/*func Link(h *Holochain, data interface{}) error {
-
-}*/
+// AddEntry adds the content data to a holochain
+func AddEntry(h *Holochain,links []PartyLink, data interface{}) (Entry,error) {
+	var e Entry
+	return e,nil
+}
 
 // ConfiguredChains returns a list of the configured chains in the given holochain directory
 func ConfiguredChains(root string) map[string]bool {

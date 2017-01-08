@@ -40,7 +40,7 @@ func TestInit(t *testing.T) {
 		t.Error("expected no directory")
 	}
 	agent := "Fred Flintstone <fred@flintstone.com>"
-	err = Init(d, agent)
+	err = Init(d, Agent(agent))
 	ExpectNoErr(t,err)
 
 	if IsInitialized(d) != true {
@@ -102,6 +102,33 @@ func TestGenDev(t *testing.T) {
 
 	}
 }
+
+func TestAddEntry(t *testing.T) {
+	pwd, err := os.Getwd()
+	if err != nil {panic(err)}
+	defer func() {os.Chdir(pwd)}()
+	root := mkTestDir();
+	defer func() {os.RemoveAll(root)}()
+	err = Init(root,Agent("some agent"))
+	ExpectNoErr(t,err)
+	n := "test"
+	h,err := GenDev(root+"/"+n)
+	ExpectNoErr(t,err)
+	entry := `{
+"from": "Art"
+"msg": "Hi there!"
+}
+`
+	var links []PartyLink
+	e,err := AddEntry(h,links,entry)
+	ExpectNoErr(t,err)
+	a := string(e.Address)
+	if a != "fish" {
+		t.Error("bad hash:",a)
+	}
+}
+
+//----------------------------------------------------------------------------------------
 
 func ExpectErrString(t *testing.T,err error,text string) {
 	if err.Error() != text {

@@ -21,11 +21,10 @@ const (
 	DNAFileName string = "dna.conf"
 	LocalFileName string = "local.conf"
 	SysFileName string = "system.conf"
+	AgentFileName string = "agent.txt"
 	PubKeyFileName string = "pub.key"
 	PrivKeyFileName string = "priv.key"
 	ChainFileName string = "chain.db"
-
-
 )
 
 type Config struct {
@@ -33,6 +32,8 @@ type Config struct {
 	PeerModeAuthor bool
 	PeerModeDHTNode bool
 }
+
+type Agent string
 
 type Holochain struct {
 	Id uuid.UUID
@@ -144,7 +145,7 @@ func GenChain() (err error) {
 }
 
 //Init initializes service defaults and a new key pair in the dirname directory
-func Init(path string,agent string) error {
+func Init(path string,agent Agent) error {
 	p := path+"/"+DirectoryName
 	if err := os.MkdirAll(p,os.ModePerm); err != nil {
 		return err

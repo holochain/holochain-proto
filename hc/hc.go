@@ -84,13 +84,14 @@ func main() {
 			Action:  func(c *cli.Context) error {
 				agent := c.Args().First()
 				if agent == "" {return errors.New("missing required agent-id argument to init")}
-				err := holo.Init(userPath,agent)
+				err := holo.Init(userPath,holo.Agent(agent))
 				if err == nil {
 					fmt.Println("Holochain service initialized")
 					if (verbose) {
 						fmt.Println("    ~/.holochain directory created")
-						fmt.Println("    default system.conf generated")
+						fmt.Printf("    defaults stored to %s\n",holo.SysFileName)
 						fmt.Println("    key-pair generated")
+						fmt.Printf("    default agent \"%s\" stored to %s\n",holo.AgentFileName)
 					}
 				}
 				return err

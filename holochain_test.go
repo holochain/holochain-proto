@@ -19,8 +19,8 @@ func TestNew(t *testing.T) {
 	if (nID != string(h.Id.NodeID()) ) {
 		t.Error("expected holocain UUID NodeID to be "+nID+" got",h.Id.NodeID())
 	}
-	if (h.LinkEncoding != "JSON") {
-		t.Error("expected default encoding to be JSON, got:",h.LinkEncoding)
+	if (h.Types[0] != "myData") {
+		t.Error("data got:",h.Types)
 	}
 }
 
@@ -69,29 +69,25 @@ func TestGenDev(t *testing.T) {
 			panic(err)
 		}
 
-		if IsConfigured(d) != false {
-			t.Error("expected no config")
+		if err = IsConfigured(d); err == nil {
+			t.Error("expected no dna got:",err)
 		}
 
 		_, err := Load(d)
-		ExpectErrString(t,err,"holochain: missing dna.conf")
+		ExpectErrString(t,err,"open "+d+"/"+DNAFileName+": no such file or directory")
 
 		h,err := GenDev(d)
 		if err != nil {
 			t.Error("expected no error got",err)
 		}
 
-		if IsConfigured(d) != true {
-			t.Error("expected config")
+		if err = IsConfigured(d); err != nil {
+			t.Error(err)
 		}
-
 
 		lh, err := Load(d)
 		if  err != nil {
 			t.Error("Error parsing loading",err)
-		}
-		if (lh.LinkEncoding != "JSON") {
-			t.Error("expected default encoding to be JSON, got:",lh.LinkEncoding)
 		}
 
 		if (lh.Id != h.Id) {

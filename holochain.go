@@ -9,6 +9,7 @@ import (
 	"crypto/elliptic"
 	"crypto/rand"
 	"crypto/x509"
+	"path/filepath"
 	"github.com/google/uuid"
 	"github.com/BurntSushi/toml"
 )
@@ -23,15 +24,24 @@ const (
 	PubKeyFileName string = "pub.key"
 	PrivKeyFileName string = "priv.key"
 	ChainFileName string = "chain.db"
+
+
 )
 
 type Config struct {
 	Port string
+	PeerModeAuthor bool
+	PeerModeDHTNode bool
 }
 
 type Holochain struct {
 	Id uuid.UUID
-	LinkEncoding string
+	ShortName string
+	FullName string
+	Description string
+	Types []string
+	Schemas map[string]string
+	Validators map[string]string
 }
 
 //IsInitialized checks a path for a correctly set up .holochain directory
@@ -41,24 +51,40 @@ func IsInitialized(path string) bool {
 }
 
 //IsConfigured checks a directory for correctly set up holochain configuration files
-func IsConfigured(path string) bool {
-	return fileExists(path+"/"+DNAFileName)
+func IsConfigured(path string) error {
+	p := path+"/"+DNAFileName
+	if !fileExists(p) {return errors.New("missing "+p)}
+	lh, err := Load(path)
+	if err != nil {return err}
+	SelfDescribingSchemas := map[string]bool {
+		"JSON": true}
+	for _,t := range lh.Types {
+		s := lh.Schemas[t]
+		if !SelfDescribingSchemas[s] {
+			if !fileExists(path+"/"+s) {return errors.New("DNA specified schema missing: "+s)}
+		}
+		s = lh.Validators[t]
+		if !fileExists(path+"/"+s) {return errors.New("DNA specified validator missing: "+s)}
+	}
+	return nil
 }
 
 // New creates a new holochain structure with a randomly generated ID and default values
 func New() Holochain {
 	u,err := uuid.NewUUID()
 	if err != nil {panic(err)}
-	return Holochain {Id:u,LinkEncoding:"JSON"}
+	h := Holochain {
+		Id:u,
+		Types: []string{"myData"},
+		Schemas: map[string]string{"myData":"JSON"},
+		Validators: map[string]string{"myData":"valid_myData.js"},
+	}
+	return h
 }
 
 // Load creates a holochain structure from the configuration files
 func Load(path string) (h Holochain,err error) {
-	if IsConfigured(path) {
-		_,err = toml.DecodeFile(path+"/"+DNAFileName, &h)
-	} else {
-		err = mkErr("missing "+DNAFileName)
-	}
+	_,err = toml.DecodeFile(path+"/"+DNAFileName, &h)
 	return h,err
 }
 
@@ -123,7 +149,9 @@ func Init(path string) error {
 	if err := os.MkdirAll(p,os.ModePerm); err != nil {
 		return err
 	}
-	c := Config {}
+	c := Config {
+		PeerModeAuthor:true,
+	}
 	err := writeToml(p,SysFileName,c)
 	if err != nil {return err}
 
@@ -140,13 +168,22 @@ func GenDev(path string) (hP *Holochain, err error) {
 	}
 
 	h = New()
-
-	if err = writeToml(path,DNAFileName,h); err == nil {
-		hP = &h
-	}
-
+	h.ShortName = filepath.Base(path)
+	if err = writeToml(path,DNAFileName,h); err != nil {return}
+	hP = &h
+	//	if err = writeFile(path,"myData.cp",[]byte(s)); err != nil {return}  //if captain proto...
+	s := `
+function validateEntry(entry) {
+    return true;
+};
+function validateChain(entry,user_data) {
+    return true;
+};
+`
+	if err = writeFile(path,"valid_myData.js",[]byte(s)); err != nil {return}
 	return
 }
+
 /*func Link(h *Holochain, data interface{}) error {
 
 }*/
@@ -156,7 +193,7 @@ func ConfiguredChains(root string) map[string]bool {
 	files, _ := ioutil.ReadDir(root)
 	chains := make(map[string]bool)
 	for _, f := range files {
-		if f.IsDir() && IsConfigured(root+"/"+f.Name()) {
+		if f.IsDir() && (IsConfigured(root+"/"+f.Name()) == nil) {
 			chains[f.Name()] = true
 		}
 	}

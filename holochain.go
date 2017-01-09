@@ -32,8 +32,8 @@ const (
 	LocalFileName string = "local.conf" // Setting for your local data store
 	SysFileName string = "system.conf"  // Server & System settings
 	AgentFileName string = "agent.txt"  // User ID info
-	PubKeyFileName string = "pub.key"   // ECSDA Signing key - public
-	PrivKeyFileName string = "priv.key" // ECSDA Signing key - private
+	PubKeyFileName string = "pub.key"   // ECDSA Signing key - public
+	PrivKeyFileName string = "priv.key" // ECDSA Signing key - private
 	ChainFileName string = "chain.db"   // Filename for local data store
 )
 
@@ -60,6 +60,7 @@ type Holochain struct {
 	path string
 }
 
+// SHA256 hash of Entry's Content
 type EntryHash [32]byte
 
 // Stores link to previous hash chain entry, and User ID for whose chain
@@ -76,6 +77,8 @@ type Content struct {
 	Links []PartyLink
 	UserContent interface{}
 }
+
+// ECDSA signature of a EntryHash
 type HashSig struct {
 	R big.Int
 	S big.Int
@@ -280,6 +283,7 @@ func ConfiguredChains(root string) map[string]bool {
 }
 
 //----------------------------------------------------------------------------------------
+// non exported utility functions
 
 func writeToml(path string,file string,data interface{}) error {
 	p := path+"/"+file

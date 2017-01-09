@@ -9,7 +9,7 @@ In other words, a holochain functions very much **like a blockchain without bott
 <td><b>Holochain Info:</b>
 <td><a href="https://github.com/metacurrency/holochain/FAQ.md">FAQ</a></td>
 <td><a href="http://holochain.org/whitepaper">White Paper</a></td>
-<td><a href="http://ceptr.org">Ceptr Architecture</a></td></tr></table>
+<td><a href="(https://godoc.org/github.com/metacurrency/holochain)">GoDocs</a></td></tr></table>
 
 <br/>
 **Table of Contents**
@@ -146,4 +146,4 @@ This program is distributed in the hope that it will be useful, but WITHOUT ANY 
 &nbsp;
 * **Ian Grigg**: Some of our initial plans for this architecture were inspired in 2006 by [his paper about Triple Entry Accounting](http://iang.org/papers/triple_entry.html) and his work on [Ricardian Contracts](http://iang.org/papers/ricardian_contract.html).
 <!-- * **Juan Benet**: For all his work on IPFS and being a generally cool guy. We're planning to piggyback a bunch of the networking communications for Holochains on the libP2P libary of IPFS and hopefully leverage their S/Kademlia DHT implementation. -->
-* And of course the people who paved the road before us by **preaching the blockchain gospel**. Nobody understood what we were talking about when we started sharing our designs. The main reason people want it now, is because blockchains have opened their eyes to new patterns of power available from decentralized architectures.
+* **Crypto Pioneers** And of course the people who paved the road before us by writing good crypto libraries and **preaching the blockchain gospel**. Nobody understood what we were talking about when we started sharing our designs. The main reason people want it now, is because blockchains have opened their eyes to new patterns of power available from decentralized architectures.

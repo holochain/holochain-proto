@@ -45,11 +45,12 @@ from another node to publish DHT data, it will first validate the signatures,
 chain links, and any other application specific data integrity in the entity's
 source chain who is publishing the data.
 
-
-Installation & Usage
+Installation and Usage
 
 See http://github.com/metacurrency/holochain for installation instructions,
 project status, and developer information.
 
+.
 */
+
 package holochain

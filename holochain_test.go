@@ -12,14 +12,25 @@ import (
 )
 
 func TestNew(t *testing.T) {
-	h := New()
+	var key ecdsa.PrivateKey
+	h := New("Joe",&key,"some/path")
 	nID := string(uuid.NodeID());
 	if (nID != string(h.Id.NodeID()) ) {
-		t.Error("expected holocain UUID NodeID to be "+nID+" got",h.Id.NodeID())
+		t.Error("expected holochain UUID NodeID to be "+nID+" got",h.Id.NodeID())
 	}
 	if (h.Types[0] != "myData") {
 		t.Error("data got:",h.Types)
 	}
+	if (h.agent != "Joe") {
+		t.Error("agent got:",h.agent)
+	}
+	if (h.privKey != &key) {
+		t.Error("key got:",h.privKey)
+	}
+	if (h.path != "some/path") {
+		t.Error("path got:",h.path)
+	}
+
 }
 
 func TestGenChain(t *testing.T) {
@@ -65,40 +76,41 @@ func TestGenDev(t *testing.T) {
 	defer func() {os.Chdir(pwd)}()
 	d := mkTestDir()
 	defer func() {os.RemoveAll(d)}()
-	if err := os.Mkdir(d,os.ModePerm); err == nil {
-		if err := os.Chdir(d); err != nil {
-			panic(err)
-		}
+	agent := Agent("Herbert <h@bert.com>")
+	err = Init(d,agent)
+	ExpectNoErr(t,err)
+	root := d+"/"+DirectoryName+"/"+"test"
 
-		if err = IsConfigured(d); err == nil {
-			t.Error("expected no dna got:",err)
-		}
 
-		_, err := Load(d)
-		ExpectErrString(t,err,"open "+d+"/"+DNAFileName+": no such file or directory")
-
-		h,err := GenDev(d)
-		if err != nil {
-			t.Error("expected no error got",err)
-		}
-
-		if err = IsConfigured(d); err != nil {
-			t.Error(err)
-		}
-
-		lh, err := Load(d)
-		if  err != nil {
-			t.Error("Error parsing loading",err)
-		}
-
-		if (lh.Id != h.Id) {
-			t.Error("expected matching ids!")
-		}
-
-		_,err = GenDev(d)
-		ExpectErrString(t,err,"holochain: "+d+" already exists")
-
+	if err = IsConfigured(root); err == nil {
+		t.Error("expected no dna got:",err)
 	}
+
+	_, err = Load(root)
+	ExpectErrString(t,err,"open "+root+"/"+DNAFileName+": no such file or directory")
+
+	h,err := GenDev(root)
+	if err != nil {
+		t.Error("expected no error got",err)
+	}
+
+	if err = IsConfigured(root); err != nil {
+		t.Error(err)
+	}
+
+	lh, err := Load(root)
+	if  err != nil {
+		t.Error("Error parsing loading",err)
+	}
+
+	if (lh.Id != h.Id) {
+		t.Error("expected matching ids!")
+	}
+
+	_,err = GenDev(root)
+	ExpectErrString(t,err,"holochain: "+root+" already exists")
+
+
 }
 
 func TestNewEntry(t *testing.T) {
@@ -112,42 +124,47 @@ func TestNewEntry(t *testing.T) {
 	ExpectNoErr(t,err)
 	root := d+"/"+DirectoryName
 	n := "test"
-	h,err := GenDev(root+"/"+n)
+	path := root+"/"+n
+	h,err := GenDev(path)
 	ExpectNoErr(t,err)
-	userContent := `{
+	myData := `{
 "from": "Art"
 "msg": "Hi there!"
 }
 `
 	hash := b58.Decode("3vemK25pc5ewYtztPGYAdX39uXuyV13xdouCnZUr8RMA") // dummy link hash
-	var link EntryHash
+	var link Hash
 	copy(link[:],hash)
-	links := []PartyLink {{Party:agent, Link:link}}
 
-	agent,key,err := LoadSigner(root)
+	now := time.Unix(1,1) // pick a constant time so the test will always work
+
+	headerHash,header,err := h.NewEntry(now,"myData",link,myData)
 	ExpectNoErr(t,err)
 
-	e,err := NewEntry(agent,key,h,EntryType("JSON"),links,userContent)
-	ExpectNoErr(t,err)
+	if header.Time != now {t.Error("expected time:"+fmt.Sprintf("%v",now))}
 
-	// check the content
-	if e.Data.Type != EntryType("JSON") {t.Error("expected type JSON")}
-	if e.Data.UserContent != userContent {t.Error("expected entry to have user content")}
-	s := fmt.Sprintf("%v",e.Data.Links)
-	if s != "[{Herbert <h@bert.com> [43 117 219 74 12 22 62 60 12 80 253 26 109 133 191 237 6 212 179 213 59 161 252 238 239 96 149 93 100 245 26 121]}]" {t.Error("expected links got ",s)}
+	if header.Type != "myData" {t.Error("expected type myData")}
 
-	// check the adddress
-	hash = e.Address[:]
+	// check the header link
+	l :=  b58.Encode(header.HeaderLink[:])
+	if l != "3vemK25pc5ewYtztPGYAdX39uXuyV13xdouCnZUr8RMA" {t.Error("expected header link, got",l)}
+
+	// check the content link
+	l =  b58.Encode(header.EntryLink[:])
+	if l != "G4hiF3uvJhzimE4Tbyc4UgdUaznbm3vqbbH6G99SaMTL" {t.Error("expected entry hash, got",l)}
+
+	// check the hash
+	hash = headerHash[:]
 	a := b58.Encode(hash)
-	if a != "CbKR5iA6ptgdsDLysiZ3R2ZMebqxUB5fGJCQaXQRFgDc" {
-		t.Error("expected CbKR5iA6ptgdsDLysiZ3R2ZMebqxUB5fGJCQaXQRFgDc got:",a)
+	if a != "EdkgsdwazMZc9vJJgGXgbGwZFvy2Wa1hLCjngmkw3PbF" {
+		t.Error("expected EdkgsdwazMZc9vJJgGXgbGwZFvy2Wa1hLCjngmkw3PbF got:",a)
 	}
 
-	// check the signature
-	if e.Signatures[0].Signer != agent {t.Error("expected agent got",e.Signatures[0].Signer)}
+	// check the my signature of the entry
 	pub,err := UnmarshalPublicKey(root,PubKeyFileName)
 	ExpectNoErr(t,err)
-	sig := e.Signatures[0].Sig
+	sig := header.MySignature
+	hash = header.EntryLink[:]
 	if !ecdsa.Verify(pub,hash,&sig.R,&sig.S) {t.Error("expected verify!")}
 }
 

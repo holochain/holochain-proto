@@ -17,9 +17,11 @@ import (
 	"crypto/sha256"
 	"math/big"
 	"path/filepath"
+	"time"
 	"encoding/json"
 	"github.com/google/uuid"
 	"github.com/BurntSushi/toml"
+	"github.com/boltdb/bolt"
 	_ "github.com/jbenet/go-base58"
 )
 
@@ -57,42 +59,32 @@ type Holochain struct {
 	Types []string
 	Schemas map[string]string
 	Validators map[string]string
+
+	//---- private values not serialized
 	path string
+	agent Agent
+	privKey *ecdsa.PrivateKey
 }
 
 // SHA256 hash of Entry's Content
-type EntryHash [32]byte
+type Hash [32]byte
 
-// Stores link to previous hash chain entry, and User ID for whose chain
-type PartyLink struct {
-	Party Agent
-	Link EntryHash
-}
-// Identifies data type of hash chain entry (e.g. DNA, keys, App_data, etc.)
-type EntryType string
+// Holds content for a holochain
+type Entry interface{}
 
-// Holds content for a hash chain entry
-type Content struct {
-	Type EntryType
-	Links []PartyLink
-	UserContent interface{}
-}
-
-// ECDSA signature of a EntryHash
-type HashSig struct {
+// ECDSA signature of an Entry
+type Signature struct {
 	R big.Int
 	S big.Int
 }
-// Stores hash signatures for parties signing entries
-type Signature struct {
-	Signer Agent
-	Sig HashSig
-}
-// Structure of each entry in the local hash chain
-type Entry struct {
-	Address EntryHash // Linke to previous hash chain entry
-	Data Content
-	Signatures []Signature
+
+// Holochain entry header
+type Header struct {
+	Time time.Time
+	Type string
+	HeaderLink Hash
+	EntryLink Hash
+	MySignature Signature
 	Meta interface{}
 }
 
@@ -108,6 +100,9 @@ func IsConfigured(path string) error {
 	if !fileExists(p) {return errors.New("missing "+p)}
 	lh, err := Load(path)
 	if err != nil {return err}
+
+	//if !fileExists(path+"/"+ChainFileName) {return errors.New("data store missing")}
+
 	SelfDescribingSchemas := map[string]bool {
 		"JSON": true}
 	for _,t := range lh.Types {
@@ -122,7 +117,7 @@ func IsConfigured(path string) error {
 }
 
 // New creates a new holochain structure with a randomly generated ID and default values
-func New() Holochain {
+func New(agent Agent ,key *ecdsa.PrivateKey,path string) Holochain {
 	u,err := uuid.NewUUID()
 	if err != nil {panic(err)}
 	h := Holochain {
@@ -131,15 +126,25 @@ func New() Holochain {
 		Types: []string{"myData"},
 		Schemas: map[string]string{"myData":"JSON"},
 		Validators: map[string]string{"myData":"valid_myData.js"},
+		agent: agent,
+		privKey: key,
+		path: path,
 	}
 	return h
 }
 
 // Load creates a holochain structure from the configuration files
-func Load(path string) (h Holochain,err error) {
+func Load(path string) (hP *Holochain,err error) {
+	var h Holochain
 	_,err = toml.DecodeFile(path+"/"+DNAFileName, &h)
+	if err != nil {return}
 	h.path = path
-	return h,err
+	agent,key,err := LoadSigner(filepath.Dir(path))
+	if err != nil {return}
+	h.agent = agent
+	h.privKey = key
+	hP = &h
+	return
 }
 
 // MarshalPublicKey stores a PublicKey to a serialized x509 format file
@@ -223,8 +228,10 @@ func GenDev(path string) (hP *Holochain, err error) {
 	if err := os.MkdirAll(path,os.ModePerm); err != nil {
 		return nil,err;
 	}
+	agent,key,err := LoadSigner(filepath.Dir(path))
+	if err != nil {return}
+	h = New(agent,key,path)
 
-	h = New()
 	h.ShortName = filepath.Base(path)
 	if err = writeToml(path,DNAFileName,h); err != nil {return}
 	hP = &h
@@ -250,24 +257,66 @@ func LoadSigner(path string) (agent Agent ,key *ecdsa.PrivateKey,err error) {
 	return
 }
 
-// NewEntry builds an Entry structure suitable for passing to AddEntry
-func NewEntry(agent Agent ,key *ecdsa.PrivateKey,h *Holochain,t EntryType,links []PartyLink, userContent interface{}) (*Entry,error) {
-	var e Entry
-	if t != EntryType("JSON") {return nil,errors.New("entry type "+string(t)+" not supported")}
-	e.Data.Type = t
-	e.Data.Links = links
-	e.Data.UserContent = userContent
-	j,err := json.Marshal(e.Data)
-	if err != nil {return nil,err}
-	hash := sha256.Sum256([]byte(j))
-	e.Address = EntryHash(hash)
+//OpenStore sets up the datastore for use and returns a handle to it
+func OpenStore(path string) (db *bolt.DB, err error) {
+	db, err = bolt.Open(path, 0600, &bolt.Options{Timeout: 1 * time.Second})
+	if err != nil {return}
+	err = db.Update(func(tx *bolt.Tx) (err error) {
+		_, err = tx.CreateBucketIfNotExists([]byte("Entries"))
+		return
+	})
+	if err !=nil {db.Close();db = nil}
+	return
+}
 
-	r,s,err := ecdsa.Sign(rand.Reader,key,hash[:])
-	if err != nil {return nil,err}
-	hs := HashSig{R:*r,S:*s}
-	sig := Signature{Signer:agent,Sig:hs}
-	e.Signatures = append(e.Signatures,sig)
-	return &e,nil
+/*
+func (e *Entry) Marshal() ([]byte,error) {
+	return []byte("fish"),nil
+}
+
+type EntryMarshaler interface {
+	 MarshalContent()
+}
+
+//MarshalContent serialized the content portion of Entry preparing to be hashed
+func (e *Entry) MarshalContent() ([]byte,error) {
+	return []byte("fish"),nil
+}
+
+
+// AddEntry stores the an entry by its Hash into the data store
+func AdddEntry(db *bolt.DB,key EntryHash,entry *Entry) (err error) {
+	db.Update(func(tx *bolt.Tx) error {
+		b := tx.Bucket([]byte("Entries"))
+		v,err := entry.Marshal()
+		if err !=nil {return err}
+		err = b.Put(key[:], v)
+		return nil
+	})
+	return
+}
+*/
+
+// NewEntry returns a hashed signed Entry
+func (h *Holochain) NewEntry(now time.Time,t string,prevHeader Hash,entry interface{}) (hash Hash,header *Header,err error) {
+	var hd Header
+	hd.Type = t
+	hd.HeaderLink = prevHeader
+	hd.Time = now
+
+	j,err := json.Marshal(entry)
+	if err != nil {return}
+	hd.EntryLink = Hash(sha256.Sum256([]byte(j)))
+
+	r,s,err := ecdsa.Sign(rand.Reader,h.privKey,hd.EntryLink[:])
+	if err != nil {return}
+	hd.MySignature = Signature{R:*r,S:*s}
+
+	j,err = json.Marshal(hd)
+	hash = Hash(sha256.Sum256([]byte(j)))
+
+	header = &hd
+	return
 }
 
 // ConfiguredChains returns a list of the configured chains in the given holochain directory

@@ -9,8 +9,13 @@ import (
 	"crypto/elliptic"
 	"crypto/rand"
 	"crypto/x509"
+	"crypto/sha256"
+	"math/big"
+	"path/filepath"
+	"encoding/json"
 	"github.com/google/uuid"
 	"github.com/BurntSushi/toml"
+	_ "github.com/jbenet/go-base58"
 )
 
 const Version string = "0.0.1"
@@ -20,6 +25,7 @@ const (
 	DNAFileName string = "dna.conf"
 	LocalFileName string = "local.conf"
 	SysFileName string = "system.conf"
+	AgentFileName string = "agent.txt"
 	PubKeyFileName string = "pub.key"
 	PrivKeyFileName string = "priv.key"
 	ChainFileName string = "chain.db"
@@ -27,38 +33,93 @@ const (
 
 type Config struct {
 	Port string
+	PeerModeAuthor bool
+	PeerModeDHTNode bool
 }
+
+type Agent string
 
 type Holochain struct {
 	Id uuid.UUID
-	LinkEncoding string
+	ShortName string
+	FullName string
+	Description string
+	HashType string
+	Types []string
+	Schemas map[string]string
+	Validators map[string]string
+	path string
+}
+
+type EntryHash [32]byte
+type PartyLink struct {
+	Party Agent
+	Link EntryHash
+}
+type EntryType string
+type Content struct {
+	Type EntryType
+	Links []PartyLink
+	UserContent interface{}
+}
+type HashSig struct {
+	R big.Int
+	S big.Int
+}
+type Signature struct {
+	Signer Agent
+	Sig HashSig
+}
+type Entry struct {
+	Address EntryHash
+	Data Content
+	Signatures []Signature
+	Meta interface{}
 }
 
 //IsInitialized checks a path for a correctly set up .holochain directory
 func IsInitialized(path string) bool {
 	root := path+"/"+DirectoryName
-	return dirExists(root) && fileExists(root+"/"+SysFileName)
+	return dirExists(root) && fileExists(root+"/"+SysFileName) && fileExists(root+"/"+AgentFileName)
 }
 
 //IsConfigured checks a directory for correctly set up holochain configuration files
-func IsConfigured(path string) bool {
-	return fileExists(path+"/"+DNAFileName)
+func IsConfigured(path string) error {
+	p := path+"/"+DNAFileName
+	if !fileExists(p) {return errors.New("missing "+p)}
+	lh, err := Load(path)
+	if err != nil {return err}
+	SelfDescribingSchemas := map[string]bool {
+		"JSON": true}
+	for _,t := range lh.Types {
+		s := lh.Schemas[t]
+		if !SelfDescribingSchemas[s] {
+			if !fileExists(path+"/"+s) {return errors.New("DNA specified schema missing: "+s)}
+		}
+		s = lh.Validators[t]
+		if !fileExists(path+"/"+s) {return errors.New("DNA specified validator missing: "+s)}
+	}
+	return nil
 }
 
 // New creates a new holochain structure with a randomly generated ID and default values
 func New() Holochain {
 	u,err := uuid.NewUUID()
 	if err != nil {panic(err)}
-	return Holochain {Id:u,LinkEncoding:"JSON"}
+	h := Holochain {
+		Id:u,
+		HashType: "SHA256",
+		Types: []string{"myData"},
+		Schemas: map[string]string{"myData":"JSON"},
+		Validators: map[string]string{"myData":"valid_myData.js"},
+	}
+	return h
 }
 
 // Load creates a holochain structure from the configuration files
 func Load(path string) (h Holochain,err error) {
-	if IsConfigured(path) {
-		_,err = toml.DecodeFile(path+"/"+DNAFileName, &h)
-	} else {
-		err = mkErr("missing "+DNAFileName)
-	}
+	_,err = toml.DecodeFile(path+"/"+DNAFileName, &h)
+	h.path = path
 	return h,err
 }
 
@@ -98,7 +159,7 @@ func UnmarshalPrivateKey(path string, file string) (key *ecdsa.PrivateKey,err er
 // GenKeys creates a new pub/priv key pair and stores them at the given path.
 func GenKeys(path string) error {
 	if fileExists(path+"/"+PrivKeyFileName) {return errors.New("keys already exist")}
-	priv,err := ecdsa.GenerateKey(elliptic.P256(),rand.Reader)
+	priv,err := ecdsa.GenerateKey(elliptic.P224(),rand.Reader)
 	if err != nil {return err}
 
 	err = MarshalPrivateKey(path,PrivKeyFileName,priv)
@@ -118,13 +179,18 @@ func GenChain() (err error) {
 }
 
 //Init initializes service defaults and a new key pair in the dirname directory
-func Init(path string) error {
+func Init(path string,agent Agent) error {
 	p := path+"/"+DirectoryName
 	if err := os.MkdirAll(p,os.ModePerm); err != nil {
 		return err
 	}
-	c := Config {}
+	c := Config {
+		PeerModeAuthor:true,
+	}
 	err := writeToml(p,SysFileName,c)
+	if err != nil {return err}
+
+	writeFile(p,AgentFileName,[]byte(agent))
 	if err != nil {return err}
 
 	err = GenKeys(p)
@@ -140,23 +206,57 @@ func GenDev(path string) (hP *Holochain, err error) {
 	}
 
 	h = New()
-
-	if err = writeToml(path,DNAFileName,h); err == nil {
-		hP = &h
-	}
-
+	h.ShortName = filepath.Base(path)
+	if err = writeToml(path,DNAFileName,h); err != nil {return}
+	hP = &h
+	//	if err = writeFile(path,"myData.cp",[]byte(s)); err != nil {return}  //if captain proto...
+	s := `
+function validateEntry(entry) {
+    return true;
+};
+function validateChain(entry,user_data) {
+    return true;
+};
+`
+	if err = writeFile(path,"valid_myData.js",[]byte(s)); err != nil {return}
 	return
 }
-/*func Link(h *Holochain, data interface{}) error {
 
-}*/
+//LoadSigner gets the agent and signing key from the specified directory
+func LoadSigner(path string) (agent Agent ,key *ecdsa.PrivateKey,err error) {
+	a,err := readFile(path,AgentFileName)
+	if err != nil {return}
+	agent = Agent(a)
+	key,err = UnmarshalPrivateKey(path,PrivKeyFileName)
+	return
+}
+
+// NewEntry builds an Entry structure suitable for passing to AddEntry
+func NewEntry(agent Agent ,key *ecdsa.PrivateKey,h *Holochain,t EntryType,links []PartyLink, userContent interface{}) (*Entry,error) {
+	var e Entry
+	if t != EntryType("JSON") {return nil,errors.New("entry type "+string(t)+" not supported")}
+	e.Data.Type = t
+	e.Data.Links = links
+	e.Data.UserContent = userContent
+	j,err := json.Marshal(e.Data)
+	if err != nil {return nil,err}
+	hash := sha256.Sum256([]byte(j))
+	e.Address = EntryHash(hash)
+
+	r,s,err := ecdsa.Sign(rand.Reader,key,hash[:])
+	if err != nil {return nil,err}
+	hs := HashSig{R:*r,S:*s}
+	sig := Signature{Signer:agent,Sig:hs}
+	e.Signatures = append(e.Signatures,sig)
+	return &e,nil
+}
 
 // ConfiguredChains returns a list of the configured chains in the given holochain directory
 func ConfiguredChains(root string) map[string]bool {
 	files, _ := ioutil.ReadDir(root)
 	chains := make(map[string]bool)
 	for _, f := range files {
-		if f.IsDir() && IsConfigured(root+"/"+f.Name()) {
+		if f.IsDir() && (IsConfigured(root+"/"+f.Name()) == nil) {
 			chains[f.Name()] = true
 		}
 	}

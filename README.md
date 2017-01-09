@@ -3,10 +3,10 @@
 
 In other words, a holochain functions very much **like a blockchain without bottlenecks** when it comes to enforcing validation rules, but is designed to  be fully distributed with each node only needing to hold a small portion of the data instead of everything needing a full copy of a global ledger. This makes it feasible to run blockchain-like applications on devices as lightweight as mobile phones.
 
-**Code Status:** Active development for **proof-of-concept stage**. Pre-alpha. Not for production use yet. We still expect to need to destructively restructure data chains at this time. [See milestones](https://github.com/metacurrency/holochain/milestones?direction=asc&sort=due_date&state=all)
+**[Code Status:](https://github.com/metacurrency/holochain/milestones?direction=asc&sort=due_date&state=all)** Active development for **proof-of-concept stage**. Pre-alpha. Not for production use. We still expect to destructively restructure data chains at this time.
 
 <table style="font-size:150%;"><tr>
-<td><b>Holochain Info</b>
+<td><b>Holochain Info:</b>
 <td><a href="https://github.com/metacurrency/holochain/FAQ.md">FAQ</a></td>
 <td><a href="http://holochain.org/whitepaper">White Paper</a></td>
 <td><a href="http://ceptr.org">Ceptr Architecture</a></td></tr></table>
@@ -55,7 +55,9 @@ Once you've gotten everything working as described above you can execute some ba
 
     hc help
 
-Since holochain is basically a distributed database engine, you will probably only do some basic maintenance through the command line.
+Since holochain is basically a distributed database engine, you will probably only do some basic maintenance through the command line. To initialize holochain service and build the directories, files, and generates public/private keys.
+
+    hc init "Fred Flinstone" <fred@flintsone.com>
 
 You can use an existing group configuration like this where SOURCE is a local file path or URI for retrieving existing DNA for a group's holochain.:
 
@@ -63,7 +65,7 @@ You can use an existing group configuration like this where SOURCE is a local fi
 
 You can generate your private and public keys for signing your local chain with:
 
-    hc gen key
+    hc keys
 
 If you are a developer and want to build your own group configuration for a holochain you can set up the initial scaffolding and files with:
 
@@ -104,9 +106,7 @@ For serving data shared across the network. When your node receives a request fr
 
 ## Documentation
 
-```
-Forthcoming... GoDoc Generated API Docs
-```
+See the [Auto-generated Go Doc API for Holochain](https://godoc.org/github.com/metacurrency/holochain)
 
 ## Testing
 
@@ -124,8 +124,8 @@ We welcome your participation. See our [milestones for current progress](https:/
 
 #### Tech
 * We use **test driven development**. Adding a new function or feature, should mean you've added the tests that make sure it works.
-* Contact us to set up a **pair coding session** with one of our developers
-* Or contact us to **join our dev documentation calls** twice weekly on Tuesdays and Fridays.
+* [Contact us](http://metacurrency.org/contact) to set up a **pair coding session** with one of our developers
+* Or **join our dev documentation calls** twice weekly on Tuesdays and Fridays.
 
 #### Social
 <!-- * Protocols for Inclusion. -->
@@ -142,6 +142,6 @@ This program is distributed in the hope that it will be useful, but WITHOUT ANY 
 ## Acknowledgements
 * **MetaCurrency & Ceptr**: Holochains are a sub-project of [Ceptr](http://ceptr.org) which is a semantic, distributed computing platform under development by the [MetaCurrency Project](http://metacurrency.org).
 &nbsp;
-* **Ian Grigg**: Some of the initial ideas for this approach were inspired in 2006 by [his paper about Triple Entry Accounting](http://iang.org/papers/triple_entry.html) and his work on [Ricardian Contracts](http://iang.org/papers/ricardian_contract.html).
+* **Ian Grigg**: Some of our initial plans for this architecture were inspired in 2006 by [his paper about Triple Entry Accounting](http://iang.org/papers/triple_entry.html) and his work on [Ricardian Contracts](http://iang.org/papers/ricardian_contract.html).
 <!-- * **Juan Benet**: For all his work on IPFS and being a generally cool guy. We're planning to piggyback a bunch of the networking communications for Holochains on the libP2P libary of IPFS and hopefully leverage their S/Kademlia DHT implementation. -->
 * And of course the people who paved the road before us by **preaching the blockchain gospel**. Nobody understood what we were talking about when we started sharing our designs. The main reason people want it now, is because blockchains have opened their eyes to new patterns of power available from decentralized architectures.

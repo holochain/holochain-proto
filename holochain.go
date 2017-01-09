@@ -1,3 +1,8 @@
+// Copyright (C) 2013-2017, The MetaCurrency Project (Eric Harris-Braun, Arthur Brock, et. al.)
+// Use of this source code is governed by GPLv3 found in the LICENSE file
+
+// Holochains are a distributed data store: DHT tightly bound to signed hash chains
+// for provenance and data integrity.
 package holochain
 
 import (
@@ -20,25 +25,29 @@ import (
 
 const Version string = "0.0.1"
 
+// System settings, directory, and file names
 const (
-	DirectoryName string = ".holochain"
-	DNAFileName string = "dna.conf"
-	LocalFileName string = "local.conf"
-	SysFileName string = "system.conf"
-	AgentFileName string = "agent.txt"
-	PubKeyFileName string = "pub.key"
-	PrivKeyFileName string = "priv.key"
-	ChainFileName string = "chain.db"
+	DirectoryName string = ".holochain" // Directory for storing config data
+	DNAFileName string = "dna.conf"     // Group context settings for holochain
+	LocalFileName string = "local.conf" // Setting for your local data store
+	SysFileName string = "system.conf"  // Server & System settings
+	AgentFileName string = "agent.txt"  // User ID info
+	PubKeyFileName string = "pub.key"   // ECSDA Signing key - public
+	PrivKeyFileName string = "priv.key" // ECSDA Signing key - private
+	ChainFileName string = "chain.db"   // Filename for local data store
 )
 
+// Active Subsystems: DHT, Datastore, network port
 type Config struct {
 	Port string
 	PeerModeAuthor bool
 	PeerModeDHTNode bool
 }
 
+// Unique user identifier in context of this holochain
 type Agent string
 
+// Holochain DNA settings
 type Holochain struct {
 	Id uuid.UUID
 	ShortName string
@@ -52,11 +61,16 @@ type Holochain struct {
 }
 
 type EntryHash [32]byte
+
+// Stores link to previous hash chain entry, and User ID for whose chain
 type PartyLink struct {
 	Party Agent
 	Link EntryHash
 }
+// Identifies data type of hash chain entry (e.g. DNA, keys, App_data, etc.)
 type EntryType string
+
+// Holds content for a hash chain entry
 type Content struct {
 	Type EntryType
 	Links []PartyLink
@@ -66,12 +80,14 @@ type HashSig struct {
 	R big.Int
 	S big.Int
 }
+// Stores hash signatures for parties signing entries
 type Signature struct {
 	Signer Agent
 	Sig HashSig
 }
+// Structure of each entry in the local hash chain
 type Entry struct {
-	Address EntryHash
+	Address EntryHash // Linke to previous hash chain entry
 	Data Content
 	Signatures []Signature
 	Meta interface{}

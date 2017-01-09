@@ -21,7 +21,7 @@ In other words, a holochain functions very much **like a blockchain without bott
       - [Group DNA / Holochain configuration](#group-dna--holochain-configuration)
       - [Individuals Authoring Content](#individuals-authoring-content)
       - [Application API](#application-api)
-    - [Peering Modes](#peering-modes)
+    - [Two Separate SubSystems](#two-separate-subsystems)
       - [Authoring your Local Chain](#authoring-your-local-chain)
       - [DHT Node -- Validating and Publishing](#dht-node----validating-and-publishing)
   - [Documentation](#documentation)
@@ -89,17 +89,18 @@ As an individual, you can join a holochain by installing its holochain configura
 #### Application API
 Holochains function like a database. They don't have much end-user interface, and are primarily used by an application or program to store data. Unless you're a developer building one of these applications, you're not likely interact directly with a holochains. Hopefully, you install an application that does all that for you and the holochain stays nice and invisible enabling the application to store its information in a decentralized manner.
 
-### Peering Modes
+### Two Separate SubSystems
 There are two modes to participate in a holochain: as a **chain author**, and as a **DHT node**. We expect most installations will be doing both things and acting as full peers in a P2P data system.
 
 #### Authoring your Local Chain
-Your chain is your signed, sequential record or the data you create to share on the holochain. Depending on the holochain's validation rules, this data may also be immutable and non-repudiable. Your local chain/data-store follows this pattern:
+Your chain is your signed, sequential record of the data you create to share on the holochain. Depending on the holochain's validation rules, this data may also be immutable and non-repudiable. Your local chain/data-store follows this pattern:
 
 1. Validates your new data
 2. Stores the data in a new chain entry
 3. Signs it to your chain
 4. Indexes the content
 5. Shares it to the DHT
+6. Responds to validation requests from DHT nodes
 
 #### DHT Node -- Validating and Publishing
 For serving data shared across the network. When your node receives a request from another node to publish DHT data, it will first validate the signatures, chain links, and any other application specific data integrity in the entity's source chain who is publishing the data.

@@ -21,7 +21,7 @@ Two Subsystems
 
 There are two modes to participate in a holochain: as a **chain author**,
 and as a **DHT node**. We expect most installations will be doing both things
-and acting as full peers in a P2P data system. Each could be run in a separate
+and acting as full peers in a P2P data system. However, each could be run in a separate
 container, communicating only by network interface.
 
 Authoring your Local Chain
@@ -31,12 +31,12 @@ on the holochain. Depending on the holochain's validation rules, this data
 may also be immutable and non-repudiable. Your local chain/data-store follows
 this pattern:
 
-1. Validates your new data
-2. Stores the data in a new chain entry
-3. Signs it to your chain
-4. Indexes the content
-5. Shares it to the DHT
-6. Responds to validation requests from DHT nodes
+    1. Validates your new data
+    2. Stores the data in a new chain entry
+    3. Signs it to your chain
+    4. Indexes the content
+    5. Shares it to the DHT
+    6. Responds to validation requests from DHT nodes
 
 DHT Node -- Validating and Publishing
 
@@ -45,9 +45,11 @@ from another node to publish DHT data, it will first validate the signatures,
 chain links, and any other application specific data integrity in the entity's
 source chain who is publishing the data.
 
+
 Installation & Usage
 
-For installation instructions see http://github.com/metacurrency/holochain .
+See http://github.com/metacurrency/holochain for installation instructions,
+project status, and developer information.
 
 */
 package holochain

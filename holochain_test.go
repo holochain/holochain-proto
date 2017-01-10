@@ -67,6 +67,19 @@ func TestInit(t *testing.T) {
 
 }
 
+
+func TestLoadService(t *testing.T) {
+	d,root := setupTestService()
+	defer cleanupTestDir(d)
+	s,err := LoadService(root)
+	ExpectNoErr(t,err)
+	if (s.Path != root) {t.Error("expected path "+d+" got "+s.Path)}
+	if (s.Settings.Port != DefaultPort) {t.Error(fmt.Sprintf("expected settings port %d got %d\n",DefaultPort,s.Settings.Port))}
+	a := Agent("Herbert <h@bert.com>")
+	if (s.DefaultAgent != a) {t.Error("expected agent "+string(a)+" got "+string(s.DefaultAgent))}
+
+}
+
 func TestGenDev(t *testing.T) {
 	d,root := setupTestService()
 	defer cleanupTestDir(d)

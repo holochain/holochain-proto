@@ -37,13 +37,23 @@ const (
 	PubKeyFileName string = "pub.key"   // ECDSA Signing key - public
 	PrivKeyFileName string = "priv.key" // ECDSA Signing key - private
 	ChainFileName string = "chain.db"   // Filename for local data store
+
+	DefaultPort = 6283
 )
 
-// Active Subsystems: DHT, Datastore, network port
+// Holochain service configuration, i.e. Active Subsystems: DHT and/or Datastore, network port, etc
 type Config struct {
-	Port string
+	Port int
 	PeerModeAuthor bool
 	PeerModeDHTNode bool
+}
+
+// Holochain service data structure
+type Service struct {
+	Settings Config
+	DefaultAgent Agent
+	DefaultKey *ecdsa.PrivateKey
+	Path string
 }
 
 // Unique user identifier in context of this holochain
@@ -86,6 +96,24 @@ type Header struct {
 	EntryLink Hash
 	MySignature Signature
 	Meta interface{}
+}
+
+func LoadService(path string) (service *Service,err error) {
+	agent,key,err := LoadSigner(path)
+	if err != nil {return}
+	s := Service {
+		Path:path,
+		DefaultAgent:agent,
+		DefaultKey:key,
+	}
+
+	_,err = toml.DecodeFile(path+"/"+SysFileName, &s.Settings)
+	if err != nil {return}
+
+
+
+	service = &s
+	return
 }
 
 //IsInitialized checks a path for a correctly set up .holochain directory
@@ -139,7 +167,13 @@ func Load(path string) (hP *Holochain,err error) {
 	_,err = toml.DecodeFile(path+"/"+DNAFileName, &h)
 	if err != nil {return}
 	h.path = path
-	agent,key,err := LoadSigner(filepath.Dir(path))
+
+	// try and get the agent/key from the holochain instance
+	agent,key,err := LoadSigner(path)
+	if err != nil {
+		// get the default if not available
+		agent,key,err = LoadSigner(filepath.Dir(path))
+	}
 	if err != nil {return}
 	h.agent = agent
 	h.privKey = key
@@ -209,6 +243,7 @@ func Init(path string,agent Agent) error {
 		return err
 	}
 	c := Config {
+		Port: DefaultPort,
 		PeerModeAuthor:true,
 	}
 	err := writeToml(p,SysFileName,c)

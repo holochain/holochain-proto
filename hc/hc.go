@@ -21,6 +21,7 @@ func main() {
 	var verbose,initialized bool
 	var root,userPath string
 	var uninitialized error
+	var service *holo.Service
 
 	app.Flags = []cli.Flag {
 		cli.BoolFlag{
@@ -59,9 +60,10 @@ func main() {
 					Action: func(c *cli.Context) error {
 						if !initialized {return uninitialized}
 						name := c.Args().First()
-						chains := holo.ConfiguredChains(root)
+						chains := service.ConfiguredChains()
 						if !chains[name] {return errors.New(name+" doesn't exist")}
-						return holo.GenKeys(root+"/"+name)
+						_,err := holo.GenKeys(root+"/"+name)
+						return err
 					},
 				},
 				{
@@ -84,7 +86,7 @@ func main() {
 			Action:  func(c *cli.Context) error {
 				agent := c.Args().First()
 				if agent == "" {return errors.New("missing required agent-id argument to init")}
-				err := holo.Init(userPath,holo.Agent(agent))
+				_,err := holo.Init(userPath,holo.Agent(agent))
 				if err == nil {
 					fmt.Println("Holochain service initialized")
 					if (verbose) {
@@ -112,7 +114,7 @@ func main() {
 			Usage:   "display information about installed chains",
 			Action:  func(c *cli.Context) error {
 				if !initialized {return uninitialized}
-				listChains(root)
+				listChains(service)
 				return nil
 			},
 		},
@@ -128,15 +130,17 @@ func main() {
 		root = userPath+"/"+holo.DirectoryName
 		if initialized = holo.IsInitialized(userPath); !initialized {
 			uninitialized = errors.New("service not initialized, run 'hc init'")
+		} else {
+			service,err = holo.LoadService(root)
 		}
-		return nil
+		return err
 	}
 
 	app.Action = func(c *cli.Context) error {
 		if (!initialized) {
 			cli.ShowAppHelp(c)
 		} else {
-			listChains(root)
+			listChains(service)
 		}
 		return nil
 	}
@@ -144,8 +148,8 @@ func main() {
 	app.Run(os.Args)
 }
 
-func listChains(root string) {
-	chains := holo.ConfiguredChains(root)
+func listChains(s *holo.Service) {
+	chains := s.ConfiguredChains()
 	if len(chains) > 0 {
 		fmt.Println("installed holochains: ")
 		for k := range chains {

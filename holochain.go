@@ -110,8 +110,6 @@ func LoadService(path string) (service *Service,err error) {
 	_,err = toml.DecodeFile(path+"/"+SysFileName, &s.Settings)
 	if err != nil {return}
 
-
-
 	service = &s
 	return
 }
@@ -123,10 +121,11 @@ func IsInitialized(path string) bool {
 }
 
 //IsConfigured checks a directory for correctly set up holochain configuration files
-func IsConfigured(path string) error {
+func (s *Service) IsConfigured(name string) error {
+	path := s.Path+"/"+name
 	p := path+"/"+DNAFileName
 	if !fileExists(p) {return errors.New("missing "+p)}
-	lh, err := Load(path)
+	lh, err := s.Load(name)
 	if err != nil {return err}
 
 	//if !fileExists(path+"/"+ChainFileName) {return errors.New("data store missing")}
@@ -162,8 +161,11 @@ func New(agent Agent ,key *ecdsa.PrivateKey,path string) Holochain {
 }
 
 // Load creates a holochain structure from the configuration files
-func Load(path string) (hP *Holochain,err error) {
+func (s *Service) Load(name string) (hP *Holochain,err error) {
 	var h Holochain
+
+	path := s.Path+"/"+name
+
 	_,err = toml.DecodeFile(path+"/"+DNAFileName, &h)
 	if err != nil {return}
 	h.path = path
@@ -215,18 +217,19 @@ func UnmarshalPrivateKey(path string, file string) (key *ecdsa.PrivateKey,err er
 }
 
 // GenKeys creates a new pub/priv key pair and stores them at the given path.
-func GenKeys(path string) error {
-	if fileExists(path+"/"+PrivKeyFileName) {return errors.New("keys already exist")}
-	priv,err := ecdsa.GenerateKey(elliptic.P224(),rand.Reader)
-	if err != nil {return err}
+func GenKeys(path string) (priv *ecdsa.PrivateKey,err error) {
+	if fileExists(path+"/"+PrivKeyFileName) {return nil,errors.New("keys already exist")}
+	priv,err = ecdsa.GenerateKey(elliptic.P224(),rand.Reader)
+	if err != nil {return}
 
 	err = MarshalPrivateKey(path,PrivKeyFileName,priv)
-	if err != nil {return err}
+	if err != nil {return}
 
 	var pub *ecdsa.PublicKey
 	pub = priv.Public().(*ecdsa.PublicKey)
 	err = MarshalPublicKey(path,PubKeyFileName,pub)
-	return err
+	if err != nil {return}
+	return
 }
 
 // GenChain sets up a holochain by creating the initial genesis links.
@@ -237,24 +240,31 @@ func GenChain() (err error) {
 }
 
 //Init initializes service defaults and a new key pair in the dirname directory
-func Init(path string,agent Agent) error {
+func Init(path string,agent Agent) (service *Service, err error) {
 	p := path+"/"+DirectoryName
-	if err := os.MkdirAll(p,os.ModePerm); err != nil {
-		return err
+	err = os.MkdirAll(p,os.ModePerm)
+	if err != nil {return}
+	s := Service {
+		Settings: Config{
+			Port: DefaultPort,
+			PeerModeAuthor:true,
+		},
+		DefaultAgent:agent,
+		Path:p,
 	}
-	c := Config {
-		Port: DefaultPort,
-		PeerModeAuthor:true,
-	}
-	err := writeToml(p,SysFileName,c)
-	if err != nil {return err}
+
+	err = writeToml(p,SysFileName,s.Settings)
+	if err != nil {return}
 
 	writeFile(p,AgentFileName,[]byte(agent))
-	if err != nil {return err}
+	if err != nil {return}
 
-	err = GenKeys(p)
+	k,err := GenKeys(p)
+	if err !=nil {return}
+	s.DefaultKey = k
 
-	return err
+	service = &s;
+	return
 }
 
 // Gen adds template files suitable for editing to the given path
@@ -355,11 +365,11 @@ func (h *Holochain) NewEntry(now time.Time,t string,prevHeader Hash,entry interf
 }
 
 // ConfiguredChains returns a list of the configured chains in the given holochain directory
-func ConfiguredChains(root string) map[string]bool {
-	files, _ := ioutil.ReadDir(root)
+func (s *Service) ConfiguredChains() map[string]bool {
+	files, _ := ioutil.ReadDir(s.Path)
 	chains := make(map[string]bool)
 	for _, f := range files {
-		if f.IsDir() && (IsConfigured(root+"/"+f.Name()) == nil) {
+		if f.IsDir() && (s.IsConfigured(f.Name()) == nil) {
 			chains[f.Name()] = true
 		}
 	}

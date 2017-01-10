@@ -46,8 +46,13 @@ func TestInit(t *testing.T) {
 		t.Error("expected no directory")
 	}
 	agent := "Fred Flintstone <fred@flintstone.com>"
-	err := Init(d, Agent(agent))
+	s,err := Init(d, Agent(agent))
 	ExpectNoErr(t,err)
+
+	if (string(s.DefaultAgent) != agent) {t.Error("expected "+agent+" got "+string(s.DefaultAgent))}
+
+	ss := fmt.Sprintf("%v",s.Settings)
+	if (ss != "{6283 true false}") {t.Error("expected settings {6283 true false} got "+ss)}
 
 	if IsInitialized(d) != true {
 		t.Error("expected initialized")
@@ -69,7 +74,8 @@ func TestInit(t *testing.T) {
 
 
 func TestLoadService(t *testing.T) {
-	d,root := setupTestService()
+	d,service := setupTestService()
+	root := service.Path
 	defer cleanupTestDir(d)
 	s,err := LoadService(root)
 	ExpectNoErr(t,err)
@@ -81,28 +87,27 @@ func TestLoadService(t *testing.T) {
 }
 
 func TestGenDev(t *testing.T) {
-	d,root := setupTestService()
+	d,s := setupTestService()
 	defer cleanupTestDir(d)
-	root = root+"/"+"test"
-
-
-	if err := IsConfigured(root); err == nil {
+	name := "test"
+	root := s.Path+"/"+name
+	if err := s.IsConfigured(name); err == nil {
 		t.Error("expected no dna got:",err)
 	}
 
-	_, err := Load(root)
+	h, err := s.Load("test")
 	ExpectErrString(t,err,"open "+root+"/"+DNAFileName+": no such file or directory")
 
-	h,err := GenDev(root)
+	h,err = GenDev(root)
 	if err != nil {
 		t.Error("expected no error got",err)
 	}
 
-	if err = IsConfigured(root); err != nil {
+	if err = s.IsConfigured(name); err != nil {
 		t.Error(err)
 	}
 
-	lh, err := Load(root)
+	lh, err := s.Load(name)
 	if  err != nil {
 		t.Error("Error parsing loading",err)
 	}
@@ -118,10 +123,10 @@ func TestGenDev(t *testing.T) {
 }
 
 func TestNewEntry(t *testing.T) {
-	d,root := setupTestService()
+	d,s := setupTestService()
 	defer cleanupTestDir(d)
 	n := "test"
-	path := root+"/"+n
+	path := s.Path+"/"+n
 	h,err := GenDev(path)
 	ExpectNoErr(t,err)
 	myData := `{
@@ -158,7 +163,7 @@ func TestNewEntry(t *testing.T) {
 	}
 
 	// check the my signature of the entry
-	pub,err := UnmarshalPublicKey(root,PubKeyFileName)
+	pub,err := UnmarshalPublicKey(s.Path,PubKeyFileName)
 	ExpectNoErr(t,err)
 	sig := header.MySignature
 	hash = header.EntryLink[:]
@@ -185,12 +190,11 @@ func mkTestDirName() string {
 	return d
 }
 
-func setupTestService() (d string,root string) {
+func setupTestService() (d string,s *Service) {
 	d = mkTestDirName()
 	agent := Agent("Herbert <h@bert.com>")
-	err := Init(d,agent)
+	s,err := Init(d,agent)
 	if err != nil {panic(err)}
-	root = d+"/"+DirectoryName
 	return
 }
 

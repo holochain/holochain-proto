@@ -36,7 +36,7 @@ const (
 	AgentFileName string = "agent.txt"  // User ID info
 	PubKeyFileName string = "pub.key"   // ECDSA Signing key - public
 	PrivKeyFileName string = "priv.key" // ECDSA Signing key - private
-	ChainFileName string = "chain.db"   // Filename for local data store
+	StoreFileName string = "chain.db"   // Filename for local data store
 
 	DefaultPort = 6283
 )
@@ -74,6 +74,7 @@ type Holochain struct {
 	path string
 	agent Agent
 	privKey *ecdsa.PrivateKey
+	db *bolt.DB
 }
 
 // SHA256 hash of Entry's Content
@@ -125,20 +126,23 @@ func (s *Service) IsConfigured(name string) error {
 	path := s.Path+"/"+name
 	p := path+"/"+DNAFileName
 	if !fileExists(p) {return errors.New("missing "+p)}
+	p = path+"/"+StoreFileName
+	if !fileExists(p) {return errors.New("chain store missing: "+p)}
+
 	lh, err := s.Load(name)
 	if err != nil {return err}
 
-	//if !fileExists(path+"/"+ChainFileName) {return errors.New("data store missing")}
-
 	SelfDescribingSchemas := map[string]bool {
-		"JSON": true}
+		"JSON": true,
+		"gobs": true,
+	}
 	for _,t := range lh.Types {
-		s := lh.Schemas[t]
-		if !SelfDescribingSchemas[s] {
-			if !fileExists(path+"/"+s) {return errors.New("DNA specified schema missing: "+s)}
+		sc := lh.Schemas[t]
+		if !SelfDescribingSchemas[sc] {
+			if !fileExists(path+"/"+sc) {return errors.New("DNA specified schema missing: "+sc)}
 		}
-		s = lh.Validators[t]
-		if !fileExists(path+"/"+s) {return errors.New("DNA specified validator missing: "+s)}
+		sc = lh.Validators[t]
+		if !fileExists(path+"/"+sc) {return errors.New("DNA specified validator missing: "+sc)}
 	}
 	return nil
 }
@@ -151,7 +155,7 @@ func New(agent Agent ,key *ecdsa.PrivateKey,path string) Holochain {
 		Id:u,
 		HashType: "SHA256",
 		Types: []string{"myData"},
-		Schemas: map[string]string{"myData":"JSON"},
+		Schemas: map[string]string{"myData":"gobs"},
 		Validators: map[string]string{"myData":"valid_myData.js"},
 		agent: agent,
 		privKey: key,
@@ -179,6 +183,10 @@ func (s *Service) Load(name string) (hP *Holochain,err error) {
 	if err != nil {return}
 	h.agent = agent
 	h.privKey = key
+
+	h.db,err = OpenStore(path+"/"+StoreFileName)
+	if err != nil {return}
+
 	hP = &h
 	return
 }
@@ -290,6 +298,10 @@ function validateChain(entry,user_data) {
 };
 `
 	if err = writeFile(path,"valid_myData.js",[]byte(s)); err != nil {return}
+
+	h.db,err = OpenStore(path+"/"+StoreFileName)
+	if err != nil {return}
+
 	return
 }
 
@@ -308,6 +320,9 @@ func OpenStore(path string) (db *bolt.DB, err error) {
 	if err != nil {return}
 	err = db.Update(func(tx *bolt.Tx) (err error) {
 		_, err = tx.CreateBucketIfNotExists([]byte("Entries"))
+		if err == nil {
+			_, err = tx.CreateBucketIfNotExists([]byte("Meta"))
+		}
 		return
 	})
 	if err !=nil {db.Close();db = nil}

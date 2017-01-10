@@ -39,17 +39,14 @@ func TestGenChain(t *testing.T) {
 }
 
 func TestInit(t *testing.T) {
-	pwd, err := os.Getwd()
-	if err != nil {panic(err)}
-	defer func() {os.Chdir(pwd)}()
-	d := mkTestDir();
-	defer func() {os.RemoveAll(d)}()
+	d := setupTestDir()
+	defer cleanupTestDir(d)
 
 	if IsInitialized(d) != false {
 		t.Error("expected no directory")
 	}
 	agent := "Fred Flintstone <fred@flintstone.com>"
-	err = Init(d, Agent(agent))
+	err := Init(d, Agent(agent))
 	ExpectNoErr(t,err)
 
 	if IsInitialized(d) != true {
@@ -71,22 +68,16 @@ func TestInit(t *testing.T) {
 }
 
 func TestGenDev(t *testing.T) {
-	pwd, err := os.Getwd()
-	if err != nil {panic(err)}
-	defer func() {os.Chdir(pwd)}()
-	d := mkTestDir()
-	defer func() {os.RemoveAll(d)}()
-	agent := Agent("Herbert <h@bert.com>")
-	err = Init(d,agent)
-	ExpectNoErr(t,err)
-	root := d+"/"+DirectoryName+"/"+"test"
+	d,root := setupTestService()
+	defer cleanupTestDir(d)
+	root = root+"/"+"test"
 
 
-	if err = IsConfigured(root); err == nil {
+	if err := IsConfigured(root); err == nil {
 		t.Error("expected no dna got:",err)
 	}
 
-	_, err = Load(root)
+	_, err := Load(root)
 	ExpectErrString(t,err,"open "+root+"/"+DNAFileName+": no such file or directory")
 
 	h,err := GenDev(root)
@@ -114,15 +105,8 @@ func TestGenDev(t *testing.T) {
 }
 
 func TestNewEntry(t *testing.T) {
-	pwd, err := os.Getwd()
-	if err != nil {panic(err)}
-	defer func() {os.Chdir(pwd)}()
-	d := mkTestDir();
-	defer func() {os.RemoveAll(d)}()
-	agent := Agent("Herbert <h@bert.com>")
-	err = Init(d,agent)
-	ExpectNoErr(t,err)
-	root := d+"/"+DirectoryName
+	d,root := setupTestService()
+	defer cleanupTestDir(d)
 	n := "test"
 	path := root+"/"+n
 	h,err := GenDev(path)
@@ -182,8 +166,26 @@ func ExpectNoErr(t *testing.T,err error) {
 	}
 }
 
-func mkTestDir() string {
+func mkTestDirName() string {
 	t := time.Now()
 	d := "/tmp/holochain_test"+strconv.FormatInt(t.Unix(),10)+"."+strconv.Itoa(t.Nanosecond())
 	return d
+}
+
+func setupTestService() (d string,root string) {
+	d = mkTestDirName()
+	agent := Agent("Herbert <h@bert.com>")
+	err := Init(d,agent)
+	if err != nil {panic(err)}
+	root = d+"/"+DirectoryName
+	return
+}
+
+func setupTestDir() string {
+	d := mkTestDirName();
+	return d
+}
+
+func cleanupTestDir(path string) {
+	func() {os.RemoveAll(path)}()
 }

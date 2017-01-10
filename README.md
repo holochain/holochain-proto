@@ -9,7 +9,7 @@ In other words, a holochain functions very much **like a blockchain without bott
 <td><b>Holochain Info:</b>
 <td><a href="https://github.com/metacurrency/holochain/FAQ.md">FAQ</a></td>
 <td><a href="http://holochain.org/whitepaper">White Paper</a></td>
-<td><a href="(https://godoc.org/github.com/metacurrency/holochain)">GoDocs</a></td></tr></table>
+<td><a href="https://godoc.org/github.com/metacurrency/holochain">GoDocs</a></td></tr></table>
 
 <br/>
 **Table of Contents**
@@ -108,7 +108,7 @@ For serving data shared across the network. When your node receives a request fr
 
 ## Documentation
 
-See the [Auto-generated Go Doc API for Holochain](https://godoc.org/github.com/metacurrency/holochain)
+See the [Auto-generated Go Doc Reference API for Holochain](https://godoc.org/github.com/metacurrency/holochain)
 
 ## Testing
 

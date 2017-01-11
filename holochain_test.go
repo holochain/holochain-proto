@@ -8,7 +8,11 @@ import (
 	"github.com/google/uuid"
 	"os"
 	b58 "github.com/jbenet/go-base58"
+	"crypto/sha256"
 	"crypto/ecdsa"
+	gob "encoding/gob"
+	"bytes"
+	"math/big"
 )
 
 func TestNew(t *testing.T) {
@@ -140,7 +144,8 @@ func TestNewEntry(t *testing.T) {
 
 	now := time.Unix(1,1) // pick a constant time so the test will always work
 
-	headerHash,header,err := h.NewEntry(now,"myData",link,myData)
+	e := GobEntry{C:myData}
+	headerHash,header,err := h.NewEntry(now,"myData",link,&e)
 	ExpectNoErr(t,err)
 
 	if header.Time != now {t.Error("expected time:"+fmt.Sprintf("%v",now))}
@@ -153,21 +158,75 @@ func TestNewEntry(t *testing.T) {
 
 	// check the content link
 	l =  b58.Encode(header.EntryLink[:])
-	if l != "G4hiF3uvJhzimE4Tbyc4UgdUaznbm3vqbbH6G99SaMTL" {t.Error("expected entry hash, got",l)}
+	if l != "DCaA7jHAvp1godeUgXLhMjgSmXrJPHYG9UP5UAoxH83T" {t.Error("expected entry hash, got",l)}
 
 	// check the hash
-	hash = headerHash[:]
+	// fmt.Printf("HEADER: %v\n",header)
+	// hard to check the hash because the signature created each time test runs is
+	// different (though valid) so the header will hash to a different value
+
+ 	hash = headerHash[:]
 	a := b58.Encode(hash)
-	if a != "EdkgsdwazMZc9vJJgGXgbGwZFvy2Wa1hLCjngmkw3PbF" {
-		t.Error("expected EdkgsdwazMZc9vJJgGXgbGwZFvy2Wa1hLCjngmkw3PbF got:",a)
+
+	b,err := ByteEncoder(&header)
+	hh := Hash(sha256.Sum256(b))
+	if (a != b58.Encode(hh[:])) {
+		t.Error("expected header hash match!")
 	}
+
+	/*	if a != "EdkgsdwazMZc9vJJgGXgbGwZFvy2Wa1hLCjngmkw3PbF" {
+		t.Error("expected EdkgsdwazMZc9vJJgGXgbGwZFvy2Wa1hLCjngmkw3PbF got:",a)
+	}*/
 
 	// check the my signature of the entry
 	pub,err := UnmarshalPublicKey(s.Path,PubKeyFileName)
 	ExpectNoErr(t,err)
 	sig := header.MySignature
 	hash = header.EntryLink[:]
-	if !ecdsa.Verify(pub,hash,&sig.R,&sig.S) {t.Error("expected verify!")}
+	if !ecdsa.Verify(pub,hash,sig.R,sig.S) {t.Error("expected verify!")}
+}
+
+func TestHeader(t *testing.T) {
+	var h1,h2 Header
+	h1 = mkTestHeader()
+
+	var buf bytes.Buffer
+	enc := gob.NewEncoder(&buf)
+	err := enc.Encode(&h1)
+	ExpectNoErr(t,err)
+
+	dec := gob.NewDecoder(&buf)
+	err = dec.Decode(&h2)
+
+	s1 := fmt.Sprintf("%v",h1)
+	s2 := fmt.Sprintf("%v",h2)
+	if s2!=s1 {t.Error("expected binary match! "+s2+" "+s1)}
+}
+
+func TestGob(t *testing.T) {
+	gob.Register(Header{})
+
+	g := GobEntry{C:mkTestHeader()}
+	v,err := g.Marshal()
+	ExpectNoErr(t,err)
+	var g2 GobEntry
+	err = g2.Unmarshal(v)
+	ExpectNoErr(t,err)
+	sg1 := fmt.Sprintf("%v",g)
+	sg2 := fmt.Sprintf("%v",g)
+	if sg2!=sg1 {t.Error("expected gob match! \n  "+sg2+" \n  "+sg1)}
+}
+
+func TestJSONEntry(t *testing.T) {
+	/* Not yet implemented or used
+	g := JSONEntry{C:Config{Port:8888}}
+	v,err := g.Marshal()
+	ExpectNoErr(t,err)
+	var g2 JSONEntry
+	err = g2.Unmarshal(v)
+	ExpectNoErr(t,err)
+	if g2!=g {t.Error("expected JSON match! "+fmt.Sprintf("%v",g)+" "+fmt.Sprintf("%v",g2))}
+*/
 }
 
 //----------------------------------------------------------------------------------------
@@ -205,4 +264,19 @@ func setupTestDir() string {
 
 func cleanupTestDir(path string) {
 	func() {os.RemoveAll(path)}()
+}
+
+func mkTestHeader() Header {
+	var hl,el Hash
+	copy(hl[:],b58.Decode("1vemK25pc5ewYtztPGYAdX39uXuyV13xdouCnZUr8RMA"))
+	copy(el[:],b58.Decode("2vemK25pc5ewYtztPGYAdX39uXuyV13xdouCnZUr8RMA"))
+	now := time.Unix(1,1) // pick a constant time so the test will always work
+	h1 := Header{Time:now,Type:"fish",Meta:"dog",
+		HeaderLink:hl,
+		EntryLink:el,
+		MySignature:Signature{R:new(big.Int),S:new(big.Int)},
+	}
+	h1.MySignature.R.SetUint64(123)
+	h1.MySignature.S.SetUint64(321)
+	return h1
 }

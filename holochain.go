@@ -8,6 +8,8 @@ package holochain
 import (
 	_ "fmt"
 	"os"
+	"bytes"
+	"encoding/gob"
 	"io/ioutil"
 	"errors"
 	"crypto/ecdsa"
@@ -81,18 +83,33 @@ type Holochain struct {
 type Hash [32]byte
 
 // Holds content for a holochain
-type Entry interface{}
+type Entry interface {
+	Marshal() ([]byte,error)
+	Unmarshal([]byte) error
+	Content() interface{}
+}
+
+// GobEntry is a structure for implementing Gob encoding of Entry content
+type GobEntry struct {
+	C interface{}
+}
+
+// JSONEntry is a structure for implementing JSON encoding of Entry content
+type JSONEntry struct {
+	C interface{}
+}
+
 
 // ECDSA signature of an Entry
 type Signature struct {
-	R big.Int
-	S big.Int
+	R *big.Int
+	S *big.Int
 }
 
 // Holochain entry header
 type Header struct {
-	Time time.Time
 	Type string
+	Time time.Time
 	HeaderLink Hash
 	EntryLink Hash
 	MySignature Signature
@@ -321,7 +338,10 @@ func OpenStore(path string) (db *bolt.DB, err error) {
 	err = db.Update(func(tx *bolt.Tx) (err error) {
 		_, err = tx.CreateBucketIfNotExists([]byte("Entries"))
 		if err == nil {
-			_, err = tx.CreateBucketIfNotExists([]byte("Meta"))
+			_, err = tx.CreateBucketIfNotExists([]byte("Headers"))
+			if err == nil {
+				_, err = tx.CreateBucketIfNotExists([]byte("Meta"))
+			}
 		}
 		return
 	})
@@ -329,28 +349,65 @@ func OpenStore(path string) (db *bolt.DB, err error) {
 	return
 }
 
+// ByteEncoder encodes anything using gob
+func ByteEncoder(data interface{}) (b []byte,err error) {
+	var buf bytes.Buffer
+	enc := gob.NewEncoder(&buf)
+	err = enc.Encode(data)
+	if err != nil {return}
+	b = buf.Bytes()
+	return
+}
+
+// ByteEncoder decodes data encoded by ByteEncoder
+func ByteDecoder(b []byte,to *interface{}) (err error) {
+	buf := bytes.NewBuffer(b)
+	dec := gob.NewDecoder(buf)
+	err = dec.Decode(to)
+	return
+}
+
+// implementation of Entry interface with gobs
+func (e *GobEntry) Marshal() (b []byte,err error) {
+	b,err = ByteEncoder(&e.C)
+	return
+}
+func (e *GobEntry) Unmarshal(b []byte) (err error) {
+	err = ByteDecoder(b,&e.C)
+	return
+}
+func (e *GobEntry) Content() interface{} {return e.C}
+
+// implementation of Entry interface with JSON
+func (e *JSONEntry) Marshal() (b []byte,err error) {
+	j,err := json.Marshal(e.C)
+	if err != nil {return}
+	b = []byte(j)
+	return
+}
+func (e *JSONEntry) Unmarshal(b []byte) (err error) {
+	err = json.Unmarshal(b, &e.C)
+	return
+}
+func (e *JSONEntry) Content() interface{} {return e.C}
+
+
 /*
-func (e *Entry) Marshal() ([]byte,error) {
-	return []byte("fish"),nil
-}
-
-type EntryMarshaler interface {
-	 MarshalContent()
-}
-
-//MarshalContent serialized the content portion of Entry preparing to be hashed
-func (e *Entry) MarshalContent() ([]byte,error) {
-	return []byte("fish"),nil
-}
-
-
 // AddEntry stores the an entry by its Hash into the data store
-func AdddEntry(db *bolt.DB,key EntryHash,entry *Entry) (err error) {
-	db.Update(func(tx *bolt.Tx) error {
+func (h *Holochain) AdddEntry(key Hash,header *Header,entry Entry) (err error) {
+	h.db.Update(func(tx *bolt.Tx) error {
 		b := tx.Bucket([]byte("Entries"))
 		v,err := entry.Marshal()
 		if err !=nil {return err}
 		err = b.Put(key[:], v)
+		if err != nil {return err}
+
+		b = tx.Bucket([]byte("Headers"))
+		v,err = h.MarshalHeader(header)
+		if err !=nil {return err}
+		err = b.Put(key[:], v)
+		if err != nil {return err}
+
 		return nil
 	})
 	return
@@ -358,22 +415,23 @@ func AdddEntry(db *bolt.DB,key EntryHash,entry *Entry) (err error) {
 */
 
 // NewEntry returns a hashed signed Entry
-func (h *Holochain) NewEntry(now time.Time,t string,prevHeader Hash,entry interface{}) (hash Hash,header *Header,err error) {
+func (h *Holochain) NewEntry(now time.Time,t string,prevHeader Hash,entry Entry) (hash Hash,header *Header,err error) {
 	var hd Header
 	hd.Type = t
 	hd.HeaderLink = prevHeader
 	hd.Time = now
 
-	j,err := json.Marshal(entry)
+	m,err := entry.Marshal()
 	if err != nil {return}
-	hd.EntryLink = Hash(sha256.Sum256([]byte(j)))
+	hd.EntryLink = Hash(sha256.Sum256(m))
 
 	r,s,err := ecdsa.Sign(rand.Reader,h.privKey,hd.EntryLink[:])
 	if err != nil {return}
-	hd.MySignature = Signature{R:*r,S:*s}
+	hd.MySignature = Signature{R:r,S:s}
 
-	j,err = json.Marshal(hd)
-	hash = Hash(sha256.Sum256([]byte(j)))
+	b,err := ByteEncoder(&hd)
+	if err !=nil {return}
+	hash = Hash(sha256.Sum256(b))
 
 	header = &hd
 	return

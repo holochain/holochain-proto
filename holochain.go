@@ -360,7 +360,7 @@ func ByteEncoder(data interface{}) (b []byte,err error) {
 }
 
 // ByteEncoder decodes data encoded by ByteEncoder
-func ByteDecoder(b []byte,to *interface{}) (err error) {
+func ByteDecoder(b []byte,to interface{}) (err error) {
 	buf := bytes.NewBuffer(b)
 	dec := gob.NewDecoder(buf)
 	err = dec.Decode(to)
@@ -391,30 +391,7 @@ func (e *JSONEntry) Unmarshal(b []byte) (err error) {
 }
 func (e *JSONEntry) Content() interface{} {return e.C}
 
-
-/*
-// AddEntry stores the an entry by its Hash into the data store
-func (h *Holochain) AdddEntry(key Hash,header *Header,entry Entry) (err error) {
-	h.db.Update(func(tx *bolt.Tx) error {
-		b := tx.Bucket([]byte("Entries"))
-		v,err := entry.Marshal()
-		if err !=nil {return err}
-		err = b.Put(key[:], v)
-		if err != nil {return err}
-
-		b = tx.Bucket([]byte("Headers"))
-		v,err = h.MarshalHeader(header)
-		if err !=nil {return err}
-		err = b.Put(key[:], v)
-		if err != nil {return err}
-
-		return nil
-	})
-	return
-}
-*/
-
-// NewEntry returns a hashed signed Entry
+// NewEntry adds an entry and it's header to the chain and returns the header and it's hash
 func (h *Holochain) NewEntry(now time.Time,t string,prevHeader Hash,entry Entry) (hash Hash,header *Header,err error) {
 	var hd Header
 	hd.Type = t
@@ -433,6 +410,17 @@ func (h *Holochain) NewEntry(now time.Time,t string,prevHeader Hash,entry Entry)
 	if err !=nil {return}
 	hash = Hash(sha256.Sum256(b))
 
+	h.db.Update(func(tx *bolt.Tx) error {
+		bkt := tx.Bucket([]byte("Entries"))
+		err = bkt.Put(hd.EntryLink[:], m)
+		if err != nil {return err}
+
+		bkt = tx.Bucket([]byte("Headers"))
+		err = bkt.Put(hash[:], b)
+		if err != nil {return err}
+
+		return nil
+	})
 	header = &hd
 	return
 }

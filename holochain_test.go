@@ -13,6 +13,8 @@ import (
 	gob "encoding/gob"
 	"bytes"
 	"math/big"
+	"github.com/boltdb/bolt"
+
 )
 
 func TestNew(t *testing.T) {
@@ -133,11 +135,8 @@ func TestNewEntry(t *testing.T) {
 	path := s.Path+"/"+n
 	h,err := GenDev(path)
 	ExpectNoErr(t,err)
-	myData := `{
-"from": "Art"
-"msg": "Hi there!"
-}
-`
+	myData := `(message (from "art") (to "eric") (contents "test"))`
+
 	hash := b58.Decode("3vemK25pc5ewYtztPGYAdX39uXuyV13xdouCnZUr8RMA") // dummy link hash
 	var link Hash
 	copy(link[:],hash)
@@ -158,7 +157,7 @@ func TestNewEntry(t *testing.T) {
 
 	// check the content link
 	l =  b58.Encode(header.EntryLink[:])
-	if l != "DCaA7jHAvp1godeUgXLhMjgSmXrJPHYG9UP5UAoxH83T" {t.Error("expected entry hash, got",l)}
+	if l != "G5tGxuTygAMYx2BMagaWJrYpwtiVuDFUtnYkX6rpL1Y5" {t.Error("expected entry hash, got",l)}
 
 	// check the hash
 	// fmt.Printf("HEADER: %v\n",header)
@@ -184,6 +183,36 @@ func TestNewEntry(t *testing.T) {
 	sig := header.MySignature
 	hash = header.EntryLink[:]
 	if !ecdsa.Verify(pub,hash,sig.R,sig.S) {t.Error("expected verify!")}
+
+	err = h.db.View(func(tx *bolt.Tx) error {
+		b := tx.Bucket([]byte("Headers"))
+		v := b.Get(headerHash[:])
+
+		s1 := fmt.Sprintf("%v",*header)
+
+		var h2 Header
+		err := ByteDecoder(v,&h2)
+
+		if err != nil {return err}
+		s2 := fmt.Sprintf("%v",h2)
+		if s2!=s1 {t.Error("expected header to match! \n  "+s2+" \n  "+s1)}
+
+		b = tx.Bucket([]byte("Entries"))
+		v = b.Get(header.EntryLink[:])
+		s1 = fmt.Sprintf("%v",myData)
+
+		var d2 GobEntry
+		err = d2.Unmarshal(v)
+
+		if err != nil {return err}
+		s2 = fmt.Sprintf("%v",d2.C)
+		if s2!=s1 {t.Error("expected entry to match! \n  "+s2+" \n  "+s1)}
+
+
+		return nil
+	})
+	ExpectNoErr(t,err)
+
 }
 
 func TestHeader(t *testing.T) {

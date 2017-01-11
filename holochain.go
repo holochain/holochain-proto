@@ -425,6 +425,28 @@ func (h *Holochain) NewEntry(now time.Time,t string,prevHeader Hash,entry Entry)
 	return
 }
 
+// Get returns a header, and (optionally) it's entry if getEntry is true
+func (h *Holochain) Get(hash Hash,getEntry bool) (header Header,entry interface{},err error){
+	err = h.db.View(func(tx *bolt.Tx) error {
+		b := tx.Bucket([]byte("Headers"))
+		v := b.Get(hash[:])
+
+		err := ByteDecoder(v,&header)
+		if err != nil {return err}
+		if getEntry {
+			b = tx.Bucket([]byte("Entries"))
+			v = b.Get(header.EntryLink[:])
+			var g GobEntry
+			err = g.Unmarshal(v)
+			if err != nil {return err}
+			entry = g.C
+		}
+
+		return nil
+	})
+	return
+}
+
 // ConfiguredChains returns a list of the configured chains in the given holochain directory
 func (s *Service) ConfiguredChains() map[string]bool {
 	files, _ := ioutil.ReadDir(s.Path)

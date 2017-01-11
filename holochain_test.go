@@ -13,7 +13,6 @@ import (
 	gob "encoding/gob"
 	"bytes"
 	"math/big"
-	"github.com/boltdb/bolt"
 
 )
 
@@ -184,34 +183,20 @@ func TestNewEntry(t *testing.T) {
 	hash = header.EntryLink[:]
 	if !ecdsa.Verify(pub,hash,sig.R,sig.S) {t.Error("expected verify!")}
 
-	err = h.db.View(func(tx *bolt.Tx) error {
-		b := tx.Bucket([]byte("Headers"))
-		v := b.Get(headerHash[:])
+	s1 := fmt.Sprintf("%v",*header)
+	d1 := fmt.Sprintf("%v",myData)
 
-		s1 := fmt.Sprintf("%v",*header)
-
-		var h2 Header
-		err := ByteDecoder(v,&h2)
-
-		if err != nil {return err}
-		s2 := fmt.Sprintf("%v",h2)
-		if s2!=s1 {t.Error("expected header to match! \n  "+s2+" \n  "+s1)}
-
-		b = tx.Bucket([]byte("Entries"))
-		v = b.Get(header.EntryLink[:])
-		s1 = fmt.Sprintf("%v",myData)
-
-		var d2 GobEntry
-		err = d2.Unmarshal(v)
-
-		if err != nil {return err}
-		s2 = fmt.Sprintf("%v",d2.C)
-		if s2!=s1 {t.Error("expected entry to match! \n  "+s2+" \n  "+s1)}
-
-
-		return nil
-	})
+	h2,_,err := h.Get(headerHash,false)
 	ExpectNoErr(t,err)
+	s2 := fmt.Sprintf("%v",h2)
+	if s2!=s1 {t.Error("expected header to match! \n  "+s2+" \n  "+s1)}
+
+	var d2 interface{}
+	h2,d2,err = h.Get(headerHash,true)
+	ExpectNoErr(t,err)
+	s2 = fmt.Sprintf("%v",d2)
+	if s2!=d1 {t.Error("expected entry to match! \n  "+s2+" \n  "+d1)}
+
 
 }
 

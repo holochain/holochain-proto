@@ -7,7 +7,6 @@ import (
 	"time"
 	"github.com/google/uuid"
 	"os"
-	b58 "github.com/jbenet/go-base58"
 	"crypto/sha256"
 	"crypto/ecdsa"
 	gob "encoding/gob"
@@ -132,9 +131,7 @@ func TestNewEntry(t *testing.T) {
 	ExpectNoErr(t,err)
 	myData := `(message (from "art") (to "eric") (contents "test"))`
 
-	hash := b58.Decode("3vemK25pc5ewYtztPGYAdX39uXuyV13xdouCnZUr8RMA") // dummy link hash
-	var link Hash
-	copy(link[:],hash)
+	link := NewHash("3vemK25pc5ewYtztPGYAdX39uXuyV13xdouCnZUr8RMA") // dummy link hash
 
 	now := time.Unix(1,1) // pick a constant time so the test will always work
 
@@ -147,7 +144,7 @@ func TestNewEntry(t *testing.T) {
 		So(header.HeaderLink,ShouldEqual,link)
 	})
 	Convey("the entry hash is correct", t, func() {
-		So(b58.Encode(header.EntryLink[:]),ShouldEqual,"G5tGxuTygAMYx2BMagaWJrYpwtiVuDFUtnYkX6rpL1Y5")
+		So(header.EntryLink.String(),ShouldEqual,"G5tGxuTygAMYx2BMagaWJrYpwtiVuDFUtnYkX6rpL1Y5")
 	})
 
 	// can't check against a fixed hash because signature created each time test runs is
@@ -166,7 +163,7 @@ func TestNewEntry(t *testing.T) {
 	pub,err := UnmarshalPublicKey(s.Path,PubKeyFileName)
 	ExpectNoErr(t,err)
 	sig := header.MySignature
-	hash = header.EntryLink[:]
+	hash := header.EntryLink[:]
 	if !ecdsa.Verify(pub,hash,sig.R,sig.S) {t.Error("expected verify!")}
 
 	s1 := fmt.Sprintf("%v",*header)
@@ -318,9 +315,8 @@ func cleanupTestDir(path string) {
 }
 
 func mkTestHeader() Header {
-	var hl,el Hash
-	copy(hl[:],b58.Decode("1vemK25pc5ewYtztPGYAdX39uXuyV13xdouCnZUr8RMA"))
-	copy(el[:],b58.Decode("2vemK25pc5ewYtztPGYAdX39uXuyV13xdouCnZUr8RMA"))
+	hl := NewHash("1vemK25pc5ewYtztPGYAdX39uXuyV13xdouCnZUr8RMA")
+	el := NewHash("2vemK25pc5ewYtztPGYAdX39uXuyV13xdouCnZUr8RMA")
 	now := time.Unix(1,1) // pick a constant time so the test will always work
 	h1 := Header{Time:now,Type:"fish",Meta:"dog",
 		HeaderLink:hl,

@@ -25,7 +25,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/BurntSushi/toml"
 	"github.com/boltdb/bolt"
-	_ "github.com/jbenet/go-base58"
+	b58 "github.com/jbenet/go-base58"
 )
 
 const Version string = "0.0.1"
@@ -125,6 +125,17 @@ type Header struct {
 	EntryLink Hash
 	MySignature Signature
 	Meta interface{}
+}
+
+// String encodes a hash to a human readable string
+func (h *Hash) String() string {
+	return b58.Encode(h[:])
+}
+
+// NewHash builds a Hash from a string encoded hash
+func NewHash(s string) (h Hash) {
+	copy(h[:],b58.Decode(s))
+	return
 }
 
 func LoadService(path string) (service *Service,err error) {

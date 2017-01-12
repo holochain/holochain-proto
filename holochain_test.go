@@ -13,7 +13,7 @@ import (
 	gob "encoding/gob"
 	"bytes"
 	"math/big"
-
+	toml "github.com/BurntSushi/toml"
 )
 
 func TestNew(t *testing.T) {
@@ -36,11 +36,6 @@ func TestNew(t *testing.T) {
 		t.Error("path got:",h.path)
 	}
 
-}
-
-func TestGenChain(t *testing.T) {
-	err := GenChain()
-	ExpectNoErr(t,err)
 }
 
 func TestInit(t *testing.T) {
@@ -241,6 +236,28 @@ func TestJSONEntry(t *testing.T) {
 	ExpectNoErr(t,err)
 	if g2!=g {t.Error("expected JSON match! "+fmt.Sprintf("%v",g)+" "+fmt.Sprintf("%v",g2))}
 */
+}
+
+func TestGenChain(t *testing.T) {
+	d,s := setupTestService()
+	defer cleanupTestDir(d)
+	n := "test"
+	path := s.Path+"/"+n
+	h,err := GenDev(path)
+	ExpectNoErr(t,err)
+	err = h.GenDNAHashes()
+	ExpectNoErr(t,err)
+
+	var h2 Holochain
+	_,err = toml.DecodeFile(path+"/"+DNAFileName, &h2)
+	ExpectNoErr(t,err)
+
+	if h2.ValidatorHashes["myData"] != h.ValidatorHashes["myData"] {
+		t.Error("expected hashes to match")
+	}
+
+	err = h.GenChain()
+	ExpectNoErr(t,err)
 }
 
 //----------------------------------------------------------------------------------------

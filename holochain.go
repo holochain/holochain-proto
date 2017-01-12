@@ -63,15 +63,17 @@ type Agent string
 
 // Holochain DNA settings
 type Holochain struct {
+	Version int
 	Id uuid.UUID
-	ShortName string
-	FullName string
-	Description string
+	Name string
+	GroupInfo map[string]string
 	HashType string
+	BasedOn Hash  // holochain hash for base schemas and validators
 	Types []string
 	Schemas map[string]string
+	SchemaHashes map[string]Hash
 	Validators map[string]string
-
+	ValidatorHashes map[string]Hash
 	//---- private values not serialized
 	path string
 	agent Agent
@@ -138,6 +140,14 @@ func IsInitialized(path string) bool {
 	return dirExists(root) && fileExists(root+"/"+SysFileName) && fileExists(root+"/"+AgentFileName)
 }
 
+func SelfDescribingSchema(sc string) bool {
+	SelfDescribingSchemas := map[string]bool {
+		"JSON": true,
+		"zygo": true,
+	}
+	return SelfDescribingSchemas[sc]
+
+}
 //IsConfigured checks a directory for correctly set up holochain configuration files
 func (s *Service) IsConfigured(name string) error {
 	path := s.Path+"/"+name
@@ -149,13 +159,9 @@ func (s *Service) IsConfigured(name string) error {
 	lh, err := s.Load(name)
 	if err != nil {return err}
 
-	SelfDescribingSchemas := map[string]bool {
-		"JSON": true,
-		"gobs": true,
-	}
 	for _,t := range lh.Types {
 		sc := lh.Schemas[t]
-		if !SelfDescribingSchemas[sc] {
+		if !SelfDescribingSchema(sc) {
 			if !fileExists(path+"/"+sc) {return errors.New("DNA specified schema missing: "+sc)}
 		}
 		sc = lh.Validators[t]
@@ -172,8 +178,10 @@ func New(agent Agent ,key *ecdsa.PrivateKey,path string) Holochain {
 		Id:u,
 		HashType: "SHA256",
 		Types: []string{"myData"},
-		Schemas: map[string]string{"myData":"gobs"},
-		Validators: map[string]string{"myData":"valid_myData.js"},
+		Schemas: map[string]string{"myData":"zygo"},
+		SchemaHashes:  map[string]Hash{},
+		Validators: map[string]string{"myData":"valid_myData.zyg"},
+		ValidatorHashes:  map[string]Hash{},
 		agent: agent,
 		privKey: key,
 		path: path,
@@ -257,10 +265,11 @@ func GenKeys(path string) (priv *ecdsa.PrivateKey,err error) {
 	return
 }
 
-// GenChain sets up a holochain by creating the initial genesis links.
+// GenChain sets up a holochain by creating the initial genesis entries
 // It assumes a properly set up .holochain sub-directory with a config file and
-// keys for signing.  See Gen
-func GenChain() (err error) {
+// keys for signing.  See GenDev
+func (h *Holochain) GenChain() (err error) {
+
 	return errors.New("not implemented")
 }
 
@@ -278,7 +287,7 @@ func Init(path string,agent Agent) (service *Service, err error) {
 		Path:p,
 	}
 
-	err = writeToml(p,SysFileName,s.Settings)
+	err = writeToml(p,SysFileName,s.Settings,false)
 	if err != nil {return}
 
 	writeFile(p,AgentFileName,[]byte(agent))
@@ -302,25 +311,50 @@ func GenDev(path string) (hP *Holochain, err error) {
 	if err != nil {return}
 	h = New(agent,key,path)
 
-	h.ShortName = filepath.Base(path)
-	if err = writeToml(path,DNAFileName,h); err != nil {return}
-	hP = &h
+	h.Name = filepath.Base(path)
 	//	if err = writeFile(path,"myData.cp",[]byte(s)); err != nil {return}  //if captain proto...
 	s := `
-function validateEntry(entry) {
-    return true;
-};
-function validateChain(entry,user_data) {
-    return true;
-};
+(defun validateEntry(entry) true)
+(defun validateChain(entry user_data) true))
 `
-	if err = writeFile(path,"valid_myData.js",[]byte(s)); err != nil {return}
+	if err = writeFile(path,"valid_myData.zyg",[]byte(s)); err != nil {return}
 
 	h.db,err = OpenStore(path+"/"+StoreFileName)
 	if err != nil {return}
 
+	err = h.SaveDNA(false)
+	if err != nil {return}
+
+	hP = &h
 	return
 }
+
+func (h *Holochain) SaveDNA(overwrite bool) (err error) {
+	err = writeToml(h.path,DNAFileName,h,overwrite)
+	return
+}
+
+// GenDNAHashes generates hashes for all the definition files in the DNA.
+// This function should only be called by developer tools at the end of the process
+// of finalizing DNA development or versioning
+func (h *Holochain) GenDNAHashes() (err error) {
+	var b []byte
+	for _,t := range h.Types {
+		sc := h.Schemas[t]
+		if !SelfDescribingSchema(sc) {
+			b,err = readFile(h.path,sc)
+			if err != nil {return}
+			h.SchemaHashes[t] = Hash(sha256.Sum256(b))
+		}
+		sc = h.Validators[t]
+		b,err = readFile(h.path,sc)
+		if err != nil {return}
+		h.ValidatorHashes[t] = Hash(sha256.Sum256(b))
+	}
+	err = h.SaveDNA(true)
+	return
+}
+
 
 //LoadSigner gets the agent and signing key from the specified directory
 func LoadSigner(path string) (agent Agent ,key *ecdsa.PrivateKey,err error) {
@@ -462,9 +496,9 @@ func (s *Service) ConfiguredChains() map[string]bool {
 //----------------------------------------------------------------------------------------
 // non exported utility functions
 
-func writeToml(path string,file string,data interface{}) error {
+func writeToml(path string,file string,data interface{},overwrite bool) error {
 	p := path+"/"+file
-	if fileExists(p) {
+	if !overwrite && fileExists(p) {
 		return mkErr(path+" already exists")
 	}
 	f, err := os.Create(p)

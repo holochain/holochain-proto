@@ -10,6 +10,7 @@ import (
 	"os"
 	"bytes"
 	"encoding/gob"
+	"io"
 	"io/ioutil"
 	"errors"
 	"crypto/ecdsa"
@@ -41,6 +42,9 @@ const (
 	StoreFileName string = "chain.db"   // Filename for local data store
 
 	DefaultPort = 6283
+
+	DNAEntryType = "_dna"
+	KeyEntryType = "_key"
 )
 
 // Holochain service configuration, i.e. Active Subsystems: DHT and/or Datastore, network port, etc
@@ -60,6 +64,12 @@ type Service struct {
 
 // Unique user identifier in context of this holochain
 type Agent string
+
+// Signing key structure for building KEYEntryType entries
+type KeyEntry struct {
+	ID Agent
+	Key []byte // marshaled x509 public key
+}
 
 // Holochain DNA settings
 type Holochain struct {
@@ -100,7 +110,6 @@ type GobEntry struct {
 type JSONEntry struct {
 	C interface{}
 }
-
 
 // ECDSA signature of an Entry
 type Signature struct {
@@ -265,15 +274,33 @@ func GenKeys(path string) (priv *ecdsa.PrivateKey,err error) {
 	return
 }
 
-// GenChain sets up a holochain by creating the initial genesis entries
+// GenChain establishes a holochain instance by creating the initial genesis entries in the chain
 // It assumes a properly set up .holochain sub-directory with a config file and
-// keys for signing.  See GenDev
-func (h *Holochain) GenChain() (err error) {
+// keys for signing.  See GenDev()
+func (h *Holochain) GenChain() (keyHash Hash,err error) {
 
-	return errors.New("not implemented")
+	var buf bytes.Buffer
+	err = h.EncodeDNA(&buf)
+
+	e := GobEntry{C:buf.Bytes()}
+	var nullLink Hash
+	dnaHash,_,err := h.NewEntry(time.Now(),DNAEntryType,nullLink,&e)
+	if err != nil {return}
+
+	var k KeyEntry
+	k.ID = h.agent
+
+	pk,err := x509.MarshalPKIXPublicKey(h.privKey.Public().(*ecdsa.PublicKey))
+	if err != nil {return}
+	k.Key = pk
+
+	e.C = k
+	keyHash,_,err = h.NewEntry(time.Now(),KeyEntryType,dnaHash,&e)
+
+	return
 }
 
-//Init initializes service defaults and a new key pair in the dirname directory
+//Init initializes service defaults including a signing key pair for an agent
 func Init(path string,agent Agent) (service *Service, err error) {
 	p := path+"/"+DirectoryName
 	err = os.MkdirAll(p,os.ModePerm)
@@ -329,8 +356,26 @@ func GenDev(path string) (hP *Holochain, err error) {
 	return
 }
 
+// EncodeDNA encodes a holochain's DNA to an io.Writer
+// we use toml so that the DNA is human readable
+func (h *Holochain) EncodeDNA(writer io.Writer) (err error) {
+	enc := toml.NewEncoder(writer)
+	err = enc.Encode(h);
+	return
+}
+
+// SaveDNA writes the holochain DNA to a file
 func (h *Holochain) SaveDNA(overwrite bool) (err error) {
-	err = writeToml(h.path,DNAFileName,h,overwrite)
+	p := h.path+"/"+DNAFileName
+	if !overwrite && fileExists(p) {
+		return mkErr(p+" already exists")
+	}
+	f, err := os.Create(p)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	err = h.EncodeDNA(f)
 	return
 }
 
@@ -443,7 +488,6 @@ func (h *Holochain) NewEntry(now time.Time,t string,prevHeader Hash,entry Entry)
 	b,err := ByteEncoder(&hd)
 	if err !=nil {return}
 	hash = Hash(sha256.Sum256(b))
-
 	h.db.Update(func(tx *bolt.Tx) error {
 		bkt := tx.Bucket([]byte("Entries"))
 		err = bkt.Put(hd.EntryLink[:], m)

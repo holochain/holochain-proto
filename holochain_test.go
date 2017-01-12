@@ -14,6 +14,7 @@ import (
 	"bytes"
 	"math/big"
 	toml "github.com/BurntSushi/toml"
+	. "github.com/smartystreets/goconvey/convey"
 )
 
 func TestNew(t *testing.T) {
@@ -139,33 +140,23 @@ func TestNewEntry(t *testing.T) {
 
 	e := GobEntry{C:myData}
 	headerHash,header,err := h.NewEntry(now,"myData",link,&e)
-	ExpectNoErr(t,err)
+	Convey("parameters passed in should be in the header", t, func() {
+		So(err,ShouldBeNil)
+		So(header.Time == now,ShouldBeTrue)
+		So(header.Type,ShouldEqual,"myData")
+		So(header.HeaderLink,ShouldEqual,link)
+	})
+	Convey("the entry hash is correct", t, func() {
+		So(b58.Encode(header.EntryLink[:]),ShouldEqual,"G5tGxuTygAMYx2BMagaWJrYpwtiVuDFUtnYkX6rpL1Y5")
+	})
 
-	if header.Time != now {t.Error("expected time:"+fmt.Sprintf("%v",now))}
-
-	if header.Type != "myData" {t.Error("expected type myData")}
-
-	// check the header link
-	l :=  b58.Encode(header.HeaderLink[:])
-	if l != "3vemK25pc5ewYtztPGYAdX39uXuyV13xdouCnZUr8RMA" {t.Error("expected header link, got",l)}
-
-	// check the content link
-	l =  b58.Encode(header.EntryLink[:])
-	if l != "G5tGxuTygAMYx2BMagaWJrYpwtiVuDFUtnYkX6rpL1Y5" {t.Error("expected entry hash, got",l)}
-
-	// check the hash
-	// fmt.Printf("HEADER: %v\n",header)
-	// hard to check the hash because the signature created each time test runs is
+	// can't check against a fixed hash because signature created each time test runs is
 	// different (though valid) so the header will hash to a different value
-
- 	hash = headerHash[:]
-	a := b58.Encode(hash)
-
-	b,err := ByteEncoder(&header)
-	hh := Hash(sha256.Sum256(b))
-	if (a != b58.Encode(hh[:])) {
-		t.Error("expected header hash match!")
-	}
+	Convey("the returned header hash is the SHA256 of the byte encoded header", t, func() {
+		b,_ := ByteEncoder(&header)
+		hh := Hash(sha256.Sum256(b))
+		So(headerHash,ShouldEqual,hh)
+	})
 
 	/*	if a != "EdkgsdwazMZc9vJJgGXgbGwZFvy2Wa1hLCjngmkw3PbF" {
 		t.Error("expected EdkgsdwazMZc9vJJgGXgbGwZFvy2Wa1hLCjngmkw3PbF got:",a)
@@ -239,6 +230,7 @@ func TestJSONEntry(t *testing.T) {
 }
 
 func TestGenChain(t *testing.T) {
+	gob.Register(KeyEntry{})
 	d,s := setupTestService()
 	defer cleanupTestDir(d)
 	n := "test"
@@ -256,8 +248,36 @@ func TestGenChain(t *testing.T) {
 		t.Error("expected hashes to match")
 	}
 
-	err = h.GenChain()
+	headerHash,err := h.GenChain()
 	ExpectNoErr(t,err)
+
+	var header Header
+	Convey("top link should be Key entry", t, func() {
+		hdr,entry,err := h.Get(headerHash,true)
+		So(err, ShouldBeNil)
+		header = hdr
+		var k KeyEntry = entry.(KeyEntry)
+		So(k.ID,ShouldEqual,h.agent)
+		//So(hdr,ShouldEqual,"doggy")
+ 	})
+
+/*	test that key got retrieved correctly
+        s1 := "??"
+	s2 := fmt.Sprintf("%v",entry)
+	if s2 != "fish" {
+		t.Error("expected: \n  "+s1+"\ngot:\n  "+s2)
+	}*/
+
+	Convey("next link should be the dna entry", t, func() {
+		_,entry,err := h.Get(header.HeaderLink,true)
+		So(err, ShouldBeNil)
+
+		var buf bytes.Buffer
+		err = h.EncodeDNA(&buf)
+		So(string(entry.([]byte)), ShouldEqual, string(buf.Bytes()))
+	})
+
+
 }
 
 //----------------------------------------------------------------------------------------

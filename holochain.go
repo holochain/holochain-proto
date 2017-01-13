@@ -12,7 +12,6 @@ import (
 	"bytes"
 	"encoding/gob"
 	"io"
-	"io/ioutil"
 	"errors"
 	"crypto/ecdsa"
 	"crypto/rand"
@@ -141,7 +140,7 @@ func New(agent Agent ,key *ecdsa.PrivateKey,path string) Holochain {
 	return h
 }
 
-// Load creates a holochain structure from the configuration files
+// Load unmarshals a holochain structure for the named chain in a service
 func (s *Service) Load(name string) (hP *Holochain,err error) {
 	var h Holochain
 
@@ -416,17 +415,4 @@ func (h *Holochain) Get(hash Hash,getEntry bool) (header Header,entry interface{
 	return
 }
 
-// ConfiguredChains returns a list of the configured chains in the given holochain directory
-func (s *Service) ConfiguredChains() map[string]*Holochain {
-	files, _ := ioutil.ReadDir(s.Path)
-	chains := make(map[string]*Holochain)
-	for _, f := range files {
-		if f.IsDir() {
-			h,err := s.IsConfigured(f.Name())
-			if err == nil {
-				chains[f.Name()] = h
-			}
-		}
-	}
-	return chains
 }

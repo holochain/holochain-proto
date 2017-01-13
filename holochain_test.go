@@ -167,18 +167,14 @@ func TestJSONEntry(t *testing.T) {
 
 func TestGenChain(t *testing.T) {
 	gob.Register(KeyEntry{})
-	d,s := setupTestService()
+	d,_,h := setupTestChain("test")
 	defer cleanupTestDir(d)
-	n := "test"
-	path := s.Path+"/"+n
-	h,err := GenDev(path)
-	ExpectNoErr(t,err)
-
+	var err error
 	Convey("Generating DNA Hashes should re-save the DNA file",t,func() {
 		err = h.GenDNAHashes()
 		So(err, ShouldBeNil)
 		var h2 Holochain
-		_,err = toml.DecodeFile(path+"/"+DNAFileName, &h2)
+		_,err = toml.DecodeFile(h.path+"/"+DNAFileName, &h2)
 		So(err, ShouldBeNil)
 		So( h2.ValidatorHashes["myData"],ShouldEqual, h.ValidatorHashes["myData"] )
 	})

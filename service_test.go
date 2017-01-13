@@ -63,3 +63,13 @@ func TestLoadService(t *testing.T) {
 	})
 
 }
+
+func TestConfiguredChains(t *testing.T) {
+	d,s,h := setupTestChain("test")
+	defer cleanupTestDir(d)
+	Convey("Configured chains should return a hash of all the chains in the Service",t,func(){
+		chains,err := s.ConfiguredChains()
+		So(err,ShouldBeNil)
+		So(chains["test"].Id,ShouldEqual,h.Id)
+	})
+}

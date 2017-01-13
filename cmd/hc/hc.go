@@ -62,7 +62,7 @@ func main() {
 					Action: func(c *cli.Context) error {
 						if !initialized {return uninitialized}
 						name := c.Args().First()
-						chains := service.ConfiguredChains()
+						chains,_ := service.ConfiguredChains()
 						if chains[name]==nil {return errors.New(name+" doesn't exist")}
 						_,err := holo.GenKeys(root+"/"+name)
 						return err
@@ -163,7 +163,7 @@ func main() {
 }
 
 func listChains(s *holo.Service) {
-	chains := s.ConfiguredChains()
+	chains,_ := s.ConfiguredChains()
 	if len(chains) > 0 {
 		fmt.Println("installed holochains: ")
 		for k := range chains {

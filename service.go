@@ -10,6 +10,7 @@ import (
 	"os"
 	"crypto/ecdsa"
 	"github.com/BurntSushi/toml"
+	"io/ioutil"
 )
 
 // System settings, directory, and file names
@@ -92,5 +93,21 @@ func LoadService(path string) (service *Service,err error) {
 	if err != nil {return}
 
 	service = &s
+	return
+}
+
+// ConfiguredChains returns a list of the configured chains for the given service
+func (s *Service) ConfiguredChains() (chains map[string]*Holochain,err error) {
+	files, err := ioutil.ReadDir(s.Path)
+	if err != nil {return}
+	chains = make(map[string]*Holochain)
+	for _, f := range files {
+		if f.IsDir() {
+			h,err := s.IsConfigured(f.Name())
+			if err == nil {
+				chains[f.Name()] = h
+			}
+		}
+	}
 	return
 }

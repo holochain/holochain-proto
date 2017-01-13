@@ -2,40 +2,29 @@ package holochain
 
 import (
 	"fmt"
-	"strconv"
 	"testing"
 	"time"
 	"github.com/google/uuid"
-	"os"
 	"crypto/sha256"
 	"crypto/ecdsa"
+	"math/big"
 	gob "encoding/gob"
 	"bytes"
-	"math/big"
 	toml "github.com/BurntSushi/toml"
 	. "github.com/smartystreets/goconvey/convey"
 )
 
 func TestNew(t *testing.T) {
 	var key ecdsa.PrivateKey
-	h := New("Joe",&key,"some/path")
-	nID := string(uuid.NodeID());
-	if (nID != string(h.Id.NodeID()) ) {
-		t.Error("expected holochain UUID NodeID to be "+nID+" got",h.Id.NodeID())
-	}
-	if (h.Types[0] != "myData") {
-		t.Error("data got:",h.Types)
-	}
-	if (h.agent != "Joe") {
-		t.Error("agent got:",h.agent)
-	}
-	if (h.privKey != &key) {
-		t.Error("key got:",h.privKey)
-	}
-	if (h.path != "some/path") {
-		t.Error("path got:",h.path)
-	}
 
+	Convey("New should fill Holochain struct with provided values and new UUID",t,func(){
+		h := New("Joe",&key,"some/path")
+		nID := string(uuid.NodeID());
+		So(nID,ShouldEqual, string(h.Id.NodeID()))
+		So(h.agent,ShouldEqual,"Joe")
+		So(h.privKey,ShouldEqual,&key)
+		So(h.path,ShouldEqual,"some/path")
+	})
 }
 
 func TestGenDev(t *testing.T) {
@@ -43,35 +32,30 @@ func TestGenDev(t *testing.T) {
 	defer cleanupTestDir(d)
 	name := "test"
 	root := s.Path+"/"+name
-	if _,err := s.IsConfigured(name); err == nil {
-		t.Error("expected no dna got:",err)
-	}
 
-	h, err := s.Load("test")
-	ExpectErrString(t,err,"open "+root+"/"+DNAFileName+": no such file or directory")
+	Convey("we detected unconfigured holochains",t,func(){
+		h,err := s.IsConfigured(name)
+		So(h,ShouldBeNil)
+		So(err.Error(),ShouldEqual,"missing "+root+"/"+DNAFileName)
+		_, err = s.Load("test")
+		So(err.Error(),ShouldEqual,"open "+root+"/"+DNAFileName+": no such file or directory")
 
-	h,err = GenDev(root)
-	if err != nil {
-		t.Error("expected no error got",err)
-	}
+	})
 
-	if _,err = s.IsConfigured(name); err != nil {
-		t.Error(err)
-	}
+	Convey("when generating a dev holochain",t,func(){
+		h,err := GenDev(root)
+		So(err,ShouldBeNil)
+		_,err = s.IsConfigured(name)
+		So(err,ShouldBeNil)
+		lh, err := s.Load(name)
+		So(err,ShouldBeNil)
+		So(lh.ID,ShouldEqual,h.ID)
 
-	lh, err := s.Load(name)
-	if  err != nil {
-		t.Error("Error parsing loading",err)
-	}
-
-	if (lh.Id != h.Id) {
-		t.Error("expected matching ids!")
-	}
-
-	_,err = GenDev(root)
-	ExpectErrString(t,err,"holochain: "+root+" already exists")
-
-
+		Convey("we should be able re generate it",func(){
+			_,err = GenDev(root)
+			So(err.Error(),ShouldEqual,"holochain: "+root+" already exists")
+		})
+	})
 }
 
 func TestNewEntry(t *testing.T) {
@@ -80,7 +64,8 @@ func TestNewEntry(t *testing.T) {
 	n := "test"
 	path := s.Path+"/"+n
 	h,err := GenDev(path)
-	ExpectNoErr(t,err)
+	if err != nil {panic(err)}
+
 	myData := `(message (from "art") (to "eric") (contents "test"))`
 
 	link := NewHash("3vemK25pc5ewYtztPGYAdX39uXuyV13xdouCnZUr8RMA") // dummy link hash
@@ -111,28 +96,30 @@ func TestNewEntry(t *testing.T) {
 		t.Error("expected EdkgsdwazMZc9vJJgGXgbGwZFvy2Wa1hLCjngmkw3PbF got:",a)
 	}*/
 
-	// check the my signature of the entry
-	pub,err := UnmarshalPublicKey(s.Path,PubKeyFileName)
-	ExpectNoErr(t,err)
-	sig := header.MySignature
-	hash := header.EntryLink[:]
-	if !ecdsa.Verify(pub,hash,sig.R,sig.S) {t.Error("expected verify!")}
+	Convey("it should have signed the entry with my key",t,func(){
+		pub,err := UnmarshalPublicKey(s.Path,PubKeyFileName)
+		ExpectNoErr(t,err)
+		sig := header.MySignature
+		hash := header.EntryLink[:]
+		So(ecdsa.Verify(pub,hash,sig.R,sig.S),ShouldBeTrue)
+	})
 
-	s1 := fmt.Sprintf("%v",*header)
-	d1 := fmt.Sprintf("%v",myData)
+	Convey("it should store the header and entry to the data store",t,func(){
+		s1 := fmt.Sprintf("%v",*header)
+		d1 := fmt.Sprintf("%v",myData)
 
-	h2,_,err := h.Get(headerHash,false)
-	ExpectNoErr(t,err)
-	s2 := fmt.Sprintf("%v",h2)
-	if s2!=s1 {t.Error("expected header to match! \n  "+s2+" \n  "+s1)}
+		h2,e,err := h.Get(headerHash,false)
+		So(err,ShouldBeNil)
+		So(e,ShouldBeNil)
+		s2 := fmt.Sprintf("%v",h2)
+		So(s2,ShouldEqual,s1)
 
-	var d2 interface{}
-	h2,d2,err = h.Get(headerHash,true)
-	ExpectNoErr(t,err)
-	s2 = fmt.Sprintf("%v",d2)
-	if s2!=d1 {t.Error("expected entry to match! \n  "+s2+" \n  "+d1)}
-
-
+		var d2 interface{}
+		h2,d2,err = h.Get(headerHash,true)
+		So(err,ShouldBeNil)
+		s2 = fmt.Sprintf("%v",d2)
+		So(s2,ShouldEqual,d1)
+	})
 }
 
 func TestHeader(t *testing.T) {
@@ -236,42 +223,7 @@ func TestGenChain(t *testing.T) {
 	})
 }
 
-//----------------------------------------------------------------------------------------
-
-func ExpectErrString(t *testing.T,err error,text string) {
-	if err.Error() != text {
-		t.Error("expected '"+text+"' got",err)
-	}
-}
-
-func ExpectNoErr(t *testing.T,err error) {
-	if err != nil {
-		t.Error("expected no err, got",err)
-	}
-}
-
-func mkTestDirName() string {
-	t := time.Now()
-	d := "/tmp/holochain_test"+strconv.FormatInt(t.Unix(),10)+"."+strconv.Itoa(t.Nanosecond())
-	return d
-}
-
-func setupTestService() (d string,s *Service) {
-	d = mkTestDirName()
-	agent := Agent("Herbert <h@bert.com>")
-	s,err := Init(d,agent)
-	if err != nil {panic(err)}
-	return
-}
-
-func setupTestDir() string {
-	d := mkTestDirName();
-	return d
-}
-
-func cleanupTestDir(path string) {
-	func() {os.RemoveAll(path)}()
-}
+//----- test util functions
 
 func mkTestHeader() Header {
 	hl := NewHash("1vemK25pc5ewYtztPGYAdX39uXuyV13xdouCnZUr8RMA")

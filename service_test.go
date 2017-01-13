@@ -3,6 +3,8 @@ package holochain
 import (
 	"fmt"
 	"testing"
+	. "github.com/smartystreets/goconvey/convey"
+
 )
 
 
@@ -10,46 +12,54 @@ func TestInit(t *testing.T) {
 	d := setupTestDir()
 	defer cleanupTestDir(d)
 
-	if IsInitialized(d) != false {
-		t.Error("expected no directory")
-	}
+	Convey("we can detect an uninitialized directory",t, func(){
+		So(IsInitialized(d),ShouldBeFalse)
+	})
+
 	agent := "Fred Flintstone <fred@flintstone.com>"
+
 	s,err := Init(d, Agent(agent))
-	ExpectNoErr(t,err)
+	Convey("when initializing service in a directory",t, func(){
+		So(err,ShouldEqual,nil)
 
-	if (string(s.DefaultAgent) != agent) {t.Error("expected "+agent+" got "+string(s.DefaultAgent))}
+		Convey("it should return a service with default values", func() {
+			So(s.DefaultAgent,ShouldEqual,Agent(agent))
+			So(fmt.Sprintf("%v",s.Settings),ShouldEqual,"{6283 true false}")
+		})
 
-	ss := fmt.Sprintf("%v",s.Settings)
-	if (ss != "{6283 true false}") {t.Error("expected settings {6283 true false} got "+ss)}
+		p := d+"/"+DirectoryName
+		Convey("it should create key files", func() {
+			privP,err := UnmarshalPrivateKey(p, PrivKeyFileName)
+			So(err,ShouldEqual,nil)
 
-	if IsInitialized(d) != true {
-		t.Error("expected initialized")
-	}
-	p := d+"/"+DirectoryName
-	privP,err := UnmarshalPrivateKey(p, PrivKeyFileName)
-	ExpectNoErr(t,err)
+			pub2,err := UnmarshalPublicKey(p,PubKeyFileName)
+			So(err,ShouldEqual,nil)
 
-	pub2,err := UnmarshalPublicKey(p,PubKeyFileName)
-	ExpectNoErr(t,err)
+			So(fmt.Sprintf("%v",*pub2),ShouldEqual,fmt.Sprintf("%v",privP.PublicKey))
+		})
 
-	if (fmt.Sprintf("%v",*pub2) != fmt.Sprintf("%v",privP.PublicKey)) {t.Error("expected pubkey match!")}
+		Convey("we can detect that it was initialized", func() {
+			So(IsInitialized(d),ShouldBeTrue)
+		})
 
-	a,err := readFile(p,AgentFileName)
-	ExpectNoErr(t,err)
-	if string(a) != agent {t.Error("expected "+agent+" got ",a)}
-
+		Convey("it should create an agent file", func(){
+			a,err := readFile(p,AgentFileName)
+			So(err,ShouldEqual,nil)
+			So(string(a),ShouldEqual,agent)
+		})
+	})
 }
-
 
 func TestLoadService(t *testing.T) {
 	d,service := setupTestService()
 	root := service.Path
 	defer cleanupTestDir(d)
-	s,err := LoadService(root)
-	ExpectNoErr(t,err)
-	if (s.Path != root) {t.Error("expected path "+d+" got "+s.Path)}
-	if (s.Settings.Port != DefaultPort) {t.Error(fmt.Sprintf("expected settings port %d got %d\n",DefaultPort,s.Settings.Port))}
-	a := Agent("Herbert <h@bert.com>")
-	if (s.DefaultAgent != a) {t.Error("expected agent "+string(a)+" got "+string(s.DefaultAgent))}
+	Convey("loading service from disk should set up the struct",t,func(){
+		s,err := LoadService(root)
+		So(err,ShouldEqual,nil)
+		So(s.Path,ShouldEqual,root)
+		So(s.Settings.Port,ShouldEqual,DefaultPort)
+		So(s.DefaultAgent,ShouldEqual,Agent("Herbert <h@bert.com>"))
+	})
 
 }

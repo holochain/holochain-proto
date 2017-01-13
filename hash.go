@@ -1,16 +1,16 @@
 // Copyright (C) 2013-2017, The MetaCurrency Project (Eric Harris-Braun, Arthur Brock, et. al.)
 // Use of this source code is governed by GPLv3 found in the LICENSE file
+//----------------------------------------------------------------------------------------
+// Hash type for Holochains
+// Holochain hashes are SHA256 binary values encoded to strings as base58
+
+
 
 package holochain
 
 import (
 	b58 "github.com/jbenet/go-base58"
 )
-
-//----------------------------------------------------------------------------------------
-// Hash type for Holochains
-// Holochain hashes are SHA256 binary values encoded to strings as base58
-
 
 // SHA256 hash of Entry's Content
 type Hash [32]byte

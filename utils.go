@@ -1,5 +1,7 @@
 // Copyright (C) 2013-2017, The MetaCurrency Project (Eric Harris-Braun, Arthur Brock, et. al.)
 // Use of this source code is governed by GPLv3 found in the LICENSE file
+//----------------------------------------------------------------------------------------
+// non exported utility functions for Holochain package
 
 package holochain
 import (
@@ -9,9 +11,6 @@ import (
 	"io/ioutil"
 
 )
-//----------------------------------------------------------------------------------------
-// non exported utility functions for Holochain package
-
 
 func writeToml(path string,file string,data interface{},overwrite bool) error {
 	p := path+"/"+file

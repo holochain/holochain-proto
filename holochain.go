@@ -1,5 +1,6 @@
 // Copyright (C) 2013-2017, The MetaCurrency Project (Eric Harris-Braun, Arthur Brock, et. al.)
 // Use of this source code is governed by GPLv3 found in the LICENSE file
+//---------------------------------------------------------------------------------------
 
 // Holochains are a distributed data store: DHT tightly bound to signed hash chains
 // for provenance and data integrity.

@@ -50,7 +50,5 @@ Installation and Usage
 See http://github.com/metacurrency/holochain for installation instructions,
 project status, and developer information.
 
-.
 */
-
 package holochain

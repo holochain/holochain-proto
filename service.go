@@ -1,5 +1,8 @@
 // Copyright (C) 2013-2017, The MetaCurrency Project (Eric Harris-Braun, Arthur Brock, et. al.)
 // Use of this source code is governed by GPLv3 found in the LICENSE file
+//----------------------------------------------------------------------------------------
+// Service implements functions and data that provide Holochain services
+
 
 package holochain
 
@@ -8,9 +11,6 @@ import (
 	"crypto/ecdsa"
 	"github.com/BurntSushi/toml"
 )
-
-//----------------------------------------------------------------------------------------
-// Service implements functions and data that provide Holochain services
 
 // System settings, directory, and file names
 const (

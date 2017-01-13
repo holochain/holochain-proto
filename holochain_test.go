@@ -91,7 +91,7 @@ func TestGenDev(t *testing.T) {
 	defer cleanupTestDir(d)
 	name := "test"
 	root := s.Path+"/"+name
-	if err := s.IsConfigured(name); err == nil {
+	if _,err := s.IsConfigured(name); err == nil {
 		t.Error("expected no dna got:",err)
 	}
 
@@ -103,7 +103,7 @@ func TestGenDev(t *testing.T) {
 		t.Error("expected no error got",err)
 	}
 
-	if err = s.IsConfigured(name); err != nil {
+	if _,err = s.IsConfigured(name); err != nil {
 		t.Error(err)
 	}
 

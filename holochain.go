@@ -169,25 +169,25 @@ func SelfDescribingSchema(sc string) bool {
 
 }
 //IsConfigured checks a directory for correctly set up holochain configuration files
-func (s *Service) IsConfigured(name string) error {
+func (s *Service) IsConfigured(name string) (h *Holochain, err error) {
 	path := s.Path+"/"+name
 	p := path+"/"+DNAFileName
-	if !fileExists(p) {return errors.New("missing "+p)}
+	if !fileExists(p) {return nil,errors.New("missing "+p)}
 	p = path+"/"+StoreFileName
-	if !fileExists(p) {return errors.New("chain store missing: "+p)}
+	if !fileExists(p) {return nil,errors.New("chain store missing: "+p)}
 
-	lh, err := s.Load(name)
-	if err != nil {return err}
+	h, err = s.Load(name)
+	if err != nil {return}
 
-	for _,t := range lh.Types {
-		sc := lh.Schemas[t]
+	for _,t := range h.Types {
+		sc := h.Schemas[t]
 		if !SelfDescribingSchema(sc) {
-			if !fileExists(path+"/"+sc) {return errors.New("DNA specified schema missing: "+sc)}
+			if !fileExists(path+"/"+sc) {return nil,errors.New("DNA specified schema missing: "+sc)}
 		}
-		sc = lh.Validators[t]
-		if !fileExists(path+"/"+sc) {return errors.New("DNA specified validator missing: "+sc)}
+		sc = h.Validators[t]
+		if !fileExists(path+"/"+sc) {return nil,errors.New("DNA specified validator missing: "+sc)}
 	}
-	return nil
+	return
 }
 
 // New creates a new holochain structure with a randomly generated ID and default values
@@ -563,12 +563,15 @@ func (h *Holochain) Get(hash Hash,getEntry bool) (header Header,entry interface{
 }
 
 // ConfiguredChains returns a list of the configured chains in the given holochain directory
-func (s *Service) ConfiguredChains() map[string]bool {
+func (s *Service) ConfiguredChains() map[string]*Holochain {
 	files, _ := ioutil.ReadDir(s.Path)
-	chains := make(map[string]bool)
+	chains := make(map[string]*Holochain)
 	for _, f := range files {
-		if f.IsDir() && (s.IsConfigured(f.Name()) == nil) {
-			chains[f.Name()] = true
+		if f.IsDir() {
+			h,err := s.IsConfigured(f.Name())
+			if err == nil {
+				chains[f.Name()] = h
+			}
 		}
 	}
 	return chains

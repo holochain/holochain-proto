@@ -43,7 +43,9 @@ func main() {
 					Usage: "generate a default configuration files, suitable for editing",
 					ArgsUsage: "holochain-name",
 					Action: func(c *cli.Context) error {
-						h,err := holo.GenDev(root+"/"+c.Args().First())
+						name := c.Args().First()
+						if name == "" {return errors.New("missing require holochain-name argument to gen dev")}
+						h,err := holo.GenDev(root+"/"+name)
 						if err == nil {
 							if (verbose) {
 								fmt.Printf("created %s with new id: %v\n",h.Id);
@@ -61,7 +63,7 @@ func main() {
 						if !initialized {return uninitialized}
 						name := c.Args().First()
 						chains := service.ConfiguredChains()
-						if !chains[name] {return errors.New(name+" doesn't exist")}
+						if chains[name]==nil {return errors.New(name+" doesn't exist")}
 						_,err := holo.GenKeys(root+"/"+name)
 						return err
 					},
@@ -73,7 +75,19 @@ func main() {
 					ArgsUsage: "holochain-name",
 					Action: func(c *cli.Context) error {
 						if !initialized {return uninitialized}
-						return holo.GenChain()
+						name := c.Args().First()
+						if name == "" {return errors.New("missing require holochain-name argument to gen chain")}
+						h,err := service.Load(name)
+						if err != nil {return err}
+						err = h.GenDNAHashes()
+						if err != nil {return err}
+						_,err = h.GenChain()
+						if err != nil {return err}
+						id,err := h.ID()
+						if err != nil {return err}
+
+						fmt.Printf("Genesis entries added and DNA hashed for new holochain with ID: %s\n",id.String())
+						return nil
 					},
 				},
 			},
@@ -153,7 +167,12 @@ func listChains(s *holo.Service) {
 	if len(chains) > 0 {
 		fmt.Println("installed holochains: ")
 		for k := range chains {
-			fmt.Println("     ",k)
+			id,err := chains[k].ID()
+			var sid = "<not-started>"
+			if err == nil {
+				sid = id.String()
+			}
+			fmt.Println("    ",k,sid)
 		}
 	} else {
 		fmt.Println("no installed chains")

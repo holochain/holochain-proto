@@ -234,47 +234,54 @@ func TestGenChain(t *testing.T) {
 	path := s.Path+"/"+n
 	h,err := GenDev(path)
 	ExpectNoErr(t,err)
-	err = h.GenDNAHashes()
-	ExpectNoErr(t,err)
 
-	var h2 Holochain
-	_,err = toml.DecodeFile(path+"/"+DNAFileName, &h2)
-	ExpectNoErr(t,err)
+	Convey("Generating DNA Hashes should re-save the DNA file",t,func() {
+		err = h.GenDNAHashes()
+		So(err, ShouldBeNil)
+		var h2 Holochain
+		_,err = toml.DecodeFile(path+"/"+DNAFileName, &h2)
+		So(err, ShouldBeNil)
+		So( h2.ValidatorHashes["myData"],ShouldEqual, h.ValidatorHashes["myData"] )
+	})
 
-	if h2.ValidatorHashes["myData"] != h.ValidatorHashes["myData"] {
-		t.Error("expected hashes to match")
-	}
+	Convey("before GenChain call ID call should fail",t, func() {
+		_,err := h.ID()
+		So(err.Error(), ShouldEqual, "holochain: chain not started")
+	})
 
-	headerHash,err := h.GenChain()
-	ExpectNoErr(t,err)
+	var headerHash Hash
+	Convey("GenChain call works",t, func() {
+
+		headerHash,err = h.GenChain()
+		So(err, ShouldBeNil)
+	})
 
 	var header Header
-	Convey("top link should be Key entry", t, func() {
+	Convey("top link should be Key entry",t, func() {
 		hdr,entry,err := h.Get(headerHash,true)
 		So(err, ShouldBeNil)
 		header = hdr
 		var k KeyEntry = entry.(KeyEntry)
 		So(k.ID,ShouldEqual,h.agent)
-		//So(hdr,ShouldEqual,"doggy")
- 	})
+		//So(k.Key,ShouldEqual,"something?") // test that key got correctly retrieved
+	})
 
-/*	test that key got retrieved correctly
-        s1 := "??"
-	s2 := fmt.Sprintf("%v",entry)
-	if s2 != "fish" {
-		t.Error("expected: \n  "+s1+"\ngot:\n  "+s2)
-	}*/
-
-	Convey("next link should be the dna entry", t, func() {
-		_,entry,err := h.Get(header.HeaderLink,true)
+	var dnaHash Hash
+	Convey("next link should be the dna entry",t, func() {
+		hd,entry,err := h.Get(header.HeaderLink,true)
 		So(err, ShouldBeNil)
 
 		var buf bytes.Buffer
 		err = h.EncodeDNA(&buf)
 		So(string(entry.([]byte)), ShouldEqual, string(buf.Bytes()))
+		dnaHash = hd.EntryLink
 	})
 
-
+	Convey("holochain id should have now been set",t, func() {
+		id,err := h.ID()
+		So(err, ShouldBeNil)
+		So(id.String(),ShouldEqual,dnaHash.String())
+	})
 }
 
 //----------------------------------------------------------------------------------------

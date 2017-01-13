@@ -285,17 +285,37 @@ func GenKeys(path string) (priv *ecdsa.PrivateKey,err error) {
 	return
 }
 
+const (IDMetaKey = "id")
+
+// ID returns a holochain ID hash or empty has if not yet defined
+func (h *Holochain) ID() (id Hash,err error) {
+	err = h.db.View(func(tx *bolt.Tx) error {
+		b := tx.Bucket([]byte("Meta"))
+		v := b.Get([]byte(IDMetaKey))
+		if v == nil {return mkErr("chain not started")}
+		copy(id[:],v)
+		return nil
+	})
+	return
+}
+
 // GenChain establishes a holochain instance by creating the initial genesis entries in the chain
 // It assumes a properly set up .holochain sub-directory with a config file and
 // keys for signing.  See GenDev()
 func (h *Holochain) GenChain() (keyHash Hash,err error) {
+
+	_,err = h.ID()
+	if err == nil {
+		err = mkErr("chain already started")
+		return
+	}
 
 	var buf bytes.Buffer
 	err = h.EncodeDNA(&buf)
 
 	e := GobEntry{C:buf.Bytes()}
 	var nullLink Hash
-	dnaHash,_,err := h.NewEntry(time.Now(),DNAEntryType,nullLink,&e)
+	dnaHeaderHash,dnaHeader,err := h.NewEntry(time.Now(),DNAEntryType,nullLink,&e)
 	if err != nil {return}
 
 	var k KeyEntry
@@ -306,7 +326,13 @@ func (h *Holochain) GenChain() (keyHash Hash,err error) {
 	k.Key = pk
 
 	e.C = k
-	keyHash,_,err = h.NewEntry(time.Now(),KeyEntryType,dnaHash,&e)
+	keyHash,_,err = h.NewEntry(time.Now(),KeyEntryType,dnaHeaderHash,&e)
+
+	err = h.db.Update(func(tx *bolt.Tx) (err error) {
+		b := tx.Bucket([]byte("Meta"))
+		err = b.Put([]byte(IDMetaKey), dnaHeader.EntryLink[:])
+		return err
+	})
 
 	return
 }

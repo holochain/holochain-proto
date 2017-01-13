@@ -25,42 +25,10 @@ import (
 	"github.com/google/uuid"
 	"github.com/BurntSushi/toml"
 	"github.com/boltdb/bolt"
-	b58 "github.com/jbenet/go-base58"
 )
 
 const Version string = "0.0.1"
 
-// System settings, directory, and file names
-const (
-	DirectoryName string = ".holochain" // Directory for storing config data
-	DNAFileName string = "dna.conf"     // Group context settings for holochain
-	LocalFileName string = "local.conf" // Setting for your local data store
-	SysFileName string = "system.conf"  // Server & System settings
-	AgentFileName string = "agent.txt"  // User ID info
-	PubKeyFileName string = "pub.key"   // ECDSA Signing key - public
-	PrivKeyFileName string = "priv.key" // ECDSA Signing key - private
-	StoreFileName string = "chain.db"   // Filename for local data store
-
-	DefaultPort = 6283
-
-	DNAEntryType = "_dna"
-	KeyEntryType = "_key"
-)
-
-// Holochain service configuration, i.e. Active Subsystems: DHT and/or Datastore, network port, etc
-type Config struct {
-	Port int
-	PeerModeAuthor bool
-	PeerModeDHTNode bool
-}
-
-// Holochain service data structure
-type Service struct {
-	Settings Config
-	DefaultAgent Agent
-	DefaultKey *ecdsa.PrivateKey
-	Path string
-}
 
 // Unique user identifier in context of this holochain
 type Agent string
@@ -90,9 +58,6 @@ type Holochain struct {
 	privKey *ecdsa.PrivateKey
 	db *bolt.DB
 }
-
-// SHA256 hash of Entry's Content
-type Hash [32]byte
 
 // Holds content for a holochain
 type Entry interface {
@@ -125,39 +90,6 @@ type Header struct {
 	EntryLink Hash
 	MySignature Signature
 	Meta interface{}
-}
-
-// String encodes a hash to a human readable string
-func (h *Hash) String() string {
-	return b58.Encode(h[:])
-}
-
-// NewHash builds a Hash from a string encoded hash
-func NewHash(s string) (h Hash) {
-	copy(h[:],b58.Decode(s))
-	return
-}
-
-func LoadService(path string) (service *Service,err error) {
-	agent,key,err := LoadSigner(path)
-	if err != nil {return}
-	s := Service {
-		Path:path,
-		DefaultAgent:agent,
-		DefaultKey:key,
-	}
-
-	_,err = toml.DecodeFile(path+"/"+SysFileName, &s.Settings)
-	if err != nil {return}
-
-	service = &s
-	return
-}
-
-//IsInitialized checks a path for a correctly set up .holochain directory
-func IsInitialized(path string) bool {
-	root := path+"/"+DirectoryName
-	return dirExists(root) && fileExists(root+"/"+SysFileName) && fileExists(root+"/"+AgentFileName)
 }
 
 func SelfDescribingSchema(sc string) bool {
@@ -334,34 +266,6 @@ func (h *Holochain) GenChain() (keyHash Hash,err error) {
 		return err
 	})
 
-	return
-}
-
-//Init initializes service defaults including a signing key pair for an agent
-func Init(path string,agent Agent) (service *Service, err error) {
-	p := path+"/"+DirectoryName
-	err = os.MkdirAll(p,os.ModePerm)
-	if err != nil {return}
-	s := Service {
-		Settings: Config{
-			Port: DefaultPort,
-			PeerModeAuthor:true,
-		},
-		DefaultAgent:agent,
-		Path:p,
-	}
-
-	err = writeToml(p,SysFileName,s.Settings,false)
-	if err != nil {return}
-
-	writeFile(p,AgentFileName,[]byte(agent))
-	if err != nil {return}
-
-	k,err := GenKeys(p)
-	if err !=nil {return}
-	s.DefaultKey = k
-
-	service = &s;
 	return
 }
 
@@ -575,60 +479,4 @@ func (s *Service) ConfiguredChains() map[string]*Holochain {
 		}
 	}
 	return chains
-}
-
-//----------------------------------------------------------------------------------------
-// non exported utility functions
-
-func writeToml(path string,file string,data interface{},overwrite bool) error {
-	p := path+"/"+file
-	if !overwrite && fileExists(p) {
-		return mkErr(path+" already exists")
-	}
-	f, err := os.Create(p)
-	if err != nil {
-		return err
-	}
-	defer f.Close()
-	enc := toml.NewEncoder(f)
-	err = enc.Encode(data);
-	return err
-}
-
-func writeFile(path string,file string,data []byte) error {
-	p := path+"/"+file
-	if fileExists(p) {
-		return mkErr(path+" already exists")
-	}
-	f, err := os.Create(p)
-	if err != nil {return err}
-
-	defer f.Close()
-	l,err := f.Write(data)
-	if (err != nil) {return err}
-
-	if (l != len(data)) {return mkErr("unable to write all data")}
-	f.Sync()
-	return err
-}
-
-func readFile(path string,file string) (data []byte, err error) {
-	p := path+"/"+file
-	data, err = ioutil.ReadFile(p)
-	return data,err
-}
-
-func mkErr(err string) error {
-	return errors.New("holochain: "+err)
-}
-
-func dirExists(name string) bool {
-	info, err := os.Stat(name)
-	return err == nil &&  info.Mode().IsDir();
-}
-
-func fileExists(path string) bool {
-	info, err := os.Stat(path)
-	if err != nil {return false}
-	return info.Mode().IsRegular();
 }

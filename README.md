@@ -7,7 +7,7 @@ In other words, a holochain functions very much **like a blockchain without bott
 
 <table style="font-size:150%;"><tr>
 <td><b>Holochain Info:</b>
-<td><a href="https://github.com/metacurrency/holochain/FAQ.md">FAQ</a></td>
+<td><a href="https://github.com/metacurrency/holochain/blob/master/docs/FAQ.md">FAQ</a></td>
 <td><a href="http://holochain.org/whitepaper">White Paper</a></td>
 <td><a href="https://godoc.org/github.com/metacurrency/holochain">GoDocs</a></td></tr></table>
 
@@ -59,15 +59,11 @@ Since holochain is basically a distributed database engine, you will probably on
 
     hc init "Fred Flinstone" <fred@flintsone.com>
 
-You can use an existing group configuration like this where SOURCE is a local file path or URI for retrieving existing DNA for a group's holochain.:
+You can use a pre-existing holochain configuration by replacing SOURCE with a local file path for loading existing DNA for a group's holochain.:
 
     hc gen chain <SOURCE>
 
-You can generate your private and public keys for signing your local chain with:
-
-    hc keys
-
-If you are a developer and want to build your own group configuration for a holochain you can set up the initial scaffolding and files with:
+If you are a developer and want to build your own group configuration, data schemas, and validation rules for a holochain you can set up the initial scaffolding and files with:
 
     hc gen dev
 
@@ -89,11 +85,11 @@ As an individual, you can join a holochain by installing its holochain configura
 #### Application API
 Holochains function like a database. They don't have much end-user interface, and are primarily used by an application or program to store data. Unless you're a developer building one of these applications, you're not likely interact directly with a holochains. Hopefully, you install an application that does all that for you and the holochain stays nice and invisible enabling the application to store its information in a decentralized manner.
 
-### Two Separate SubSystems
+### Two Distinct SubSystems
 There are two modes to participate in a holochain: as a **chain author**, and as a **DHT node**. We expect most installations will be doing both things and acting as full peers in a P2P data system. However, each could be run in a separate
 container, communicating only by network interface.
 
-#### Authoring your Local Chain
+#### 1. Authoring your Local Chain
 Your chain is your signed, sequential record of the data you create to share on the holochain. Depending on the holochain's validation rules, this data may also be immutable and non-repudiable. Your local chain/data-store follows this pattern:
 
 1. Validates your new data
@@ -103,12 +99,14 @@ Your chain is your signed, sequential record of the data you create to share on 
 5. Shares it to the DHT
 6. Responds to validation requests from DHT nodes
 
-#### DHT Node -- Validating and Publishing
+#### 2. Running a DHT Node
 For serving data shared across the network. When your node receives a request from another node to publish DHT data, it will first validate the signatures, chain links, and any other application specific data integrity in the entity's source chain who is publishing the data.
 
 ## Documentation
 
-See the [Auto-generated Go Doc Reference API for Holochain](https://godoc.org/github.com/metacurrency/holochain)
+Find additional documentation in the [docs directory](https://github.com/metacurrency/holochain/tree/master/docs).
+
+You can also find the [auto-generated Reference API for Holochain on GoDocs](https://godoc.org/github.com/metacurrency/holochain)
 
 ## Testing
 

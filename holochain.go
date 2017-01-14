@@ -85,8 +85,9 @@ type Signature struct {
 type Header struct {
 	Type string
 	Time time.Time
-	HeaderLink Hash
-	EntryLink Hash
+	HeaderLink Hash  // link to previous header
+	EntryLink Hash   // link to entry
+	TypeLink Hash    // link to header of previous header of this type
 	MySignature Signature
 	Meta interface{}
 }
@@ -167,17 +168,54 @@ func (s *Service) Load(name string) (hP *Holochain,err error) {
 	return
 }
 
-const (IDMetaKey = "id")
+const (
+	IDMetaKey = "id"
+	TopMetaKey = "top"
+)
 
-// ID returns a holochain ID hash or empty has if not yet defined
-func (h *Holochain) ID() (id Hash,err error) {
+func (h *Holochain) PutMeta(key string,value []byte) (err error) {
+	err = h.db.Update(func(tx *bolt.Tx) (err error) {
+		b := tx.Bucket([]byte("Meta"))
+		err = b.Put([]byte(key),value)
+		return err
+	})
+	return
+}
+
+// GetMeta retrieves a meta value from the store
+func (h *Holochain) GetMeta(key string) (data []byte,err error) {
 	err = h.db.View(func(tx *bolt.Tx) error {
 		b := tx.Bucket([]byte("Meta"))
-		v := b.Get([]byte(IDMetaKey))
-		if v == nil {return mkErr("chain not started")}
-		copy(id[:],v)
+		data = b.Get([]byte(key))
 		return nil
 	})
+	return
+}
+
+// getMetaHash gets a value from the store that's a hash
+func (h *Holochain) getMetaHash(key string) (hash Hash,err error) {
+	v,err := h.GetMeta(key)
+	if err != nil {return}
+	copy(hash[:],v)
+	if v == nil {err = mkErr("Meta key '"+key+"' has no value")}
+	return
+}
+
+// ID returns a holochain ID hash or err if not yet defined
+func (h *Holochain) ID() (id Hash,err error) {
+	id,err = h.getMetaHash(IDMetaKey)
+	return
+}
+
+// Top returns a hash of top header or err if not yet defined
+func (h *Holochain) Top() (top Hash,err error) {
+	top,err = h.getMetaHash(TopMetaKey)
+	return
+}
+
+// Top returns a hash of top header of the given type or err if not yet defined
+func (h *Holochain) TopType(t string) (top Hash,err error) {
+	top,err = h.getMetaHash(TopMetaKey+"_"+t)
 	return
 }
 
@@ -196,8 +234,8 @@ func (h *Holochain) GenChain() (keyHash Hash,err error) {
 	err = h.EncodeDNA(&buf)
 
 	e := GobEntry{C:buf.Bytes()}
-	var nullLink Hash
-	dnaHeaderHash,dnaHeader,err := h.NewEntry(time.Now(),DNAEntryType,nullLink,&e)
+
+	_,dnaHeader,err := h.NewEntry(time.Now(),DNAEntryType,&e)
 	if err != nil {return}
 
 	var k KeyEntry
@@ -208,13 +246,10 @@ func (h *Holochain) GenChain() (keyHash Hash,err error) {
 	k.Key = pk
 
 	e.C = k
-	keyHash,_,err = h.NewEntry(time.Now(),KeyEntryType,dnaHeaderHash,&e)
+	keyHash,_,err = h.NewEntry(time.Now(),KeyEntryType,&e)
 
-	err = h.db.Update(func(tx *bolt.Tx) (err error) {
-		b := tx.Bucket([]byte("Meta"))
-		err = b.Put([]byte(IDMetaKey), dnaHeader.EntryLink[:])
-		return err
-	})
+	err = h.PutMeta(IDMetaKey, dnaHeader.EntryLink[:])
+	if err != nil {return}
 
 	return
 }
@@ -304,17 +339,25 @@ func LoadSigner(path string) (agent Agent ,key *ecdsa.PrivateKey,err error) {
 func OpenStore(path string) (db *bolt.DB, err error) {
 	db, err = bolt.Open(path, 0600, &bolt.Options{Timeout: 1 * time.Second})
 	if err != nil {return}
-	err = db.Update(func(tx *bolt.Tx) (err error) {
-		_, err = tx.CreateBucketIfNotExists([]byte("Entries"))
-		if err == nil {
-			_, err = tx.CreateBucketIfNotExists([]byte("Headers"))
-			if err == nil {
-				_, err = tx.CreateBucketIfNotExists([]byte("Meta"))
-			}
-		}
-		return
+	defer func() {if err !=nil {db.Close();db = nil}}()
+	var initialized bool
+	err = db.View(func(tx *bolt.Tx) error {
+		b := tx.Bucket([]byte("Meta"))
+		initialized = b != nil
+		return nil
 	})
-	if err !=nil {db.Close();db = nil}
+	if err != nil {return}
+
+	if !initialized {
+		err = db.Update(func(tx *bolt.Tx) (err error) {
+			_, err = tx.CreateBucketIfNotExists([]byte("Entries"))
+			if err != nil {return}
+			_, err = tx.CreateBucketIfNotExists([]byte("Headers"))
+			if err != nil {return}
+			_, err = tx.CreateBucketIfNotExists([]byte("Meta"))
+			return
+		})
+	}
 	return
 }
 
@@ -361,11 +404,15 @@ func (e *JSONEntry) Unmarshal(b []byte) (err error) {
 func (e *JSONEntry) Content() interface{} {return e.C}
 
 // NewEntry adds an entry and it's header to the chain and returns the header and it's hash
-func (h *Holochain) NewEntry(now time.Time,t string,prevHeader Hash,entry Entry) (hash Hash,header *Header,err error) {
+func (h *Holochain) NewEntry(now time.Time,t string,entry Entry) (hash Hash,header *Header,err error) {
 	var hd Header
 	hd.Type = t
-	hd.HeaderLink = prevHeader
 	hd.Time = now
+
+	ph,err := h.Top()
+	if err == nil {hd.HeaderLink = ph}
+	ph,err = h.TopType(t)
+	if err == nil {hd.TypeLink = ph}
 
 	m,err := entry.Marshal()
 	if err != nil {return}
@@ -384,11 +431,20 @@ func (h *Holochain) NewEntry(now time.Time,t string,prevHeader Hash,entry Entry)
 		if err != nil {return err}
 
 		bkt = tx.Bucket([]byte("Headers"))
-		err = bkt.Put(hash[:], b)
+		v := hash[:]
+		err = bkt.Put(v, b)
+		if err != nil {return err}
+
+		// don't use PutMeta because this has to be in the transaction
+		bkt = tx.Bucket([]byte("Meta"))
+		err = bkt.Put([]byte(TopMetaKey),v)
+		if err != nil {return err}
+		err = bkt.Put([]byte("top_"+t),v)
 		if err != nil {return err}
 
 		return nil
 	})
+
 	header = &hd
 	return
 }
@@ -413,6 +469,4 @@ func (h *Holochain) Get(hash Hash,getEntry bool) (header Header,entry interface{
 		return nil
 	})
 	return
-}
-
 }

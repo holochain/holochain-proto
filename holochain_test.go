@@ -68,17 +68,15 @@ func TestNewEntry(t *testing.T) {
 
 	myData := `(message (from "art") (to "eric") (contents "test"))`
 
-	link := NewHash("3vemK25pc5ewYtztPGYAdX39uXuyV13xdouCnZUr8RMA") // dummy link hash
-
 	now := time.Unix(1,1) // pick a constant time so the test will always work
 
 	e := GobEntry{C:myData}
-	headerHash,header,err := h.NewEntry(now,"myData",link,&e)
+	headerHash,header,err := h.NewEntry(now,"myData",&e)
 	Convey("parameters passed in should be in the header", t, func() {
 		So(err,ShouldBeNil)
 		So(header.Time == now,ShouldBeTrue)
 		So(header.Type,ShouldEqual,"myData")
-		So(header.HeaderLink,ShouldEqual,link)
+		So(header.HeaderLink,ShouldEqual,NewHash("11111111111111111111111111111111"))
 	})
 	Convey("the entry hash is correct", t, func() {
 		So(header.EntryLink.String(),ShouldEqual,"G5tGxuTygAMYx2BMagaWJrYpwtiVuDFUtnYkX6rpL1Y5")
@@ -119,6 +117,15 @@ func TestNewEntry(t *testing.T) {
 		So(err,ShouldBeNil)
 		s2 = fmt.Sprintf("%v",d2)
 		So(s2,ShouldEqual,d1)
+	})
+
+	Convey("it should modify store's TOP key to point to the added Entry header",t,func(){
+		hash,err := h.Top()
+		So(err,ShouldBeNil)
+		So(hash,ShouldEqual,headerHash)
+		hash,err = h.TopType("myData")
+		So(err,ShouldBeNil)
+		So(hash,ShouldEqual,headerHash)
 	})
 }
 
@@ -181,7 +188,7 @@ func TestGenChain(t *testing.T) {
 
 	Convey("before GenChain call ID call should fail",t, func() {
 		_,err := h.ID()
-		So(err.Error(), ShouldEqual, "holochain: chain not started")
+		So(err.Error(), ShouldEqual, "holochain: Meta key 'id' has no value")
 	})
 
 	var headerHash Hash
@@ -212,10 +219,13 @@ func TestGenChain(t *testing.T) {
 		dnaHash = hd.EntryLink
 	})
 
-	Convey("holochain id should have now been set",t, func() {
+	Convey("holochain id and top should have now been set",t, func() {
 		id,err := h.ID()
 		So(err, ShouldBeNil)
 		So(id.String(),ShouldEqual,dnaHash.String())
+		top,err := h.Top()
+		So(err, ShouldBeNil)
+		So(top.String(),ShouldEqual,headerHash.String())
 	})
 }
 

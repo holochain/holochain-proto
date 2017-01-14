@@ -112,6 +112,12 @@ func TestNewEntry(t *testing.T) {
 		s2 := fmt.Sprintf("%v",h2)
 		So(s2,ShouldEqual,s1)
 
+		Convey("and the returned header should hash to the same value", func() {
+			b,_ := ByteEncoder(&h2)
+			hh := Hash(sha256.Sum256(b))
+			So(headerHash,ShouldEqual,hh)
+		})
+
 		var d2 interface{}
 		h2,d2,err = h.Get(headerHash,true)
 		So(err,ShouldBeNil)
@@ -188,7 +194,7 @@ func TestGenChain(t *testing.T) {
 
 	Convey("before GenChain call ID call should fail",t, func() {
 		_,err := h.ID()
-		So(err.Error(), ShouldEqual, "holochain: Meta key 'id' has no value")
+		So(err.Error(), ShouldEqual, "holochain: Meta key 'id' uninitialized")
 	})
 
 	var headerHash Hash
@@ -229,6 +235,26 @@ func TestGenChain(t *testing.T) {
 	})
 }
 
+func TestValidate(t *testing.T) {
+	d,_,h := setupTestChain("test")
+	defer cleanupTestDir(d)
+	_,err := h.GenChain()
+	if err != nil {panic(err)}
+
+	// add an extra link onto the chain
+	myData := `(message (from "art") (to "eric") (contents "test"))`
+	now := time.Unix(1,1) // pick a constant time so the test will always work
+	e := GobEntry{C:myData}
+	_,_,err = h.NewEntry(now,"myData",&e)
+
+	Convey("validate should check the hashes of the headers, and optionally of the entries",t,func(){
+	//	Convey("This isn't yet fully implemented", nil)
+		valid,err := h.Validate(false)
+		So(err,ShouldBeNil)
+		So(valid,ShouldEqual,true)
+	})
+
+}
 //----- test util functions
 
 func mkTestHeader() Header {

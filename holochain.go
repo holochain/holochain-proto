@@ -171,11 +171,15 @@ func (s *Service) Load(name string) (hP *Holochain,err error) {
 const (
 	IDMetaKey = "id"
 	TopMetaKey = "top"
+
+	MetaBucket = "M"
+	HeaderBucket = "H"
+	EntryBucket = "E"
 )
 
 func (h *Holochain) PutMeta(key string,value []byte) (err error) {
 	err = h.db.Update(func(tx *bolt.Tx) (err error) {
-		b := tx.Bucket([]byte("Meta"))
+		b := tx.Bucket([]byte(MetaBucket))
 		err = b.Put([]byte(key),value)
 		return err
 	})
@@ -185,7 +189,7 @@ func (h *Holochain) PutMeta(key string,value []byte) (err error) {
 // GetMeta retrieves a meta value from the store
 func (h *Holochain) GetMeta(key string) (data []byte,err error) {
 	err = h.db.View(func(tx *bolt.Tx) error {
-		b := tx.Bucket([]byte("Meta"))
+		b := tx.Bucket([]byte(MetaBucket))
 		data = b.Get([]byte(key))
 		return nil
 	})
@@ -197,7 +201,7 @@ func (h *Holochain) getMetaHash(key string) (hash Hash,err error) {
 	v,err := h.GetMeta(key)
 	if err != nil {return}
 	copy(hash[:],v)
-	if v == nil {err = mkErr("Meta key '"+key+"' has no value")}
+	if v == nil {err = mkErr("Meta key '"+key+"' uninitialized")}
 	return
 }
 
@@ -342,7 +346,7 @@ func OpenStore(path string) (db *bolt.DB, err error) {
 	defer func() {if err !=nil {db.Close();db = nil}}()
 	var initialized bool
 	err = db.View(func(tx *bolt.Tx) error {
-		b := tx.Bucket([]byte("Meta"))
+		b := tx.Bucket([]byte(MetaBucket))
 		initialized = b != nil
 		return nil
 	})
@@ -350,11 +354,11 @@ func OpenStore(path string) (db *bolt.DB, err error) {
 
 	if !initialized {
 		err = db.Update(func(tx *bolt.Tx) (err error) {
-			_, err = tx.CreateBucketIfNotExists([]byte("Entries"))
+			_, err = tx.CreateBucketIfNotExists([]byte(EntryBucket))
 			if err != nil {return}
-			_, err = tx.CreateBucketIfNotExists([]byte("Headers"))
+			_, err = tx.CreateBucketIfNotExists([]byte(HeaderBucket))
 			if err != nil {return}
-			_, err = tx.CreateBucketIfNotExists([]byte("Meta"))
+			_, err = tx.CreateBucketIfNotExists([]byte(MetaBucket))
 			return
 		})
 	}
@@ -426,17 +430,17 @@ func (h *Holochain) NewEntry(now time.Time,t string,entry Entry) (hash Hash,head
 	if err !=nil {return}
 	hash = Hash(sha256.Sum256(b))
 	h.db.Update(func(tx *bolt.Tx) error {
-		bkt := tx.Bucket([]byte("Entries"))
+		bkt := tx.Bucket([]byte(EntryBucket))
 		err = bkt.Put(hd.EntryLink[:], m)
 		if err != nil {return err}
 
-		bkt = tx.Bucket([]byte("Headers"))
+		bkt = tx.Bucket([]byte(HeaderBucket))
 		v := hash[:]
 		err = bkt.Put(v, b)
 		if err != nil {return err}
 
 		// don't use PutMeta because this has to be in the transaction
-		bkt = tx.Bucket([]byte("Meta"))
+		bkt = tx.Bucket([]byte(MetaBucket))
 		err = bkt.Put([]byte(TopMetaKey),v)
 		if err != nil {return err}
 		err = bkt.Put([]byte("top_"+t),v)
@@ -449,23 +453,84 @@ func (h *Holochain) NewEntry(now time.Time,t string,entry Entry) (hash Hash,head
 	return
 }
 
+// get low level access to entries/headers (only works inside a bolt transaction)
+func get(hb *bolt.Bucket,eb *bolt.Bucket,key []byte,getEntry bool) (header Header,entry interface{},err error){
+	v := hb.Get(key)
+
+	err = ByteDecoder(v,&header)
+	if err != nil {return}
+	if getEntry {
+		v = eb.Get(header.EntryLink[:])
+		var g GobEntry
+		err = g.Unmarshal(v)
+		if err != nil {return}
+		entry = g.C
+	}
+	return
+}
+
 // Get returns a header, and (optionally) it's entry if getEntry is true
 func (h *Holochain) Get(hash Hash,getEntry bool) (header Header,entry interface{},err error){
 	err = h.db.View(func(tx *bolt.Tx) error {
-		b := tx.Bucket([]byte("Headers"))
-		v := b.Get(hash[:])
+		hb := tx.Bucket([]byte(HeaderBucket))
+		eb := tx.Bucket([]byte(EntryBucket))
+		header,entry,err = get(hb,eb,hash[:],getEntry)
+		return err
+	})
+	return
+}
 
-		err := ByteDecoder(v,&header)
-		if err != nil {return err}
-		if getEntry {
-			b = tx.Bucket([]byte("Entries"))
-			v = b.Get(header.EntryLink[:])
-			var g GobEntry
-			err = g.Unmarshal(v)
-			if err != nil {return err}
-			entry = g.C
+// Validate scans back through a chain to the beginning confirming that the last header points to DNA
+// This is actually kind of bogus on your own chain, because theoretically you put it there!  But
+// if the holochain file was copied from somewhere you can consider this a self-check
+func (h *Holochain) Validate(entriesToo bool) (valid bool,err error) {
+	var nullHash Hash
+	var nullHashBytes = nullHash[:]
+	err = h.db.View(func(tx *bolt.Tx) error {
+		hb := tx.Bucket([]byte(HeaderBucket))
+		eb := tx.Bucket([]byte(EntryBucket))
+		mb := tx.Bucket([]byte(MetaBucket))
+		key := mb.Get([]byte(TopMetaKey))
+		var keyH Hash
+		var invalid bool
+		var header Header
+		//		var entry interface{}
+		var visited = make(map[string]bool)
+		for !invalid && !bytes.Equal(nullHashBytes,key) {
+			copy(keyH[:],key)
+
+			// build up map of all visited headers to prevent loops
+			s := string(key)
+			_,present := visited[s]
+			if present {
+				invalid = true
+			} else {
+				visited[s]=true
+				header,_,err = get(hb,eb,key,entriesToo)
+
+				// confirm the correctness of the header hash
+				b,err := ByteEncoder(&header)
+				if err !=nil {return err}
+				bh := sha256.Sum256(b)
+				var bH Hash
+				copy(bH[:],bh[:])
+				if (bH.String() != keyH.String()) {
+					//fmt.Println("\nbh:",bH.String(),"\nkey:",keyH.String(),"\n",fmt.Sprintf("header:%v\n",header))
+					invalid = true
+				}
+
+				// TODO check entry hashes too if entriesToo set
+				if entriesToo {
+
+				}
+				key = header.HeaderLink[:]
+			}
+
 		}
-
+		// if the last item gets us to bottom, i.e. the header who's entry link is the
+		// same as ID key then the chain is valid...
+		if !bytes.Equal(header.EntryLink[:],mb.Get([]byte(IDMetaKey))) {invalid = true}
+		valid = !invalid
 		return nil
 	})
 	return

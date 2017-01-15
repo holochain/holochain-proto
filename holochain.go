@@ -92,6 +92,12 @@ type Header struct {
 	Meta interface{}
 }
 
+// Register function that must be called once at startup by any client app
+func Register() {
+	gob.Register(Header{})
+	gob.Register(KeyEntry{})
+}
+
 func SelfDescribingSchema(sc string) bool {
 	SelfDescribingSchemas := map[string]bool {
 		"JSON": true,
@@ -251,6 +257,7 @@ func (h *Holochain) GenChain() (keyHash Hash,err error) {
 
 	e.C = k
 	keyHash,_,err = h.NewEntry(time.Now(),KeyEntryType,&e)
+	if err != nil {return}
 
 	err = h.PutMeta(IDMetaKey, dnaHeader.EntryLink[:])
 	if err != nil {return}
@@ -480,10 +487,7 @@ func (h *Holochain) Get(hash Hash,getEntry bool) (header Header,entry interface{
 	return
 }
 
-// Validate scans back through a chain to the beginning confirming that the last header points to DNA
-// This is actually kind of bogus on your own chain, because theoretically you put it there!  But
-// if the holochain file was copied from somewhere you can consider this a self-check
-func (h *Holochain) Validate(entriesToo bool) (valid bool,err error) {
+func (h *Holochain) Walk(fn func(key *Hash,h *Header,entry interface{}) (error),entriesToo bool) (err error) {
 	var nullHash Hash
 	var nullHashBytes = nullHash[:]
 	err = h.db.View(func(tx *bolt.Tx) error {
@@ -491,47 +495,66 @@ func (h *Holochain) Validate(entriesToo bool) (valid bool,err error) {
 		eb := tx.Bucket([]byte(EntryBucket))
 		mb := tx.Bucket([]byte(MetaBucket))
 		key := mb.Get([]byte(TopMetaKey))
-		var keyH Hash
-		var invalid bool
-		var header Header
-		//		var entry interface{}
-		var visited = make(map[string]bool)
-		for !invalid && !bytes.Equal(nullHashBytes,key) {
-			copy(keyH[:],key)
 
+		var keyH Hash
+		var header Header
+		var visited = make(map[string]bool)
+		for err == nil && !bytes.Equal(nullHashBytes,key) {
+			copy(keyH[:],key)
 			// build up map of all visited headers to prevent loops
 			s := string(key)
 			_,present := visited[s]
 			if present {
-				invalid = true
+				err = errors.New("loop detected in walk")
 			} else {
 				visited[s]=true
-				header,_,err = get(hb,eb,key,entriesToo)
-
-				// confirm the correctness of the header hash
-				b,err := ByteEncoder(&header)
-				if err !=nil {return err}
-				bh := sha256.Sum256(b)
-				var bH Hash
-				copy(bH[:],bh[:])
-				if (bH.String() != keyH.String()) {
-					//fmt.Println("\nbh:",bH.String(),"\nkey:",keyH.String(),"\n",fmt.Sprintf("header:%v\n",header))
-					invalid = true
+				var e interface{}
+				header,e,err = get(hb,eb,key,entriesToo)
+				if err == nil {
+					err = fn(&keyH,&header,e)
+					key = header.HeaderLink[:]
 				}
-
-				// TODO check entry hashes too if entriesToo set
-				if entriesToo {
-
-				}
-				key = header.HeaderLink[:]
 			}
+		}
+		if err != nil {
+			return err
+		}
+		// if the last item doesn't gets us to bottom, i.e. the header who's entry link is
+		// the same as ID key then, the chain is invalid...
+		if !bytes.Equal(header.EntryLink[:],mb.Get([]byte(IDMetaKey))) {return errors.New("chain didn't end at DNA!")}
+		return err
+	})
+	return
+}
+
+
+// Validate scans back through a chain to the beginning confirming that the last header points to DNA
+// This is actually kind of bogus on your own chain, because theoretically you put it there!  But
+// if the holochain file was copied from somewhere you can consider this a self-check
+func (h *Holochain) Validate(entriesToo bool) (valid bool,err error) {
+
+	err = h.Walk(func(key *Hash,header *Header,entry interface{})(err error){
+		// confirm the correctness of the header hash
+		b,err := ByteEncoder(&header)
+		if err !=nil {return err}
+		bh := sha256.Sum256(b)
+		var bH Hash
+		copy(bH[:],bh[:])
+		if (bH.String() != (*key).String()) {
+			return errors.New("header hash doesn't match")
+		}
+
+		// TODO check entry hashes too if entriesToo set
+		if entriesToo {
 
 		}
-		// if the last item gets us to bottom, i.e. the header who's entry link is the
-		// same as ID key then the chain is valid...
-		if !bytes.Equal(header.EntryLink[:],mb.Get([]byte(IDMetaKey))) {invalid = true}
-		valid = !invalid
 		return nil
-	})
+	},entriesToo)
+	if err == nil {valid = true}
+	return
+}
+
+// Load returns a slice of the headers in the chain
+func (h *Holochain) Load() (headers []*Header,err error) {
 	return
 }

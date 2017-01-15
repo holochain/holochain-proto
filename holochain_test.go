@@ -14,6 +14,10 @@ import (
 	. "github.com/smartystreets/goconvey/convey"
 )
 
+func Test(t *testing.T) {
+	Register()
+}
+
 func TestNew(t *testing.T) {
 	var key ecdsa.PrivateKey
 
@@ -153,8 +157,6 @@ func TestHeader(t *testing.T) {
 }
 
 func TestGob(t *testing.T) {
-	gob.Register(Header{})
-
 	g := GobEntry{C:mkTestHeader()}
 	v,err := g.Marshal()
 	ExpectNoErr(t,err)
@@ -179,7 +181,6 @@ func TestJSONEntry(t *testing.T) {
 }
 
 func TestGenChain(t *testing.T) {
-	gob.Register(KeyEntry{})
 	d,_,h := setupTestChain("test")
 	defer cleanupTestDir(d)
 	var err error
@@ -234,6 +235,37 @@ func TestGenChain(t *testing.T) {
 		So(top.String(),ShouldEqual,headerHash.String())
 	})
 }
+
+func TestWalk(t *testing.T) {
+	d,_,h := setupTestChain("test")
+	defer cleanupTestDir(d)
+	_,err := h.GenChain()
+	if err != nil {panic(err)}
+
+	// add an extra link onto the chain
+	myData := `(message (from "art") (to "eric") (contents "test"))`
+	now := time.Unix(1,1) // pick a constant time so the test will always work
+	e := GobEntry{C:myData}
+	_,_,err = h.NewEntry(now,"myData",&e)
+
+	Convey("walk should call a function on all the elements of a chain",t,func(){
+
+		c := make(map[int]string,0)
+		//	c := make([]string,0)
+		idx := 0
+		err := h.Walk(func(key *Hash,header *Header,entry interface{})(err error){
+			c[idx] = header.EntryLink.String()
+			idx++
+		//	c = append(c, header.HeaderLink.String())
+			return nil
+		},false)
+		So(err,ShouldBeNil)
+		id,err := h.ID()
+		So(c[2],ShouldEqual,id.String())
+	//	So(c,ShouldEqual,"fish")
+	})
+}
+
 
 func TestValidate(t *testing.T) {
 	d,_,h := setupTestChain("test")

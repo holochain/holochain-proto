@@ -23,6 +23,8 @@ func main() {
 	var uninitialized error
 	var service *holo.Service
 
+	holo.Register()
+
 	app.Flags = []cli.Flag {
 		cli.BoolFlag{
 			Name: "verbose",
@@ -111,6 +113,43 @@ func main() {
 					}
 				}
 				return err
+			},
+		},
+		{
+			Name:    "dump",
+			Aliases: []string{"d"},
+			Usage:   "display a text dump of a chain",
+			ArgsUsage: "holochain-name",
+			Action:  func(c *cli.Context) error {
+				if !initialized {return uninitialized}
+				name := c.Args().First()
+				if name == "" {return errors.New("missing require holochain-name argument to dump")}
+				h,err := service.IsConfigured(name)
+				if err != nil {return err}
+
+				id,err := h.ID()
+				if err != nil {return err}
+				fmt.Printf("Chain: %s\n",id)
+
+				links := make(map[string]holo.Header,0)
+				index := make(map[int]string,0)
+				idx := 0
+				err = h.Walk(func(key *holo.Hash,header *holo.Header,entry interface{})(err error){
+					ks := (*key).String()
+					index[idx] = ks
+					links[ks] = *header
+					idx++
+					return nil
+				},false)
+
+				for i:=0;i<idx;i++ {
+					k := index[i]
+					hdr := links[k]
+					fmt.Printf("%s:%s @ %v\n",hdr.Type,k,hdr.Time)
+					fmt.Printf("    Next Header: %v\n",hdr.HeaderLink)
+					fmt.Printf("          Entry: %v\n",hdr.EntryLink)
+				}
+				return nil
 			},
 		},
 		{

@@ -40,6 +40,18 @@ func main() {
 			Aliases: []string{"g"},
 			Subcommands: []cli.Command{
 				{
+					Name:  "from",
+					Aliases: []string{"f"},
+					Usage: "generate a default configuration files, suitable for editing",
+					ArgsUsage: "holochain-name",
+					Action: func(c *cli.Context) error {
+						name := c.Args().First()
+						if name == "" {return errors.New("missing require holochain-name argument to gen dev")}
+						err := errors.New("not implemented")
+						return err
+					},
+				},
+				{
 					Name:  "dev",
 					Aliases: []string{"d"},
 					Usage: "generate a default configuration files, suitable for editing",

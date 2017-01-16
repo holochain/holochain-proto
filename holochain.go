@@ -51,7 +51,7 @@ type Holochain struct {
 	SchemaHashes map[string]Hash
 	Validators map[string]string
 	ValidatorHashes map[string]Hash
-	//---- private values not serialized
+	//---- private values not serialized; initialized on Load
 	path string
 	agent Agent
 	privKey *ecdsa.PrivateKey
@@ -101,11 +101,11 @@ func Register() {
 func SelfDescribingSchema(sc string) bool {
 	SelfDescribingSchemas := map[string]bool {
 		"JSON": true,
-		"zygo": true,
+		ZygoSchemaType: true,
 	}
 	return SelfDescribingSchemas[sc]
-
 }
+
 //IsConfigured checks a directory for correctly set up holochain configuration files
 func (s *Service) IsConfigured(name string) (h *Holochain, err error) {
 	path := s.Path+"/"+name
@@ -136,9 +136,9 @@ func New(agent Agent ,key *ecdsa.PrivateKey,path string) Holochain {
 		Id:u,
 		HashType: "SHA256",
 		Types: []string{"myData"},
-		Schemas: map[string]string{"myData":"zygo"},
+		Schemas: map[string]string{"myData":ZygoSchemaType},
 		SchemaHashes:  map[string]Hash{},
-		Validators: map[string]string{"myData":"valid_myData.zyg"},
+		Validators: map[string]string{"myData":"valid_myData.zy"},
 		ValidatorHashes:  map[string]Hash{},
 		agent: agent,
 		privKey: key,
@@ -277,11 +277,11 @@ func GenDev(path string) (hP *Holochain, err error) {
 
 	h.Name = filepath.Base(path)
 	//	if err = writeFile(path,"myData.cp",[]byte(s)); err != nil {return}  //if captain proto...
-	s := `
-(defun validateEntry(entry) true)
-(defun validateChain(entry user_data) true))
+ s := `
+(defn validateEntry [entry] (cond (== (mod entry 2) 0) true false))
+(defn validateChain [entry user_data] true)
 `
-	if err = writeFile(path,"valid_myData.zyg",[]byte(s)); err != nil {return}
+	if err = writeFile(path,"valid_myData.zy",[]byte(s)); err != nil {return}
 
 	h.db,err = OpenStore(path+"/"+StoreFileName)
 	if err != nil {return}
@@ -554,7 +554,33 @@ func (h *Holochain) Validate(entriesToo bool) (valid bool,err error) {
 	return
 }
 
-// Load returns a slice of the headers in the chain
-func (h *Holochain) Load() (headers []*Header,err error) {
+// ValidateEntry passes an entry data to the chains validation routinesLoad returns a slice of the headers in the chain.
+//If the entry is valid err will be nil, otherwise it will contain some information about why the validation failed (or, possibly, some other system error)
+func (h *Holochain) ValidateEntry(header *Header,entry interface{}) (err error) {
+	_,ok := h.Validators[header.Type]
+	if !ok {return errors.New("no validator for type: "+header.Type)}
+	if entry == nil {return errors.New("nil entry invalid")}
+	v,err := h.ValidatorFactory(header.Type)
+	if err != nil {return}
+	err = v.ValidateEntry(entry)
+	return
+}
+
+func (h *Holochain) ValidatorFactory(t string) (v Validator,err error) {
+	schema,ok := h.Schemas[t]
+	if !ok {err = errors.New("no schema for type: "+t);return}
+	validator,ok := h.Validators[t]
+	if !ok {err = errors.New("no validator for type: "+t);return}
+
+	// which validator to use is inferred from the schema type
+	switch schema {
+	case ZygoSchemaType:
+		var code []byte
+		code,err = readFile(h.path,validator)
+		if err != nil {return}
+		v,err = NewZygoValidator(string(code))
+	default:
+		err = errors.New("can't infer validator from schema type: "+t)
+	}
 	return
 }

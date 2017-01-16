@@ -141,7 +141,7 @@ func TestNewEntry(t *testing.T) {
 
 func TestHeader(t *testing.T) {
 	var h1,h2 Header
-	h1 = mkTestHeader()
+	h1 = mkTestHeader("myData")
 
 	var buf bytes.Buffer
 	enc := gob.NewEncoder(&buf)
@@ -157,7 +157,7 @@ func TestHeader(t *testing.T) {
 }
 
 func TestGob(t *testing.T) {
-	g := GobEntry{C:mkTestHeader()}
+	g := GobEntry{C:mkTestHeader("myData")}
 	v,err := g.Marshal()
 	ExpectNoErr(t,err)
 	var g2 GobEntry
@@ -266,7 +266,6 @@ func TestWalk(t *testing.T) {
 	})
 }
 
-
 func TestValidate(t *testing.T) {
 	d,_,h := setupTestChain("test")
 	defer cleanupTestDir(d)
@@ -287,13 +286,62 @@ func TestValidate(t *testing.T) {
 	})
 
 }
+
+func TestValidateEntry(t *testing.T) {
+	d,_,h := setupTestChain("test")
+	defer cleanupTestDir(d)
+	_,err := h.GenChain()
+	if err != nil {panic(err)}
+
+	Convey("it should fail if a validator doesn't exist for the entry type",t,func(){
+		hdr := mkTestHeader("bogusType")
+		err = h.ValidateEntry(&hdr,nil)
+		So(err.Error(),ShouldEqual,"no validator for type: bogusType")
+	})
+
+	Convey("a nil entry is invalid",t,func(){
+		hdr := mkTestHeader("myData")
+		err = h.ValidateEntry(&hdr,nil)
+		So(err.Error(),ShouldEqual,"nil entry invalid")
+	})
+	Convey("a valid entry validates",t,func(){
+		hdr := mkTestHeader("myData")
+		myData := "2" //`(message (from "art") (to "eric") (contents "test"))`
+		err = h.ValidateEntry(&hdr,myData)
+		So(err,ShouldBeNil)
+	})
+	Convey("an invalid entry doesn't validate",t,func(){
+		hdr := mkTestHeader("myData")
+		myData := "1" //`(message (from "art") (to "eric") (contents "test"))`
+		err = h.ValidateEntry(&hdr,myData)
+		So(err.Error(),ShouldEqual,"Invalid entry")
+	})
+}
+
+func TestValidatorFactory(t *testing.T) {
+	d,_,h := setupTestChain("test")
+	defer cleanupTestDir(d)
+	Convey("it should fail if the type isn't defined in the DNA",t,func(){
+		_,err := h.ValidatorFactory("bogusType")
+		So(err.Error(),ShouldEqual,"no schema for type: bogusType")
+
+	})
+	Convey("it should create a validator based on the type",t,func(){
+		v,err := h.ValidatorFactory("myData")
+		So(err,ShouldBeNil)
+		z := v.(*ZygoValidator)
+		_,err = z.env.Run()
+		So(err,ShouldBeNil)
+	})
+}
+
 //----- test util functions
 
-func mkTestHeader() Header {
+func mkTestHeader(t string) Header {
 	hl := NewHash("1vemK25pc5ewYtztPGYAdX39uXuyV13xdouCnZUr8RMA")
 	el := NewHash("2vemK25pc5ewYtztPGYAdX39uXuyV13xdouCnZUr8RMA")
 	now := time.Unix(1,1) // pick a constant time so the test will always work
-	h1 := Header{Time:now,Type:"fish",Meta:"dog",
+	h1 := Header{Time:now,Type:t,Meta:"dog",
 		HeaderLink:hl,
 		EntryLink:el,
 		MySignature:Signature{R:new(big.Int),S:new(big.Int)},

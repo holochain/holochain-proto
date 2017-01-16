@@ -7,13 +7,6 @@ import(
 	"time"
 )
 
-
-func ExpectErrString(t *testing.T,err error,text string) {
-	if err.Error() != text {
-		t.Error("expected '"+text+"' got",err)
-	}
-}
-
 func ExpectNoErr(t *testing.T,err error) {
 	if err != nil {
 		t.Error("expected no err, got",err)

@@ -59,14 +59,25 @@ Since holochain is basically a distributed database engine, you will probably on
 
     hc init "Fred Flinstone" <fred@flintsone.com>
 
-You can use a pre-existing holochain configuration by replacing SOURCE with a local file path for loading existing DNA for a group's holochain.:
+You can use a pre-existing holochain configuration by replacing SOURCE with  path for loading existing DNA for a group's holochain.:
 
-    hc gen chain <SOURCE>
+    hc gen from <SOURCE>
 
 If you are a developer and want to build your own group configuration, data schemas, and validation rules for a holochain you can set up the initial scaffolding and files with:
 
-    hc gen dev
+    hc gen dev <NAME>
 
+After you have completed development for that chain, you can start the chain (i.e. create the genesis entries) with:
+
+    hc gen chain <NAME>
+
+To view all the chains on your system and their status, use:
+
+    hc status
+
+You can inspect the contents of a particular chain with:
+
+    hc dump <NAME>
 
 ## Architecture
 ### Functional Domains

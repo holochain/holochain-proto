@@ -43,5 +43,6 @@ func setupTestDir() string {
 }
 
 func cleanupTestDir(path string) {
-	func() {os.RemoveAll(path)}()
+	err := os.RemoveAll(path)
+	if err != nil {panic(err)}
 }

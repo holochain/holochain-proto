@@ -12,6 +12,7 @@ import (
 	"bytes"
 	"encoding/gob"
 	"io"
+	"io/ioutil"
 	"errors"
 	"crypto/ecdsa"
 	"crypto/rand"
@@ -24,6 +25,9 @@ import (
 	"github.com/google/uuid"
 	"github.com/BurntSushi/toml"
 	"github.com/boltdb/bolt"
+	"regexp"
+	"strconv"
+	"sort"
 )
 
 const Version string = "0.0.1"
@@ -277,11 +281,17 @@ func GenDev(path string) (hP *Holochain, err error) {
 
 	h.Name = filepath.Base(path)
 	//	if err = writeFile(path,"myData.cp",[]byte(s)); err != nil {return}  //if captain proto...
- s := `
+	s := `
 (defn validateEntry [entry] (cond (== (mod entry 2) 0) true false))
 (defn validateChain [entry user_data] true)
 `
 	if err = writeFile(path,"valid_myData.zy",[]byte(s)); err != nil {return}
+	testPath := path+"/test"
+	if err := os.MkdirAll(testPath,os.ModePerm); err != nil {
+		return nil,err;
+	}
+	if err = writeFile(testPath,"1_myData.zy",[]byte("2")); err != nil {return}
+	if err = writeFile(testPath,"2_myData.zy",[]byte("4")); err != nil {return}
 
 	h.db,err = OpenStore(path+"/"+StoreFileName)
 	if err != nil {return}
@@ -583,4 +593,66 @@ func (h *Holochain) ValidatorFactory(t string) (v Validator,err error) {
 		err = errors.New("can't infer validator from schema type: "+t)
 	}
 	return
+}
+
+// Test validates test data against the current validation rules.
+// This function is useful only in the context of developing a holochain and will return
+// an error if the chain has already been started (i.e. has genesis entries)
+func (h *Holochain) Test() (err error) {
+	_,err = h.ID()
+	if err == nil {err = errors.New("chain already started");return}
+	p := h.path+"/test"
+	files, err := ioutil.ReadDir(p)
+	if err != err {return}
+
+	if len(files) == 0 {return errors.New("no test data found in: "+h.path+"/test")}
+
+	// setup the genesis entries
+	h.GenChain()
+
+	// and make sure the store gets reset to null after the test runs
+	defer func() {
+		s := p+"/"+StoreFileName
+		os.Remove(s)
+		h.db,err = OpenStore(s)
+		if err != nil {panic(err)}
+	}()
+
+	// load up the entries into hashes
+	re := regexp.MustCompile(`([0-9])+_(.*)\.(.*)`)
+	var entryTypes = make(map[int]string)
+	var entryValues = make(map[int]string)
+	for _, f := range files {
+		if f.Mode().IsRegular() {
+			x := re.FindStringSubmatch(f.Name())
+			if len(x) > 0 {
+				var i int
+				i,err = strconv.Atoi(x[1])
+				if err != nil {return}
+				entryTypes[i] = x[2]
+				var v []byte
+				v,err = readFile(p,x[0])
+				if err != nil {return}
+				entryValues[i] = string(v)
+			}
+		}
+	}
+
+	var keys []int
+	for k := range entryValues {
+		keys = append(keys, k)
+	}
+	sort.Ints(keys)
+	for k := range keys {
+		idx := keys[k]
+		e := GobEntry{C:entryValues[idx]}
+		var header *Header
+		_,header,err = h.NewEntry(time.Now(),entryTypes[idx],&e)
+		if err != nil {return}
+		//TODO: really we should be running h.Validate to test headers and genesis too
+		err = h.ValidateEntry(header,e.C)
+		if err != nil {return}
+	}
+	return
+
 }

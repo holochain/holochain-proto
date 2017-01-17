@@ -28,7 +28,7 @@ func TestZygoValidateEntry(t *testing.T) {
 		v,err := NewZygoValidator(`(defn validateEntry [entry] (cond (== entry "fish") true false))`)
 		So(err,ShouldBeNil)
 		err = v.ValidateEntry(`"cow"`)
-		So(err.Error(),ShouldEqual,"Invalid entry")
+		So(err.Error(),ShouldEqual,"Invalid entry:\"cow\"")
 		err = v.ValidateEntry(`"fish"`)
 		So(err,ShouldBeNil)
 	})

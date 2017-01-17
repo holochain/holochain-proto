@@ -314,7 +314,7 @@ func TestValidateEntry(t *testing.T) {
 		hdr := mkTestHeader("myData")
 		myData := "1" //`(message (from "art") (to "eric") (contents "test"))`
 		err = h.ValidateEntry(&hdr,myData)
-		So(err.Error(),ShouldEqual,"Invalid entry")
+		So(err.Error(),ShouldEqual,"Invalid entry:1")
 	})
 }
 
@@ -334,6 +334,29 @@ func TestValidatorFactory(t *testing.T) {
 		So(err,ShouldBeNil)
 	})
 }
+
+func TestTest(t *testing.T) {
+	d,_,h := setupTestChain("test")
+	cleanupTestDir(d+"/.holochain/test/test/") // delete the test data created by gen dev
+	Convey("it should fail if there's no test data",t,func(){
+		err := h.Test()
+		So(err.Error(),ShouldEqual,"no test data found in: "+h.path+"/test")
+	})
+	cleanupTestDir(d)
+
+	d,_,h = setupTestChain("test")
+	defer cleanupTestDir(d)
+	Convey("it should validate on test data",t,func(){
+		err := h.Test()
+		So(err,ShouldBeNil)
+	})
+	Convey("it should reset the database state and thus run correctly twice",t,func(){
+		err := h.Test()
+		So(err,ShouldBeNil)
+	})
+
+}
+
 
 //----- test util functions
 

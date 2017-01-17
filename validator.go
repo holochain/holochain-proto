@@ -28,13 +28,14 @@ type ZygoValidator struct {
 func (z *ZygoValidator)Name() string {return ZygoSchemaType}
 
 func (z *ZygoValidator)ValidateEntry(entry interface{}) (err error) {
-	err = z.env.LoadString("(validateEntry "+entry.(string)+")")
+	e := entry.(string)
+	err = z.env.LoadString("(validateEntry "+e+")")
 	if err != nil {return}
 	result,err := z.env.Run()
 	switch result.(type) {
 	case *zygo.SexpBool:
 		r := result.(*zygo.SexpBool).Val
-		if !r {err = errors.New("Invalid entry")}
+		if !r {err = errors.New("Invalid entry:"+e)}
 	default:
 		err = errors.New("Unexpected result: "+fmt.Sprintf("%v",result))
 	}

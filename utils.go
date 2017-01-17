@@ -18,9 +18,8 @@ func writeToml(path string,file string,data interface{},overwrite bool) error {
 		return mkErr(path+" already exists")
 	}
 	f, err := os.Create(p)
-	if err != nil {
-		return err
-	}
+	if err != nil {return err}
+
 	defer f.Close()
 	enc := toml.NewEncoder(f)
 	err = enc.Encode(data);
@@ -29,13 +28,11 @@ func writeToml(path string,file string,data interface{},overwrite bool) error {
 
 func writeFile(path string,file string,data []byte) error {
 	p := path+"/"+file
-	if fileExists(p) {
-		return mkErr(path+" already exists")
-	}
+	if fileExists(p) {return mkErr(path+" already exists")}
 	f, err := os.Create(p)
 	if err != nil {return err}
-
 	defer f.Close()
+
 	l,err := f.Write(data)
 	if (err != nil) {return err}
 

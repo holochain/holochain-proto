@@ -67,6 +67,12 @@ If you are a developer and want to build your own group configuration, data sche
 
     hc gen dev <NAME>
 
+To aid development, the `gen dev` command also produces a `test` sub-directory with sample chain entries of the format `<index>_<schema-type>.zy`  The command:
+
+    hc test <NAME>
+
+runs validates these data entries against the validation rules.  Thus you can run this command as you make changes to your holochain DNA to confirm that it's all working.
+
 After you have completed development for that chain, you can start the chain (i.e. create the genesis entries) with:
 
     hc gen chain <NAME>
@@ -78,6 +84,9 @@ To view all the chains on your system and their status, use:
 You can inspect the contents of a particular chain with:
 
     hc dump <NAME>
+
+
+
 
 ## Architecture
 ### Functional Domains

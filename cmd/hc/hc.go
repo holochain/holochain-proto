@@ -12,15 +12,16 @@ import (
 	//"github.com/google/uuid"
 )
 
+var uninitialized error
+var initialized bool
 
 func main() {
 	app := cli.NewApp()
 	app.Name = "hc"
 	app.Usage = "holochain peer command line interface"
 	app.Version = "0.0.1"
-	var verbose,initialized bool
+	var verbose bool
 	var root,userPath string
-	var uninitialized error
 	var service *holo.Service
 
 	holo.Register()
@@ -42,7 +43,7 @@ func main() {
 				{
 					Name:  "from",
 					Aliases: []string{"f"},
-					Usage: "generate a default configuration files, suitable for editing",
+					Usage: "generate a holochain instance from  source",
 					ArgsUsage: "holochain-name",
 					Action: func(c *cli.Context) error {
 						name := c.Args().First()
@@ -57,8 +58,8 @@ func main() {
 					Usage: "generate a default configuration files, suitable for editing",
 					ArgsUsage: "holochain-name",
 					Action: func(c *cli.Context) error {
-						name := c.Args().First()
-						if name == "" {return errors.New("missing require holochain-name argument to gen dev")}
+						name,err := checkForName(c,"gen dev")
+						if err != nil {return err}
 						h,err := holo.GenDev(root+"/"+name)
 						if err == nil {
 							if (verbose) {
@@ -74,11 +75,11 @@ func main() {
 					Usage: "generate separate key pair for entry signing on a specific holochain",
 					ArgsUsage: "holochain-name",
 					Action: func(c *cli.Context) error {
-						if !initialized {return uninitialized}
-						name := c.Args().First()
+						name,err := checkForName(c,"gen keys")
+						if err != nil {return err}
 						chains,_ := service.ConfiguredChains()
 						if chains[name]==nil {return errors.New(name+" doesn't exist")}
-						_,err := holo.GenKeys(root+"/"+name)
+						_,err = holo.GenKeys(root+"/"+name)
 						return err
 					},
 				},
@@ -88,9 +89,8 @@ func main() {
 					Usage: "generate the genesis blocks from the configuration and keys",
 					ArgsUsage: "holochain-name",
 					Action: func(c *cli.Context) error {
-						if !initialized {return uninitialized}
-						name := c.Args().First()
-						if name == "" {return errors.New("missing require holochain-name argument to gen chain")}
+						name,err := checkForName(c,"gen chain")
+						if err != nil {return err}
 						h,err := service.Load(name)
 						if err != nil {return err}
 						err = h.GenDNAHashes()
@@ -133,9 +133,8 @@ func main() {
 			Usage:   "display a text dump of a chain",
 			ArgsUsage: "holochain-name",
 			Action:  func(c *cli.Context) error {
-				if !initialized {return uninitialized}
-				name := c.Args().First()
-				if name == "" {return errors.New("missing require holochain-name argument to dump")}
+				name,err := checkForName(c,"dump")
+				if err != nil {return err}
 				h,err := service.IsConfigured(name)
 				if err != nil {return err}
 
@@ -177,12 +176,16 @@ func main() {
 			},
 		},
 		{
-			Name:    "link",
-			Aliases: []string{"l"},
-			Usage:   "add an entry onto the chain",
+			Name:    "test",
+			Aliases: []string{"t"},
+			Usage:   "run validation against test data for a chain in development",
 			Action:  func(c *cli.Context) error {
-				if !initialized {return uninitialized}
-				return errors.New("not implemented")
+				name,err := checkForName(c,"test")
+				if err != nil {return err}
+				h,err := service.IsConfigured(name)
+				if err != nil {return err}
+				err = h.Test()
+				return err
 			},
 		},
 		{
@@ -223,6 +226,13 @@ func main() {
 	}
 
 	app.Run(os.Args)
+}
+
+func checkForName(c *cli.Context,cmd string) (name string,err error) {
+	if !initialized {err= uninitialized;return}
+	name = c.Args().First()
+	if name == "" {err = errors.New("missing require holochain-name argument to "+cmd)}
+	return
 }
 
 func listChains(s *holo.Service) {

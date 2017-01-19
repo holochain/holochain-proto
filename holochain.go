@@ -59,7 +59,7 @@ type Holochain struct {
 	path string
 	agent Agent
 	privKey *ecdsa.PrivateKey
-	db *bolt.DB
+	store Persister
 }
 
 // Holds content for a holochain
@@ -171,44 +171,17 @@ func (s *Service) Load(name string) (hP *Holochain,err error) {
 	h.agent = agent
 	h.privKey = key
 
-	h.db,err = OpenStore(path+"/"+StoreFileName)
+	h.store = NewBoltPersister(path+"/"+StoreFileName)
+	err = h.store.Init()
 	if err != nil {return}
 
 	hP = &h
 	return
 }
 
-const (
-	IDMetaKey = "id"
-	TopMetaKey = "top"
-
-	MetaBucket = "M"
-	HeaderBucket = "H"
-	EntryBucket = "E"
-)
-
-func (h *Holochain) PutMeta(key string,value []byte) (err error) {
-	err = h.db.Update(func(tx *bolt.Tx) (err error) {
-		b := tx.Bucket([]byte(MetaBucket))
-		err = b.Put([]byte(key),value)
-		return err
-	})
-	return
-}
-
-// GetMeta retrieves a meta value from the store
-func (h *Holochain) GetMeta(key string) (data []byte,err error) {
-	err = h.db.View(func(tx *bolt.Tx) error {
-		b := tx.Bucket([]byte(MetaBucket))
-		data = b.Get([]byte(key))
-		return nil
-	})
-	return
-}
-
 // getMetaHash gets a value from the store that's a hash
 func (h *Holochain) getMetaHash(key string) (hash Hash,err error) {
-	v,err := h.GetMeta(key)
+	v,err := h.store.GetMeta(key)
 	if err != nil {return}
 	copy(hash[:],v)
 	if v == nil {err = mkErr("Meta key '"+key+"' uninitialized")}
@@ -263,7 +236,7 @@ func (h *Holochain) GenChain() (keyHash Hash,err error) {
 	keyHash,_,err = h.NewEntry(time.Now(),KeyEntryType,&e)
 	if err != nil {return}
 
-	err = h.PutMeta(IDMetaKey, dnaHeader.EntryLink[:])
+	err = h.store.PutMeta(IDMetaKey, dnaHeader.EntryLink[:])
 	if err != nil {return}
 
 	return
@@ -293,7 +266,8 @@ func GenDev(path string) (hP *Holochain, err error) {
 	if err = writeFile(testPath,"1_myData.zy",[]byte("2")); err != nil {return}
 	if err = writeFile(testPath,"2_myData.zy",[]byte("4")); err != nil {return}
 
-	h.db,err = OpenStore(path+"/"+StoreFileName)
+	h.store = NewBoltPersister(path+"/"+StoreFileName)
+	err = h.store.Init()
 	if err != nil {return}
 
 	err = h.SaveDNA(false)
@@ -353,32 +327,6 @@ func LoadSigner(path string) (agent Agent ,key *ecdsa.PrivateKey,err error) {
 	if err != nil {return}
 	agent = Agent(a)
 	key,err = UnmarshalPrivateKey(path,PrivKeyFileName)
-	return
-}
-
-//OpenStore sets up the datastore for use and returns a handle to it
-func OpenStore(path string) (db *bolt.DB, err error) {
-	db, err = bolt.Open(path, 0600, &bolt.Options{Timeout: 1 * time.Second})
-	if err != nil {return}
-	defer func() {if err !=nil {db.Close();db = nil}}()
-	var initialized bool
-	err = db.View(func(tx *bolt.Tx) error {
-		b := tx.Bucket([]byte(MetaBucket))
-		initialized = b != nil
-		return nil
-	})
-	if err != nil {return}
-
-	if !initialized {
-		err = db.Update(func(tx *bolt.Tx) (err error) {
-			_, err = tx.CreateBucketIfNotExists([]byte(EntryBucket))
-			if err != nil {return}
-			_, err = tx.CreateBucketIfNotExists([]byte(HeaderBucket))
-			if err != nil {return}
-			_, err = tx.CreateBucketIfNotExists([]byte(MetaBucket))
-			return
-		})
-	}
 	return
 }
 
@@ -446,7 +394,7 @@ func (h *Holochain) NewEntry(now time.Time,t string,entry Entry) (hash Hash,head
 	b,err := ByteEncoder(&hd)
 	if err !=nil {return}
 	hash = Hash(sha256.Sum256(b))
-	h.db.Update(func(tx *bolt.Tx) error {
+	h.store.(*BoltPersister).DB().Update(func(tx *bolt.Tx) error {
 		bkt := tx.Bucket([]byte(EntryBucket))
 		err = bkt.Put(hd.EntryLink[:], m)
 		if err != nil {return err}
@@ -486,21 +434,11 @@ func get(hb *bolt.Bucket,eb *bolt.Bucket,key []byte,getEntry bool) (header Heade
 	return
 }
 
-// Get returns a header, and (optionally) it's entry if getEntry is true
-func (h *Holochain) Get(hash Hash,getEntry bool) (header Header,entry interface{},err error){
-	err = h.db.View(func(tx *bolt.Tx) error {
-		hb := tx.Bucket([]byte(HeaderBucket))
-		eb := tx.Bucket([]byte(EntryBucket))
-		header,entry,err = get(hb,eb,hash[:],getEntry)
-		return err
-	})
-	return
-}
 
 func (h *Holochain) Walk(fn func(key *Hash,h *Header,entry interface{}) (error),entriesToo bool) (err error) {
 	var nullHash Hash
 	var nullHashBytes = nullHash[:]
-	err = h.db.View(func(tx *bolt.Tx) error {
+	err = h.store.(*BoltPersister).DB().View(func(tx *bolt.Tx) error {
 		hb := tx.Bucket([]byte(HeaderBucket))
 		eb := tx.Bucket([]byte(EntryBucket))
 		mb := tx.Bucket([]byte(MetaBucket))
@@ -612,9 +550,9 @@ func (h *Holochain) Test() (err error) {
 
 	// and make sure the store gets reset to null after the test runs
 	defer func() {
-		s := p+"/"+StoreFileName
-		os.Remove(s)
-		h.db,err = OpenStore(s)
+		err = h.store.Remove()
+		if err != nil {panic(err)}
+		err = h.store.Init()
 		if err != nil {panic(err)}
 	}()
 
@@ -654,5 +592,4 @@ func (h *Holochain) Test() (err error) {
 		if err != nil {return}
 	}
 	return
-
 }

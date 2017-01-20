@@ -136,7 +136,7 @@ To compile and run all the tests:
     go test
 
 ## Development
-We welcome your participation. See our [milestones for current progress](https://github.com/metacurrency/holochain/milestones?direction=asc&sort=due_date&state=all), or our [GitHub issue tracking kanban in waffle](https://waffle.io/metacurrency/holochain).
+We welcome your participation. See our [milestones for current progress](https://github.com/metacurrency/holochain/milestones?direction=asc&sort=due_date&state=all), or our [GitHub issue tracking kanban in waffle](https://waffle.io/metacurrency/holochain).  Or chat with us on gitter: [![Gitter](https://badges.gitter.im/metacurrency/holochain.svg)](https://gitter.im/metacurrency/holochain?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=body_badge)
 
 [![In Progress](https://badge.waffle.io/metacurrency/holochain.svg?label=in%20progress&title=In%20Progress)](http://waffle.io/metacurrency/holochain)
 

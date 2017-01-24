@@ -144,8 +144,9 @@ We welcome your participation. See our [milestones for current progress](https:/
 
 #### Tech
 * We use **test driven development**. Adding a new function or feature, should mean you've added the tests that make sure it works.
-* [Contact us](http://metacurrency.org/contact) to set up a **pair coding session** with one of our developers
-* Or **join our dev documentation calls** twice weekly on Tuesdays and Fridays.
+* Set your editor to automatically use [gofmt](https://blog.golang.org/go-fmt-your-code) on save so there's no wasted discussion on proper indentation of brace style!
+* [Contact us](https://gitter.im/metacurrency/holochain) to set up a **pair coding session** with one of our developers to learn the lay of the land
+* **join our dev documentation calls** twice weekly on Tuesdays and Fridays.
 
 #### Social
 <!-- * Protocols for Inclusion. -->

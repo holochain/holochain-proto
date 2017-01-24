@@ -4,8 +4,6 @@
 // Hash type for Holochains
 // Holochain hashes are SHA256 binary values encoded to strings as base58
 
-
-
 package holochain
 
 import (
@@ -22,6 +20,6 @@ func (h Hash) String() string {
 
 // NewHash builds a Hash from a string encoded hash
 func NewHash(s string) (h Hash) {
-	copy(h[:],b58.Decode(s))
+	copy(h[:], b58.Decode(s))
 	return
 }

@@ -7,64 +7,63 @@
 package holochain
 
 import (
-	_ "fmt"
-	"os"
 	"bytes"
-	"encoding/gob"
-	"io"
-	"io/ioutil"
-	"errors"
 	"crypto/ecdsa"
 	"crypto/rand"
-	"crypto/x509"
 	"crypto/sha256"
-	"math/big"
-	"path/filepath"
-	"time"
+	"crypto/x509"
+	"encoding/gob"
 	"encoding/json"
-	"github.com/google/uuid"
+	"errors"
+	_ "fmt"
 	"github.com/BurntSushi/toml"
 	"github.com/boltdb/bolt"
+	"github.com/google/uuid"
+	"io"
+	"io/ioutil"
+	"math/big"
+	"os"
+	"path/filepath"
 	"regexp"
-	"strconv"
 	"sort"
+	"strconv"
+	"time"
 )
 
 const Version string = "0.0.1"
-
 
 // Unique user identifier in context of this holochain
 type Agent string
 
 // Signing key structure for building KEYEntryType entries
 type KeyEntry struct {
-	ID Agent
+	ID  Agent
 	Key []byte // marshaled x509 public key
 }
 
 // Holochain DNA settings
 type Holochain struct {
-	Version int
-	Id uuid.UUID
-	Name string
-	GroupInfo map[string]string
-	HashType string
-	BasedOn Hash  // holochain hash for base schemas and validators
-	Types []string
-	Schemas map[string]string
-	SchemaHashes map[string]Hash
-	Validators map[string]string
+	Version         int
+	Id              uuid.UUID
+	Name            string
+	GroupInfo       map[string]string
+	HashType        string
+	BasedOn         Hash // holochain hash for base schemas and validators
+	Types           []string
+	Schemas         map[string]string
+	SchemaHashes    map[string]Hash
+	Validators      map[string]string
 	ValidatorHashes map[string]Hash
 	//---- private values not serialized; initialized on Load
-	path string
-	agent Agent
+	path    string
+	agent   Agent
 	privKey *ecdsa.PrivateKey
-	store Persister
+	store   Persister
 }
 
 // Holds content for a holochain
 type Entry interface {
-	Marshal() ([]byte,error)
+	Marshal() ([]byte, error)
 	Unmarshal([]byte) error
 	Content() interface{}
 }
@@ -87,13 +86,13 @@ type Signature struct {
 
 // Holochain entry header
 type Header struct {
-	Type string
-	Time time.Time
-	HeaderLink Hash  // link to previous header
-	EntryLink Hash   // link to entry
-	TypeLink Hash    // link to header of previous header of this type
+	Type        string
+	Time        time.Time
+	HeaderLink  Hash // link to previous header
+	EntryLink   Hash // link to entry
+	TypeLink    Hash // link to header of previous header of this type
 	MySignature Signature
-	Meta interface{}
+	Meta        interface{}
 }
 
 // Register function that must be called once at startup by any client app
@@ -103,8 +102,8 @@ func Register() {
 }
 
 func SelfDescribingSchema(sc string) bool {
-	SelfDescribingSchemas := map[string]bool {
-		"JSON": true,
+	SelfDescribingSchemas := map[string]bool{
+		"JSON":         true,
 		ZygoSchemaType: true,
 	}
 	return SelfDescribingSchemas[sc]
@@ -112,106 +111,128 @@ func SelfDescribingSchema(sc string) bool {
 
 //IsConfigured checks a directory for correctly set up holochain configuration files
 func (s *Service) IsConfigured(name string) (h *Holochain, err error) {
-	path := s.Path+"/"+name
-	p := path+"/"+DNAFileName
-	if !fileExists(p) {return nil,errors.New("missing "+p)}
-	p = path+"/"+StoreFileName
-	if !fileExists(p) {return nil,errors.New("chain store missing: "+p)}
+	path := s.Path + "/" + name
+	p := path + "/" + DNAFileName
+	if !fileExists(p) {
+		return nil, errors.New("missing " + p)
+	}
+	p = path + "/" + StoreFileName
+	if !fileExists(p) {
+		return nil, errors.New("chain store missing: " + p)
+	}
 
 	h, err = s.Load(name)
-	if err != nil {return}
+	if err != nil {
+		return
+	}
 
-	for _,t := range h.Types {
+	for _, t := range h.Types {
 		sc := h.Schemas[t]
 		if !SelfDescribingSchema(sc) {
-			if !fileExists(path+"/"+sc) {return nil,errors.New("DNA specified schema missing: "+sc)}
+			if !fileExists(path + "/" + sc) {
+				return nil, errors.New("DNA specified schema missing: " + sc)
+			}
 		}
 		sc = h.Validators[t]
-		if !fileExists(path+"/"+sc) {return nil,errors.New("DNA specified validator missing: "+sc)}
+		if !fileExists(path + "/" + sc) {
+			return nil, errors.New("DNA specified validator missing: " + sc)
+		}
 	}
 	return
 }
 
 // New creates a new holochain structure with a randomly generated ID and default values
-func New(agent Agent ,key *ecdsa.PrivateKey,path string) Holochain {
-	u,err := uuid.NewUUID()
-	if err != nil {panic(err)}
-	h := Holochain {
-		Id:u,
-		HashType: "SHA256",
-		Types: []string{"myData"},
-		Schemas: map[string]string{"myData":ZygoSchemaType},
-		SchemaHashes:  map[string]Hash{},
-		Validators: map[string]string{"myData":"valid_myData.zy"},
-		ValidatorHashes:  map[string]Hash{},
-		agent: agent,
-		privKey: key,
-		path: path,
+func New(agent Agent, key *ecdsa.PrivateKey, path string) Holochain {
+	u, err := uuid.NewUUID()
+	if err != nil {
+		panic(err)
+	}
+	h := Holochain{
+		Id:              u,
+		HashType:        "SHA256",
+		Types:           []string{"myData"},
+		Schemas:         map[string]string{"myData": ZygoSchemaType},
+		SchemaHashes:    map[string]Hash{},
+		Validators:      map[string]string{"myData": "valid_myData.zy"},
+		ValidatorHashes: map[string]Hash{},
+		agent:           agent,
+		privKey:         key,
+		path:            path,
 	}
 	return h
 }
 
 // Load unmarshals a holochain structure for the named chain in a service
-func (s *Service) Load(name string) (hP *Holochain,err error) {
+func (s *Service) Load(name string) (hP *Holochain, err error) {
 	var h Holochain
 
-	path := s.Path+"/"+name
+	path := s.Path + "/" + name
 
-	_,err = toml.DecodeFile(path+"/"+DNAFileName, &h)
-	if err != nil {return}
+	_, err = toml.DecodeFile(path+"/"+DNAFileName, &h)
+	if err != nil {
+		return
+	}
 	h.path = path
 
 	// try and get the agent/key from the holochain instance
-	agent,key,err := LoadSigner(path)
+	agent, key, err := LoadSigner(path)
 	if err != nil {
 		// get the default if not available
-		agent,key,err = LoadSigner(filepath.Dir(path))
+		agent, key, err = LoadSigner(filepath.Dir(path))
 	}
-	if err != nil {return}
+	if err != nil {
+		return
+	}
 	h.agent = agent
 	h.privKey = key
 
-	h.store = NewBoltPersister(path+"/"+StoreFileName)
+	h.store = NewBoltPersister(path + "/" + StoreFileName)
 	err = h.store.Init()
-	if err != nil {return}
+	if err != nil {
+		return
+	}
 
 	hP = &h
 	return
 }
 
 // getMetaHash gets a value from the store that's a hash
-func (h *Holochain) getMetaHash(key string) (hash Hash,err error) {
-	v,err := h.store.GetMeta(key)
-	if err != nil {return}
-	copy(hash[:],v)
-	if v == nil {err = mkErr("Meta key '"+key+"' uninitialized")}
+func (h *Holochain) getMetaHash(key string) (hash Hash, err error) {
+	v, err := h.store.GetMeta(key)
+	if err != nil {
+		return
+	}
+	copy(hash[:], v)
+	if v == nil {
+		err = mkErr("Meta key '" + key + "' uninitialized")
+	}
 	return
 }
 
 // ID returns a holochain ID hash or err if not yet defined
-func (h *Holochain) ID() (id Hash,err error) {
-	id,err = h.getMetaHash(IDMetaKey)
+func (h *Holochain) ID() (id Hash, err error) {
+	id, err = h.getMetaHash(IDMetaKey)
 	return
 }
 
 // Top returns a hash of top header or err if not yet defined
-func (h *Holochain) Top() (top Hash,err error) {
-	top,err = h.getMetaHash(TopMetaKey)
+func (h *Holochain) Top() (top Hash, err error) {
+	top, err = h.getMetaHash(TopMetaKey)
 	return
 }
 
 // Top returns a hash of top header of the given type or err if not yet defined
-func (h *Holochain) TopType(t string) (top Hash,err error) {
-	top,err = h.getMetaHash(TopMetaKey+"_"+t)
+func (h *Holochain) TopType(t string) (top Hash, err error) {
+	top, err = h.getMetaHash(TopMetaKey + "_" + t)
 	return
 }
 
 // GenChain establishes a holochain instance by creating the initial genesis entries in the chain
 // It assumes a properly set up .holochain sub-directory with a config file and
 // keys for signing.  See GenDev()
-func (h *Holochain) GenChain() (keyHash Hash,err error) {
+func (h *Holochain) GenChain() (keyHash Hash, err error) {
 
-	_,err = h.ID()
+	_, err = h.ID()
 	if err == nil {
 		err = mkErr("chain already started")
 		return
@@ -220,24 +241,32 @@ func (h *Holochain) GenChain() (keyHash Hash,err error) {
 	var buf bytes.Buffer
 	err = h.EncodeDNA(&buf)
 
-	e := GobEntry{C:buf.Bytes()}
+	e := GobEntry{C: buf.Bytes()}
 
-	_,dnaHeader,err := h.NewEntry(time.Now(),DNAEntryType,&e)
-	if err != nil {return}
+	_, dnaHeader, err := h.NewEntry(time.Now(), DNAEntryType, &e)
+	if err != nil {
+		return
+	}
 
 	var k KeyEntry
 	k.ID = h.agent
 
-	pk,err := x509.MarshalPKIXPublicKey(h.privKey.Public().(*ecdsa.PublicKey))
-	if err != nil {return}
+	pk, err := x509.MarshalPKIXPublicKey(h.privKey.Public().(*ecdsa.PublicKey))
+	if err != nil {
+		return
+	}
 	k.Key = pk
 
 	e.C = k
-	keyHash,_,err = h.NewEntry(time.Now(),KeyEntryType,&e)
-	if err != nil {return}
+	keyHash, _, err = h.NewEntry(time.Now(), KeyEntryType, &e)
+	if err != nil {
+		return
+	}
 
 	err = h.store.PutMeta(IDMetaKey, dnaHeader.EntryLink[:])
-	if err != nil {return}
+	if err != nil {
+		return
+	}
 
 	return
 }
@@ -245,12 +274,14 @@ func (h *Holochain) GenChain() (keyHash Hash,err error) {
 // Gen adds template files suitable for editing to the given path
 func GenDev(path string) (hP *Holochain, err error) {
 	var h Holochain
-	if err := os.MkdirAll(path,os.ModePerm); err != nil {
-		return nil,err;
+	if err := os.MkdirAll(path, os.ModePerm); err != nil {
+		return nil, err
 	}
-	agent,key,err := LoadSigner(filepath.Dir(path))
-	if err != nil {return}
-	h = New(agent,key,path)
+	agent, key, err := LoadSigner(filepath.Dir(path))
+	if err != nil {
+		return
+	}
+	h = New(agent, key, path)
 
 	h.Name = filepath.Base(path)
 	//	if err = writeFile(path,"myData.cp",[]byte(s)); err != nil {return}  //if captain proto...
@@ -258,20 +289,30 @@ func GenDev(path string) (hP *Holochain, err error) {
 (defn validateEntry [entry] (cond (== (mod entry 2) 0) true false))
 (defn validateChain [entry user_data] true)
 `
-	if err = writeFile(path,"valid_myData.zy",[]byte(s)); err != nil {return}
-	testPath := path+"/test"
-	if err := os.MkdirAll(testPath,os.ModePerm); err != nil {
-		return nil,err;
+	if err = writeFile(path, "valid_myData.zy", []byte(s)); err != nil {
+		return
 	}
-	if err = writeFile(testPath,"1_myData.zy",[]byte("2")); err != nil {return}
-	if err = writeFile(testPath,"2_myData.zy",[]byte("4")); err != nil {return}
+	testPath := path + "/test"
+	if err := os.MkdirAll(testPath, os.ModePerm); err != nil {
+		return nil, err
+	}
+	if err = writeFile(testPath, "1_myData.zy", []byte("2")); err != nil {
+		return
+	}
+	if err = writeFile(testPath, "2_myData.zy", []byte("4")); err != nil {
+		return
+	}
 
-	h.store = NewBoltPersister(path+"/"+StoreFileName)
+	h.store = NewBoltPersister(path + "/" + StoreFileName)
 	err = h.store.Init()
-	if err != nil {return}
+	if err != nil {
+		return
+	}
 
 	err = h.SaveDNA(false)
-	if err != nil {return}
+	if err != nil {
+		return
+	}
 
 	hP = &h
 	return
@@ -281,15 +322,15 @@ func GenDev(path string) (hP *Holochain, err error) {
 // we use toml so that the DNA is human readable
 func (h *Holochain) EncodeDNA(writer io.Writer) (err error) {
 	enc := toml.NewEncoder(writer)
-	err = enc.Encode(h);
+	err = enc.Encode(h)
 	return
 }
 
 // SaveDNA writes the holochain DNA to a file
 func (h *Holochain) SaveDNA(overwrite bool) (err error) {
-	p := h.path+"/"+DNAFileName
+	p := h.path + "/" + DNAFileName
 	if !overwrite && fileExists(p) {
-		return mkErr(p+" already exists")
+		return mkErr(p + " already exists")
 	}
 	f, err := os.Create(p)
 	if err != nil {
@@ -305,16 +346,20 @@ func (h *Holochain) SaveDNA(overwrite bool) (err error) {
 // of finalizing DNA development or versioning
 func (h *Holochain) GenDNAHashes() (err error) {
 	var b []byte
-	for _,t := range h.Types {
+	for _, t := range h.Types {
 		sc := h.Schemas[t]
 		if !SelfDescribingSchema(sc) {
-			b,err = readFile(h.path,sc)
-			if err != nil {return}
+			b, err = readFile(h.path, sc)
+			if err != nil {
+				return
+			}
 			h.SchemaHashes[t] = Hash(sha256.Sum256(b))
 		}
 		sc = h.Validators[t]
-		b,err = readFile(h.path,sc)
-		if err != nil {return}
+		b, err = readFile(h.path, sc)
+		if err != nil {
+			return
+		}
 		h.ValidatorHashes[t] = Hash(sha256.Sum256(b))
 	}
 	err = h.SaveDNA(true)
@@ -322,26 +367,30 @@ func (h *Holochain) GenDNAHashes() (err error) {
 }
 
 //LoadSigner gets the agent and signing key from the specified directory
-func LoadSigner(path string) (agent Agent ,key *ecdsa.PrivateKey,err error) {
-	a,err := readFile(path,AgentFileName)
-	if err != nil {return}
+func LoadSigner(path string) (agent Agent, key *ecdsa.PrivateKey, err error) {
+	a, err := readFile(path, AgentFileName)
+	if err != nil {
+		return
+	}
 	agent = Agent(a)
-	key,err = UnmarshalPrivateKey(path,PrivKeyFileName)
+	key, err = UnmarshalPrivateKey(path, PrivKeyFileName)
 	return
 }
 
 // ByteEncoder encodes anything using gob
-func ByteEncoder(data interface{}) (b []byte,err error) {
+func ByteEncoder(data interface{}) (b []byte, err error) {
 	var buf bytes.Buffer
 	enc := gob.NewEncoder(&buf)
 	err = enc.Encode(data)
-	if err != nil {return}
+	if err != nil {
+		return
+	}
 	b = buf.Bytes()
 	return
 }
 
 // ByteEncoder decodes data encoded by ByteEncoder
-func ByteDecoder(b []byte,to interface{}) (err error) {
+func ByteDecoder(b []byte, to interface{}) (err error) {
 	buf := bytes.NewBuffer(b)
 	dec := gob.NewDecoder(buf)
 	err = dec.Decode(to)
@@ -349,20 +398,22 @@ func ByteDecoder(b []byte,to interface{}) (err error) {
 }
 
 // implementation of Entry interface with gobs
-func (e *GobEntry) Marshal() (b []byte,err error) {
-	b,err = ByteEncoder(&e.C)
+func (e *GobEntry) Marshal() (b []byte, err error) {
+	b, err = ByteEncoder(&e.C)
 	return
 }
 func (e *GobEntry) Unmarshal(b []byte) (err error) {
-	err = ByteDecoder(b,&e.C)
+	err = ByteDecoder(b, &e.C)
 	return
 }
-func (e *GobEntry) Content() interface{} {return e.C}
+func (e *GobEntry) Content() interface{} { return e.C }
 
 // implementation of Entry interface with JSON
-func (e *JSONEntry) Marshal() (b []byte,err error) {
-	j,err := json.Marshal(e.C)
-	if err != nil {return}
+func (e *JSONEntry) Marshal() (b []byte, err error) {
+	j, err := json.Marshal(e.C)
+	if err != nil {
+		return
+	}
 	b = []byte(j)
 	return
 }
@@ -370,46 +421,64 @@ func (e *JSONEntry) Unmarshal(b []byte) (err error) {
 	err = json.Unmarshal(b, &e.C)
 	return
 }
-func (e *JSONEntry) Content() interface{} {return e.C}
+func (e *JSONEntry) Content() interface{} { return e.C }
 
 // NewEntry adds an entry and it's header to the chain and returns the header and it's hash
-func (h *Holochain) NewEntry(now time.Time,t string,entry Entry) (hash Hash,header *Header,err error) {
+func (h *Holochain) NewEntry(now time.Time, t string, entry Entry) (hash Hash, header *Header, err error) {
 	var hd Header
 	hd.Type = t
 	hd.Time = now
 
-	ph,err := h.Top()
-	if err == nil {hd.HeaderLink = ph}
-	ph,err = h.TopType(t)
-	if err == nil {hd.TypeLink = ph}
+	ph, err := h.Top()
+	if err == nil {
+		hd.HeaderLink = ph
+	}
+	ph, err = h.TopType(t)
+	if err == nil {
+		hd.TypeLink = ph
+	}
 
-	m,err := entry.Marshal()
-	if err != nil {return}
+	m, err := entry.Marshal()
+	if err != nil {
+		return
+	}
 	hd.EntryLink = Hash(sha256.Sum256(m))
 
-	r,s,err := ecdsa.Sign(rand.Reader,h.privKey,hd.EntryLink[:])
-	if err != nil {return}
-	hd.MySignature = Signature{R:r,S:s}
+	r, s, err := ecdsa.Sign(rand.Reader, h.privKey, hd.EntryLink[:])
+	if err != nil {
+		return
+	}
+	hd.MySignature = Signature{R: r, S: s}
 
-	b,err := ByteEncoder(&hd)
-	if err !=nil {return}
+	b, err := ByteEncoder(&hd)
+	if err != nil {
+		return
+	}
 	hash = Hash(sha256.Sum256(b))
 	h.store.(*BoltPersister).DB().Update(func(tx *bolt.Tx) error {
 		bkt := tx.Bucket([]byte(EntryBucket))
 		err = bkt.Put(hd.EntryLink[:], m)
-		if err != nil {return err}
+		if err != nil {
+			return err
+		}
 
 		bkt = tx.Bucket([]byte(HeaderBucket))
 		v := hash[:]
 		err = bkt.Put(v, b)
-		if err != nil {return err}
+		if err != nil {
+			return err
+		}
 
 		// don't use PutMeta because this has to be in the transaction
 		bkt = tx.Bucket([]byte(MetaBucket))
-		err = bkt.Put([]byte(TopMetaKey),v)
-		if err != nil {return err}
-		err = bkt.Put([]byte("top_"+t),v)
-		if err != nil {return err}
+		err = bkt.Put([]byte(TopMetaKey), v)
+		if err != nil {
+			return err
+		}
+		err = bkt.Put([]byte("top_"+t), v)
+		if err != nil {
+			return err
+		}
 
 		return nil
 	})
@@ -419,23 +488,26 @@ func (h *Holochain) NewEntry(now time.Time,t string,entry Entry) (hash Hash,head
 }
 
 // get low level access to entries/headers (only works inside a bolt transaction)
-func get(hb *bolt.Bucket,eb *bolt.Bucket,key []byte,getEntry bool) (header Header,entry interface{},err error){
+func get(hb *bolt.Bucket, eb *bolt.Bucket, key []byte, getEntry bool) (header Header, entry interface{}, err error) {
 	v := hb.Get(key)
 
-	err = ByteDecoder(v,&header)
-	if err != nil {return}
+	err = ByteDecoder(v, &header)
+	if err != nil {
+		return
+	}
 	if getEntry {
 		v = eb.Get(header.EntryLink[:])
 		var g GobEntry
 		err = g.Unmarshal(v)
-		if err != nil {return}
+		if err != nil {
+			return
+		}
 		entry = g.C
 	}
 	return
 }
 
-
-func (h *Holochain) Walk(fn func(key *Hash,h *Header,entry interface{}) (error),entriesToo bool) (err error) {
+func (h *Holochain) Walk(fn func(key *Hash, h *Header, entry interface{}) error, entriesToo bool) (err error) {
 	var nullHash Hash
 	var nullHashBytes = nullHash[:]
 	err = h.store.(*BoltPersister).DB().View(func(tx *bolt.Tx) error {
@@ -447,19 +519,19 @@ func (h *Holochain) Walk(fn func(key *Hash,h *Header,entry interface{}) (error),
 		var keyH Hash
 		var header Header
 		var visited = make(map[string]bool)
-		for err == nil && !bytes.Equal(nullHashBytes,key) {
-			copy(keyH[:],key)
+		for err == nil && !bytes.Equal(nullHashBytes, key) {
+			copy(keyH[:], key)
 			// build up map of all visited headers to prevent loops
 			s := string(key)
-			_,present := visited[s]
+			_, present := visited[s]
 			if present {
 				err = errors.New("loop detected in walk")
 			} else {
-				visited[s]=true
+				visited[s] = true
 				var e interface{}
-				header,e,err = get(hb,eb,key,entriesToo)
+				header, e, err = get(hb, eb, key, entriesToo)
 				if err == nil {
-					err = fn(&keyH,&header,e)
+					err = fn(&keyH, &header, e)
 					key = header.HeaderLink[:]
 				}
 			}
@@ -469,26 +541,29 @@ func (h *Holochain) Walk(fn func(key *Hash,h *Header,entry interface{}) (error),
 		}
 		// if the last item doesn't gets us to bottom, i.e. the header who's entry link is
 		// the same as ID key then, the chain is invalid...
-		if !bytes.Equal(header.EntryLink[:],mb.Get([]byte(IDMetaKey))) {return errors.New("chain didn't end at DNA!")}
+		if !bytes.Equal(header.EntryLink[:], mb.Get([]byte(IDMetaKey))) {
+			return errors.New("chain didn't end at DNA!")
+		}
 		return err
 	})
 	return
 }
 
-
 // Validate scans back through a chain to the beginning confirming that the last header points to DNA
 // This is actually kind of bogus on your own chain, because theoretically you put it there!  But
 // if the holochain file was copied from somewhere you can consider this a self-check
-func (h *Holochain) Validate(entriesToo bool) (valid bool,err error) {
+func (h *Holochain) Validate(entriesToo bool) (valid bool, err error) {
 
-	err = h.Walk(func(key *Hash,header *Header,entry interface{})(err error){
+	err = h.Walk(func(key *Hash, header *Header, entry interface{}) (err error) {
 		// confirm the correctness of the header hash
-		b,err := ByteEncoder(&header)
-		if err !=nil {return err}
+		b, err := ByteEncoder(&header)
+		if err != nil {
+			return err
+		}
 		bh := sha256.Sum256(b)
 		var bH Hash
-		copy(bH[:],bh[:])
-		if (bH.String() != (*key).String()) {
+		copy(bH[:], bh[:])
+		if bH.String() != (*key).String() {
 			return errors.New("header hash doesn't match")
 		}
 
@@ -497,38 +572,54 @@ func (h *Holochain) Validate(entriesToo bool) (valid bool,err error) {
 
 		}
 		return nil
-	},entriesToo)
-	if err == nil {valid = true}
+	}, entriesToo)
+	if err == nil {
+		valid = true
+	}
 	return
 }
 
 // ValidateEntry passes an entry data to the chains validation routinesLoad returns a slice of the headers in the chain.
 //If the entry is valid err will be nil, otherwise it will contain some information about why the validation failed (or, possibly, some other system error)
-func (h *Holochain) ValidateEntry(header *Header,entry interface{}) (err error) {
-	_,ok := h.Validators[header.Type]
-	if !ok {return errors.New("no validator for type: "+header.Type)}
-	if entry == nil {return errors.New("nil entry invalid")}
-	v,err := h.ValidatorFactory(header.Type)
-	if err != nil {return}
+func (h *Holochain) ValidateEntry(header *Header, entry interface{}) (err error) {
+	_, ok := h.Validators[header.Type]
+	if !ok {
+		return errors.New("no validator for type: " + header.Type)
+	}
+	if entry == nil {
+		return errors.New("nil entry invalid")
+	}
+	v, err := h.ValidatorFactory(header.Type)
+	if err != nil {
+		return
+	}
 	err = v.ValidateEntry(entry)
 	return
 }
 
-func (h *Holochain) ValidatorFactory(t string) (v Validator,err error) {
-	schema,ok := h.Schemas[t]
-	if !ok {err = errors.New("no schema for type: "+t);return}
-	validator,ok := h.Validators[t]
-	if !ok {err = errors.New("no validator for type: "+t);return}
+func (h *Holochain) ValidatorFactory(t string) (v Validator, err error) {
+	schema, ok := h.Schemas[t]
+	if !ok {
+		err = errors.New("no schema for type: " + t)
+		return
+	}
+	validator, ok := h.Validators[t]
+	if !ok {
+		err = errors.New("no validator for type: " + t)
+		return
+	}
 
 	// which validator to use is inferred from the schema type
 	switch schema {
 	case ZygoSchemaType:
 		var code []byte
-		code,err = readFile(h.path,validator)
-		if err != nil {return}
-		v,err = NewZygoValidator(string(code))
+		code, err = readFile(h.path, validator)
+		if err != nil {
+			return
+		}
+		v, err = NewZygoValidator(string(code))
 	default:
-		err = errors.New("can't infer validator from schema type: "+t)
+		err = errors.New("can't infer validator from schema type: " + t)
 	}
 	return
 }
@@ -537,13 +628,20 @@ func (h *Holochain) ValidatorFactory(t string) (v Validator,err error) {
 // This function is useful only in the context of developing a holochain and will return
 // an error if the chain has already been started (i.e. has genesis entries)
 func (h *Holochain) Test() (err error) {
-	_,err = h.ID()
-	if err == nil {err = errors.New("chain already started");return}
-	p := h.path+"/test"
+	_, err = h.ID()
+	if err == nil {
+		err = errors.New("chain already started")
+		return
+	}
+	p := h.path + "/test"
 	files, err := ioutil.ReadDir(p)
-	if err != err {return}
+	if err != err {
+		return
+	}
 
-	if len(files) == 0 {return errors.New("no test data found in: "+h.path+"/test")}
+	if len(files) == 0 {
+		return errors.New("no test data found in: " + h.path + "/test")
+	}
 
 	// setup the genesis entries
 	h.GenChain()
@@ -551,9 +649,13 @@ func (h *Holochain) Test() (err error) {
 	// and make sure the store gets reset to null after the test runs
 	defer func() {
 		err = h.store.Remove()
-		if err != nil {panic(err)}
+		if err != nil {
+			panic(err)
+		}
 		err = h.store.Init()
-		if err != nil {panic(err)}
+		if err != nil {
+			panic(err)
+		}
 	}()
 
 	// load up the entries into hashes
@@ -565,12 +667,16 @@ func (h *Holochain) Test() (err error) {
 			x := re.FindStringSubmatch(f.Name())
 			if len(x) > 0 {
 				var i int
-				i,err = strconv.Atoi(x[1])
-				if err != nil {return}
+				i, err = strconv.Atoi(x[1])
+				if err != nil {
+					return
+				}
 				entryTypes[i] = x[2]
 				var v []byte
-				v,err = readFile(p,x[0])
-				if err != nil {return}
+				v, err = readFile(p, x[0])
+				if err != nil {
+					return
+				}
 				entryValues[i] = string(v)
 			}
 		}
@@ -583,13 +689,17 @@ func (h *Holochain) Test() (err error) {
 	sort.Ints(keys)
 	for k := range keys {
 		idx := keys[k]
-		e := GobEntry{C:entryValues[idx]}
+		e := GobEntry{C: entryValues[idx]}
 		var header *Header
-		_,header,err = h.NewEntry(time.Now(),entryTypes[idx],&e)
-		if err != nil {return}
+		_, header, err = h.NewEntry(time.Now(), entryTypes[idx], &e)
+		if err != nil {
+			return
+		}
 		//TODO: really we should be running h.Validate to test headers and genesis too
-		err = h.ValidateEntry(header,e.C)
-		if err != nil {return}
+		err = h.ValidateEntry(header, e.C)
+		if err != nil {
+			return
+		}
 	}
 	return
 }

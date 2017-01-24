@@ -330,16 +330,16 @@ func TestValidateEntry(t *testing.T) {
 	})
 }
 
-func TestValidatorFactory(t *testing.T) {
+func TestMakeValidator(t *testing.T) {
 	d, _, h := setupTestChain("test")
 	defer cleanupTestDir(d)
 	Convey("it should fail if the type isn't defined in the DNA", t, func() {
-		_, err := h.ValidatorFactory("bogusType")
+		_, err := h.MakeValidator("bogusType")
 		So(err.Error(), ShouldEqual, "no schema for type: bogusType")
 
 	})
-	Convey("it should create a validator based on the type", t, func() {
-		v, err := h.ValidatorFactory("myData")
+	Convey("it should make a validator based on the type", t, func() {
+		v, err := h.MakeValidator("myData")
 		So(err, ShouldBeNil)
 		z := v.(*ZygoValidator)
 		_, err = z.env.Run()

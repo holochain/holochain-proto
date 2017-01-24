@@ -22,6 +22,21 @@ func TestNewZygoValidator(t *testing.T) {
 	})
 }
 
+func TestCreateValidator(t *testing.T) {
+	Convey("should fail to create a validator based from bad schema type", t, func() {
+		_, err := CreateValidator("non-existent-schema", "some code")
+		So(err.Error(), ShouldEqual, "Invalid validator name. Must be one of: zygo")
+	})
+	Convey("should create a validator based from a good schema type", t, func() {
+		v, err := CreateValidator(ZygoSchemaType, `(+ 1 1)`)
+		z := v.(*ZygoValidator)
+		So(err, ShouldBeNil)
+		result, err := z.env.Run()
+		So(err, ShouldBeNil)
+		So(fmt.Sprintf("%v", result), ShouldEqual, "&{2 <nil>}")
+	})
+}
+
 func TestZygoValidateEntry(t *testing.T) {
 	Convey("should run an entry value against the defined validator", t, func() {
 		v, err := NewZygoValidator(`(defn validateEntry [entry] (cond (== entry "fish") true false))`)

@@ -99,6 +99,7 @@ type Header struct {
 func Register() {
 	gob.Register(Header{})
 	gob.Register(KeyEntry{})
+	RegisterBultinValidators()
 }
 
 func SelfDescribingSchema(sc string) bool {
@@ -589,7 +590,7 @@ func (h *Holochain) ValidateEntry(header *Header, entry interface{}) (err error)
 	if entry == nil {
 		return errors.New("nil entry invalid")
 	}
-	v, err := h.ValidatorFactory(header.Type)
+	v, err := h.MakeValidator(header.Type)
 	if err != nil {
 		return
 	}
@@ -597,7 +598,8 @@ func (h *Holochain) ValidateEntry(header *Header, entry interface{}) (err error)
 	return
 }
 
-func (h *Holochain) ValidatorFactory(t string) (v Validator, err error) {
+// MakeValidator creates a Validator object based on the entry type
+func (h *Holochain) MakeValidator(t string) (v Validator, err error) {
 	schema, ok := h.Schemas[t]
 	if !ok {
 		err = errors.New("no schema for type: " + t)
@@ -609,18 +611,15 @@ func (h *Holochain) ValidatorFactory(t string) (v Validator, err error) {
 		return
 	}
 
-	// which validator to use is inferred from the schema type
-	switch schema {
-	case ZygoSchemaType:
-		var code []byte
-		code, err = readFile(h.path, validator)
-		if err != nil {
-			return
-		}
-		v, err = NewZygoValidator(string(code))
-	default:
-		err = errors.New("can't infer validator from schema type: " + t)
+	var code []byte
+	code, err = readFile(h.path, validator)
+	if err != nil {
+		return
 	}
+
+	// which validator to use is inferred from the schema type
+	v, err = CreateValidator(schema, string(code))
+
 	return
 }
 

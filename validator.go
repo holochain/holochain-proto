@@ -10,11 +10,14 @@ import (
 	"errors"
 	"fmt"
 	zygo "github.com/glycerine/zygomys/repl"
+	"strings"
 )
 
 const (
 	ZygoSchemaType = "zygo"
 )
+
+type ValidatorFactory func(code string) (Validator, error)
 
 type Validator interface {
 	Name() string
@@ -27,6 +30,8 @@ type ZygoValidator struct {
 
 func (z *ZygoValidator) Name() string { return ZygoSchemaType }
 
+// ValidateEntry checks the contents of an entry against the validation rules
+// this is the zgo implementation
 func (z *ZygoValidator) ValidateEntry(entry interface{}) (err error) {
 	e := entry.(string)
 	err = z.env.LoadString("(validateEntry " + e + ")")
@@ -56,4 +61,38 @@ func NewZygoValidator(code string) (v Validator, err error) {
 	}
 	v = &z
 	return
+}
+
+var validatorFactories = make(map[string]ValidatorFactory)
+
+func RegisterValidator(name string, factory ValidatorFactory) {
+	if factory == nil {
+		panic("Datastore factory %s does not exist." + name)
+	}
+	_, registered := validatorFactories[name]
+	if registered {
+		panic("Datastore factory %s already registered. " + name)
+	}
+	validatorFactories[name] = factory
+}
+
+// adds the built in validator types to the factory hash
+func RegisterBultinValidators() {
+	RegisterValidator(ZygoSchemaType, NewZygoValidator)
+}
+
+func CreateValidator(schema string, code string) (Validator, error) {
+
+	factory, ok := validatorFactories[schema]
+	if !ok {
+		// Factory has not been registered.
+		// Make a list of all available datastore factories for logging.
+		available := make([]string, 0)
+		for k, _ := range validatorFactories {
+			available = append(available, k)
+		}
+		return nil, errors.New(fmt.Sprintf("Invalid validator name. Must be one of: %s", strings.Join(available, ", ")))
+	}
+
+	return factory(code)
 }

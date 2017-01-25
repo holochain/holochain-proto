@@ -7,10 +7,25 @@ import (
 	"testing"
 )
 
+func TestCreatePersister(t *testing.T) {
+	Convey("should fail to create a persister based from bad type", t, func() {
+		_, err := CreatePersister("non-existent-type", "/some/path")
+		So(err.Error(), ShouldEqual, "Invalid persister name. Must be one of: bolt")
+	})
+	Convey("should create a validator based from a good schema type", t, func() {
+		p := "/tmp/boltdb"
+		v, err := CreatePersister(BoltPersisterName, p)
+		bp := v.(*BoltPersister)
+		So(err, ShouldBeNil)
+		So(bp.path, ShouldEqual, p)
+	})
+}
+
 func TestNewBoltPersister(t *testing.T) {
 	var bp *BoltPersister
 	p := "/tmp/boltdb"
-	bp = NewBoltPersister(p).(*BoltPersister)
+	v, _ := NewBoltPersister(p)
+	bp = v.(*BoltPersister)
 	Convey("It should create a struct", t, func() {
 		So(bp.db, ShouldBeNil)
 		So(bp.path, ShouldEqual, p)
@@ -20,7 +35,8 @@ func TestNewBoltPersister(t *testing.T) {
 func TestBoltOpen(t *testing.T) {
 	var bp *BoltPersister
 	p := "/tmp/boltdb"
-	bp = NewBoltPersister(p).(*BoltPersister)
+	v, _ := CreatePersister(BoltPersisterName, p)
+	bp = v.(*BoltPersister)
 	defer cleanupTestDir(p)
 	Convey("It should open the database for writing", t, func() {
 		err := bp.Open()
@@ -32,7 +48,8 @@ func TestBoltOpen(t *testing.T) {
 func TestBoltInit(t *testing.T) {
 	var bp *BoltPersister
 	p := "/tmp/boltdb"
-	bp = NewBoltPersister(p).(*BoltPersister)
+	v, _ := CreatePersister(BoltPersisterName, p)
+	bp = v.(*BoltPersister)
 	err := bp.Open()
 	if err != nil {
 		panic(err)
@@ -58,7 +75,8 @@ func TestBoltInit(t *testing.T) {
 func TestBoltGet(t *testing.T) {
 	var bp *BoltPersister
 	p := "/tmp/boltdb"
-	bp = NewBoltPersister(p).(*BoltPersister)
+	v, _ := CreatePersister(BoltPersisterName, p)
+	bp = v.(*BoltPersister)
 	err := bp.Init()
 	if err != nil {
 		panic(err)

@@ -100,6 +100,7 @@ func Register() {
 	gob.Register(Header{})
 	gob.Register(KeyEntry{})
 	RegisterBultinValidators()
+	RegisterBultinPersisters()
 }
 
 func SelfDescribingSchema(sc string) bool {
@@ -187,7 +188,11 @@ func (s *Service) Load(name string) (hP *Holochain, err error) {
 	h.agent = agent
 	h.privKey = key
 
-	h.store = NewBoltPersister(path + "/" + StoreFileName)
+	h.store, err = CreatePersister(BoltPersisterName, path+"/"+StoreFileName)
+	if err != nil {
+		return
+	}
+
 	err = h.store.Init()
 	if err != nil {
 		return
@@ -304,7 +309,11 @@ func GenDev(path string) (hP *Holochain, err error) {
 		return
 	}
 
-	h.store = NewBoltPersister(path + "/" + StoreFileName)
+	h.store, err = CreatePersister(BoltPersisterName, path+"/"+StoreFileName)
+	if err != nil {
+		return
+	}
+
 	err = h.store.Init()
 	if err != nil {
 		return

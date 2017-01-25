@@ -28,6 +28,7 @@ type ZygoValidator struct {
 	env *zygo.Glisp
 }
 
+// Name returns the string value under which this validator is registered
 func (z *ZygoValidator) Name() string { return ZygoSchemaType }
 
 // ValidateEntry checks the contents of an entry against the validation rules
@@ -65,6 +66,7 @@ func NewZygoValidator(code string) (v Validator, err error) {
 
 var validatorFactories = make(map[string]ValidatorFactory)
 
+// RegisterValidator sets up a Validator to be used by the CreateValidator function
 func RegisterValidator(name string, factory ValidatorFactory) {
 	if factory == nil {
 		panic("Datastore factory %s does not exist." + name)
@@ -76,11 +78,12 @@ func RegisterValidator(name string, factory ValidatorFactory) {
 	validatorFactories[name] = factory
 }
 
-// adds the built in validator types to the factory hash
+// RegisterBultinValidators adds the built in validator types to the factory hash
 func RegisterBultinValidators() {
 	RegisterValidator(ZygoSchemaType, NewZygoValidator)
 }
 
+// CreateValidator returns a new Validator of the given type
 func CreateValidator(schema string, code string) (Validator, error) {
 
 	factory, ok := validatorFactories[schema]

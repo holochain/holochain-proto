@@ -55,9 +55,9 @@ Once you've gotten everything working as described above you can execute some ba
 
     hc help
 
-Since holochain is basically a distributed database engine, you will probably only do some basic maintenance through the command line. To initialize holochain service and build the directories, files, and generates public/private keys.
+Since holochain is basically a distributed database engine, you will probably only do some basic maintenance through the command line. To initialize holochain service and build the directories, files, and generates public/private keys:
 
-    hc init "Fred Flinstone" <fred@flintsone.com>
+    hc init '"Fred Flinstone" <fred@flintsone.com>'
 
 You can use a pre-existing holochain configuration by replacing SOURCE with  path for loading existing DNA for a group's holochain.:
 

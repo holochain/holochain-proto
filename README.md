@@ -1,6 +1,6 @@
 # Holochain
 
- ![Code Status](https://img.shields.io/badge/Code-Pre--Alpha-orange.svg) [![Travis](https://img.shields.io/travis/metacurrency/holochain.svg)](https://travis-ci.org/metacurrency/holochain) [![Go Report Card](https://goreportcard.com/badge/github.com/metacurrency/holochain)](https://goreportcard.com/report/github.com/metacurrency/holochain) [![In Progress](https://badge.waffle.io/metacurrency/holochain.svg?label=in%20progress&title=In%20Progress)](http://waffle.io/metacurrency/holochain)
+ ![Code Status](https://img.shields.io/badge/Code-Pre--Alpha-orange.svg) [![Travis](https://img.shields.io/travis/metacurrency/holochain.svg)](https://travis-ci.org/metacurrency/holochain) [![Go Report Card](https://goreportcard.com/badge/github.com/metacurrency/holochain)](https://goreportcard.com/report/github.com/metacurrency/holochain) [![Gitter](https://badges.gitter.im/metacurrency/holochain.svg)](https://gitter.im/metacurrency/holochain?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=body_badge) [![In Progress](https://badge.waffle.io/metacurrency/holochain.svg?label=in%20progress&title=In%20Progress)](http://waffle.io/metacurrency/holochain)
 
 **Holographic storage for distributed applications.** A holochain is a monotonic distributed hash table (DHT) where every node enforces validation rules on data before publishing that data against the signed chains where the data originated.
 
@@ -17,24 +17,8 @@ In other words, a holochain functions very much **like a blockchain without bott
 <br/>
 **Table of Contents**
 <!-- TOC START min:2 max:4 link:true update:true -->
-  - [Installation](#installation)
-  - [Usage](#usage)
-  - [Architecture](#architecture)
-    - [Functional Domains](#functional-domains)
-      - [Group DNA / Holochain configuration](#group-dna--holochain-configuration)
-      - [Individuals Authoring Content](#individuals-authoring-content)
-      - [Application API](#application-api)
     - [Two Distinct SubSystems](#two-distinct-subsystems)
-      - [1. Authoring your Local Chain](#1-authoring-your-local-chain)
-      - [2. Running a DHT Node](#2-running-a-dht-node)
-  - [Documentation](#documentation)
-  - [Testing](#testing)
-  - [Development](#development)
-    - [Contributor Guidelines](#contributor-guidelines)
-      - [Tech](#tech)
-      - [Social ~](#social-)
-  - [License](#license)
-  - [Acknowledgements](#acknowledgements)
+  - [Development --](#development---)
 
 <!-- TOC END -->
 
@@ -138,13 +122,13 @@ To compile and run all the tests:
     cd $GOPATH/github.com/metacurrency/holochain
     go test
 
-## Development
-We welcome your participation. See our [milestones for current progress](https://github.com/metacurrency/holochain/milestones?direction=asc&sort=due_date&state=all), or our [GitHub issue tracking kanban in waffle](https://waffle.io/metacurrency/holochain).  Or chat with us on gitter: [![Gitter](https://badges.gitter.im/metacurrency/holochain.svg)](https://gitter.im/metacurrency/holochain?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=body_badge)
-
-[![In Progress](https://badge.waffle.io/metacurrency/holochain.svg?label=in%20progress&title=In%20Progress)](http://waffle.io/metacurrency/holochain)
+## Development -- [![In Progress](https://badge.waffle.io/metacurrency/holochain.svg?label=in%20progress&title=In%20Progress)](http://waffle.io/metacurrency/holochain)
+We accept Pull Requests and welcome your participation.
+ * [Milestones](https://github.com/metacurrency/holochain/milestones?direction=asc&sort=due_date&state=all) and progress on Roadmap
+ * Kanban on [Waffle]((https://waffle.io/metacurrency/holochain)) of GitHub issues
+ * Or [chat with us on gitter](https://gitter.im/metacurrency/holochain)
 
 ### Contributor Guidelines
-Pull Requests are welcome.
 
 #### Tech
 * We use **test driven development**. Adding a new function or feature, should mean you've added the tests that make sure it works.
@@ -152,7 +136,7 @@ Pull Requests are welcome.
 * [Contact us](https://gitter.im/metacurrency/holochain) to set up a **pair coding session** with one of our developers to learn the lay of the land
 * **join our dev documentation calls** twice weekly on Tuesdays and Fridays.
 
-#### Social ~ [![Twitter Follow](https://img.shields.io/twitter/follow/holochain.svg?style=social&label=Follow)](https://twitter.com/holochain)
+#### Social -- [![Twitter Follow](https://img.shields.io/twitter/follow/holochain.svg?style=social&label=Follow)](https://twitter.com/holochain)
 <!-- * Protocols for Inclusion. -->
 We are committed to foster a vibrant thriving community, including growing a culture that breaks cycles of marginalization and dominance behavior. In support of this, some open source communities adopt [Codes of Conduct](http://contributor-covenant.org/version/1/3/0/).  We are still working on our social protocols, and empower each team to describe its own <i>Protocols for Inclusion</i>.  Until our teams have published their guidelines, please use the link above as a general guideline.
 

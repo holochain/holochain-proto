@@ -1,4 +1,6 @@
 # Holochain
+
+[![Code Status](https://img.shields.io/badge/Code-Pre--Alpha-orange.svg) [![Travis](https://img.shields.io/travis/metacurrency/holochain.svg)]() [![In Progress](https://badge.waffle.io/metacurrency/holochain.svg?label=in%20progress&title=In%20Progress)](http://waffle.io/metacurrency/holochain) [![Go Report Card](https://goreportcard.com/badge/github.com/metacurrency/holochain)](https://goreportcard.com/report/github.com/metacurrency/holochain)
 **Holographic storage for distributed applications.** A holochain is a monotonic distributed hash table (DHT) where every node enforces validation rules on data before publishing that data against the signed chains where the data originated.
 
 In other words, a holochain functions very much **like a blockchain without bottlenecks** when it comes to enforcing validation rules, but is designed to  be fully distributed with each node only needing to hold a small portion of the data instead of everything needing a full copy of a global ledger. This makes it feasible to run blockchain-like applications on devices as lightweight as mobile phones.
@@ -21,15 +23,15 @@ In other words, a holochain functions very much **like a blockchain without bott
       - [Group DNA / Holochain configuration](#group-dna--holochain-configuration)
       - [Individuals Authoring Content](#individuals-authoring-content)
       - [Application API](#application-api)
-    - [Two Separate SubSystems](#two-separate-subsystems)
-      - [Authoring your Local Chain](#authoring-your-local-chain)
-      - [DHT Node -- Validating and Publishing](#dht-node----validating-and-publishing)
+    - [Two Distinct SubSystems](#two-distinct-subsystems)
+      - [1. Authoring your Local Chain](#1-authoring-your-local-chain)
+      - [2. Running a DHT Node](#2-running-a-dht-node)
   - [Documentation](#documentation)
   - [Testing](#testing)
   - [Development](#development)
     - [Contributor Guidelines](#contributor-guidelines)
       - [Tech](#tech)
-      - [Social](#social)
+      - [Social ~](#social-)
   - [License](#license)
   - [Acknowledgements](#acknowledgements)
 
@@ -141,6 +143,7 @@ We welcome your participation. See our [milestones for current progress](https:/
 [![In Progress](https://badge.waffle.io/metacurrency/holochain.svg?label=in%20progress&title=In%20Progress)](http://waffle.io/metacurrency/holochain)
 
 ### Contributor Guidelines
+Pull Requests are welcome.
 
 #### Tech
 * We use **test driven development**. Adding a new function or feature, should mean you've added the tests that make sure it works.
@@ -148,21 +151,20 @@ We welcome your participation. See our [milestones for current progress](https:/
 * [Contact us](https://gitter.im/metacurrency/holochain) to set up a **pair coding session** with one of our developers to learn the lay of the land
 * **join our dev documentation calls** twice weekly on Tuesdays and Fridays.
 
-#### Social
+#### Social ~ [![Twitter Follow](https://img.shields.io/twitter/follow/holochain.svg?style=social&label=Follow)](https://twitter.com/holochain)
 <!-- * Protocols for Inclusion. -->
 We are committed to foster a vibrant thriving community, including growing a culture that breaks cycles of marginalization and dominance behavior. In support of this, some open source communities adopt [Codes of Conduct](http://contributor-covenant.org/version/1/3/0/).  We are still working on our social protocols, and empower each team to describe its own <i>Protocols for Inclusion</i>.  Until our teams have published their guidelines, please use the link above as a general guideline.
 
 ## License
+[![License: GPL v3](https://img.shields.io/badge/License-GPL%20v3-blue.svg)](http://www.gnu.org/licenses/gpl-3.0)  Copyright (C) 2017, The MetaCurrency Project (Eric Harris-Braun, Arthur Brock, et. al.)
 
-Copyright (C) 2017, The MetaCurrency Project (Eric Harris-Braun, Arthur Brock, et. al.)
+This program is free software: you can redistribute it and/or modify it under the terms of the license provided in the LICENSE file (GPLv3).  This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
 
-This program is free software: you can redistribute it and/or modify it under the terms of the license provided in the LICENSE file (GPLv3).
-
-This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+**Note:** We are considering other 'looser' licensing options (like MIT license) but at this stage are using GPL while we're getting the matter sorted out.
 
 ## Acknowledgements
 * **MetaCurrency & Ceptr**: Holochains are a sub-project of [Ceptr](http://ceptr.org) which is a semantic, distributed computing platform under development by the [MetaCurrency Project](http://metacurrency.org).
 &nbsp;
 * **Ian Grigg**: Some of our initial plans for this architecture were inspired in 2006 by [his paper about Triple Entry Accounting](http://iang.org/papers/triple_entry.html) and his work on [Ricardian Contracts](http://iang.org/papers/ricardian_contract.html).
-<!-- * **Juan Benet**: For all his work on IPFS and being a generally cool guy. We're planning to piggyback a bunch of the networking communications for Holochains on the libP2P libary of IPFS and hopefully leverage their S/Kademlia DHT implementation. -->
+<!-- * **Juan Benet**: For all his work on IPFS and being a generally cool guy. The libP2P library has been extremely helpful in getting our peered node communications running. -->
 * **Crypto Pioneers** And of course the people who paved the road before us by writing good crypto libraries and **preaching the blockchain gospel**. Nobody understood what we were talking about when we started sharing our designs. The main reason people want it now, is because blockchains have opened their eyes to new patterns of power available from decentralized architectures.

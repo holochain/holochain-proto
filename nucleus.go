@@ -1,20 +1,15 @@
 // Copyright (C) 2013-2017, The MetaCurrency Project (Eric Harris-Braun, Arthur Brock, et. al.)
 // Use of this source code is governed by GPLv3 found in the LICENSE file
 //----------------------------------------------------------------------------------------
-// Nucleus implements an execution environment interface for chains and their entries
-// additionally it implements a zygomys use of that interface
+// Nucleus provides an interface for an execution environment interface for chains and their entries
+// and factory code for creating nucleii instances
 
 package holochain
 
 import (
 	"errors"
 	"fmt"
-	zygo "github.com/glycerine/zygomys/repl"
 	"strings"
-)
-
-const (
-	ZygoSchemaType = "zygo"
 )
 
 type NucleusFactory func(code string) (Nucleus, error)
@@ -22,50 +17,6 @@ type NucleusFactory func(code string) (Nucleus, error)
 type Nucleus interface {
 	Name() string
 	ValidateEntry(entry interface{}) error
-}
-
-type ZygoNucleus struct {
-	env *zygo.Glisp
-}
-
-// Name returns the string value under which this nucleus is registered
-func (z *ZygoNucleus) Name() string { return ZygoSchemaType }
-
-// ValidateEntry checks the contents of an entry against the validation rules
-// this is the zgo implementation
-func (z *ZygoNucleus) ValidateEntry(entry interface{}) (err error) {
-	e := entry.(string)
-	err = z.env.LoadString("(validateEntry " + e + ")")
-	if err != nil {
-		return
-	}
-	result, err := z.env.Run()
-	switch result.(type) {
-	case *zygo.SexpBool:
-		r := result.(*zygo.SexpBool).Val
-		if !r {
-			err = errors.New("Invalid entry:" + e)
-		}
-	default:
-		err = errors.New("Unexpected result: " + fmt.Sprintf("%v", result))
-	}
-	return
-}
-
-const (
-	ZygoLibrary = `(defn version [] "ZygoHolochainLib 0.0.1")`
-)
-
-func NewZygoNucleus(code string) (v Nucleus, err error) {
-	var z ZygoNucleus
-	z.env = zygo.NewGlisp()
-	err = z.env.LoadString(ZygoLibrary + code)
-	if err != nil {
-		err = errors.New("Zygomys error: " + err.Error())
-		return
-	}
-	v = &z
-	return
 }
 
 var nucleusFactories = make(map[string]NucleusFactory)

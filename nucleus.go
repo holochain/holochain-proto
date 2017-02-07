@@ -1,7 +1,7 @@
 // Copyright (C) 2013-2017, The MetaCurrency Project (Eric Harris-Braun, Arthur Brock, et. al.)
 // Use of this source code is governed by GPLv3 found in the LICENSE file
 //----------------------------------------------------------------------------------------
-// Validator implements a validation engine interface for chains and their entries
+// Nucleus implements an execution environment interface for chains and their entries
 // additionally it implements a zygomys use of that interface
 
 package holochain
@@ -17,23 +17,23 @@ const (
 	ZygoSchemaType = "zygo"
 )
 
-type ValidatorFactory func(code string) (Validator, error)
+type NucleusFactory func(code string) (Nucleus, error)
 
-type Validator interface {
+type Nucleus interface {
 	Name() string
 	ValidateEntry(entry interface{}) error
 }
 
-type ZygoValidator struct {
+type ZygoNucleus struct {
 	env *zygo.Glisp
 }
 
-// Name returns the string value under which this validator is registered
-func (z *ZygoValidator) Name() string { return ZygoSchemaType }
+// Name returns the string value under which this nucleus is registered
+func (z *ZygoNucleus) Name() string { return ZygoSchemaType }
 
 // ValidateEntry checks the contents of an entry against the validation rules
 // this is the zgo implementation
-func (z *ZygoValidator) ValidateEntry(entry interface{}) (err error) {
+func (z *ZygoNucleus) ValidateEntry(entry interface{}) (err error) {
 	e := entry.(string)
 	err = z.env.LoadString("(validateEntry " + e + ")")
 	if err != nil {
@@ -52,8 +52,8 @@ func (z *ZygoValidator) ValidateEntry(entry interface{}) (err error) {
 	return
 }
 
-func NewZygoValidator(code string) (v Validator, err error) {
-	var z ZygoValidator
+func NewZygoNucleus(code string) (v Nucleus, err error) {
+	var z ZygoNucleus
 	z.env = zygo.NewGlisp()
 	err = z.env.LoadString(code)
 	if err != nil {
@@ -64,34 +64,34 @@ func NewZygoValidator(code string) (v Validator, err error) {
 	return
 }
 
-var validatorFactories = make(map[string]ValidatorFactory)
+var nucleusFactories = make(map[string]NucleusFactory)
 
-// RegisterValidator sets up a Validator to be used by the CreateValidator function
-func RegisterValidator(name string, factory ValidatorFactory) {
+// RegisterNucleus sets up a Nucleus to be used by the CreateNucleus function
+func RegisterNucleus(name string, factory NucleusFactory) {
 	if factory == nil {
 		panic("Datastore factory %s does not exist." + name)
 	}
-	_, registered := validatorFactories[name]
+	_, registered := nucleusFactories[name]
 	if registered {
 		panic("Datastore factory %s already registered. " + name)
 	}
-	validatorFactories[name] = factory
+	nucleusFactories[name] = factory
 }
 
-// RegisterBultinValidators adds the built in validator types to the factory hash
-func RegisterBultinValidators() {
-	RegisterValidator(ZygoSchemaType, NewZygoValidator)
+// RegisterBultinNucleii adds the built in validator types to the factory hash
+func RegisterBultinNucleii() {
+	RegisterNucleus(ZygoSchemaType, NewZygoNucleus)
 }
 
-// CreateValidator returns a new Validator of the given type
-func CreateValidator(schema string, code string) (Validator, error) {
+// CreateNucleus returns a new Nucleus of the given type
+func CreateNucleus(schema string, code string) (Nucleus, error) {
 
-	factory, ok := validatorFactories[schema]
+	factory, ok := nucleusFactories[schema]
 	if !ok {
 		// Factory has not been registered.
 		// Make a list of all available datastore factories for logging.
 		available := make([]string, 0)
-		for k, _ := range validatorFactories {
+		for k, _ := range nucleusFactories {
 			available = append(available, k)
 		}
 		return nil, errors.New(fmt.Sprintf("Invalid validator name. Must be one of: %s", strings.Join(available, ", ")))

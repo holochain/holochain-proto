@@ -6,30 +6,30 @@ import (
 	"testing"
 )
 
-func TestNewZygoValidator(t *testing.T) {
+func TestNewZygoNucleus(t *testing.T) {
 	Convey("new should create a validator", t, func() {
-		v, err := NewZygoValidator(`(+ 1 1)`)
-		z := v.(*ZygoValidator)
+		v, err := NewZygoNucleus(`(+ 1 1)`)
+		z := v.(*ZygoNucleus)
 		So(err, ShouldBeNil)
 		result, err := z.env.Run()
 		So(err, ShouldBeNil)
 		So(fmt.Sprintf("%v", result), ShouldEqual, "&{2 <nil>}")
 	})
 	Convey("new fail to create validator when code is bad", t, func() {
-		v, err := NewZygoValidator("(should make a zygo syntax error")
+		v, err := NewZygoNucleus("(should make a zygo syntax error")
 		So(v, ShouldBeNil)
 		So(err.Error(), ShouldEqual, "Zygomys error: Error on line 1: parser needs more input\n")
 	})
 }
 
-func TestCreateValidator(t *testing.T) {
+func TestCreateNucleus(t *testing.T) {
 	Convey("should fail to create a validator based from bad schema type", t, func() {
-		_, err := CreateValidator("non-existent-schema", "some code")
+		_, err := CreateNucleus("non-existent-schema", "some code")
 		So(err.Error(), ShouldEqual, "Invalid validator name. Must be one of: zygo")
 	})
 	Convey("should create a validator based from a good schema type", t, func() {
-		v, err := CreateValidator(ZygoSchemaType, `(+ 1 1)`)
-		z := v.(*ZygoValidator)
+		v, err := CreateNucleus(ZygoSchemaType, `(+ 1 1)`)
+		z := v.(*ZygoNucleus)
 		So(err, ShouldBeNil)
 		result, err := z.env.Run()
 		So(err, ShouldBeNil)
@@ -39,7 +39,7 @@ func TestCreateValidator(t *testing.T) {
 
 func TestZygoValidateEntry(t *testing.T) {
 	Convey("should run an entry value against the defined validator", t, func() {
-		v, err := NewZygoValidator(`(defn validateEntry [entry] (cond (== entry "fish") true false))`)
+		v, err := NewZygoNucleus(`(defn validateEntry [entry] (cond (== entry "fish") true false))`)
 		So(err, ShouldBeNil)
 		err = v.ValidateEntry(`"cow"`)
 		So(err.Error(), ShouldEqual, "Invalid entry:\"cow\"")

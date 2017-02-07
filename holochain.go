@@ -59,11 +59,11 @@ type Holochain struct {
 
 // Holds an entry definition
 type EntryDef struct {
-	Name          string
-	Schema        string // file name of schema or language schema directive
-	Validator     string // file name of validation code
-	SchemaHash    Hash
-	ValidatorHash Hash
+	Name       string
+	Schema     string // file name of schema or language schema directive
+	Code       string // file name of DNA code
+	SchemaHash Hash
+	CodeHash   Hash
 }
 
 // Holds content for a holochain
@@ -104,7 +104,7 @@ type Header struct {
 func Register() {
 	gob.Register(Header{})
 	gob.Register(KeyEntry{})
-	RegisterBultinValidators()
+	RegisterBultinNucleii()
 	RegisterBultinPersisters()
 }
 
@@ -140,9 +140,9 @@ func (s *Service) IsConfigured(name string) (h *Holochain, err error) {
 				return nil, errors.New("DNA specified schema missing: " + sc)
 			}
 		}
-		sc = d.Validator
+		sc = d.Code
 		if !fileExists(path + "/" + sc) {
-			return nil, errors.New("DNA specified validator missing: " + sc)
+			return nil, errors.New("DNA specified code missing: " + sc)
 		}
 	}
 	return
@@ -303,8 +303,8 @@ func GenDev(path string) (hP *Holochain, err error) {
 	mde := [2]string{"2", "4"}
 	entries["myData"] = mde[:]
 
-	validators := make(map[string]string)
-	validators["myData"] = `
+	code := make(map[string]string)
+	code["myData"] = `
 (defn validateEntry [entry] (cond (== (mod entry 2) 0) true false))
 (defn validateChain [entry user_data] true)
 `
@@ -316,8 +316,8 @@ func GenDev(path string) (hP *Holochain, err error) {
 	for idx, d := range defs {
 		entry_type := d.Name
 		fn := fmt.Sprintf("valid_%s.zy", entry_type)
-		h.EntryDefs[idx].Validator = fn
-		v, _ := validators[entry_type]
+		h.EntryDefs[idx].Code = fn
+		v, _ := code[entry_type]
 		if err = writeFile(path, fn, []byte(v)); err != nil {
 			return
 		}
@@ -385,12 +385,12 @@ func (h *Holochain) GenDNAHashes() (err error) {
 			}
 			d.SchemaHash = Hash(sha256.Sum256(b))
 		}
-		sc = d.Validator
+		sc = d.Code
 		b, err = readFile(h.path, sc)
 		if err != nil {
 			return
 		}
-		d.ValidatorHash = Hash(sha256.Sum256(b))
+		d.CodeHash = Hash(sha256.Sum256(b))
 	}
 	err = h.SaveDNA(true)
 	return
@@ -623,14 +623,14 @@ func (h *Holochain) GetEntryDef(t string) (d *EntryDef, err error) {
 	return
 }
 
-// ValidateEntry passes an entry data to the chains validation routinesLoad returns a slice of the headers in the chain.
-//If the entry is valid err will be nil, otherwise it will contain some information about why the validation failed (or, possibly, some other system error)
+// ValidateEntry passes an entry data to the chain's validation routine
+// If the entry is valid err will be nil, otherwise it will contain some information about why the validation failed (or, possibly, some other system error)
 func (h *Holochain) ValidateEntry(header *Header, entry interface{}) (err error) {
 
 	if entry == nil {
 		return errors.New("nil entry invalid")
 	}
-	v, err := h.MakeValidator(header.Type)
+	v, err := h.MakeNucleus(header.Type)
 	if err != nil {
 		return
 	}
@@ -638,20 +638,20 @@ func (h *Holochain) ValidateEntry(header *Header, entry interface{}) (err error)
 	return
 }
 
-// MakeValidator creates a Validator object based on the entry type
-func (h *Holochain) MakeValidator(t string) (v Validator, err error) {
+// MakeNucleus creates a Nucleus object based on the entry type
+func (h *Holochain) MakeNucleus(t string) (v Nucleus, err error) {
 	d, err := h.GetEntryDef(t)
 	if err != nil {
 		return
 	}
 	var code []byte
-	code, err = readFile(h.path, d.Validator)
+	code, err = readFile(h.path, d.Code)
 	if err != nil {
 		return
 	}
 
 	// which validator to use is inferred from the schema type
-	v, err = CreateValidator(d.Schema, string(code))
+	v, err = CreateNucleus(d.Schema, string(code))
 
 	return
 }

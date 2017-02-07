@@ -173,7 +173,7 @@ func RegisterPersister(name string, factory PersisterFactory) {
 	if factory == nil {
 		panic("Datastore factory %s does not exist." + name)
 	}
-	_, registered := validatorFactories[name]
+	_, registered := nucleusFactories[name]
 	if registered {
 		panic("Datastore factory %s already registered. " + name)
 	}

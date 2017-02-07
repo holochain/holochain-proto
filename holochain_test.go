@@ -31,8 +31,8 @@ func TestNew(t *testing.T) {
 		So(h.path, ShouldEqual, "some/path")
 	})
 	Convey("New with EntryDefs should fill them", t, func() {
-		d1 := EntryDef{Name: "myData1", Schema: "zygo", Validator: "valid_myData1.zy"}
-		d2 := EntryDef{Name: "myData2", Schema: "zygo", Validator: "valid_myData2.zy"}
+		d1 := EntryDef{Name: "myData1", Schema: "zygo", Code: "valid_myData1.zy"}
+		d2 := EntryDef{Name: "myData2", Schema: "zygo", Code: "valid_myData2.zy"}
 
 		h := New("Joe", &key, "some/path", d1, d2)
 		So(h.EntryDefs[0].Name, ShouldEqual, "myData1")
@@ -210,7 +210,7 @@ func TestGenChain(t *testing.T) {
 		var h2 Holochain
 		_, err = toml.DecodeFile(h.path+"/"+DNAFileName, &h2)
 		So(err, ShouldBeNil)
-		So(h2.EntryDefs[0].ValidatorHash, ShouldEqual, h.EntryDefs[0].ValidatorHash)
+		So(h2.EntryDefs[0].CodeHash, ShouldEqual, h.EntryDefs[0].CodeHash)
 	})
 
 	Convey("before GenChain call ID call should fail", t, func() {
@@ -345,18 +345,18 @@ func TestValidateEntry(t *testing.T) {
 	})
 }
 
-func TestMakeValidator(t *testing.T) {
+func TestMakeNucleus(t *testing.T) {
 	d, _, h := setupTestChain("test")
 	defer cleanupTestDir(d)
 	Convey("it should fail if the type isn't defined in the DNA", t, func() {
-		_, err := h.MakeValidator("bogusType")
+		_, err := h.MakeNucleus("bogusType")
 		So(err.Error(), ShouldEqual, "no definition for type: bogusType")
 
 	})
-	Convey("it should make a validator based on the type", t, func() {
-		v, err := h.MakeValidator("myData")
+	Convey("it should make a nucleus based on the type", t, func() {
+		v, err := h.MakeNucleus("myData")
 		So(err, ShouldBeNil)
-		z := v.(*ZygoValidator)
+		z := v.(*ZygoNucleus)
 		_, err = z.env.Run()
 		So(err, ShouldBeNil)
 	})

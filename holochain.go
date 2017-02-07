@@ -15,7 +15,7 @@ import (
 	"encoding/gob"
 	"encoding/json"
 	"errors"
-	_ "fmt"
+	"fmt"
 	"github.com/BurntSushi/toml"
 	"github.com/boltdb/bolt"
 	"github.com/google/uuid"
@@ -291,22 +291,33 @@ func GenDev(path string) (hP *Holochain, err error) {
 
 	h.Name = filepath.Base(path)
 	//	if err = writeFile(path,"myData.cp",[]byte(s)); err != nil {return}  //if captain proto...
-	s := `
+
+	entries := make(map[string][]string)
+	mde := [2]string{"2", "4"}
+	entries["myData"] = mde[:]
+
+	validators := make(map[string]string)
+	validators["myData"] = `
 (defn validateEntry [entry] (cond (== (mod entry 2) 0) true false))
 (defn validateChain [entry user_data] true)
 `
-	if err = writeFile(path, "valid_myData.zy", []byte(s)); err != nil {
-		return
-	}
 	testPath := path + "/test"
 	if err := os.MkdirAll(testPath, os.ModePerm); err != nil {
 		return nil, err
 	}
-	if err = writeFile(testPath, "1_myData.zy", []byte("2")); err != nil {
-		return
-	}
-	if err = writeFile(testPath, "2_myData.zy", []byte("4")); err != nil {
-		return
+
+	for entry_type := range entries {
+		fn := fmt.Sprintf("valid_%s.zy", entry_type)
+		v, _ := validators[entry_type]
+		if err = writeFile(path, fn, []byte(v)); err != nil {
+			return
+		}
+		for i, e := range entries[entry_type] {
+			fn = fmt.Sprintf("%d_%s.zy", i, entry_type)
+			if err = writeFile(testPath, fn, []byte(e)); err != nil {
+				return
+			}
+		}
 	}
 
 	h.store, err = CreatePersister(BoltPersisterName, path+"/"+StoreFileName)

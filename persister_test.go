@@ -45,6 +45,20 @@ func TestBoltOpen(t *testing.T) {
 	})
 }
 
+func TestBoltClose(t *testing.T) {
+	var bp *BoltPersister
+	p := "/tmp/boltdb"
+	v, _ := CreatePersister(BoltPersisterName, p)
+	bp = v.(*BoltPersister)
+	defer cleanupTestDir(p)
+	Convey("It should close the database", t, func() {
+		bp.Open()
+		So(bp.DB(), ShouldNotBeNil)
+		bp.Close()
+		So(bp.DB(), ShouldBeNil)
+	})
+}
+
 func TestBoltInit(t *testing.T) {
 	var bp *BoltPersister
 	p := "/tmp/boltdb"

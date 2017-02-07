@@ -31,6 +31,7 @@ const (
 
 type Persister interface {
 	Open() error
+	Close()
 	Init() error
 	GetMeta(string) ([]byte, error)
 	PutMeta(key string, value []byte) (err error)
@@ -56,6 +57,12 @@ func (bp *BoltPersister) Open() (err error) {
 		return
 	}
 	return
+}
+
+// Close closes the data store
+func (bp *BoltPersister) Close() {
+	bp.db.Close()
+	bp.db = nil
 }
 
 // Init opens the store (if it isn't already open) and initializes buckets

@@ -65,6 +65,9 @@ func TestGenDev(t *testing.T) {
 		So(err, ShouldBeNil)
 		So(lh.ID, ShouldEqual, h.ID)
 
+		// close the bolt instance so to call in ConfiguredChains doesn't timeout.
+		h.store.Close()
+
 		Convey("we should not be able re generate it", func() {
 			_, err = GenDev(root)
 			So(err.Error(), ShouldEqual, "holochain: "+root+" already exists")

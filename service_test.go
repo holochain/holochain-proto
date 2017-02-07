@@ -65,10 +65,9 @@ func TestLoadService(t *testing.T) {
 func TestConfiguredChains(t *testing.T) {
 	d, s, h := setupTestChain("test")
 	defer cleanupTestDir(d)
-	// close the bolt instance so to call in ConfiguredChains doesn't timeout. @todo fixme!!
-	var bp *BoltPersister
-	bp = h.store.(*BoltPersister)
-	bp.DB().Close()
+	// close the bolt instance so to call in ConfiguredChains doesn't timeout.
+	h.store.Close()
+
 	Convey("Configured chains should return a hash of all the chains in the Service", t, func() {
 		chains, err := s.ConfiguredChains()
 		So(err, ShouldBeNil)

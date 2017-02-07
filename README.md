@@ -17,8 +17,24 @@ In other words, a holochain functions very much **like a blockchain without bott
 <br/>
 **Table of Contents**
 <!-- TOC START min:2 max:4 link:true update:true -->
+  - [Installation](#installation)
+  - [Usage](#usage)
+  - [Architecture](#architecture)
+    - [Functional Domains](#functional-domains)
+      - [Group DNA / Holochain configuration](#group-dna--holochain-configuration)
+      - [Individuals Authoring Content](#individuals-authoring-content)
+      - [Application API](#application-api)
     - [Two Distinct SubSystems](#two-distinct-subsystems)
+      - [1. Authoring your Local Chain](#1-authoring-your-local-chain)
+      - [2. Running a DHT Node](#2-running-a-dht-node)
+  - [Documentation](#documentation)
+  - [Testing](#testing)
   - [Development --](#development---)
+    - [Contributor Guidelines](#contributor-guidelines)
+      - [Tech](#tech)
+      - [Social --](#social---)
+  - [License](#license)
+  - [Acknowledgements](#acknowledgements)
 
 <!-- TOC END -->
 
@@ -127,6 +143,9 @@ We accept Pull Requests and welcome your participation.
  * [Milestones](https://github.com/metacurrency/holochain/milestones?direction=asc&sort=due_date&state=all) and progress on Roadmap
  * Kanban on [Waffle]((https://waffle.io/metacurrency/holochain)) of GitHub issues
  * Or [chat with us on gitter](https://gitter.im/metacurrency/holochain)
+
+[![Throughput Graph](http://graphs.waffle.io/metacurrency/holochain/throughput.svg)](https://waffle.io/metacurrency/holochain/metrics)
+
 
 ### Contributor Guidelines
 

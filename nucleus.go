@@ -52,10 +52,14 @@ func (z *ZygoNucleus) ValidateEntry(entry interface{}) (err error) {
 	return
 }
 
+const (
+	ZygoLibrary = `(defn version [] "ZygoHolochainLib 0.0.1")`
+)
+
 func NewZygoNucleus(code string) (v Nucleus, err error) {
 	var z ZygoNucleus
 	z.env = zygo.NewGlisp()
-	err = z.env.LoadString(code)
+	err = z.env.LoadString(ZygoLibrary + code)
 	if err != nil {
 		err = errors.New("Zygomys error: " + err.Error())
 		return

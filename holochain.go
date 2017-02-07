@@ -43,22 +43,27 @@ type KeyEntry struct {
 
 // Holochain DNA settings
 type Holochain struct {
-	Version         int
-	Id              uuid.UUID
-	Name            string
-	GroupInfo       map[string]string
-	HashType        string
-	BasedOn         Hash // holochain hash for base schemas and validators
-	Types           []string
-	Schemas         map[string]string
-	SchemaHashes    map[string]Hash
-	Validators      map[string]string
-	ValidatorHashes map[string]Hash
+	Version   int
+	Id        uuid.UUID
+	Name      string
+	GroupInfo map[string]string
+	HashType  string
+	BasedOn   Hash // holochain hash for base schemas and validators
+	EntryDefs []EntryDef
 	//---- private values not serialized; initialized on Load
 	path    string
 	agent   Agent
 	privKey *ecdsa.PrivateKey
 	store   Persister
+}
+
+// Holds an entry definition
+type EntryDef struct {
+	Name          string
+	Schema        string // file name of schema or language schema directive
+	Validator     string // file name of validation code
+	SchemaHash    Hash
+	ValidatorHash Hash
 }
 
 // Holds content for a holochain
@@ -128,14 +133,14 @@ func (s *Service) IsConfigured(name string) (h *Holochain, err error) {
 		return
 	}
 
-	for _, t := range h.Types {
-		sc := h.Schemas[t]
+	for _, d := range h.EntryDefs {
+		sc := d.Schema
 		if !SelfDescribingSchema(sc) {
 			if !fileExists(path + "/" + sc) {
 				return nil, errors.New("DNA specified schema missing: " + sc)
 			}
 		}
-		sc = h.Validators[t]
+		sc = d.Validator
 		if !fileExists(path + "/" + sc) {
 			return nil, errors.New("DNA specified validator missing: " + sc)
 		}
@@ -144,23 +149,20 @@ func (s *Service) IsConfigured(name string) (h *Holochain, err error) {
 }
 
 // New creates a new holochain structure with a randomly generated ID and default values
-func New(agent Agent, key *ecdsa.PrivateKey, path string) Holochain {
+func New(agent Agent, key *ecdsa.PrivateKey, path string, defs ...EntryDef) Holochain {
 	u, err := uuid.NewUUID()
 	if err != nil {
 		panic(err)
 	}
 	h := Holochain{
-		Id:              u,
-		HashType:        "SHA256",
-		Types:           []string{"myData"},
-		Schemas:         map[string]string{"myData": ZygoSchemaType},
-		SchemaHashes:    map[string]Hash{},
-		Validators:      map[string]string{"myData": "valid_myData.zy"},
-		ValidatorHashes: map[string]Hash{},
-		agent:           agent,
-		privKey:         key,
-		path:            path,
+		Id:        u,
+		HashType:  "SHA256",
+		EntryDefs: defs,
+		agent:     agent,
+		privKey:   key,
+		path:      path,
 	}
+
 	return h
 }
 
@@ -287,7 +289,9 @@ func GenDev(path string) (hP *Holochain, err error) {
 	if err != nil {
 		return
 	}
-	h = New(agent, key, path)
+
+	h = New(agent, key, path,
+		EntryDef{Name: "myData", Schema: "zygo", Validator: "valid_myData.zy"})
 
 	h.Name = filepath.Base(path)
 	//	if err = writeFile(path,"myData.cp",[]byte(s)); err != nil {return}  //if captain proto...
@@ -367,21 +371,21 @@ func (h *Holochain) SaveDNA(overwrite bool) (err error) {
 // of finalizing DNA development or versioning
 func (h *Holochain) GenDNAHashes() (err error) {
 	var b []byte
-	for _, t := range h.Types {
-		sc := h.Schemas[t]
+	for _, d := range h.EntryDefs {
+		sc := d.Schema
 		if !SelfDescribingSchema(sc) {
 			b, err = readFile(h.path, sc)
 			if err != nil {
 				return
 			}
-			h.SchemaHashes[t] = Hash(sha256.Sum256(b))
+			d.SchemaHash = Hash(sha256.Sum256(b))
 		}
-		sc = h.Validators[t]
+		sc = d.Validator
 		b, err = readFile(h.path, sc)
 		if err != nil {
 			return
 		}
-		h.ValidatorHashes[t] = Hash(sha256.Sum256(b))
+		d.ValidatorHash = Hash(sha256.Sum256(b))
 	}
 	err = h.SaveDNA(true)
 	return
@@ -600,13 +604,24 @@ func (h *Holochain) Validate(entriesToo bool) (valid bool, err error) {
 	return
 }
 
+// GetEntryDef returns an EntryDef of the given name
+func (h *Holochain) GetEntryDef(t string) (d *EntryDef, err error) {
+	for _, x := range h.EntryDefs {
+		if x.Name == t {
+			d = &x
+			break
+		}
+	}
+	if d == nil {
+		err = errors.New("no definition for type: " + t)
+	}
+	return
+}
+
 // ValidateEntry passes an entry data to the chains validation routinesLoad returns a slice of the headers in the chain.
 //If the entry is valid err will be nil, otherwise it will contain some information about why the validation failed (or, possibly, some other system error)
 func (h *Holochain) ValidateEntry(header *Header, entry interface{}) (err error) {
-	_, ok := h.Validators[header.Type]
-	if !ok {
-		return errors.New("no validator for type: " + header.Type)
-	}
+
 	if entry == nil {
 		return errors.New("nil entry invalid")
 	}
@@ -620,25 +635,18 @@ func (h *Holochain) ValidateEntry(header *Header, entry interface{}) (err error)
 
 // MakeValidator creates a Validator object based on the entry type
 func (h *Holochain) MakeValidator(t string) (v Validator, err error) {
-	schema, ok := h.Schemas[t]
-	if !ok {
-		err = errors.New("no schema for type: " + t)
+	d, err := h.GetEntryDef(t)
+	if err != nil {
 		return
 	}
-	validator, ok := h.Validators[t]
-	if !ok {
-		err = errors.New("no validator for type: " + t)
-		return
-	}
-
 	var code []byte
-	code, err = readFile(h.path, validator)
+	code, err = readFile(h.path, d.Validator)
 	if err != nil {
 		return
 	}
 
 	// which validator to use is inferred from the schema type
-	v, err = CreateValidator(schema, string(code))
+	v, err = CreateValidator(d.Schema, string(code))
 
 	return
 }

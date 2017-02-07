@@ -14,6 +14,7 @@ import (
 	"time"
 )
 
+// needed to setup the holochain environment, not really a test.
 func Test(t *testing.T) {
 	Register()
 }
@@ -29,6 +30,15 @@ func TestNew(t *testing.T) {
 		So(h.privKey, ShouldEqual, &key)
 		So(h.path, ShouldEqual, "some/path")
 	})
+	Convey("New with EntryDefs should fill them", t, func() {
+		d1 := EntryDef{Name: "myData1", Schema: "zygo", Validator: "valid_myData1.zy"}
+		d2 := EntryDef{Name: "myData2", Schema: "zygo", Validator: "valid_myData2.zy"}
+
+		h := New("Joe", &key, "some/path", d1, d2)
+		So(h.EntryDefs[0].Name, ShouldEqual, "myData1")
+		So(h.EntryDefs[1].Name, ShouldEqual, "myData2")
+	})
+
 }
 
 func TestGenDev(t *testing.T) {
@@ -46,7 +56,7 @@ func TestGenDev(t *testing.T) {
 
 	})
 
-	SkipConvey("when generating a dev holochain", t, func() {
+	Convey("when generating a dev holochain", t, func() {
 		h, err := GenDev(root)
 		So(err, ShouldBeNil)
 		_, err = s.IsConfigured(name)
@@ -55,7 +65,7 @@ func TestGenDev(t *testing.T) {
 		So(err, ShouldBeNil)
 		So(lh.ID, ShouldEqual, h.ID)
 
-		Convey("we should be able re generate it", func() {
+		Convey("we should not be able re generate it", func() {
 			_, err = GenDev(root)
 			So(err.Error(), ShouldEqual, "holochain: "+root+" already exists")
 		})
@@ -196,7 +206,7 @@ func TestGenChain(t *testing.T) {
 		var h2 Holochain
 		_, err = toml.DecodeFile(h.path+"/"+DNAFileName, &h2)
 		So(err, ShouldBeNil)
-		So(h2.ValidatorHashes["myData"], ShouldEqual, h.ValidatorHashes["myData"])
+		So(h2.EntryDefs[0].ValidatorHash, ShouldEqual, h.EntryDefs[0].ValidatorHash)
 	})
 
 	Convey("before GenChain call ID call should fail", t, func() {
@@ -307,8 +317,9 @@ func TestValidateEntry(t *testing.T) {
 
 	Convey("it should fail if a validator doesn't exist for the entry type", t, func() {
 		hdr := mkTestHeader("bogusType")
-		err = h.ValidateEntry(&hdr, nil)
-		So(err.Error(), ShouldEqual, "no validator for type: bogusType")
+		myData := "2"
+		err = h.ValidateEntry(&hdr, myData)
+		So(err.Error(), ShouldEqual, "no definition for type: bogusType")
 	})
 
 	Convey("a nil entry is invalid", t, func() {
@@ -335,7 +346,7 @@ func TestMakeValidator(t *testing.T) {
 	defer cleanupTestDir(d)
 	Convey("it should fail if the type isn't defined in the DNA", t, func() {
 		_, err := h.MakeValidator("bogusType")
-		So(err.Error(), ShouldEqual, "no schema for type: bogusType")
+		So(err.Error(), ShouldEqual, "no definition for type: bogusType")
 
 	})
 	Convey("it should make a validator based on the type", t, func() {

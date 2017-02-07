@@ -73,16 +73,16 @@ var nucleusFactories = make(map[string]NucleusFactory)
 // RegisterNucleus sets up a Nucleus to be used by the CreateNucleus function
 func RegisterNucleus(name string, factory NucleusFactory) {
 	if factory == nil {
-		panic("Datastore factory %s does not exist." + name)
+		panic("Nucleus factory %s does not exist." + name)
 	}
 	_, registered := nucleusFactories[name]
 	if registered {
-		panic("Datastore factory %s already registered. " + name)
+		panic("Nucleus factory %s already registered. " + name)
 	}
 	nucleusFactories[name] = factory
 }
 
-// RegisterBultinNucleii adds the built in validator types to the factory hash
+// RegisterBultinNucleii adds the built in nucleus types to the factory hash
 func RegisterBultinNucleii() {
 	RegisterNucleus(ZygoSchemaType, NewZygoNucleus)
 }
@@ -98,7 +98,7 @@ func CreateNucleus(schema string, code string) (Nucleus, error) {
 		for k, _ := range nucleusFactories {
 			available = append(available, k)
 		}
-		return nil, errors.New(fmt.Sprintf("Invalid validator name. Must be one of: %s", strings.Join(available, ", ")))
+		return nil, errors.New(fmt.Sprintf("Invalid nucleus name. Must be one of: %s", strings.Join(available, ", ")))
 	}
 
 	return factory(code)

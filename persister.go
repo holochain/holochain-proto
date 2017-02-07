@@ -163,7 +163,7 @@ type PersisterFactory func(config string) (Persister, error)
 
 var persistorFactories = make(map[string]PersisterFactory)
 
-// RegisterBultinPersisters adds the built in validator types to the factory hash
+// RegisterBultinPersisters adds the built in persister types to the factory hash
 func RegisterBultinPersisters() {
 	RegisterPersister(BoltPersisterName, NewBoltPersister)
 }

@@ -12,7 +12,7 @@ func TestCreatePersister(t *testing.T) {
 		_, err := CreatePersister("non-existent-type", "/some/path")
 		So(err.Error(), ShouldEqual, "Invalid persister name. Must be one of: bolt")
 	})
-	Convey("should create a validator based from a good schema type", t, func() {
+	Convey("should create a persister based from a good schema type", t, func() {
 		p := "/tmp/boltdb"
 		v, err := CreatePersister(BoltPersisterName, p)
 		bp := v.(*BoltPersister)

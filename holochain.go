@@ -48,7 +48,7 @@ type Holochain struct {
 	Name      string
 	GroupInfo map[string]string
 	HashType  string
-	BasedOn   Hash // holochain hash for base schemas and validators
+	BasedOn   Hash // holochain hash for base schemas and code
 	EntryDefs []EntryDef
 	//---- private values not serialized; initialized on Load
 	path    string
@@ -650,7 +650,7 @@ func (h *Holochain) MakeNucleus(t string) (v Nucleus, err error) {
 		return
 	}
 
-	// which validator to use is inferred from the schema type
+	// which nucleus to use is inferred from the schema type
 	v, err = CreateNucleus(d.Schema, string(code))
 
 	return

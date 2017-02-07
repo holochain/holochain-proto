@@ -33,7 +33,7 @@ func TestNewZygoNucleus(t *testing.T) {
 func TestCreateNucleus(t *testing.T) {
 	Convey("should fail to create a nucleus based from bad schema type", t, func() {
 		_, err := CreateNucleus("non-existent-schema", "some code")
-		So(err.Error(), ShouldEqual, "Invalid validator name. Must be one of: zygo")
+		So(err.Error(), ShouldEqual, "Invalid nucleus name. Must be one of: zygo")
 	})
 	Convey("should create a nucleus based from a good schema type", t, func() {
 		v, err := CreateNucleus(ZygoSchemaType, `(+ 1 1)`)

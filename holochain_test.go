@@ -59,6 +59,7 @@ func TestGenDev(t *testing.T) {
 	Convey("when generating a dev holochain", t, func() {
 		h, err := GenDev(root)
 		So(err, ShouldBeNil)
+		h.store.Close()
 		h, err = s.IsConfigured(name)
 		So(err, ShouldBeNil)
 		h.store.Close()

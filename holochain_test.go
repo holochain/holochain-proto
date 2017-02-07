@@ -59,14 +59,14 @@ func TestGenDev(t *testing.T) {
 	Convey("when generating a dev holochain", t, func() {
 		h, err := GenDev(root)
 		So(err, ShouldBeNil)
-		_, err = s.IsConfigured(name)
+		h, err = s.IsConfigured(name)
 		So(err, ShouldBeNil)
+		h.store.Close()
+
 		lh, err := s.Load(name)
 		So(err, ShouldBeNil)
 		So(lh.ID, ShouldEqual, h.ID)
-
-		// close the bolt instance so to call in ConfiguredChains doesn't timeout.
-		h.store.Close()
+		lh.store.Close()
 
 		Convey("we should not be able re generate it", func() {
 			_, err = GenDev(root)

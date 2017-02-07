@@ -33,3 +33,5 @@
 *.su
 
 hc/.holochain
+.floo*
+tmp/

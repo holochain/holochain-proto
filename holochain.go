@@ -290,8 +290,11 @@ func GenDev(path string) (hP *Holochain, err error) {
 		return
 	}
 
-	h = New(agent, key, path,
-		EntryDef{Name: "myData", Schema: "zygo", Validator: "valid_myData.zy"})
+	defs := []EntryDef{
+		EntryDef{Name: "myData", Schema: "zygo"},
+	}
+
+	h = New(agent, key, path, defs...)
 
 	h.Name = filepath.Base(path)
 	//	if err = writeFile(path,"myData.cp",[]byte(s)); err != nil {return}  //if captain proto...
@@ -310,8 +313,10 @@ func GenDev(path string) (hP *Holochain, err error) {
 		return nil, err
 	}
 
-	for entry_type := range entries {
+	for idx, d := range defs {
+		entry_type := d.Name
 		fn := fmt.Sprintf("valid_%s.zy", entry_type)
+		h.EntryDefs[idx].Validator = fn
 		v, _ := validators[entry_type]
 		if err = writeFile(path, fn, []byte(v)); err != nil {
 			return

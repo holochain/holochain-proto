@@ -14,9 +14,24 @@ import (
 
 type NucleusFactory func(code string) (Nucleus, error)
 
+type InterfaceSchemaType int
+
+const (
+	STRING InterfaceSchemaType = iota
+	JSON
+)
+
+type Interface struct {
+	Name   string
+	Schema InterfaceSchemaType
+}
+
 type Nucleus interface {
 	Name() string
 	ValidateEntry(entry interface{}) error
+	expose(iface Interface) error
+	Interfaces() (i []Interface)
+	Call(iface string, params interface{}) (interface{}, error)
 }
 
 var nucleusFactories = make(map[string]NucleusFactory)

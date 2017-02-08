@@ -305,7 +305,7 @@ func GenDev(path string) (hP *Holochain, err error) {
 
 	code := make(map[string]string)
 	code["myData"] = `
-(defn validateEntry [entry] (cond (== (mod entry 2) 0) true false))
+(defn validate [entry] (cond (== (mod entry 2) 0) true false))
 (defn validateChain [entry user_data] true)
 `
 	testPath := path + "/test"

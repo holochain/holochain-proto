@@ -1,6 +1,7 @@
 package holochain
 
 import (
+	"fmt"
 	zygo "github.com/glycerine/zygomys/repl"
 	. "github.com/smartystreets/goconvey/convey"
 	"testing"
@@ -32,7 +33,7 @@ func TestNewZygoNucleus(t *testing.T) {
 
 func TestZygoValidateEntry(t *testing.T) {
 	Convey("should run an entry value against the defined validator", t, func() {
-		v, err := NewZygoNucleus(`(defn validateEntry [entry] (cond (== entry "fish") true false))`)
+		v, err := NewZygoNucleus(`(defn validate [entry] (cond (== entry "fish") true false))`)
 		So(err, ShouldBeNil)
 		err = v.ValidateEntry(`"cow"`)
 		So(err.Error(), ShouldEqual, "Invalid entry:\"cow\"")
@@ -57,13 +58,11 @@ func TestZygoExposeCall(t *testing.T) {
 
 	Convey("should build up interfaces list", t, func() {
 		i := z.Interfaces()
-		So(i[0].Name, ShouldEqual, "cater")
-		So(i[0].Schema, ShouldEqual, STRING)
+		So(fmt.Sprintf("%v", i), ShouldEqual, "[{cater 0}]")
 	})
 	Convey("should allow calling exposed functions", t, func() {
 		result, err := z.Call("cater", "fish")
 		So(err, ShouldBeNil)
 		So(result.(*zygo.SexpStr).S, ShouldEqual, "result: fish")
 	})
-
 }

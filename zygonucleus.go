@@ -28,7 +28,7 @@ func (z *ZygoNucleus) Name() string { return ZygoSchemaType }
 // this is the zgo implementation
 func (z *ZygoNucleus) ValidateEntry(entry interface{}) (err error) {
 	e := entry.(string)
-	err = z.env.LoadString("(validateEntry " + e + ")")
+	err = z.env.LoadString("(validate " + e + ")")
 	if err != nil {
 		return
 	}

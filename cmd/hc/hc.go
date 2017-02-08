@@ -151,11 +151,7 @@ func SetupApp() (app *cli.App) {
 			Usage:     "display a text dump of a chain",
 			ArgsUsage: "holochain-name",
 			Action: func(c *cli.Context) error {
-				name, err := checkForName(c, "dump")
-				if err != nil {
-					return err
-				}
-				h, err := service.IsConfigured(name)
+				h, err := getHolochain(c, service, "dump")
 				if err != nil {
 					return err
 				}
@@ -204,11 +200,7 @@ func SetupApp() (app *cli.App) {
 			Aliases: []string{"t"},
 			Usage:   "run validation against test data for a chain in development",
 			Action: func(c *cli.Context) error {
-				name, err := checkForName(c, "test")
-				if err != nil {
-					return err
-				}
-				h, err := service.IsConfigured(name)
+				h, err := getHolochain(c, service, "test")
 				if err != nil {
 					return err
 				}
@@ -226,6 +218,17 @@ func SetupApp() (app *cli.App) {
 				}
 				listChains(service)
 				return nil
+			},
+		},
+		{
+			Name:      "call",
+			Aliases:   []string{"c"},
+			Usage:     "call an exposed function",
+			ArgsUsage: "holochain-name entry-name function args",
+			Action: func(c *cli.Context) error {
+				_, err := getHolochain(c, service, "call")
+				fmt.Printf("calling %v", os.Args)
+				return err
 			},
 		},
 	}
@@ -262,6 +265,18 @@ func SetupApp() (app *cli.App) {
 func main() {
 	app := SetupApp()
 	app.Run(os.Args)
+}
+
+func getHolochain(c *cli.Context, service *holo.Service, cmd string) (h *holo.Holochain, err error) {
+	name, err := checkForName(c, cmd)
+	if err != nil {
+		return
+	}
+	h, err = service.IsConfigured(name)
+	if err != nil {
+		return
+	}
+	return
 }
 
 func checkForName(c *cli.Context, cmd string) (name string, err error) {

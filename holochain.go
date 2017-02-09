@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"github.com/BurntSushi/toml"
 	"github.com/boltdb/bolt"
+	_ "github.com/ghodss/yaml" // doesn't work!
 	"github.com/google/uuid"
 	"io"
 	"io/ioutil"
@@ -68,10 +69,11 @@ type Holochain struct {
 	BasedOn   Hash // holochain hash for base schemas and code
 	Zomes     map[string]*Zome
 	//---- private values not serialized; initialized on Load
-	path    string
-	agent   Agent
-	privKey *ecdsa.PrivateKey
-	store   Persister
+	path           string
+	agent          Agent
+	privKey        *ecdsa.PrivateKey
+	store          Persister
+	encodingFormat string
 }
 
 // Holds content for a holochain
@@ -166,11 +168,12 @@ func New(agent Agent, key *ecdsa.PrivateKey, path string, zomes ...Zome) Holocha
 		panic(err)
 	}
 	h := Holochain{
-		Id:       u,
-		HashType: "SHA256",
-		agent:    agent,
-		privKey:  key,
-		path:     path,
+		Id:             u,
+		HashType:       "SHA256",
+		agent:          agent,
+		privKey:        key,
+		path:           path,
+		encodingFormat: "toml",
 	}
 	h.Zomes = make(map[string]*Zome)
 	for _, z := range zomes {
@@ -180,13 +183,45 @@ func New(agent Agent, key *ecdsa.PrivateKey, path string, zomes ...Zome) Holocha
 	return h
 }
 
+// DecodeDNA decodes a Holochan structure from an io.Reader
+func DecodeDNA(reader io.Reader, format string) (hP *Holochain, err error) {
+	var h Holochain
+	switch format {
+	case "toml":
+		_, err = toml.DecodeReader(reader, &h)
+		/* unfortunately these don't work!
+		case "json":
+			dec := json.NewDecoder(reader)
+			err = dec.Decode(&h)
+		case "yaml":
+			y, e := ioutil.ReadAll(reader)
+			if e != nil {
+				err = e
+				return
+			}
+			err = yaml.Unmarshal(y, &h)
+		*/
+	default:
+		err = errors.New("unknown DNA encoding format: " + format)
+	}
+	if err == nil {
+		h.encodingFormat = format
+		hP = &h
+	}
+	return
+}
+
 // Load unmarshals a holochain structure for the named chain in a service
 func (s *Service) Load(name string) (hP *Holochain, err error) {
-	var h Holochain
 
 	path := s.Path + "/" + name
 
-	_, err = toml.DecodeFile(path+"/"+DNAFileName, &h)
+	f, err := os.Open(path + "/" + DNAFileName)
+	if err != nil {
+		return
+	}
+	defer f.Close()
+	h, err := DecodeDNA(f, "toml")
 	if err != nil {
 		return
 	}
@@ -214,7 +249,7 @@ func (s *Service) Load(name string) (hP *Holochain, err error) {
 		return
 	}
 
-	hP = &h
+	hP = h
 	return
 }
 
@@ -373,8 +408,32 @@ func GenDev(path string) (hP *Holochain, err error) {
 // EncodeDNA encodes a holochain's DNA to an io.Writer
 // we use toml so that the DNA is human readable
 func (h *Holochain) EncodeDNA(writer io.Writer) (err error) {
-	enc := toml.NewEncoder(writer)
-	err = enc.Encode(h)
+	switch h.encodingFormat {
+	case "toml":
+		enc := toml.NewEncoder(writer)
+		err = enc.Encode(h)
+		/* unfortunately these don't work!
+		case "json":
+			enc := json.NewEncoder(writer)
+			err = enc.Encode(h)
+		case "yaml":
+			y, e := yaml.Marshal(h)
+			if e != nil {
+				err = e
+				return
+			}
+			n, e := writer.Write(y)
+			if e != nil {
+				err = e
+				return
+			}
+			if n != len(y) {
+				err = errors.New("unable to write all bytes while encoding DNA")
+			}
+		*/
+	default:
+		err = errors.New("unknown DNA encoding format: " + h.encodingFormat)
+	}
 	return
 }
 

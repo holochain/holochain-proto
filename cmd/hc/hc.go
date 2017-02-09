@@ -166,6 +166,9 @@ func SetupApp() (app *cli.App) {
 				}
 
 				id, err := h.ID()
+				if err.Error() == "holochain: Meta key 'id' uninitialized" {
+					return errors.New("No data to dump, chain not yet initialized.")
+				}
 				if err != nil {
 					return err
 				}

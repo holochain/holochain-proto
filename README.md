@@ -74,7 +74,7 @@ To aid development, the `gen dev` command also produces a `test` sub-directory w
 
     hc test <NAME>
 
-runs validates these data entries against the validation rules.  Thus you can run this command as you make changes to your holochain DNA to confirm that it's all working.
+validates these data entries against the validation rules.  Thus you can run this command as you make changes to your holochain DNA to confirm that it's all working.
 
 After you have cloned or completed development for a chain, you can start the chain (i.e. create the genesis entries) with:
 

@@ -42,13 +42,22 @@ func SetupApp() (app *cli.App) {
 					Name:      "from",
 					Aliases:   []string{"f"},
 					Usage:     "generate a holochain instance from  source",
-					ArgsUsage: "holochain-name",
+					ArgsUsage: "src-path holochain-name",
 					Action: func(c *cli.Context) error {
-						name := c.Args().First()
-						if name == "" {
-							return errors.New("missing require holochain-name argument to gen dev")
+						src_path := c.Args().First()
+						if src_path == "" {
+							return errors.New("missing require source path argument to gen from")
 						}
-						err := errors.New("not implemented")
+						name := c.Args()[1]
+						if name == "" {
+							return errors.New("missing require holochain-name argument to gen from")
+						}
+						h, err := holo.GenFrom("examples/simple", root+"/"+name)
+						if err == nil {
+							if verbose {
+								fmt.Printf("cloned %s from %s with new id: %v\n", name, src_path, h.Id)
+							}
+						}
 						return err
 					},
 				},
@@ -65,7 +74,7 @@ func SetupApp() (app *cli.App) {
 						h, err := holo.GenDev(root + "/" + name)
 						if err == nil {
 							if verbose {
-								fmt.Printf("created %s with new id: %v\n", h.Id)
+								fmt.Printf("created %s with new id: %v\n", name, h.Id)
 							}
 						}
 						return err

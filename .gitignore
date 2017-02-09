@@ -32,7 +32,6 @@
 *.dSYM/
 *.su
 
-hc/.holochain
 .floo*
 tmp/
 floospace/

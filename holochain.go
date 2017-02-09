@@ -328,63 +328,129 @@ func (h *Holochain) GenChain() (keyHash Hash, err error) {
 	return
 }
 
-// Gen adds template files suitable for editing to the given path
-func GenDev(path string) (hP *Holochain, err error) {
-	var h Holochain
-	if err := os.MkdirAll(path, os.ModePerm); err != nil {
-		return nil, err
-	}
-	agent, key, err := LoadSigner(filepath.Dir(path))
-	if err != nil {
+// GenFrom copies DNA files from a source
+func GenFrom(src_path string, path string) (hP *Holochain, err error) {
+	hP, err = gen(path, func(path string) (hP *Holochain, err error) {
+
+		f, err := os.Open(src_path + "/" + DNAFileName)
+		if err != nil {
+			return
+		}
+		defer f.Close()
+		h, err := DecodeDNA(f, "toml")
+		if err != nil {
+			return
+		}
+
+		agent, key, err := LoadSigner(filepath.Dir(path))
+		if err != nil {
+			return
+		}
+		h.path = path
+		h.agent = agent
+		h.privKey = key
+
+		// generate a new UUID
+		u, err := uuid.NewUUID()
+		if err != nil {
+			return
+		}
+		h.Id = u
+
+		for _, z := range h.Zomes {
+			var bs []byte
+			bs, err = readFile(src_path, z.Code)
+			if err != nil {
+				return
+			}
+			if err = writeFile(path, z.Code, bs); err != nil {
+				return
+			}
+			// @todo copy over fixtures once that gets figured out
+			/*	for en, data := range z.Entries {
+				for i, e := range data {
+					fn := fmt.Sprintf("%d_%s.zy", i, en)
+					if err = writeFile(testPath, fn, []byte(e)); err != nil {
+						return
+					}
+				}
+			}*/
+		}
+
+		hP = h
 		return
-	}
+	})
+	return
+}
 
-	zomes := []Zome{
-		Zome{Name: "myZome",
-			Description: "zome desc",
-			NucleusType: ZygoNucleusType,
-			Entries: map[string]EntryDef{
-				"myData": EntryDef{Name: "myData", Schema: "zygo"},
+func GenDev(path string) (hP *Holochain, err error) {
+	hP, err = gen(path, func(path string) (hP *Holochain, err error) {
+		agent, key, err := LoadSigner(filepath.Dir(path))
+		if err != nil {
+			return
+		}
+
+		zomes := []Zome{
+			Zome{Name: "myZome",
+				Description: "zome desc",
+				NucleusType: ZygoNucleusType,
+				Entries: map[string]EntryDef{
+					"myData": EntryDef{Name: "myData", Schema: "zygo"},
+				},
 			},
-		},
-	}
+		}
 
-	h = New(agent, key, path, zomes...)
+		h := New(agent, key, path, zomes...)
 
-	h.Name = filepath.Base(path)
-	//	if err = writeFile(path,"myData.cp",[]byte(s)); err != nil {return}  //if captain proto...
+		entries := make(map[string][]string)
+		mde := [2]string{"2", "4"}
+		entries["myData"] = mde[:]
 
-	entries := make(map[string][]string)
-	mde := [2]string{"2", "4"}
-	entries["myData"] = mde[:]
-
-	code := make(map[string]string)
-	code["myZome"] = `
+		code := make(map[string]string)
+		code["myZome"] = `
 (expose "exposedfn" STRING)
 (defn exposedfn [x] (concat "result: " x))
 (defn validate [entry_type entry] (cond (== (mod entry 2) 0) true false))
 (defn validateChain [entry user_data] true)
 `
-	testPath := path + "/test"
-	if err := os.MkdirAll(testPath, os.ModePerm); err != nil {
-		return nil, err
-	}
-
-	for _, z := range h.Zomes {
-		z.Code = fmt.Sprintf("zome_%s.zy", z.Name)
-		c, _ := code[z.Name]
-		if err = writeFile(path, z.Code, []byte(c)); err != nil {
-			return
+		testPath := path + "/test"
+		if err := os.MkdirAll(testPath, os.ModePerm); err != nil {
+			return nil, err
 		}
-		for en, data := range entries {
-			for i, e := range data {
-				fn := fmt.Sprintf("%d_%s.zy", i, en)
-				if err = writeFile(testPath, fn, []byte(e)); err != nil {
-					return
+
+		for _, z := range h.Zomes {
+			z.Code = fmt.Sprintf("zome_%s.zy", z.Name)
+			c, _ := code[z.Name]
+			if err = writeFile(path, z.Code, []byte(c)); err != nil {
+				return
+			}
+			for en, data := range entries {
+				for i, e := range data {
+					fn := fmt.Sprintf("%d_%s.zy", i, en)
+					if err = writeFile(testPath, fn, []byte(e)); err != nil {
+						return
+					}
 				}
 			}
 		}
+		hP = &h
+		return
+	})
+	return
+}
+
+// gen calls a make function which should build the holochain structure and supporting files
+func gen(path string, makeH func(path string) (hP *Holochain, err error)) (h *Holochain, err error) {
+	if err := os.MkdirAll(path, os.ModePerm); err != nil {
+		return nil, err
 	}
+
+	h, err = makeH(path)
+	if err != nil {
+		return
+	}
+
+	h.Name = filepath.Base(path)
 
 	h.store, err = CreatePersister(BoltPersisterName, path+"/"+StoreFileName)
 	if err != nil {
@@ -401,7 +467,6 @@ func GenDev(path string) (hP *Holochain, err error) {
 		return
 	}
 
-	hP = &h
 	return
 }
 

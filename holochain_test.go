@@ -81,6 +81,25 @@ func TestGenDev(t *testing.T) {
 	})
 }
 
+func TestGenFrom(t *testing.T) {
+	d, s := setupTestService()
+	defer cleanupTestDir(d)
+	name := "test"
+	root := s.Path + "/" + name
+
+	Convey("it should create a chain from the examples directory", t, func() {
+		h, err := GenFrom("examples/simple", root)
+		So(err, ShouldBeNil)
+		So(h.Name, ShouldEqual, "test")
+		agent, key, err := LoadSigner(s.Path)
+		So(h.agent, ShouldEqual, agent)
+		So(fmt.Sprintf("%v", h.privKey), ShouldEqual, fmt.Sprintf("%v", key))
+		src, _ := readFile("examples/simple", "zome_myZome.zy")
+		dst, _ := readFile(root, "zome_myZome.zy")
+		So(string(src), ShouldEqual, string(dst))
+	})
+}
+
 func TestNewEntry(t *testing.T) {
 	d, s := setupTestService()
 	defer cleanupTestDir(d)

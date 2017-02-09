@@ -13,22 +13,32 @@ import (
 )
 
 const (
-	ZygoSchemaType = "zygo"
+	ZygoNucleusType = "zygo"
 )
 
 type ZygoNucleus struct {
 	env        *zygo.Glisp
 	interfaces []Interface
+	lastResult zygo.Sexp
 }
 
 // Name returns the string value under which this nucleus is registered
-func (z *ZygoNucleus) Name() string { return ZygoSchemaType }
+func (z *ZygoNucleus) Type() string { return ZygoNucleusType }
 
 // ValidateEntry checks the contents of an entry against the validation rules
 // this is the zgo implementation
-func (z *ZygoNucleus) ValidateEntry(entry interface{}) (err error) {
-	e := entry.(string)
-	err = z.env.LoadString("(validate " + e + ")")
+func (z *ZygoNucleus) ValidateEntry(d *EntryDef, entry interface{}) (err error) {
+	// @todo handle JSON if schema type is different
+	var e string
+	switch d.Schema {
+	case "zygo":
+		e = entry.(string)
+	case "string":
+		e = "\"" + sanitizeString(entry.(string)) + "\""
+	default:
+		err = errors.New("schema type not implemented: " + d.Schema)
+	}
+	err = z.env.LoadString(fmt.Sprintf(`(validate "%s" %s)`, d.Name, e))
 	if err != nil {
 		return
 	}
@@ -54,13 +64,19 @@ func (z *ZygoNucleus) GetInterface(iface string) (i *Interface, err error) {
 		}
 	}
 	if i == nil {
-		err = errors.New("couldn't find: " + iface)
+		err = errors.New("couldn't find exposed function: " + iface)
 	}
 	return
 }
+
 func (z *ZygoNucleus) Interfaces() (i []Interface) {
 	i = z.interfaces
 	return
+}
+
+// sanatizeString makes sure all quotes are quoted
+func sanitizeString(s string) string {
+	return strings.Replace(s, "\"", "\\\"", -1)
 }
 
 // Call calls the zygo function that was registered with expose
@@ -72,7 +88,7 @@ func (z *ZygoNucleus) Call(iface string, params interface{}) (result interface{}
 	var code string
 	switch i.Schema {
 	case STRING:
-		code = fmt.Sprintf(`(%s "%s")`, iface, strings.Replace(params.(string), "\"", "\\\"", -1))
+		code = fmt.Sprintf(`(%s "%s")`, iface, sanitizeString(params.(string)))
 	default:
 		err = errors.New("params type not implemented")
 		return
@@ -82,6 +98,19 @@ func (z *ZygoNucleus) Call(iface string, params interface{}) (result interface{}
 		return
 	}
 	result, err = z.env.Run()
+	if err == nil {
+		switch t := result.(type) {
+		case *zygo.SexpStr:
+			result = t.S
+		case *zygo.SexpInt:
+			result = t.Val
+		//case *zygo.SexpNull:
+		//	result = nil
+		default:
+			result = fmt.Sprintf("%v", result)
+		}
+
+	}
 	return
 }
 
@@ -99,7 +128,7 @@ func (z *ZygoNucleus) expose(iface Interface) (err error) {
 }
 
 // NewZygoNucleus builds an zygo execution environment with user specified code
-func NewZygoNucleus(code string) (v Nucleus, err error) {
+func NewZygoNucleus(code string) (n Nucleus, err error) {
 	var z ZygoNucleus
 	z.env = zygo.NewGlisp()
 	z.env.AddFunction("version",
@@ -136,11 +165,25 @@ func NewZygoNucleus(code string) (v Nucleus, err error) {
 			return zygo.SexpNull, err
 		})
 
-	err = z.env.LoadString(ZygoLibrary + code)
+	_, err = z.Run(ZygoLibrary + code)
 	if err != nil {
-		err = errors.New("Zygomys error: " + err.Error())
 		return
 	}
-	v = &z
+	n = &z
+	return
+}
+
+func (z *ZygoNucleus) Run(code string) (result zygo.Sexp, err error) {
+	err = z.env.LoadString(code)
+	if err != nil {
+		err = errors.New("Zygomys load error: " + err.Error())
+		return
+	}
+	result, err = z.env.Run()
+	if err != nil {
+		err = errors.New("Zygomys exec error: " + err.Error())
+		return
+	}
+	z.lastResult = result
 	return
 }

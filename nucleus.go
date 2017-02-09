@@ -27,8 +27,8 @@ type Interface struct {
 }
 
 type Nucleus interface {
-	Name() string
-	ValidateEntry(entry interface{}) error
+	Type() string
+	ValidateEntry(def *EntryDef, entry interface{}) error
 	expose(iface Interface) error
 	Interfaces() (i []Interface)
 	Call(iface string, params interface{}) (interface{}, error)
@@ -39,18 +39,18 @@ var nucleusFactories = make(map[string]NucleusFactory)
 // RegisterNucleus sets up a Nucleus to be used by the CreateNucleus function
 func RegisterNucleus(name string, factory NucleusFactory) {
 	if factory == nil {
-		panic("Nucleus factory %s does not exist." + name)
+		panic("Nucleus factory for type %s does not exist." + name)
 	}
 	_, registered := nucleusFactories[name]
 	if registered {
-		panic("Nucleus factory %s already registered. " + name)
+		panic("Nucleus factory for type %s already registered. " + name)
 	}
 	nucleusFactories[name] = factory
 }
 
 // RegisterBultinNucleii adds the built in nucleus types to the factory hash
 func RegisterBultinNucleii() {
-	RegisterNucleus(ZygoSchemaType, NewZygoNucleus)
+	RegisterNucleus(ZygoNucleusType, NewZygoNucleus)
 }
 
 // CreateNucleus returns a new Nucleus of the given type

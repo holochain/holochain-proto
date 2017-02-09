@@ -41,7 +41,24 @@ type KeyEntry struct {
 	Key []byte // marshaled x509 public key
 }
 
-// Holochain DNA settings
+// EntryDef struct holds an entry definition
+type EntryDef struct {
+	Name       string
+	Schema     string // file name of schema or language schema directive
+	SchemaHash Hash
+}
+
+// Zome struct encapsulates logically related code, from "chromosome"
+type Zome struct {
+	Name        string
+	Description string
+	Code        string // file name of DNA code
+	CodeHash    Hash
+	Entries     map[string]EntryDef
+	NucleusType string
+}
+
+// Holochain struct holds the full "DNA" of the holochain
 type Holochain struct {
 	Version   int
 	Id        uuid.UUID
@@ -49,21 +66,12 @@ type Holochain struct {
 	GroupInfo map[string]string
 	HashType  string
 	BasedOn   Hash // holochain hash for base schemas and code
-	EntryDefs []EntryDef
+	Zomes     map[string]*Zome
 	//---- private values not serialized; initialized on Load
 	path    string
 	agent   Agent
 	privKey *ecdsa.PrivateKey
 	store   Persister
-}
-
-// Holds an entry definition
-type EntryDef struct {
-	Name       string
-	Schema     string // file name of schema or language schema directive
-	Code       string // file name of DNA code
-	SchemaHash Hash
-	CodeHash   Hash
 }
 
 // Holds content for a holochain
@@ -110,8 +118,9 @@ func Register() {
 
 func SelfDescribingSchema(sc string) bool {
 	SelfDescribingSchemas := map[string]bool{
-		"JSON":         true,
-		ZygoSchemaType: true,
+		"JSON":   true,
+		"string": true,
+		"zygo":   true,
 	}
 	return SelfDescribingSchemas[sc]
 }
@@ -133,34 +142,39 @@ func (s *Service) IsConfigured(name string) (h *Holochain, err error) {
 		return
 	}
 
-	for _, d := range h.EntryDefs {
-		sc := d.Schema
-		if !SelfDescribingSchema(sc) {
-			if !fileExists(path + "/" + sc) {
-				return nil, errors.New("DNA specified schema missing: " + sc)
+	for _, z := range h.Zomes {
+		if !fileExists(path + "/" + z.Code) {
+			return nil, errors.New("DNA specified code file missing: " + z.Code)
+		}
+		for _, e := range z.Entries {
+			sc := e.Schema
+			if !SelfDescribingSchema(sc) {
+				if !fileExists(path + "/" + sc) {
+					return nil, errors.New("DNA specified schema file missing: " + sc)
+				}
 			}
 		}
-		sc = d.Code
-		if !fileExists(path + "/" + sc) {
-			return nil, errors.New("DNA specified code missing: " + sc)
-		}
+
 	}
 	return
 }
 
 // New creates a new holochain structure with a randomly generated ID and default values
-func New(agent Agent, key *ecdsa.PrivateKey, path string, defs ...EntryDef) Holochain {
+func New(agent Agent, key *ecdsa.PrivateKey, path string, zomes ...Zome) Holochain {
 	u, err := uuid.NewUUID()
 	if err != nil {
 		panic(err)
 	}
 	h := Holochain{
-		Id:        u,
-		HashType:  "SHA256",
-		EntryDefs: defs,
-		agent:     agent,
-		privKey:   key,
-		path:      path,
+		Id:       u,
+		HashType: "SHA256",
+		agent:    agent,
+		privKey:  key,
+		path:     path,
+	}
+	h.Zomes = make(map[string]*Zome)
+	for _, z := range zomes {
+		h.Zomes[z.Name] = &z
 	}
 
 	return h
@@ -290,11 +304,17 @@ func GenDev(path string) (hP *Holochain, err error) {
 		return
 	}
 
-	defs := []EntryDef{
-		EntryDef{Name: "myData", Schema: "zygo"},
+	zomes := []Zome{
+		Zome{Name: "myZome",
+			Description: "zome desc",
+			NucleusType: ZygoNucleusType,
+			Entries: map[string]EntryDef{
+				"myData": EntryDef{Name: "myData", Schema: "zygo"},
+			},
+		},
 	}
 
-	h = New(agent, key, path, defs...)
+	h = New(agent, key, path, zomes...)
 
 	h.Name = filepath.Base(path)
 	//	if err = writeFile(path,"myData.cp",[]byte(s)); err != nil {return}  //if captain proto...
@@ -304,8 +324,10 @@ func GenDev(path string) (hP *Holochain, err error) {
 	entries["myData"] = mde[:]
 
 	code := make(map[string]string)
-	code["myData"] = `
-(defn validate [entry] (cond (== (mod entry 2) 0) true false))
+	code["myZome"] = `
+(expose "exposedfn" STRING)
+(defn exposedfn [x] (concat "result: " x))
+(defn validate [entry_type entry] (cond (== (mod entry 2) 0) true false))
 (defn validateChain [entry user_data] true)
 `
 	testPath := path + "/test"
@@ -313,18 +335,18 @@ func GenDev(path string) (hP *Holochain, err error) {
 		return nil, err
 	}
 
-	for idx, d := range defs {
-		entry_type := d.Name
-		fn := fmt.Sprintf("valid_%s.zy", entry_type)
-		h.EntryDefs[idx].Code = fn
-		v, _ := code[entry_type]
-		if err = writeFile(path, fn, []byte(v)); err != nil {
+	for _, z := range h.Zomes {
+		z.Code = fmt.Sprintf("zome_%s.zy", z.Name)
+		c, _ := code[z.Name]
+		if err = writeFile(path, z.Code, []byte(c)); err != nil {
 			return
 		}
-		for i, e := range entries[entry_type] {
-			fn = fmt.Sprintf("%d_%s.zy", i, entry_type)
-			if err = writeFile(testPath, fn, []byte(e)); err != nil {
-				return
+		for en, data := range entries {
+			for i, e := range data {
+				fn := fmt.Sprintf("%d_%s.zy", i, en)
+				if err = writeFile(testPath, fn, []byte(e)); err != nil {
+					return
+				}
 			}
 		}
 	}
@@ -376,21 +398,24 @@ func (h *Holochain) SaveDNA(overwrite bool) (err error) {
 // of finalizing DNA development or versioning
 func (h *Holochain) GenDNAHashes() (err error) {
 	var b []byte
-	for _, d := range h.EntryDefs {
-		sc := d.Schema
-		if !SelfDescribingSchema(sc) {
-			b, err = readFile(h.path, sc)
-			if err != nil {
-				return
-			}
-			d.SchemaHash = Hash(sha256.Sum256(b))
-		}
-		sc = d.Code
-		b, err = readFile(h.path, sc)
+	for _, z := range h.Zomes {
+		code := z.Code
+		b, err = readFile(h.path, code)
 		if err != nil {
 			return
 		}
-		d.CodeHash = Hash(sha256.Sum256(b))
+		z.CodeHash = Hash(sha256.Sum256(b))
+		for _, e := range z.Entries {
+			sc := e.Schema
+			if !SelfDescribingSchema(sc) {
+				b, err = readFile(h.path, sc)
+				if err != nil {
+					return
+				}
+				e.SchemaHash = Hash(sha256.Sum256(b))
+			}
+		}
+
 	}
 	err = h.SaveDNA(true)
 	return
@@ -610,15 +635,17 @@ func (h *Holochain) Validate(entriesToo bool) (valid bool, err error) {
 }
 
 // GetEntryDef returns an EntryDef of the given name
-func (h *Holochain) GetEntryDef(t string) (d *EntryDef, err error) {
-	for _, x := range h.EntryDefs {
-		if x.Name == t {
-			d = &x
+func (h *Holochain) GetEntryDef(t string) (zome *Zome, d *EntryDef, err error) {
+	for _, z := range h.Zomes {
+		e, ok := z.Entries[t]
+		if ok {
+			zome = z
+			d = &e
 			break
 		}
 	}
 	if d == nil {
-		err = errors.New("no definition for type: " + t)
+		err = errors.New("no definition for entry type: " + t)
 	}
 	return
 }
@@ -630,29 +657,48 @@ func (h *Holochain) ValidateEntry(header *Header, entry interface{}) (err error)
 	if entry == nil {
 		return errors.New("nil entry invalid")
 	}
-	v, err := h.MakeNucleus(header.Type)
+
+	z, d, err := h.GetEntryDef(header.Type)
 	if err != nil {
 		return
 	}
-	err = v.ValidateEntry(entry)
+	n, err := h.makeNucleus(z)
+	if err != nil {
+		return
+	}
+	err = n.ValidateEntry(d, entry)
 	return
 }
 
-// MakeNucleus creates a Nucleus object based on the entry type
-func (h *Holochain) MakeNucleus(t string) (v Nucleus, err error) {
-	d, err := h.GetEntryDef(t)
+// Call executes an exposed function
+func (h *Holochain) Call(zome_type string, function string, arguments interface{}) (result interface{}, err error) {
+	n, err := h.MakeNucleus(zome_type)
 	if err != nil {
 		return
 	}
+	result, err = n.Call(function, arguments)
+	return
+}
+
+// MakeNucleus creates a Nucleus object based on the zome type
+func (h *Holochain) MakeNucleus(t string) (n Nucleus, err error) {
+	z, ok := h.Zomes[t]
+	if !ok {
+		err = errors.New("unknown zome: " + t)
+		return
+	}
+	n, err = h.makeNucleus(z)
+	return
+}
+
+func (h *Holochain) makeNucleus(z *Zome) (n Nucleus, err error) {
 	var code []byte
-	code, err = readFile(h.path, d.Code)
+	code, err = readFile(h.path, z.Code)
 	if err != nil {
 		return
 	}
 
-	// which nucleus to use is inferred from the schema type
-	v, err = CreateNucleus(d.Schema, string(code))
-
+	n, err = CreateNucleus(z.NucleusType, string(code))
 	return
 }
 

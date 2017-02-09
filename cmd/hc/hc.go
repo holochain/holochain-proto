@@ -3,11 +3,11 @@ package main
 import (
 	"errors"
 	"fmt"
-	"os"
-	"os/user"
-
 	holo "github.com/metacurrency/holochain"
 	"github.com/urfave/cli"
+	"os"
+	"os/user"
+	"strings"
 	//"github.com/google/uuid"
 )
 
@@ -224,11 +224,22 @@ func SetupApp() (app *cli.App) {
 			Name:      "call",
 			Aliases:   []string{"c"},
 			Usage:     "call an exposed function",
-			ArgsUsage: "holochain-name entry-name function args",
+			ArgsUsage: "holochain-name zome-name function args",
 			Action: func(c *cli.Context) error {
-				_, err := getHolochain(c, service, "call")
-				fmt.Printf("calling %v", os.Args)
-				return err
+				h, err := getHolochain(c, service, "call")
+				if err != nil {
+					return err
+				}
+				zome := os.Args[3]
+				function := os.Args[4]
+				args := os.Args[5:]
+				fmt.Printf("calling %s on zome %s with params %v\n", function, zome, args)
+				result, err := h.Call(zome, function, strings.Join(args, " "))
+				if err != nil {
+					return err
+				}
+				fmt.Printf("%v\n", result)
+				return nil
 			},
 		},
 	}

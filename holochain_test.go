@@ -30,13 +30,18 @@ func TestNew(t *testing.T) {
 		So(h.privKey, ShouldEqual, &key)
 		So(h.path, ShouldEqual, "some/path")
 	})
-	Convey("New with EntryDefs should fill them", t, func() {
-		d1 := EntryDef{Name: "myData1", Schema: "zygo", Code: "valid_myData1.zy"}
-		d2 := EntryDef{Name: "myData2", Schema: "zygo", Code: "valid_myData2.zy"}
+	Convey("New with Zome should fill them", t, func() {
+		z := Zome{Name: "myZome",
+			Description: "zome desc",
+			Code:        "zome_myZome.zy",
+			Entries: map[string]EntryDef{
+				"myData1": EntryDef{Name: "myData1", Schema: "string"},
+				"myData2": EntryDef{Name: "myData2", Schema: "zygo"},
+			},
+		}
 
-		h := New("Joe", &key, "some/path", d1, d2)
-		So(h.EntryDefs[0].Name, ShouldEqual, "myData1")
-		So(h.EntryDefs[1].Name, ShouldEqual, "myData2")
+		h := New("Joe", &key, "some/path", z)
+		So(fmt.Sprintf("%v", h.Zomes["myZome"]), ShouldEqual, "&{myZome zome desc zome_myZome.zy 11111111111111111111111111111111 map[myData1:{myData1 string 11111111111111111111111111111111} myData2:{myData2 zygo 11111111111111111111111111111111}] }")
 	})
 
 }
@@ -210,7 +215,8 @@ func TestGenChain(t *testing.T) {
 		var h2 Holochain
 		_, err = toml.DecodeFile(h.path+"/"+DNAFileName, &h2)
 		So(err, ShouldBeNil)
-		So(h2.EntryDefs[0].CodeHash, ShouldEqual, h.EntryDefs[0].CodeHash)
+		So(h2.Zomes["myZome"].CodeHash, ShouldEqual, h.Zomes["myZome"].CodeHash)
+
 	})
 
 	Convey("before GenChain call ID call should fail", t, func() {
@@ -323,7 +329,7 @@ func TestValidateEntry(t *testing.T) {
 		hdr := mkTestHeader("bogusType")
 		myData := "2"
 		err = h.ValidateEntry(&hdr, myData)
-		So(err.Error(), ShouldEqual, "no definition for type: bogusType")
+		So(err.Error(), ShouldEqual, "no definition for entry type: bogusType")
 	})
 
 	Convey("a nil entry is invalid", t, func() {
@@ -350,15 +356,25 @@ func TestMakeNucleus(t *testing.T) {
 	defer cleanupTestDir(d)
 	Convey("it should fail if the type isn't defined in the DNA", t, func() {
 		_, err := h.MakeNucleus("bogusType")
-		So(err.Error(), ShouldEqual, "no definition for type: bogusType")
+		So(err.Error(), ShouldEqual, "unknown zome: bogusType")
 
 	})
 	Convey("it should make a nucleus based on the type", t, func() {
-		v, err := h.MakeNucleus("myData")
+		v, err := h.MakeNucleus("myZome")
 		So(err, ShouldBeNil)
 		z := v.(*ZygoNucleus)
 		_, err = z.env.Run()
 		So(err, ShouldBeNil)
+	})
+}
+
+func TestCall(t *testing.T) {
+	d, _, h := setupTestChain("test")
+	defer cleanupTestDir(d)
+	Convey("it should call the exposed function", t, func() {
+		result, err := h.Call("myZome", "exposedfn", "arg1 arg2")
+		So(err, ShouldBeNil)
+		So(result.(string), ShouldEqual, "result: arg1 arg2")
 	})
 }
 

@@ -9,7 +9,9 @@ import (
 	"errors"
 	"fmt"
 	zygo "github.com/glycerine/zygomys/repl"
+	"strconv"
 	"strings"
+	"time"
 )
 
 const (
@@ -128,12 +130,31 @@ func (z *ZygoNucleus) expose(iface Interface) (err error) {
 }
 
 // NewZygoNucleus builds an zygo execution environment with user specified code
-func NewZygoNucleus(code string) (n Nucleus, err error) {
+func NewZygoNucleus(h *Holochain, code string) (n Nucleus, err error) {
 	var z ZygoNucleus
 	z.env = zygo.NewGlisp()
 	z.env.AddFunction("version",
 		func(env *zygo.Glisp, name string, args []zygo.Sexp) (zygo.Sexp, error) {
 			return &zygo.SexpStr{S: Version}, nil
+		})
+
+	z.env.AddFunction("atoi",
+		func(env *zygo.Glisp, name string, args []zygo.Sexp) (zygo.Sexp, error) {
+
+			var i int64
+			var e error
+			switch t := args[0].(type) {
+			case *zygo.SexpStr:
+				i, e = strconv.ParseInt(t.S, 10, 64)
+				if e != nil {
+					return zygo.SexpNull, e
+				}
+			default:
+				return zygo.SexpNull,
+					errors.New("argument to atoi should be string")
+			}
+
+			return &zygo.SexpInt{Val: i}, nil
 		})
 
 	// use a closure so that the registered zygo function can call Expose on the correct ZygoNucleus obj
@@ -158,11 +179,50 @@ func NewZygoNucleus(code string) (n Nucleus, err error) {
 				i.Schema = InterfaceSchemaType(t.Val)
 			default:
 				return zygo.SexpNull,
-					errors.New("1st argument of expose should be string")
+					errors.New("2nd argument of expose should be integer")
 			}
 
 			err := z.expose(i)
 			return zygo.SexpNull, err
+		})
+
+	z.env.AddFunction("commit",
+		func(env *zygo.Glisp, name string, args []zygo.Sexp) (zygo.Sexp, error) {
+			if len(args) != 2 {
+				return zygo.SexpNull, zygo.WrongNargs
+			}
+
+			var entry_type string
+			var entry string
+
+			switch t := args[0].(type) {
+			case *zygo.SexpStr:
+				entry_type = t.S
+			default:
+				return zygo.SexpNull,
+					errors.New("1st argument of expose should be string")
+			}
+
+			switch t := args[1].(type) {
+			case *zygo.SexpStr:
+				entry = t.S
+			default:
+				return zygo.SexpNull,
+					errors.New("2nd argument of expose should be string")
+			}
+
+			err = h.ValidateEntry(entry_type, entry)
+			var headerHash Hash
+			if err == nil {
+				e := GobEntry{C: entry}
+				headerHash, _, err = h.NewEntry(time.Now(), entry_type, &e)
+
+			}
+			if err != nil {
+				return zygo.SexpNull, err
+			}
+			var result = zygo.SexpStr{S: headerHash.String()}
+			return &result, nil
 		})
 
 	_, err = z.Run(ZygoLibrary + code)

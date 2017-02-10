@@ -12,7 +12,7 @@ import (
 	"strings"
 )
 
-type NucleusFactory func(code string) (Nucleus, error)
+type NucleusFactory func(h *Holochain, code string) (Nucleus, error)
 
 type InterfaceSchemaType int
 
@@ -54,7 +54,7 @@ func RegisterBultinNucleii() {
 }
 
 // CreateNucleus returns a new Nucleus of the given type
-func CreateNucleus(schema string, code string) (Nucleus, error) {
+func CreateNucleus(h *Holochain, schema string, code string) (Nucleus, error) {
 
 	factory, ok := nucleusFactories[schema]
 	if !ok {
@@ -67,5 +67,5 @@ func CreateNucleus(schema string, code string) (Nucleus, error) {
 		return nil, errors.New(fmt.Sprintf("Invalid nucleus name. Must be one of: %s", strings.Join(available, ", ")))
 	}
 
-	return factory(code)
+	return factory(h, code)
 }

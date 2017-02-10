@@ -410,6 +410,8 @@ func GenDev(path string) (hP *Holochain, err error) {
 		code["myZome"] = `
 (expose "exposedfn" STRING)
 (defn exposedfn [x] (concat "result: " x))
+(expose "addData" STRING)
+(defn addData [x] (commit "myData" x))
 (defn validate [entry_type entry] (cond (== (mod entry 2) 0) true false))
 (defn validateChain [entry user_data] true)
 `
@@ -776,13 +778,13 @@ func (h *Holochain) GetEntryDef(t string) (zome *Zome, d *EntryDef, err error) {
 
 // ValidateEntry passes an entry data to the chain's validation routine
 // If the entry is valid err will be nil, otherwise it will contain some information about why the validation failed (or, possibly, some other system error)
-func (h *Holochain) ValidateEntry(header *Header, entry interface{}) (err error) {
+func (h *Holochain) ValidateEntry(entry_type string, entry interface{}) (err error) {
 
 	if entry == nil {
 		return errors.New("nil entry invalid")
 	}
 
-	z, d, err := h.GetEntryDef(header.Type)
+	z, d, err := h.GetEntryDef(entry_type)
 	if err != nil {
 		return
 	}
@@ -821,8 +823,7 @@ func (h *Holochain) makeNucleus(z *Zome) (n Nucleus, err error) {
 	if err != nil {
 		return
 	}
-
-	n, err = CreateNucleus(z.NucleusType, string(code))
+	n, err = CreateNucleus(h, z.NucleusType, string(code))
 	return
 }
 
@@ -898,7 +899,7 @@ func (h *Holochain) Test() (err error) {
 			return
 		}
 		//TODO: really we should be running h.Validate to test headers and genesis too
-		err = h.ValidateEntry(header, e.C)
+		err = h.ValidateEntry(header.Type, e.C)
 		if err != nil {
 			return
 		}

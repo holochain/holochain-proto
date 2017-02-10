@@ -41,7 +41,11 @@ func TestNew(t *testing.T) {
 		}
 
 		h := New("Joe", &key, "some/path", z)
-		So(fmt.Sprintf("%v", h.Zomes["myZome"]), ShouldEqual, "&{myZome zome desc zome_myZome.zy 11111111111111111111111111111111 map[myData1:{myData1 string 11111111111111111111111111111111} myData2:{myData2 zygo 11111111111111111111111111111111}] }")
+		nz := h.Zomes["myZome"]
+		So(nz.Description, ShouldEqual, "zome desc")
+		So(nz.Code, ShouldEqual, "zome_myZome.zy")
+		So(fmt.Sprintf("%v", nz.Entries["myData1"]), ShouldEqual, "{myData1 string 11111111111111111111111111111111}")
+		So(fmt.Sprintf("%v", nz.Entries["myData2"]), ShouldEqual, "{myData2 zygo 11111111111111111111111111111111}")
 	})
 
 }
@@ -347,25 +351,25 @@ func TestValidateEntry(t *testing.T) {
 	Convey("it should fail if a validator doesn't exist for the entry type", t, func() {
 		hdr := mkTestHeader("bogusType")
 		myData := "2"
-		err = h.ValidateEntry(&hdr, myData)
+		err = h.ValidateEntry(hdr.Type, myData)
 		So(err.Error(), ShouldEqual, "no definition for entry type: bogusType")
 	})
 
 	Convey("a nil entry is invalid", t, func() {
 		hdr := mkTestHeader("myData")
-		err = h.ValidateEntry(&hdr, nil)
+		err = h.ValidateEntry(hdr.Type, nil)
 		So(err.Error(), ShouldEqual, "nil entry invalid")
 	})
 	Convey("a valid entry validates", t, func() {
 		hdr := mkTestHeader("myData")
 		myData := "2" //`(message (from "art") (to "eric") (contents "test"))`
-		err = h.ValidateEntry(&hdr, myData)
+		err = h.ValidateEntry(hdr.Type, myData)
 		So(err, ShouldBeNil)
 	})
 	Convey("an invalid entry doesn't validate", t, func() {
 		hdr := mkTestHeader("myData")
 		myData := "1" //`(message (from "art") (to "eric") (contents "test"))`
-		err = h.ValidateEntry(&hdr, myData)
+		err = h.ValidateEntry(hdr.Type, myData)
 		So(err.Error(), ShouldEqual, "Invalid entry:1")
 	})
 }
@@ -394,6 +398,19 @@ func TestCall(t *testing.T) {
 		result, err := h.Call("myZome", "exposedfn", "arg1 arg2")
 		So(err, ShouldBeNil)
 		So(result.(string), ShouldEqual, "result: arg1 arg2")
+
+		result, err = h.Call("myZome", "addData", "42")
+		So(err, ShouldBeNil)
+
+		ph, err := h.Top()
+		if err != nil {
+			panic(err)
+		}
+
+		So(result.(string), ShouldEqual, ph.String())
+
+		result, err = h.Call("myZome", "addData", "41")
+		So(err.Error(), ShouldEqual, "Error calling 'commit': Invalid entry:41")
 	})
 }
 

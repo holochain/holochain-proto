@@ -132,7 +132,7 @@ func (z *ZygoNucleus) expose(iface Interface) (err error) {
 // NewZygoNucleus builds an zygo execution environment with user specified code
 func NewZygoNucleus(h *Holochain, code string) (n Nucleus, err error) {
 	var z ZygoNucleus
-	z.env = zygo.NewGlisp()
+	z.env = zygo.NewGlispSandbox()
 	z.env.AddFunction("version",
 		func(env *zygo.Glisp, name string, args []zygo.Sexp) (zygo.Sexp, error) {
 			return &zygo.SexpStr{S: Version}, nil

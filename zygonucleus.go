@@ -91,6 +91,8 @@ func (z *ZygoNucleus) Call(iface string, params interface{}) (result interface{}
 	switch i.Schema {
 	case STRING:
 		code = fmt.Sprintf(`(%s "%s")`, iface, sanitizeString(params.(string)))
+	case JSON:
+		code = fmt.Sprintf(`(json (%s (unjson (raw "%s"))))`, iface, sanitizeString(params.(string)))
 	default:
 		err = errors.New("params type not implemented")
 		return
@@ -101,15 +103,26 @@ func (z *ZygoNucleus) Call(iface string, params interface{}) (result interface{}
 	}
 	result, err = z.env.Run()
 	if err == nil {
-		switch t := result.(type) {
-		case *zygo.SexpStr:
-			result = t.S
-		case *zygo.SexpInt:
-			result = t.Val
-		//case *zygo.SexpNull:
-		//	result = nil
-		default:
-			result = fmt.Sprintf("%v", result)
+		switch i.Schema {
+		case STRING:
+			switch t := result.(type) {
+			case *zygo.SexpStr:
+				result = t.S
+			case *zygo.SexpInt:
+				result = fmt.Sprintf("%d", t.Val)
+			case *zygo.SexpRaw:
+				result = string(t.Val)
+			default:
+				result = fmt.Sprintf("%v", result)
+			}
+		case JSON:
+			// type should always be SexpRaw
+			switch t := result.(type) {
+			case *zygo.SexpRaw:
+				result = t.Val
+			default:
+				err = errors.New("expected SexpRaw return type!")
+			}
 		}
 
 	}

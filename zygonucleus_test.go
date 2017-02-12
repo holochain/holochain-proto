@@ -63,6 +63,10 @@ func TestZygoExposeCall(t *testing.T) {
 		v, err := NewZygoNucleus(nil, `
 (expose "cater" STRING)
 (defn cater [x] (concat "result: " x))
+(expose "adder" STRING)
+(defn adder [x] (+ (atoi x) 2))
+(expose "jtest" JSON)
+(defn jtest [x] (begin (hset x output: (* (-> x input:) 2)) x))
 `)
 
 		So(err, ShouldBeNil)
@@ -73,11 +77,21 @@ func TestZygoExposeCall(t *testing.T) {
 
 	Convey("should build up interfaces list", t, func() {
 		i := z.Interfaces()
-		So(fmt.Sprintf("%v", i), ShouldEqual, "[{cater 0}]")
+		So(fmt.Sprintf("%v", i), ShouldEqual, "[{cater 0} {adder 0} {jtest 1}]")
 	})
-	Convey("should allow calling exposed functions", t, func() {
-		result, err := z.Call("cater", "fish")
+	Convey("should allow calling exposed STRING based functions", t, func() {
+		result, err := z.Call("cater", "fish \"zippy\"")
 		So(err, ShouldBeNil)
-		So(result.(string), ShouldEqual, "result: fish")
+		So(result.(string), ShouldEqual, "result: fish \"zippy\"")
+
+		result, err = z.Call("adder", "10")
+		So(err, ShouldBeNil)
+		So(result.(string), ShouldEqual, "12")
 	})
+	Convey("should allow calling exposed JSON based functions", t, func() {
+		result, err := z.Call("jtest", `{"input": 2}`)
+		So(err, ShouldBeNil)
+		So(string(result.([]byte)), ShouldEqual, `{"Atype":"hash", "input":2, "output":4, "zKeyOrder":["input", "output"]}`)
+	})
+
 }

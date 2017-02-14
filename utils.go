@@ -31,7 +31,7 @@ func writeToml(path string, file string, data interface{}, overwrite bool) error
 func writeFile(path string, file string, data []byte) error {
 	p := path + "/" + file
 	if fileExists(p) {
-		return mkErr(path + " already exists")
+		return mkErr(p + " already exists")
 	}
 	f, err := os.Create(p)
 	if err != nil {

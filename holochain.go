@@ -26,8 +26,8 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
-	"sort"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -383,6 +383,14 @@ func GenFrom(src_path string, path string) (hP *Holochain, err error) {
 	return
 }
 
+type TestData struct {
+	Zome   string
+	FnName string
+	Input  string
+	Output string
+	Err    string
+}
+
 func GenDev(path string) (hP *Holochain, err error) {
 	hP, err = gen(path, func(path string) (hP *Holochain, err error) {
 		agent, key, err := LoadSigner(filepath.Dir(path))
@@ -402,9 +410,23 @@ func GenDev(path string) (hP *Holochain, err error) {
 
 		h := New(agent, key, path, zomes...)
 
-		entries := make(map[string][]string)
-		mde := [2]string{"2", "4"}
-		entries["myData"] = mde[:]
+		fixtures := [3]TestData{
+			TestData{
+				Zome:   "myZome",
+				FnName: "addData",
+				Input:  "2",
+				Output: "%v%"},
+			TestData{
+				Zome:   "myZome",
+				FnName: "addData",
+				Input:  "4",
+				Output: "%v%"},
+			TestData{
+				Zome:   "myZome",
+				FnName: "addData",
+				Input:  "5",
+				Err:    "Error calling 'commit': Invalid entry:5"},
+		}
 
 		code := make(map[string]string)
 		code["myZome"] = `
@@ -416,7 +438,7 @@ func GenDev(path string) (hP *Holochain, err error) {
 (defn validateChain [entry user_data] true)
 `
 		testPath := path + "/test"
-		if err := os.MkdirAll(testPath, os.ModePerm); err != nil {
+		if err = os.MkdirAll(testPath, os.ModePerm); err != nil {
 			return nil, err
 		}
 
@@ -426,12 +448,15 @@ func GenDev(path string) (hP *Holochain, err error) {
 			if err = writeFile(path, z.Code, []byte(c)); err != nil {
 				return
 			}
-			for en, data := range entries {
-				for i, e := range data {
-					fn := fmt.Sprintf("%d_%s.zy", i, en)
-					if err = writeFile(testPath, fn, []byte(e)); err != nil {
-						return
-					}
+			for i, d := range fixtures {
+				fn := fmt.Sprintf("%d.zy", i)
+				var j []byte
+				j, err = json.Marshal(d)
+				if err != nil {
+					return
+				}
+				if err = writeFile(testPath, fn, j); err != nil {
+					return
 				}
 			}
 		}
@@ -443,10 +468,12 @@ func GenDev(path string) (hP *Holochain, err error) {
 
 // gen calls a make function which should build the holochain structure and supporting files
 func gen(path string, makeH func(path string) (hP *Holochain, err error)) (h *Holochain, err error) {
+	if dirExists(path) {
+		return nil, mkErr(path + " already exists")
+	}
 	if err := os.MkdirAll(path, os.ModePerm); err != nil {
 		return nil, err
 	}
-
 	h, err = makeH(path)
 	if err != nil {
 		return
@@ -827,7 +854,7 @@ func (h *Holochain) makeNucleus(z *Zome) (n Nucleus, err error) {
 	return
 }
 
-// Test validates test data against the current validation rules.
+// Test loops through each of the test files calling the functions specified
 // This function is useful only in the context of developing a holochain and will return
 // an error if the chain has already been started (i.e. has genesis entries)
 func (h *Holochain) Test() error {
@@ -862,9 +889,8 @@ func (h *Holochain) Test() error {
 	}()
 
 	// load up the entries into hashes
-	re := regexp.MustCompile(`([0-9])+_(.*)\.(.*)`)
-	var entryTypes = make(map[int]string)
-	var entryValues = make(map[int]string)
+	re := regexp.MustCompile(`([0-9])+\.(.*)`)
+	var tests = make(map[int]TestData)
 	for _, f := range files {
 		if f.Mode().IsRegular() {
 			x := re.FindStringSubmatch(f.Name())
@@ -874,34 +900,48 @@ func (h *Holochain) Test() error {
 				if err != nil {
 					return err
 				}
-				entryTypes[i] = x[2]
 				var v []byte
 				v, err = readFile(p, x[0])
 				if err != nil {
 					return err
 				}
-				entryValues[i] = string(v)
+				var t TestData
+				err = json.Unmarshal(v, &t)
+				if err != nil {
+					return err
+				}
+				tests[i] = t
 			}
 		}
 	}
 
-	var keys []int
-	for k := range entryValues {
-		keys = append(keys, k)
-	}
-	sort.Ints(keys)
-	for k := range keys {
-		idx := keys[k]
-		e := GobEntry{C: entryValues[idx]}
-		var header *Header
-		_, header, err = h.NewEntry(time.Now(), entryTypes[idx], &e)
-		if err != nil {
-			return err
-		}
-		//TODO: really we should be running h.Validate to test headers and genesis too
-		err = h.ValidateEntry(header.Type, e.C)
-		if err != nil {
-			return err
+	for i, t := range tests {
+		result, err := h.Call(t.Zome, t.FnName, t.Input)
+
+		if t.Err != "" {
+			if err == nil {
+				return errors.New(fmt.Sprintf("Test: %d\n  Expected Error: %s\n  Got: nil\n", i+1, t.Err))
+			} else {
+
+				if err.Error() != t.Err {
+					return errors.New(fmt.Sprintf("Test: %d\n  Expected Error: %s\n  Got Error: %s\n", i+1, t.Err, err.Error()))
+				}
+				err = nil
+			}
+		} else {
+			if err != nil {
+				return errors.New(fmt.Sprintf("Test: %d\n  Expected: %s\n  Got Error: %s\n", i+1, t.Output, err.Error()))
+			} else {
+
+				top, err := h.Top()
+				if err != nil {
+					return err
+				}
+				o := strings.Replace(t.Output, "%v%", top.String(), -1)
+				if result != o {
+					return errors.New(fmt.Sprintf("Test: %d\n  Expected: %v\n  Got: %v\n", i+1, t.Output, result))
+				}
+			}
 		}
 	}
 	return err

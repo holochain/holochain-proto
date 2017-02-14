@@ -96,7 +96,7 @@ func TestBoltGet(t *testing.T) {
 		panic(err)
 	}
 	defer cleanupTestDir(p)
-	Convey("it should retrieve set data", t, func() {
+	Convey("it should retrieve set meta data", t, func() {
 		err = bp.PutMeta("fish", []byte("cow"))
 		So(err, ShouldBeNil)
 		data, err := bp.GetMeta("fish")

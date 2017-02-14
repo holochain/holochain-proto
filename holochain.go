@@ -830,16 +830,16 @@ func (h *Holochain) makeNucleus(z *Zome) (n Nucleus, err error) {
 // Test validates test data against the current validation rules.
 // This function is useful only in the context of developing a holochain and will return
 // an error if the chain has already been started (i.e. has genesis entries)
-func (h *Holochain) Test() (err error) {
-	_, err = h.ID()
+func (h *Holochain) Test() error {
+	_, err := h.ID()
 	if err == nil {
 		err = errors.New("chain already started")
-		return
+		return err
 	}
 	p := h.path + "/test"
 	files, err := ioutil.ReadDir(p)
-	if err != err {
-		return
+	if err != nil {
+		return err
 	}
 
 	if len(files) == 0 {
@@ -872,13 +872,13 @@ func (h *Holochain) Test() (err error) {
 				var i int
 				i, err = strconv.Atoi(x[1])
 				if err != nil {
-					return
+					return err
 				}
 				entryTypes[i] = x[2]
 				var v []byte
 				v, err = readFile(p, x[0])
 				if err != nil {
-					return
+					return err
 				}
 				entryValues[i] = string(v)
 			}
@@ -896,13 +896,13 @@ func (h *Holochain) Test() (err error) {
 		var header *Header
 		_, header, err = h.NewEntry(time.Now(), entryTypes[idx], &e)
 		if err != nil {
-			return
+			return err
 		}
 		//TODO: really we should be running h.Validate to test headers and genesis too
 		err = h.ValidateEntry(header.Type, e.C)
 		if err != nil {
-			return
+			return err
 		}
 	}
-	return
+	return err
 }

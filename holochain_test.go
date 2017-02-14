@@ -10,6 +10,7 @@ import (
 	"github.com/google/uuid"
 	. "github.com/smartystreets/goconvey/convey"
 	"math/big"
+	"os"
 	"testing"
 	"time"
 )
@@ -419,7 +420,7 @@ func TestTest(t *testing.T) {
 	cleanupTestDir(d + "/.holochain/test/test/") // delete the test data created by gen dev
 	Convey("it should fail if there's no test data", t, func() {
 		err := h.Test()
-		So(err.Error(), ShouldEqual, "no test data found in: "+h.path+"/test")
+		So(err.Error(), ShouldEqual, "open "+h.path+"/test: no such file or directory")
 	})
 	cleanupTestDir(d)
 
@@ -432,6 +433,14 @@ func TestTest(t *testing.T) {
 	Convey("it should reset the database state and thus run correctly twice", t, func() {
 		err := h.Test()
 		So(err, ShouldBeNil)
+	})
+	Convey("it should fail the test on incorrect data", t, func() {
+		os.Remove(d + "/.holochain/test/test/0_myData.zy")
+		err := writeFile(d+"/.holochain/test/test", "0_myData.zy", []byte("3"))
+		So(err, ShouldBeNil)
+		err = h.Test()
+		So(err, ShouldNotBeNil)
+		So(err.Error(), ShouldEqual, "Invalid entry:3")
 	})
 
 }

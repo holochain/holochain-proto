@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	zygo "github.com/glycerine/zygomys/repl"
+	"math"
 	"strconv"
 	"strings"
 	"time"
@@ -37,22 +38,32 @@ func (z *ZygoNucleus) ValidateEntry(d *EntryDef, entry interface{}) (err error) 
 		e = entry.(string)
 	case "string":
 		e = "\"" + sanitizeString(entry.(string)) + "\""
+	case "JSON":
+		e = fmt.Sprintf(`(unjson (raw "%s"))`, sanitizeString(entry.(string)))
 	default:
 		err = errors.New("schema type not implemented: " + d.Schema)
+		return
 	}
 	err = z.env.LoadString(fmt.Sprintf(`(validate "%s" %s)`, d.Name, e))
 	if err != nil {
 		return
 	}
 	result, err := z.env.Run()
+	if err != nil {
+		err = errors.New(fmt.Sprintf("Error executing validate: %v", err))
+		return
+	}
 	switch result.(type) {
 	case *zygo.SexpBool:
 		r := result.(*zygo.SexpBool).Val
 		if !r {
-			err = errors.New("Invalid entry:" + e)
+			err = errors.New(fmt.Sprintf("Invalid entry: %v", entry))
 		}
+	case *zygo.SexpSentinel:
+		err = errors.New("validate should return boolean, got nil")
+
 	default:
-		err = errors.New("Unexpected result: " + fmt.Sprintf("%v", result))
+		err = errors.New("validate should return boolean, got: " + fmt.Sprintf("%v", result))
 	}
 	return
 }
@@ -151,24 +162,7 @@ func NewZygoNucleus(h *Holochain, code string) (n Nucleus, err error) {
 			return &zygo.SexpStr{S: Version}, nil
 		})
 
-	z.env.AddFunction("atoi",
-		func(env *zygo.Glisp, name string, args []zygo.Sexp) (zygo.Sexp, error) {
-
-			var i int64
-			var e error
-			switch t := args[0].(type) {
-			case *zygo.SexpStr:
-				i, e = strconv.ParseInt(t.S, 10, 64)
-				if e != nil {
-					return zygo.SexpNull, e
-				}
-			default:
-				return zygo.SexpNull,
-					errors.New("argument to atoi should be string")
-			}
-
-			return &zygo.SexpInt{Val: i}, nil
-		})
+	addExtras(&z)
 
 	// use a closure so that the registered zygo function can call Expose on the correct ZygoNucleus obj
 	z.env.AddFunction("expose",
@@ -213,15 +207,17 @@ func NewZygoNucleus(h *Holochain, code string) (n Nucleus, err error) {
 				entry_type = t.S
 			default:
 				return zygo.SexpNull,
-					errors.New("1st argument of expose should be string")
+					errors.New("1st argument of commit should be string")
 			}
 
 			switch t := args[1].(type) {
 			case *zygo.SexpStr:
 				entry = t.S
+			case *zygo.SexpHash:
+				entry = zygo.SexpToJson(t)
 			default:
 				return zygo.SexpNull,
-					errors.New("2nd argument of expose should be string")
+					errors.New("2nd argument of commit should be string or hash")
 			}
 
 			err = h.ValidateEntry(entry_type, entry)
@@ -259,4 +255,62 @@ func (z *ZygoNucleus) Run(code string) (result zygo.Sexp, err error) {
 	}
 	z.lastResult = result
 	return
+}
+
+func isPrime(t int64) bool {
+
+	// math.Mod requires floats.
+	x := float64(t)
+
+	// 1 or less aren't primes.
+	if x <= 1 {
+		return false
+	}
+
+	// Solve half of the integer set directly
+	if math.Mod(x, 2) == 0 {
+		return x == 2
+	}
+
+	// Main loop. i needs to be float because of math.Mod.
+	for i := 3.0; i <= math.Floor(math.Sqrt(x)); i += 2.0 {
+		if math.Mod(x, i) == 0 {
+			return false
+		}
+	}
+
+	// It's a prime!
+	return true
+}
+
+func addExtras(z *ZygoNucleus) {
+	z.env.AddFunction("isprime",
+		func(env *zygo.Glisp, name string, args []zygo.Sexp) (zygo.Sexp, error) {
+
+			switch t := args[0].(type) {
+			case *zygo.SexpInt:
+				return &zygo.SexpBool{Val: isPrime(t.Val)}, nil
+			default:
+				return zygo.SexpNull,
+					errors.New("argument to isprime should be int")
+			}
+		})
+	z.env.AddFunction("atoi",
+		func(env *zygo.Glisp, name string, args []zygo.Sexp) (zygo.Sexp, error) {
+
+			var i int64
+			var e error
+			switch t := args[0].(type) {
+			case *zygo.SexpStr:
+				i, e = strconv.ParseInt(t.S, 10, 64)
+				if e != nil {
+					return zygo.SexpNull, e
+				}
+			default:
+				return zygo.SexpNull,
+					errors.New("argument to atoi should be string")
+			}
+
+			return &zygo.SexpInt{Val: i}, nil
+		})
 }

@@ -371,7 +371,7 @@ func TestValidateEntry(t *testing.T) {
 		hdr := mkTestHeader("myData")
 		myData := "1" //`(message (from "art") (to "eric") (contents "test"))`
 		err = h.ValidateEntry(hdr.Type, myData)
-		So(err.Error(), ShouldEqual, "Invalid entry:1")
+		So(err.Error(), ShouldEqual, "Invalid entry: 1")
 	})
 }
 
@@ -411,7 +411,7 @@ func TestCall(t *testing.T) {
 		So(result.(string), ShouldEqual, ph.String())
 
 		result, err = h.Call("myZome", "addData", "41")
-		So(err.Error(), ShouldEqual, "Error calling 'commit': Invalid entry:41")
+		So(err.Error(), ShouldEqual, "Error calling 'commit': Invalid entry: 41")
 	})
 }
 

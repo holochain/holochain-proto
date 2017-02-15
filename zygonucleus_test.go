@@ -36,23 +36,42 @@ func TestNewZygoNucleus(t *testing.T) {
 			_, err = z.Run(`(atoi 1)`)
 			So(err.Error(), ShouldEqual, "Zygomys exec error: Error calling 'atoi': argument to atoi should be string")
 		})
+		Convey("isprime", func() {
+			_, err = z.Run(`(isprime 100)`)
+			So(err, ShouldBeNil)
+			So(z.lastResult.(*zygo.SexpBool).Val, ShouldEqual, false)
+			_, err = z.Run(`(isprime 7)`)
+			So(err, ShouldBeNil)
+			So(z.lastResult.(*zygo.SexpBool).Val, ShouldEqual, true)
+			_, err = z.Run(`(isprime "fish")`)
+			So(err.Error(), ShouldEqual, "Zygomys exec error: Error calling 'isprime': argument to isprime should be int")
+		})
 	})
 }
 
 func TestZygoValidateEntry(t *testing.T) {
-	v, err := NewZygoNucleus(nil, `(defn validate [name entry] (cond (== entry "fish") true false))`)
 	Convey("should run an entry value against the defined validator for string data", t, func() {
+		v, err := NewZygoNucleus(nil, `(defn validate [name entry] (cond (== entry "fish") true false))`)
 		d := EntryDef{Name: "myData", Schema: "string"}
 		err = v.ValidateEntry(&d, "cow")
-		So(err.Error(), ShouldEqual, "Invalid entry:\"cow\"")
+		So(err.Error(), ShouldEqual, "Invalid entry: cow")
 		err = v.ValidateEntry(&d, "fish")
 		So(err, ShouldBeNil)
 	})
 	Convey("should run an entry value against the defined validator for zygo data", t, func() {
+		v, err := NewZygoNucleus(nil, `(defn validate [name entry] (cond (== entry "fish") true false))`)
 		d := EntryDef{Name: "myData", Schema: "zygo"}
 		err = v.ValidateEntry(&d, "\"cow\"")
-		So(err.Error(), ShouldEqual, "Invalid entry:\"cow\"")
+		So(err.Error(), ShouldEqual, "Invalid entry: \"cow\"")
 		err = v.ValidateEntry(&d, "\"fish\"")
+		So(err, ShouldBeNil)
+	})
+	Convey("should run an entry value against the defined validator for json data", t, func() {
+		v, err := NewZygoNucleus(nil, `(defn validate [name entry] (cond (== (hget entry data:) "fish") true false))`)
+		d := EntryDef{Name: "myData", Schema: "JSON"}
+		err = v.ValidateEntry(&d, `{"data":"cow"}`)
+		So(err.Error(), ShouldEqual, `Invalid entry: {"data":"cow"}`)
+		err = v.ValidateEntry(&d, `{"data":"fish"}`)
 		So(err, ShouldBeNil)
 	})
 }

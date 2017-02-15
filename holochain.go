@@ -409,28 +409,39 @@ func GenDev(path string) (hP *Holochain, err error) {
 				NucleusType: ZygoNucleusType,
 				Entries: map[string]EntryDef{
 					"myData": EntryDef{Name: "myData", Schema: "zygo"},
+					"primes": EntryDef{Name: "primes", Schema: "JSON"},
 				},
 			},
 		}
 
 		h := New(agent, key, path, zomes...)
 
-		fixtures := [3]TestData{
+		fixtures := [5]TestData{
 			TestData{
 				Zome:   "myZome",
 				FnName: "addData",
 				Input:  "2",
-				Output: "%v%"},
+				Output: "%h%"},
 			TestData{
 				Zome:   "myZome",
 				FnName: "addData",
 				Input:  "4",
-				Output: "%v%"},
+				Output: "%h%"},
 			TestData{
 				Zome:   "myZome",
 				FnName: "addData",
 				Input:  "5",
-				Err:    "Error calling 'commit': Invalid entry:5"},
+				Err:    "Error calling 'commit': Invalid entry: 5"},
+			TestData{
+				Zome:   "myZome",
+				FnName: "addPrime",
+				Input:  "{\"prime\":7}",
+				Output: "\"%h%\""}, // quoted because return value is json
+			TestData{
+				Zome:   "myZome",
+				FnName: "addPrime",
+				Input:  "{\"prime\":4}",
+				Err:    `Error calling 'commit': Invalid entry: {"Atype":"hash", "prime":4, "zKeyOrder":["prime"]}`},
 		}
 
 		code := make(map[string]string)
@@ -439,7 +450,15 @@ func GenDev(path string) (hP *Holochain, err error) {
 (defn exposedfn [x] (concat "result: " x))
 (expose "addData" STRING)
 (defn addData [x] (commit "myData" x))
-(defn validate [entry_type entry] (cond (== (mod entry 2) 0) true false))
+(expose "addPrime" JSON)
+(defn addPrime [x] (commit "primes" x))
+(defn validate [entry_type entry]
+  (cond (== entry_type "myData")
+        (cond (== (mod entry 2) 0) true false)
+        (== entry_type "primes")
+        (isprime (hget entry %prime))
+        false)
+)
 (defn validateChain [entry user_data] true)
 `
 		testPath := path + "/test"
@@ -893,7 +912,7 @@ func (h *Holochain) Test() error {
 		}
 	}()
 
-	// load up the entries into hashes
+	// load up the test files into the tests arrary
 	re := regexp.MustCompile(`([0-9])+\.(.*)`)
 	var tests = make(map[int]TestData)
 	for _, f := range files {
@@ -938,13 +957,26 @@ func (h *Holochain) Test() error {
 				return errors.New(fmt.Sprintf("Test: %d\n  Expected: %s\n  Got Error: %s\n", i+1, t.Output, err.Error()))
 			} else {
 
+				// @TODO this should probably act according the function schema
+				// not just the return value
+				var r string
+				switch t := result.(type) {
+				case []byte:
+					r = string(t)
+				case string:
+					r = t
+				default:
+					r = fmt.Sprintf("%v", t)
+				}
+
+				// get the top hash for substituting for %h% in the test expectation
 				top, err := h.Top()
 				if err != nil {
 					return err
 				}
-				o := strings.Replace(t.Output, "%v%", top.String(), -1)
-				if result != o {
-					return errors.New(fmt.Sprintf("Test: %d\n  Expected: %v\n  Got: %v\n", i+1, t.Output, result))
+				o := strings.Replace(t.Output, "%h%", top.String(), -1)
+				if r != o {
+					return errors.New(fmt.Sprintf("Test: %d\n  Expected: %v\n  Got: %v\n", i+1, o, r))
 				}
 			}
 		}

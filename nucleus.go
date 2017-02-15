@@ -36,6 +36,17 @@ type Nucleus interface {
 
 var nucleusFactories = make(map[string]NucleusFactory)
 
+// InterfaceSchema returns a functions schema type
+func InterfaceSchema(n Nucleus, name string) (InterfaceSchemaType, error) {
+	i := n.Interfaces()
+	for _, f := range i {
+		if f.Name == name {
+			return f.Schema, nil
+		}
+	}
+	return -1, errors.New("function not found: " + name)
+}
+
 // RegisterNucleus sets up a Nucleus to be used by the CreateNucleus function
 func RegisterNucleus(name string, factory NucleusFactory) {
 	if factory == nil {

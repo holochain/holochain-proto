@@ -80,6 +80,10 @@ After you have cloned or completed development for a chain, you can start the ch
 
     hc gen chain <NAME>
 
+Then you serve it via http on localhost with:
+
+    hc serve <NAME> [<PORT>]
+
 To view all the chains on your system and their status, use:
 
     hc status

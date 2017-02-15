@@ -1,10 +1,14 @@
 package main
 
 import (
+	_ "encoding/json"
 	"errors"
 	"fmt"
 	holo "github.com/metacurrency/holochain"
 	"github.com/urfave/cli"
+	"io/ioutil"
+	"log"
+	"net/http"
 	"os"
 	"os/user"
 	"strings"
@@ -254,6 +258,26 @@ func SetupApp() (app *cli.App) {
 				return nil
 			},
 		},
+		{
+			Name:      "serve",
+			Aliases:   []string{"w"},
+			Usage:     "serve a chain to the web",
+			ArgsUsage: "holochain-name [port]",
+			Action: func(c *cli.Context) error {
+				h, err := getHolochain(c, service, "test")
+				if err != nil {
+					return err
+				}
+				var port string
+				if len(c.Args()) == 1 {
+					port = "3141"
+				} else {
+					port = c.Args()[1]
+				}
+				serve(h, port)
+				return err
+			},
+		},
 	}
 
 	app.Before = func(c *cli.Context) error {
@@ -328,5 +352,76 @@ func listChains(s *holo.Service) {
 		}
 	} else {
 		fmt.Println("no installed chains")
+	}
+}
+
+func mkErr(etext string, code int) (int, error) {
+	fmt.Println("Error:", code, etext)
+	return code, errors.New(etext)
+}
+
+func serve(h *holo.Holochain, port string) {
+	fs := http.FileServer(http.Dir(h.Path() + "/htdocs"))
+	http.Handle("/static/", http.StripPrefix("/static/", fs))
+
+	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+
+		var err error
+		var err_code int = 400
+		defer func() {
+			if err != nil {
+				fmt.Printf("ERROR:%s,code:%d", err.Error(), err_code)
+				http.Error(w, err.Error(), err_code)
+			}
+		}()
+
+		if r.Method == "GET" {
+			fmt.Printf("processing Get:%s\n", r.URL.Path)
+
+			http.Redirect(w, r, "/static", http.StatusSeeOther)
+		}
+
+		body, err := ioutil.ReadAll(r.Body)
+		if err != nil {
+			err_code, err = mkErr("unable to read body", 500)
+			return
+		}
+		fmt.Printf("processing req:%s\n  Body:%v\n", r.URL.Path, string(body))
+
+		path := strings.Split(r.URL.Path, "/")
+		if path[1] == "favicon.ico" {
+			err_code, err = mkErr("", 404)
+			return
+		}
+		var n holo.Nucleus
+		zome := path[1]
+		n, err = h.MakeNucleus(zome)
+		if err == nil {
+			i := n.Interfaces()
+			function := path[2]
+			for _, f := range i {
+				if f.Name == function {
+					fmt.Printf("calling %s:%s\n", zome, function)
+					result, err := h.Call(zome, function, string(body))
+					if err != nil {
+						fmt.Printf(" result error: %v\n", err)
+						err_code = 400
+						http.Error(w, err.Error(), err_code)
+
+						return
+					} else {
+						fmt.Printf(" result: %v\n", result)
+						fmt.Fprintf(w, result.(string))
+					}
+					return
+				}
+			}
+			err_code, err = mkErr("unknown function: "+path[2], 400)
+		}
+	}) // set router
+	fmt.Printf("starting server on localhost:%s\n", port)
+	err := http.ListenAndServe(":"+port, nil) // set listen port
+	if err != nil {
+		log.Fatal("ListenAndServe: ", err)
 	}
 }

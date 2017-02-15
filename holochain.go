@@ -266,6 +266,11 @@ func (h *Holochain) getMetaHash(key string) (hash Hash, err error) {
 	return
 }
 
+// Path returns a holochain path
+func (h *Holochain) Path() string {
+	return h.path
+}
+
 // ID returns a holochain ID hash or err if not yet defined
 func (h *Holochain) ID() (id Hash, err error) {
 	id, err = h.getMetaHash(IDMetaKey)

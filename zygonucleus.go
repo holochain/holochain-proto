@@ -146,11 +146,37 @@ const (
 	ZygoLibrary = `(def STRING 0) (def JSON 1)`
 )
 
-// Expose registers an interfaces defined in the DNA for calling by external clients
+// expose registers an interfaces defined in the DNA for calling by external clients
 // (you should probably never need to call this function as it is called by the DNA's expose functions)
 func (z *ZygoNucleus) expose(iface Interface) (err error) {
 	z.interfaces = append(z.interfaces, iface)
 	return
+}
+
+// put exposes DHTPut to holochain apps.
+func (z *ZygoNucleus) put(env *zygo.Glisp, h *Holochain, params *zygo.SexpHash) (result *zygo.SexpHash, err error) {
+	result, err = zygo.MakeHash(nil, "hash", env)
+	if err != nil {
+		return nil, err
+	}
+
+	var put_result string
+	hash, err := params.HashGet(env, env.MakeSymbol("hsh"))
+	if err != nil {
+		return nil, err
+	}
+	data, err := params.HashGet(env, env.MakeSymbol("data"))
+	if err != nil {
+		return nil, err
+	}
+	err = h.dht.Put(NewHash(hash.(*zygo.SexpStr).S), []byte(data.(*zygo.SexpStr).S))
+	if err != nil {
+		put_result = "error: " + err.Error()
+	} else {
+		put_result = "ok"
+	}
+	err = result.HashSet(env.MakeSymbol("result"), &zygo.SexpStr{S: put_result})
+	return result, err
 }
 
 // NewZygoNucleus builds an zygo execution environment with user specified code
@@ -232,6 +258,24 @@ func NewZygoNucleus(h *Holochain, code string) (n Nucleus, err error) {
 			}
 			var result = zygo.SexpStr{S: headerHash.String()}
 			return &result, nil
+		})
+
+	z.env.AddFunction("put",
+		func(env *zygo.Glisp, name string, args []zygo.Sexp) (zygo.Sexp, error) {
+			if len(args) != 1 {
+				return zygo.SexpNull, zygo.WrongNargs
+			}
+
+			var params *zygo.SexpHash
+			switch t := args[0].(type) {
+			case *zygo.SexpHash:
+				params = t
+			default:
+				return zygo.SexpNull,
+					errors.New("argument of put should be hash")
+			}
+			result, err := z.put(env, h, params)
+			return result, err
 		})
 
 	_, err = z.Run(ZygoLibrary + code)

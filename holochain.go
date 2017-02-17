@@ -67,6 +67,7 @@ type Holochain struct {
 	privKey        *ecdsa.PrivateKey
 	store          Persister
 	encodingFormat string
+	dht            *DHT
 }
 
 // ECDSA signature of an Entry
@@ -202,6 +203,8 @@ func (s *Service) Load(name string) (hP *Holochain, err error) {
 	if err = h.SetupZomes(); err != nil {
 		return
 	}
+
+	h.dht = NewDHT()
 
 	hP = h
 	return

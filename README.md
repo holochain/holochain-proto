@@ -67,11 +67,13 @@ If you are a developer and want to build your own group configuration, data sche
 
     hc gen dev <NAME>
 
-To aid development, the `gen dev` command also produces a `test` sub-directory with sample chain entries of the format `<index>_<schema-type>.zy`  The command:
+To aid development, the `gen dev` command also produces a sample `test` sub-directory with exposed function calls of the format `<test_num>.zy`
+
+The command:
 
     hc test <NAME>
 
-validates these data entries against the validation rules.  Thus you can run this command as you make changes to your holochain DNA to confirm that it's all working.
+runs those test functions.  Thus you can use this command as you make changes to your holochain DNA files to aid in test-driven-development.
 
 After you have cloned or completed development for a chain, you can start the chain (i.e. create the genesis entries) with:
 

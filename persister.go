@@ -108,12 +108,13 @@ func (bp *BoltPersister) Init() (err error) {
 }
 
 // Get returns a header, and (optionally) it's entry if getEntry is true
-func (bp *BoltPersister) Get(hash Hash, getEntry bool) (header Header, entry interface{}, err error) {
-	err = bp.db.View(func(tx *bolt.Tx) error {
+func (bp *BoltPersister) Get(hash Hash, getEntry bool) (header Header, entry interface{}, e error) {
+	e = bp.db.View(func(tx *bolt.Tx) error {
 		hb := tx.Bucket([]byte(HeaderBucket))
 		eb := tx.Bucket([]byte(EntryBucket))
+		var err error
 		header, entry, err = get(hb, eb, hash[:], getEntry)
-		return err
+gs		return err
 	})
 	return
 }

@@ -33,7 +33,7 @@ func (z *ZygoNucleus) Type() string { return ZygoNucleusType }
 func (z *ZygoNucleus) ValidateEntry(d *EntryDef, entry interface{}) (err error) {
 	// @todo handle JSON if schema type is different
 	var e string
-	switch d.Schema {
+	switch d.DataFormat {
 	case "zygo":
 		e = entry.(string)
 	case "string":
@@ -41,7 +41,7 @@ func (z *ZygoNucleus) ValidateEntry(d *EntryDef, entry interface{}) (err error) 
 	case "JSON":
 		e = fmt.Sprintf(`(unjson (raw "%s"))`, sanitizeString(entry.(string)))
 	default:
-		err = errors.New("schema type not implemented: " + d.Schema)
+		err = errors.New("data format not implemented: " + d.DataFormat)
 		return
 	}
 	err = z.env.LoadString(fmt.Sprintf(`(validate "%s" %s)`, d.Name, e))

@@ -52,7 +52,7 @@ func TestNewZygoNucleus(t *testing.T) {
 func TestZygoValidateEntry(t *testing.T) {
 	Convey("should run an entry value against the defined validator for string data", t, func() {
 		v, err := NewZygoNucleus(nil, `(defn validate [name entry] (cond (== entry "fish") true false))`)
-		d := EntryDef{Name: "myData", Schema: "string"}
+		d := EntryDef{Name: "myData", DataFormat: "string"}
 		err = v.ValidateEntry(&d, "cow")
 		So(err.Error(), ShouldEqual, "Invalid entry: cow")
 		err = v.ValidateEntry(&d, "fish")
@@ -60,7 +60,7 @@ func TestZygoValidateEntry(t *testing.T) {
 	})
 	Convey("should run an entry value against the defined validator for zygo data", t, func() {
 		v, err := NewZygoNucleus(nil, `(defn validate [name entry] (cond (== entry "fish") true false))`)
-		d := EntryDef{Name: "myData", Schema: "zygo"}
+		d := EntryDef{Name: "myData", DataFormat: "zygo"}
 		err = v.ValidateEntry(&d, "\"cow\"")
 		So(err.Error(), ShouldEqual, "Invalid entry: \"cow\"")
 		err = v.ValidateEntry(&d, "\"fish\"")
@@ -68,7 +68,7 @@ func TestZygoValidateEntry(t *testing.T) {
 	})
 	Convey("should run an entry value against the defined validator for json data", t, func() {
 		v, err := NewZygoNucleus(nil, `(defn validate [name entry] (cond (== (hget entry data:) "fish") true false))`)
-		d := EntryDef{Name: "myData", Schema: "JSON"}
+		d := EntryDef{Name: "myData", DataFormat: "JSON"}
 		err = v.ValidateEntry(&d, `{"data":"cow"}`)
 		So(err.Error(), ShouldEqual, `Invalid entry: {"data":"cow"}`)
 		err = v.ValidateEntry(&d, `{"data":"fish"}`)

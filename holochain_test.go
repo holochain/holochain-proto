@@ -15,11 +15,6 @@ import (
 	"time"
 )
 
-// needed to setup the holochain environment, not really a test.
-func Test(t *testing.T) {
-	Register()
-}
-
 func TestNew(t *testing.T) {
 	var key ecdsa.PrivateKey
 
@@ -36,8 +31,8 @@ func TestNew(t *testing.T) {
 			Description: "zome desc",
 			Code:        "zome_myZome.zy",
 			Entries: map[string]EntryDef{
-				"myData1": EntryDef{Name: "myData1", Schema: "string"},
-				"myData2": EntryDef{Name: "myData2", Schema: "zygo"},
+				"myData1": EntryDef{Name: "myData1", DataFormat: "string"},
+				"myData2": EntryDef{Name: "myData2", DataFormat: "zygo"},
 			},
 		}
 
@@ -45,8 +40,8 @@ func TestNew(t *testing.T) {
 		nz := h.Zomes["myZome"]
 		So(nz.Description, ShouldEqual, "zome desc")
 		So(nz.Code, ShouldEqual, "zome_myZome.zy")
-		So(fmt.Sprintf("%v", nz.Entries["myData1"]), ShouldEqual, "{myData1 string 11111111111111111111111111111111}")
-		So(fmt.Sprintf("%v", nz.Entries["myData2"]), ShouldEqual, "{myData2 zygo 11111111111111111111111111111111}")
+		So(fmt.Sprintf("%v", nz.Entries["myData1"]), ShouldEqual, "{myData1 string  11111111111111111111111111111111 <nil>}")
+		So(fmt.Sprintf("%v", nz.Entries["myData2"]), ShouldEqual, "{myData2 zygo  11111111111111111111111111111111 <nil>}")
 	})
 
 }
@@ -78,6 +73,8 @@ func TestGenDev(t *testing.T) {
 		So(err, ShouldBeNil)
 		So(lh.ID, ShouldEqual, h.ID)
 		lh.store.Close()
+
+		So(fileExists(h.path+"/profile_schema.json"), ShouldBeTrue)
 
 		Convey("we should not be able re generate it", func() {
 			_, err = GenDev(root)
@@ -170,6 +167,7 @@ func TestNewEntry(t *testing.T) {
 		var d2 interface{}
 		h2, d2, err = h.store.Get(headerHash, true)
 		So(err, ShouldBeNil)
+		So(d2, ShouldNotBeNil)
 		s2 = fmt.Sprintf("%v", d2)
 		So(s2, ShouldEqual, d1)
 	})
@@ -201,32 +199,6 @@ func TestHeader(t *testing.T) {
 	if s2 != s1 {
 		t.Error("expected binary match! " + s2 + " " + s1)
 	}
-}
-
-func TestGob(t *testing.T) {
-	g := GobEntry{C: mkTestHeader("myData")}
-	v, err := g.Marshal()
-	ExpectNoErr(t, err)
-	var g2 GobEntry
-	err = g2.Unmarshal(v)
-	ExpectNoErr(t, err)
-	sg1 := fmt.Sprintf("%v", g)
-	sg2 := fmt.Sprintf("%v", g)
-	if sg2 != sg1 {
-		t.Error("expected gob match! \n  " + sg2 + " \n  " + sg1)
-	}
-}
-
-func TestJSONEntry(t *testing.T) {
-	/* Not yet implemented or used
-	g := JSONEntry{C:Config{Port:8888}}
-	v,err := g.Marshal()
-	ExpectNoErr(t,err)
-	var g2 JSONEntry
-	err = g2.Unmarshal(v)
-	ExpectNoErr(t,err)
-	if g2!=g {t.Error("expected JSON match! "+fmt.Sprintf("%v",g)+" "+fmt.Sprintf("%v",g2))}
-	*/
 }
 
 func TestGenChain(t *testing.T) {
@@ -338,7 +310,6 @@ func TestValidate(t *testing.T) {
 		So(err, ShouldBeNil)
 		So(valid, ShouldEqual, true)
 	})
-
 }
 
 func TestValidateEntry(t *testing.T) {
@@ -372,6 +343,17 @@ func TestValidateEntry(t *testing.T) {
 		myData := "1" //`(message (from "art") (to "eric") (contents "test"))`
 		err = h.ValidateEntry(hdr.Type, myData)
 		So(err.Error(), ShouldEqual, "Invalid entry: 1")
+	})
+	Convey("validate on a schema based entry should check entry against the schema", t, func() {
+		hdr := mkTestHeader("profile")
+		profile := `{"firstName":"Eric","lastName":"H-B"}`
+		err = h.ValidateEntry(hdr.Type, profile)
+		So(err, ShouldBeNil)
+		h.SetupZomes()
+		profile = `{"firstName":"Eric"}` // missing required lastName
+		err = h.ValidateEntry(hdr.Type, profile)
+		So(err, ShouldNotBeNil)
+		So(err.Error(), ShouldEqual, "validator profile_schema.json failed: object property 'lastName' is required")
 	})
 }
 

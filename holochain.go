@@ -42,13 +42,6 @@ type KeyEntry struct {
 	Key []byte // marshaled x509 public key
 }
 
-// EntryDef struct holds an entry definition
-type EntryDef struct {
-	Name       string
-	Schema     string // file name of schema or language schema directive
-	SchemaHash Hash
-}
-
 // Zome struct encapsulates logically related code, from "chromosome"
 type Zome struct {
 	Name        string
@@ -76,23 +69,6 @@ type Holochain struct {
 	encodingFormat string
 }
 
-// Holds content for a holochain
-type Entry interface {
-	Marshal() ([]byte, error)
-	Unmarshal([]byte) error
-	Content() interface{}
-}
-
-// GobEntry is a structure for implementing Gob encoding of Entry content
-type GobEntry struct {
-	C interface{}
-}
-
-// JSONEntry is a structure for implementing JSON encoding of Entry content
-type JSONEntry struct {
-	C interface{}
-}
-
 // ECDSA signature of an Entry
 type Signature struct {
 	R *big.Int
@@ -118,15 +94,6 @@ func Register() {
 	RegisterBultinPersisters()
 }
 
-func SelfDescribingSchema(sc string) bool {
-	SelfDescribingSchemas := map[string]bool{
-		"JSON":   true,
-		"string": true,
-		"zygo":   true,
-	}
-	return SelfDescribingSchemas[sc]
-}
-
 //IsConfigured checks a directory for correctly set up holochain configuration files
 func (s *Service) IsConfigured(name string) (h *Holochain, err error) {
 	path := s.Path + "/" + name
@@ -140,24 +107,7 @@ func (s *Service) IsConfigured(name string) (h *Holochain, err error) {
 	}
 
 	h, err = s.Load(name)
-	if err != nil {
-		return
-	}
 
-	for _, z := range h.Zomes {
-		if !fileExists(path + "/" + z.Code) {
-			return nil, errors.New("DNA specified code file missing: " + z.Code)
-		}
-		for _, e := range z.Entries {
-			sc := e.Schema
-			if !SelfDescribingSchema(sc) {
-				if !fileExists(path + "/" + sc) {
-					return nil, errors.New("DNA specified schema file missing: " + sc)
-				}
-			}
-		}
-
-	}
 	return
 }
 
@@ -249,7 +199,37 @@ func (s *Service) Load(name string) (hP *Holochain, err error) {
 		return
 	}
 
+	if err = h.SetupZomes(); err != nil {
+		return
+	}
+
 	hP = h
+	return
+}
+
+//SetupZomes makes checks that dna files exist and instantiates any schema validators
+func (h *Holochain) SetupZomes() (err error) {
+	for _, z := range h.Zomes {
+		if !fileExists(h.path + "/" + z.Code) {
+			return errors.New("DNA specified code file missing: " + z.Code)
+		}
+		for k, _ := range z.Entries {
+			e := z.Entries[k]
+			sc := e.Schema
+			if sc != "" {
+				if !fileExists(h.path + "/" + sc) {
+					return errors.New("DNA specified schema file missing: " + sc)
+				} else {
+					if strings.HasSuffix(sc, ".json") {
+						if err = e.BuildJSONSchemaValidator(h.path); err != nil {
+							return err
+						}
+						z.Entries[k] = e
+					}
+				}
+			}
+		}
+	}
 	return
 }
 
@@ -330,6 +310,9 @@ func (h *Holochain) GenChain() (keyHash Hash, err error) {
 		return
 	}
 
+	if err = h.SetupZomes(); err != nil {
+		return
+	}
 	return
 }
 
@@ -408,13 +391,36 @@ func GenDev(path string) (hP *Holochain, err error) {
 				Description: "zome desc",
 				NucleusType: ZygoNucleusType,
 				Entries: map[string]EntryDef{
-					"myData": EntryDef{Name: "myData", Schema: "zygo"},
-					"primes": EntryDef{Name: "primes", Schema: "JSON"},
+					"myData":  EntryDef{Name: "myData", DataFormat: "zygo"},
+					"primes":  EntryDef{Name: "primes", DataFormat: "JSON"},
+					"profile": EntryDef{Name: "profile", DataFormat: "JSON", Schema: "profile_schema.json"},
 				},
 			},
 		}
 
 		h := New(agent, key, path, zomes...)
+
+		schema := `{
+	"title": "Profile Schema",
+	"type": "object",
+	"properties": {
+		"firstName": {
+			"type": "string"
+		},
+		"lastName": {
+			"type": "string"
+		},
+		"age": {
+			"description": "Age in years",
+			"type": "integer",
+			"minimum": 0
+		}
+	},
+	"required": ["firstName", "lastName"]
+}`
+		if err = writeFile(path, "profile_schema.json", []byte(schema)); err != nil {
+			return
+		}
 
 		fixtures := [5]TestData{
 			TestData{
@@ -453,10 +459,9 @@ func GenDev(path string) (hP *Holochain, err error) {
 (expose "addPrime" JSON)
 (defn addPrime [x] (commit "primes" x))
 (defn validate [entry_type entry]
-  (cond (== entry_type "myData")
-        (cond (== (mod entry 2) 0) true false)
-        (== entry_type "primes")
-        (isprime (hget entry %prime))
+  (cond (== entry_type "myData")  (cond (== (mod entry 2) 0) true false)
+        (== entry_type "primes")  (isprime (hget entry %prime))
+        (== entry_type "profile") true
         false)
 )
 (defn validateChain [entry user_data] true)
@@ -584,7 +589,7 @@ func (h *Holochain) GenDNAHashes() (err error) {
 		z.CodeHash = Hash(sha256.Sum256(b))
 		for _, e := range z.Entries {
 			sc := e.Schema
-			if !SelfDescribingSchema(sc) {
+			if sc != "" {
 				b, err = readFile(h.path, sc)
 				if err != nil {
 					return
@@ -608,52 +613,6 @@ func LoadSigner(path string) (agent Agent, key *ecdsa.PrivateKey, err error) {
 	key, err = UnmarshalPrivateKey(path, PrivKeyFileName)
 	return
 }
-
-// ByteEncoder encodes anything using gob
-func ByteEncoder(data interface{}) (b []byte, err error) {
-	var buf bytes.Buffer
-	enc := gob.NewEncoder(&buf)
-	err = enc.Encode(data)
-	if err != nil {
-		return
-	}
-	b = buf.Bytes()
-	return
-}
-
-// ByteEncoder decodes data encoded by ByteEncoder
-func ByteDecoder(b []byte, to interface{}) (err error) {
-	buf := bytes.NewBuffer(b)
-	dec := gob.NewDecoder(buf)
-	err = dec.Decode(to)
-	return
-}
-
-// implementation of Entry interface with gobs
-func (e *GobEntry) Marshal() (b []byte, err error) {
-	b, err = ByteEncoder(&e.C)
-	return
-}
-func (e *GobEntry) Unmarshal(b []byte) (err error) {
-	err = ByteDecoder(b, &e.C)
-	return
-}
-func (e *GobEntry) Content() interface{} { return e.C }
-
-// implementation of Entry interface with JSON
-func (e *JSONEntry) Marshal() (b []byte, err error) {
-	j, err := json.Marshal(e.C)
-	if err != nil {
-		return
-	}
-	b = []byte(j)
-	return
-}
-func (e *JSONEntry) Unmarshal(b []byte) (err error) {
-	err = json.Unmarshal(b, &e.C)
-	return
-}
-func (e *JSONEntry) Content() interface{} { return e.C }
 
 // NewEntry adds an entry and it's header to the chain and returns the header and it's hash
 func (h *Holochain) NewEntry(now time.Time, t string, entry Entry) (hash Hash, header *Header, err error) {
@@ -839,6 +798,23 @@ func (h *Holochain) ValidateEntry(entry_type string, entry interface{}) (err err
 	if err != nil {
 		return
 	}
+
+	// see if there is a schema validator for the entry type and validate it if so
+	if d.validator != nil {
+		var input interface{}
+		if d.DataFormat == "JSON" {
+			if err = json.Unmarshal([]byte(entry.(string)), &input); err != nil {
+				return
+			}
+		} else {
+			input = entry
+		}
+		if err = d.validator.Validate(input); err != nil {
+			return
+		}
+	}
+
+	// then run the nucleus (ie. "app" specific) validation rules
 	n, err := h.makeNucleus(z)
 	if err != nil {
 		return

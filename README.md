@@ -7,14 +7,10 @@
 In other words, a holochain functions very much **like a blockchain without bottlenecks** when it comes to enforcing validation rules, but is designed to  be fully distributed with each node only needing to hold a small portion of the data instead of everything needing a full copy of a global ledger. This makes it feasible to run blockchain-like applications on devices as lightweight as mobile phones.
 
 **[Code Status:](https://github.com/metacurrency/holochain/milestones?direction=asc&sort=due_date&state=all)** Active development for **proof-of-concept stage**. Pre-alpha. Not for production use. We still expect to destructively restructure data chains at this time.
-
-<table style="font-size:150%;"><tr>
-<td><b>Holochain Info:</b>
-<td><a href="https://github.com/metacurrency/holochain/blob/master/docs/FAQ.md">FAQ</a></td>
-<td><a href="http://holochain.org/whitepaper">White Paper</a></td>
-<td><a href="https://godoc.org/github.com/metacurrency/holochain">GoDocs</a></td></tr></table>
-
 <br/>
+| Holochain Links: | [FAQ](./wiki/FAQ) | [White Paper](http://ceptr.org/projects/holochain) | [GoDocs](https://godoc.org/github.com/metacurrency/holochain) |
+|---|---|---|---|
+
 **Table of Contents**
 <!-- TOC START min:2 max:4 link:true update:true -->
   - [Installation](#installation)
@@ -131,7 +127,7 @@ For serving data shared across the network. When your node receives a request fr
 
 ## Documentation
 
-Find additional documentation in the [docs directory](https://github.com/metacurrency/holochain/tree/master/docs).
+Find additional documentation in the [Holochain Wiki](wiki).
 
 You can also find the [auto-generated Reference API for Holochain on GoDocs](https://godoc.org/github.com/metacurrency/holochain)
 

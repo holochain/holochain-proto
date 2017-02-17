@@ -114,7 +114,7 @@ func (bp *BoltPersister) Get(hash Hash, getEntry bool) (header Header, entry int
 		eb := tx.Bucket([]byte(EntryBucket))
 		var err error
 		header, entry, err = get(hb, eb, hash[:], getEntry)
-gs		return err
+		return err
 	})
 	return
 }

@@ -39,6 +39,15 @@ func setupTestChain(n string) (d string, s *Service, h *Holochain) {
 	return
 }
 
+func prepareTestChain(n string) (d string, s *Service, h *Holochain) {
+	d, s, h = setupTestChain("test")
+	_, err := h.GenChain()
+	if err != nil {
+		panic(err)
+	}
+	return
+}
+
 func setupTestDir() string {
 	d := mkTestDirName()
 	err := os.MkdirAll(d, os.ModePerm)

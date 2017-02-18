@@ -128,8 +128,6 @@ func TestZygoDHT(t *testing.T) {
 		panic(err)
 	}
 
-	h.dht = NewDHT() //@todo fix this should be set elsewhere!!
-
 	Convey("should have a put function", t, func() {
 		v, err := NewZygoNucleus(h, fmt.Sprintf(`(put "%s")`, hash.String()))
 		So(err, ShouldBeNil)

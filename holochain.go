@@ -200,18 +200,17 @@ func (s *Service) Load(name string) (hP *Holochain, err error) {
 		return
 	}
 
-	if err = h.SetupZomes(); err != nil {
+	if err = h.Prepare(); err != nil {
 		return
 	}
-
-	h.dht = NewDHT()
 
 	hP = h
 	return
 }
 
-//SetupZomes makes checks that dna files exist and instantiates any schema validators
-func (h *Holochain) SetupZomes() (err error) {
+// Prepare sets up a holochain to run by:
+// validating the DNA, loading the schema validators, and setting up the DHT
+func (h *Holochain) Prepare() (err error) {
 	for _, z := range h.Zomes {
 		if !fileExists(h.path + "/" + z.Code) {
 			return errors.New("DNA specified code file missing: " + z.Code)
@@ -233,6 +232,8 @@ func (h *Holochain) SetupZomes() (err error) {
 			}
 		}
 	}
+
+	h.dht = NewDHT(h)
 	return
 }
 
@@ -313,7 +314,7 @@ func (h *Holochain) GenChain() (keyHash Hash, err error) {
 		return
 	}
 
-	if err = h.SetupZomes(); err != nil {
+	if err = h.Prepare(); err != nil {
 		return
 	}
 	return

@@ -259,18 +259,14 @@ func TestGenChain(t *testing.T) {
 }
 
 func TestWalk(t *testing.T) {
-	d, _, h := setupTestChain("test")
+	d, _, h := prepareTestChain("test")
 	defer cleanupTestDir(d)
-	_, err := h.GenChain()
-	if err != nil {
-		panic(err)
-	}
 
 	// add an extra link onto the chain
 	myData := `(message (from "art") (to "eric") (contents "test"))`
 	now := time.Unix(1, 1) // pick a constant time so the test will always work
 	e := GobEntry{C: myData}
-	_, _, err = h.NewEntry(now, "myData", &e)
+	_, _, err := h.NewEntry(now, "myData", &e)
 	if err != nil {
 		panic(err)
 	}
@@ -294,18 +290,14 @@ func TestWalk(t *testing.T) {
 }
 
 func TestValidate(t *testing.T) {
-	d, _, h := setupTestChain("test")
+	d, _, h := prepareTestChain("test")
 	defer cleanupTestDir(d)
-	_, err := h.GenChain()
-	if err != nil {
-		panic(err)
-	}
 
 	// add an extra link onto the chain
 	myData := `(message (from "art") (to "eric") (contents "test"))`
 	now := time.Unix(1, 1) // pick a constant time so the test will always work
 	e := GobEntry{C: myData}
-	_, _, err = h.NewEntry(now, "myData", &e)
+	_, _, err := h.NewEntry(now, "myData", &e)
 	if err != nil {
 		panic(err)
 	}
@@ -318,12 +310,9 @@ func TestValidate(t *testing.T) {
 }
 
 func TestValidateEntry(t *testing.T) {
-	d, _, h := setupTestChain("test")
+	d, _, h := prepareTestChain("test")
 	defer cleanupTestDir(d)
-	_, err := h.GenChain()
-	if err != nil {
-		panic(err)
-	}
+	var err error
 
 	Convey("it should fail if a validator doesn't exist for the entry type", t, func() {
 		hdr := mkTestHeader("bogusType")
@@ -354,7 +343,7 @@ func TestValidateEntry(t *testing.T) {
 		profile := `{"firstName":"Eric","lastName":"H-B"}`
 		err = h.ValidateEntry(hdr.Type, profile)
 		So(err, ShouldBeNil)
-		h.SetupZomes()
+		h.Prepare()
 		profile = `{"firstName":"Eric"}` // missing required lastName
 		err = h.ValidateEntry(hdr.Type, profile)
 		So(err, ShouldNotBeNil)

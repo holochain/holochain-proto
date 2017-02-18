@@ -101,6 +101,7 @@ func TestGenFrom(t *testing.T) {
 		dst, _ := readFile(root, "zome_myZome.zy")
 		So(string(src), ShouldEqual, string(dst))
 		So(fileExists(h.path+"/ui/index.html"), ShouldBeTrue)
+		So(fileExists(h.path+"/profile_schema.json"), ShouldBeTrue)
 
 	})
 }

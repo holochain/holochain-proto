@@ -1,3 +1,4 @@
+
 <html>
   <head>
     <title>Test</title>
@@ -5,7 +6,7 @@
     <script type="text/javascript">
      function send() {
          $.post(
-             "/"+$('select[name=zome]').val()+"/"+$('select[name=fn]').val(),
+             "/fn/"+$('select[name=zome]').val()+"/"+$('select[name=fn]').val(),
              $('#data').val(),
              function(data) {
                  $("#result").html("result:"+data)

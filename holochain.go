@@ -365,6 +365,15 @@ func GenFrom(src_path string, path string) (hP *Holochain, err error) {
 			if err = CopyDir(src_path+"/test", path+"/test"); err != nil {
 				return
 			}
+			for k, _ := range z.Entries {
+				e := z.Entries[k]
+				sc := e.Schema
+				if sc != "" {
+					if err = CopyFile(src_path+"/"+sc, path+"/"+sc); err != nil {
+						return
+					}
+				}
+			}
 		}
 
 		hP = h
@@ -460,7 +469,7 @@ func GenDev(path string) (hP *Holochain, err error) {
     <script type="text/javascript">
      function send() {
          $.post(
-             "/"+$('select[name=zome]').val()+"/"+$('select[name=fn]').val(),
+             "/fn/"+$('select[name=zome]').val()+"/"+$('select[name=fn]').val(),
              $('#data').val(),
              function(data) {
                  $("#result").html("result:"+data)

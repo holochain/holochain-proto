@@ -361,10 +361,10 @@ func mkErr(etext string, code int) (int, error) {
 }
 
 func serve(h *holo.Holochain, port string) {
-	fs := http.FileServer(http.Dir(h.Path() + "/htdocs"))
-	http.Handle("/static/", http.StripPrefix("/static/", fs))
+	fs := http.FileServer(http.Dir(h.Path() + "/ui"))
+	http.Handle("/", fs)
 
-	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+	http.HandleFunc("/fn/", func(w http.ResponseWriter, r *http.Request) {
 
 		var err error
 		var err_code int = 400
@@ -375,12 +375,12 @@ func serve(h *holo.Holochain, port string) {
 			}
 		}()
 
-		if r.Method == "GET" {
-			fmt.Printf("processing Get:%s\n", r.URL.Path)
+		/*		if r.Method == "GET" {
+					fmt.Printf("processing Get:%s\n", r.URL.Path)
 
-			http.Redirect(w, r, "/static", http.StatusSeeOther)
-		}
-
+					http.Redirect(w, r, "/static", http.StatusSeeOther)
+				}
+		*/
 		body, err := ioutil.ReadAll(r.Body)
 		if err != nil {
 			err_code, err = mkErr("unable to read body", 500)
@@ -389,16 +389,13 @@ func serve(h *holo.Holochain, port string) {
 		fmt.Printf("processing req:%s\n  Body:%v\n", r.URL.Path, string(body))
 
 		path := strings.Split(r.URL.Path, "/")
-		if path[1] == "favicon.ico" {
-			err_code, err = mkErr("", 404)
-			return
-		}
+
 		var n holo.Nucleus
-		zome := path[1]
+		zome := path[2]
 		n, err = h.MakeNucleus(zome)
 		if err == nil {
 			i := n.Interfaces()
-			function := path[2]
+			function := path[3]
 			for _, f := range i {
 				if f.Name == function {
 					fmt.Printf("calling %s:%s\n", zome, function)
@@ -416,7 +413,7 @@ func serve(h *holo.Holochain, port string) {
 					return
 				}
 			}
-			err_code, err = mkErr("unknown function: "+path[2], 400)
+			err_code, err = mkErr("unknown function: "+function, 400)
 		}
 	}) // set router
 	fmt.Printf("starting server on localhost:%s\n", port)

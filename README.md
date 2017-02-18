@@ -130,7 +130,7 @@ For serving data shared across the network. When your node receives a request fr
 
 ## Documentation
 
-Find additional documentation in the [Holochain Wiki](wiki).
+Find additional documentation in the [Holochain Wiki](https://github.com/metacurrency/holochain/wiki).
 
 You can also find the [auto-generated Reference API for Holochain on GoDocs](https://godoc.org/github.com/metacurrency/holochain)
 

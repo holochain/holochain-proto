@@ -75,6 +75,7 @@ func TestGenDev(t *testing.T) {
 		lh.store.Close()
 
 		So(fileExists(h.path+"/profile_schema.json"), ShouldBeTrue)
+		So(fileExists(h.path+"/ui/index.html"), ShouldBeTrue)
 
 		Convey("we should not be able re generate it", func() {
 			_, err = GenDev(root)
@@ -99,6 +100,8 @@ func TestGenFrom(t *testing.T) {
 		src, _ := readFile("examples/simple", "zome_myZome.zy")
 		dst, _ := readFile(root, "zome_myZome.zy")
 		So(string(src), ShouldEqual, string(dst))
+		So(fileExists(h.path+"/ui/index.html"), ShouldBeTrue)
+
 	})
 }
 

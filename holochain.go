@@ -349,6 +349,10 @@ func GenFrom(src_path string, path string) (hP *Holochain, err error) {
 		}
 		h.Id = u
 
+		if err = CopyDir(src_path+"/ui", path+"/ui"); err != nil {
+			return
+		}
+
 		for _, z := range h.Zomes {
 			var bs []byte
 			bs, err = readFile(src_path, z.Code)
@@ -358,15 +362,9 @@ func GenFrom(src_path string, path string) (hP *Holochain, err error) {
 			if err = writeFile(path, z.Code, bs); err != nil {
 				return
 			}
-			// @todo copy over fixtures once that gets figured out
-			/*	for en, data := range z.Entries {
-				for i, e := range data {
-					fn := fmt.Sprintf("%d_%s.zy", i, en)
-					if err = writeFile(testPath, fn, []byte(e)); err != nil {
-						return
-					}
-				}
-			}*/
+			if err = CopyDir(src_path+"/test", path+"/test"); err != nil {
+				return
+			}
 		}
 
 		hP = h
@@ -452,6 +450,52 @@ func GenDev(path string) (hP *Holochain, err error) {
 				FnName: "addPrime",
 				Input:  "{\"prime\":4}",
 				Err:    `Error calling 'commit': Invalid entry: {"Atype":"hash", "prime":4, "zKeyOrder":["prime"]}`},
+		}
+
+		ui := `
+<html>
+  <head>
+    <title>Test</title>
+    <script type="text/javascript" src="http://code.jquery.com/jquery-latest.js"></script>
+    <script type="text/javascript">
+     function send() {
+         $.post(
+             "/"+$('select[name=zome]').val()+"/"+$('select[name=fn]').val(),
+             $('#data').val(),
+             function(data) {
+                 $("#result").html("result:"+data)
+                 $("#err").html("")
+             }
+         ).error(function(response) {
+             $("#err").html(response.responseText)
+             $("#result").html("")
+         })
+         ;
+     };
+    </script>
+  </head>
+  <body>
+    <select id="zome" name="zome">
+      <option value="myZome">myZome</option>
+    </select>
+    <select id="fn" name="fn">
+      <option value="addData">addData</option>
+    </select>
+    <input id="data" name="data">
+    <button onclick="send();">Send</button>
+    send an even number and get back a hash, send and odd end get a error
+
+    <div id="result"></div>
+    <div id="err"></div>
+  </body>
+</html>
+`
+		uiPath := path + "/ui"
+		if err = os.MkdirAll(uiPath, os.ModePerm); err != nil {
+			return nil, err
+		}
+		if err = writeFile(uiPath, "index.html", []byte(ui)); err != nil {
+			return
 		}
 
 		code := make(map[string]string)
@@ -670,7 +714,7 @@ func (h *Holochain) NewEntry(now time.Time, t string, entry Entry) (hash Hash, h
 		if err != nil {
 			return err
 		}
-		err = bkt.Put([]byte("top_"+t), v)
+		err = bkt.Put([]byte(TopMetaKey+"_"+t), v)
 		if err != nil {
 			return err
 		}

@@ -128,7 +128,7 @@ func TestZygoDHT(t *testing.T) {
 		panic(err)
 	}
 
-	Convey("should have a put function", t, func() {
+	SkipConvey("should have a put function", t, func() {
 		v, err := NewZygoNucleus(h, fmt.Sprintf(`(put "%s")`, hash.String()))
 		So(err, ShouldBeNil)
 		z := v.(*ZygoNucleus)

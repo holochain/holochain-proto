@@ -154,22 +154,15 @@ func (z *ZygoNucleus) expose(iface Interface) (err error) {
 }
 
 // put exposes DHTPut to holochain apps.
-func (z *ZygoNucleus) put(env *zygo.Glisp, h *Holochain, params *zygo.SexpHash) (result *zygo.SexpHash, err error) {
+func (z *ZygoNucleus) put(env *zygo.Glisp, h *Holochain, hash string) (result *zygo.SexpHash, err error) {
 	result, err = zygo.MakeHash(nil, "hash", env)
 	if err != nil {
 		return nil, err
 	}
 
 	var put_result string
-	hash, err := params.HashGet(env, env.MakeSymbol("hsh"))
-	if err != nil {
-		return nil, err
-	}
-	data, err := params.HashGet(env, env.MakeSymbol("data"))
-	if err != nil {
-		return nil, err
-	}
-	err = h.dht.Put(NewHash(hash.(*zygo.SexpStr).S), []byte(data.(*zygo.SexpStr).S))
+
+	err = h.dht.Put(NewHash(hash))
 	if err != nil {
 		put_result = "error: " + err.Error()
 	} else {
@@ -266,15 +259,15 @@ func NewZygoNucleus(h *Holochain, code string) (n Nucleus, err error) {
 				return zygo.SexpNull, zygo.WrongNargs
 			}
 
-			var params *zygo.SexpHash
+			var hashstr string
 			switch t := args[0].(type) {
-			case *zygo.SexpHash:
-				params = t
+			case *zygo.SexpStr:
+				hashstr = t.S
 			default:
 				return zygo.SexpNull,
-					errors.New("argument of put should be hash")
+					errors.New("argument of put should be string")
 			}
-			result, err := z.put(env, h, params)
+			result, err := z.put(env, h, hashstr)
 			return result, err
 		})
 

@@ -1,11 +1,11 @@
 package holochain
 
 import (
-	"crypto/sha256"
 	"fmt"
 	zygo "github.com/glycerine/zygomys/repl"
 	. "github.com/smartystreets/goconvey/convey"
 	"testing"
+	"time"
 )
 
 func TestNewZygoNucleus(t *testing.T) {
@@ -118,16 +118,24 @@ func TestZygoDHT(t *testing.T) {
 	d, _, h := setupTestChain("test")
 	defer cleanupTestDir(d)
 
-	data := "some data"
-	hash := Hash(sha256.Sum256([]byte(data)))
+	data := "7"
 
-	h.dht = NewDHT()
+	// add an entry onto the chain
+	now := time.Unix(1, 1) // pick a constant time so the test will always work
+	e := GobEntry{C: data}
+	hash, _, err := h.NewEntry(now, "myData", &e)
+	if err != nil {
+		panic(err)
+	}
 
-	Convey("should have a put functions", t, func() {
-		params := `{\"fish\":\"dog\",\"hsh\":\"` + hash.String() + `\",\"data\":\"` + data + `\"}`
-		v, err := NewZygoNucleus(h, fmt.Sprintf(`(json (put (unjson (raw "%s"))))`, params))
+	h.dht = NewDHT() //@todo fix this should be set elsewhere!!
+
+	Convey("should have a put function", t, func() {
+		v, err := NewZygoNucleus(h, fmt.Sprintf(`(put "%s")`, hash.String()))
 		So(err, ShouldBeNil)
 		z := v.(*ZygoNucleus)
-		So(fmt.Sprintf("%v", string(z.lastResult.(*zygo.SexpRaw).Val)), ShouldEqual, `{"Atype":"hash", "result":"ok", "zKeyOrder":["result"]}`)
+		r, err := z.lastResult.(*zygo.SexpHash).HashGet(z.env, z.env.MakeSymbol("result"))
+
+		So(r.(*zygo.SexpStr).S, ShouldEqual, "ok")
 	})
 }

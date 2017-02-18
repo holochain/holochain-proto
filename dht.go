@@ -19,8 +19,8 @@ func NewDHT() *DHT {
 	return &dht
 }
 
-func (dht *DHT) Put(key Hash, value []byte) (err error) {
-	dht.store[key] = value
+func (dht *DHT) Put(key Hash) (err error) {
+	dht.store[key] = []byte("fake value")
 	return
 }
 

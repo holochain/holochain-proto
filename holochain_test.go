@@ -271,6 +271,9 @@ func TestWalk(t *testing.T) {
 	now := time.Unix(1, 1) // pick a constant time so the test will always work
 	e := GobEntry{C: myData}
 	_, _, err = h.NewEntry(now, "myData", &e)
+	if err != nil {
+		panic(err)
+	}
 
 	Convey("walk should call a function on all the elements of a chain", t, func() {
 
@@ -303,7 +306,9 @@ func TestValidate(t *testing.T) {
 	now := time.Unix(1, 1) // pick a constant time so the test will always work
 	e := GobEntry{C: myData}
 	_, _, err = h.NewEntry(now, "myData", &e)
-
+	if err != nil {
+		panic(err)
+	}
 	Convey("validate should check the hashes of the headers, and optionally of the entries", t, func() {
 		//	Convey("This isn't yet fully implemented", nil)
 		valid, err := h.Validate(false)

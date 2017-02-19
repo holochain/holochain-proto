@@ -36,7 +36,7 @@ const Version string = "0.0.1"
 // Unique user identifier in context of this holochain
 type Agent string
 
-// Signing key structure for building KEYEntryType entries
+// Signing key structure for building KeyEntryTypea entries
 type KeyEntry struct {
 	ID  Agent
 	Key []byte // marshaled x509 public key

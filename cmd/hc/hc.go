@@ -50,12 +50,12 @@ func SetupApp() (app *cli.App) {
 					Action: func(c *cli.Context) error {
 						src_path := c.Args().First()
 						if src_path == "" {
-							return errors.New("missing require source path argument to gen from")
+							return errors.New("gen from: missing required source path argument")
+						}
+						if len(c.Args()) == 1 {
+							return errors.New("gen from: missing required holochain-name argument")
 						}
 						name := c.Args()[1]
-						if name == "" {
-							return errors.New("missing require holochain-name argument to gen from")
-						}
 						h, err := holo.GenFrom("examples/simple", root+"/"+name)
 						if err == nil {
 							if verbose {

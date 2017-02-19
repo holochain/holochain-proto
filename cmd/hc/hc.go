@@ -152,7 +152,7 @@ func SetupApp() (app *cli.App) {
 						fmt.Println("    ~/.holochain directory created")
 						fmt.Printf("    defaults stored to %s\n", holo.SysFileName)
 						fmt.Println("    key-pair generated")
-						fmt.Printf("    default agent \"%s\" stored to %s\n", holo.AgentFileName)
+						fmt.Printf("    default agent stored to %s\n", holo.AgentFileName)
 					}
 				}
 				return err

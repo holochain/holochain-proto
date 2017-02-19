@@ -56,7 +56,7 @@ func SetupApp() (app *cli.App) {
 							return errors.New("gen from: missing required holochain-name argument")
 						}
 						name := c.Args()[1]
-						h, err := holo.GenFrom("examples/simple", root+"/"+name)
+						h, err := holo.GenFrom(src_path, root+"/"+name)
 						if err == nil {
 							if verbose {
 								fmt.Printf("cloned %s from %s with new id: %v\n", name, src_path, h.Id)

@@ -3,7 +3,6 @@ package holochain
 import (
 	"bytes"
 	"crypto/ecdsa"
-	"crypto/sha256"
 	gob "encoding/gob"
 	"fmt"
 	toml "github.com/BurntSushi/toml"
@@ -40,10 +39,35 @@ func TestNew(t *testing.T) {
 		nz := h.Zomes["myZome"]
 		So(nz.Description, ShouldEqual, "zome desc")
 		So(nz.Code, ShouldEqual, "zome_myZome.zy")
-		So(fmt.Sprintf("%v", nz.Entries["myData1"]), ShouldEqual, "{myData1 string  11111111111111111111111111111111 <nil>}")
-		So(fmt.Sprintf("%v", nz.Entries["myData2"]), ShouldEqual, "{myData2 zygo  11111111111111111111111111111111 <nil>}")
+		So(fmt.Sprintf("%v", nz.Entries["myData1"]), ShouldEqual, "{myData1 string   <nil>}")
+		So(fmt.Sprintf("%v", nz.Entries["myData2"]), ShouldEqual, "{myData2 zygo   <nil>}")
 	})
 
+}
+
+func TestPrepareHashType(t *testing.T) {
+
+	Convey("A bad hash type should return an error", t, func() {
+		h := Holochain{HashType: "bogus"}
+		err := h.PrepareHashType()
+		So(err.Error(), ShouldEqual, "Unknown hash type: bogus")
+	})
+	Convey("It should initialized fixed and variable sized hashes", t, func() {
+		h := Holochain{HashType: "sha1"}
+		err := h.PrepareHashType()
+		So(err, ShouldBeNil)
+		var hash Hash
+		err = hash.Sum(&h, []byte("test data"))
+		So(err, ShouldBeNil)
+		So(hash.String(), ShouldEqual, "5duC28CW416wX42vses7TeTeRYwku9")
+
+		h.HashType = "blake2b-256"
+		err = h.PrepareHashType()
+		So(err, ShouldBeNil)
+		err = hash.Sum(&h, []byte("test data"))
+		So(err, ShouldBeNil)
+		So(hash.String(), ShouldEqual, "2DrjgbL49zKmX4P7UgdopSCC7MhfVUySNbRHBQzdDuXgaJSNEg")
+	})
 }
 
 func TestGenDev(t *testing.T) {
@@ -126,18 +150,21 @@ func TestNewEntry(t *testing.T) {
 		So(err, ShouldBeNil)
 		So(header.Time == now, ShouldBeTrue)
 		So(header.Type, ShouldEqual, "myData")
-		So(header.HeaderLink, ShouldEqual, NewHash("11111111111111111111111111111111"))
+		So(header.HeaderLink.IsNullHash(), ShouldBeTrue)
 	})
 	Convey("the entry hash is correct", t, func() {
-		So(header.EntryLink.String(), ShouldEqual, "G5tGxuTygAMYx2BMagaWJrYpwtiVuDFUtnYkX6rpL1Y5")
+		So(err, ShouldBeNil)
+		So(header.EntryLink.String(), ShouldEqual, "QmdRXz53TVT9qBYfbXctHyy2GpTNa6YrpAy6ZcDGG8Xhc5")
 	})
 
 	// can't check against a fixed hash because signature created each time test runs is
 	// different (though valid) so the header will hash to a different value
 	Convey("the returned header hash is the SHA256 of the byte encoded header", t, func() {
 		b, _ := ByteEncoder(&header)
-		hh := Hash(sha256.Sum256(b))
-		So(headerHash, ShouldEqual, hh)
+		var hh Hash
+		err = hh.Sum(h, b)
+		So(err, ShouldBeNil)
+		So(headerHash.String(), ShouldEqual, hh.String())
 	})
 
 	//	if a != "EdkgsdwazMZc9vJJgGXgbGwZFvy2Wa1hLCjngmkw3PbF" {
@@ -148,7 +175,7 @@ func TestNewEntry(t *testing.T) {
 		pub, err := UnmarshalPublicKey(s.Path, PubKeyFileName)
 		ExpectNoErr(t, err)
 		sig := header.MySignature
-		hash := header.EntryLink[:]
+		hash := header.EntryLink.H
 		So(ecdsa.Verify(pub, hash, sig.R, sig.S), ShouldBeTrue)
 	})
 
@@ -164,8 +191,10 @@ func TestNewEntry(t *testing.T) {
 
 		Convey("and the returned header should hash to the same value", func() {
 			b, _ := ByteEncoder(&h2)
-			hh := Hash(sha256.Sum256(b))
-			So(headerHash, ShouldEqual, hh)
+			var hh Hash
+			err = hh.Sum(h, b)
+			So(err, ShouldBeNil)
+			So(headerHash.String(), ShouldEqual, hh.String())
 		})
 
 		var d2 interface{}
@@ -179,10 +208,10 @@ func TestNewEntry(t *testing.T) {
 	Convey("it should modify store's TOP key to point to the added Entry header", t, func() {
 		hash, err := h.Top()
 		So(err, ShouldBeNil)
-		So(hash, ShouldEqual, headerHash)
+		So(hash.String(), ShouldEqual, headerHash.String())
 		hash, err = h.TopType("myData")
 		So(err, ShouldBeNil)
-		So(hash, ShouldEqual, headerHash)
+		So(hash.String(), ShouldEqual, headerHash.String())
 	})
 }
 
@@ -215,7 +244,7 @@ func TestGenChain(t *testing.T) {
 		var h2 Holochain
 		_, err = toml.DecodeFile(h.path+"/"+DNAFileName, &h2)
 		So(err, ShouldBeNil)
-		So(h2.Zomes["myZome"].CodeHash, ShouldEqual, h.Zomes["myZome"].CodeHash)
+		So(h2.Zomes["myZome"].CodeHash.String(), ShouldEqual, h.Zomes["myZome"].CodeHash.String())
 
 	})
 
@@ -226,7 +255,6 @@ func TestGenChain(t *testing.T) {
 
 	var headerHash Hash
 	Convey("GenChain call works", t, func() {
-
 		headerHash, err = h.GenChain()
 		So(err, ShouldBeNil)
 	})
@@ -428,8 +456,8 @@ func TestTest(t *testing.T) {
 //----- test util functions
 
 func mkTestHeader(t string) Header {
-	hl := NewHash("1vemK25pc5ewYtztPGYAdX39uXuyV13xdouCnZUr8RMA")
-	el := NewHash("2vemK25pc5ewYtztPGYAdX39uXuyV13xdouCnZUr8RMA")
+	hl, _ := NewHash("1vemK25pc5ewYtztPGYAdX39uXuyV13xdouCnZUr8RMA")
+	el, _ := NewHash("2vemK25pc5ewYtztPGYAdX39uXuyV13xdouCnZUr8RMA")
 	now := time.Unix(1, 1) // pick a constant time so the test will always work
 	h1 := Header{Time: now, Type: t, Meta: "dog",
 		HeaderLink:  hl,

@@ -19,8 +19,9 @@ const (
 
 // DHT struct holds the data necessary to run the distributed hash table
 type DHT struct {
-	store map[Hash][]byte // the store used to persist data this node is responsible for
-	h     *Holochain      // pointer to the holochain this DHT is part of
+	store map[string][]byte // the store used to persist data this node is responsible for
+	h     *Holochain        // pointer to the holochain this DHT is part of
+	Queue []Message
 }
 
 // Node represents a node in the network
@@ -29,15 +30,21 @@ type Node struct {
 	NetworkAddr string
 }
 
+// Message represents data that can be sent to node in the network
+type Message struct {
+	Type DHTMsgType
+	Body interface{}
+}
+
 func NewDHT(h *Holochain) *DHT {
-	dht := DHT{store: make(map[Hash][]byte),
+	dht := DHT{store: make(map[string][]byte),
 		h: h,
 	}
 	return &dht
 }
 
 func (dht *DHT) Put(key Hash) (err error) {
-	n, err := FindNodeForHash(key)
+	n, err := dht.FindNodeForHash(key)
 	if err != nil {
 		return
 	}
@@ -51,7 +58,7 @@ func (dht *DHT) Put(key Hash) (err error) {
 }
 
 func (dht *DHT) Get(key Hash) (data []byte, err error) {
-	data, ok := dht.store[key]
+	data, ok := dht.store[key.String()]
 	if !ok {
 		err = errors.New("No key: " + key.String())
 	}
@@ -59,18 +66,31 @@ func (dht *DHT) Get(key Hash) (data []byte, err error) {
 }
 
 // Send sends a message to the node
-func (dht *DHT) Send(n *Node, msg string) (err error) {
+func (dht *DHT) Send(n *Node, msg *Message) (err error) {
+
 	err = errors.New("not implemented")
 	return
 }
 
 // FindNodeForHash gets the nearest node to the neighborhood of the hash
-func FindNodeForHash(key Hash) (n *Node, err error) {
-	err = errors.New("not implemented")
+func (dht *DHT) FindNodeForHash(key Hash) (n *Node, err error) {
+
+	// for now, the node it returns is self!
+	var self Hash
+	self, err = dht.h.TopType(KeyEntryType)
+	if err != nil {
+		return
+	}
+	var node Node
+	node.HashAddr = self
+
+	n = &node
+
 	return
 }
 
-func makeMessage(m DHTMsgType, body interface{}) (msg string, err error) {
-	err = errors.New("not implemented")
+func makeMessage(t DHTMsgType, body interface{}) (msg *Message, err error) {
+	m := Message{Type: t, Body: body}
+	msg = &m
 	return
 }

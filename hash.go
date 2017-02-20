@@ -7,19 +7,42 @@
 package holochain
 
 import (
-	b58 "github.com/jbenet/go-base58"
+	. "github.com/multiformats/go-multihash"
 )
 
-// SHA256 hash of Entry's Content
-type Hash [32]byte
+// Hash of Entry's Content
+type Hash struct {
+	H Multihash
+}
+
+// NewHash builds a Hash from a b58 string encoded hash
+func NewHash(s string) (h Hash, err error) {
+	h.H, err = FromB58String(s)
+	return
+}
 
 // String encodes a hash to a human readable string
 func (h Hash) String() string {
-	return b58.Encode(h[:])
+	if cap(h.H) == 0 {
+		return ""
+	}
+	return h.H.B58String()
 }
 
-// NewHash builds a Hash from a string encoded hash
-func NewHash(s string) (h Hash) {
-	copy(h[:], b58.Decode(s))
+// Sum builds a digest according to the specs in the Holochain
+func (h *Hash) Sum(hc *Holochain, data []byte) (err error) {
+	h.H, err = Sum(data, hc.hashCode, hc.hashLength)
+	return
+}
+
+// IsNullHash checks to see if this hash's value is the null hash
+func (h *Hash) IsNullHash() bool {
+	return cap(h.H) == 1 && h.H[0] == 0
+}
+
+// NullHash builds a null valued hash
+func NullHash() (h Hash) {
+	null := [1]byte{0}
+	h.H = null[:]
 	return
 }

@@ -10,7 +10,6 @@ import (
 	"bytes"
 	"crypto/ecdsa"
 	"crypto/rand"
-	"crypto/sha256"
 	"crypto/x509"
 	"encoding/gob"
 	"encoding/json"
@@ -20,6 +19,7 @@ import (
 	"github.com/boltdb/bolt"
 	_ "github.com/ghodss/yaml" // doesn't work!
 	"github.com/google/uuid"
+	mh "github.com/multiformats/go-multihash"
 	"io"
 	"io/ioutil"
 	"math/big"
@@ -67,6 +67,8 @@ type Holochain struct {
 	privKey        *ecdsa.PrivateKey
 	store          Persister
 	encodingFormat string
+	hashCode       uint64
+	hashLength     int
 	dht            *DHT
 }
 
@@ -120,12 +122,13 @@ func New(agent Agent, key *ecdsa.PrivateKey, path string, zomes ...Zome) Holocha
 	}
 	h := Holochain{
 		Id:             u,
-		HashType:       "SHA256",
+		HashType:       "sha2-256",
 		agent:          agent,
 		privKey:        key,
 		path:           path,
 		encodingFormat: "toml",
 	}
+	h.PrepareHashType()
 	h.Zomes = make(map[string]*Zome)
 	for _, z := range zomes {
 		h.Zomes[z.Name] = &z
@@ -208,9 +211,26 @@ func (s *Service) Load(name string) (hP *Holochain, err error) {
 	return
 }
 
+// PrepareHashType makes sure the given string is a correct multi-hash and stores
+// the code and length to the Holochain struct
+func (h *Holochain) PrepareHashType() (err error) {
+	if c, ok := mh.Names[h.HashType]; !ok {
+		return fmt.Errorf("Unknown hash type: %s", h.HashType)
+	} else {
+		h.hashCode = c
+		h.hashLength = -1
+	}
+
+	return
+}
+
 // Prepare sets up a holochain to run by:
 // validating the DNA, loading the schema validators, and setting up the DHT
 func (h *Holochain) Prepare() (err error) {
+
+	if err = h.PrepareHashType(); err != nil {
+		return
+	}
 	for _, z := range h.Zomes {
 		if !fileExists(h.path + "/" + z.Code) {
 			return errors.New("DNA specified code file missing: " + z.Code)
@@ -243,7 +263,7 @@ func (h *Holochain) getMetaHash(key string) (hash Hash, err error) {
 	if err != nil {
 		return
 	}
-	copy(hash[:], v)
+	hash.H = v
 	if v == nil {
 		err = mkErr("Meta key '" + key + "' uninitialized")
 	}
@@ -309,7 +329,7 @@ func (h *Holochain) GenChain() (keyHash Hash, err error) {
 		return
 	}
 
-	err = h.store.PutMeta(IDMetaKey, dnaHeader.EntryLink[:])
+	err = h.store.PutMeta(IDMetaKey, dnaHeader.EntryLink.H)
 	if err != nil {
 		return
 	}
@@ -643,7 +663,10 @@ func (h *Holochain) GenDNAHashes() (err error) {
 		if err != nil {
 			return
 		}
-		z.CodeHash = Hash(sha256.Sum256(b))
+		err = z.CodeHash.Sum(h, b)
+		if err != nil {
+			return
+		}
 		for _, e := range z.Entries {
 			sc := e.Schema
 			if sc != "" {
@@ -651,7 +674,10 @@ func (h *Holochain) GenDNAHashes() (err error) {
 				if err != nil {
 					return
 				}
-				e.SchemaHash = Hash(sha256.Sum256(b))
+				err = e.SchemaHash.Sum(h, b)
+				if err != nil {
+					return
+				}
 			}
 		}
 
@@ -680,19 +706,32 @@ func (h *Holochain) NewEntry(now time.Time, t string, entry Entry) (hash Hash, h
 	ph, err := h.Top()
 	if err == nil {
 		hd.HeaderLink = ph
+
+	} else {
+		hd.HeaderLink = NullHash()
 	}
 	ph, err = h.TopType(t)
 	if err == nil {
 		hd.TypeLink = ph
+	} else {
+		hd.TypeLink = NullHash()
 	}
-
 	m, err := entry.Marshal()
 	if err != nil {
 		return
 	}
-	hd.EntryLink = Hash(sha256.Sum256(m))
+	err = hd.EntryLink.Sum(h, m)
+	if err != nil {
+		return
+	}
+	var HH Hash
+	err = HH.Sum(h, m)
+	if err != nil {
+		panic(err)
+	}
+	hd.EntryLink = HH
 
-	r, s, err := ecdsa.Sign(rand.Reader, h.privKey, hd.EntryLink[:])
+	r, s, err := ecdsa.Sign(rand.Reader, h.privKey, hd.EntryLink.H)
 	if err != nil {
 		return
 	}
@@ -702,28 +741,28 @@ func (h *Holochain) NewEntry(now time.Time, t string, entry Entry) (hash Hash, h
 	if err != nil {
 		return
 	}
-	hash = Hash(sha256.Sum256(b))
+	hash.Sum(h, b)
+
 	h.store.(*BoltPersister).DB().Update(func(tx *bolt.Tx) error {
 		bkt := tx.Bucket([]byte(EntryBucket))
-		err = bkt.Put(hd.EntryLink[:], m)
+		err = bkt.Put(hd.EntryLink.H, m)
 		if err != nil {
 			return err
 		}
 
 		bkt = tx.Bucket([]byte(HeaderBucket))
-		v := hash[:]
-		err = bkt.Put(v, b)
+		err = bkt.Put(hash.H, b)
 		if err != nil {
 			return err
 		}
 
 		// don't use PutMeta because this has to be in the transaction
 		bkt = tx.Bucket([]byte(MetaBucket))
-		err = bkt.Put([]byte(TopMetaKey), v)
+		err = bkt.Put([]byte(TopMetaKey), hash.H)
 		if err != nil {
 			return err
 		}
-		err = bkt.Put([]byte(TopMetaKey+"_"+t), v)
+		err = bkt.Put([]byte(TopMetaKey+"_"+t), hash.H)
 		if err != nil {
 			return err
 		}
@@ -744,7 +783,7 @@ func get(hb *bolt.Bucket, eb *bolt.Bucket, key []byte, getEntry bool) (header He
 		return
 	}
 	if getEntry {
-		v = eb.Get(header.EntryLink[:])
+		v = eb.Get(header.EntryLink.H)
 		var g GobEntry
 		err = g.Unmarshal(v)
 		if err != nil {
@@ -756,8 +795,7 @@ func get(hb *bolt.Bucket, eb *bolt.Bucket, key []byte, getEntry bool) (header He
 }
 
 func (h *Holochain) Walk(fn func(key *Hash, h *Header, entry interface{}) error, entriesToo bool) (err error) {
-	var nullHash Hash
-	var nullHashBytes = nullHash[:]
+	nullHash := NullHash()
 	err = h.store.(*BoltPersister).DB().View(func(tx *bolt.Tx) error {
 		hb := tx.Bucket([]byte(HeaderBucket))
 		eb := tx.Bucket([]byte(EntryBucket))
@@ -767,8 +805,8 @@ func (h *Holochain) Walk(fn func(key *Hash, h *Header, entry interface{}) error,
 		var keyH Hash
 		var header Header
 		var visited = make(map[string]bool)
-		for err == nil && !bytes.Equal(nullHashBytes, key) {
-			copy(keyH[:], key)
+		for err == nil && !bytes.Equal(nullHash.H, key) {
+			keyH.H = key
 			// build up map of all visited headers to prevent loops
 			s := string(key)
 			_, present := visited[s]
@@ -780,7 +818,7 @@ func (h *Holochain) Walk(fn func(key *Hash, h *Header, entry interface{}) error,
 				header, e, err = get(hb, eb, key, entriesToo)
 				if err == nil {
 					err = fn(&keyH, &header, e)
-					key = header.HeaderLink[:]
+					key = header.HeaderLink.H
 				}
 			}
 		}
@@ -789,7 +827,7 @@ func (h *Holochain) Walk(fn func(key *Hash, h *Header, entry interface{}) error,
 		}
 		// if the last item doesn't gets us to bottom, i.e. the header who's entry link is
 		// the same as ID key then, the chain is invalid...
-		if !bytes.Equal(header.EntryLink[:], mb.Get([]byte(IDMetaKey))) {
+		if !bytes.Equal(header.EntryLink.H, mb.Get([]byte(IDMetaKey))) {
 			return errors.New("chain didn't end at DNA!")
 		}
 		return err
@@ -804,13 +842,18 @@ func (h *Holochain) Validate(entriesToo bool) (valid bool, err error) {
 
 	err = h.Walk(func(key *Hash, header *Header, entry interface{}) (err error) {
 		// confirm the correctness of the header hash
-		b, err := ByteEncoder(&header)
+		var b []byte
+		b, err = ByteEncoder(&header)
 		if err != nil {
 			return err
 		}
-		bh := sha256.Sum256(b)
+
 		var bH Hash
-		copy(bH[:], bh[:])
+		err = bH.Sum(h, b)
+		if err != nil {
+			return
+		}
+
 		if bH.String() != (*key).String() {
 			return errors.New("header hash doesn't match")
 		}

@@ -6,102 +6,112 @@
 package holochain
 
 import (
-	"crypto/ecdsa"
-	"crypto/elliptic"
 	"crypto/rand"
-	"crypto/x509"
 	"errors"
-	//	ic "github.com/libp2p/go-libp2p-crypto"
+	"fmt"
+	ic "github.com/libp2p/go-libp2p-crypto"
 )
 
 // Unique user identifier in context of this holochain
 type AgentID string
 
-// NewAgent generates keys and saves them to the given directory
-func NewAgent(path string, agent AgentID) (k *ecdsa.PrivateKey, err error) {
-	writeFile(path, AgentFileName, []byte(agent))
+type KeytypeType int
+
+const (
+	IPFS = iota
+)
+
+type Agent interface {
+	ID() AgentID
+	KeyType() KeytypeType
+	GenKeys() error
+	PrivKey() ic.PrivKey
+	PubKey() ic.PubKey
+}
+
+type IPFSAgent struct {
+	Id   AgentID
+	Priv ic.PrivKey
+}
+
+func (a *IPFSAgent) ID() AgentID {
+	return a.Id
+}
+
+func (a *IPFSAgent) KeyType() KeytypeType {
+	return IPFS
+}
+
+func (a *IPFSAgent) PrivKey() ic.PrivKey {
+	return a.Priv
+}
+
+func (a *IPFSAgent) PubKey() ic.PubKey {
+	return a.Priv.GetPublic()
+}
+
+func (a *IPFSAgent) GenKeys() (err error) {
+	var priv ic.PrivKey
+	priv, _, err = ic.GenerateEd25519Key(rand.Reader)
 	if err != nil {
 		return
 	}
-	k, err = GenKeys(path)
+	a.Priv = priv
+	return
+}
+
+func NewAgent(keyType KeytypeType, id AgentID) (agent Agent, err error) {
+	switch keyType {
+	case IPFS:
+		a := IPFSAgent{
+			Id: id,
+		}
+		err = a.GenKeys()
+		if err != nil {
+			return
+		}
+		agent = &a
+	default:
+		err = fmt.Errorf("unknown key type: %d", keyType)
+	}
+	return
+}
+
+// SaveAgent generates saves out the keys and agent id to the given directory
+func SaveAgent(path string, agent Agent) (err error) {
+	writeFile(path, AgentFileName, []byte(agent.ID()))
 	if err != nil {
 		return
 	}
+	if fileExists(path + "/" + PrivKeyFileName) {
+		return errors.New("keys already exist")
+	}
+	var k []byte
+	k, err = agent.PrivKey().Bytes()
+	if err != nil {
+		return
+	}
+	err = writeFile(path, PrivKeyFileName, k)
 	return
 }
 
 // LoadAgent gets the agent and signing key from the specified directory
-func LoadAgent(path string) (agent AgentID, key *ecdsa.PrivateKey, err error) {
-	a, err := readFile(path, AgentFileName)
+func LoadAgent(path string) (agent Agent, err error) {
+	id, err := readFile(path, AgentFileName)
 	if err != nil {
 		return
 	}
-	agent = AgentID(a)
-	key, err = UnmarshalPrivateKey(path, PrivKeyFileName)
-	return
-}
-
-// MarshalPublicKey stores a PublicKey to a serialized x509 format file
-func MarshalPublicKey(path string, file string, key *ecdsa.PublicKey) error {
-	k, err := x509.MarshalPKIXPublicKey(key)
-	if err != nil {
-		return err
+	a := IPFSAgent{
+		Id: AgentID(id),
 	}
-	err = writeFile(path, file, k)
-	return err
-}
-
-// UnmarshalPublicKey loads a PublicKey from the serialized x509 format file
-func UnmarshalPublicKey(path string, file string) (key *ecdsa.PublicKey, err error) {
-	k, err := readFile(path, file)
+	k, err := readFile(path, PrivKeyFileName)
 	if err != nil {
 		return nil, err
 	}
-	kk, err := x509.ParsePKIXPublicKey(k)
-	key = kk.(*ecdsa.PublicKey)
-	return key, err
-}
-
-// MarshalPrivateKey stores a PublicKey to a serialized x509 format file
-func MarshalPrivateKey(path string, file string, key *ecdsa.PrivateKey) error {
-	k, err := x509.MarshalECPrivateKey(key)
-	if err != nil {
-		return err
-	}
-	err = writeFile(path, file, k)
-	return err
-}
-
-// UnmarshalPrivateKey loads a PublicKey from the serialized x509 format file
-func UnmarshalPrivateKey(path string, file string) (key *ecdsa.PrivateKey, err error) {
-	k, err := readFile(path, file)
-	if err != nil {
-		return nil, err
-	}
-	key, err = x509.ParseECPrivateKey(k)
-	return key, err
-}
-
-// GenKeys creates a new pub/priv key pair and stores them at the given path.
-func GenKeys(path string) (priv *ecdsa.PrivateKey, err error) {
-	if fileExists(path + "/" + PrivKeyFileName) {
-		return nil, errors.New("keys already exist")
-	}
-	priv, err = ecdsa.GenerateKey(elliptic.P224(), rand.Reader)
+	a.Priv, err = ic.UnmarshalPrivateKey(k)
 	if err != nil {
 		return
 	}
-
-	err = MarshalPrivateKey(path, PrivKeyFileName, priv)
-	if err != nil {
-		return
-	}
-
-	var pub *ecdsa.PublicKey
-	pub = priv.Public().(*ecdsa.PublicKey)
-	err = MarshalPublicKey(path, PubKeyFileName, pub)
-	if err != nil {
-		return
-	}
+	agent = &a
 	return
 }

@@ -21,19 +21,15 @@ func TestInit(t *testing.T) {
 		So(err, ShouldEqual, nil)
 
 		Convey("it should return a service with default values", func() {
-			So(s.DefaultAgent, ShouldEqual, AgentID(agent))
+			So(s.DefaultAgent.ID(), ShouldEqual, AgentID(agent))
 			So(fmt.Sprintf("%v", s.Settings), ShouldEqual, "{6283 true false}")
 		})
 
 		p := d + "/" + DirectoryName
-		Convey("it should create key files", func() {
-			privP, err := UnmarshalPrivateKey(p, PrivKeyFileName)
+		Convey("it should create agent files", func() {
+			a, err := LoadAgent(p)
 			So(err, ShouldEqual, nil)
-
-			pub2, err := UnmarshalPublicKey(p, PubKeyFileName)
-			So(err, ShouldEqual, nil)
-
-			So(fmt.Sprintf("%v", *pub2), ShouldEqual, fmt.Sprintf("%v", privP.PublicKey))
+			So(a.ID(), ShouldEqual, AgentID(agent))
 		})
 
 		Convey("we can detect that it was initialized", func() {
@@ -57,7 +53,7 @@ func TestLoadService(t *testing.T) {
 		So(err, ShouldEqual, nil)
 		So(s.Path, ShouldEqual, root)
 		So(s.Settings.Port, ShouldEqual, DefaultPort)
-		So(s.DefaultAgent, ShouldEqual, AgentID("Herbert <h@bert.com>"))
+		So(s.DefaultAgent.ID(), ShouldEqual, AgentID("Herbert <h@bert.com>"))
 	})
 
 }

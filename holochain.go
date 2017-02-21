@@ -8,9 +8,6 @@ package holochain
 
 import (
 	"bytes"
-	"crypto/ecdsa"
-	"crypto/rand"
-	"crypto/x509"
 	"encoding/gob"
 	"encoding/json"
 	"errors"
@@ -19,10 +16,10 @@ import (
 	"github.com/boltdb/bolt"
 	_ "github.com/ghodss/yaml" // doesn't work!
 	"github.com/google/uuid"
+	ic "github.com/libp2p/go-libp2p-crypto"
 	mh "github.com/multiformats/go-multihash"
 	"io"
 	"io/ioutil"
-	"math/big"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -35,8 +32,9 @@ const Version string = "0.0.1"
 
 // Signing key structure for building KeyEntryType entries
 type KeyEntry struct {
-	ID  AgentID
-	Key []byte // marshaled x509 public key
+	ID      AgentID
+	KeyType KeytypeType
+	Key     []byte // marshaled public key
 }
 
 // Zome struct encapsulates logically related code, from "chromosome"
@@ -60,8 +58,7 @@ type Holochain struct {
 	Zomes     map[string]*Zome
 	//---- private values not serialized; initialized on Load
 	path           string
-	agent          AgentID
-	privKey        *ecdsa.PrivateKey
+	agent          Agent
 	store          Persister
 	encodingFormat string
 	hashCode       uint64
@@ -69,10 +66,8 @@ type Holochain struct {
 	dht            *DHT
 }
 
-// ECDSA signature of an Entry
 type Signature struct {
-	R *big.Int
-	S *big.Int
+	S []byte
 }
 
 // Holochain entry header
@@ -112,7 +107,7 @@ func (s *Service) IsConfigured(name string) (h *Holochain, err error) {
 }
 
 // New creates a new holochain structure with a randomly generated ID and default values
-func New(agent AgentID, key *ecdsa.PrivateKey, path string, zomes ...Zome) Holochain {
+func New(agent Agent, path string, zomes ...Zome) Holochain {
 	u, err := uuid.NewUUID()
 	if err != nil {
 		panic(err)
@@ -121,7 +116,6 @@ func New(agent AgentID, key *ecdsa.PrivateKey, path string, zomes ...Zome) Holoc
 		Id:             u,
 		HashType:       "sha2-256",
 		agent:          agent,
-		privKey:        key,
 		path:           path,
 		encodingFormat: "toml",
 	}
@@ -178,17 +172,16 @@ func (s *Service) Load(name string) (hP *Holochain, err error) {
 	}
 	h.path = path
 
-	// try and get the agent/key from the holochain instance
-	agent, key, err := LoadAgent(path)
+	// try and get the agent from the holochain instance
+	agent, err := LoadAgent(path)
 	if err != nil {
 		// get the default if not available
-		agent, key, err = LoadAgent(filepath.Dir(path))
+		agent, err = LoadAgent(filepath.Dir(path))
 	}
 	if err != nil {
 		return
 	}
 	h.agent = agent
-	h.privKey = key
 
 	h.store, err = CreatePersister(BoltPersisterName, path+"/"+StoreFileName)
 	if err != nil {
@@ -206,6 +199,11 @@ func (s *Service) Load(name string) (hP *Holochain, err error) {
 
 	hP = h
 	return
+}
+
+// Agent exposes the agent element
+func (h *Holochain) Agent() Agent {
+	return h.agent
 }
 
 // PrepareHashType makes sure the given string is a correct multi-hash and stores
@@ -312,13 +310,18 @@ func (h *Holochain) GenChain() (keyHash Hash, err error) {
 	}
 
 	var k KeyEntry
-	k.ID = h.agent
+	k.ID = h.agent.ID()
+	k.KeyType = h.agent.KeyType()
 
-	pk, err := x509.MarshalPKIXPublicKey(h.privKey.Public().(*ecdsa.PublicKey))
+	pk := h.agent.PrivKey().GetPublic()
 	if err != nil {
 		return
 	}
-	k.Key = pk
+
+	k.Key, err = ic.MarshalPublicKey(pk)
+	if err != nil {
+		return
+	}
 
 	e.C = k
 	keyHash, _, err = h.NewEntry(time.Now(), KeyEntryType, &e)
@@ -351,13 +354,12 @@ func GenFrom(src_path string, path string) (hP *Holochain, err error) {
 			return
 		}
 
-		agent, key, err := LoadAgent(filepath.Dir(path))
+		agent, err := LoadAgent(filepath.Dir(path))
 		if err != nil {
 			return
 		}
 		h.path = path
 		h.agent = agent
-		h.privKey = key
 
 		// generate a new UUID
 		u, err := uuid.NewUUID()
@@ -409,7 +411,7 @@ type TestData struct {
 
 func GenDev(path string) (hP *Holochain, err error) {
 	hP, err = gen(path, func(path string) (hP *Holochain, err error) {
-		agent, key, err := LoadAgent(filepath.Dir(path))
+		agent, err := LoadAgent(filepath.Dir(path))
 		if err != nil {
 			return
 		}
@@ -426,7 +428,7 @@ func GenDev(path string) (hP *Holochain, err error) {
 			},
 		}
 
-		h := New(agent, key, path, zomes...)
+		h := New(agent, path, zomes...)
 
 		schema := `{
 	"title": "Profile Schema",
@@ -689,6 +691,7 @@ func (h *Holochain) NewEntry(now time.Time, t string, entry Entry) (hash Hash, h
 	hd.Type = t
 	hd.Time = now
 
+	// get the current top of the chain
 	ph, err := h.Top()
 	if err == nil {
 		hd.HeaderLink = ph
@@ -696,16 +699,21 @@ func (h *Holochain) NewEntry(now time.Time, t string, entry Entry) (hash Hash, h
 	} else {
 		hd.HeaderLink = NullHash()
 	}
+
+	// and also the the top entry of this type
 	ph, err = h.TopType(t)
 	if err == nil {
 		hd.TypeLink = ph
 	} else {
 		hd.TypeLink = NullHash()
 	}
+
+	// now encode the entry into bytes
 	m, err := entry.Marshal()
 	if err != nil {
 		return
 	}
+
 	err = hd.EntryLink.Sum(h, m)
 	if err != nil {
 		return
@@ -717,17 +725,21 @@ func (h *Holochain) NewEntry(now time.Time, t string, entry Entry) (hash Hash, h
 	}
 	hd.EntryLink = HH
 
-	r, s, err := ecdsa.Sign(rand.Reader, h.privKey, hd.EntryLink.H)
+	// sign the hash of the entry
+	sig, err := h.agent.PrivKey().Sign(hd.EntryLink.H)
 	if err != nil {
 		return
 	}
-	hd.MySignature = Signature{R: r, S: s}
+	hd.MySignature = Signature{S: sig}
 
 	b, err := ByteEncoder(&hd)
 	if err != nil {
 		return
 	}
-	hash.Sum(h, b)
+	err = hash.Sum(h, b)
+	if err != nil {
+		return
+	}
 
 	h.store.(*BoltPersister).DB().Update(func(tx *bolt.Tx) error {
 		bkt := tx.Bucket([]byte(EntryBucket))

@@ -2,27 +2,27 @@ package holochain
 
 import (
 	"bytes"
-	"crypto/ecdsa"
 	gob "encoding/gob"
 	"fmt"
 	toml "github.com/BurntSushi/toml"
 	"github.com/google/uuid"
+	ic "github.com/libp2p/go-libp2p-crypto"
 	. "github.com/smartystreets/goconvey/convey"
-	"math/big"
 	"os"
 	"testing"
 	"time"
 )
 
 func TestNew(t *testing.T) {
-	var key ecdsa.PrivateKey
+	a, _ := NewAgent(IPFS, "Joe")
 
 	Convey("New should fill Holochain struct with provided values and new UUID", t, func() {
-		h := New("Joe", &key, "some/path")
+
+		h := New(a, "some/path")
 		nID := string(uuid.NodeID())
 		So(nID, ShouldEqual, string(h.Id.NodeID()))
-		So(h.agent, ShouldEqual, "Joe")
-		So(h.privKey, ShouldEqual, &key)
+		So(h.agent.ID(), ShouldEqual, "Joe")
+		So(h.agent.PrivKey(), ShouldEqual, a.PrivKey())
 		So(h.path, ShouldEqual, "some/path")
 	})
 	Convey("New with Zome should fill them", t, func() {
@@ -35,7 +35,7 @@ func TestNew(t *testing.T) {
 			},
 		}
 
-		h := New("Joe", &key, "some/path", z)
+		h := New(a, "some/path", z)
 		nz := h.Zomes["myZome"]
 		So(nz.Description, ShouldEqual, "zome desc")
 		So(nz.Code, ShouldEqual, "zome_myZome.zy")
@@ -118,9 +118,9 @@ func TestGenFrom(t *testing.T) {
 		h, err := GenFrom("examples/simple", root)
 		So(err, ShouldBeNil)
 		So(h.Name, ShouldEqual, "test")
-		agent, key, err := LoadAgent(s.Path)
-		So(h.agent, ShouldEqual, agent)
-		So(fmt.Sprintf("%v", h.privKey), ShouldEqual, fmt.Sprintf("%v", key))
+		agent, err := LoadAgent(s.Path)
+		So(h.agent.ID(), ShouldEqual, agent.ID())
+		So(ic.KeyEqual(h.agent.PrivKey(), agent.PrivKey()), ShouldBeTrue)
 		src, _ := readFile("examples/simple", "zome_myZome.zy")
 		dst, _ := readFile(root, "zome_myZome.zy")
 		So(string(src), ShouldEqual, string(dst))
@@ -172,11 +172,11 @@ func TestNewEntry(t *testing.T) {
 	//}
 
 	Convey("it should have signed the entry with my key", t, func() {
-		pub, err := UnmarshalPublicKey(s.Path, PubKeyFileName)
-		ExpectNoErr(t, err)
 		sig := header.MySignature
 		hash := header.EntryLink.H
-		So(ecdsa.Verify(pub, hash, sig.R, sig.S), ShouldBeTrue)
+		valid, err := h.agent.PrivKey().GetPublic().Verify(hash, sig.S)
+		So(err, ShouldBeNil)
+		So(valid, ShouldBeTrue)
 	})
 
 	Convey("it should store the header and entry to the data store", t, func() {
@@ -265,7 +265,7 @@ func TestGenChain(t *testing.T) {
 		So(err, ShouldBeNil)
 		header = hdr
 		var k KeyEntry = entry.(KeyEntry)
-		So(k.ID, ShouldEqual, h.agent)
+		So(k.ID, ShouldEqual, h.agent.ID())
 		//So(k.Key,ShouldEqual,"something?") // test that key got correctly retrieved
 	})
 
@@ -460,11 +460,9 @@ func mkTestHeader(t string) Header {
 	el, _ := NewHash("2vemK25pc5ewYtztPGYAdX39uXuyV13xdouCnZUr8RMA")
 	now := time.Unix(1, 1) // pick a constant time so the test will always work
 	h1 := Header{Time: now, Type: t, Meta: "dog",
-		HeaderLink:  hl,
-		EntryLink:   el,
-		MySignature: Signature{R: new(big.Int), S: new(big.Int)},
+		HeaderLink: hl,
+		EntryLink:  el,
 	}
-	h1.MySignature.R.SetUint64(123)
-	h1.MySignature.S.SetUint64(321)
+	//h1.MySignature.S.321)
 	return h1
 }

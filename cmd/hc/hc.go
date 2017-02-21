@@ -90,16 +90,24 @@ func SetupApp() (app *cli.App) {
 					Usage:     "generate separate key pair for entry signing on a specific holochain",
 					ArgsUsage: "holochain-name",
 					Action: func(c *cli.Context) error {
-						name, err := checkForName(c, "gen keys")
-						if err != nil {
-							return err
-						}
-						chains, _ := service.ConfiguredChains()
-						if chains[name] == nil {
-							return errors.New(name + " doesn't exist")
-						}
-						_, err = holo.GenKeys(root + "/" + name)
-						return err
+						// need to implement this later when this would
+						// check to see if the chain is started, and if so
+						// actually add a new KeyEntry to a chain, otherwise
+						// it could just add chain specific files.
+						return errors.New("not yet implemented")
+						/*
+							name, err := checkForName(c, "gen keys")
+							if err != nil {
+								return err
+							}
+							h, err := service.Load(name)
+							if err != nil {
+								return err
+							}
+							h.agent.GenKeys()
+							err = holo.SaveAgent(h.path, h.agent)
+							return err*/
+
 					},
 				},
 				{
@@ -145,7 +153,7 @@ func SetupApp() (app *cli.App) {
 				if agent == "" {
 					return errors.New("missing required agent-id argument to init")
 				}
-				_, err := holo.Init(userPath, holo.Agent(agent))
+				_, err := holo.Init(userPath, holo.AgentID(agent))
 				if err == nil {
 					fmt.Println("Holochain service initialized")
 					if verbose {

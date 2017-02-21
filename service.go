@@ -6,7 +6,6 @@
 package holochain
 
 import (
-	"crypto/ecdsa"
 	"github.com/BurntSushi/toml"
 	"io/ioutil"
 	"os"
@@ -39,8 +38,7 @@ type Config struct {
 // Holochain service data structure
 type Service struct {
 	Settings     Config
-	DefaultAgent AgentID
-	DefaultKey   *ecdsa.PrivateKey
+	DefaultAgent Agent
 	Path         string
 }
 
@@ -62,8 +60,7 @@ func Init(path string, agent AgentID) (service *Service, err error) {
 			Port:           DefaultPort,
 			PeerModeAuthor: true,
 		},
-		DefaultAgent: agent,
-		Path:         p,
+		Path: p,
 	}
 
 	err = writeToml(p, SysFileName, s.Settings, false)
@@ -71,26 +68,29 @@ func Init(path string, agent AgentID) (service *Service, err error) {
 		return
 	}
 
-	k, err := NewAgent(p, agent)
+	a, err := NewAgent(IPFS, agent)
+	if err != nil {
+		return
+	}
+	err = SaveAgent(p, a)
 	if err != nil {
 		return
 	}
 
-	s.DefaultKey = k
+	s.DefaultAgent = a
 
 	service = &s
 	return
 }
 
 func LoadService(path string) (service *Service, err error) {
-	agent, key, err := LoadAgent(path)
+	agent, err := LoadAgent(path)
 	if err != nil {
 		return
 	}
 	s := Service{
 		Path:         path,
 		DefaultAgent: agent,
-		DefaultKey:   key,
 	}
 
 	_, err = toml.DecodeFile(path+"/"+SysFileName, &s.Settings)

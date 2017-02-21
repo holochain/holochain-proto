@@ -31,8 +31,6 @@ func TestNewDHT(t *testing.T) {
 	})
 }
 
-/*
-
 func TestFindNodeForHash(t *testing.T) {
 	d, _, h := prepareTestChain("test")
 	defer cleanupTestDir(d)
@@ -45,12 +43,17 @@ func TestFindNodeForHash(t *testing.T) {
 		if err != nil {
 			panic(err)
 		}
-		node, err := h.dht.FindNodeForHash(NewHash("2vemK25pc5ewYtztPGYAdX39uXuyV13xdouCnZUr8RMA"))
+		hash, err := NewHash("QmY8Mzg9F69e5P9AoQPYat655HEhc1TVGs11tmfNSzkqh2")
+		if err != nil {
+			panic(err)
+		}
+		node, err := h.dht.FindNodeForHash(hash)
 		So(err, ShouldBeNil)
-		So(node.HashAddr, ShouldEqual, self)
+		So(node.HashAddr.String(), ShouldEqual, self.String())
 	})
 }
 
+/*
 func TestSend(t *testing.T) {
 	d, _, h := prepareTestChain("test")
 	defer cleanupTestDir(d)

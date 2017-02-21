@@ -1,37 +1,29 @@
 package holochain
 
 import (
-	"fmt"
+	ic "github.com/libp2p/go-libp2p-crypto"
 	. "github.com/smartystreets/goconvey/convey"
 	"testing"
 )
 
-func TestKeys(t *testing.T) {
-	d := setupTestDir()
-	defer cleanupTestDir(d)
-
-	Convey("generating keys should marshal key files that can be unmarshaled", t, func() {
-		p, err := GenKeys(d)
-		So(err, ShouldEqual, nil)
-		p2, err := UnmarshalPrivateKey(d, PrivKeyFileName)
-		So(err, ShouldEqual, nil)
-		So(fmt.Sprintf("%v", p), ShouldEqual, fmt.Sprintf("%v", p2))
-		pub, err := UnmarshalPublicKey(d, PubKeyFileName)
-		So(fmt.Sprintf("%v", p.Public()), ShouldEqual, fmt.Sprintf("%v", pub))
-	})
-}
-
 func TestAgent(t *testing.T) {
 	d := setupTestDir()
 	defer cleanupTestDir(d)
+	a := AgentID("zippy@someemail.com")
 
+	Convey("it should fail to create an agent with an unknown key type", t, func() {
+		_, err := NewAgent(99, a)
+		So(err.Error(), ShouldEqual, "unknown key type: 99")
+	})
 	Convey("it should be create a new agent that is saved to a file and then loadable", t, func() {
-		a1 := AgentID("zippy@someemail.com")
-		p1, err := NewAgent(d, a1)
+		a1, err := NewAgent(IPFS, a)
 		So(err, ShouldBeNil)
-		a2, p2, err := LoadAgent(d)
+		err = SaveAgent(d, a1)
 		So(err, ShouldBeNil)
-		So(a2, ShouldEqual, a1)
-		So(fmt.Sprintf("%v", p2), ShouldEqual, fmt.Sprintf("%v", p1))
+		a2, err := LoadAgent(d)
+		So(err, ShouldBeNil)
+		So(a2.ID(), ShouldEqual, a1.ID())
+		So(ic.KeyEqual(a1.PrivKey(), a2.PrivKey()), ShouldBeTrue)
+
 	})
 }

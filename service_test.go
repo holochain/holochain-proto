@@ -16,12 +16,12 @@ func TestInit(t *testing.T) {
 
 	agent := "Fred Flintstone <fred@flintstone.com>"
 
-	s, err := Init(d, Agent(agent))
+	s, err := Init(d, AgentID(agent))
 	Convey("when initializing service in a directory", t, func() {
 		So(err, ShouldEqual, nil)
 
 		Convey("it should return a service with default values", func() {
-			So(s.DefaultAgent, ShouldEqual, Agent(agent))
+			So(s.DefaultAgent, ShouldEqual, AgentID(agent))
 			So(fmt.Sprintf("%v", s.Settings), ShouldEqual, "{6283 true false}")
 		})
 
@@ -57,7 +57,7 @@ func TestLoadService(t *testing.T) {
 		So(err, ShouldEqual, nil)
 		So(s.Path, ShouldEqual, root)
 		So(s.Settings.Port, ShouldEqual, DefaultPort)
-		So(s.DefaultAgent, ShouldEqual, Agent("Herbert <h@bert.com>"))
+		So(s.DefaultAgent, ShouldEqual, AgentID("Herbert <h@bert.com>"))
 	})
 
 }

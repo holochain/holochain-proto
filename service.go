@@ -39,7 +39,7 @@ type Config struct {
 // Holochain service data structure
 type Service struct {
 	Settings     Config
-	DefaultAgent Agent
+	DefaultAgent AgentID
 	DefaultKey   *ecdsa.PrivateKey
 	Path         string
 }
@@ -51,7 +51,7 @@ func IsInitialized(path string) bool {
 }
 
 //Init initializes service defaults including a signing key pair for an agent
-func Init(path string, agent Agent) (service *Service, err error) {
+func Init(path string, agent AgentID) (service *Service, err error) {
 	p := path + "/" + DirectoryName
 	err = os.MkdirAll(p, os.ModePerm)
 	if err != nil {
@@ -71,15 +71,11 @@ func Init(path string, agent Agent) (service *Service, err error) {
 		return
 	}
 
-	writeFile(p, AgentFileName, []byte(agent))
+	k, err := NewAgent(p, agent)
 	if err != nil {
 		return
 	}
 
-	k, err := GenKeys(p)
-	if err != nil {
-		return
-	}
 	s.DefaultKey = k
 
 	service = &s
@@ -87,7 +83,7 @@ func Init(path string, agent Agent) (service *Service, err error) {
 }
 
 func LoadService(path string) (service *Service, err error) {
-	agent, key, err := LoadSigner(path)
+	agent, key, err := LoadAgent(path)
 	if err != nil {
 		return
 	}

@@ -21,7 +21,7 @@ func mkTestDirName() string {
 
 func setupTestService() (d string, s *Service) {
 	d = mkTestDirName()
-	agent := Agent("Herbert <h@bert.com>")
+	agent := AgentID("Herbert <h@bert.com>")
 	s, err := Init(d, agent)
 	if err != nil {
 		panic(err)

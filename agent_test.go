@@ -20,3 +20,18 @@ func TestKeys(t *testing.T) {
 		So(fmt.Sprintf("%v", p.Public()), ShouldEqual, fmt.Sprintf("%v", pub))
 	})
 }
+
+func TestAgent(t *testing.T) {
+	d := setupTestDir()
+	defer cleanupTestDir(d)
+
+	Convey("it should be create a new agent that is saved to a file and then loadable", t, func() {
+		a1 := AgentID("zippy@someemail.com")
+		p1, err := NewAgent(d, a1)
+		So(err, ShouldBeNil)
+		a2, p2, err := LoadAgent(d)
+		So(err, ShouldBeNil)
+		So(a2, ShouldEqual, a1)
+		So(fmt.Sprintf("%v", p2), ShouldEqual, fmt.Sprintf("%v", p1))
+	})
+}

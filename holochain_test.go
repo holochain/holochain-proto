@@ -118,7 +118,7 @@ func TestGenFrom(t *testing.T) {
 		h, err := GenFrom("examples/simple", root)
 		So(err, ShouldBeNil)
 		So(h.Name, ShouldEqual, "test")
-		agent, key, err := LoadSigner(s.Path)
+		agent, key, err := LoadAgent(s.Path)
 		So(h.agent, ShouldEqual, agent)
 		So(fmt.Sprintf("%v", h.privKey), ShouldEqual, fmt.Sprintf("%v", key))
 		src, _ := readFile("examples/simple", "zome_myZome.zy")

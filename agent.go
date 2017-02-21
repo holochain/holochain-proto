@@ -11,7 +11,35 @@ import (
 	"crypto/rand"
 	"crypto/x509"
 	"errors"
+	//	ic "github.com/libp2p/go-libp2p-crypto"
 )
+
+// Unique user identifier in context of this holochain
+type AgentID string
+
+// NewAgent generates keys and saves them to the given directory
+func NewAgent(path string, agent AgentID) (k *ecdsa.PrivateKey, err error) {
+	writeFile(path, AgentFileName, []byte(agent))
+	if err != nil {
+		return
+	}
+	k, err = GenKeys(path)
+	if err != nil {
+		return
+	}
+	return
+}
+
+// LoadAgent gets the agent and signing key from the specified directory
+func LoadAgent(path string) (agent AgentID, key *ecdsa.PrivateKey, err error) {
+	a, err := readFile(path, AgentFileName)
+	if err != nil {
+		return
+	}
+	agent = AgentID(a)
+	key, err = UnmarshalPrivateKey(path, PrivKeyFileName)
+	return
+}
 
 // MarshalPublicKey stores a PublicKey to a serialized x509 format file
 func MarshalPublicKey(path string, file string, key *ecdsa.PublicKey) error {

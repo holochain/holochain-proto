@@ -33,12 +33,9 @@ import (
 
 const Version string = "0.0.1"
 
-// Unique user identifier in context of this holochain
-type Agent string
-
-// Signing key structure for building KeyEntryTypea entries
+// Signing key structure for building KeyEntryType entries
 type KeyEntry struct {
-	ID  Agent
+	ID  AgentID
 	Key []byte // marshaled x509 public key
 }
 
@@ -63,7 +60,7 @@ type Holochain struct {
 	Zomes     map[string]*Zome
 	//---- private values not serialized; initialized on Load
 	path           string
-	agent          Agent
+	agent          AgentID
 	privKey        *ecdsa.PrivateKey
 	store          Persister
 	encodingFormat string
@@ -115,7 +112,7 @@ func (s *Service) IsConfigured(name string) (h *Holochain, err error) {
 }
 
 // New creates a new holochain structure with a randomly generated ID and default values
-func New(agent Agent, key *ecdsa.PrivateKey, path string, zomes ...Zome) Holochain {
+func New(agent AgentID, key *ecdsa.PrivateKey, path string, zomes ...Zome) Holochain {
 	u, err := uuid.NewUUID()
 	if err != nil {
 		panic(err)
@@ -182,10 +179,10 @@ func (s *Service) Load(name string) (hP *Holochain, err error) {
 	h.path = path
 
 	// try and get the agent/key from the holochain instance
-	agent, key, err := LoadSigner(path)
+	agent, key, err := LoadAgent(path)
 	if err != nil {
 		// get the default if not available
-		agent, key, err = LoadSigner(filepath.Dir(path))
+		agent, key, err = LoadAgent(filepath.Dir(path))
 	}
 	if err != nil {
 		return
@@ -354,7 +351,7 @@ func GenFrom(src_path string, path string) (hP *Holochain, err error) {
 			return
 		}
 
-		agent, key, err := LoadSigner(filepath.Dir(path))
+		agent, key, err := LoadAgent(filepath.Dir(path))
 		if err != nil {
 			return
 		}
@@ -412,7 +409,7 @@ type TestData struct {
 
 func GenDev(path string) (hP *Holochain, err error) {
 	hP, err = gen(path, func(path string) (hP *Holochain, err error) {
-		agent, key, err := LoadSigner(filepath.Dir(path))
+		agent, key, err := LoadAgent(filepath.Dir(path))
 		if err != nil {
 			return
 		}
@@ -683,17 +680,6 @@ func (h *Holochain) GenDNAHashes() (err error) {
 
 	}
 	err = h.SaveDNA(true)
-	return
-}
-
-//LoadSigner gets the agent and signing key from the specified directory
-func LoadSigner(path string) (agent Agent, key *ecdsa.PrivateKey, err error) {
-	a, err := readFile(path, AgentFileName)
-	if err != nil {
-		return
-	}
-	agent = Agent(a)
-	key, err = UnmarshalPrivateKey(path, PrivKeyFileName)
 	return
 }
 

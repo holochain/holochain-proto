@@ -92,8 +92,6 @@ You can inspect the contents of a particular chain with:
     hc dump <NAME>
 
 
-
-
 ## Architecture
 ### Functional Domains
 Holochains, by design, should be used in the context of a group operating by a shared set of agreements. Generally speaking, you don't need a holochain if you are just managing your own data.
@@ -134,21 +132,37 @@ Find additional documentation in the [Holochain Wiki](https://github.com/metacur
 
 You can also find the [auto-generated Reference API for Holochain on GoDocs](https://godoc.org/github.com/metacurrency/holochain)
 
-## Testing
-
-To compile and run all the tests:
-
-    cd $GOPATH/github.com/metacurrency/holochain
-    go test
-
 ## Development -- [![In Progress](https://badge.waffle.io/metacurrency/holochain.svg?label=in%20progress&title=In%20Progress)](http://waffle.io/metacurrency/holochain)
 We accept Pull Requests and welcome your participation.
  * [Milestones](https://github.com/metacurrency/holochain/milestones?direction=asc&sort=due_date&state=all) and progress on Roadmap
- * Kanban on [Waffle]((https://waffle.io/metacurrency/holochain)) of GitHub issues
+ * Kanban on [Waffle](https://waffle.io/metacurrency/holochain) of GitHub issues
  * Or [chat with us on gitter](https://gitter.im/metacurrency/holochain)
 
 [![Throughput Graph](http://graphs.waffle.io/metacurrency/holochain/throughput.svg)](https://waffle.io/metacurrency/holochain/metrics)
 
+### Dependencies
+
+This project depends on various parts of [libp2p](https://github.com/libp2p/go-libp2p), which uses the [gx](https://github.com/whyrusleeping/gx) package manager.  This means that installation doesn't follow the normal "go get" process but instead also requires a make step.  Thus, to install the code and dependencies run:
+
+    go get github.com/metacurrency/holochain/
+    make deps
+
+Note that `make deps` has a side-effect of re-writing some of the imports in various files.  When you are ready to make commits to your repo, you must run:
+
+    make publish
+
+To redo those rewrites and continue working you can run:
+
+    make work
+
+### Tests
+
+To compile and run all the tests:
+
+    cd $GOPATH/github.com/metacurrency/holochain
+    make test
+
+Or if you have already done the first `make deps` step, you can simply use `go test` as usual.
 
 ### Contributor Guidelines
 

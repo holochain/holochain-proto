@@ -43,7 +43,6 @@ To install the holochain command line interface, run:
 ```
 $ go get -d github.com/metacurrency/holochain
 $ make
-$ go install ./cmd/hc
 ```
 
 Make sure your `PATH` includes the `$GOPATH/bin` directory so the program it builds can be easily called:

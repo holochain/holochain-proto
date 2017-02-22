@@ -7,14 +7,14 @@ test: deps
 	go test -v ./...
 
 gx:
-	go get -u github.com/whyrusleeping/gx
-	go get -u github.com/whyrusleeping/gx-go
+	go get github.com/whyrusleeping/gx
+	go get github.com/whyrusleeping/gx-go
 
 gxinstall:
 	gx --verbose install --global
 
 deps: gx gxinstall work
-	go get -d ./..
+	go get -d ./...
 
 work:
 	gx-go rewrite

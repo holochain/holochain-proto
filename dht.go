@@ -8,6 +8,7 @@ package holochain
 
 import (
 	"errors"
+	peer "github.com/libp2p/go-libp2p-peer"
 )
 
 type DHTMsgType int8
@@ -22,12 +23,6 @@ type DHT struct {
 	store map[string][]byte // the store used to persist data this node is responsible for
 	h     *Holochain        // pointer to the holochain this DHT is part of
 	Queue []Message
-}
-
-// Node represents a node in the network
-type Node struct {
-	HashAddr    Hash
-	NetworkAddr string
 }
 
 // Message represents data that can be sent to node in the network
@@ -76,13 +71,12 @@ func (dht *DHT) Send(n *Node, msg *Message) (err error) {
 func (dht *DHT) FindNodeForHash(key Hash) (n *Node, err error) {
 
 	// for now, the node it returns is self!
-	var self Hash
-	self, err = dht.h.TopType(KeyEntryType)
+	pid, err := peer.IDFromPrivateKey(dht.h.Agent().PrivKey())
 	if err != nil {
 		return
 	}
 	var node Node
-	node.HashAddr = self
+	node.HashAddr = pid
 
 	n = &node
 

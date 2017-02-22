@@ -1,0 +1,23 @@
+{
+  "author": "zippy",
+  "bugs": {
+    "url": "https://github.com/metacurrency/holochain/issues"
+  },
+  "gx": {
+    "dvcsimport": "github.com/metacurrency/holochain"
+  },
+  "gxDependencies": [
+    {
+      "author": "whyrusleeping",
+      "hash": "QmSNJRX4uphb3Eyp69uYbpRVvgqjPxfjnJmjcdMWkDH5Pn",
+      "name": "go-libp2p",
+      "version": "4.3.9"
+    }
+  ],
+  "gxVersion": "0.11.0",
+  "language": "go",
+  "license": "GPL3",
+  "name": "holochain",
+  "releaseCmd": "git commit -a -m \"gx publish $VERSION\"",
+  "version": "0.0.0"
+}

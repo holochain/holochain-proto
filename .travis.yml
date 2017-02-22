@@ -7,8 +7,7 @@ language: go
 install: true
 
 before_install:
-  - make deps
-  - go get -t
+  - make testdeps
 
 script:
   - go test ./... -v

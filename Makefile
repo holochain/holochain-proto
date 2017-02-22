@@ -3,7 +3,7 @@ all: deps hc
 hc: deps
 	go install ./cmd/hc
 
-test: deps
+test: testdeps
 	go test -v ./...
 
 gx:
@@ -15,6 +15,9 @@ gxinstall:
 
 deps: gx gxinstall work
 	go get -d ./...
+
+testdeps: deps
+	-go get -t
 
 work:
 	gx-go rewrite

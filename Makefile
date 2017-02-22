@@ -1,3 +1,8 @@
+all: deps hc
+
+hc: deps
+	go install ./cmd/hc
+
 test: deps
 	go test -v ./...
 
@@ -5,10 +10,11 @@ gx:
 	go get -u github.com/whyrusleeping/gx
 	go get -u github.com/whyrusleeping/gx-go
 
-install:
+gxinstall:
 	gx --verbose install --global
 
-deps: gx install work
+deps: gx gxinstall work
+	go get -d
 
 work:
 	gx-go rewrite

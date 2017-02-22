@@ -39,9 +39,11 @@ In other words, a holochain functions very much **like a blockchain without bott
 
 Make sure you have a working environment set up for the Go language. [See the installation instructions for Go](http://golang.org/doc/install.html). Follow their instructions for setting your $GOPATH too.
 
-To install the holochain command line interface, just run:
+To install the holochain command line interface, run:
 ```
-$ go get github.com/metacurrency/holochain/cmd/hc
+$ go get -d github.com/metacurrency/holochain
+$ make
+$ go install ./cmd/hc
 ```
 
 Make sure your `PATH` includes the `$GOPATH/bin` directory so the program it builds can be easily called:

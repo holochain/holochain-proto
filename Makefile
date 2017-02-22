@@ -1,5 +1,5 @@
 test: deps
-	go test
+	go test -v ./...
 
 gx:
 	go get -u github.com/whyrusleeping/gx

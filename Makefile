@@ -14,7 +14,7 @@ gxinstall:
 	gx --verbose install --global
 
 deps: gx gxinstall work
-	go get -d
+	go get -d ./..
 
 work:
 	gx-go rewrite

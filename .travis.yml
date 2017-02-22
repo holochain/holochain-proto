@@ -12,3 +12,7 @@ before_install:
 
 script:
   - go test ./... -v
+
+cache:
+    directories:
+        - $GOPATH/src/gx

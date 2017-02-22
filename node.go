@@ -10,7 +10,9 @@ import (
 	"context"
 	_ "errors"
 	//	host "github.com/libp2p/go-libp2p-host"
+	"encoding/gob"
 	"errors"
+	"fmt"
 	ic "github.com/libp2p/go-libp2p-crypto"
 	net "github.com/libp2p/go-libp2p-net"
 	peer "github.com/libp2p/go-libp2p-peer"
@@ -19,7 +21,27 @@ import (
 	swarm "github.com/libp2p/go-libp2p-swarm"
 	bhost "github.com/libp2p/go-libp2p/p2p/host/basic"
 	ma "github.com/multiformats/go-multiaddr"
+	"io"
 )
+
+type MsgType int8
+
+const (
+	// common messages
+	ERROR_RESPONSE MsgType = iota
+	OK_RESPONSE
+	// DHT messages
+	PUT_REQUEST
+	GET_REQUEST
+	// Source Messages
+	SRC_VALIDATE
+)
+
+// Message represents data that can be sent to node in the network
+type Message struct {
+	Type MsgType
+	Body interface{}
+}
 
 // Node represents a node in the network
 type Node struct {
@@ -66,10 +88,56 @@ func NewNode(listenAddr string, priv ic.PrivKey) (node *Node, err error) {
 	return
 }
 
+// Encode codes a message to gob format @TODO generalize
+func (m *Message) Encode() (data []byte, err error) {
+	data, err = ByteEncoder(m)
+	if err != nil {
+		return
+	}
+	return
+}
+
+// Decode converts a message from gob format @TODO generalize
+func (m *Message) Decode(r io.Reader) (err error) {
+	dec := gob.NewDecoder(r)
+	err = dec.Decode(m)
+	return
+}
+
+func respondWith(s net.Stream, err error, body interface{}) {
+	var m Message
+	if err != nil {
+		m.Type = ERROR_RESPONSE
+		m.Body = err.Error()
+	} else {
+		m.Type = OK_RESPONSE
+		m.Body = nil
+	}
+	data, err := m.Encode()
+	if err != nil {
+		panic(err) //TODO can't panic, gotta do something else!
+	}
+	_, err = s.Write(data)
+	if err != nil {
+		panic(err) //TODO can't panic, gotta do something else!
+	}
+
+}
+
 // StartDHT initiates listening for DHT protocol messages on the node
 func (node *Node) StartDHT() (err error) {
 	node.Host.SetStreamHandler(DHTProtocol, func(s net.Stream) {
-		//	defer s.Close()
+		var m Message
+		err := m.Decode(s)
+		if err == nil {
+			switch m.Type {
+			case PUT_REQUEST:
+			case GET_REQUEST:
+			default:
+				err = fmt.Errorf("message type %d not in holochain-dht protocol", int(m.Type))
+			}
+		}
+		respondWith(s, err, nil)
 	})
 	return
 }
@@ -77,7 +145,16 @@ func (node *Node) StartDHT() (err error) {
 // StartSrc initiates listening for Source protocol messages on the node
 func (node *Node) StartSrc() (err error) {
 	node.Host.SetStreamHandler(SourceProtocol, func(s net.Stream) {
-		//	defer s.Close()
+		var m Message
+		err := m.Decode(s)
+		if err == nil {
+			switch m.Type {
+			case SRC_VALIDATE:
+			default:
+				err = fmt.Errorf("message type %d not in holochain-src protocol", int(m.Type))
+			}
+		}
+		respondWith(s, err, nil)
 	})
 	return
 }
@@ -88,12 +165,19 @@ func (node *Node) Close() error {
 }
 
 // Send delivers a message to a node via the given protocol
-func (node *Node) Send(proto protocol.ID, addr peer.ID, data []byte) (err error) {
+func (node *Node) Send(proto protocol.ID, addr peer.ID, m *Message) (response Message, err error) {
 	s, err := node.Host.NewStream(context.Background(), addr, proto)
 	if err != nil {
 		return
 	}
 	defer s.Close()
+
+	// encode the message and send it
+	data, err := m.Encode()
+	if err != nil {
+		return
+	}
+
 	n, err := s.Write(data)
 	if err != nil {
 		return
@@ -101,5 +185,12 @@ func (node *Node) Send(proto protocol.ID, addr peer.ID, data []byte) (err error)
 	if n != len(data) {
 		err = errors.New("unable to send all data")
 	}
+
+	// decode the response
+	err = response.Decode(s)
+	if err != nil {
+		return
+	}
+	return
 	return
 }

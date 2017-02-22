@@ -11,24 +11,11 @@ import (
 	peer "github.com/libp2p/go-libp2p-peer"
 )
 
-type DHTMsgType int8
-
-const (
-	PUT_REQUEST DHTMsgType = iota
-	GET_REQUEST
-)
-
 // DHT struct holds the data necessary to run the distributed hash table
 type DHT struct {
 	store map[string][]byte // the store used to persist data this node is responsible for
 	h     *Holochain        // pointer to the holochain this DHT is part of
 	Queue []Message
-}
-
-// Message represents data that can be sent to node in the network
-type Message struct {
-	Type DHTMsgType
-	Body interface{}
 }
 
 func NewDHT(h *Holochain) *DHT {
@@ -83,7 +70,7 @@ func (dht *DHT) FindNodeForHash(key Hash) (n *Node, err error) {
 	return
 }
 
-func makeMessage(t DHTMsgType, body interface{}) (msg *Message, err error) {
+func makeMessage(t MsgType, body interface{}) (msg *Message, err error) {
 	m := Message{Type: t, Body: body}
 	msg = &m
 	return

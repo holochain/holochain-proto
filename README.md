@@ -148,11 +148,13 @@ This project depends on various parts of [libp2p](https://github.com/libp2p/go-l
     go get github.com/metacurrency/holochain/
     make deps
 
-Note that `make deps` has a side-effect of re-writing some of the imports in various files.  When you are ready to make commits to your repo, you must run:
+If you already installed the hc command line interface the dependencies will have been installed, and this step is unnecessary.
+
+Note that `make` and `make deps` have a side-effect of re-writing some of the imports in various files.  This is how `gx` handles dependencies on specific versions of go imports.  But this means that when you are ready to make commits to your repo, you must undo these re-writes so they don't get committed to the repo.  You can do this with:
 
     make publish
 
-To redo those rewrites and continue working you can run:
+After you have made your commit and are ready to continue working, you can redo those rewrites without re-running the full dependency install with:
 
     make work
 
@@ -163,7 +165,7 @@ To compile and run all the tests:
     cd $GOPATH/github.com/metacurrency/holochain
     make test
 
-Or if you have already done the first `make deps` step, you can simply use `go test` as usual.
+Or if you have already done the initial `make` or `make deps` step, you can simply use `go test` as usual.
 
 ### Contributor Guidelines
 

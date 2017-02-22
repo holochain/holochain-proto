@@ -53,9 +53,39 @@ func TestNewNode(t *testing.T) {
 		So(err, ShouldBeNil)
 		So(payload, ShouldEqual, "greetings")
 		So(string(out), ShouldEqual, "I got: greetings")
+		node2.Close()
+	})
+	node.Close()
+}
 
+func TestNodeSend(t *testing.T) {
+
+	node1, err := makeNode(1234, "node1")
+	if err != nil {
+		panic(err)
+	}
+	node2, err := makeNode(1235, "node2")
+	if err != nil {
+		panic(err)
+	}
+	Convey("It should start the DHT protocol", t, func() {
+		err := node1.StartDHT()
+		So(err, ShouldBeNil)
+	})
+	Convey("It should start the Src protocol", t, func() {
+		err := node2.StartSrc()
+		So(err, ShouldBeNil)
 	})
 
+	Convey("It should send", t, func() {
+		node1.Host.Peerstore().AddAddr(node2.HashAddr, node2.NetAddr, pstore.PermanentAddrTTL)
+		node2.Host.Peerstore().AddAddr(node1.HashAddr, node1.NetAddr, pstore.PermanentAddrTTL)
+		err = node2.Send(DHTProtocol, node1.HashAddr, []byte("some data"))
+		So(err, ShouldBeNil)
+		err = node1.Send(SourceProtocol, node2.HashAddr, []byte("some data"))
+		So(err, ShouldBeNil)
+
+	})
 }
 
 func makeNode(port int, id string) (*Node, error) {

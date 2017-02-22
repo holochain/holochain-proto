@@ -10,9 +10,12 @@ import (
 	"context"
 	_ "errors"
 	//	host "github.com/libp2p/go-libp2p-host"
+	"errors"
 	ic "github.com/libp2p/go-libp2p-crypto"
+	net "github.com/libp2p/go-libp2p-net"
 	peer "github.com/libp2p/go-libp2p-peer"
 	pstore "github.com/libp2p/go-libp2p-peerstore"
+	protocol "github.com/libp2p/go-libp2p-protocol"
 	swarm "github.com/libp2p/go-libp2p-swarm"
 	bhost "github.com/libp2p/go-libp2p/p2p/host/basic"
 	ma "github.com/multiformats/go-multiaddr"
@@ -25,6 +28,12 @@ type Node struct {
 	Host     *bhost.BasicHost
 }
 
+const (
+	DHTProtocol    = protocol.ID("/holochain-dht/0.0.0")
+	SourceProtocol = protocol.ID("/holochain-src/0.0.0")
+)
+
+// NewNode creates a new ipfs basichost node with given identity
 func NewNode(listenAddr string, priv ic.PrivKey) (node *Node, err error) {
 	var n Node
 	n.NetAddr, err = ma.NewMultiaddr(listenAddr)
@@ -54,5 +63,43 @@ func NewNode(listenAddr string, priv ic.PrivKey) (node *Node, err error) {
 		return
 	}
 	node = &n
+	return
+}
+
+// StartDHT initiates listening for DHT protocol messages on the node
+func (node *Node) StartDHT() (err error) {
+	node.Host.SetStreamHandler(DHTProtocol, func(s net.Stream) {
+		//	defer s.Close()
+	})
+	return
+}
+
+// StartSrc initiates listening for Source protocol messages on the node
+func (node *Node) StartSrc() (err error) {
+	node.Host.SetStreamHandler(SourceProtocol, func(s net.Stream) {
+		//	defer s.Close()
+	})
+	return
+}
+
+// Close shuts down the node
+func (node *Node) Close() error {
+	return node.Host.Close()
+}
+
+// Send delivers a message to a node via the given protocol
+func (node *Node) Send(proto protocol.ID, addr peer.ID, data []byte) (err error) {
+	s, err := node.Host.NewStream(context.Background(), addr, proto)
+	if err != nil {
+		return
+	}
+	defer s.Close()
+	n, err := s.Write(data)
+	if err != nil {
+		return
+	}
+	if n != len(data) {
+		err = errors.New("unable to send all data")
+	}
 	return
 }

@@ -98,7 +98,7 @@ func TestGenDev(t *testing.T) {
 		So(lh.ID, ShouldEqual, h.ID)
 		lh.store.Close()
 
-		So(fileExists(h.path+"/profile_schema.json"), ShouldBeTrue)
+		So(fileExists(h.path+"/schema_profile.json"), ShouldBeTrue)
 		So(fileExists(h.path+"/ui/index.html"), ShouldBeTrue)
 
 		Convey("we should not be able re generate it", func() {
@@ -125,7 +125,7 @@ func TestGenFrom(t *testing.T) {
 		dst, _ := readFile(root, "zome_myZome.zy")
 		So(string(src), ShouldEqual, string(dst))
 		So(fileExists(h.path+"/ui/index.html"), ShouldBeTrue)
-		So(fileExists(h.path+"/profile_schema.json"), ShouldBeTrue)
+		So(fileExists(h.path+"/schema_profile.json"), ShouldBeTrue)
 
 	})
 }
@@ -379,7 +379,7 @@ func TestValidateEntry(t *testing.T) {
 		profile = `{"firstName":"Eric"}` // missing required lastName
 		err = h.ValidateEntry(hdr.Type, profile)
 		So(err, ShouldNotBeNil)
-		So(err.Error(), ShouldEqual, "validator profile_schema.json failed: object property 'lastName' is required")
+		So(err.Error(), ShouldEqual, "validator schema_profile.json failed: object property 'lastName' is required")
 	})
 }
 

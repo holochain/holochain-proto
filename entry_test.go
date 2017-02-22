@@ -55,7 +55,7 @@ func TestJSONSchemaValidator(t *testing.T) {
 	},
 	"required": ["firstName", "lastName"]
 }`
-	ed := EntryDef{Schema: "profile_schema.json"}
+	ed := EntryDef{Schema: "schema_profile.json"}
 
 	if err := writeFile(d, ed.Schema, []byte(schema)); err != nil {
 		panic(err)
@@ -80,6 +80,6 @@ func TestJSONSchemaValidator(t *testing.T) {
 
 		err = ed.validator.Validate(input)
 		So(err, ShouldNotBeNil)
-		So(err.Error(), ShouldEqual, "validator profile_schema.json failed: object property 'lastName' is required")
+		So(err.Error(), ShouldEqual, "validator schema_profile.json failed: object property 'lastName' is required")
 	})
 }

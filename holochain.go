@@ -423,7 +423,7 @@ func GenDev(path string) (hP *Holochain, err error) {
 				Entries: map[string]EntryDef{
 					"myData":  EntryDef{Name: "myData", DataFormat: "zygo"},
 					"primes":  EntryDef{Name: "primes", DataFormat: "JSON"},
-					"profile": EntryDef{Name: "profile", DataFormat: "JSON", Schema: "profile_schema.json"},
+					"profile": EntryDef{Name: "profile", DataFormat: "JSON", Schema: "schema_profile.json"},
 				},
 			},
 		}
@@ -448,7 +448,7 @@ func GenDev(path string) (hP *Holochain, err error) {
 	},
 	"required": ["firstName", "lastName"]
 }`
-		if err = writeFile(path, "profile_schema.json", []byte(schema)); err != nil {
+		if err = writeFile(path, "schema_profile.json", []byte(schema)); err != nil {
 			return
 		}
 

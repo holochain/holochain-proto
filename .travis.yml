@@ -4,5 +4,10 @@ os:
 
 language: go
 
+install: true
+
+before_install:
+  - make deps
+
 script:
-  - make test
+  - go test ./... -v

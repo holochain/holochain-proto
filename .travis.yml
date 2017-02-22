@@ -8,6 +8,7 @@ install: true
 
 before_install:
   - make deps
+  - go get -t
 
 script:
   - go test ./... -v

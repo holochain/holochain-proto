@@ -7,21 +7,21 @@ import (
 	"testing"
 )
 
-/*
 func TestPutGet(t *testing.T) {
-	dht := Needn't()
+	var h Holochain
+	dht := NewDHT(&h)
 	Convey("It should store and retrieve", t, func() {
-		h := NewHash("1vemK25pc5ewYtztPGYAdX39uXuyV13xdouCnZUr8RMA")
-		err := dht.Put(h)
+		hash, _ := NewHash("QmY8Mzg9F69e5P9AoQPYat655HEhc1TVGs11tmfNSzkqh2")
+		err := dht.put(hash, []byte("some value"))
 		So(err, ShouldBeNil)
-		data, err := dht.Get(h)
+		data, err := dht.get(hash)
 		So(err, ShouldBeNil)
-		So(string(data), ShouldEqual, "fake value")
-		data, err = dht.Get(NewHash("2vemK25pc5ewYtztPGYAdX39uXuyV13xdouCnZUr8RMA"))
-		So(err.Error(), ShouldEqual, "No key: 2vemK25pc5ewYtztPGYAdX39uXuyV13xdouCnZUr8RMA")
-
+		So(string(data), ShouldEqual, "some value")
+		hash, _ = NewHash("QmY8Mzg9F69e5P9AoQPYat6x5HEhc1TVGs11tmfNSzkqh2")
+		data, err = dht.get(hash)
+		So(err.Error(), ShouldEqual, "No key: QmY8Mzg9F69e5P9AoQPYat6x5HEhc1TVGs11tmfNSzkqh2")
 	})
-}*/
+}
 
 func TestNewDHT(t *testing.T) {
 	var h Holochain
@@ -59,7 +59,7 @@ func TestSend(t *testing.T) {
 	defer cleanupTestDir(d)
 
 	Convey("before send message queue should be empty", t, func() {
-		So(len(h.dht.Queue), ShouldEqual, 0)
+		So(h.dht.Queue.Len(), ShouldEqual, 0)
 	})
 
 	Convey("after send message queue should have the message in it", t, func() {
@@ -68,12 +68,16 @@ func TestSend(t *testing.T) {
 			panic(err)
 		}
 		defer node.Close()
-		r, err := h.dht.Send(node.HashAddr, PUT_REQUEST, "some message")
+		hash, _ := NewHash("QmY8Mzg9F69e5P9AoQPYat655HEhc1TVGs11tmfNSzkqh2")
+		r, err := h.dht.Send(node.HashAddr, PUT_REQUEST, hash)
 		So(err, ShouldBeNil)
 		So(r, ShouldEqual, "queued")
-		/*		So(len(h.dht.Queue), ShouldEqual, 1)
-				m := h.dht.Queue[0]
-				So(m.Type, ShouldEqual, PUT_REQUEST)
-				So(m.Body.(string), ShouldEqual, "some message")*/
+		So(h.dht.Queue.Len(), ShouldEqual, 1)
+		messages, err := h.dht.Queue.Get(1)
+		So(err, ShouldBeNil)
+		m := messages[0].(*Message)
+		So(m.Type, ShouldEqual, PUT_REQUEST)
+		hs := m.Body.(Hash)
+		So(hs.String(), ShouldEqual, "QmY8Mzg9F69e5P9AoQPYat655HEhc1TVGs11tmfNSzkqh2")
 	})
 }

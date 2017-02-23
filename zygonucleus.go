@@ -167,7 +167,7 @@ func (z *ZygoNucleus) put(env *zygo.Glisp, h *Holochain, hash string) (result *z
 	if err != nil {
 		return
 	}
-	err = h.dht.Put(key)
+	err = h.dht.SendPut(key)
 	if err != nil {
 		put_result = "error: " + err.Error()
 	} else {

@@ -86,7 +86,7 @@ func TestGenDev(t *testing.T) {
 	})
 
 	Convey("when generating a dev holochain", t, func() {
-		h, err := GenDev(root)
+		h, err := s.GenDev(root)
 		So(err, ShouldBeNil)
 		h.store.Close()
 		h, err = s.IsConfigured(name)
@@ -96,13 +96,17 @@ func TestGenDev(t *testing.T) {
 		lh, err := s.Load(name)
 		So(err, ShouldBeNil)
 		So(lh.ID, ShouldEqual, h.ID)
+		So(lh.config.Port, ShouldEqual, DefaultPort)
+		So(h.config.PeerModeDHTNode, ShouldEqual, s.Settings.DefaultPeerModeDHTNode)
+		So(h.config.PeerModeAuthor, ShouldEqual, s.Settings.DefaultPeerModeAuthor)
 		lh.store.Close()
 
 		So(fileExists(h.path+"/schema_profile.json"), ShouldBeTrue)
 		So(fileExists(h.path+"/ui/index.html"), ShouldBeTrue)
+		So(fileExists(h.path+"/"+ConfigFileName), ShouldBeTrue)
 
 		Convey("we should not be able re generate it", func() {
-			_, err = GenDev(root)
+			_, err = s.GenDev(root)
 			So(err.Error(), ShouldEqual, "holochain: "+root+" already exists")
 		})
 	})
@@ -115,7 +119,7 @@ func TestGenFrom(t *testing.T) {
 	root := s.Path + "/" + name
 
 	Convey("it should create a chain from the examples directory", t, func() {
-		h, err := GenFrom("examples/simple", root)
+		h, err := s.GenFrom("examples/simple", root)
 		So(err, ShouldBeNil)
 		So(h.Name, ShouldEqual, "test")
 		agent, err := LoadAgent(s.Path)
@@ -126,7 +130,7 @@ func TestGenFrom(t *testing.T) {
 		So(string(src), ShouldEqual, string(dst))
 		So(fileExists(h.path+"/ui/index.html"), ShouldBeTrue)
 		So(fileExists(h.path+"/schema_profile.json"), ShouldBeTrue)
-
+		So(fileExists(h.path+"/"+ConfigFileName), ShouldBeTrue)
 	})
 }
 
@@ -135,7 +139,7 @@ func TestNewEntry(t *testing.T) {
 	defer cleanupTestDir(d)
 	n := "test"
 	path := s.Path + "/" + n
-	h, err := GenDev(path)
+	h, err := s.GenDev(path)
 	if err != nil {
 		panic(err)
 	}

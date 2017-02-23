@@ -15,6 +15,11 @@ import (
 	"github.com/lestrrat/go-jsval/builder"
 )
 
+const (
+	DNAEntryType = "_dna"
+	KeyEntryType = "_key"
+)
+
 // EntryDef struct holds an entry definition
 type EntryDef struct {
 	Name       string

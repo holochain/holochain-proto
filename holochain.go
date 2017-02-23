@@ -47,6 +47,13 @@ type Zome struct {
 	NucleusType string
 }
 
+// Config holds the non-DNA configuration for a holo-chain
+type Config struct {
+	Port            int
+	PeerModeAuthor  bool
+	PeerModeDHTNode bool
+}
+
 // Holochain struct holds the full "DNA" of the holochain
 type Holochain struct {
 	Version   int
@@ -63,7 +70,9 @@ type Holochain struct {
 	encodingFormat string
 	hashCode       uint64
 	hashLength     int
+	config         Config
 	dht            *DHT
+	node           *Node
 }
 
 type Signature struct {
@@ -172,6 +181,12 @@ func (s *Service) Load(name string) (hP *Holochain, err error) {
 	}
 	h.path = path
 
+	// load the config
+	_, err = toml.DecodeFile(path+"/"+ConfigFileName, &h.config)
+	if err != nil {
+		return
+	}
+
 	// try and get the agent from the holochain instance
 	agent, err := LoadAgent(path)
 	if err != nil {
@@ -220,7 +235,7 @@ func (h *Holochain) PrepareHashType() (err error) {
 }
 
 // Prepare sets up a holochain to run by:
-// validating the DNA, loading the schema validators, and setting up the DHT
+// validating the DNA, loading the schema validators, setting up a Network node and setting up the DHT
 func (h *Holochain) Prepare() (err error) {
 
 	if err = h.PrepareHashType(); err != nil {
@@ -248,6 +263,21 @@ func (h *Holochain) Prepare() (err error) {
 		}
 	}
 
+	listenaddr := fmt.Sprintf("/ip4/127.0.0.1/tcp/%d", h.config.Port)
+	h.node, err = NewNode(listenaddr, h.Agent().PrivKey())
+	if err != nil {
+		return
+	}
+	if h.config.PeerModeDHTNode {
+		if err = h.node.StartDHT(h); err != nil {
+			return
+		}
+	}
+	if h.config.PeerModeAuthor {
+		if err = h.node.StartSrc(h); err != nil {
+			return
+		}
+	}
 	h.dht = NewDHT(h)
 	return
 }
@@ -341,7 +371,7 @@ func (h *Holochain) GenChain() (keyHash Hash, err error) {
 }
 
 // GenFrom copies DNA files from a source
-func GenFrom(src_path string, path string) (hP *Holochain, err error) {
+func (s *Service) GenFrom(src_path string, path string) (hP *Holochain, err error) {
 	hP, err = gen(path, func(path string) (hP *Holochain, err error) {
 
 		f, err := os.Open(src_path + "/" + DNAFileName)
@@ -360,6 +390,12 @@ func GenFrom(src_path string, path string) (hP *Holochain, err error) {
 		}
 		h.path = path
 		h.agent = agent
+
+		// make a config file
+		err = makeConfig(h, s)
+		if err != nil {
+			return
+		}
 
 		// generate a new UUID
 		u, err := uuid.NewUUID()
@@ -409,7 +445,14 @@ type TestData struct {
 	Err    string
 }
 
-func GenDev(path string) (hP *Holochain, err error) {
+func makeConfig(h *Holochain, s *Service) error {
+	h.config.Port = DefaultPort
+	h.config.PeerModeDHTNode = s.Settings.DefaultPeerModeDHTNode
+	h.config.PeerModeAuthor = s.Settings.DefaultPeerModeAuthor
+	return writeToml(h.path, ConfigFileName, h.config, false)
+}
+
+func (s *Service) GenDev(path string) (hP *Holochain, err error) {
 	hP, err = gen(path, func(path string) (hP *Holochain, err error) {
 		agent, err := LoadAgent(filepath.Dir(path))
 		if err != nil {
@@ -429,6 +472,11 @@ func GenDev(path string) (hP *Holochain, err error) {
 		}
 
 		h := New(agent, path, zomes...)
+
+		err = makeConfig(&h, s)
+		if err != nil {
+			return
+		}
 
 		schema := `{
 	"title": "Profile Schema",

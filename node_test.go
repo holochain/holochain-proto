@@ -73,12 +73,13 @@ func TestNodeSend(t *testing.T) {
 		panic(err)
 	}
 	defer node2.Close()
+	var h Holochain
 	Convey("It should start the DHT protocol", t, func() {
-		err := node1.StartDHT()
+		err := node1.StartDHT(&h)
 		So(err, ShouldBeNil)
 	})
 	Convey("It should start the Src protocol", t, func() {
-		err := node2.StartSrc()
+		err := node2.StartSrc(&h)
 		So(err, ShouldBeNil)
 	})
 
@@ -89,7 +90,7 @@ func TestNodeSend(t *testing.T) {
 		r1, err := node2.Send(DHTProtocol, node1.HashAddr, &m)
 		So(err, ShouldBeNil)
 		So(r1.Type, ShouldEqual, OK_RESPONSE)
-		So(r1.Body, ShouldEqual, nil)
+		So(r1.Body, ShouldEqual, "queued")
 		r2, err := node1.Send(SourceProtocol, node2.HashAddr, &m)
 		So(err, ShouldBeNil)
 		So(r2.Type, ShouldEqual, ERROR_RESPONSE)
@@ -105,7 +106,7 @@ func TestMessageCoding(t *testing.T) {
 	Convey("It should encode messages", t, func() {
 		d, err = m.Encode()
 		So(err, ShouldBeNil)
-		So(fmt.Sprintf("%v", d), ShouldEqual, "[39 255 139 3 1 1 7 77 101 115 115 97 103 101 1 255 140 0 1 2 1 4 84 121 112 101 1 4 0 1 4 66 111 100 121 1 16 0 0 0 21 255 140 1 4 1 6 115 116 114 105 110 103 12 6 0 4 102 105 115 104 0]")
+		So(fmt.Sprintf("%v", d), ShouldEqual, "[49 255 139 3 1 1 7 77 101 115 115 97 103 101 1 255 140 0 1 3 1 4 84 121 112 101 1 4 0 1 4 84 105 109 101 1 255 132 0 1 4 66 111 100 121 1 16 0 0 0 16 255 131 5 1 1 4 84 105 109 101 1 255 132 0 0 0 21 255 140 1 4 2 6 115 116 114 105 110 103 12 6 0 4 102 105 115 104 0]")
 
 	})
 	Convey("It should decode messages", t, func() {
@@ -113,7 +114,7 @@ func TestMessageCoding(t *testing.T) {
 		r := bytes.NewReader(d)
 		err = m2.Decode(r)
 		So(err, ShouldBeNil)
-		So(fmt.Sprintf("%v", m), ShouldEqual, "{2 fish}")
+		So(fmt.Sprintf("%v", m), ShouldEqual, "{2 0001-01-01 00:00:00 +0000 UTC fish}")
 
 	})
 }

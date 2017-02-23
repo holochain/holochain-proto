@@ -54,7 +54,6 @@ func TestFindNodeForHash(t *testing.T) {
 	})
 }
 
-/*
 func TestSend(t *testing.T) {
 	d, _, h := prepareTestChain("test")
 	defer cleanupTestDir(d)
@@ -64,23 +63,17 @@ func TestSend(t *testing.T) {
 	})
 
 	Convey("after send message queue should have the message in it", t, func() {
-		self, err := h.TopType(KeyEntryType)
-		So(err, ShouldBeNil)
-
-		message, err := makeMessage(PUT_REQUEST, "some message")
-
+		node, err := NewNode("/ip4/127.0.0.1/tcp/1234", h.Agent().PrivKey())
 		if err != nil {
 			panic(err)
 		}
-
-		node := Node{HashAddr: self}
-		err = h.dht.Send(&node, message)
+		defer node.Close()
+		r, err := h.dht.Send(node.HashAddr, PUT_REQUEST, "some message")
 		So(err, ShouldBeNil)
-
-		m := h.dht.Queue[0]
-		So(m.Type, ShouldEqual, PUT_REQUEST)
-		So(m.Body.(string), ShouldEqual, "some message")
+		So(r, ShouldEqual, "queued")
+		/*		So(len(h.dht.Queue), ShouldEqual, 1)
+				m := h.dht.Queue[0]
+				So(m.Type, ShouldEqual, PUT_REQUEST)
+				So(m.Body.(string), ShouldEqual, "some message")*/
 	})
-
 }
-*/

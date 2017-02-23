@@ -30,11 +30,7 @@ func (dht *DHT) Put(key Hash) (err error) {
 	if err != nil {
 		return
 	}
-	message, err := makeMessage(PUT_REQUEST, key)
-	if err != nil {
-		return
-	}
-	err = dht.Send(n, message)
+	_, err = dht.Send(n.HashAddr, PUT_REQUEST, key)
 	//	dht.store[key] = []byte("fake value")
 	return
 }
@@ -48,10 +44,8 @@ func (dht *DHT) Get(key Hash) (data []byte, err error) {
 }
 
 // Send sends a message to the node
-func (dht *DHT) Send(n *Node, msg *Message) (err error) {
-
-	err = errors.New("not implemented")
-	return
+func (dht *DHT) Send(to peer.ID, t MsgType, body interface{}) (response interface{}, err error) {
+	return dht.h.Send(DHTProtocol, to, t, body, DHTReceiver)
 }
 
 // FindNodeForHash gets the nearest node to the neighborhood of the hash
@@ -67,11 +61,5 @@ func (dht *DHT) FindNodeForHash(key Hash) (n *Node, err error) {
 
 	n = &node
 
-	return
-}
-
-func makeMessage(t MsgType, body interface{}) (msg *Message, err error) {
-	m := Message{Type: t, Body: body}
-	msg = &m
 	return
 }

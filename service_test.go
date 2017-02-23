@@ -22,7 +22,7 @@ func TestInit(t *testing.T) {
 
 		Convey("it should return a service with default values", func() {
 			So(s.DefaultAgent.ID(), ShouldEqual, AgentID(agent))
-			So(fmt.Sprintf("%v", s.Settings), ShouldEqual, "{6283 true false}")
+			So(fmt.Sprintf("%v", s.Settings), ShouldEqual, "{true true}")
 		})
 
 		p := d + "/" + DirectoryName
@@ -52,7 +52,8 @@ func TestLoadService(t *testing.T) {
 		s, err := LoadService(root)
 		So(err, ShouldEqual, nil)
 		So(s.Path, ShouldEqual, root)
-		So(s.Settings.Port, ShouldEqual, DefaultPort)
+		So(s.Settings.DefaultPeerModeDHTNode, ShouldEqual, true)
+		So(s.Settings.DefaultPeerModeAuthor, ShouldEqual, true)
 		So(s.DefaultAgent.ID(), ShouldEqual, AgentID("Herbert <h@bert.com>"))
 	})
 

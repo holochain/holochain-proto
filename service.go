@@ -14,30 +14,25 @@ import (
 // System settings, directory, and file names
 const (
 	DirectoryName   string = ".holochain"  // Directory for storing config data
-	DNAFileName     string = "dna.conf"    // Group context settings for holochain
-	LocalFileName   string = "local.conf"  // Setting for your local data store
+	DNAFileName     string = "dna.conf"    // Definition of the Holochain
+	ConfigFileName  string = "config"      // Settings of the Holochain
 	SysFileName     string = "system.conf" // Server & System settings
 	AgentFileName   string = "agent.txt"   // User ID info
-	PubKeyFileName  string = "pub.key"     // ECDSA Signing key - public
-	PrivKeyFileName string = "priv.key"    // ECDSA Signing key - private
+	PrivKeyFileName string = "priv.key"    // Signing key - private
 	StoreFileName   string = "chain.db"    // Filename for local data store
 
 	DefaultPort = 6283
-
-	DNAEntryType = "_dna"
-	KeyEntryType = "_key"
 )
 
-// Holochain service configuration, i.e. Active Subsystems: DHT and/or Datastore, network port, etc
-type Config struct {
-	Port            int
-	PeerModeAuthor  bool
-	PeerModeDHTNode bool
+// ServiceConfig holds the service settings
+type ServiceConfig struct {
+	DefaultPeerModeAuthor  bool
+	DefaultPeerModeDHTNode bool
 }
 
 // Holochain service data structure
 type Service struct {
-	Settings     Config
+	Settings     ServiceConfig
 	DefaultAgent Agent
 	Path         string
 }
@@ -56,9 +51,9 @@ func Init(path string, agent AgentID) (service *Service, err error) {
 		return
 	}
 	s := Service{
-		Settings: Config{
-			Port:           DefaultPort,
-			PeerModeAuthor: true,
+		Settings: ServiceConfig{
+			DefaultPeerModeDHTNode: true,
+			DefaultPeerModeAuthor:  true,
 		},
 		Path: p,
 	}

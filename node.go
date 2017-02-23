@@ -22,7 +22,10 @@ import (
 	bhost "github.com/libp2p/go-libp2p/p2p/host/basic"
 	ma "github.com/multiformats/go-multiaddr"
 	"io"
+	"time"
 )
+
+type ReceiverFn func(h *Holochain, m *Message) (response interface{}, err error)
 
 type MsgType int8
 
@@ -40,6 +43,7 @@ const (
 // Message represents data that can be sent to node in the network
 type Message struct {
 	Type MsgType
+	Time time.Time
 	Body interface{}
 }
 
@@ -105,14 +109,13 @@ func (m *Message) Decode(r io.Reader) (err error) {
 }
 
 func respondWith(s net.Stream, err error, body interface{}) {
-	var m Message
+	var m *Message
 	if err != nil {
-		m.Type = ERROR_RESPONSE
-		m.Body = err.Error()
+		m = makeMessage(ERROR_RESPONSE, err.Error())
 	} else {
-		m.Type = OK_RESPONSE
-		m.Body = nil
+		m = makeMessage(OK_RESPONSE, body)
 	}
+
 	data, err := m.Encode()
 	if err != nil {
 		panic(err) //TODO can't panic, gotta do something else!
@@ -121,40 +124,53 @@ func respondWith(s net.Stream, err error, body interface{}) {
 	if err != nil {
 		panic(err) //TODO can't panic, gotta do something else!
 	}
+}
 
+func DHTReceiver(h *Holochain, m *Message) (response interface{}, err error) {
+	switch m.Type {
+	case PUT_REQUEST:
+		response = "queued"
+	//	h.dht.Queue
+	case GET_REQUEST:
+	default:
+		err = fmt.Errorf("message type %d not in holochain-dht protocol", int(m.Type))
+	}
+	return
 }
 
 // StartDHT initiates listening for DHT protocol messages on the node
-func (node *Node) StartDHT() (err error) {
+func (node *Node) StartDHT(h *Holochain) (err error) {
 	node.Host.SetStreamHandler(DHTProtocol, func(s net.Stream) {
 		var m Message
 		err := m.Decode(s)
+		var response interface{}
 		if err == nil {
-			switch m.Type {
-			case PUT_REQUEST:
-			case GET_REQUEST:
-			default:
-				err = fmt.Errorf("message type %d not in holochain-dht protocol", int(m.Type))
-			}
+			response, err = DHTReceiver(h, &m)
 		}
-		respondWith(s, err, nil)
+		respondWith(s, err, response)
 	})
 	return
 }
 
+func SrcReceiver(h *Holochain, m *Message) (response interface{}, err error) {
+	switch m.Type {
+	case SRC_VALIDATE:
+	default:
+		err = fmt.Errorf("message type %d not in holochain-src protocol", int(m.Type))
+	}
+	return
+}
+
 // StartSrc initiates listening for Source protocol messages on the node
-func (node *Node) StartSrc() (err error) {
+func (node *Node) StartSrc(h *Holochain) (err error) {
 	node.Host.SetStreamHandler(SourceProtocol, func(s net.Stream) {
 		var m Message
 		err := m.Decode(s)
+		var response interface{}
 		if err == nil {
-			switch m.Type {
-			case SRC_VALIDATE:
-			default:
-				err = fmt.Errorf("message type %d not in holochain-src protocol", int(m.Type))
-			}
+			response, err = SrcReceiver(h, &m)
 		}
-		respondWith(s, err, nil)
+		respondWith(s, err, response)
 	})
 	return
 }
@@ -162,6 +178,31 @@ func (node *Node) StartSrc() (err error) {
 // Close shuts down the node
 func (node *Node) Close() error {
 	return node.Host.Close()
+}
+
+// Send builds a message and either delivers it locally or via node.Send
+func (h *Holochain) Send(proto protocol.ID, to peer.ID, t MsgType, body interface{}, receiver ReceiverFn) (response interface{}, err error) {
+	message := makeMessage(t, body)
+	if err != nil {
+		return
+	}
+	// if we are sending to ourselves we should bypass the network mechanics and call
+	// the receiver directly
+	if to == h.node.HashAddr {
+		response, err = receiver(h, message)
+	} else {
+		var r Message
+		r, err = h.node.Send(proto, to, message)
+		if err != nil {
+			return
+		}
+		if r.Type == ERROR_RESPONSE {
+			err = fmt.Errorf("response error: %v", r.Body)
+		} else {
+			response = r.Body
+		}
+	}
+	return
 }
 
 // Send delivers a message to a node via the given protocol
@@ -192,5 +233,10 @@ func (node *Node) Send(proto protocol.ID, addr peer.ID, m *Message) (response Me
 		return
 	}
 	return
+}
+
+func makeMessage(t MsgType, body interface{}) (msg *Message) {
+	m := Message{Type: t, Time: time.Now(), Body: body}
+	msg = &m
 	return
 }

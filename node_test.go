@@ -61,7 +61,7 @@ func TestNewNode(t *testing.T) {
 	})
 }
 
-func TestNewMessaget(t *testing.T) {
+func TestNewMessage(t *testing.T) {
 	node, err := makeNode(1234, "node1")
 	if err != nil {
 		panic(err)
@@ -136,21 +136,24 @@ func TestNodeSend(t *testing.T) {
 }
 
 func TestMessageCoding(t *testing.T) {
-	m := Message{Type: PUT_REQUEST, Body: "fish"}
+	node, err := makeNode(1234, "node1")
+	if err != nil {
+		panic(err)
+	}
+	defer node.Close()
+
+	m := node.NewMessage(PUT_REQUEST, "fish")
 	var d []byte
-	var err error
-	Convey("It should encode messages", t, func() {
+	Convey("It should encode and decode messages", t, func() {
 		d, err = m.Encode()
 		So(err, ShouldBeNil)
-		So(fmt.Sprintf("%v", d), ShouldEqual, "[58 255 139 3 1 1 7 77 101 115 115 97 103 101 1 255 140 0 1 4 1 4 84 121 112 101 1 4 0 1 4 84 105 109 101 1 255 132 0 1 4 70 114 111 109 1 12 0 1 4 66 111 100 121 1 16 0 0 0 16 255 131 5 1 1 4 84 105 109 101 1 255 132 0 0 0 21 255 140 1 4 3 6 115 116 114 105 110 103 12 6 0 4 102 105 115 104 0]")
 
-	})
-	Convey("It should decode messages", t, func() {
 		var m2 Message
 		r := bytes.NewReader(d)
 		err = m2.Decode(r)
 		So(err, ShouldBeNil)
-		So(fmt.Sprintf("%v", m), ShouldEqual, "{2 0001-01-01 00:00:00 +0000 UTC <peer.ID > fish}")
+
+		So(fmt.Sprintf("%v", m), ShouldEqual, fmt.Sprintf("%v", &m2))
 
 	})
 }

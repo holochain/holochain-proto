@@ -764,16 +764,11 @@ func (h *Holochain) NewEntry(now time.Time, t string, entry Entry) (hash Hash, h
 		return
 	}
 
+	// calculate the entry's hash and store it in the header
 	err = hd.EntryLink.Sum(h, m)
 	if err != nil {
 		return
 	}
-	var HH Hash
-	err = HH.Sum(h, m)
-	if err != nil {
-		panic(err)
-	}
-	hd.EntryLink = HH
 
 	// sign the hash of the entry
 	sig, err := h.agent.PrivKey().Sign(hd.EntryLink.H)
@@ -782,6 +777,7 @@ func (h *Holochain) NewEntry(now time.Time, t string, entry Entry) (hash Hash, h
 	}
 	hd.MySignature = Signature{S: sig}
 
+	// encode the header and create a hash of it
 	b, err := ByteEncoder(&hd)
 	if err != nil {
 		return
@@ -791,32 +787,7 @@ func (h *Holochain) NewEntry(now time.Time, t string, entry Entry) (hash Hash, h
 		return
 	}
 
-	h.store.(*BoltPersister).DB().Update(func(tx *bolt.Tx) error {
-		bkt := tx.Bucket([]byte(EntryBucket))
-		err = bkt.Put(hd.EntryLink.H, m)
-		if err != nil {
-			return err
-		}
-
-		bkt = tx.Bucket([]byte(HeaderBucket))
-		err = bkt.Put(hash.H, b)
-		if err != nil {
-			return err
-		}
-
-		// don't use PutMeta because this has to be in the transaction
-		bkt = tx.Bucket([]byte(MetaBucket))
-		err = bkt.Put([]byte(TopMetaKey), hash.H)
-		if err != nil {
-			return err
-		}
-		err = bkt.Put([]byte(TopMetaKey+"_"+t), hash.H)
-		if err != nil {
-			return err
-		}
-
-		return nil
-	})
+	err = h.store.Put(t, hash, b, hd.EntryLink, m)
 
 	header = &hd
 	return

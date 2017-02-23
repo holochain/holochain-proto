@@ -158,6 +158,30 @@ func TestMessageCoding(t *testing.T) {
 	})
 }
 
+func TestSrcReceiver(t *testing.T) {
+	d, _, h := prepareTestChain("test")
+	defer cleanupTestDir(d)
+
+	Convey("SRC_VALIDATE should fail if  body isn't a hash", t, func() {
+		m := h.node.NewMessage(SRC_VALIDATE, "fish")
+		_, err := SrcReceiver(h, m)
+		So(err.Error(), ShouldEqual, "expected hash")
+	})
+	Convey("SRC_VALIDATE should fail if hash doesn't exist", t, func() {
+		hash, _ := NewHash("QmY8Mzg9F69e5P9AoQPYat6x5HEhc1TVGs11tmfNSzkqh2")
+		m := h.node.NewMessage(SRC_VALIDATE, hash)
+		_, err := SrcReceiver(h, m)
+		So(err, ShouldNotBeNil)
+		So(err.Error(), ShouldEqual, "hash not found")
+	})
+	/*	Convey("SRC_VALIDATE should return contents of hash", t, func() {
+		m := h.node.NewMessage(SRC_VALIDATE, "fish")
+		_, err := SrcReceiver(h, m)
+		So(err.Error(), ShouldEqual, "expected hash")
+	})*/
+
+}
+
 func makeNode(port int, id string) (*Node, error) {
 	listenaddr := fmt.Sprintf("/ip4/127.0.0.1/tcp/%d", port)
 	// use a constant reader so the key will be the same each time for the test...

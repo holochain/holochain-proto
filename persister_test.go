@@ -1,7 +1,7 @@
 package holochain
 
 import (
-	_ "fmt"
+	"fmt"
 	"github.com/boltdb/bolt"
 	. "github.com/smartystreets/goconvey/convey"
 	"testing"
@@ -86,7 +86,7 @@ func TestBoltInit(t *testing.T) {
 	})
 }
 
-func TestBoltGet(t *testing.T) {
+func TestBoltPutGet(t *testing.T) {
 	var bp *BoltPersister
 	p := "/tmp/boltdb"
 	v, _ := CreatePersister(BoltPersisterName, p)
@@ -96,7 +96,40 @@ func TestBoltGet(t *testing.T) {
 		panic(err)
 	}
 	defer cleanupTestDir(p)
-	Convey("it should retrieve set meta data", t, func() {
+
+	Convey("it should put & get entries", t, func() {
+		hhash, _ := NewHash("QmY8Mzg9F69e5P9AoQPYat655HEhc1TVGs11tmfNSzkqh2")
+		header := []byte("bogus header")
+		ehash, _ := NewHash("QmY8Mzg9F69e5P9AoQPYat655HEhc1TVGs11tmfNSzkqh3")
+		entry := GobEntry{C: "bogus entry data"}
+		m, err := entry.Marshal()
+		if err != nil {
+			panic(err)
+		}
+		err = bp.Put("myData", hhash, header, ehash, m)
+		So(err, ShouldBeNil)
+
+		data, err := bp.GetMeta(TopMetaKey)
+		So(err, ShouldBeNil)
+		So(fmt.Sprintf("%v", data), ShouldEqual, fmt.Sprintf("%v", hhash.H))
+
+		data, err = bp.GetMeta(TopMetaKey + "_myData")
+		So(err, ShouldBeNil)
+		So(fmt.Sprintf("%v", data), ShouldEqual, fmt.Sprintf("%v", hhash.H))
+
+		gentry, err := bp.GetEntry(ehash)
+		So(err, ShouldBeNil)
+		So(gentry.(string), ShouldEqual, "bogus entry data")
+
+		badhash, _ := NewHash("QmY8Mzg9F69e5P9AoQPYat655HEhc1TVGs11tmfNSzkqh4")
+		gentry, err = bp.GetEntry(badhash)
+		So(err, ShouldNotBeNil)
+		So(err.Error(), ShouldEqual, "hash not found")
+		So(gentry, ShouldBeNil)
+
+	})
+
+	Convey("it should put & get meta data", t, func() {
 		err = bp.PutMeta("fish", []byte("cow"))
 		So(err, ShouldBeNil)
 		data, err := bp.GetMeta("fish")

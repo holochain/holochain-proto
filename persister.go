@@ -35,7 +35,9 @@ type Persister interface {
 	Init() error
 	GetMeta(string) ([]byte, error)
 	PutMeta(key string, value []byte) (err error)
+	Put(entryType string, headerHash Hash, header []byte, entryHash Hash, entry []byte) (err error)
 	Get(hash Hash, getEntry bool) (header Header, entry interface{}, err error)
+	GetEntry(hash Hash) (entry interface{}, err error)
 	Remove() error
 	Name() string
 }
@@ -107,6 +109,39 @@ func (bp *BoltPersister) Init() (err error) {
 	return
 }
 
+// Put stores an entry and its header
+// N.B. this function does not confirm that the hashes match the values.  That must be done
+// external to the persister!
+func (bp *BoltPersister) Put(entryType string, headerHash Hash, header []byte, entryHash Hash, entry []byte) (err error) {
+	err = bp.DB().Update(func(tx *bolt.Tx) error {
+		bkt := tx.Bucket([]byte(EntryBucket))
+		err = bkt.Put(entryHash.H, entry)
+		if err != nil {
+			return err
+		}
+
+		bkt = tx.Bucket([]byte(HeaderBucket))
+		err = bkt.Put(headerHash.H, header)
+		if err != nil {
+			return err
+		}
+
+		// don't use PutMeta because this has to be in the transaction
+		bkt = tx.Bucket([]byte(MetaBucket))
+		err = bkt.Put([]byte(TopMetaKey), headerHash.H)
+		if err != nil {
+			return err
+		}
+		err = bkt.Put([]byte(TopMetaKey+"_"+entryType), headerHash.H)
+		if err != nil {
+			return err
+		}
+
+		return nil
+	})
+	return
+}
+
 // Get returns a header, and (optionally) it's entry if getEntry is true
 func (bp *BoltPersister) Get(hash Hash, getEntry bool) (header Header, entry interface{}, e error) {
 	e = bp.db.View(func(tx *bolt.Tx) error {
@@ -115,6 +150,24 @@ func (bp *BoltPersister) Get(hash Hash, getEntry bool) (header Header, entry int
 		var err error
 		header, entry, err = get(hb, eb, hash.H, getEntry)
 		return err
+	})
+	return
+}
+
+func (bp *BoltPersister) GetEntry(hash Hash) (entry interface{}, err error) {
+	err = bp.db.View(func(tx *bolt.Tx) (e error) {
+		eb := tx.Bucket([]byte(EntryBucket))
+		v := eb.Get(hash.H)
+		if v == nil {
+			e = errors.New("hash not found")
+			return
+		}
+		var g GobEntry
+		if e = g.Unmarshal(v); e != nil {
+			return
+		}
+		entry = g.C
+		return
 	})
 	return
 }

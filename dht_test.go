@@ -2,7 +2,6 @@ package holochain
 
 import (
 	_ "fmt"
-	peer "github.com/libp2p/go-libp2p-peer"
 	. "github.com/smartystreets/goconvey/convey"
 	"testing"
 )
@@ -40,10 +39,7 @@ func TestFindNodeForHash(t *testing.T) {
 
 		// for now the node it finds is ourself for any hash because we haven't implemented
 		// anything about neighborhoods or other nodes...
-		self, err := peer.IDFromPrivateKey(h.Agent().PrivKey())
-		if err != nil {
-			panic(err)
-		}
+		self := h.node.HashAddr
 		hash, err := NewHash("QmY8Mzg9F69e5P9AoQPYat655HEhc1TVGs11tmfNSzkqh2")
 		if err != nil {
 			panic(err)

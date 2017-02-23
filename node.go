@@ -151,6 +151,12 @@ func (node *Node) StartProtocol(h *Holochain, proto protocol.ID, receiver Receiv
 func SrcReceiver(h *Holochain, m *Message) (response interface{}, err error) {
 	switch m.Type {
 	case SRC_VALIDATE:
+		switch t := m.Body.(type) {
+		case Hash:
+			response, err = h.store.GetEntry(t)
+		default:
+			err = errors.New("expected hash")
+		}
 	default:
 		err = fmt.Errorf("message type %d not in holochain-src protocol", int(m.Type))
 	}

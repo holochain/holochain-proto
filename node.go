@@ -108,6 +108,7 @@ func (m *Message) Decode(r io.Reader) (err error) {
 	return
 }
 
+// respondWith writes a message either error or otherwise, to the stream
 func respondWith(s net.Stream, err error, body interface{}) {
 	var m *Message
 	if err != nil {
@@ -126,32 +127,21 @@ func respondWith(s net.Stream, err error, body interface{}) {
 	}
 }
 
-func DHTReceiver(h *Holochain, m *Message) (response interface{}, err error) {
-	switch m.Type {
-	case PUT_REQUEST:
-		response = "queued"
-	//	h.dht.Queue
-	case GET_REQUEST:
-	default:
-		err = fmt.Errorf("message type %d not in holochain-dht protocol", int(m.Type))
-	}
-	return
-}
-
-// StartDHT initiates listening for DHT protocol messages on the node
-func (node *Node) StartDHT(h *Holochain) (err error) {
-	node.Host.SetStreamHandler(DHTProtocol, func(s net.Stream) {
+// StartProtocol initiates listening for a protocol on the node
+func (node *Node) StartProtocol(h *Holochain, proto protocol.ID, receiver ReceiverFn) (err error) {
+	node.Host.SetStreamHandler(proto, func(s net.Stream) {
 		var m Message
 		err := m.Decode(s)
 		var response interface{}
 		if err == nil {
-			response, err = DHTReceiver(h, &m)
+			response, err = receiver(h, &m)
 		}
 		respondWith(s, err, response)
 	})
 	return
 }
 
+// SrcReceiver handles messages on the Source protocol
 func SrcReceiver(h *Holochain, m *Message) (response interface{}, err error) {
 	switch m.Type {
 	case SRC_VALIDATE:
@@ -163,16 +153,7 @@ func SrcReceiver(h *Holochain, m *Message) (response interface{}, err error) {
 
 // StartSrc initiates listening for Source protocol messages on the node
 func (node *Node) StartSrc(h *Holochain) (err error) {
-	node.Host.SetStreamHandler(SourceProtocol, func(s net.Stream) {
-		var m Message
-		err := m.Decode(s)
-		var response interface{}
-		if err == nil {
-			response, err = SrcReceiver(h, &m)
-		}
-		respondWith(s, err, response)
-	})
-	return
+	return node.StartProtocol(h, SourceProtocol, SrcReceiver)
 }
 
 // Close shuts down the node

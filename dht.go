@@ -8,6 +8,7 @@ package holochain
 
 import (
 	"errors"
+	"fmt"
 	peer "github.com/libp2p/go-libp2p-peer"
 )
 
@@ -62,4 +63,22 @@ func (dht *DHT) FindNodeForHash(key Hash) (n *Node, err error) {
 	n = &node
 
 	return
+}
+
+// DHTReceiver handles messages on the dht protocol
+func DHTReceiver(h *Holochain, m *Message) (response interface{}, err error) {
+	switch m.Type {
+	case PUT_REQUEST:
+		response = "queued"
+		//	h.dht.Queue
+	case GET_REQUEST:
+	default:
+		err = fmt.Errorf("message type %d not in holochain-dht protocol", int(m.Type))
+	}
+	return
+}
+
+// StartDHT initiates listening for DHT protocol messages on the node
+func (dht *DHT) StartDHT() (err error) {
+	return dht.h.node.StartProtocol(dht.h, DHTProtocol, DHTReceiver)
 }

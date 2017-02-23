@@ -73,9 +73,12 @@ func TestNodeSend(t *testing.T) {
 		panic(err)
 	}
 	defer node2.Close()
+
 	var h Holochain
+	h.node = node1
+	h.dht = NewDHT(&h)
 	Convey("It should start the DHT protocol", t, func() {
-		err := node1.StartDHT(&h)
+		err := h.dht.StartDHT()
 		So(err, ShouldBeNil)
 	})
 	Convey("It should start the Src protocol", t, func() {

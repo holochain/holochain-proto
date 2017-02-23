@@ -268,8 +268,11 @@ func (h *Holochain) Prepare() (err error) {
 	if err != nil {
 		return
 	}
+
+	h.dht = NewDHT(h)
+
 	if h.config.PeerModeDHTNode {
-		if err = h.node.StartDHT(h); err != nil {
+		if err = h.dht.StartDHT(); err != nil {
 			return
 		}
 	}
@@ -278,7 +281,6 @@ func (h *Holochain) Prepare() (err error) {
 			return
 		}
 	}
-	h.dht = NewDHT(h)
 	return
 }
 

@@ -249,7 +249,11 @@ func TestGenChain(t *testing.T) {
 		_, err = toml.DecodeFile(h.path+"/"+DNAFileName, &h2)
 		So(err, ShouldBeNil)
 		So(h2.Zomes["myZome"].CodeHash.String(), ShouldEqual, h.Zomes["myZome"].CodeHash.String())
+		b, _ := readFile(h.path, "schema_profile.json")
+		var sh Hash
+		sh.Sum(h, b)
 
+		So(h2.Zomes["myZome"].Entries["profile"].SchemaHash.String(), ShouldEqual, sh.String())
 	})
 
 	Convey("before GenChain call ID call should fail", t, func() {

@@ -716,7 +716,7 @@ func (h *Holochain) GenDNAHashes() (err error) {
 		if err != nil {
 			return
 		}
-		for _, e := range z.Entries {
+		for i, e := range z.Entries {
 			sc := e.Schema
 			if sc != "" {
 				b, err = readFile(h.path, sc)
@@ -727,6 +727,7 @@ func (h *Holochain) GenDNAHashes() (err error) {
 				if err != nil {
 					return
 				}
+				z.Entries[i] = e
 			}
 		}
 

@@ -92,6 +92,16 @@ You can inspect the contents of a particular chain with:
 
     hc dump <NAME>
 
+By default `hc` stores all holochain data and configuration files to the `~/.holochain` directory.  You can override this with the -path flag or by setting the `HOLOPATH` environment variable, e.g.:
+
+    hc -path ~/mychains init '<my@other.identity>'
+    HOLOPATH=~/mychains hc
+
+Note that you can use the form:
+
+    hc -path=/your/path/here
+
+but beware as that form will not do shell substitutions (i.e. ~ won't get converted to your home dir)
 
 ## Architecture
 ### Functional Domains

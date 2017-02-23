@@ -13,13 +13,13 @@ import (
 
 // System settings, directory, and file names
 const (
-	DirectoryName   string = ".holochain"  // Directory for storing config data
-	DNAFileName     string = "dna.conf"    // Definition of the Holochain
-	ConfigFileName  string = "config"      // Settings of the Holochain
-	SysFileName     string = "system.conf" // Server & System settings
-	AgentFileName   string = "agent.txt"   // User ID info
-	PrivKeyFileName string = "priv.key"    // Signing key - private
-	StoreFileName   string = "chain.db"    // Filename for local data store
+	DefaultDirectoryName string = ".holochain"  // Directory for storing config data
+	DNAFileName          string = "dna.conf"    // Definition of the Holochain
+	ConfigFileName       string = "config"      // Settings of the Holochain
+	SysFileName          string = "system.conf" // Server & System settings
+	AgentFileName        string = "agent.txt"   // User ID info
+	PrivKeyFileName      string = "priv.key"    // Signing key - private
+	StoreFileName        string = "chain.db"    // Filename for local data store
 
 	DefaultPort = 6283
 )
@@ -38,15 +38,13 @@ type Service struct {
 }
 
 //IsInitialized checks a path for a correctly set up .holochain directory
-func IsInitialized(path string) bool {
-	root := path + "/" + DirectoryName
+func IsInitialized(root string) bool {
 	return dirExists(root) && fileExists(root+"/"+SysFileName) && fileExists(root+"/"+AgentFileName)
 }
 
 //Init initializes service defaults including a signing key pair for an agent
-func Init(path string, agent AgentID) (service *Service, err error) {
-	p := path + "/" + DirectoryName
-	err = os.MkdirAll(p, os.ModePerm)
+func Init(root string, agent AgentID) (service *Service, err error) {
+	err = os.MkdirAll(root, os.ModePerm)
 	if err != nil {
 		return
 	}
@@ -55,10 +53,10 @@ func Init(path string, agent AgentID) (service *Service, err error) {
 			DefaultPeerModeDHTNode: true,
 			DefaultPeerModeAuthor:  true,
 		},
-		Path: p,
+		Path: root,
 	}
 
-	err = writeToml(p, SysFileName, s.Settings, false)
+	err = writeToml(root, SysFileName, s.Settings, false)
 	if err != nil {
 		return
 	}
@@ -67,7 +65,7 @@ func Init(path string, agent AgentID) (service *Service, err error) {
 	if err != nil {
 		return
 	}
-	err = SaveAgent(p, a)
+	err = SaveAgent(root, a)
 	if err != nil {
 		return
 	}

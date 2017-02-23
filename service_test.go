@@ -11,12 +11,12 @@ func TestInit(t *testing.T) {
 	defer cleanupTestDir(d)
 
 	Convey("we can detect an uninitialized directory", t, func() {
-		So(IsInitialized(d), ShouldBeFalse)
+		So(IsInitialized(d+"/"+DefaultDirectoryName), ShouldBeFalse)
 	})
 
 	agent := "Fred Flintstone <fred@flintstone.com>"
 
-	s, err := Init(d, AgentID(agent))
+	s, err := Init(d+"/"+DefaultDirectoryName, AgentID(agent))
 	Convey("when initializing service in a directory", t, func() {
 		So(err, ShouldEqual, nil)
 
@@ -25,7 +25,7 @@ func TestInit(t *testing.T) {
 			So(fmt.Sprintf("%v", s.Settings), ShouldEqual, "{true true}")
 		})
 
-		p := d + "/" + DirectoryName
+		p := d + "/" + DefaultDirectoryName
 		Convey("it should create agent files", func() {
 			a, err := LoadAgent(p)
 			So(err, ShouldEqual, nil)
@@ -33,7 +33,7 @@ func TestInit(t *testing.T) {
 		})
 
 		Convey("we can detect that it was initialized", func() {
-			So(IsInitialized(d), ShouldBeTrue)
+			So(IsInitialized(d+"/"+DefaultDirectoryName), ShouldBeTrue)
 		})
 
 		Convey("it should create an agent file", func() {

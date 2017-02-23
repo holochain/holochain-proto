@@ -24,7 +24,7 @@ func SetupApp() (app *cli.App) {
 	app.Usage = "holochain peer command line interface"
 	app.Version = "0.0.1"
 	var verbose bool
-	var root, userPath string
+	var root string
 	var service *holo.Service
 
 	holo.Register()
@@ -34,6 +34,11 @@ func SetupApp() (app *cli.App) {
 			Name:        "verbose",
 			Usage:       "verbose output",
 			Destination: &verbose,
+		},
+		cli.StringFlag{
+			Name:        "path",
+			Usage:       "path to holochain directory (default: ~/.holochain)",
+			Destination: &root,
 		},
 	}
 
@@ -153,7 +158,7 @@ func SetupApp() (app *cli.App) {
 				if agent == "" {
 					return errors.New("missing required agent-id argument to init")
 				}
-				_, err := holo.Init(userPath, holo.AgentID(agent))
+				_, err := holo.Init(root, holo.AgentID(agent))
 				if err == nil {
 					fmt.Println("Holochain service initialized")
 					if verbose {
@@ -292,13 +297,19 @@ func SetupApp() (app *cli.App) {
 		if verbose {
 			fmt.Printf("app version: %s; Holochain lib version %s\n ", app.Version, holo.Version)
 		}
-		u, err := user.Current()
-		if err != nil {
-			return err
+		var err error
+		if root == "" {
+			root = os.Getenv("HOLOPATH")
+			if root == "" {
+				u, err := user.Current()
+				if err != nil {
+					return err
+				}
+				userPath := u.HomeDir
+				root = userPath + "/" + holo.DefaultDirectoryName
+			}
 		}
-		userPath = u.HomeDir
-		root = userPath + "/" + holo.DirectoryName
-		if initialized = holo.IsInitialized(userPath); !initialized {
+		if initialized = holo.IsInitialized(root); !initialized {
 			uninitialized = errors.New("service not initialized, run 'hc init'")
 		} else {
 			service, err = holo.LoadService(root)

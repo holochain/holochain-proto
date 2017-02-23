@@ -56,13 +56,14 @@ type Config struct {
 
 // Holochain struct holds the full "DNA" of the holochain
 type Holochain struct {
-	Version   int
-	Id        uuid.UUID
-	Name      string
-	GroupInfo map[string]string
-	HashType  string
-	BasedOn   Hash // holochain hash for base schemas and code
-	Zomes     map[string]*Zome
+	Version          int
+	Id               uuid.UUID
+	Name             string
+	Properties       interface{}
+	PropertiesSchema string
+	HashType         string
+	BasedOn          Hash // holochain hash for base schemas and code
+	Zomes            map[string]*Zome
 	//---- private values not serialized; initialized on Load
 	path           string
 	agent          Agent
@@ -410,6 +411,10 @@ func (s *Service) GenFrom(src_path string, path string) (hP *Holochain, err erro
 			return
 		}
 
+		if err = CopyFile(src_path+"/schema_properties.json", path+"/schema_properties.json"); err != nil {
+			return
+		}
+
 		for _, z := range h.Zomes {
 			var bs []byte
 			bs, err = readFile(src_path, z.Code)
@@ -481,6 +486,27 @@ func (s *Service) GenDev(path string) (hP *Holochain, err error) {
 		}
 
 		schema := `{
+	"title": "Properties Schema",
+	"type": "object",
+	"properties": {
+		"description": {
+			"type": "string"
+		},
+		"language": {
+			"type": "string"
+		}
+	}
+}`
+		if err = writeFile(path, "schema_properties.json", []byte(schema)); err != nil {
+			return
+		}
+
+		h.PropertiesSchema = "schema_properties.json"
+		h.Properties = map[string]string{
+			"description": "a bogus test holochain",
+			"language":    "en"}
+
+		schema = `{
 	"title": "Profile Schema",
 	"type": "object",
 	"properties": {
@@ -1078,4 +1104,8 @@ func (h *Holochain) Test() error {
 		}
 	}
 	return err
+}
+
+func (h *Holochain) GetProperty(prop string) (property string, err error) {
+	return h.Properties.(map[string]string)[prop], err
 }

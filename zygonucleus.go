@@ -217,6 +217,30 @@ func NewZygoNucleus(h *Holochain, code string) (n Nucleus, err error) {
 			return zygo.SexpNull, err
 		})
 
+	z.env.AddFunction("property",
+		func(env *zygo.Glisp, name string, args []zygo.Sexp) (zygo.Sexp, error) {
+			if len(args) != 1 {
+				return zygo.SexpNull, zygo.WrongNargs
+			}
+
+			var prop string
+
+			switch t := args[0].(type) {
+			case *zygo.SexpStr:
+				prop = t.S
+			default:
+				return zygo.SexpNull,
+					errors.New("1st argument of expose should be string")
+			}
+
+			p, err := h.GetProperty(prop)
+			if err != nil {
+				return zygo.SexpNull, err
+			}
+			result := zygo.SexpStr{S: p}
+			return &result, err
+		})
+
 	z.env.AddFunction("commit",
 		func(env *zygo.Glisp, name string, args []zygo.Sexp) (zygo.Sexp, error) {
 			if len(args) != 2 {

@@ -21,7 +21,10 @@ func TestNewZygoNucleus(t *testing.T) {
 		So(err.Error(), ShouldEqual, "Zygomys load error: Error on line 1: parser needs more input\n")
 	})
 	Convey("should have the built in functions:", t, func() {
-		v, err := NewZygoNucleus(nil, "")
+		d, _, h := setupTestChain("test")
+		defer cleanupTestDir(d)
+
+		v, err := NewZygoNucleus(h, "")
 		z := v.(*ZygoNucleus)
 		So(err, ShouldBeNil)
 		Convey("version", func() {
@@ -45,6 +48,11 @@ func TestNewZygoNucleus(t *testing.T) {
 			So(z.lastResult.(*zygo.SexpBool).Val, ShouldEqual, true)
 			_, err = z.Run(`(isprime "fish")`)
 			So(err.Error(), ShouldEqual, "Zygomys exec error: Error calling 'isprime': argument to isprime should be int")
+		})
+		Convey("property", func() {
+			_, err = z.Run(`(property "description")`)
+			So(err, ShouldBeNil)
+			So(z.lastResult.(*zygo.SexpStr).S, ShouldEqual, "a bogus test holochain")
 		})
 	})
 }

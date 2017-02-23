@@ -130,6 +130,7 @@ func TestGenFrom(t *testing.T) {
 		So(string(src), ShouldEqual, string(dst))
 		So(fileExists(h.path+"/ui/index.html"), ShouldBeTrue)
 		So(fileExists(h.path+"/schema_profile.json"), ShouldBeTrue)
+		So(fileExists(h.path+"/schema_properties.json"), ShouldBeTrue)
 		So(fileExists(h.path+"/"+ConfigFileName), ShouldBeTrue)
 	})
 }

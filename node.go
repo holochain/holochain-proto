@@ -44,6 +44,7 @@ const (
 type Message struct {
 	Type MsgType
 	Time time.Time
+	From peer.ID
 	Body interface{}
 }
 
@@ -109,12 +110,12 @@ func (m *Message) Decode(r io.Reader) (err error) {
 }
 
 // respondWith writes a message either error or otherwise, to the stream
-func respondWith(s net.Stream, err error, body interface{}) {
+func (node *Node) respondWith(s net.Stream, err error, body interface{}) {
 	var m *Message
 	if err != nil {
-		m = makeMessage(ERROR_RESPONSE, err.Error())
+		m = node.makeMessage(ERROR_RESPONSE, err.Error())
 	} else {
-		m = makeMessage(OK_RESPONSE, body)
+		m = node.makeMessage(OK_RESPONSE, body)
 	}
 
 	data, err := m.Encode()
@@ -133,10 +134,15 @@ func (node *Node) StartProtocol(h *Holochain, proto protocol.ID, receiver Receiv
 		var m Message
 		err := m.Decode(s)
 		var response interface{}
-		if err == nil {
-			response, err = receiver(h, &m)
+		if m.From == "" {
+			// @todo other sanity checks on From?
+			err = errors.New("message must have a source")
+		} else {
+			if err == nil {
+				response, err = receiver(h, &m)
+			}
 		}
-		respondWith(s, err, response)
+		node.respondWith(s, err, response)
 	})
 	return
 }
@@ -163,7 +169,7 @@ func (node *Node) Close() error {
 
 // Send builds a message and either delivers it locally or via node.Send
 func (h *Holochain) Send(proto protocol.ID, to peer.ID, t MsgType, body interface{}, receiver ReceiverFn) (response interface{}, err error) {
-	message := makeMessage(t, body)
+	message := h.node.makeMessage(t, body)
 	if err != nil {
 		return
 	}
@@ -216,8 +222,8 @@ func (node *Node) Send(proto protocol.ID, addr peer.ID, m *Message) (response Me
 	return
 }
 
-func makeMessage(t MsgType, body interface{}) (msg *Message) {
-	m := Message{Type: t, Time: time.Now(), Body: body}
+func (node *Node) makeMessage(t MsgType, body interface{}) (msg *Message) {
+	m := Message{Type: t, Time: time.Now(), Body: body, From: node.HashAddr}
 	msg = &m
 	return
 }

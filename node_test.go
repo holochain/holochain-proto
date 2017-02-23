@@ -86,20 +86,36 @@ func TestNodeSend(t *testing.T) {
 		So(err, ShouldBeNil)
 	})
 
-	m := Message{Type: PUT_REQUEST, Body: "fish"}
-	Convey("It should send", t, func() {
-		node1.Host.Peerstore().AddAddr(node2.HashAddr, node2.NetAddr, pstore.PermanentAddrTTL)
-		node2.Host.Peerstore().AddAddr(node1.HashAddr, node1.NetAddr, pstore.PermanentAddrTTL)
-		r1, err := node2.Send(DHTProtocol, node1.HashAddr, &m)
-		So(err, ShouldBeNil)
-		So(r1.Type, ShouldEqual, OK_RESPONSE)
-		So(r1.Body, ShouldEqual, "queued")
-		r2, err := node1.Send(SourceProtocol, node2.HashAddr, &m)
-		So(err, ShouldBeNil)
-		So(r2.Type, ShouldEqual, ERROR_RESPONSE)
-		So(r2.Body, ShouldEqual, "message type 2 not in holochain-src protocol")
+	node1.Host.Peerstore().AddAddr(node2.HashAddr, node2.NetAddr, pstore.PermanentAddrTTL)
+	node2.Host.Peerstore().AddAddr(node1.HashAddr, node1.NetAddr, pstore.PermanentAddrTTL)
 
+	Convey("It should fail on messages without a source", t, func() {
+		m := Message{Type: PUT_REQUEST, Body: "fish"}
+		r, err := node2.Send(DHTProtocol, node1.HashAddr, &m)
+		So(err, ShouldBeNil)
+		So(r.Type, ShouldEqual, ERROR_RESPONSE)
+		So(r.From, ShouldEqual, node1.HashAddr) // response comes from who we sent to
+		So(r.Body, ShouldEqual, "message must have a source")
 	})
+
+	Convey("It should fail on incorrect message types", t, func() {
+		m := node1.makeMessage(PUT_REQUEST, "fish")
+		r, err := node1.Send(SourceProtocol, node2.HashAddr, m)
+		So(err, ShouldBeNil)
+		So(r.Type, ShouldEqual, ERROR_RESPONSE)
+		So(r.From, ShouldEqual, node2.HashAddr) // response comes from who we sent to
+		So(r.Body, ShouldEqual, "message type 2 not in holochain-src protocol")
+	})
+
+	Convey("It should respond with queued on valid PUT_REQUESTS", t, func() {
+		m := node2.makeMessage(PUT_REQUEST, "fish")
+		r, err := node2.Send(DHTProtocol, node1.HashAddr, m)
+		So(err, ShouldBeNil)
+		So(r.Type, ShouldEqual, OK_RESPONSE)
+		So(r.From, ShouldEqual, node1.HashAddr) // response comes from who we sent to
+		So(r.Body, ShouldEqual, "queued")
+	})
+
 }
 
 func TestMessageCoding(t *testing.T) {
@@ -109,7 +125,7 @@ func TestMessageCoding(t *testing.T) {
 	Convey("It should encode messages", t, func() {
 		d, err = m.Encode()
 		So(err, ShouldBeNil)
-		So(fmt.Sprintf("%v", d), ShouldEqual, "[49 255 139 3 1 1 7 77 101 115 115 97 103 101 1 255 140 0 1 3 1 4 84 121 112 101 1 4 0 1 4 84 105 109 101 1 255 132 0 1 4 66 111 100 121 1 16 0 0 0 16 255 131 5 1 1 4 84 105 109 101 1 255 132 0 0 0 21 255 140 1 4 2 6 115 116 114 105 110 103 12 6 0 4 102 105 115 104 0]")
+		So(fmt.Sprintf("%v", d), ShouldEqual, "[58 255 139 3 1 1 7 77 101 115 115 97 103 101 1 255 140 0 1 4 1 4 84 121 112 101 1 4 0 1 4 84 105 109 101 1 255 132 0 1 4 70 114 111 109 1 12 0 1 4 66 111 100 121 1 16 0 0 0 16 255 131 5 1 1 4 84 105 109 101 1 255 132 0 0 0 21 255 140 1 4 3 6 115 116 114 105 110 103 12 6 0 4 102 105 115 104 0]")
 
 	})
 	Convey("It should decode messages", t, func() {
@@ -117,7 +133,7 @@ func TestMessageCoding(t *testing.T) {
 		r := bytes.NewReader(d)
 		err = m2.Decode(r)
 		So(err, ShouldBeNil)
-		So(fmt.Sprintf("%v", m), ShouldEqual, "{2 0001-01-01 00:00:00 +0000 UTC fish}")
+		So(fmt.Sprintf("%v", m), ShouldEqual, "{2 0001-01-01 00:00:00 +0000 UTC <peer.ID > fish}")
 
 	})
 }

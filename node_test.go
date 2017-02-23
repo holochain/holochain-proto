@@ -174,12 +174,21 @@ func TestSrcReceiver(t *testing.T) {
 		So(err, ShouldNotBeNil)
 		So(err.Error(), ShouldEqual, "hash not found")
 	})
-	/*	Convey("SRC_VALIDATE should return contents of hash", t, func() {
-		m := h.node.NewMessage(SRC_VALIDATE, "fish")
-		_, err := SrcReceiver(h, m)
-		So(err.Error(), ShouldEqual, "expected hash")
-	})*/
-
+	Convey("SRC_VALIDATE should return contents of hash", t, func() {
+		hhash, _ := NewHash("QmY8Mzg9F69e5P9AoQPYat655HEhc1TVGs11tmfNSzkqh2")
+		header := []byte("bogus header")
+		ehash, _ := NewHash("QmY8Mzg9F69e5P9AoQPYat655HEhc1TVGs11tmfNSzkqh3")
+		entry := GobEntry{C: "bogus entry data"}
+		e, err := entry.Marshal()
+		if err != nil {
+			panic(err)
+		}
+		err = h.store.Put("myData", hhash, header, ehash, e)
+		m := h.node.NewMessage(SRC_VALIDATE, ehash)
+		r, err := SrcReceiver(h, m)
+		So(err, ShouldBeNil)
+		So(r, ShouldEqual, "bogus entry data")
+	})
 }
 
 func makeNode(port int, id string) (*Node, error) {

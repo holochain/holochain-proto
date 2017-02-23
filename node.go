@@ -113,9 +113,9 @@ func (m *Message) Decode(r io.Reader) (err error) {
 func (node *Node) respondWith(s net.Stream, err error, body interface{}) {
 	var m *Message
 	if err != nil {
-		m = node.makeMessage(ERROR_RESPONSE, err.Error())
+		m = node.NewMessage(ERROR_RESPONSE, err.Error())
 	} else {
-		m = node.makeMessage(OK_RESPONSE, body)
+		m = node.NewMessage(OK_RESPONSE, body)
 	}
 
 	data, err := m.Encode()
@@ -169,7 +169,7 @@ func (node *Node) Close() error {
 
 // Send builds a message and either delivers it locally or via node.Send
 func (h *Holochain) Send(proto protocol.ID, to peer.ID, t MsgType, body interface{}, receiver ReceiverFn) (response interface{}, err error) {
-	message := h.node.makeMessage(t, body)
+	message := h.node.NewMessage(t, body)
 	if err != nil {
 		return
 	}
@@ -222,7 +222,8 @@ func (node *Node) Send(proto protocol.ID, addr peer.ID, m *Message) (response Me
 	return
 }
 
-func (node *Node) makeMessage(t MsgType, body interface{}) (msg *Message) {
+// NewMessage creates a message from the node with a new current timestamp
+func (node *Node) NewMessage(t MsgType, body interface{}) (msg *Message) {
 	m := Message{Type: t, Time: time.Now(), Body: body, From: node.HashAddr}
 	msg = &m
 	return

@@ -11,6 +11,7 @@ import (
 	"io/ioutil"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestNewNode(t *testing.T) {
@@ -60,6 +61,22 @@ func TestNewNode(t *testing.T) {
 	})
 }
 
+func TestNewMessaget(t *testing.T) {
+	node, err := makeNode(1234, "node1")
+	if err != nil {
+		panic(err)
+	}
+	defer node.Close()
+	Convey("It should create a new message", t, func() {
+		now := time.Now()
+		m := node.NewMessage(PUT_REQUEST, "fish")
+		So(now.Before(m.Time), ShouldBeTrue) // poor check, but at least makes sure the time was set to something just after the NewMessage call was made
+		So(m.Type, ShouldEqual, PUT_REQUEST)
+		So(m.Body, ShouldEqual, "fish")
+		So(m.From, ShouldEqual, node.HashAddr)
+	})
+}
+
 func TestNodeSend(t *testing.T) {
 
 	node1, err := makeNode(1234, "node1")
@@ -99,7 +116,7 @@ func TestNodeSend(t *testing.T) {
 	})
 
 	Convey("It should fail on incorrect message types", t, func() {
-		m := node1.makeMessage(PUT_REQUEST, "fish")
+		m := node1.NewMessage(PUT_REQUEST, "fish")
 		r, err := node1.Send(SourceProtocol, node2.HashAddr, m)
 		So(err, ShouldBeNil)
 		So(r.Type, ShouldEqual, ERROR_RESPONSE)
@@ -108,7 +125,7 @@ func TestNodeSend(t *testing.T) {
 	})
 
 	Convey("It should respond with queued on valid PUT_REQUESTS", t, func() {
-		m := node2.makeMessage(PUT_REQUEST, "fish")
+		m := node2.NewMessage(PUT_REQUEST, "fish")
 		r, err := node2.Send(DHTProtocol, node1.HashAddr, m)
 		So(err, ShouldBeNil)
 		So(r.Type, ShouldEqual, OK_RESPONSE)

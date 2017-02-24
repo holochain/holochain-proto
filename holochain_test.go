@@ -234,16 +234,19 @@ func TestHeader(t *testing.T) {
 	var buf bytes.Buffer
 	enc := gob.NewEncoder(&buf)
 	err := enc.Encode(&h1)
-	ExpectNoErr(t, err)
+	Convey("it should encode", t, func() {
+		So(err, ShouldBeNil)
+	})
 
 	dec := gob.NewDecoder(&buf)
 	err = dec.Decode(&h2)
 
-	s1 := fmt.Sprintf("%v", h1)
-	s2 := fmt.Sprintf("%v", h2)
-	if s2 != s1 {
-		t.Error("expected binary match! " + s2 + " " + s1)
-	}
+	Convey("it should decode", t, func() {
+		s1 := fmt.Sprintf("%v", h1)
+		s2 := fmt.Sprintf("%v", h2)
+		So(err, ShouldBeNil)
+		So(s1, ShouldEqual, s2)
+	})
 }
 
 func TestGenChain(t *testing.T) {

@@ -10,15 +10,17 @@ import (
 func TestGob(t *testing.T) {
 	g := GobEntry{C: mkTestHeader("myData")}
 	v, err := g.Marshal()
-	ExpectNoErr(t, err)
+	Convey("it should encode", t, func() {
+		So(err, ShouldBeNil)
+	})
 	var g2 GobEntry
 	err = g2.Unmarshal(v)
-	ExpectNoErr(t, err)
-	sg1 := fmt.Sprintf("%v", g)
-	sg2 := fmt.Sprintf("%v", g)
-	if sg2 != sg1 {
-		t.Error("expected gob match! \n  " + sg2 + " \n  " + sg1)
-	}
+	Convey("it should decode", t, func() {
+		sg1 := fmt.Sprintf("%v", g)
+		sg2 := fmt.Sprintf("%v", g)
+		So(err, ShouldBeNil)
+		So(sg1, ShouldEqual, sg2)
+	})
 }
 
 func TestJSONEntry(t *testing.T) {

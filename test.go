@@ -3,15 +3,8 @@ package holochain
 import (
 	"os"
 	"strconv"
-	"testing"
 	"time"
 )
-
-func ExpectNoErr(t *testing.T, err error) {
-	if err != nil {
-		t.Error("expected no err, got", err)
-	}
-}
 
 func mkTestDirName() string {
 	t := time.Now()

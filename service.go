@@ -14,7 +14,7 @@ import (
 // System settings, directory, and file names
 const (
 	DefaultDirectoryName string = ".holochain"  // Directory for storing config data
-	DNAFileName          string = "dna.conf"    // Definition of the Holochain
+	DNAFileName          string = "dna"         // Definition of the Holochain
 	ConfigFileName       string = "config"      // Settings of the Holochain
 	SysFileName          string = "system.conf" // Server & System settings
 	AgentFileName        string = "agent.txt"   // User ID info
@@ -104,7 +104,7 @@ func (s *Service) ConfiguredChains() (chains map[string]*Holochain, err error) {
 	chains = make(map[string]*Holochain)
 	for _, f := range files {
 		if f.IsDir() {
-			h, err := s.IsConfigured(f.Name())
+			h, err := s.Load(f.Name())
 			if err == nil {
 				chains[f.Name()] = h
 			}

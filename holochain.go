@@ -14,7 +14,7 @@ import (
 	"fmt"
 	"github.com/BurntSushi/toml"
 	"github.com/boltdb/bolt"
-	_ "github.com/ghodss/yaml" // doesn't work!
+	"github.com/ghodss/yaml"
 	"github.com/google/uuid"
 	ic "github.com/libp2p/go-libp2p-crypto"
 	mh "github.com/multiformats/go-multihash"
@@ -100,25 +100,59 @@ func Register() {
 	RegisterBultinPersisters()
 }
 
-//IsConfigured checks a directory for correctly set up holochain configuration files
-func (s *Service) IsConfigured(name string) (h *Holochain, err error) {
-	path := s.Path + "/" + name
+func findDNA(path string) (f string, err error) {
 	p := path + "/" + DNAFileName
-	if !fileExists(p) {
-		return nil, errors.New("missing " + p)
+	matches, err := filepath.Glob(p + ".*")
+	if err != nil {
+		return
 	}
-	p = path + "/" + StoreFileName
-	if !fileExists(p) {
-		return nil, errors.New("chain store missing: " + p)
+	for _, fn := range matches {
+		s := strings.Split(fn, ".")
+		f = s[len(s)-1]
+		if f == "json" || f == "yaml" || f == "toml" {
+			break
+		}
+		f = ""
 	}
 
-	h, err = s.Load(name)
+	if f == "" {
+		err = errors.New("DNA not found")
+		return
+	}
+	return
+}
+
+// IsConfigured checks a directory for correctly set up holochain configuration files
+func (s *Service) IsConfigured(name string) (f string, err error) {
+	path := s.Path + "/" + name
+
+	f, err = findDNA(path)
+	if err != nil {
+		return
+	}
+
+	// found a format now check that there's a store
+	p := path + "/" + StoreFileName
+	if !fileExists(p) {
+		err = errors.New("chain store missing: " + p)
+		return
+	}
 
 	return
 }
 
+// Load instantiates a Holochain instance
+func (s *Service) Load(name string) (h *Holochain, err error) {
+	f, err := s.IsConfigured(name)
+	if err != nil {
+		return
+	}
+	h, err = s.load(name, f)
+	return
+}
+
 // New creates a new holochain structure with a randomly generated ID and default values
-func New(agent Agent, path string, zomes ...Zome) Holochain {
+func New(agent Agent, path string, format string, zomes ...Zome) Holochain {
 	u, err := uuid.NewUUID()
 	if err != nil {
 		panic(err)
@@ -128,7 +162,7 @@ func New(agent Agent, path string, zomes ...Zome) Holochain {
 		HashType:       "sha2-256",
 		agent:          agent,
 		path:           path,
-		encodingFormat: "toml",
+		encodingFormat: format,
 	}
 	h.PrepareHashType()
 	h.Zomes = make(map[string]*Zome)
@@ -139,24 +173,23 @@ func New(agent Agent, path string, zomes ...Zome) Holochain {
 	return h
 }
 
-// DecodeDNA decodes a Holochan structure from an io.Reader
+// DecodeDNA decodes a Holochain structure from an io.Reader
 func DecodeDNA(reader io.Reader, format string) (hP *Holochain, err error) {
 	var h Holochain
 	switch format {
 	case "toml":
 		_, err = toml.DecodeReader(reader, &h)
-		/* unfortunately these don't work!
-		case "json":
-			dec := json.NewDecoder(reader)
-			err = dec.Decode(&h)
-		case "yaml":
-			y, e := ioutil.ReadAll(reader)
-			if e != nil {
-				err = e
-				return
-			}
-			err = yaml.Unmarshal(y, &h)
-		*/
+
+	case "json":
+		dec := json.NewDecoder(reader)
+		err = dec.Decode(&h)
+	case "yaml":
+		y, e := ioutil.ReadAll(reader)
+		if e != nil {
+			err = e
+			return
+		}
+		err = yaml.Unmarshal(y, &h)
 	default:
 		err = errors.New("unknown DNA encoding format: " + format)
 	}
@@ -167,21 +200,22 @@ func DecodeDNA(reader io.Reader, format string) (hP *Holochain, err error) {
 	return
 }
 
-// Load unmarshals a holochain structure for the named chain in a service
-func (s *Service) Load(name string) (hP *Holochain, err error) {
+// Load unmarshals a holochain structure for the named chain and type in a service
+func (s *Service) load(name string, format string) (hP *Holochain, err error) {
 
 	path := s.Path + "/" + name
 
-	f, err := os.Open(path + "/" + DNAFileName)
+	f, err := os.Open(path + "/" + DNAFileName + "." + format)
 	if err != nil {
 		return
 	}
 	defer f.Close()
-	h, err := DecodeDNA(f, "toml")
+	h, err := DecodeDNA(f, format)
 	if err != nil {
 		return
 	}
 	h.path = path
+	h.encodingFormat = format
 
 	// load the config
 	_, err = toml.DecodeFile(path+"/"+ConfigFileName, &h.config)
@@ -378,12 +412,17 @@ func (h *Holochain) GenChain() (keyHash Hash, err error) {
 func (s *Service) GenFrom(src_path string, path string) (hP *Holochain, err error) {
 	hP, err = gen(path, func(path string) (hP *Holochain, err error) {
 
-		f, err := os.Open(src_path + "/" + DNAFileName)
+		format, err := findDNA(src_path)
+		if err != nil {
+			return
+		}
+
+		f, err := os.Open(src_path + "/" + DNAFileName + "." + format)
 		if err != nil {
 			return
 		}
 		defer f.Close()
-		h, err := DecodeDNA(f, "toml")
+		h, err := DecodeDNA(f, format)
 		if err != nil {
 			return
 		}
@@ -460,7 +499,7 @@ func makeConfig(h *Holochain, s *Service) error {
 	return writeToml(h.path, ConfigFileName, h.config, false)
 }
 
-func (s *Service) GenDev(path string) (hP *Holochain, err error) {
+func (s *Service) GenDev(path string, format string) (hP *Holochain, err error) {
 	hP, err = gen(path, func(path string) (hP *Holochain, err error) {
 		agent, err := LoadAgent(filepath.Dir(path))
 		if err != nil {
@@ -479,7 +518,7 @@ func (s *Service) GenDev(path string) (hP *Holochain, err error) {
 			},
 		}
 
-		h := New(agent, path, zomes...)
+		h := New(agent, path, format, zomes...)
 
 		err = makeConfig(&h, s)
 		if err != nil {
@@ -682,31 +721,32 @@ func gen(path string, makeH func(path string) (hP *Holochain, err error)) (h *Ho
 }
 
 // EncodeDNA encodes a holochain's DNA to an io.Writer
-// we use toml so that the DNA is human readable
 func (h *Holochain) EncodeDNA(writer io.Writer) (err error) {
 	switch h.encodingFormat {
 	case "toml":
 		enc := toml.NewEncoder(writer)
 		err = enc.Encode(h)
-		/* unfortunately these don't work!
-		case "json":
-			enc := json.NewEncoder(writer)
-			err = enc.Encode(h)
-		case "yaml":
-			y, e := yaml.Marshal(h)
-			if e != nil {
-				err = e
-				return
-			}
-			n, e := writer.Write(y)
-			if e != nil {
-				err = e
-				return
-			}
-			if n != len(y) {
-				err = errors.New("unable to write all bytes while encoding DNA")
-			}
-		*/
+
+	case "json":
+		enc := json.NewEncoder(writer)
+		enc.SetIndent("", "    ")
+		err = enc.Encode(h)
+
+	case "yaml":
+		y, e := yaml.Marshal(h)
+		if e != nil {
+			err = e
+			return
+		}
+		n, e := writer.Write(y)
+		if e != nil {
+			err = e
+			return
+		}
+		if n != len(y) {
+			err = errors.New("unable to write all bytes while encoding DNA")
+		}
+
 	default:
 		err = errors.New("unknown DNA encoding format: " + h.encodingFormat)
 	}
@@ -715,7 +755,7 @@ func (h *Holochain) EncodeDNA(writer io.Writer) (err error) {
 
 // SaveDNA writes the holochain DNA to a file
 func (h *Holochain) SaveDNA(overwrite bool) (err error) {
-	p := h.path + "/" + DNAFileName
+	p := h.path + "/" + DNAFileName + "." + h.encodingFormat
 	if !overwrite && fileExists(p) {
 		return mkErr(p + " already exists")
 	}

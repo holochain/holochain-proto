@@ -66,7 +66,9 @@ You can use a pre-existing holochain configuration by replacing SOURCE with path
 
 If you are a developer and want to build your own group configuration, data schemas, and validation rules for a holochain you can set up the initial scaffolding and files with:
 
-    hc gen dev <NAME>
+    hc gen dev <NAME> [<FORMAT>]
+
+`<FORMAT>` is the encoding type of your DNA file which can be one of `yaml`, `json` or `toml`.
 
 To aid development, the `gen dev` command also produces a sample `test` sub-directory with exposed function calls of the format `<test_num>.zy`
 

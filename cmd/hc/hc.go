@@ -74,13 +74,20 @@ func SetupApp() (app *cli.App) {
 					Name:      "dev",
 					Aliases:   []string{"d"},
 					Usage:     "generate a default configuration files, suitable for editing",
-					ArgsUsage: "holochain-name",
+					ArgsUsage: "holochain-name [dna-format]",
 					Action: func(c *cli.Context) error {
 						name, err := checkForName(c, "gen dev")
 						if err != nil {
 							return err
 						}
-						h, err := service.GenDev(root + "/" + name)
+						format := "toml"
+						if len(c.Args()) == 2 {
+							format = c.Args()[1]
+							if !(format == "json" || format == "yaml" || format == "toml") {
+								return errors.New("gen dev: format must be one of yaml,toml,json")
+							}
+						}
+						h, err := service.GenDev(root+"/"+name, format)
 						if err == nil {
 							if verbose {
 								fmt.Printf("created %s with new id: %v\n", name, h.Id)
@@ -338,7 +345,7 @@ func getHolochain(c *cli.Context, service *holo.Service, cmd string) (h *holo.Ho
 	if err != nil {
 		return
 	}
-	h, err = service.IsConfigured(name)
+	h, err = service.Load(name)
 	if err != nil {
 		return
 	}

@@ -1,7 +1,6 @@
 package holochain
 
 import (
-	_ "fmt"
 	. "github.com/smartystreets/goconvey/convey"
 	"testing"
 )
@@ -76,4 +75,24 @@ func TestSend(t *testing.T) {
 		hs := m.Body.(Hash)
 		So(hs.String(), ShouldEqual, "QmY8Mzg9F69e5P9AoQPYat655HEhc1TVGs11tmfNSzkqh2")
 	})
+}
+
+func TestDHTReceiver(t *testing.T) {
+	d, _, h := prepareTestChain("test")
+	defer cleanupTestDir(d)
+
+	Convey("PUT_REQUEST should fail if body isn't a hash", t, func() {
+		m := h.node.NewMessage(PUT_REQUEST, "fish")
+		_, err := DHTReceiver(h, m)
+		So(err.Error(), ShouldEqual, "expected hash")
+	})
+
+	Convey("PUT_REQUEST should queue a valid message", t, func() {
+		hash, _ := NewHash("QmY8Mzg9F69e5P9AoQPYat655HEhc1TVGs11tmfNSzkqh2")
+		m := h.node.NewMessage(PUT_REQUEST, hash)
+		r, err := DHTReceiver(h, m)
+		So(err, ShouldBeNil)
+		So(r, ShouldEqual, "queued")
+	})
+
 }

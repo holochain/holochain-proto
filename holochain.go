@@ -95,6 +95,7 @@ type Header struct {
 func Register() {
 	gob.Register(Header{})
 	gob.Register(KeyEntry{})
+	gob.Register(Hash{})
 	RegisterBultinNucleii()
 	RegisterBultinPersisters()
 }

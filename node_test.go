@@ -125,7 +125,9 @@ func TestNodeSend(t *testing.T) {
 	})
 
 	Convey("It should respond with queued on valid PUT_REQUESTS", t, func() {
-		m := node2.NewMessage(PUT_REQUEST, "fish")
+		hash, _ := NewHash("QmY8Mzg9F69e5P9AoQPYat6x5HEhc1TVGs11tmfNSzkqh2")
+
+		m := node2.NewMessage(PUT_REQUEST, hash)
 		r, err := node2.Send(DHTProtocol, node1.HashAddr, m)
 		So(err, ShouldBeNil)
 		So(r.Type, ShouldEqual, OK_RESPONSE)

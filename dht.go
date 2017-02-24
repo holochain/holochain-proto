@@ -34,15 +34,23 @@ func (dht *DHT) put(key Hash, value []byte) (err error) {
 	return
 }
 
-// get retrieves a value from the DHT store
-func (dht *DHT) get(key Hash) (data []byte, err error) {
-	data, ok := dht.store[key.String()]
+// exists checks for the existence of the hash in the store
+func (dht *DHT) exists(key Hash) (err error) {
+	_, ok := dht.store[key.String()]
 	if !ok {
 		err = errors.New("No key: " + key.String())
 	}
 	return
 }
 
+// get retrieves a value from the DHT store
+func (dht *DHT) get(key Hash) (data []byte, err error) {
+	err = dht.exists(key)
+	if err == nil {
+		data, _ = dht.store[key.String()]
+	}
+	return
+}
 // SendPut initiates publishing a particular Hash to the DHT.
 // This command only sends the hash, because the expectation is that DHT nodes will start to
 // communicate back to Source node (the node that makes this call) to get the data for validation
@@ -80,9 +88,14 @@ func (dht *DHT) FindNodeForHash(key Hash) (n *Node, err error) {
 func DHTReceiver(h *Holochain, m *Message) (response interface{}, err error) {
 	switch m.Type {
 	case PUT_REQUEST:
-		err = h.dht.Queue.Put(m)
-		if err == nil {
-			response = "queued"
+		switch m.Body.(type) {
+		case Hash:
+			err = h.dht.Queue.Put(m)
+			if err == nil {
+				response = "queued"
+			}
+		default:
+			err = errors.New("expected hash")
 		}
 		return
 	case GET_REQUEST:

@@ -129,6 +129,7 @@ func TestGenFrom(t *testing.T) {
 		So(err, ShouldBeNil)
 		So(h.Name, ShouldEqual, "test")
 		agent, err := LoadAgent(s.Path)
+		So(err, ShouldBeNil)
 		So(h.agent.ID(), ShouldEqual, agent.ID())
 		So(ic.KeyEqual(h.agent.PrivKey(), agent.PrivKey()), ShouldBeTrue)
 		src, _ := readFile("examples/simple", "zome_myZome.zy")
@@ -291,6 +292,7 @@ func TestGenChain(t *testing.T) {
 
 		var buf bytes.Buffer
 		err = h.EncodeDNA(&buf)
+		So(err, ShouldBeNil)
 		So(string(entry.([]byte)), ShouldEqual, string(buf.Bytes()))
 		dnaHash = hd.EntryLink
 	})
@@ -331,6 +333,7 @@ func TestWalk(t *testing.T) {
 		}, false)
 		So(err, ShouldBeNil)
 		id, err := h.ID()
+		So(err, ShouldBeNil)
 		So(c[2], ShouldEqual, id.String())
 		//	So(c,ShouldEqual,"fish")
 	})
@@ -433,7 +436,7 @@ func TestCall(t *testing.T) {
 
 		So(result.(string), ShouldEqual, ph.String())
 
-		result, err = h.Call("myZome", "addData", "41")
+		_, err = h.Call("myZome", "addData", "41")
 		So(err.Error(), ShouldEqual, "Error calling 'commit': Invalid entry: 41")
 	})
 }

@@ -53,18 +53,18 @@ func SetupApp() (app *cli.App) {
 					Usage:     "generate a holochain instance from  source",
 					ArgsUsage: "src-path holochain-name",
 					Action: func(c *cli.Context) error {
-						src_path := c.Args().First()
-						if src_path == "" {
+						srcPath := c.Args().First()
+						if srcPath == "" {
 							return errors.New("gen from: missing required source path argument")
 						}
 						if len(c.Args()) == 1 {
 							return errors.New("gen from: missing required holochain-name argument")
 						}
 						name := c.Args()[1]
-						h, err := service.GenFrom(src_path, root+"/"+name)
+						h, err := service.GenFrom(srcPath, root+"/"+name)
 						if err == nil {
 							if verbose {
-								fmt.Printf("cloned %s from %s with new id: %v\n", name, src_path, h.Id)
+								fmt.Printf("cloned %s from %s with new id: %v\n", name, srcPath, h.Id)
 							}
 						}
 						return err
@@ -393,11 +393,11 @@ func serve(h *holo.Holochain, port string) {
 	http.HandleFunc("/fn/", func(w http.ResponseWriter, r *http.Request) {
 
 		var err error
-		var err_code int = 400
+		var errCode int = 400
 		defer func() {
 			if err != nil {
-				fmt.Printf("ERROR:%s,code:%d", err.Error(), err_code)
-				http.Error(w, err.Error(), err_code)
+				fmt.Printf("ERROR:%s,code:%d", err.Error(), errCode)
+				http.Error(w, err.Error(), errCode)
 			}
 		}()
 
@@ -409,7 +409,7 @@ func serve(h *holo.Holochain, port string) {
 		*/
 		body, err := ioutil.ReadAll(r.Body)
 		if err != nil {
-			err_code, err = mkErr("unable to read body", 500)
+			errCode, err = mkErr("unable to read body", 500)
 			return
 		}
 		fmt.Printf("processing req:%s\n  Body:%v\n", r.URL.Path, string(body))
@@ -428,8 +428,8 @@ func serve(h *holo.Holochain, port string) {
 					result, err := h.Call(zome, function, string(body))
 					if err != nil {
 						fmt.Printf(" result error: %v\n", err)
-						err_code = 400
-						http.Error(w, err.Error(), err_code)
+						errCode = 400
+						http.Error(w, err.Error(), errCode)
 
 						return
 					} else {
@@ -439,7 +439,7 @@ func serve(h *holo.Holochain, port string) {
 					return
 				}
 			}
-			err_code, err = mkErr("unknown function: "+function, 400)
+			errCode, err = mkErr("unknown function: "+function, 400)
 		}
 	}) // set router
 	fmt.Printf("starting server on localhost:%s\n", port)

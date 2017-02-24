@@ -141,7 +141,7 @@ func TestZygoDHT(t *testing.T) {
 		So(err, ShouldBeNil)
 		z := v.(*ZygoNucleus)
 		r, err := z.lastResult.(*zygo.SexpHash).HashGet(z.env, z.env.MakeSymbol("result"))
-
+		So(err, ShouldBeNil)
 		So(r.(*zygo.SexpStr).S, ShouldEqual, "ok")
 	})
 }

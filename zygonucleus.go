@@ -50,14 +50,14 @@ func (z *ZygoNucleus) ValidateEntry(d *EntryDef, entry interface{}) (err error) 
 	}
 	result, err := z.env.Run()
 	if err != nil {
-		err = errors.New(fmt.Sprintf("Error executing validate: %v", err))
+		err = fmt.Errorf("Error executing validate: %v", err)
 		return
 	}
 	switch result.(type) {
 	case *zygo.SexpBool:
 		r := result.(*zygo.SexpBool).Val
 		if !r {
-			err = errors.New(fmt.Sprintf("Invalid entry: %v", entry))
+			err = fmt.Errorf("Invalid entry: %v", entry)
 		}
 	case *zygo.SexpSentinel:
 		err = errors.New("validate should return boolean, got nil")
@@ -160,7 +160,7 @@ func (z *ZygoNucleus) put(env *zygo.Glisp, h *Holochain, hash string) (result *z
 		return nil, err
 	}
 
-	var put_result string
+	var putResult string
 
 	var key Hash
 	key, err = NewHash(hash)
@@ -169,11 +169,11 @@ func (z *ZygoNucleus) put(env *zygo.Glisp, h *Holochain, hash string) (result *z
 	}
 	err = h.dht.SendPut(key)
 	if err != nil {
-		put_result = "error: " + err.Error()
+		putResult = "error: " + err.Error()
 	} else {
-		put_result = "ok"
+		putResult = "ok"
 	}
-	err = result.HashSet(env.MakeSymbol("result"), &zygo.SexpStr{S: put_result})
+	err = result.HashSet(env.MakeSymbol("result"), &zygo.SexpStr{S: putResult})
 	return result, err
 }
 
@@ -247,12 +247,12 @@ func NewZygoNucleus(h *Holochain, code string) (n Nucleus, err error) {
 				return zygo.SexpNull, zygo.WrongNargs
 			}
 
-			var entry_type string
+			var entryType string
 			var entry string
 
 			switch t := args[0].(type) {
 			case *zygo.SexpStr:
-				entry_type = t.S
+				entryType = t.S
 			default:
 				return zygo.SexpNull,
 					errors.New("1st argument of commit should be string")
@@ -268,11 +268,11 @@ func NewZygoNucleus(h *Holochain, code string) (n Nucleus, err error) {
 					errors.New("2nd argument of commit should be string or hash")
 			}
 
-			err = h.ValidateEntry(entry_type, entry)
+			err = h.ValidateEntry(entryType, entry)
 			var headerHash Hash
 			if err == nil {
 				e := GobEntry{C: entry}
-				headerHash, _, err = h.NewEntry(time.Now(), entry_type, &e)
+				headerHash, _, err = h.NewEntry(time.Now(), entryType, &e)
 
 			}
 			if err != nil {
@@ -308,6 +308,7 @@ func NewZygoNucleus(h *Holochain, code string) (n Nucleus, err error) {
 	return
 }
 
+// Run executes zygo code
 func (z *ZygoNucleus) Run(code string) (result zygo.Sexp, err error) {
 	err = z.env.LoadString(code)
 	if err != nil {

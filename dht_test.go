@@ -17,6 +17,7 @@ func TestPutGet(t *testing.T) {
 		So(string(data), ShouldEqual, "some value")
 		hash, _ = NewHash("QmY8Mzg9F69e5P9AoQPYat6x5HEhc1TVGs11tmfNSzkqh2")
 		data, err = dht.get(hash)
+		So(data, ShouldBeNil)
 		So(err.Error(), ShouldEqual, "No key: QmY8Mzg9F69e5P9AoQPYat6x5HEhc1TVGs11tmfNSzkqh2")
 	})
 }

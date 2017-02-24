@@ -30,7 +30,7 @@ import (
 
 const Version string = "0.0.1"
 
-// Signing key structure for building KeyEntryType entries
+// KeyEntry structure for building KeyEntryType entries
 type KeyEntry struct {
 	ID      AgentID
 	KeyType KeytypeType
@@ -409,15 +409,15 @@ func (h *Holochain) GenChain() (keyHash Hash, err error) {
 }
 
 // GenFrom copies DNA files from a source
-func (s *Service) GenFrom(src_path string, path string) (hP *Holochain, err error) {
+func (s *Service) GenFrom(srcPath string, path string) (hP *Holochain, err error) {
 	hP, err = gen(path, func(path string) (hP *Holochain, err error) {
 
-		format, err := findDNA(src_path)
+		format, err := findDNA(srcPath)
 		if err != nil {
 			return
 		}
 
-		f, err := os.Open(src_path + "/" + DNAFileName + "." + format)
+		f, err := os.Open(srcPath + "/" + DNAFileName + "." + format)
 		if err != nil {
 			return
 		}
@@ -447,31 +447,31 @@ func (s *Service) GenFrom(src_path string, path string) (hP *Holochain, err erro
 		}
 		h.Id = u
 
-		if err = CopyDir(src_path+"/ui", path+"/ui"); err != nil {
+		if err = CopyDir(srcPath+"/ui", path+"/ui"); err != nil {
 			return
 		}
 
-		if err = CopyFile(src_path+"/schema_properties.json", path+"/schema_properties.json"); err != nil {
+		if err = CopyFile(srcPath+"/schema_properties.json", path+"/schema_properties.json"); err != nil {
 			return
 		}
 
 		for _, z := range h.Zomes {
 			var bs []byte
-			bs, err = readFile(src_path, z.Code)
+			bs, err = readFile(srcPath, z.Code)
 			if err != nil {
 				return
 			}
 			if err = writeFile(path, z.Code, bs); err != nil {
 				return
 			}
-			if err = CopyDir(src_path+"/test", path+"/test"); err != nil {
+			if err = CopyDir(srcPath+"/test", path+"/test"); err != nil {
 				return
 			}
-			for k, _ := range z.Entries {
+			for k := range z.Entries {
 				e := z.Entries[k]
 				sc := e.Schema
 				if sc != "" {
-					if err = CopyFile(src_path+"/"+sc, path+"/"+sc); err != nil {
+					if err = CopyFile(srcPath+"/"+sc, path+"/"+sc); err != nil {
 						return
 					}
 				}
@@ -650,10 +650,10 @@ func (s *Service) GenDev(path string, format string) (hP *Holochain, err error) 
 (defn addData [x] (commit "myData" x))
 (expose "addPrime" JSON)
 (defn addPrime [x] (commit "primes" x))
-(defn validate [entry_type entry]
-  (cond (== entry_type "myData")  (cond (== (mod entry 2) 0) true false)
-        (== entry_type "primes")  (isprime (hget entry %prime))
-        (== entry_type "profile") true
+(defn validate [entryType entry]
+  (cond (== entryType "myData")  (cond (== (mod entry 2) 0) true false)
+        (== entryType "primes")  (isprime (hget entry %prime))
+        (== entryType "profile") true
         false)
 )
 (defn validateChain [entry user_data] true)
@@ -975,13 +975,13 @@ func (h *Holochain) GetEntryDef(t string) (zome *Zome, d *EntryDef, err error) {
 
 // ValidateEntry passes an entry data to the chain's validation routine
 // If the entry is valid err will be nil, otherwise it will contain some information about why the validation failed (or, possibly, some other system error)
-func (h *Holochain) ValidateEntry(entry_type string, entry interface{}) (err error) {
+func (h *Holochain) ValidateEntry(entryType string, entry interface{}) (err error) {
 
 	if entry == nil {
 		return errors.New("nil entry invalid")
 	}
 
-	z, d, err := h.GetEntryDef(entry_type)
+	z, d, err := h.GetEntryDef(entryType)
 	if err != nil {
 		return
 	}
@@ -1011,8 +1011,8 @@ func (h *Holochain) ValidateEntry(entry_type string, entry interface{}) (err err
 }
 
 // Call executes an exposed function
-func (h *Holochain) Call(zome_type string, function string, arguments interface{}) (result interface{}, err error) {
-	n, err := h.MakeNucleus(zome_type)
+func (h *Holochain) Call(zomeType string, function string, arguments interface{}) (result interface{}, err error) {
+	n, err := h.MakeNucleus(zomeType)
 	if err != nil {
 		return
 	}
@@ -1075,7 +1075,7 @@ func (h *Holochain) Test() error {
 		}
 	}()
 
-	// load up the test files into the tests arrary
+	// load up the test files into the tests array
 	re := regexp.MustCompile(`([0-9])+\.(.*)`)
 	var tests = make(map[int]TestData)
 	for _, f := range files {
@@ -1107,7 +1107,7 @@ func (h *Holochain) Test() error {
 
 		if t.Err != "" {
 			if err == nil {
-				return errors.New(fmt.Sprintf("Test: %d\n  Expected Error: %s\n  Got: nil\n", i+1, t.Err))
+				return fmt.Errorf("Test: %d\n  Expected Error: %s\n  Got: nil\n", i+1, t.Err)
 			} else {
 
 				if err.Error() != t.Err {
@@ -1117,7 +1117,7 @@ func (h *Holochain) Test() error {
 			}
 		} else {
 			if err != nil {
-				return errors.New(fmt.Sprintf("Test: %d\n  Expected: %s\n  Got Error: %s\n", i+1, t.Output, err.Error()))
+				return fmt.Errorf("Test: %d\n  Expected: %s\n  Got Error: %s\n", i+1, t.Output, err.Error())
 			} else {
 
 				// @TODO this should probably act according the function schema
@@ -1139,7 +1139,7 @@ func (h *Holochain) Test() error {
 				}
 				o := strings.Replace(t.Output, "%h%", top.String(), -1)
 				if r != o {
-					return errors.New(fmt.Sprintf("Test: %d\n  Expected: %v\n  Got: %v\n", i+1, o, r))
+					return fmt.Errorf("Test: %d\n  Expected: %v\n  Got: %v\n", i+1, o, r)
 				}
 			}
 		}
@@ -1147,6 +1147,7 @@ func (h *Holochain) Test() error {
 	return err
 }
 
+// GetProperty returns the value of a DNA property
 func (h *Holochain) GetProperty(prop string) (property string, err error) {
 	return h.Properties.(map[string]string)[prop], err
 }

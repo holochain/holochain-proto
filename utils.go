@@ -140,11 +140,11 @@ func CopyFile(source string, dest string) (err error) {
 	defer df.Close()
 	_, err = io.Copy(df, sf)
 	if err == nil {
-		si, err := os.Stat(source)
-		if err != nil {
+		var si os.FileInfo
+		si, err = os.Stat(source)
+		if err == nil {
 			err = os.Chmod(dest, si.Mode())
 		}
-
 	}
 	return
 }

@@ -72,10 +72,10 @@ func CreateNucleus(h *Holochain, schema string, code string) (Nucleus, error) {
 		// Factory has not been registered.
 		// Make a list of all available datastore factories for logging.
 		available := make([]string, 0)
-		for k, _ := range nucleusFactories {
+		for k := range nucleusFactories {
 			available = append(available, k)
 		}
-		return nil, errors.New(fmt.Sprintf("Invalid nucleus name. Must be one of: %s", strings.Join(available, ", ")))
+		return nil, fmt.Errorf("Invalid nucleus name. Must be one of: %s", strings.Join(available, ", "))
 	}
 
 	return factory(h, code)

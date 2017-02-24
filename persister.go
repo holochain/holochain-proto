@@ -245,7 +245,7 @@ func CreatePersister(ptype string, config string) (Persister, error) {
 		for k, _ := range persistorFactories {
 			available = append(available, k)
 		}
-		return nil, errors.New(fmt.Sprintf("Invalid persister name. Must be one of: %s", strings.Join(available, ", ")))
+		return nil, fmt.Errorf("Invalid persister name. Must be one of: %s", strings.Join(available, ", "))
 	}
 
 	return factory(config)

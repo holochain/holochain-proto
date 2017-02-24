@@ -72,21 +72,7 @@ type Holochain struct {
 	config         Config
 	dht            *DHT
 	node           *Node
-}
-
-type Signature struct {
-	S []byte
-}
-
-// Holochain entry header
-type Header struct {
-	Type        string
-	Time        time.Time
-	HeaderLink  Hash // link to previous header
-	EntryLink   Hash // link to entry
-	TypeLink    Hash // link to header of previous header of this type
-	MySignature Signature
-	Meta        interface{}
+	chain          *Chain // the chain itself
 }
 
 // Register function that must be called once at startup by any client app
@@ -287,6 +273,9 @@ func (h *Holochain) Prepare() (err error) {
 			}
 		}
 	}
+
+	// @TODO load from persistence?
+	h.chain = NewChain()
 
 	listenaddr := fmt.Sprintf("/ip4/127.0.0.1/tcp/%d", h.config.Port)
 	h.node, err = NewNode(listenaddr, h.Agent().PrivKey())
@@ -776,59 +765,41 @@ func (h *Holochain) GenDNAHashes() (err error) {
 
 // NewEntry adds an entry and it's header to the chain and returns the header and it's hash
 func (h *Holochain) NewEntry(now time.Time, t string, entry Entry) (hash Hash, header *Header, err error) {
-	var hd Header
-	hd.Type = t
-	hd.Time = now
 
 	// get the current top of the chain
 	ph, err := h.Top()
-	if err == nil {
-		hd.HeaderLink = ph
-
-	} else {
-		hd.HeaderLink = NullHash()
+	if err != nil {
+		ph = NullHash()
 	}
 
 	// and also the the top entry of this type
-	ph, err = h.TopType(t)
-	if err == nil {
-		hd.TypeLink = ph
-	} else {
-		hd.TypeLink = NullHash()
+	pth, err := h.TopType(t)
+	if err != nil {
+		pth = NullHash()
 	}
 
-	// now encode the entry into bytes
+	hash, header, err = newHeader(h, now, t, entry, h.agent.PrivKey(), ph, pth)
+	if err != nil {
+		return
+	}
+
+	// @TODO
+	// we have to do this stuff because currently we are persisting immediatly.
+	// instead we should be persisting from the Chain object.
+
+	// encode the header and create a hash of it
+	b, err := ByteEncoder(header)
+	if err != nil {
+		return
+	}
+	// encode the entry into bytes
 	m, err := entry.Marshal()
 	if err != nil {
 		return
 	}
 
-	// calculate the entry's hash and store it in the header
-	err = hd.EntryLink.Sum(h, m)
-	if err != nil {
-		return
-	}
+	err = h.store.Put(t, hash, b, header.EntryLink, m)
 
-	// sign the hash of the entry
-	sig, err := h.agent.PrivKey().Sign(hd.EntryLink.H)
-	if err != nil {
-		return
-	}
-	hd.MySignature = Signature{S: sig}
-
-	// encode the header and create a hash of it
-	b, err := ByteEncoder(&hd)
-	if err != nil {
-		return
-	}
-	err = hash.Sum(h, b)
-	if err != nil {
-		return
-	}
-
-	err = h.store.Put(t, hash, b, hd.EntryLink, m)
-
-	header = &hd
 	return
 }
 

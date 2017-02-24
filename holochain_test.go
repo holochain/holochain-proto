@@ -184,7 +184,7 @@ func TestNewEntry(t *testing.T) {
 	//}
 
 	Convey("it should have signed the entry with my key", t, func() {
-		sig := header.MySignature
+		sig := header.Sig
 		hash := header.EntryLink.H
 		valid, err := h.agent.PrivKey().GetPublic().Verify(hash, sig.S)
 		So(err, ShouldBeNil)
@@ -484,6 +484,6 @@ func mkTestHeader(t string) Header {
 		HeaderLink: hl,
 		EntryLink:  el,
 	}
-	//h1.MySignature.S.321)
+	//h1.Sig.S.321)
 	return h1
 }

@@ -21,6 +21,57 @@ func TestPutGet(t *testing.T) {
 	})
 }
 
+func TestPutGetMeta(t *testing.T) {
+	var h Holochain
+	dht := NewDHT(&h)
+	hash, _ := NewHash("QmY8Mzg9F69e5P9AoQPYat655HEhc1TVGs11tmfNSzkqh2")
+	metaHash, _ := NewHash("QmY8Mzg9F69e5P9AoQPYat655HEhc1TVGs11tmfNSzkqh3")
+
+	Convey("It should fail if hash doesn't exist", t, func() {
+		err := dht.putMeta(hash, metaHash, "someType", []byte("some data"))
+		So(err.Error(), ShouldEqual, "No key: QmY8Mzg9F69e5P9AoQPYat655HEhc1TVGs11tmfNSzkqh2")
+
+		_, err = dht.getMeta(hash, "someType")
+		So(err.Error(), ShouldEqual, "No key: QmY8Mzg9F69e5P9AoQPYat655HEhc1TVGs11tmfNSzkqh2")
+	})
+
+	err := dht.put(hash, []byte("some value"))
+	if err != nil {
+		panic(err)
+	}
+
+	Convey("It should store and retrieve meta values on a hash", t, func() {
+		data, err := dht.getMeta(hash, "someType")
+		So(err, ShouldNotBeNil)
+		So(err.Error(), ShouldEqual, "No values for someType")
+
+		err = dht.putMeta(hash, metaHash, "someType", []byte("value 1"))
+		So(err, ShouldBeNil)
+
+		err = dht.putMeta(hash, metaHash, "someType", []byte("value 2"))
+		So(err, ShouldBeNil)
+
+		err = dht.putMeta(hash, metaHash, "otherType", []byte("value 3"))
+		So(err, ShouldBeNil)
+
+		data, err = dht.getMeta(hash, "someType")
+		So(err, ShouldBeNil)
+		So(len(data), ShouldEqual, 2)
+		m := data[0]
+		So(m.H.String(), ShouldEqual, "QmY8Mzg9F69e5P9AoQPYat655HEhc1TVGs11tmfNSzkqh3")
+		So(string(m.V), ShouldEqual, "value 1")
+		m = data[1]
+		So(m.H.String(), ShouldEqual, "QmY8Mzg9F69e5P9AoQPYat655HEhc1TVGs11tmfNSzkqh3")
+		So(string(m.V), ShouldEqual, "value 2")
+
+		data, err = dht.getMeta(hash, "otherType")
+		So(err, ShouldBeNil)
+		So(len(data), ShouldEqual, 1)
+		So(string(data[0].V), ShouldEqual, "value 3")
+
+	})
+}
+
 func TestNewDHT(t *testing.T) {
 	var h Holochain
 

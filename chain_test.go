@@ -2,6 +2,7 @@ package holochain
 
 import (
 	"bytes"
+	"fmt"
 	ic "github.com/libp2p/go-libp2p-crypto"
 	. "github.com/smartystreets/goconvey/convey"
 	"reflect"
@@ -144,6 +145,56 @@ func TestMarshal(t *testing.T) {
 		So(reflect.DeepEqual(c.TypeTops, c1.TypeTops), ShouldBeTrue)
 		So(reflect.DeepEqual(c.Hmap, c1.Hmap), ShouldBeTrue)
 		So(reflect.DeepEqual(c.Emap, c1.Emap), ShouldBeTrue)
+	})
+}
+
+func TestWalkChain(t *testing.T) {
+	c := NewChain()
+	h, key, now := chainTestSetup()
+	e := GobEntry{C: "some data"}
+	c.AddEntry(h, now, "myData1", &e, key)
+
+	e = GobEntry{C: "some other data"}
+	c.AddEntry(h, now, "myData2", &e, key)
+
+	e = GobEntry{C: "and more data"}
+	c.AddEntry(h, now, "myData3", &e, key)
+
+	Convey("it should walk back from the top through all entries", t, func() {
+		var x string
+		var i int
+		err := c.Walk(func(key *Hash, h *Header, entry Entry) error {
+			i++
+			x += fmt.Sprintf("%d:%v ", i, entry.(*GobEntry).C)
+			return nil
+		})
+		So(err, ShouldBeNil)
+		So(x, ShouldEqual, "1:and more data 2:some other data 3:some data ")
+	})
+}
+
+func TestValidateChain(t *testing.T) {
+	c := NewChain()
+	h, key, now := chainTestSetup()
+	e := GobEntry{C: "some data"}
+	c.AddEntry(h, now, "myData1", &e, key)
+
+	e = GobEntry{C: "some other data"}
+	c.AddEntry(h, now, "myData1", &e, key)
+
+	e = GobEntry{C: "and more data"}
+	c.AddEntry(h, now, "myData1", &e, key)
+
+	Convey("it should validate", t, func() {
+		So(c.Validate(h), ShouldBeNil)
+	})
+
+	Convey("it should fail to validate if we diddle some bits", t, func() {
+		c.Entries[0].(*GobEntry).C = "fish"
+		So(c.Validate(h).Error(), ShouldEqual, "entry hash mismatch at link 0")
+		c.Entries[0].(*GobEntry).C = "some data"
+		c.Headers[1].TypeLink = NullHash()
+		So(c.Validate(h).Error(), ShouldEqual, "header hash mismatch at link 1")
 	})
 }
 

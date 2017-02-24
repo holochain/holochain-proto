@@ -7,6 +7,7 @@
 package holochain
 
 import (
+	"bytes"
 	"encoding/binary"
 	"encoding/gob"
 	"fmt"
@@ -14,6 +15,9 @@ import (
 	"io"
 	"time"
 )
+
+// WalkerFn a function type for call Walk
+type WalkerFn func(key *Hash, header *Header, entry Entry) error
 
 // Chain structure for providing in-memory access to chain data, entries headers and hashes
 type Chain struct {
@@ -224,6 +228,66 @@ func UnmarshalChain(reader io.Reader) (c *Chain, err error) {
 	}
 	c.Hashes = append(c.Hashes, h)
 	c.Hmap[h.String()] = int(i - 1)
+	return
+}
+
+// Walk traverses chain from most recent to first entry calling fn on each one
+func (c *Chain) Walk(fn WalkerFn) (err error) {
+	l := len(c.Headers)
+	for i := l - 1; i >= 0; i-- {
+		err = fn(&c.Hashes[i], c.Headers[i], c.Entries[i])
+		if err != nil {
+			return
+		}
+	}
+	return
+}
+
+// Validate traverses chain confirming the hashes
+// @TODO confirm that TypeLinks are also correct
+func (c *Chain) Validate(h *Holochain) (err error) {
+	l := len(c.Headers)
+	for i := l - 1; i >= 0; i-- {
+		hd := c.Headers[i]
+		var hash Hash
+
+		// encode the header and create a hash of it
+		var b []byte
+		b, err = ByteEncoder(hd)
+		if err != nil {
+			return
+		}
+		err = hash.Sum(h, b)
+		if err != nil {
+			return
+		}
+
+		var nexth Hash
+		if i == l-1 {
+			nexth = c.Hashes[i]
+		} else {
+			nexth = c.Headers[i+1].HeaderLink
+		}
+
+		if !bytes.Equal(hash.H, nexth.H) {
+			err = fmt.Errorf("header hash mismatch at link %d", i)
+			return
+		}
+
+		b, err = c.Entries[i].Marshal()
+		if err != nil {
+			return
+		}
+		err = hash.Sum(h, b)
+		if err != nil {
+			return
+		}
+
+		if !bytes.Equal(hash.H, hd.EntryLink.H) {
+			err = fmt.Errorf("entry hash mismatch at link %d", i)
+			return
+		}
+	}
 	return
 }
 

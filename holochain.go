@@ -12,9 +12,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/BurntSushi/toml"
 	"github.com/boltdb/bolt"
-	"github.com/ghodss/yaml"
 	"github.com/google/uuid"
 	ic "github.com/libp2p/go-libp2p-crypto"
 	mh "github.com/multiformats/go-multihash"
@@ -176,36 +174,22 @@ func New(agent Agent, path string, format string, zomes ...Zome) Holochain {
 // DecodeDNA decodes a Holochain structure from an io.Reader
 func DecodeDNA(reader io.Reader, format string) (hP *Holochain, err error) {
 	var h Holochain
-	switch format {
-	case "toml":
-		_, err = toml.DecodeReader(reader, &h)
+	err = Decode(reader, format, &h)
+	if err != nil {
+		return
+	}
+	hP = &h
+	hP.encodingFormat = format
 
-	case "json":
-		dec := json.NewDecoder(reader)
-		err = dec.Decode(&h)
-	case "yaml":
-		y, e := ioutil.ReadAll(reader)
-		if e != nil {
-			err = e
-			return
-		}
-		err = yaml.Unmarshal(y, &h)
-	default:
-		err = errors.New("unknown DNA encoding format: " + format)
-	}
-	if err == nil {
-		h.encodingFormat = format
-		hP = &h
-	}
 	return
 }
 
-// Load unmarshals a holochain structure for the named chain and type in a service
+// load unmarshals a holochain structure for the named chain and format
 func (s *Service) load(name string, format string) (hP *Holochain, err error) {
 
 	path := s.Path + "/" + name
-
-	f, err := os.Open(path + "/" + DNAFileName + "." + format)
+	var f *os.File
+	f, err = os.Open(path + "/" + DNAFileName + "." + format)
 	if err != nil {
 		return
 	}
@@ -218,7 +202,12 @@ func (s *Service) load(name string, format string) (hP *Holochain, err error) {
 	h.encodingFormat = format
 
 	// load the config
-	_, err = toml.DecodeFile(path+"/"+ConfigFileName, &h.config)
+	f, err = os.Open(path + "/" + ConfigFileName + "." + format)
+	if err != nil {
+		return
+	}
+	defer f.Close()
+	err = Decode(f, format, &h.config)
 	if err != nil {
 		return
 	}
@@ -497,7 +486,15 @@ func makeConfig(h *Holochain, s *Service) error {
 	h.config.Port = DefaultPort
 	h.config.PeerModeDHTNode = s.Settings.DefaultPeerModeDHTNode
 	h.config.PeerModeAuthor = s.Settings.DefaultPeerModeAuthor
-	return writeToml(h.path, ConfigFileName, h.config, false)
+
+	p := h.path + "/" + ConfigFileName + "." + h.encodingFormat
+	f, err := os.Create(p)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+
+	return Encode(f, h.encodingFormat, &h.config)
 }
 
 // GenDev generates starter holochain DNA files from which to develop a chain
@@ -724,35 +721,7 @@ func gen(path string, makeH func(path string) (hP *Holochain, err error)) (h *Ho
 
 // EncodeDNA encodes a holochain's DNA to an io.Writer
 func (h *Holochain) EncodeDNA(writer io.Writer) (err error) {
-	switch h.encodingFormat {
-	case "toml":
-		enc := toml.NewEncoder(writer)
-		err = enc.Encode(h)
-
-	case "json":
-		enc := json.NewEncoder(writer)
-		enc.SetIndent("", "    ")
-		err = enc.Encode(h)
-
-	case "yaml":
-		y, e := yaml.Marshal(h)
-		if e != nil {
-			err = e
-			return
-		}
-		n, e := writer.Write(y)
-		if e != nil {
-			err = e
-			return
-		}
-		if n != len(y) {
-			err = errors.New("unable to write all bytes while encoding DNA")
-		}
-
-	default:
-		err = errors.New("unknown DNA encoding format: " + h.encodingFormat)
-	}
-	return
+	return Encode(writer, h.encodingFormat, &h)
 }
 
 // SaveDNA writes the holochain DNA to a file

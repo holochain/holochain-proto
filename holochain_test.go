@@ -109,7 +109,7 @@ func TestGenDev(t *testing.T) {
 
 		So(fileExists(h.path+"/schema_profile.json"), ShouldBeTrue)
 		So(fileExists(h.path+"/ui/index.html"), ShouldBeTrue)
-		So(fileExists(h.path+"/"+ConfigFileName), ShouldBeTrue)
+		So(fileExists(h.path+"/"+ConfigFileName+".json"), ShouldBeTrue)
 
 		Convey("we should not be able re generate it", func() {
 			_, err = s.GenDev(root, "json")
@@ -138,7 +138,7 @@ func TestGenFrom(t *testing.T) {
 		So(fileExists(h.path+"/ui/index.html"), ShouldBeTrue)
 		So(fileExists(h.path+"/schema_profile.json"), ShouldBeTrue)
 		So(fileExists(h.path+"/schema_properties.json"), ShouldBeTrue)
-		So(fileExists(h.path+"/"+ConfigFileName), ShouldBeTrue)
+		So(fileExists(h.path+"/"+ConfigFileName+".toml"), ShouldBeTrue)
 	})
 }
 

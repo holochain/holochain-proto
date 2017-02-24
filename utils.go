@@ -6,8 +6,10 @@
 package holochain
 
 import (
+	"encoding/json"
 	"errors"
 	"github.com/BurntSushi/toml"
+	"github.com/ghodss/yaml"
 	"io"
 	"io/ioutil"
 	"os"
@@ -145,6 +147,61 @@ func CopyFile(source string, dest string) (err error) {
 		if err == nil {
 			err = os.Chmod(dest, si.Mode())
 		}
+	}
+	return
+}
+
+// Encode encodes data to the writer according to the given format
+func Encode(writer io.Writer, format string, data interface{}) (err error) {
+	switch format {
+	case "toml":
+		enc := toml.NewEncoder(writer)
+		err = enc.Encode(data)
+
+	case "json":
+		enc := json.NewEncoder(writer)
+		enc.SetIndent("", "    ")
+		err = enc.Encode(data)
+
+	case "yaml":
+		y, e := yaml.Marshal(data)
+		if e != nil {
+			err = e
+			return
+		}
+		n, e := writer.Write(y)
+		if e != nil {
+			err = e
+			return
+		}
+		if n != len(y) {
+			err = errors.New("unable to write all bytes while encoding")
+		}
+
+	default:
+		err = errors.New("unknown encoding format: " + format)
+	}
+	return
+}
+
+// Decode extracts data from the reader according to the type
+func Decode(reader io.Reader, format string, data interface{}) (err error) {
+	switch format {
+	case "toml":
+		_, err = toml.DecodeReader(reader, data)
+
+	case "json":
+		dec := json.NewDecoder(reader)
+		err = dec.Decode(data)
+	case "yaml":
+		y, e := ioutil.ReadAll(reader)
+		if e != nil {
+			err = e
+			return
+		}
+		err = yaml.Unmarshal(y, data)
+	default:
+		err = errors.New("unknown encoding format: " + format)
 	}
 	return
 }

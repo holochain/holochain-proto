@@ -281,7 +281,7 @@ func (h *Holochain) Prepare() (err error) {
 		if !fileExists(h.path + "/" + z.Code) {
 			return errors.New("DNA specified code file missing: " + z.Code)
 		}
-		for k, _ := range z.Entries {
+		for k := range z.Entries {
 			e := z.Entries[k]
 			sc := e.Schema
 			if sc != "" {
@@ -484,6 +484,7 @@ func (s *Service) GenFrom(srcPath string, path string) (hP *Holochain, err error
 	return
 }
 
+// TestData holds a test entry for a chain
 type TestData struct {
 	Zome   string
 	FnName string
@@ -499,6 +500,7 @@ func makeConfig(h *Holochain, s *Service) error {
 	return writeToml(h.path, ConfigFileName, h.config, false)
 }
 
+// GenDev generates starter holochain DNA files from which to develop a chain
 func (s *Service) GenDev(path string, format string) (hP *Holochain, err error) {
 	hP, err = gen(path, func(path string) (hP *Holochain, err error) {
 		agent, err := LoadAgent(filepath.Dir(path))
@@ -1111,7 +1113,7 @@ func (h *Holochain) Test() error {
 			} else {
 
 				if err.Error() != t.Err {
-					return errors.New(fmt.Sprintf("Test: %d\n  Expected Error: %s\n  Got Error: %s\n", i+1, t.Err, err.Error()))
+					return fmt.Errorf("Test: %d\n  Expected Error: %s\n  Got Error: %s\n", i+1, t.Err, err.Error())
 				}
 				err = nil
 			}

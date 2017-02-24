@@ -29,14 +29,14 @@ type EntryDef struct {
 	validator  SchemaValidator
 }
 
-// interface for Entry serialization and deserialziation
+// Entry describes serialization and deserialziation of entry data
 type Entry interface {
 	Marshal() ([]byte, error)
 	Unmarshal([]byte) error
 	Content() interface{}
 }
 
-// interface for schema validation
+// SchemaValidator interface for schema validation
 type SchemaValidator interface {
 	Validate(interface{}) error
 }
@@ -72,6 +72,7 @@ func ByteDecoder(b []byte, to interface{}) (err error) {
 }
 
 // implementation of Entry interface with gobs
+
 func (e *GobEntry) Marshal() (b []byte, err error) {
 	b, err = ByteEncoder(&e.C)
 	return
@@ -83,6 +84,7 @@ func (e *GobEntry) Unmarshal(b []byte) (err error) {
 func (e *GobEntry) Content() interface{} { return e.C }
 
 // implementation of Entry interface with JSON
+
 func (e *JSONEntry) Marshal() (b []byte, err error) {
 	j, err := json.Marshal(e.C)
 	if err != nil {
@@ -102,6 +104,7 @@ type JSONSchemaValidator struct {
 }
 
 // implementation of SchemaValidator with JSONSchema
+
 func (v *JSONSchemaValidator) Validate(entry interface{}) (err error) {
 	err = v.v.Validate(entry)
 	return

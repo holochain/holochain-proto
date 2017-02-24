@@ -21,11 +21,13 @@ const (
 	JSON
 )
 
+// Interface holds the name and schema of an DNA exposed function
 type Interface struct {
 	Name   string
 	Schema InterfaceSchemaType
 }
 
+// Nucleus type abstracts the functions of code execution environments
 type Nucleus interface {
 	Type() string
 	ValidateEntry(def *EntryDef, entry interface{}) error

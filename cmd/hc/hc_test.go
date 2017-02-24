@@ -7,7 +7,7 @@ import (
 )
 
 func TestSetupApp(t *testing.T) {
-	app := SetupApp()
+	app := setupApp()
 	Convey("it should create the cli App", t, func() {
 		So(app.Name, ShouldEqual, "hc")
 	})

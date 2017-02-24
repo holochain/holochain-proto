@@ -18,7 +18,7 @@ import (
 var uninitialized error
 var initialized bool
 
-func SetupApp() (app *cli.App) {
+func setupApp() (app *cli.App) {
 	app = cli.NewApp()
 	app.Name = "hc"
 	app.Usage = "holochain peer command line interface"
@@ -336,7 +336,7 @@ func SetupApp() (app *cli.App) {
 }
 
 func main() {
-	app := SetupApp()
+	app := setupApp()
 	app.Run(os.Args)
 }
 

@@ -21,6 +21,7 @@ type DHT struct {
 	Queue     q.Queue           // a queue for incoming puts
 }
 
+// Meta holds data that can be associated with a hash
 type Meta struct {
 	H Hash
 	T string

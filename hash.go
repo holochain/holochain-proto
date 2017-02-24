@@ -7,17 +7,17 @@
 package holochain
 
 import (
-	. "github.com/multiformats/go-multihash"
+	mh "github.com/multiformats/go-multihash"
 )
 
 // Hash of Entry's Content
 type Hash struct {
-	H Multihash
+	H mh.Multihash
 }
 
 // NewHash builds a Hash from a b58 string encoded hash
 func NewHash(s string) (h Hash, err error) {
-	h.H, err = FromB58String(s)
+	h.H, err = mh.FromB58String(s)
 	return
 }
 
@@ -31,7 +31,7 @@ func (h Hash) String() string {
 
 // Sum builds a digest according to the specs in the Holochain
 func (h *Hash) Sum(hc *Holochain, data []byte) (err error) {
-	h.H, err = Sum(data, hc.hashCode, hc.hashLength)
+	h.H, err = mh.Sum(data, hc.hashCode, hc.hashLength)
 	return
 }
 

@@ -8,7 +8,6 @@ package holochain
 
 import (
 	"context"
-	_ "errors"
 	//	host "github.com/libp2p/go-libp2p-host"
 	"encoding/gob"
 	"errors"
@@ -31,12 +30,17 @@ type MsgType int8
 
 const (
 	// common messages
+
 	ERROR_RESPONSE MsgType = iota
 	OK_RESPONSE
+
 	// DHT messages
+
 	PUT_REQUEST
 	GET_REQUEST
+
 	// Source Messages
+
 	SRC_VALIDATE
 )
 

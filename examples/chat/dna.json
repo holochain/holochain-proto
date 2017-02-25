@@ -1,0 +1,44 @@
+{
+    "Version": 0,
+    "Id": "00000000-0000-0000-0000-000000000000",
+    "Name": "chat",
+    "Properties": {
+        "name": "My Chat",
+        "purpose": "chatting up a storm",
+        "language": "en"
+    },
+    "PropertiesSchema": "schema_properties.json",
+    "HashType": "sha2-256",
+    "BasedOn": {
+        "H": null
+    },
+    "Zomes": {
+        "chat": {
+            "Name": "chat",
+            "Description": "chat code",
+            "Code": "zome_chat.zy",
+            "CodeHash": {
+                "H": null
+            },
+            "Entries": {
+                "space": {
+                    "Name": "space",
+                    "DataFormat": "JSON",
+                    "Schema": "schema_space.json",
+                    "SchemaHash": {
+                        "H": null
+                    }
+                },
+                "member": {
+                    "Name": "member",
+                    "DataFormat": "JSON",
+                    "Schema": "schema_member.json",
+                    "SchemaHash": {
+                        "H": null
+                    }
+                }
+            },
+            "NucleusType": "zygo"
+        }
+    }
+}

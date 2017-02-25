@@ -434,7 +434,14 @@ func serve(h *holo.Holochain, port string) {
 						return
 					} else {
 						fmt.Printf(" result: %v\n", result)
-						fmt.Fprintf(w, result.(string))
+						switch t := result.(type) {
+						case string:
+							fmt.Fprintf(w, t)
+						case []byte:
+							fmt.Fprintf(w, string(t))
+						default:
+							err = fmt.Errorf("Unknown type from Call of %s:%s", zome, function)
+						}
 					}
 					return
 				}

@@ -1,0 +1,59 @@
+<html>
+  <head>
+    <title>Test</title>
+    <script type="text/javascript" src="http://code.jquery.com/jquery-latest.js"></script>
+    <script type="text/javascript">
+     function getSpace() {
+         var x = {}
+         x.name = $('#name').val()
+         x.purpose = $('#purpose').val()
+         return JSON.stringify(x)
+     }
+
+     function send() {
+         $.post(
+             "/fn/"+$('select[name=zome]').val()+"/"+$('select[name=fn]').val(),
+             getSpace(),
+             function(data) {
+                 $("#result").html("result:"+data)
+                 $("#err").html("")
+             }
+         ).error(function(response) {
+             $("#err").html(response.responseText)
+             $("#result").html("")
+         })
+         ;
+     };
+     function getProperty() {
+         $.post(
+             "/fn/chat/getProperty",
+             $("#name").val(),
+             function(data) {
+                 $("#result").html("result:"+data)
+                 $("#err").html("")
+             }
+         ).error(function(response) {
+             $("#err").html(response.responseText)
+             $("#result").html("")
+         })
+         ;
+     };
+    </script>
+  </head>
+  <body>
+    <select id="zome" name="zome">
+      <option value="chat">chat</option>
+    </select>
+    <select id="fn" name="fn">
+      <option value="addSpace">addSpace</option>
+    </select>
+    name: <input id="name" name="name">
+    purpose: <input id="purpose" name="purpose">
+    <button onclick="send();">Send</button>
+<br/>
+    <button onclick="getProperty();">GetProp</button>
+
+    <div id="result"></div>
+    <div id="err"></div>
+  </body>
+</html>

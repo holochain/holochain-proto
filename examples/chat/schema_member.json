@@ -1,0 +1,22 @@
+{
+	"title": "Member Schema",
+	"type": "object",
+	"properties": {
+		"username": {
+			"type": "string"
+		},
+		"firstName": {
+			"type": "string"
+		},
+		"lastName": {
+			"type": "string"
+		},
+		"email": {
+			"type": "string"
+		},
+		"avatar": {
+			"type": "string"
+		}
+	},
+    "required": ["username","firstName", "lastName","email"]
+}

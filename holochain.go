@@ -57,7 +57,7 @@ type Holochain struct {
 	Version          int
 	Id               uuid.UUID
 	Name             string
-	Properties       interface{}
+	Properties       map[string]string
 	PropertiesSchema string
 	HashType         string
 	BasedOn          Hash // holochain hash for base schemas and code
@@ -1023,6 +1023,11 @@ func (h *Holochain) Test() error {
 		if err != nil {
 			panic(err)
 		}
+		err := os.RemoveAll(h.path + "/" + StoreFileName + ".dat")
+		if err != nil {
+			panic(err)
+		}
+
 	}()
 
 	// load up the test files into the tests array
@@ -1099,5 +1104,5 @@ func (h *Holochain) Test() error {
 
 // GetProperty returns the value of a DNA property
 func (h *Holochain) GetProperty(prop string) (property string, err error) {
-	return h.Properties.(map[string]string)[prop], err
+	return h.Properties[prop], err
 }

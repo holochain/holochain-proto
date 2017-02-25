@@ -9,10 +9,10 @@ package holochain
 import (
 	"bytes"
 	"encoding/binary"
-	"encoding/gob"
 	"fmt"
 	ic "github.com/libp2p/go-libp2p-crypto"
 	"io"
+	"os"
 	"time"
 )
 
@@ -27,21 +27,10 @@ type Chain struct {
 	TypeTops map[string]int // pointer to index of top of a given type
 	Hmap     map[string]int // map header hashes to index number
 	Emap     map[string]int // map entry hashes to index number
-}
 
-type Signature struct {
-	S []byte
-}
+	//---
 
-// Header holds chain links, type, timestamp and signature
-type Header struct {
-	Type       string
-	Time       time.Time
-	HeaderLink Hash // link to previous header
-	EntryLink  Hash // link to entry
-	TypeLink   Hash // link to header of previous header of this type
-	Sig        Signature
-	Meta       interface{}
+	s *os.File // if this stream is not nil, new entries will get marshaled to it
 }
 
 // NewChain creates and empty chain
@@ -58,44 +47,66 @@ func NewChain() (chain *Chain) {
 	return
 }
 
-// newHeader makes Header object linked to a previous Header by hash
-func newHeader(h *Holochain, now time.Time, t string, entry Entry, key ic.PrivKey, prev Hash, prevType Hash) (hash Hash, header *Header, err error) {
-	var hd Header
-	hd.Type = t
-	hd.Time = now
-	hd.HeaderLink = prev
-	hd.TypeLink = prevType
+// Creates a chain from a file, loading any data there, and setting it to be persisted to
+func NewChainFromFile(h HashSpec, path string) (c *Chain, err error) {
+	c = NewChain()
 
-	// encode the entry into bytes
-	m, err := entry.Marshal()
-	if err != nil {
-		return
-	}
+	var f *os.File
+	if fileExists(path) {
+		f, err = os.Open(path)
+		if err != nil {
+			return
+		}
+		var i int
+		for {
+			var header *Header
+			var e Entry
+			header, e, err = readPair(f)
+			if err != nil && err.Error() == "EOF" {
+				err = nil
+				break
+			}
+			if err != nil {
+				return
+			}
+			c.addPair(header, e, i)
+			i++
+		}
+		f.Close()
+		i--
+		// if we read anything then we have to calculate the final hash and add it
+		if i >= 0 {
+			hd := c.Headers[i]
+			var hash Hash
 
-	// calculate the entry's hash and store it in the header
-	err = hd.EntryLink.Sum(h, m)
-	if err != nil {
-		return
-	}
+			// hash the header
+			hash, _, err = hd.Sum(h)
+			if err != nil {
+				return
+			}
 
-	// sign the hash of the entry
-	sig, err := key.Sign(hd.EntryLink.H)
-	if err != nil {
-		return
-	}
-	hd.Sig = Signature{S: sig}
+			c.Hashes = append(c.Hashes, hash)
+			c.Hmap[hash.String()] = i
 
-	// encode the header and create a hash of it
-	b, err := ByteEncoder(&hd)
-	if err != nil {
-		return
-	}
-	err = hash.Sum(h, b)
-	if err != nil {
-		return
-	}
+			// finally validate that it all hashes out correctly
+			/*			err = c.Validate(h)
+						if err != nil {
+							return
+						}
+			*/
+		}
 
-	header = &hd
+		f, err = os.OpenFile(path, os.O_APPEND|os.O_WRONLY, 0600)
+		if err != nil {
+			return
+		}
+	} else {
+		f, err = os.Create(path)
+		if err != nil {
+			return
+		}
+	}
+	c.s = f
 	return
 }
 
@@ -118,7 +129,7 @@ func (c *Chain) TopType(entryType string) (header *Header) {
 }
 
 // AddEntry creates a new header and adds it to a chain
-func (c *Chain) AddEntry(h *Holochain, now time.Time, entryType string, e Entry, key ic.PrivKey) (hash Hash, err error) {
+func (c *Chain) AddEntry(h HashSpec, now time.Time, entryType string, e Entry, key ic.PrivKey) (hash Hash, err error) {
 
 	// get the previous hashes
 	var ph, pth Hash
@@ -147,6 +158,11 @@ func (c *Chain) AddEntry(h *Holochain, now time.Time, entryType string, e Entry,
 	c.TypeTops[entryType] = l
 	c.Emap[header.EntryLink.String()] = l
 	c.Hmap[hash.String()] = l
+
+	if c.s != nil {
+		err = writePair(c.s, header, &g)
+	}
+
 	return
 }
 
@@ -159,6 +175,26 @@ func (c *Chain) Get(h Hash) (header *Header) {
 	return
 }
 
+func writePair(writer io.Writer, header *Header, entry Entry) (err error) {
+	err = MarshalHeader(writer, header)
+	if err != nil {
+		return
+	}
+	err = MarshalEntry(writer, entry)
+	return
+}
+
+func readPair(reader io.Reader) (header *Header, entry Entry, err error) {
+	var hd Header
+	err = UnmarshalHeader(reader, &hd, 34)
+	if err != nil {
+		return
+	}
+	header = &hd
+	entry, err = UnmarshalEntry(reader)
+	return
+}
+
 // MarshalChain serializes a chain data to a writer
 func (c *Chain) MarshalChain(writer io.Writer) (err error) {
 
@@ -168,25 +204,36 @@ func (c *Chain) MarshalChain(writer io.Writer) (err error) {
 		return err
 	}
 
-	enc := gob.NewEncoder(writer)
-
 	for i, h := range c.Headers {
-		err = enc.Encode(h)
-		if err != nil {
-			return
-		}
 		e := c.Entries[i]
-
-		err = enc.Encode(&e.(*GobEntry).C)
+		err = writePair(writer, h, e)
 		if err != nil {
 			return
 		}
 	}
 
 	hash := c.Hashes[l-1]
-	err = enc.Encode(&hash)
+	err = hash.MarshalHash(writer)
 
 	return
+}
+
+// addPair adds header and entry pairs to the chain during unmarshaling
+// This call assumes that Hashes array is one element behind the Headers and Entries
+// because for each pair (except the 0th) it adds the hash of the previous entry
+// thus it also means that you must add the last Hash after you have finished calling
+// addPair
+func (c *Chain) addPair(header *Header, entry Entry, i int) {
+	if i > 0 {
+		s := header.HeaderLink.String()
+		h, _ := NewHash(s)
+		c.Hashes = append(c.Hashes, h)
+		c.Hmap[s] = i - 1
+	}
+	c.Headers = append(c.Headers, header)
+	c.Entries = append(c.Entries, entry)
+	c.TypeTops[header.Type] = i
+	c.Emap[header.EntryLink.String()] = i
 }
 
 // UnmarshalChain unserializes a chain from a reader
@@ -197,32 +244,18 @@ func UnmarshalChain(reader io.Reader) (c *Chain, err error) {
 	if err != nil {
 		return
 	}
-	dec := gob.NewDecoder(reader)
 	for i = 0; i < l; i++ {
-		var header Header
-		err = dec.Decode(&header)
+		var header *Header
+		var e Entry
+		header, e, err = readPair(reader)
 		if err != nil {
 			return
 		}
-		var e GobEntry
-		err = dec.Decode(&e.C)
-		if err != nil {
-			return
-		}
-		if i > 0 {
-			s := header.HeaderLink.String()
-			h, _ := NewHash(s)
-			c.Hashes = append(c.Hashes, h)
-			c.Hmap[s] = int(i - 1)
-		}
-		c.Headers = append(c.Headers, &header)
-		c.Entries = append(c.Entries, &e)
-		c.TypeTops[header.Type] = int(i)
-		c.Emap[header.EntryLink.String()] = int(i)
+		c.addPair(header, e, int(i))
 	}
 	// decode final hash
 	var h Hash
-	err = dec.Decode(&h)
+	err = h.UnmarshalHash(reader)
 	if err != nil {
 		return
 	}
@@ -245,19 +278,15 @@ func (c *Chain) Walk(fn WalkerFn) (err error) {
 
 // Validate traverses chain confirming the hashes
 // @TODO confirm that TypeLinks are also correct
-func (c *Chain) Validate(h *Holochain) (err error) {
+// @TODO confirm signatures
+func (c *Chain) Validate(h HashSpec) (err error) {
 	l := len(c.Headers)
 	for i := l - 1; i >= 0; i-- {
 		hd := c.Headers[i]
 		var hash Hash
 
-		// encode the header and create a hash of it
-		var b []byte
-		b, err = ByteEncoder(hd)
-		if err != nil {
-			return
-		}
-		err = hash.Sum(h, b)
+		// hash the header
+		hash, _, err = hd.Sum(h)
 		if err != nil {
 			return
 		}
@@ -274,6 +303,7 @@ func (c *Chain) Validate(h *Holochain) (err error) {
 			return
 		}
 
+		var b []byte
 		b, err = c.Entries[i].Marshal()
 		if err != nil {
 			return

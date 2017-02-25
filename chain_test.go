@@ -16,21 +16,45 @@ func TestNewChain(t *testing.T) {
 		So(len(c.Headers), ShouldEqual, 0)
 		So(len(c.Entries), ShouldEqual, 0)
 	})
+
 }
 
-func TestNewHeader(t *testing.T) {
+func TestNewChainFromFile(t *testing.T) {
+	d := setupTestDir()
+	defer cleanupTestDir(d)
 	h, key, now := chainTestSetup()
 
-	Convey("it should make a header and return its hash", t, func() {
-		e := GobEntry{C: "some data"}
-		ph := NullHash()
-		hash, header, err := newHeader(h, now, "myData", &e, key, ph, ph)
+	var c *Chain
+	var err error
+	path := d + "/chain.dat"
+	Convey("it should make an empty chain with encoder", t, func() {
+		c, err = NewChainFromFile(h, path)
 		So(err, ShouldBeNil)
-		// encode the header and create a hash of it
-		b, _ := ByteEncoder(header)
-		var h2 Hash
-		h2.Sum(h, b)
-		So(h2.String(), ShouldEqual, hash.String())
+		So(c.s, ShouldNotBeNil)
+		So(fileExists(path), ShouldBeTrue)
+	})
+
+	e := GobEntry{C: "some data1"}
+	c.AddEntry(h, now, "myData1", &e, key)
+	e = GobEntry{C: "some other data2"}
+	c.AddEntry(h, now, "myData2", &e, key)
+	dump := c.String()
+	c.s.Close()
+	c, err = NewChainFromFile(h, path)
+	Convey("it should load chain data if availble", t, func() {
+		So(err, ShouldBeNil)
+		So(c.String(), ShouldEqual, dump)
+	})
+
+	e = GobEntry{C: "yet other data"}
+	c.AddEntry(h, now, "yourData", &e, key)
+	dump = c.String()
+	c.s.Close()
+
+	c, err = NewChainFromFile(h, path)
+	Convey("should continue to append data after reload", t, func() {
+		So(err, ShouldBeNil)
+		So(c.String(), ShouldEqual, dump)
 	})
 }
 
@@ -198,11 +222,42 @@ func TestValidateChain(t *testing.T) {
 	})
 }
 
-func chainTestSetup() (hP *Holochain, key ic.PrivKey, now time.Time) {
+/*
+func TestPersistingChain(t *testing.T) {
+	c := NewChain()
+	var b bytes.Buffer
+	c.encoder = gob.NewEncoder(&b)
+
+	h, key, now := chainTestSetup()
+	e := GobEntry{C: "some data"}
+	c.AddEntry(h, now, "myData1", &e, key)
+
+	e = GobEntry{C: "some other data"}
+	c.AddEntry(h, now, "myData1", &e, key)
+
+	e = GobEntry{C: "and more data"}
+	c.AddEntry(h, now, "myData1", &e, key)
+
+	dec := gob.NewDecoder(&b)
+
+	var header *Header
+	var entry Entry
+	header, entry, err := readPair(dec)
+
+	Convey("it should have added items to the writer", t, func() {
+		So(err, ShouldBeNil)
+		So(fmt.Sprintf("%v", header), ShouldEqual, fmt.Sprintf("%v", c.Headers[0]))
+		So(fmt.Sprintf("%v", entry), ShouldEqual, fmt.Sprintf("%v", c.Entries[0]))
+	})
+}
+*/
+
+func chainTestSetup() (hs HashSpec, key ic.PrivKey, now time.Time) {
 	a, _ := NewAgent(IPFS, "agent id")
 	key = a.PrivKey()
-	h := Holochain{HashType: "sha2-256"}
-	hP = &h
+	hc := Holochain{HashType: "sha2-256"}
+	hP := &hc
 	hP.PrepareHashType()
+	hs = hP.hashSpec
 	return
 }

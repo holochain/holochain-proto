@@ -19,7 +19,7 @@ const (
 	SysFileName          string = "system.conf" // Server & System settings
 	AgentFileName        string = "agent.txt"   // User ID info
 	PrivKeyFileName      string = "priv.key"    // Signing key - private
-	StoreFileName        string = "chain.db"    // Filename for local data store
+	StoreFileName        string = "chain"       // Filename for local data store
 
 	DefaultPort = 6283
 )

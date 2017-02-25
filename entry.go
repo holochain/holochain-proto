@@ -8,11 +8,13 @@ package holochain
 
 import (
 	"bytes"
+	"encoding/binary"
 	"encoding/gob"
 	"encoding/json"
 	"github.com/lestrrat/go-jsschema"
 	"github.com/lestrrat/go-jsval"
 	"github.com/lestrrat/go-jsval/builder"
+	"io"
 )
 
 const (
@@ -81,6 +83,37 @@ func (e *GobEntry) Unmarshal(b []byte) (err error) {
 	err = ByteDecoder(b, &e.C)
 	return
 }
+
+func MarshalEntry(writer io.Writer, e Entry) (err error) {
+	var b []byte
+	b, err = e.Marshal()
+	l := uint64(len(b))
+	err = binary.Write(writer, binary.LittleEndian, l)
+	if err != nil {
+		return
+	}
+	err = binary.Write(writer, binary.LittleEndian, b)
+	return
+}
+func UnmarshalEntry(reader io.Reader) (e Entry, err error) {
+	var l uint64
+	err = binary.Read(reader, binary.LittleEndian, &l)
+	if err != nil {
+		return
+	}
+	var b = make([]byte, l)
+	err = binary.Read(reader, binary.LittleEndian, b)
+	if err != nil {
+		return
+	}
+
+	var g GobEntry
+	err = g.Unmarshal(b)
+
+	e = &g
+	return
+}
+
 func (e *GobEntry) Content() interface{} { return e.C }
 
 // implementation of Entry interface with JSON

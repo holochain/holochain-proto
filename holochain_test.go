@@ -58,14 +58,14 @@ func TestPrepareHashType(t *testing.T) {
 		err := h.PrepareHashType()
 		So(err, ShouldBeNil)
 		var hash Hash
-		err = hash.Sum(&h, []byte("test data"))
+		err = hash.Sum(h.hashSpec, []byte("test data"))
 		So(err, ShouldBeNil)
 		So(hash.String(), ShouldEqual, "5duC28CW416wX42vses7TeTeRYwku9")
 
 		h.HashType = "blake2b-256"
 		err = h.PrepareHashType()
 		So(err, ShouldBeNil)
-		err = hash.Sum(&h, []byte("test data"))
+		err = hash.Sum(h.hashSpec, []byte("test data"))
 		So(err, ShouldBeNil)
 		So(hash.String(), ShouldEqual, "2DrjgbL49zKmX4P7UgdopSCC7MhfVUySNbRHBQzdDuXgaJSNEg")
 	})
@@ -172,9 +172,9 @@ func TestNewEntry(t *testing.T) {
 	// can't check against a fixed hash because signature created each time test runs is
 	// different (though valid) so the header will hash to a different value
 	Convey("the returned header hash is the SHA256 of the byte encoded header", t, func() {
-		b, _ := ByteEncoder(&header)
+		b, _ := header.Marshal()
 		var hh Hash
-		err = hh.Sum(h, b)
+		err = hh.Sum(h.hashSpec, b)
 		So(err, ShouldBeNil)
 		So(headerHash.String(), ShouldEqual, hh.String())
 	})
@@ -202,9 +202,9 @@ func TestNewEntry(t *testing.T) {
 		So(s2, ShouldEqual, s1)
 
 		Convey("and the returned header should hash to the same value", func() {
-			b, _ := ByteEncoder(&h2)
+			b, _ := (&h2).Marshal()
 			var hh Hash
-			err = hh.Sum(h, b)
+			err = hh.Sum(h.hashSpec, b)
 			So(err, ShouldBeNil)
 			So(headerHash.String(), ShouldEqual, hh.String())
 		})
@@ -262,7 +262,7 @@ func TestGenChain(t *testing.T) {
 		So(h2.Zomes["myZome"].CodeHash.String(), ShouldEqual, h.Zomes["myZome"].CodeHash.String())
 		b, _ := readFile(h.path, "schema_profile.json")
 		var sh Hash
-		sh.Sum(h, b)
+		sh.Sum(h.hashSpec, b)
 
 		So(h2.Zomes["myZome"].Entries["profile"].SchemaHash.String(), ShouldEqual, sh.String())
 	})
@@ -472,18 +472,4 @@ func TestTest(t *testing.T) {
 		So(err.Error(), ShouldEqual, "Test: 1\n  Expected Error: bogus error\n  Got: nil\n")
 	})
 
-}
-
-//----- test util functions
-
-func mkTestHeader(t string) Header {
-	hl, _ := NewHash("1vemK25pc5ewYtztPGYAdX39uXuyV13xdouCnZUr8RMA")
-	el, _ := NewHash("2vemK25pc5ewYtztPGYAdX39uXuyV13xdouCnZUr8RMA")
-	now := time.Unix(1, 1) // pick a constant time so the test will always work
-	h1 := Header{Time: now, Type: t, Meta: "dog",
-		HeaderLink: hl,
-		EntryLink:  el,
-	}
-	//h1.Sig.S.321)
-	return h1
 }

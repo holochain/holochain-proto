@@ -67,8 +67,7 @@ type Holochain struct {
 	agent          Agent
 	store          Persister
 	encodingFormat string
-	hashCode       uint64
-	hashLength     int
+	hashSpec       HashSpec
 	config         Config
 	dht            *DHT
 	node           *Node
@@ -116,7 +115,7 @@ func (s *Service) IsConfigured(name string) (f string, err error) {
 	}
 
 	// found a format now check that there's a store
-	p := path + "/" + StoreFileName
+	p := path + "/" + StoreFileName + ".db"
 	if !fileExists(p) {
 		err = errors.New("chain store missing: " + p)
 		return
@@ -209,12 +208,17 @@ func (s *Service) load(name string, format string) (hP *Holochain, err error) {
 	}
 	h.agent = agent
 
-	h.store, err = CreatePersister(BoltPersisterName, path+"/"+StoreFileName)
+	h.store, err = CreatePersister(BoltPersisterName, path+"/"+StoreFileName+".db")
 	if err != nil {
 		return
 	}
 
 	err = h.store.Init()
+	if err != nil {
+		return
+	}
+
+	h.chain, err = NewChainFromFile(h.hashSpec, path+"/"+StoreFileName+".dat")
 	if err != nil {
 		return
 	}
@@ -238,8 +242,8 @@ func (h *Holochain) PrepareHashType() (err error) {
 	if c, ok := mh.Names[h.HashType]; !ok {
 		return fmt.Errorf("Unknown hash type: %s", h.HashType)
 	} else {
-		h.hashCode = c
-		h.hashLength = -1
+		h.hashSpec.Code = c
+		h.hashSpec.Length = -1
 	}
 
 	return
@@ -273,9 +277,6 @@ func (h *Holochain) Prepare() (err error) {
 			}
 		}
 	}
-
-	// @TODO load from persistence?
-	h.chain = NewChain()
 
 	listenaddr := fmt.Sprintf("/ip4/127.0.0.1/tcp/%d", h.config.Port)
 	h.node, err = NewNode(listenaddr, h.Agent().PrivKey())
@@ -345,6 +346,10 @@ func (h *Holochain) GenChain() (keyHash Hash, err error) {
 		return
 	}
 
+	if err = h.Prepare(); err != nil {
+		return
+	}
+
 	var buf bytes.Buffer
 	err = h.EncodeDNA(&buf)
 
@@ -380,9 +385,6 @@ func (h *Holochain) GenChain() (keyHash Hash, err error) {
 		return
 	}
 
-	if err = h.Prepare(); err != nil {
-		return
-	}
 	return
 }
 
@@ -690,7 +692,12 @@ func gen(path string, makeH func(path string) (hP *Holochain, err error)) (h *Ho
 
 	h.Name = filepath.Base(path)
 
-	h.store, err = CreatePersister(BoltPersisterName, path+"/"+StoreFileName)
+	h.chain, err = NewChainFromFile(h.hashSpec, path+"/"+StoreFileName+".dat")
+	if err != nil {
+		return
+	}
+
+	h.store, err = CreatePersister(BoltPersisterName, path+"/"+StoreFileName+".db")
 	if err != nil {
 		return
 	}
@@ -739,7 +746,7 @@ func (h *Holochain) GenDNAHashes() (err error) {
 		if err != nil {
 			return
 		}
-		err = z.CodeHash.Sum(h, b)
+		err = z.CodeHash.Sum(h.hashSpec, b)
 		if err != nil {
 			return
 		}
@@ -750,7 +757,7 @@ func (h *Holochain) GenDNAHashes() (err error) {
 				if err != nil {
 					return
 				}
-				err = e.SchemaHash.Sum(h, b)
+				err = e.SchemaHash.Sum(h.hashSpec, b)
 				if err != nil {
 					return
 				}
@@ -766,6 +773,12 @@ func (h *Holochain) GenDNAHashes() (err error) {
 // NewEntry adds an entry and it's header to the chain and returns the header and it's hash
 func (h *Holochain) NewEntry(now time.Time, t string, entry Entry) (hash Hash, header *Header, err error) {
 
+	// this is extra for now.
+	_, err = h.chain.AddEntry(h.hashSpec, now, t, entry, h.agent.PrivKey())
+	if err != nil {
+		return
+	}
+
 	// get the current top of the chain
 	ph, err := h.Top()
 	if err != nil {
@@ -778,7 +791,7 @@ func (h *Holochain) NewEntry(now time.Time, t string, entry Entry) (hash Hash, h
 		pth = NullHash()
 	}
 
-	hash, header, err = newHeader(h, now, t, entry, h.agent.PrivKey(), ph, pth)
+	hash, header, err = newHeader(h.hashSpec, now, t, entry, h.agent.PrivKey(), ph, pth)
 	if err != nil {
 		return
 	}
@@ -787,8 +800,8 @@ func (h *Holochain) NewEntry(now time.Time, t string, entry Entry) (hash Hash, h
 	// we have to do this stuff because currently we are persisting immediatly.
 	// instead we should be persisting from the Chain object.
 
-	// encode the header and create a hash of it
-	b, err := ByteEncoder(header)
+	// encode the header for saving
+	b, err := header.Marshal()
 	if err != nil {
 		return
 	}
@@ -807,7 +820,7 @@ func (h *Holochain) NewEntry(now time.Time, t string, entry Entry) (hash Hash, h
 func get(hb *bolt.Bucket, eb *bolt.Bucket, key []byte, getEntry bool) (header Header, entry interface{}, err error) {
 	v := hb.Get(key)
 
-	err = ByteDecoder(v, &header)
+	err = header.Unmarshal(v, 34)
 	if err != nil {
 		return
 	}
@@ -871,14 +884,9 @@ func (h *Holochain) Validate(entriesToo bool) (valid bool, err error) {
 
 	err = h.Walk(func(key *Hash, header *Header, entry interface{}) (err error) {
 		// confirm the correctness of the header hash
-		var b []byte
-		b, err = ByteEncoder(&header)
-		if err != nil {
-			return err
-		}
 
 		var bH Hash
-		err = bH.Sum(h, b)
+		bH, _, err = header.Sum(h.hashSpec)
 		if err != nil {
 			return
 		}
@@ -887,7 +895,7 @@ func (h *Holochain) Validate(entriesToo bool) (valid bool, err error) {
 			return errors.New("header hash doesn't match")
 		}
 
-		// TODO check entry hashes too if entriesToo set
+		// @TODO check entry hashes too if entriesToo set
 		if entriesToo {
 
 		}

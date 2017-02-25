@@ -127,16 +127,29 @@ func TestGet(t *testing.T) {
 	e = GobEntry{C: "some other data"}
 	h2, _ := c.AddEntry(h, now, "myData", &e, key)
 
-	Convey("it should get data by hash", t, func() {
-		hd := c.Get(h1)
+	Convey("it should get header by hash or by Entry hash", t, func() {
+		hd, err := c.Get(h1)
 		So(hd, ShouldEqual, c.Headers[0])
-		hd = c.Get(h2)
+		So(err, ShouldBeNil)
+
+		ehd, err := c.GetEntryHeader(hd.EntryLink)
+		So(ehd, ShouldEqual, c.Headers[0])
+		So(err, ShouldBeNil)
+
+		hd, err = c.Get(h2)
 		So(hd, ShouldEqual, c.Headers[1])
+		So(err, ShouldBeNil)
+
+		ehd, err = c.GetEntryHeader(hd.EntryLink)
+		So(ehd, ShouldEqual, c.Headers[1])
+		So(err, ShouldBeNil)
 	})
 
 	Convey("it should return nil for non existent hash", t, func() {
 		hash, _ := NewHash("QmNiCwBNA8MWDADTFVq1BonUEJbS2SvjAoNkZZrhEwcuUi")
-		So(c.Get(hash), ShouldBeNil)
+		hd, err := c.Get(hash)
+		So(hd, ShouldBeNil)
+		So(err, ShouldEqual, ErrHashNotFound)
 	})
 }
 

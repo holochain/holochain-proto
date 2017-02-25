@@ -179,10 +179,6 @@ func TestNewEntry(t *testing.T) {
 		So(headerHash.String(), ShouldEqual, hh.String())
 	})
 
-	//	if a != "EdkgsdwazMZc9vJJgGXgbGwZFvy2Wa1hLCjngmkw3PbF" {
-	//	t.Error("expected EdkgsdwazMZc9vJJgGXgbGwZFvy2Wa1hLCjngmkw3PbF got:",a)
-	//}
-
 	Convey("it should have signed the entry with my key", t, func() {
 		sig := header.Sig
 		hash := header.EntryLink.H
@@ -224,6 +220,14 @@ func TestNewEntry(t *testing.T) {
 		hash, err = h.TopType("myData")
 		So(err, ShouldBeNil)
 		So(hash.String(), ShouldEqual, headerHash.String())
+	})
+
+	e = GobEntry{C: "more data"}
+	_, header2, err := h.NewEntry(now, "myData", &e)
+
+	Convey("a second entry should have prev link correctly set", t, func() {
+		So(err, ShouldBeNil)
+		So(header2.HeaderLink.String(), ShouldEqual, headerHash.String())
 	})
 }
 

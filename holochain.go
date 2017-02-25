@@ -325,13 +325,16 @@ func (h *Holochain) ID() (id Hash, err error) {
 
 // Top returns a hash of top header or err if not yet defined
 func (h *Holochain) Top() (top Hash, err error) {
-	top, err = h.getMetaHash(TopMetaKey)
+	tp, err := h.getMetaHash(TopMetaKey)
+	top = tp.Clone()
+
 	return
 }
 
 // Top returns a hash of top header of the given type or err if not yet defined
 func (h *Holochain) TopType(t string) (top Hash, err error) {
-	top, err = h.getMetaHash(TopMetaKey + "_" + t)
+	tp, err := h.getMetaHash(TopMetaKey + "_" + t)
+	top = tp.Clone()
 	return
 }
 

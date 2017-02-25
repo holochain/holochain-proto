@@ -9,6 +9,7 @@ package holochain
 import (
 	"bytes"
 	"encoding/binary"
+	"errors"
 	"fmt"
 	ic "github.com/libp2p/go-libp2p-crypto"
 	"io"
@@ -18,6 +19,8 @@ import (
 
 // WalkerFn a function type for call Walk
 type WalkerFn func(key *Hash, header *Header, entry Entry) error
+
+var ErrHashNotFound error = errors.New("hash not found")
 
 // Chain structure for providing in-memory access to chain data, entries headers and hashes
 type Chain struct {
@@ -167,10 +170,23 @@ func (c *Chain) AddEntry(h HashSpec, now time.Time, entryType string, e Entry, k
 }
 
 // Get returns the header of a given hash
-func (c *Chain) Get(h Hash) (header *Header) {
+func (c *Chain) Get(h Hash) (header *Header, err error) {
 	i, ok := c.Hmap[h.String()]
 	if ok {
 		header = c.Headers[i]
+	} else {
+		err = ErrHashNotFound
+	}
+	return
+}
+
+// GetEntryHeader returns the header of a given entyr hash
+func (c *Chain) GetEntryHeader(h Hash) (header *Header, err error) {
+	i, ok := c.Emap[h.String()]
+	if ok {
+		header = c.Headers[i]
+	} else {
+		err = ErrHashNotFound
 	}
 	return
 }

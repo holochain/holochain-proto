@@ -8,6 +8,7 @@ package holochain
 
 import (
 	"encoding/binary"
+	"errors"
 	mh "github.com/multiformats/go-multihash"
 	"io"
 )
@@ -55,16 +56,29 @@ func NullHash() (h Hash) {
 	return
 }
 
+// Clone returns a copy of a hash
+func (h *Hash) Clone() (hash Hash) {
+	hash.H = make([]byte, len(h.H))
+	copy(hash.H, h.H)
+	return
+}
+
+// MarshalHash writes a hash to a binary stream
 func (h *Hash) MarshalHash(writer io.Writer) (err error) {
 	if h.IsNullHash() {
 		b := make([]byte, 34)
 		err = binary.Write(writer, binary.LittleEndian, b)
 	} else {
-		err = binary.Write(writer, binary.LittleEndian, h.H)
+		if h.H == nil {
+			err = errors.New("can't marshal nil hash")
+		} else {
+			err = binary.Write(writer, binary.LittleEndian, h.H)
+		}
 	}
 	return
 }
 
+// UnmarshalHash reads a hash from a binary stream
 func (h *Hash) UnmarshalHash(reader io.Reader) (err error) {
 	b := make([]byte, 34)
 	err = binary.Read(reader, binary.LittleEndian, b)

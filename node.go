@@ -157,7 +157,10 @@ func SrcReceiver(h *Holochain, m *Message) (response interface{}, err error) {
 	case SRC_VALIDATE:
 		switch t := m.Body.(type) {
 		case Hash:
-			response, err = h.store.GetEntry(t)
+			response, err = h.chain.Get(t)
+			if err == ErrHashNotFound {
+				response, err = h.chain.GetEntryHeader(t)
+			}
 		default:
 			err = errors.New("expected hash")
 		}

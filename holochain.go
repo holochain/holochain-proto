@@ -663,7 +663,7 @@ func (s *Service) GenDev(path string, format string) (hP *Holochain, err error) 
 				return
 			}
 			for i, d := range fixtures {
-				fn := fmt.Sprintf("%d.zy", i)
+				fn := fmt.Sprintf("%d.json", i)
 				var j []byte
 				j, err = json.Marshal(d)
 				if err != nil {

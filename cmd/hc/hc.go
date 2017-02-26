@@ -4,7 +4,8 @@ import (
 	_ "encoding/json"
 	"errors"
 	"fmt"
-	holo "github.com/metacurrency/holochain"
+	//holo "github.com/metacurrency/holochain"
+	. "github.com/metacurrency/holochain"
 	"github.com/urfave/cli"
 	"io/ioutil"
 	"log"
@@ -25,9 +26,9 @@ func setupApp() (app *cli.App) {
 	app.Version = "0.0.1"
 	var verbose bool
 	var root string
-	var service *holo.Service
+	var service *Service
 
-	holo.Register()
+	Register()
 
 	app.Flags = []cli.Flag{
 		cli.BoolFlag{
@@ -117,7 +118,7 @@ func setupApp() (app *cli.App) {
 								return err
 							}
 							h.agent.GenKeys()
-							err = holo.SaveAgent(h.path, h.agent)
+							err = SaveAgent(h.path, h.agent)
 							return err*/
 
 					},
@@ -165,14 +166,14 @@ func setupApp() (app *cli.App) {
 				if agent == "" {
 					return errors.New("missing required agent-id argument to init")
 				}
-				_, err := holo.Init(root, holo.AgentID(agent))
+				_, err := Init(root, AgentID(agent))
 				if err == nil {
 					fmt.Println("Holochain service initialized")
 					if verbose {
 						fmt.Println("    ~/.holochain directory created")
-						fmt.Printf("    defaults stored to %s\n", holo.SysFileName)
+						fmt.Printf("    defaults stored to %s\n", SysFileName)
 						fmt.Println("    key-pair generated")
-						fmt.Printf("    default agent stored to %s\n", holo.AgentFileName)
+						fmt.Printf("    default agent stored to %s\n", AgentFileName)
 					}
 				}
 				return err
@@ -198,11 +199,11 @@ func setupApp() (app *cli.App) {
 				}
 				fmt.Printf("Chain: %s\n", id)
 
-				links := make(map[string]holo.Header)
+				links := make(map[string]Header)
 				index := make(map[int]string)
 				entries := make(map[int]interface{})
 				idx := 0
-				err = h.Walk(func(key *holo.Hash, header *holo.Header, entry interface{}) (err error) {
+				err = h.Walk(func(key *Hash, header *Header, entry interface{}) (err error) {
 					ks := (*key).String()
 					index[idx] = ks
 					links[ks] = *header
@@ -220,10 +221,10 @@ func setupApp() (app *cli.App) {
 					fmt.Printf("    Entry: %v\n", hdr.EntryLink)
 					e := entries[i]
 					switch hdr.Type {
-					case holo.DNAEntryType:
+					case DNAEntryType:
 						fmt.Printf("       %s\n", string(e.([]byte)))
-					case holo.KeyEntryType:
-						fmt.Printf("       %v\n", e.(holo.KeyEntry))
+					case KeyEntryType:
+						fmt.Printf("       %v\n", e.(KeyEntry))
 					default:
 						fmt.Printf("       %v\n", e)
 					}
@@ -302,7 +303,7 @@ func setupApp() (app *cli.App) {
 
 	app.Before = func(c *cli.Context) error {
 		if verbose {
-			fmt.Printf("app version: %s; Holochain lib version %s\n ", app.Version, holo.Version)
+			fmt.Printf("app version: %s; Holochain lib version %s\n ", app.Version, Version)
 		}
 		var err error
 		if root == "" {
@@ -313,13 +314,13 @@ func setupApp() (app *cli.App) {
 					return err
 				}
 				userPath := u.HomeDir
-				root = userPath + "/" + holo.DefaultDirectoryName
+				root = userPath + "/" + DefaultDirectoryName
 			}
 		}
-		if initialized = holo.IsInitialized(root); !initialized {
+		if initialized = IsInitialized(root); !initialized {
 			uninitialized = errors.New("service not initialized, run 'hc init'")
 		} else {
-			service, err = holo.LoadService(root)
+			service, err = LoadService(root)
 		}
 		return err
 	}
@@ -340,7 +341,7 @@ func main() {
 	app.Run(os.Args)
 }
 
-func getHolochain(c *cli.Context, service *holo.Service, cmd string) (h *holo.Holochain, err error) {
+func getHolochain(c *cli.Context, service *Service, cmd string) (h *Holochain, err error) {
 	name, err := checkForName(c, cmd)
 	if err != nil {
 		return
@@ -364,7 +365,7 @@ func checkForName(c *cli.Context, cmd string) (name string, err error) {
 	return
 }
 
-func listChains(s *holo.Service) {
+func listChains(s *Service) {
 	chains, _ := s.ConfiguredChains()
 	if len(chains) > 0 {
 		fmt.Println("installed holochains: ")
@@ -386,7 +387,7 @@ func mkErr(etext string, code int) (int, error) {
 	return code, errors.New(etext)
 }
 
-func serve(h *holo.Holochain, port string) {
+func serve(h *Holochain, port string) {
 	fs := http.FileServer(http.Dir(h.Path() + "/ui"))
 	http.Handle("/", fs)
 
@@ -416,7 +417,7 @@ func serve(h *holo.Holochain, port string) {
 
 		path := strings.Split(r.URL.Path, "/")
 
-		var n holo.Nucleus
+		var n Nucleus
 		zome := path[2]
 		n, err = h.MakeNucleus(zome)
 		if err == nil {

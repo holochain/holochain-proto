@@ -42,6 +42,7 @@ Make sure you have a working environment set up for the Go language. [See the in
 To install the holochain command line interface, run:
 ```
 $ go get -d github.com/metacurrency/holochain
+$ cd $GOPATH/src/github.com/metacurrency/holochain
 $ make
 ```
 

@@ -1,8 +1,10 @@
 package holochain
 
 import (
+	"fmt"
 	. "github.com/smartystreets/goconvey/convey"
 	"testing"
+	"time"
 )
 
 func TestPutGet(t *testing.T) {
@@ -18,7 +20,7 @@ func TestPutGet(t *testing.T) {
 		hash, _ = NewHash("QmY8Mzg9F69e5P9AoQPYat6x5HEhc1TVGs11tmfNSzkqh2")
 		data, err = dht.get(hash)
 		So(data, ShouldBeNil)
-		So(err.Error(), ShouldEqual, "No key: QmY8Mzg9F69e5P9AoQPYat6x5HEhc1TVGs11tmfNSzkqh2")
+		So(err, ShouldEqual, ErrHashNotFound)
 	})
 }
 
@@ -30,10 +32,10 @@ func TestPutGetMeta(t *testing.T) {
 
 	Convey("It should fail if hash doesn't exist", t, func() {
 		err := dht.putMeta(hash, metaHash, "someType", []byte("some data"))
-		So(err.Error(), ShouldEqual, "No key: QmY8Mzg9F69e5P9AoQPYat655HEhc1TVGs11tmfNSzkqh2")
+		So(err, ShouldEqual, ErrHashNotFound)
 
 		_, err = dht.getMeta(hash, "someType")
-		So(err.Error(), ShouldEqual, "No key: QmY8Mzg9F69e5P9AoQPYat655HEhc1TVGs11tmfNSzkqh2")
+		So(err, ShouldEqual, ErrHashNotFound)
 	})
 
 	err := dht.put(hash, []byte("some value"))
@@ -105,17 +107,35 @@ func TestSend(t *testing.T) {
 	d, _, h := prepareTestChain("test")
 	defer cleanupTestDir(d)
 
-	Convey("before send message queue should be empty", t, func() {
+	node, err := NewNode("/ip4/127.0.0.1/tcp/1234", h.Agent().PrivKey())
+	if err != nil {
+		panic(err)
+	}
+	defer node.Close()
+
+	hash, _ := NewHash("QmY8Mzg9F69e5P9AoQPYat655HEhc1TVGs11tmfNSzkqh2")
+
+	Convey("send GET_REQUEST message for non existent hash should get error", t, func() {
+		r, err := h.dht.Send(node.HashAddr, GET_REQUEST, hash)
+		So(r, ShouldBeNil)
+		So(err, ShouldEqual, ErrHashNotFound)
+	})
+
+	now := time.Unix(1, 1) // pick a constant time so the test will always work
+	e := GobEntry{C: "some data"}
+	_, hd, err := h.NewEntry(now, "myData", &e)
+	if err != nil {
+		panic(err)
+	}
+
+	// publish the entry data to the dht
+	hash = hd.EntryLink
+
+	Convey("before send PUT_REQUEST message queue should be empty", t, func() {
 		So(h.dht.Queue.Len(), ShouldEqual, 0)
 	})
 
-	Convey("after send message queue should have the message in it", t, func() {
-		node, err := NewNode("/ip4/127.0.0.1/tcp/1234", h.Agent().PrivKey())
-		if err != nil {
-			panic(err)
-		}
-		defer node.Close()
-		hash, _ := NewHash("QmY8Mzg9F69e5P9AoQPYat655HEhc1TVGs11tmfNSzkqh2")
+	Convey("after send PUT_REQUEST message queue should have the message in it", t, func() {
 		r, err := h.dht.Send(node.HashAddr, PUT_REQUEST, hash)
 		So(err, ShouldBeNil)
 		So(r, ShouldEqual, "queued")
@@ -125,7 +145,22 @@ func TestSend(t *testing.T) {
 		m := messages[0].(*Message)
 		So(m.Type, ShouldEqual, PUT_REQUEST)
 		hs := m.Body.(Hash)
-		So(hs.String(), ShouldEqual, "QmY8Mzg9F69e5P9AoQPYat655HEhc1TVGs11tmfNSzkqh2")
+		So(hs.String(), ShouldEqual, hash.String())
+	})
+
+	Convey("after a handled PUT_REQUEST data should be stored in DHT", t, func() {
+		r, err := h.dht.Send(node.HashAddr, PUT_REQUEST, hash)
+		So(err, ShouldBeNil)
+		So(r, ShouldEqual, "queued")
+		h.dht.handlePutReqs()
+		hd, _ := h.chain.GetEntryHeader(hash)
+		So(hd.EntryLink.String(), ShouldEqual, hash.String())
+	})
+
+	Convey("send GET_REQUEST message should return content", t, func() {
+		r, err := h.dht.Send(node.HashAddr, GET_REQUEST, hash)
+		So(err, ShouldBeNil)
+		So(fmt.Sprintf("%v", r), ShouldEqual, fmt.Sprintf("%v", &e))
 	})
 }
 
@@ -139,12 +174,49 @@ func TestDHTReceiver(t *testing.T) {
 		So(err.Error(), ShouldEqual, "expected hash")
 	})
 
+	now := time.Unix(1, 1) // pick a constant time so the test will always work
+	e := GobEntry{C: "some data"}
+	_, hd, _ := h.NewEntry(now, "myData", &e)
+	hash := hd.EntryLink
+
 	Convey("PUT_REQUEST should queue a valid message", t, func() {
-		hash, _ := NewHash("QmY8Mzg9F69e5P9AoQPYat655HEhc1TVGs11tmfNSzkqh2")
 		m := h.node.NewMessage(PUT_REQUEST, hash)
 		r, err := DHTReceiver(h, m)
 		So(err, ShouldBeNil)
 		So(r, ShouldEqual, "queued")
+	})
+
+	h.dht.handlePutReqs()
+	Convey("GET_REQUEST should return the value of the has", t, func() {
+		m := h.node.NewMessage(GET_REQUEST, hash)
+		r, err := DHTReceiver(h, m)
+		So(err, ShouldBeNil)
+		So(fmt.Sprintf("%v", r), ShouldEqual, fmt.Sprintf("%v", &e))
+	})
+
+}
+
+func TestHandlePutReqs(t *testing.T) {
+	d, _, h := prepareTestChain("test")
+	defer cleanupTestDir(d)
+
+	now := time.Unix(1, 1) // pick a constant time so the test will always work
+	e := GobEntry{C: "some data"}
+	_, hd, err := h.NewEntry(now, "myData", &e)
+	if err != nil {
+		panic(err)
+	}
+
+	m := h.node.NewMessage(PUT_REQUEST, hd.EntryLink)
+	err = h.dht.Queue.Put(m)
+
+	Convey("handle put request should pull data from source and verify it", t, func() {
+		err := h.dht.handlePutReqs()
+		So(err, ShouldBeNil)
+		data, err := h.dht.get(hd.EntryLink)
+		So(err, ShouldBeNil)
+		b, _ := e.Marshal()
+		So(fmt.Sprintf("%v", data), ShouldEqual, fmt.Sprintf("%v", b))
 	})
 
 }

@@ -176,7 +176,7 @@ func TestSrcReceiver(t *testing.T) {
 		So(err, ShouldNotBeNil)
 		So(err.Error(), ShouldEqual, "hash not found")
 	})
-	Convey("SRC_VALIDATE should return header by header or entry hash", t, func() {
+	Convey("SRC_VALIDATE should return header or entry by hash", t, func() {
 		entry := GobEntry{C: "bogus entry data"}
 		h2, hd, err := h.NewEntry(time.Now(), "myData", &entry)
 		m := h.node.NewMessage(SRC_VALIDATE, h2)
@@ -187,7 +187,7 @@ func TestSrcReceiver(t *testing.T) {
 		m = h.node.NewMessage(SRC_VALIDATE, hd.EntryLink)
 		r, err = SrcReceiver(h, m)
 		So(err, ShouldBeNil)
-		So(fmt.Sprintf("%v", r), ShouldEqual, fmt.Sprintf("%v", hd))
+		So(fmt.Sprintf("%v", r), ShouldEqual, fmt.Sprintf("%v", &entry))
 
 	})
 }

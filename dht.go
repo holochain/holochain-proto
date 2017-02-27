@@ -13,6 +13,8 @@ import (
 	peer "github.com/libp2p/go-libp2p-peer"
 )
 
+var ErrDHTExpectedHashInBody error = errors.New("expected hash")
+
 // DHT struct holds the data necessary to run the distributed hash table
 type DHT struct {
 	store     map[string][]byte // the store used to persist data this node is responsible for
@@ -49,7 +51,7 @@ func (dht *DHT) put(key Hash, value []byte) (err error) {
 func (dht *DHT) exists(key Hash) (err error) {
 	_, ok := dht.store[key.String()]
 	if !ok {
-		err = errors.New("No key: " + key.String())
+		err = ErrHashNotFound
 	}
 	return
 }
@@ -139,6 +141,30 @@ func (dht *DHT) FindNodeForHash(key Hash) (n *Node, err error) {
 	return
 }
 
+func (dht *DHT) handlePutReqs() (err error) {
+	x, err := dht.Queue.Get(10)
+	if err == nil {
+		for _, r := range x {
+			hash := r.(*Message).Body.(Hash)
+			from := r.(*Message).From
+			var r interface{}
+			r, err = dht.h.Send(SourceProtocol, from, SRC_VALIDATE, hash, SrcReceiver)
+			if err != nil {
+				return
+			}
+			// @TODO do the validation here!!!
+
+			entry := r.(Entry)
+			b, err := entry.Marshal()
+			if err == nil {
+				err = dht.put(hash, b)
+			}
+
+		}
+	}
+	return
+}
+
 // DHTReceiver handles messages on the dht protocol
 func DHTReceiver(h *Holochain, m *Message) (response interface{}, err error) {
 	switch m.Type {
@@ -150,10 +176,26 @@ func DHTReceiver(h *Holochain, m *Message) (response interface{}, err error) {
 				response = "queued"
 			}
 		default:
-			err = errors.New("expected hash")
+			err = ErrDHTExpectedHashInBody
 		}
 		return
 	case GET_REQUEST:
+		switch t := m.Body.(type) {
+		case Hash:
+			var b []byte
+			b, err = h.dht.get(t)
+			if err == nil {
+				var e GobEntry
+				err = e.Unmarshal(b)
+				if err == nil {
+					response = &e
+				}
+			}
+
+		default:
+			err = ErrDHTExpectedHashInBody
+		}
+		return
 	default:
 		err = fmt.Errorf("message type %d not in holochain-dht protocol", int(m.Type))
 	}

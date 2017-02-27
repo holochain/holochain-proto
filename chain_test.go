@@ -121,28 +121,37 @@ func TestGet(t *testing.T) {
 	c := NewChain()
 	h, key, now := chainTestSetup()
 
-	e := GobEntry{C: "some data"}
-	h1, _ := c.AddEntry(h, now, "myData", &e, key)
+	e1 := GobEntry{C: "some data"}
+	h1, _ := c.AddEntry(h, now, "myData", &e1, key)
+	hd1, err1 := c.Get(h1)
 
-	e = GobEntry{C: "some other data"}
-	h2, _ := c.AddEntry(h, now, "myData", &e, key)
+	e2 := GobEntry{C: "some other data"}
+	h2, _ := c.AddEntry(h, now, "myData", &e2, key)
+	hd2, err2 := c.Get(h2)
 
 	Convey("it should get header by hash or by Entry hash", t, func() {
-		hd, err := c.Get(h1)
-		So(hd, ShouldEqual, c.Headers[0])
-		So(err, ShouldBeNil)
+		So(hd1, ShouldEqual, c.Headers[0])
+		So(err1, ShouldBeNil)
 
-		ehd, err := c.GetEntryHeader(hd.EntryLink)
+		ehd, err := c.GetEntryHeader(hd1.EntryLink)
 		So(ehd, ShouldEqual, c.Headers[0])
 		So(err, ShouldBeNil)
 
-		hd, err = c.Get(h2)
-		So(hd, ShouldEqual, c.Headers[1])
-		So(err, ShouldBeNil)
+		So(hd2, ShouldEqual, c.Headers[1])
+		So(err2, ShouldBeNil)
 
-		ehd, err = c.GetEntryHeader(hd.EntryLink)
+		ehd, err = c.GetEntryHeader(hd2.EntryLink)
 		So(ehd, ShouldEqual, c.Headers[1])
 		So(err, ShouldBeNil)
+	})
+
+	Convey("it should get entry by hash", t, func() {
+		ed, err := c.GetEntry(hd1.EntryLink)
+		So(err, ShouldBeNil)
+		So(fmt.Sprintf("%v", &e1), ShouldEqual, fmt.Sprintf("%v", ed))
+		ed, err = c.GetEntry(hd2.EntryLink)
+		So(err, ShouldBeNil)
+		So(fmt.Sprintf("%v", &e2), ShouldEqual, fmt.Sprintf("%v", ed))
 	})
 
 	Convey("it should return nil for non existent hash", t, func() {

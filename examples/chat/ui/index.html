@@ -4,56 +4,92 @@
     <script type="text/javascript" src="http://code.jquery.com/jquery-latest.js"></script>
     <script type="text/javascript">
      function getSpace() {
-         var x = {}
-         x.name = $('#name').val()
-         x.purpose = $('#purpose').val()
-         return JSON.stringify(x)
+         var x = {};
+         x.name = $('#name').val();
+         x.purpose = $('#purpose').val();
+         return JSON.stringify(x);
+     }
+     function getPropName() {
+         return $("#propname").val();
      }
 
-     function send() {
-         $.post(
-             "/fn/"+$('select[name=zome]').val()+"/"+$('select[name=fn]').val(),
-             getSpace(),
-             function(data) {
-                 $("#result").html("result:"+data)
-                 $("#err").html("")
-             }
-         ).error(function(response) {
-             $("#err").html(response.responseText)
-             $("#result").html("")
-         })
-         ;
-     };
-     function getProperty() {
-         $.post(
-             "/fn/chat/getProperty",
-             $("#name").val(),
-             function(data) {
-                 $("#result").html("result:"+data)
-                 $("#err").html("")
-             }
-         ).error(function(response) {
-             $("#err").html(response.responseText)
-             $("#result").html("")
-         })
-         ;
+     function send(fnName,getDataFn) {
+
+         var ws = document.getElementById('ws').checked;
+         var msg = getDataFn();
+         console.log("sending: "+msg);
+         if (ws) {
+             console.log("(via websockets)");
+             var m = {};
+             m.zome = 'chat';
+             m.fn = fnName;
+             m.arg = msg;
+             sock.send(JSON.stringify(m));
+         }
+         else {
+             console.log("(via http)");
+             $.post(
+                 "/fn/chat/"+fnName,
+                 msg,
+                 function(data) {
+                     $("#result").html("http result: "+data)
+                     $("#err").html("")
+                 }
+             ).error(function(response) {
+                 $("#err").html(response.responseText)
+                 $("#result").html("")
+             });
+         }
      };
     </script>
   </head>
   <body>
-    <select id="zome" name="zome">
-      <option value="chat">chat</option>
-    </select>
-    <select id="fn" name="fn">
-      <option value="addSpace">addSpace</option>
-    </select>
+    <h1>Function calling Test</h1>
+    <input type="checkbox" id="ws" name="ws"> Send via Websocket<br/>
     name: <input id="name" name="name">
     purpose: <input id="purpose" name="purpose">
-    <button onclick="send();">Send</button>
-<br/>
-    <button onclick="getProperty();">GetProp</button>
+    <button onclick="send('addSpace',getSpace);">AddSpace</button>
+    <br/>
+    propery name: <input id="propname" name="propname" value="purpose"> (try: name or purpose)
+    <button onclick="send('getProperty',getPropName);">GetProp</button>
 
+    <h4>Results:</h4>
     <div id="result"></div>
     <div id="err"></div>
+
+    <hr>
+
+    <script type="text/javascript">
+     var sock = null;
+     var wsuri = "ws://127.0.0.1:3141/_sock/";
+
+     window.onload = function() {
+
+         console.log("onload");
+
+         sock = new WebSocket(wsuri);
+
+         sock.onopen = function() {
+             console.log("connected to " + wsuri);
+         }
+
+         sock.onclose = function(e) {
+             console.log("connection closed (" + e.code + ")");
+         }
+
+         sock.onmessage = function(e) {
+             $("#result").html("")
+             console.log("message received: " + e.data);
+             $("#result").html("websocket message: "+e.data)
+
+         }
+     };
+
+     function wsend() {
+         var msg = document.getElementById('message').value;
+         sock.send(msg);
+     };
+    </script>
+
   </body>
 </html>

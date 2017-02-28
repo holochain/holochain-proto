@@ -6,9 +6,6 @@ import (
 	"fmt"
 	holo "github.com/metacurrency/holochain"
 	"github.com/urfave/cli"
-	"io/ioutil"
-	"log"
-	"net/http"
 	"os"
 	"os/user"
 	"strings"
@@ -384,74 +381,4 @@ func listChains(s *holo.Service) {
 func mkErr(etext string, code int) (int, error) {
 	fmt.Println("Error:", code, etext)
 	return code, errors.New(etext)
-}
-
-func serve(h *holo.Holochain, port string) {
-	fs := http.FileServer(http.Dir(h.Path() + "/ui"))
-	http.Handle("/", fs)
-
-	http.HandleFunc("/fn/", func(w http.ResponseWriter, r *http.Request) {
-
-		var err error
-		var errCode int = 400
-		defer func() {
-			if err != nil {
-				fmt.Printf("ERROR:%s,code:%d", err.Error(), errCode)
-				http.Error(w, err.Error(), errCode)
-			}
-		}()
-
-		/*		if r.Method == "GET" {
-					fmt.Printf("processing Get:%s\n", r.URL.Path)
-
-					http.Redirect(w, r, "/static", http.StatusSeeOther)
-				}
-		*/
-		body, err := ioutil.ReadAll(r.Body)
-		if err != nil {
-			errCode, err = mkErr("unable to read body", 500)
-			return
-		}
-		fmt.Printf("processing req:%s\n  Body:%v\n", r.URL.Path, string(body))
-
-		path := strings.Split(r.URL.Path, "/")
-
-		var n holo.Nucleus
-		zome := path[2]
-		n, err = h.MakeNucleus(zome)
-		if err == nil {
-			i := n.Interfaces()
-			function := path[3]
-			for _, f := range i {
-				if f.Name == function {
-					fmt.Printf("calling %s:%s\n", zome, function)
-					result, err := h.Call(zome, function, string(body))
-					if err != nil {
-						fmt.Printf(" result error: %v\n", err)
-						errCode = 400
-						http.Error(w, err.Error(), errCode)
-
-						return
-					} else {
-						fmt.Printf(" result: %v\n", result)
-						switch t := result.(type) {
-						case string:
-							fmt.Fprintf(w, t)
-						case []byte:
-							fmt.Fprintf(w, string(t))
-						default:
-							err = fmt.Errorf("Unknown type from Call of %s:%s", zome, function)
-						}
-					}
-					return
-				}
-			}
-			errCode, err = mkErr("unknown function: "+function, 400)
-		}
-	}) // set router
-	fmt.Printf("starting server on localhost:%s\n", port)
-	err := http.ListenAndServe(":"+port, nil) // set listen port
-	if err != nil {
-		log.Fatal("ListenAndServe: ", err)
-	}
 }

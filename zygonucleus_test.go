@@ -123,7 +123,7 @@ func TestZygoExposeCall(t *testing.T) {
 }
 
 func TestZygoDHT(t *testing.T) {
-	d, _, h := setupTestChain("test")
+	d, _, h := prepareTestChain("test")
 	defer cleanupTestDir(d)
 
 	data := "7"
@@ -136,7 +136,7 @@ func TestZygoDHT(t *testing.T) {
 		panic(err)
 	}
 
-	SkipConvey("should have a put function", t, func() {
+	Convey("should have a put function", t, func() {
 		v, err := NewZygoNucleus(h, fmt.Sprintf(`(put "%s")`, hash.String()))
 		So(err, ShouldBeNil)
 		z := v.(*ZygoNucleus)

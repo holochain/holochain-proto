@@ -71,7 +71,7 @@ If you are a developer and want to build your own group configuration, data sche
 
 `<FORMAT>` is the encoding type of your DNA file which can be one of `yaml`, `json` or `toml`.
 
-To aid development, the `gen dev` command also produces a sample `test` sub-directory with exposed function calls of the format `<test_num>.zy`
+To aid development, the `gen dev` command also produces a sample `test` sub-directory with exposed function calls of the format `<test_num>.json`
 
 The command:
 

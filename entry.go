@@ -73,17 +73,7 @@ func ByteDecoder(b []byte, to interface{}) (err error) {
 	return
 }
 
-// implementation of Entry interface with gobs
-
-func (e *GobEntry) Marshal() (b []byte, err error) {
-	b, err = ByteEncoder(&e.C)
-	return
-}
-func (e *GobEntry) Unmarshal(b []byte) (err error) {
-	err = ByteDecoder(b, &e.C)
-	return
-}
-
+// MarshalEntry serializes an entry to a writer
 func MarshalEntry(writer io.Writer, e Entry) (err error) {
 	var b []byte
 	b, err = e.Marshal()
@@ -95,6 +85,8 @@ func MarshalEntry(writer io.Writer, e Entry) (err error) {
 	err = binary.Write(writer, binary.LittleEndian, b)
 	return
 }
+
+// UnmarshalEntry unserializes an entry from a reader
 func UnmarshalEntry(reader io.Reader) (e Entry, err error) {
 	var l uint64
 	err = binary.Read(reader, binary.LittleEndian, &l)
@@ -114,6 +106,17 @@ func UnmarshalEntry(reader io.Reader) (e Entry, err error) {
 	return
 }
 
+// implementation of Entry interface with gobs
+
+func (e *GobEntry) Marshal() (b []byte, err error) {
+	b, err = ByteEncoder(&e.C)
+	return
+}
+func (e *GobEntry) Unmarshal(b []byte) (err error) {
+	err = ByteDecoder(b, &e.C)
+	return
+}
+ 
 func (e *GobEntry) Content() interface{} { return e.C }
 
 // implementation of Entry interface with JSON

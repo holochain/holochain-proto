@@ -83,7 +83,7 @@ func NewNode(listenAddr string, priv ic.PrivKey) (node *Node, err error) {
 
 	ctx := context.Background()
 
-	// create a new swar m to be used by the service host
+	// create a new swarm to be used by the service host
 	netw, err := swarm.NewNetwork(ctx, []ma.Multiaddr{n.NetAddr}, pid, ps, nil)
 	if err != nil {
 		return nil, err
@@ -97,7 +97,8 @@ func NewNode(listenAddr string, priv ic.PrivKey) (node *Node, err error) {
 	return
 }
 
-// Encode codes a message to gob format @TODO generalize
+// Encode codes a message to gob format
+// @TODO generalize for other message encoding formats
 func (m *Message) Encode() (data []byte, err error) {
 	data, err = ByteEncoder(m)
 	if err != nil {
@@ -106,7 +107,8 @@ func (m *Message) Encode() (data []byte, err error) {
 	return
 }
 
-// Decode converts a message from gob format @TODO generalize
+// Decode converts a message from gob format
+// @TODO generalize for other message encoding formats
 func (m *Message) Decode(r io.Reader) (err error) {
 	dec := gob.NewDecoder(r)
 	err = dec.Decode(m)

@@ -51,6 +51,7 @@ func NewChain() (chain *Chain) {
 }
 
 // Creates a chain from a file, loading any data there, and setting it to be persisted to
+// if no file exists it will be created
 func NewChainFromFile(h HashSpec, path string) (c *Chain, err error) {
 	c = NewChain()
 
@@ -248,8 +249,7 @@ func (c *Chain) MarshalChain(writer io.Writer) (err error) {
 // addPair adds header and entry pairs to the chain during unmarshaling
 // This call assumes that Hashes array is one element behind the Headers and Entries
 // because for each pair (except the 0th) it adds the hash of the previous entry
-// thus it also means that you must add the last Hash after you have finished calling
-// addPair
+// thus it also means that you must add the last Hash after you have finished calling addPair
 func (c *Chain) addPair(header *Header, entry Entry, i int) {
 	if i > 0 {
 		s := header.HeaderLink.String()

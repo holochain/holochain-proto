@@ -37,12 +37,14 @@ type Service struct {
 	Path         string
 }
 
-//IsInitialized checks a path for a correctly set up .holochain directory
+// IsInitialized checks a path for a correctly set up .holochain directory
 func IsInitialized(root string) bool {
 	return dirExists(root) && fileExists(root+"/"+SysFileName) && fileExists(root+"/"+AgentFileName)
 }
 
-//Init initializes service defaults including a signing key pair for an agent
+// Init initializes service defaults including a signing key pair for an agent
+// and writes them out to configuration files in the root path (making the
+// directory if necessary)
 func Init(root string, agent AgentID) (service *Service, err error) {
 	err = os.MkdirAll(root, os.ModePerm)
 	if err != nil {
@@ -76,6 +78,7 @@ func Init(root string, agent AgentID) (service *Service, err error) {
 	return
 }
 
+// LoadService creates a service object from a configuration file
 func LoadService(path string) (service *Service, err error) {
 	agent, err := LoadAgent(path)
 	if err != nil {

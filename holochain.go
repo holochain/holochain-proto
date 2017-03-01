@@ -688,6 +688,14 @@ func gen(path string, makeH func(path string) (hP *Holochain, err error)) (h *Ho
 	if err := os.MkdirAll(path, os.ModePerm); err != nil {
 		return nil, err
 	}
+
+	// cleanup the directory if we enounter an error while generating
+	defer func() {
+		if err != nil {
+			os.RemoveAll(path)
+		}
+	}()
+
 	h, err = makeH(path)
 	if err != nil {
 		return

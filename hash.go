@@ -7,6 +7,7 @@
 package holochain
 
 import (
+	"bytes"
 	"encoding/binary"
 	"errors"
 	mh "github.com/multiformats/go-multihash"
@@ -61,6 +62,14 @@ func (h *Hash) Clone() (hash Hash) {
 	hash.H = make([]byte, len(h.H))
 	copy(hash.H, h.H)
 	return
+}
+
+// Equal checks to see if two hashes have the same value
+func (h1 *Hash) Equal(h2 *Hash) bool {
+	if h1.IsNullHash() && h2.IsNullHash() {
+		return true
+	}
+	return bytes.Equal(h1.H, h2.H)
 }
 
 // MarshalHash writes a hash to a binary stream

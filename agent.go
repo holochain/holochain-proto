@@ -60,6 +60,8 @@ func (a *IPFSAgent) GenKeys() (err error) {
 	return
 }
 
+// NewAgent creates an agent structure of the given type
+// Note: currently only IPFS agents are implemented
 func NewAgent(keyType KeytypeType, id AgentID) (agent Agent, err error) {
 	switch keyType {
 	case IPFS:
@@ -77,7 +79,7 @@ func NewAgent(keyType KeytypeType, id AgentID) (agent Agent, err error) {
 	return
 }
 
-// SaveAgent generates saves out the keys and agent id to the given directory
+// SaveAgent saves out the keys and agent id to the given directory
 func SaveAgent(path string, agent Agent) (err error) {
 	writeFile(path, AgentFileName, []byte(agent.ID()))
 	if err != nil {

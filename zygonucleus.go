@@ -83,6 +83,7 @@ func (z *ZygoNucleus) GetInterface(iface string) (i *Interface, err error) {
 	return
 }
 
+// Interfaces returns the list of application exposed functions the nucleus
 func (z *ZygoNucleus) Interfaces() (i []Interface) {
 	i = z.interfaces
 	return
@@ -369,6 +370,9 @@ func (z *ZygoNucleus) Run(code string) (result zygo.Sexp, err error) {
 	z.lastResult = result
 	return
 }
+
+// extra functions we want to have available for app developers in zygo
+
 
 func isPrime(t int64) bool {
 

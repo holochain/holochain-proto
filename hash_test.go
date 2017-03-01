@@ -31,3 +31,24 @@ func TestNullHash(t *testing.T) {
 	})
 
 }
+
+func TestEqual(t *testing.T) {
+	h1, _ := NewHash("QmY8Mzg9F69e5P9AoQPYat655HEhc1TVGs11tmfNSzkqh2")
+	h2, _ := NewHash("QmY8Mzg9F69e5P9AoQPYat655HEhc1TVGs11tmfNSzkqh2")
+
+	nh1 := NullHash()
+	nh2 := NullHash()
+	Convey("similar hashes should equal", t, func() {
+		So(h1.Equal(&h2), ShouldBeTrue)
+
+		So(nh1.Equal(&nh2), ShouldBeTrue)
+	})
+
+	h3, _ := NewHash("QmY8Mzg9F69e5P9AoQPYat655HEhc1TVGs11tmfNSzkqh3")
+
+	Convey("dissimilar hashes should not", t, func() {
+		So(h1.Equal(&h3), ShouldBeFalse)
+		So(h1.Equal(&nh2), ShouldBeFalse)
+	})
+
+}

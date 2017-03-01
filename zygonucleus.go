@@ -6,6 +6,7 @@
 package holochain
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	zygo "github.com/glycerine/zygomys/repl"
@@ -159,9 +160,6 @@ func (z *ZygoNucleus) put(env *zygo.Glisp, h *Holochain, hash string) (result *z
 	if err != nil {
 		return nil, err
 	}
-
-	var putResult string
-
 	var key Hash
 	key, err = NewHash(hash)
 	if err != nil {
@@ -169,11 +167,41 @@ func (z *ZygoNucleus) put(env *zygo.Glisp, h *Holochain, hash string) (result *z
 	}
 	err = h.dht.SendPut(key)
 	if err != nil {
-		putResult = "error: " + err.Error()
+		err = result.HashSet(env.MakeSymbol("error"), &zygo.SexpStr{S: err.Error()})
 	} else {
-		putResult = "ok"
+		err = result.HashSet(env.MakeSymbol("result"), &zygo.SexpStr{S: "ok"})
 	}
-	err = result.HashSet(env.MakeSymbol("result"), &zygo.SexpStr{S: putResult})
+	return result, err
+}
+
+// get exposes DHTGet to holochain apps.
+func (z *ZygoNucleus) get(env *zygo.Glisp, h *Holochain, hash string) (result *zygo.SexpHash, err error) {
+	result, err = zygo.MakeHash(nil, "hash", env)
+	if err != nil {
+		return nil, err
+	}
+
+	var key Hash
+	key, err = NewHash(hash)
+	if err != nil {
+		return
+	}
+	response, err := h.dht.SendGet(key)
+	if err == nil {
+		switch t := response.(type) {
+		case *GobEntry:
+			// @TODO figure out encoding by entry type.
+			j, err := json.Marshal(t.C)
+			if err == nil {
+				err = result.HashSet(env.MakeSymbol("result"), &zygo.SexpStr{S: string(j)})
+			}
+		// @TODO what about if the hash was of a header??
+		default:
+			err = fmt.Errorf("unexpected response type from SendGet: %v", t)
+		}
+	} else {
+		err = result.HashSet(env.MakeSymbol("error"), &zygo.SexpStr{S: err.Error()})
+	}
 	return result, err
 }
 
@@ -297,6 +325,24 @@ func NewZygoNucleus(h *Holochain, code string) (n Nucleus, err error) {
 					errors.New("argument of put should be string")
 			}
 			result, err := z.put(env, h, hashstr)
+			return result, err
+		})
+
+	z.env.AddFunction("get",
+		func(env *zygo.Glisp, name string, args []zygo.Sexp) (zygo.Sexp, error) {
+			if len(args) != 1 {
+				return zygo.SexpNull, zygo.WrongNargs
+			}
+
+			var hashstr string
+			switch t := args[0].(type) {
+			case *zygo.SexpStr:
+				hashstr = t.S
+			default:
+				return zygo.SexpNull,
+					errors.New("argument of put should be string")
+			}
+			result, err := z.get(env, h, hashstr)
 			return result, err
 		})
 

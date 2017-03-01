@@ -120,6 +120,16 @@ func (dht *DHT) SendPut(key Hash) (err error) {
 	return
 }
 
+// SendGet initiates retrieving a value from the DHT
+func (dht *DHT) SendGet(key Hash) (response interface{}, err error) {
+	n, err := dht.FindNodeForHash(key)
+	if err != nil {
+		return
+	}
+	response, err = dht.Send(n.HashAddr, GET_REQUEST, key)
+	return
+}
+
 // Send sends a message to the node
 func (dht *DHT) Send(to peer.ID, t MsgType, body interface{}) (response interface{}, err error) {
 	return dht.h.Send(DHTProtocol, to, t, body, DHTReceiver)

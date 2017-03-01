@@ -131,17 +131,37 @@ func TestZygoDHT(t *testing.T) {
 	// add an entry onto the chain
 	now := time.Unix(1, 1) // pick a constant time so the test will always work
 	e := GobEntry{C: data}
-	hash, _, err := h.NewEntry(now, "myData", &e)
+	_, hd, err := h.NewEntry(now, "myData", &e)
 	if err != nil {
 		panic(err)
 	}
 
-	Convey("should have a put function", t, func() {
+	hash := hd.EntryLink
+	Convey("it should have a put function", t, func() {
 		v, err := NewZygoNucleus(h, fmt.Sprintf(`(put "%s")`, hash.String()))
 		So(err, ShouldBeNil)
 		z := v.(*ZygoNucleus)
 		r, err := z.lastResult.(*zygo.SexpHash).HashGet(z.env, z.env.MakeSymbol("result"))
 		So(err, ShouldBeNil)
 		So(r.(*zygo.SexpStr).S, ShouldEqual, "ok")
+	})
+
+	Convey("it should have a get function", t, func() {
+		v, err := NewZygoNucleus(h, fmt.Sprintf(`(get "%s")`, hash.String()))
+		So(err, ShouldBeNil)
+		z := v.(*ZygoNucleus)
+		r, err := z.lastResult.(*zygo.SexpHash).HashGet(z.env, z.env.MakeSymbol("error"))
+		So(err, ShouldBeNil)
+		So(r.(*zygo.SexpStr).S, ShouldEqual, "hash not found")
+
+		h.dht.handlePutReqs()
+
+		v, err = NewZygoNucleus(h, fmt.Sprintf(`(get "%s")`, hash.String()))
+		So(err, ShouldBeNil)
+		z = v.(*ZygoNucleus)
+		r, err = z.lastResult.(*zygo.SexpHash).HashGet(z.env, z.env.MakeSymbol("result"))
+		So(err, ShouldBeNil)
+		So(r.(*zygo.SexpStr).S, ShouldEqual, `"7"`)
+
 	})
 }

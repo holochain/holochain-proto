@@ -38,6 +38,7 @@ const (
 
 	PUT_REQUEST
 	GET_REQUEST
+	PUTMETA_REQUEST
 
 	// Source Messages
 

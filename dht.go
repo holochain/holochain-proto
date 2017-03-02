@@ -14,13 +14,15 @@ import (
 )
 
 var ErrDHTExpectedHashInBody error = errors.New("expected hash")
+var ErrDHTExpectedMetaInBody error = errors.New("expected meta struct")
 
 // DHT struct holds the data necessary to run the distributed hash table
 type DHT struct {
-	store     map[string][]byte // the store used to persist data this node is responsible for
-	metastore map[string][]Meta // the store used to persist putMetas
-	h         *Holochain        // pointer to the holochain this DHT is part of
-	Queue     q.Queue           // a queue for incoming puts
+	store     map[string][]byte  // the store used to persist data this node is responsible for
+	metastore map[string][]Meta  // the store used to persist putMetas
+	sources   map[string]peer.ID // the store used to persist source data
+	h         *Holochain         // pointer to the holochain this DHT is part of
+	Queue     q.Queue            // a queue for incoming puts
 }
 
 // Meta holds data that can be associated with a hash
@@ -30,11 +32,19 @@ type Meta struct {
 	V []byte
 }
 
+// Meta holds a putMeta request
+type MetaReq struct {
+	O Hash   // original data on which to put the metha
+	M Hash   // hash of the meta data
+	T string // meta type
+}
+
 // NewDHT creates a new DHT structure
 func NewDHT(h *Holochain) *DHT {
 	dht := DHT{
 		store:     make(map[string][]byte),
 		metastore: make(map[string][]Meta),
+		sources:   make(map[string]peer.ID),
 		h:         h,
 	}
 	return &dht
@@ -42,14 +52,25 @@ func NewDHT(h *Holochain) *DHT {
 
 // put stores a value to the DHT store
 // N.B. This call assumes that the value has already been validated
-func (dht *DHT) put(key Hash, value []byte) (err error) {
-	dht.store[key.String()] = value
+func (dht *DHT) put(key Hash, src peer.ID, value []byte) (err error) {
+	k := key.String()
+	dht.store[k] = value
+	dht.sources[k] = src
 	return
 }
 
 // exists checks for the existence of the hash in the store
 func (dht *DHT) exists(key Hash) (err error) {
 	_, ok := dht.store[key.String()]
+	if !ok {
+		err = ErrHashNotFound
+	}
+	return
+}
+
+// returns the source of a given hash
+func (dht *DHT) source(hash Hash) (id peer.ID, err error) {
+	id, ok := dht.sources[hash.String()]
 	if !ok {
 		err = ErrHashNotFound
 	}
@@ -116,7 +137,7 @@ func (dht *DHT) SendPut(key Hash) (err error) {
 	if err != nil {
 		return
 	}
-	_, err = dht.Send(n.HashAddr, PUT_REQUEST, key)
+	_, err = dht.send(n.HashAddr, PUT_REQUEST, key)
 	return
 }
 
@@ -126,12 +147,12 @@ func (dht *DHT) SendGet(key Hash) (response interface{}, err error) {
 	if err != nil {
 		return
 	}
-	response, err = dht.Send(n.HashAddr, GET_REQUEST, key)
+	response, err = dht.send(n.HashAddr, GET_REQUEST, key)
 	return
 }
 
 // Send sends a message to the node
-func (dht *DHT) Send(to peer.ID, t MsgType, body interface{}) (response interface{}, err error) {
+func (dht *DHT) send(to peer.ID, t MsgType, body interface{}) (response interface{}, err error) {
 	return dht.h.Send(DHTProtocol, to, t, body, DHTReceiver)
 }
 
@@ -155,19 +176,38 @@ func (dht *DHT) handlePutReqs() (err error) {
 	x, err := dht.Queue.Get(10)
 	if err == nil {
 		for _, r := range x {
-			hash := r.(*Message).Body.(Hash)
+			m := r.(*Message)
 			from := r.(*Message).From
-			var r interface{}
-			r, err = dht.h.Send(SourceProtocol, from, SRC_VALIDATE, hash, SrcReceiver)
-			if err != nil {
-				return
-			}
-			// @TODO do the validation here!!!
+			switch t := m.Body.(type) {
+			case Hash:
+				var r interface{}
+				r, err = dht.h.Send(SourceProtocol, from, SRC_VALIDATE, t, SrcReceiver)
+				if err != nil {
+					return
+				}
+				// @TODO do the validation here!!!
 
-			entry := r.(Entry)
-			b, err := entry.Marshal()
-			if err == nil {
-				err = dht.put(hash, b)
+				entry := r.(Entry)
+				b, err := entry.Marshal()
+				if err == nil {
+					err = dht.put(t, from, b)
+				}
+			case MetaReq:
+				var r interface{}
+				r, err = dht.h.Send(SourceProtocol, from, SRC_VALIDATE, t.M, SrcReceiver)
+				if err != nil {
+					return
+				}
+				// @TODO do the validation here!!!
+
+				entry := r.(Entry)
+				b, err := entry.Marshal()
+				if err == nil {
+					err = dht.putMeta(t.O, t.M, t.T, b)
+				}
+
+			default:
+				err = errors.New("unexpected body type in handlePutReqs")
 			}
 
 		}
@@ -206,6 +246,21 @@ func DHTReceiver(h *Holochain, m *Message) (response interface{}, err error) {
 			err = ErrDHTExpectedHashInBody
 		}
 		return
+	case PUTMETA_REQUEST:
+		switch t := m.Body.(type) {
+		case MetaReq:
+			err = h.dht.exists(t.O)
+			if err == nil {
+				err = h.dht.Queue.Put(m)
+				if err == nil {
+					response = "queued"
+				}
+			}
+
+		default:
+			err = ErrDHTExpectedMetaInBody
+		}
+
 	default:
 		err = fmt.Errorf("message type %d not in holochain-dht protocol", int(m.Type))
 	}

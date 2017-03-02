@@ -1,7 +1,9 @@
 package holochain
 
 import (
+	"bytes"
 	"fmt"
+	peer "github.com/libp2p/go-libp2p-peer"
 	. "github.com/smartystreets/goconvey/convey"
 	"testing"
 	"time"
@@ -10,9 +12,10 @@ import (
 func TestPutGet(t *testing.T) {
 	var h Holochain
 	dht := NewDHT(&h)
+	var id peer.ID
 	Convey("It should store and retrieve", t, func() {
 		hash, _ := NewHash("QmY8Mzg9F69e5P9AoQPYat655HEhc1TVGs11tmfNSzkqh2")
-		err := dht.put(hash, []byte("some value"))
+		err := dht.put(hash, id, []byte("some value"))
 		So(err, ShouldBeNil)
 		data, err := dht.get(hash)
 		So(err, ShouldBeNil)
@@ -38,7 +41,8 @@ func TestPutGetMeta(t *testing.T) {
 		So(err, ShouldEqual, ErrHashNotFound)
 	})
 
-	err := dht.put(hash, []byte("some value"))
+	var id peer.ID
+	err := dht.put(hash, id, []byte("some value"))
 	if err != nil {
 		panic(err)
 	}
@@ -116,7 +120,7 @@ func TestSend(t *testing.T) {
 	hash, _ := NewHash("QmY8Mzg9F69e5P9AoQPYat655HEhc1TVGs11tmfNSzkqh2")
 
 	Convey("send GET_REQUEST message for non existent hash should get error", t, func() {
-		r, err := h.dht.Send(node.HashAddr, GET_REQUEST, hash)
+		r, err := h.dht.send(node.HashAddr, GET_REQUEST, hash)
 		So(r, ShouldBeNil)
 		So(err, ShouldEqual, ErrHashNotFound)
 	})
@@ -136,7 +140,7 @@ func TestSend(t *testing.T) {
 	})
 
 	Convey("after send PUT_REQUEST message queue should have the message in it", t, func() {
-		r, err := h.dht.Send(node.HashAddr, PUT_REQUEST, hash)
+		r, err := h.dht.send(node.HashAddr, PUT_REQUEST, hash)
 		So(err, ShouldBeNil)
 		So(r, ShouldEqual, "queued")
 		So(h.dht.Queue.Len(), ShouldEqual, 1)
@@ -149,7 +153,7 @@ func TestSend(t *testing.T) {
 	})
 
 	Convey("after a handled PUT_REQUEST data should be stored in DHT", t, func() {
-		r, err := h.dht.Send(node.HashAddr, PUT_REQUEST, hash)
+		r, err := h.dht.send(node.HashAddr, PUT_REQUEST, hash)
 		So(err, ShouldBeNil)
 		So(r, ShouldEqual, "queued")
 		h.dht.handlePutReqs()
@@ -158,7 +162,7 @@ func TestSend(t *testing.T) {
 	})
 
 	Convey("send GET_REQUEST message should return content", t, func() {
-		r, err := h.dht.Send(node.HashAddr, GET_REQUEST, hash)
+		r, err := h.dht.send(node.HashAddr, GET_REQUEST, hash)
 		So(err, ShouldBeNil)
 		So(fmt.Sprintf("%v", r), ShouldEqual, fmt.Sprintf("%v", &e))
 	})
@@ -174,10 +178,25 @@ func TestDHTReceiver(t *testing.T) {
 		So(err.Error(), ShouldEqual, "expected hash")
 	})
 
+	Convey("PUTMETA_REQUEST should fail if body not a good put meta request", t, func() {
+		m := h.node.NewMessage(PUTMETA_REQUEST, "fish")
+		_, err := DHTReceiver(h, m)
+		So(err.Error(), ShouldEqual, "expected meta struct")
+	})
+
+	hash, _ := NewHash("QmY8Mzg9F69e5P9AoQPYat655HEhc1TVGs11tmfNSzkqh2")
+
+	Convey("PUTMETA_REQUEST should fail if hash doesn't exist", t, func() {
+		me := MetaReq{O: hash, M: hash, T: "myMetaType"}
+		m := h.node.NewMessage(PUTMETA_REQUEST, me)
+		_, err := DHTReceiver(h, m)
+		So(err.Error(), ShouldEqual, "hash not found")
+	})
+
 	now := time.Unix(1, 1) // pick a constant time so the test will always work
 	e := GobEntry{C: "some data"}
 	_, hd, _ := h.NewEntry(now, "myData", &e)
-	hash := hd.EntryLink
+	hash = hd.EntryLink
 
 	Convey("PUT_REQUEST should queue a valid message", t, func() {
 		m := h.node.NewMessage(PUT_REQUEST, hash)
@@ -186,7 +205,9 @@ func TestDHTReceiver(t *testing.T) {
 		So(r, ShouldEqual, "queued")
 	})
 
-	h.dht.handlePutReqs()
+	if err := h.dht.handlePutReqs(); err != nil {
+		panic(err)
+	}
 	Convey("GET_REQUEST should return the value of the has", t, func() {
 		m := h.node.NewMessage(GET_REQUEST, hash)
 		r, err := DHTReceiver(h, m)
@@ -194,6 +215,27 @@ func TestDHTReceiver(t *testing.T) {
 		So(fmt.Sprintf("%v", r), ShouldEqual, fmt.Sprintf("%v", &e))
 	})
 
+	Convey("PUTMETA_REQUEST should store meta values", t, func() {
+		e := GobEntry{C: "some meta data"}
+		_, hd, _ := h.NewEntry(now, "myMetaData", &e)
+		me := MetaReq{O: hash, M: hd.EntryLink, T: "myMetaType"}
+		m := h.node.NewMessage(PUTMETA_REQUEST, me)
+		r, err := DHTReceiver(h, m)
+		So(err, ShouldBeNil)
+		So(r, ShouldEqual, "queued")
+
+		// fake the handleputreqs
+		err = h.dht.handlePutReqs()
+		So(err, ShouldBeNil)
+
+		// check that it got put
+		meta, err := h.dht.getMeta(hash, "myMetaType")
+		So(err, ShouldBeNil)
+		So(meta[0].H.Equal(&me.M), ShouldBeTrue)
+		So(meta[0].T, ShouldEqual, me.T)
+		b, _ := e.Marshal()
+		So(bytes.Equal(meta[0].V, b), ShouldBeTrue)
+	})
 }
 
 func TestHandlePutReqs(t *testing.T) {

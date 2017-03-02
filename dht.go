@@ -11,6 +11,8 @@ import (
 	"fmt"
 	q "github.com/golang-collections/go-datastructures/queue"
 	peer "github.com/libp2p/go-libp2p-peer"
+	"github.com/tidwall/buntdb"
+	"strings"
 )
 
 var ErrDHTExpectedHashInBody error = errors.New("expected hash")
@@ -18,11 +20,9 @@ var ErrDHTExpectedMetaInBody error = errors.New("expected meta struct")
 
 // DHT struct holds the data necessary to run the distributed hash table
 type DHT struct {
-	store     map[string][]byte  // the store used to persist data this node is responsible for
-	metastore map[string][]Meta  // the store used to persist putMetas
-	sources   map[string]peer.ID // the store used to persist source data
-	h         *Holochain         // pointer to the holochain this DHT is part of
-	Queue     q.Queue            // a queue for incoming puts
+	h     *Holochain // pointer to the holochain this DHT is part of
+	Queue q.Queue    // a queue for incoming puts
+	db    *buntdb.DB
 }
 
 // Meta holds data that can be associated with a hash
@@ -51,11 +51,15 @@ type MetaQuery struct {
 // NewDHT creates a new DHT structure
 func NewDHT(h *Holochain) *DHT {
 	dht := DHT{
-		store:     make(map[string][]byte),
-		metastore: make(map[string][]Meta),
-		sources:   make(map[string]peer.ID),
-		h:         h,
+		h: h,
 	}
+	db, err := buntdb.Open(h.path + "/dht.db")
+	if err != nil {
+		panic(err)
+	}
+	db.CreateIndex("meta", "meta:*", buntdb.IndexString)
+
+	dht.db = db
 	return &dht
 }
 
@@ -63,35 +67,58 @@ func NewDHT(h *Holochain) *DHT {
 // N.B. This call assumes that the value has already been validated
 func (dht *DHT) put(key Hash, src peer.ID, value []byte) (err error) {
 	k := key.String()
-	dht.store[k] = value
-	dht.sources[k] = src
+	err = dht.db.Update(func(tx *buntdb.Tx) error {
+		_, _, err := tx.Set("entry:"+k, string(value), nil)
+		if err != nil {
+			return err
+		}
+		_, _, err = tx.Set("src:"+k, peer.IDB58Encode(src), nil)
+		return err
+	})
+	//	dht.store[k] = value
+	//	dht.sources[k] = src
 	return
 }
 
 // exists checks for the existence of the hash in the store
 func (dht *DHT) exists(key Hash) (err error) {
-	_, ok := dht.store[key.String()]
-	if !ok {
-		err = ErrHashNotFound
-	}
+	err = dht.db.View(func(tx *buntdb.Tx) error {
+		_, err := tx.Get("entry:" + key.String())
+		if err == buntdb.ErrNotFound {
+			err = ErrHashNotFound
+		}
+		return err
+	})
 	return
 }
 
 // returns the source of a given hash
-func (dht *DHT) source(hash Hash) (id peer.ID, err error) {
-	id, ok := dht.sources[hash.String()]
-	if !ok {
-		err = ErrHashNotFound
-	}
+func (dht *DHT) source(key Hash) (id peer.ID, err error) {
+	err = dht.db.View(func(tx *buntdb.Tx) error {
+		val, err := tx.Get("src:" + key.String())
+		if err == buntdb.ErrNotFound {
+			err = ErrHashNotFound
+		}
+		if err == nil {
+			id, err = peer.IDB58Decode(val)
+		}
+		return err
+	})
 	return
 }
 
 // get retrieves a value from the DHT store
 func (dht *DHT) get(key Hash) (data []byte, err error) {
-	err = dht.exists(key)
-	if err == nil {
-		data, _ = dht.store[key.String()]
-	}
+	err = dht.db.View(func(tx *buntdb.Tx) error {
+		val, err := tx.Get("entry:" + key.String())
+		if err == buntdb.ErrNotFound {
+			err = ErrHashNotFound
+		}
+		if err == nil {
+			data = []byte(val)
+		}
+		return err
+	})
 	return
 }
 
@@ -99,17 +126,16 @@ func (dht *DHT) get(key Hash) (data []byte, err error) {
 // N.B. this function assumes that the data associated has been properly retrieved
 // and validated from the cource chain
 func (dht *DHT) putMeta(key Hash, metaKey Hash, metaType string, value []byte) (err error) {
-	err = dht.exists(key)
-	if err == nil {
-		m := Meta{H: metaKey, T: metaType, V: value}
-		ks := key.String()
-		v, ok := dht.metastore[ks]
-		if !ok {
-			dht.metastore[ks] = []Meta{m}
-		} else {
-			dht.metastore[ks] = append(v, m)
+	k := key.String()
+	err = dht.db.Update(func(tx *buntdb.Tx) error {
+		_, err := tx.Get("entry:" + k)
+		if err == buntdb.ErrNotFound {
+			return ErrHashNotFound
 		}
-	}
+		mk := metaKey.String()
+		_, _, err = tx.Set("meta:"+k+":"+mk+":"+metaType, string(value), nil)
+		return err
+	})
 	return
 }
 
@@ -124,17 +150,28 @@ func filter(ss []Meta, test func(*Meta) bool) (ret []Meta) {
 
 // getMeta retrieves values associated with hashes
 func (dht *DHT) getMeta(key Hash, metaType string) (results []Meta, err error) {
-	err = dht.exists(key)
-	if err == nil {
-		ks := key.String()
-		v, ok := dht.metastore[ks]
-		if ok {
-			results = filter(v, func(m *Meta) bool { return m.T == metaType })
+	k := key.String()
+	err = dht.db.View(func(tx *buntdb.Tx) error {
+		_, err := tx.Get("entry:" + k)
+		if err == buntdb.ErrNotFound {
+			return ErrHashNotFound
 		}
-		if !ok || len(results) == 0 {
+		results = make([]Meta, 0)
+		err = tx.Ascend("meta", func(key, value string) bool {
+			x := strings.Split(key, ":")
+			if string(x[1]) == k && string(x[3]) == metaType {
+				H, _ := NewHash(x[2])
+				m := Meta{H: H, T: metaType, V: []byte(value)}
+				results = append(results, m)
+			}
+			return true
+		})
+		if len(results) == 0 {
 			err = fmt.Errorf("No values for %s", metaType)
 		}
-	}
+		return err
+	})
+
 	return
 }
 

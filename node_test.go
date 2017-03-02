@@ -78,6 +78,8 @@ func TestNewMessage(t *testing.T) {
 }
 
 func TestNodeSend(t *testing.T) {
+	d := setupTestDir()
+	defer cleanupTestDir(d)
 
 	node1, err := makeNode(1234, "node1")
 	if err != nil {
@@ -92,6 +94,7 @@ func TestNodeSend(t *testing.T) {
 	defer node2.Close()
 
 	var h Holochain
+	h.path = d
 	h.node = node1
 	h.dht = NewDHT(&h)
 	Convey("It should start the DHT protocol", t, func() {

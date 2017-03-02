@@ -9,10 +9,23 @@ import (
 	"time"
 )
 
-func TestPutGet(t *testing.T) {
+func TestNewDHT(t *testing.T) {
+	d := setupTestDir()
+	defer cleanupTestDir(d)
 	var h Holochain
+	h.path = d
 	dht := NewDHT(&h)
-	var id peer.ID
+	Convey("It should initialize the DHT struct", t, func() {
+		So(dht.h, ShouldEqual, &h)
+		So(fileExists(h.path+"/dht.db"), ShouldBeTrue)
+	})
+}
+
+func TestPutGet(t *testing.T) {
+	d, _, h := prepareTestChain("test")
+	defer cleanupTestDir(d)
+	dht := h.dht
+	var id peer.ID = h.node.HashAddr
 	Convey("It should store and retrieve", t, func() {
 		hash, _ := NewHash("QmY8Mzg9F69e5P9AoQPYat655HEhc1TVGs11tmfNSzkqh2")
 		err := dht.put(hash, id, []byte("some value"))
@@ -28,16 +41,20 @@ func TestPutGet(t *testing.T) {
 }
 
 func TestPutGetMeta(t *testing.T) {
+	d := setupTestDir()
+	defer cleanupTestDir(d)
 	var h Holochain
+	h.path = d
 	dht := NewDHT(&h)
 	hash, _ := NewHash("QmY8Mzg9F69e5P9AoQPYat655HEhc1TVGs11tmfNSzkqh2")
-	metaHash, _ := NewHash("QmY8Mzg9F69e5P9AoQPYat655HEhc1TVGs11tmfNSzkqh3")
-
+	metaHash1, _ := NewHash("QmY8Mzg9F69e5P9AoQPYat655HEhc1TVGs11tmfNSzkqh3")
+	metaHash2, _ := NewHash("QmY8Mzg9F69e5P9AoQPYat655HEhc1TVGs11tmfNSzkqh4")
 	Convey("It should fail if hash doesn't exist", t, func() {
-		err := dht.putMeta(hash, metaHash, "someType", []byte("some data"))
+		err := dht.putMeta(hash, metaHash1, "someType", []byte("some data"))
 		So(err, ShouldEqual, ErrHashNotFound)
 
-		_, err = dht.getMeta(hash, "someType")
+		v, err := dht.getMeta(hash, "someType")
+		So(v, ShouldBeNil)
 		So(err, ShouldEqual, ErrHashNotFound)
 	})
 
@@ -52,13 +69,13 @@ func TestPutGetMeta(t *testing.T) {
 		So(err, ShouldNotBeNil)
 		So(err.Error(), ShouldEqual, "No values for someType")
 
-		err = dht.putMeta(hash, metaHash, "someType", []byte("value 1"))
+		err = dht.putMeta(hash, metaHash1, "someType", []byte("value 1"))
 		So(err, ShouldBeNil)
 
-		err = dht.putMeta(hash, metaHash, "someType", []byte("value 2"))
+		err = dht.putMeta(hash, metaHash2, "someType", []byte("value 2"))
 		So(err, ShouldBeNil)
 
-		err = dht.putMeta(hash, metaHash, "otherType", []byte("value 3"))
+		err = dht.putMeta(hash, metaHash1, "otherType", []byte("value 3"))
 		So(err, ShouldBeNil)
 
 		data, err = dht.getMeta(hash, "someType")
@@ -68,7 +85,7 @@ func TestPutGetMeta(t *testing.T) {
 		So(m.H.String(), ShouldEqual, "QmY8Mzg9F69e5P9AoQPYat655HEhc1TVGs11tmfNSzkqh3")
 		So(string(m.V), ShouldEqual, "value 1")
 		m = data[1]
-		So(m.H.String(), ShouldEqual, "QmY8Mzg9F69e5P9AoQPYat655HEhc1TVGs11tmfNSzkqh3")
+		So(m.H.String(), ShouldEqual, "QmY8Mzg9F69e5P9AoQPYat655HEhc1TVGs11tmfNSzkqh4")
 		So(string(m.V), ShouldEqual, "value 2")
 
 		data, err = dht.getMeta(hash, "otherType")
@@ -76,15 +93,6 @@ func TestPutGetMeta(t *testing.T) {
 		So(len(data), ShouldEqual, 1)
 		So(string(data[0].V), ShouldEqual, "value 3")
 
-	})
-}
-
-func TestNewDHT(t *testing.T) {
-	var h Holochain
-
-	dht := NewDHT(&h)
-	Convey("It should initialize the DHT struct", t, func() {
-		So(dht.h, ShouldEqual, &h)
 	})
 }
 

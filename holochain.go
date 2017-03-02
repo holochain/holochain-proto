@@ -902,7 +902,7 @@ func (h *Holochain) Validate(entriesToo bool) (valid bool, err error) {
 			return
 		}
 
-		if bH.String() != (*key).String() {
+		if !bH.Equal(key) {
 			return errors.New("header hash doesn't match")
 		}
 

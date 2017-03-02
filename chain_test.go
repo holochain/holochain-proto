@@ -113,7 +113,7 @@ func TestAddEntry(t *testing.T) {
 		So(len(c.Headers), ShouldEqual, 1)
 		So(len(c.Entries), ShouldEqual, 1)
 		So(c.TypeTops["myData"], ShouldEqual, 0)
-		So(hash.String(), ShouldEqual, c.Hashes[0].String())
+		So(hash.Equal(&c.Hashes[0]), ShouldBeTrue)
 	})
 }
 

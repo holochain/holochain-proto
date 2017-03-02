@@ -216,10 +216,10 @@ func TestNewEntry(t *testing.T) {
 	Convey("it should modify store's TOP key to point to the added Entry header", t, func() {
 		hash, err := h.Top()
 		So(err, ShouldBeNil)
-		So(hash.String(), ShouldEqual, headerHash.String())
+		So(hash.Equal(&headerHash), ShouldBeTrue)
 		hash, err = h.TopType("myData")
 		So(err, ShouldBeNil)
-		So(hash.String(), ShouldEqual, headerHash.String())
+		So(hash.Equal(&headerHash), ShouldBeTrue)
 	})
 
 	e = GobEntry{C: "more data"}

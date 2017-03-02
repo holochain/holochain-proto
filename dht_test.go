@@ -149,7 +149,7 @@ func TestSend(t *testing.T) {
 		m := messages[0].(*Message)
 		So(m.Type, ShouldEqual, PUT_REQUEST)
 		hs := m.Body.(Hash)
-		So(hs.String(), ShouldEqual, hash.String())
+		So(hs.Equal(&hash), ShouldBeTrue)
 	})
 
 	Convey("after a handled PUT_REQUEST data should be stored in DHT", t, func() {
@@ -158,7 +158,7 @@ func TestSend(t *testing.T) {
 		So(r, ShouldEqual, "queued")
 		h.dht.handlePutReqs()
 		hd, _ := h.chain.GetEntryHeader(hash)
-		So(hd.EntryLink.String(), ShouldEqual, hash.String())
+		So(hd.EntryLink.Equal(&hash), ShouldBeTrue)
 	})
 
 	Convey("send GET_REQUEST message should return content", t, func() {

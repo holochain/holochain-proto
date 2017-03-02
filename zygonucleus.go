@@ -155,7 +155,7 @@ func (z *ZygoNucleus) expose(iface Interface) (err error) {
 	return
 }
 
-// put exposes DHTPut to holochain apps.
+// put exposes DHTPut to zygo
 func (z *ZygoNucleus) put(env *zygo.Glisp, h *Holochain, hash string) (result *zygo.SexpHash, err error) {
 	result, err = zygo.MakeHash(nil, "hash", env)
 	if err != nil {
@@ -175,7 +175,33 @@ func (z *ZygoNucleus) put(env *zygo.Glisp, h *Holochain, hash string) (result *z
 	return result, err
 }
 
-// get exposes DHTGet to holochain apps.
+// putmeta exposes DHTPutMeta to zygo
+func (z *ZygoNucleus) putmeta(env *zygo.Glisp, h *Holochain, hash string, metahash string, metatype string) (result *zygo.SexpHash, err error) {
+	result, err = zygo.MakeHash(nil, "hash", env)
+	if err != nil {
+		return nil, err
+	}
+	var key Hash
+	key, err = NewHash(hash)
+	if err != nil {
+		return
+	}
+	var metakey Hash
+	metakey, err = NewHash(metahash)
+	if err != nil {
+		return
+	}
+
+	err = h.dht.SendPutMeta(MetaReq{O: key, M: metakey, T: metatype})
+	if err != nil {
+		err = result.HashSet(env.MakeSymbol("error"), &zygo.SexpStr{S: err.Error()})
+	} else {
+		err = result.HashSet(env.MakeSymbol("result"), &zygo.SexpStr{S: "ok"})
+	}
+	return result, err
+}
+
+// get exposes DHTGet to zygo
 func (z *ZygoNucleus) get(env *zygo.Glisp, h *Holochain, hash string) (result *zygo.SexpHash, err error) {
 	result, err = zygo.MakeHash(nil, "hash", env)
 	if err != nil {
@@ -199,6 +225,37 @@ func (z *ZygoNucleus) get(env *zygo.Glisp, h *Holochain, hash string) (result *z
 		// @TODO what about if the hash was of a header??
 		default:
 			err = fmt.Errorf("unexpected response type from SendGet: %v", t)
+		}
+	} else {
+		err = result.HashSet(env.MakeSymbol("error"), &zygo.SexpStr{S: err.Error()})
+	}
+	return result, err
+}
+
+// getmeta exposes GetPutMeta to zygo
+func (z *ZygoNucleus) getmeta(env *zygo.Glisp, h *Holochain, metahash string, metatype string) (result *zygo.SexpHash, err error) {
+	result, err = zygo.MakeHash(nil, "hash", env)
+	if err != nil {
+		return nil, err
+	}
+
+	var metakey Hash
+	metakey, err = NewHash(metahash)
+	if err != nil {
+		return
+	}
+
+	response, err := h.dht.SendGetMeta(MetaQuery{H: metakey, T: metatype})
+	if err == nil {
+		switch t := response.(type) {
+		case []Meta:
+			// @TODO figure out encoding by entry type.
+			j, err := json.Marshal(t)
+			if err == nil {
+				err = result.HashSet(env.MakeSymbol("result"), &zygo.SexpStr{S: string(j)})
+			}
+		default:
+			err = fmt.Errorf("unexpected response type from SendGetMeta: %v", t)
 		}
 	} else {
 		err = result.HashSet(env.MakeSymbol("error"), &zygo.SexpStr{S: err.Error()})
@@ -347,6 +404,39 @@ func NewZygoNucleus(h *Holochain, code string) (n Nucleus, err error) {
 			return result, err
 		})
 
+	z.env.AddFunction("putmeta",
+		func(env *zygo.Glisp, name string, args []zygo.Sexp) (zygo.Sexp, error) {
+			if len(args) != 3 {
+				return zygo.SexpNull, zygo.WrongNargs
+			}
+
+			var hashstr string
+			switch t := args[0].(type) {
+			case *zygo.SexpStr:
+				hashstr = t.S
+			default:
+				return zygo.SexpNull,
+					errors.New("1st argument of putmeta should be string")
+			}
+			var metahashstr string
+			switch t := args[0].(type) {
+			case *zygo.SexpStr:
+				metahashstr = t.S
+			default:
+				return zygo.SexpNull,
+					errors.New("2nd argument of putmeta should be string")
+			}
+			var typestr string
+			switch t := args[0].(type) {
+			case *zygo.SexpStr:
+				typestr = t.S
+			default:
+				return zygo.SexpNull,
+					errors.New("3rd argument of putmeta should be string")
+			}
+			result, err := z.putmeta(env, h, hashstr, metahashstr, typestr)
+			return result, err
+		})
 	_, err = z.Run(ZygoLibrary + code)
 	if err != nil {
 		return
@@ -372,7 +462,6 @@ func (z *ZygoNucleus) Run(code string) (result zygo.Sexp, err error) {
 }
 
 // extra functions we want to have available for app developers in zygo
-
 
 func isPrime(t int64) bool {
 

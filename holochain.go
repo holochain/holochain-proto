@@ -16,6 +16,7 @@ import (
 	"github.com/google/uuid"
 	ic "github.com/libp2p/go-libp2p-crypto"
 	mh "github.com/multiformats/go-multihash"
+	"github.com/op/go-logging"
 	"io"
 	"io/ioutil"
 	"os"
@@ -74,6 +75,8 @@ type Holochain struct {
 	chain          *Chain // the chain itself
 }
 
+var log = logging.MustGetLogger("holochain")
+
 // Register function that must be called once at startup by any client app
 func Register() {
 	gob.Register(Header{})
@@ -81,6 +84,7 @@ func Register() {
 	gob.Register(Hash{})
 	RegisterBultinNucleii()
 	RegisterBultinPersisters()
+	logging.SetLevel(logging.INFO, "holochain")
 }
 
 func findDNA(path string) (f string, err error) {

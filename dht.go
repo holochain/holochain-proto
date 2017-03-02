@@ -26,17 +26,26 @@ type DHT struct {
 }
 
 // Meta holds data that can be associated with a hash
+// @todo, we should also be storing the meta-data source
 type Meta struct {
-	H Hash
-	T string
-	V []byte
+	H Hash   // hash of meta-data associated
+	T string // meta-data type identifier
+	V []byte // meta-data
 }
 
 // Meta holds a putMeta request
 type MetaReq struct {
-	O Hash   // original data on which to put the metha
-	M Hash   // hash of the meta data
+	O Hash   // original data on which to put the meta
+	M Hash   // hash of the meta-data
 	T string // meta type
+}
+
+// MetaQuery holds a getMeta query
+type MetaQuery struct {
+	H Hash
+	T string
+	// order
+	// filter, etc
 }
 
 // NewDHT creates a new DHT structure
@@ -151,6 +160,28 @@ func (dht *DHT) SendGet(key Hash) (response interface{}, err error) {
 	return
 }
 
+// SendPutMeta initiates associating Meta data with particular Hash on the DHT.
+// This command assumes that the data has been committed to your local chain, and the hash of that
+// data is what get's sent in the MetaReq
+func (dht *DHT) SendPutMeta(req MetaReq) (err error) {
+	n, err := dht.FindNodeForHash(req.O)
+	if err != nil {
+		return
+	}
+	_, err = dht.send(n.HashAddr, PUTMETA_REQUEST, req)
+	return
+}
+
+// SendGetMeta initiates retrieving meta data from the DHT
+func (dht *DHT) SendGetMeta(query MetaQuery) (response interface{}, err error) {
+	n, err := dht.FindNodeForHash(query.H)
+	if err != nil {
+		return
+	}
+	response, err = dht.send(n.HashAddr, GETMETA_REQUEST, query)
+	return
+}
+
 // Send sends a message to the node
 func (dht *DHT) send(to peer.ID, t MsgType, body interface{}) (response interface{}, err error) {
 	return dht.h.Send(DHTProtocol, to, t, body, DHTReceiver)
@@ -180,6 +211,7 @@ func (dht *DHT) handlePutReqs() (err error) {
 			from := r.(*Message).From
 			switch t := m.Body.(type) {
 			case Hash:
+				log.Debugf("handling put: %v", m)
 				var r interface{}
 				r, err = dht.h.Send(SourceProtocol, from, SRC_VALIDATE, t, SrcReceiver)
 				if err != nil {
@@ -193,19 +225,18 @@ func (dht *DHT) handlePutReqs() (err error) {
 					err = dht.put(t, from, b)
 				}
 			case MetaReq:
+				log.Debugf("handling putmeta: %v", m)
 				var r interface{}
 				r, err = dht.h.Send(SourceProtocol, from, SRC_VALIDATE, t.M, SrcReceiver)
 				if err != nil {
 					return
 				}
 				// @TODO do the validation here!!!
-
 				entry := r.(Entry)
 				b, err := entry.Marshal()
 				if err == nil {
 					err = dht.putMeta(t.O, t.M, t.T, b)
 				}
-
 			default:
 				err = errors.New("unexpected body type in handlePutReqs")
 			}
@@ -257,6 +288,13 @@ func DHTReceiver(h *Holochain, m *Message) (response interface{}, err error) {
 				}
 			}
 
+		default:
+			err = ErrDHTExpectedMetaInBody
+		}
+	case GETMETA_REQUEST:
+		switch t := m.Body.(type) {
+		case MetaQuery:
+			response, err = h.dht.getMeta(t.H, t.T)
 		default:
 			err = ErrDHTExpectedMetaInBody
 		}

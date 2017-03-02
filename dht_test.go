@@ -215,9 +215,10 @@ func TestDHTReceiver(t *testing.T) {
 		So(fmt.Sprintf("%v", r), ShouldEqual, fmt.Sprintf("%v", &e))
 	})
 
+	e = GobEntry{C: "some meta data"}
+	_, hd, _ = h.NewEntry(now, "myMetaData", &e)
+	b, _ := e.Marshal()
 	Convey("PUTMETA_REQUEST should store meta values", t, func() {
-		e := GobEntry{C: "some meta data"}
-		_, hd, _ := h.NewEntry(now, "myMetaData", &e)
 		me := MetaReq{O: hash, M: hd.EntryLink, T: "myMetaType"}
 		m := h.node.NewMessage(PUTMETA_REQUEST, me)
 		r, err := DHTReceiver(h, m)
@@ -233,9 +234,19 @@ func TestDHTReceiver(t *testing.T) {
 		So(err, ShouldBeNil)
 		So(meta[0].H.Equal(&me.M), ShouldBeTrue)
 		So(meta[0].T, ShouldEqual, me.T)
-		b, _ := e.Marshal()
 		So(bytes.Equal(meta[0].V, b), ShouldBeTrue)
 	})
+
+	Convey("GETMETA_REQUEST should retrieve meta values", t, func() {
+		mq := MetaQuery{H: hash, T: "myMetaType"}
+		m := h.node.NewMessage(GETMETA_REQUEST, mq)
+		r, err := DHTReceiver(h, m)
+		So(err, ShouldBeNil)
+		results := r.([]Meta)
+		So(results[0].H.Equal(&hd.EntryLink), ShouldBeTrue)
+		So(bytes.Equal(results[0].V, b), ShouldBeTrue)
+	})
+
 }
 
 func TestHandlePutReqs(t *testing.T) {

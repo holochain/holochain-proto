@@ -437,6 +437,33 @@ func NewZygoNucleus(h *Holochain, code string) (n Nucleus, err error) {
 			result, err := z.putmeta(env, h, hashstr, metahashstr, typestr)
 			return result, err
 		})
+
+	z.env.AddFunction("getmeta",
+		func(env *zygo.Glisp, name string, args []zygo.Sexp) (zygo.Sexp, error) {
+			if len(args) != 2 {
+				return zygo.SexpNull, zygo.WrongNargs
+			}
+
+			var hashstr string
+			switch t := args[0].(type) {
+			case *zygo.SexpStr:
+				hashstr = t.S
+			default:
+				return zygo.SexpNull,
+					errors.New("1st argument of gettmeta should be string")
+			}
+
+			var typestr string
+			switch t := args[0].(type) {
+			case *zygo.SexpStr:
+				typestr = t.S
+			default:
+				return zygo.SexpNull,
+					errors.New("2nd argument of getmeta should be string")
+			}
+			result, err := z.getmeta(env, h, hashstr, typestr)
+			return result, err
+		})
 	_, err = z.Run(ZygoLibrary + code)
 	if err != nil {
 		return

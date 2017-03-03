@@ -25,8 +25,8 @@ func TestNewZygoNucleus(t *testing.T) {
 		defer cleanupTestDir(d)
 
 		v, err := NewZygoNucleus(h, "")
-		z := v.(*ZygoNucleus)
 		So(err, ShouldBeNil)
+		z := v.(*ZygoNucleus)
 		Convey("version", func() {
 			_, err = z.Run("(version)")
 			So(err, ShouldBeNil)
@@ -183,13 +183,13 @@ func TestZygoDHT(t *testing.T) {
 	if err := h.dht.handlePutReqs(); err != nil {
 		panic(err)
 	}
-	/*
-		Convey("it should have a getmeta function", t, func() {
-			v, err := NewZygoNucleus(h, fmt.Sprintf(`(getmeta "%s" "myMetaType")`, hash.String()))
-			So(err, ShouldBeNil)
-			z := v.(*ZygoNucleus)
-			r, err := z.lastResult.(*zygo.SexpHash).HashGet(z.env, z.env.MakeSymbol("result"))
-			So(err, ShouldBeNil)
-			So(r.(*zygo.SexpStr).S, ShouldEqual, "ok")
-		})*/
+
+	Convey("it should have a getmeta function", t, func() {
+		v, err := NewZygoNucleus(h, fmt.Sprintf(`(getmeta "%s" "myMetaType")`, hash.String()))
+		So(err, ShouldBeNil)
+		z := v.(*ZygoNucleus)
+		r, err := z.lastResult.(*zygo.SexpHash).HashGet(z.env, z.env.MakeSymbol("result"))
+		So(err, ShouldBeNil)
+		So(r.(*zygo.SexpStr).S, ShouldEqual, `[{"H":{"H":"EiD8xq07JbMzjffizM8B1dhXNca2zxIDel3yIxD03EQp+w=="},"T":"QmfMPAEdN1BB9imcz97NsaYYaWEN3baC5aSDXqJSiWt4e6","V":"DhAABnN0cmluZwwDAAE3"}]`)
+	})
 }

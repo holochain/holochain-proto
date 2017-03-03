@@ -126,7 +126,7 @@ func TestZygoDHT(t *testing.T) {
 	d, _, h := prepareTestChain("test")
 	defer cleanupTestDir(d)
 
-	data := "7"
+	data := "2"
 
 	// add an entry onto the chain
 	now := time.Unix(1, 1) // pick a constant time so the test will always work
@@ -162,8 +162,7 @@ func TestZygoDHT(t *testing.T) {
 		z = v.(*ZygoNucleus)
 		r, err = z.lastResult.(*zygo.SexpHash).HashGet(z.env, z.env.MakeSymbol("result"))
 		So(err, ShouldBeNil)
-		So(r.(*zygo.SexpStr).S, ShouldEqual, `"7"`)
-
+		So(r.(*zygo.SexpStr).S, ShouldEqual, `"2"`)
 	})
 
 	e = GobEntry{C: "some meta data"}
@@ -190,6 +189,6 @@ func TestZygoDHT(t *testing.T) {
 		z := v.(*ZygoNucleus)
 		r, err := z.lastResult.(*zygo.SexpHash).HashGet(z.env, z.env.MakeSymbol("result"))
 		So(err, ShouldBeNil)
-		So(r.(*zygo.SexpStr).S, ShouldEqual, `[{"H":{"H":"EiD8xq07JbMzjffizM8B1dhXNca2zxIDel3yIxD03EQp+w=="},"T":"QmfMPAEdN1BB9imcz97NsaYYaWEN3baC5aSDXqJSiWt4e6","V":"DhAABnN0cmluZwwDAAE3"}]`)
+		So(r.(*zygo.SexpStr).S, ShouldEqual, `[{"H":{"H":"EiAnfgWy4A3SqoRHtoUuZCKBGpedkJDj2L1/lZw4xH2s2Q=="},"T":"QmQzp4h9pvLVJHUx6rFxxC4ViqgnznYqXvoa9HsJgACMmi","V":"DhAABnN0cmluZwwDAAEy"}]`)
 	})
 }

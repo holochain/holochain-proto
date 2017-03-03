@@ -153,7 +153,8 @@ func New(agent Agent, path string, format string, zomes ...Zome) Holochain {
 	}
 	h.PrepareHashType()
 	h.Zomes = make(map[string]*Zome)
-	for _, z := range zomes {
+	for i, _ := range zomes {
+		z := zomes[i]
 		h.Zomes[z.Name] = &z
 	}
 
@@ -505,12 +506,20 @@ func (s *Service) GenDev(path string, format string) (hP *Holochain, err error) 
 
 		zomes := []Zome{
 			Zome{Name: "myZome",
-				Description: "zome desc",
+				Description: "this is a zygomas test zome",
 				NucleusType: ZygoNucleusType,
 				Entries: map[string]EntryDef{
 					"myData":  EntryDef{Name: "myData", DataFormat: "zygo"},
 					"primes":  EntryDef{Name: "primes", DataFormat: "JSON"},
 					"profile": EntryDef{Name: "profile", DataFormat: "JSON", Schema: "schema_profile.json"},
+				},
+			},
+			Zome{Name: "jsZome",
+				Description: "this is a javascript test zome",
+				NucleusType: JSNucleusType,
+				Entries: map[string]EntryDef{
+					"myOdds": EntryDef{Name: "myOdds", DataFormat: "js"},
+					//"profile": EntryDef{Name: "profile", DataFormat: "JSON", Schema: "schema_profile.json"},
 				},
 			},
 		}
@@ -565,7 +574,7 @@ func (s *Service) GenDev(path string, format string) (hP *Holochain, err error) 
 			return
 		}
 
-		fixtures := [5]TestData{
+		fixtures := [7]TestData{
 			TestData{
 				Zome:   "myZome",
 				FnName: "addData",
@@ -591,6 +600,16 @@ func (s *Service) GenDev(path string, format string) (hP *Holochain, err error) 
 				FnName: "addPrime",
 				Input:  "{\"prime\":4}",
 				Err:    `Error calling 'commit': Invalid entry: {"Atype":"hash", "prime":4, "zKeyOrder":["prime"]}`},
+			TestData{
+				Zome:   "jsZome",
+				FnName: "addOdd",
+				Input:  "7",
+				Output: "%h%"},
+			TestData{
+				Zome:   "jsZome",
+				FnName: "addOdd",
+				Input:  "2",
+				Err:    "Invalid entry: 2"},
 		}
 
 		ui := `
@@ -655,27 +674,48 @@ func (s *Service) GenDev(path string, format string) (hP *Holochain, err error) 
 )
 (defn validateChain [entry user_data] true)
 `
+		code["jsZome"] = `
+expose("addOdd",_STRING);
+function addOdd(x) {return commit("myOdds",x);}
+function validate(entry_type,entry) {
+if (entry_type=="myOdds") {
+  return entry%2 != 0
+}
+return false
+}
+`
+
 		testPath := path + "/test"
 		if err = os.MkdirAll(testPath, os.ModePerm); err != nil {
 			return nil, err
 		}
 
-		for _, z := range h.Zomes {
-			z.Code = fmt.Sprintf("zome_%s.zy", z.Name)
+		for n, _ := range h.Zomes {
+			z, _ := h.Zomes[n]
+			switch z.NucleusType {
+			case JSNucleusType:
+				z.Code = fmt.Sprintf("zome_%s.js", z.Name)
+			case ZygoNucleusType:
+				z.Code = fmt.Sprintf("zome_%s.zy", z.Name)
+			default:
+				err = fmt.Errorf("unknown nucleus type:%s", z.NucleusType)
+				return
+			}
+
 			c, _ := code[z.Name]
 			if err = writeFile(path, z.Code, []byte(c)); err != nil {
 				return
 			}
-			for i, d := range fixtures {
-				fn := fmt.Sprintf("%d.json", i)
-				var j []byte
-				j, err = json.Marshal(d)
-				if err != nil {
-					return
-				}
-				if err = writeFile(testPath, fn, j); err != nil {
-					return
-				}
+		}
+		for i, d := range fixtures {
+			fn := fmt.Sprintf("%d.json", i)
+			var j []byte
+			j, err = json.Marshal(d)
+			if err != nil {
+				return
+			}
+			if err = writeFile(testPath, fn, j); err != nil {
+				return
 			}
 		}
 		hP = &h
@@ -1074,7 +1114,7 @@ func (h *Holochain) Test() error {
 
 	for i, t := range tests {
 		result, err := h.Call(t.Zome, t.FnName, t.Input)
-
+		log.Debugf("Test Result:%v, Err:%v", result, err)
 		if t.Err != "" {
 			if err == nil {
 				return fmt.Errorf("Test: %d\n  Expected Error: %s\n  Got: nil\n", i+1, t.Err)

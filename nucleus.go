@@ -9,6 +9,7 @@ package holochain
 import (
 	"errors"
 	"fmt"
+	"sort"
 	"strings"
 )
 
@@ -64,19 +65,21 @@ func RegisterNucleus(name string, factory NucleusFactory) {
 // RegisterBultinNucleii adds the built in nucleus types to the factory hash
 func RegisterBultinNucleii() {
 	RegisterNucleus(ZygoNucleusType, NewZygoNucleus)
+	RegisterNucleus(JSNucleusType, NewJSNucleus)
 }
 
 // CreateNucleus returns a new Nucleus of the given type
-func CreateNucleus(h *Holochain, schema string, code string) (Nucleus, error) {
+func CreateNucleus(h *Holochain, nucleusType string, code string) (Nucleus, error) {
 
-	factory, ok := nucleusFactories[schema]
+	factory, ok := nucleusFactories[nucleusType]
 	if !ok {
 		// Factory has not been registered.
-		// Make a list of all available datastore factories for logging.
+		// Make a list of all available nucleus factories for error.
 		available := make([]string, 0)
 		for k := range nucleusFactories {
 			available = append(available, k)
 		}
+		sort.Strings(available)
 		return nil, fmt.Errorf("Invalid nucleus name. Must be one of: %s", strings.Join(available, ", "))
 	}
 

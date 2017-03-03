@@ -443,6 +443,10 @@ func (s *Service) GenFrom(srcPath string, path string) (hP *Holochain, err error
 			return
 		}
 
+		if err = CopyDir(srcPath+"/test", path+"/test"); err != nil {
+			return
+		}
+
 		for _, z := range h.Zomes {
 			var bs []byte
 			bs, err = readFile(srcPath, z.Code)
@@ -450,9 +454,6 @@ func (s *Service) GenFrom(srcPath string, path string) (hP *Holochain, err error
 				return
 			}
 			if err = writeFile(path, z.Code, bs); err != nil {
-				return
-			}
-			if err = CopyDir(srcPath+"/test", path+"/test"); err != nil {
 				return
 			}
 			for k := range z.Entries {

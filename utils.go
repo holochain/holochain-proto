@@ -8,6 +8,7 @@ package holochain
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"github.com/BurntSushi/toml"
 	"github.com/ghodss/yaml"
 	"io"
@@ -95,7 +96,7 @@ func CopyDir(source string, dest string) (err error) {
 
 	_, err = os.Open(dest)
 	if !os.IsNotExist(err) {
-		return errors.New("Destination already exists")
+		return fmt.Errorf("Destination (%s) already exists", dest)
 	}
 
 	// create dest dir

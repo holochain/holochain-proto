@@ -11,9 +11,21 @@ HashType = "sha2-256"
 [BasedOn]
 
 [Zomes]
+  [Zomes.jsZome]
+    Name = "jsZome"
+    Description = "this is a javascript test zome"
+    Code = "zome_jsZome.js"
+    NucleusType = "js"
+    [Zomes.jsZome.CodeHash]
+    [Zomes.jsZome.Entries]
+      [Zomes.jsZome.Entries.myOdds]
+        Name = "myOdds"
+        DataFormat = "js"
+        Schema = ""
+        [Zomes.jsZome.Entries.myOdds.SchemaHash]
   [Zomes.myZome]
     Name = "myZome"
-    Description = "zome desc"
+    Description = "this is a zygomas test zome"
     Code = "zome_myZome.zy"
     NucleusType = "zygo"
     [Zomes.myZome.CodeHash]

@@ -182,10 +182,11 @@ func (c *Chain) Get(h Hash) (header *Header, err error) {
 }
 
 // GetEntry returns the entry of a given entry hash
-func (c *Chain) GetEntry(h Hash) (entry Entry, err error) {
+func (c *Chain) GetEntry(h Hash) (entry Entry, entryType string, err error) {
 	i, ok := c.Emap[h.String()]
 	if ok {
 		entry = c.Entries[i]
+		entryType = c.Headers[i].Type
 	} else {
 		err = ErrHashNotFound
 	}

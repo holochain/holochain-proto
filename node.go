@@ -169,6 +169,11 @@ func (node *Node) StartProtocol(h *Holochain, proto protocol.ID, receiver Receiv
 	return
 }
 
+type ValidateResponse struct {
+	Entry Entry
+	Type  string
+}
+
 // SrcReceiver handles messages on the Source protocol
 func SrcReceiver(h *Holochain, m *Message) (response interface{}, err error) {
 	switch m.Type {
@@ -177,10 +182,12 @@ func SrcReceiver(h *Holochain, m *Message) (response interface{}, err error) {
 		case Hash:
 			//@TODO should we really be making this distinction!!!
 			// try to get the hash from the headers
+			var r ValidateResponse
 			response, err = h.chain.Get(t)
 			if err == ErrHashNotFound {
 				// if that fails get it from the entries
-				response, err = h.chain.GetEntry(t)
+				r.Entry, r.Type, err = h.chain.GetEntry(t)
+				response = &r
 			}
 		default:
 			err = errors.New("expected hash")

@@ -191,7 +191,8 @@ func TestSrcReceiver(t *testing.T) {
 		m = h.node.NewMessage(SRC_VALIDATE, hd.EntryLink)
 		r, err = SrcReceiver(h, m)
 		So(err, ShouldBeNil)
-		So(fmt.Sprintf("%v", r), ShouldEqual, fmt.Sprintf("%v", &entry))
+		So(r.(*ValidateResponse).Type, ShouldEqual, "myData")
+		So(fmt.Sprintf("%v", r.(*ValidateResponse).Entry), ShouldEqual, fmt.Sprintf("%v", &entry))
 
 	})
 }

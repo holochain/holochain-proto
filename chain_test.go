@@ -146,11 +146,13 @@ func TestGet(t *testing.T) {
 	})
 
 	Convey("it should get entry by hash", t, func() {
-		ed, err := c.GetEntry(hd1.EntryLink)
+		ed, et, err := c.GetEntry(hd1.EntryLink)
 		So(err, ShouldBeNil)
+		So(et, ShouldEqual, "myData")
 		So(fmt.Sprintf("%v", &e1), ShouldEqual, fmt.Sprintf("%v", ed))
-		ed, err = c.GetEntry(hd2.EntryLink)
+		ed, et, err = c.GetEntry(hd2.EntryLink)
 		So(err, ShouldBeNil)
+		So(et, ShouldEqual, "myData")
 		So(fmt.Sprintf("%v", &e2), ShouldEqual, fmt.Sprintf("%v", ed))
 	})
 

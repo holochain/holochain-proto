@@ -261,9 +261,10 @@ func (dht *DHT) handlePutReqs() (err error) {
 				if err != nil {
 					return
 				}
+				resp := r.(*ValidateResponse)
 				// @TODO do the validation here!!!
 
-				entry := r.(Entry)
+				entry := resp.Entry
 				b, err := entry.Marshal()
 				if err == nil {
 					err = dht.put(t, from, b)
@@ -275,8 +276,9 @@ func (dht *DHT) handlePutReqs() (err error) {
 				if err != nil {
 					return
 				}
+				resp := r.(*ValidateResponse)
 				// @TODO do the validation here!!!
-				err = dht.putMeta(t.O, t.M, t.T, r.(Entry))
+				err = dht.putMeta(t.O, t.M, t.T, resp.Entry)
 			default:
 				err = errors.New("unexpected body type in handlePutReqs")
 			}

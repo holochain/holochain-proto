@@ -58,6 +58,12 @@ func TestNewZygoNucleus(t *testing.T) {
 			So(err, ShouldBeNil)
 			id, _ := h.ID()
 			So(z.lastResult.(*zygo.SexpStr).S, ShouldEqual, id.String())
+
+			_, err = z.Run(`(property "` + AGENT_ID_PROPERTY + `")`)
+			So(err, ShouldBeNil)
+			aid := string(h.Agent().ID())
+			So(z.lastResult.(*zygo.SexpStr).S, ShouldEqual, aid)
+
 		})
 	})
 }

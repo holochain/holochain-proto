@@ -1212,6 +1212,8 @@ func (h *Holochain) GetProperty(prop string) (property string, err error) {
 		} else {
 			property = id.String()
 		}
+	} else if prop == AGENT_ID_PROPERTY {
+		property = string(h.Agent().ID())
 	} else {
 		property = h.Properties[prop]
 	}

@@ -45,6 +45,11 @@ func TestNewJSNucleus(t *testing.T) {
 			id, _ := h.ID()
 			So(z.lastResult.String(), ShouldEqual, id.String())
 
+			_, err = z.Run(`property("` + AGENT_ID_PROPERTY + `")`)
+			So(err, ShouldBeNil)
+			aid := string(h.Agent().ID())
+			So(z.lastResult.String(), ShouldEqual, aid)
+
 		})
 	})
 }

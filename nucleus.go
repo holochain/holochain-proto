@@ -23,7 +23,8 @@ const (
 )
 
 const (
-	ID_PROPERTY = "_id"
+	ID_PROPERTY       = "_id"
+	AGENT_ID_PROPERTY = "_agent_id"
 )
 
 // Interface holds the name and schema of an DNA exposed function

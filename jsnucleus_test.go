@@ -22,7 +22,7 @@ func TestNewJSNucleus(t *testing.T) {
 		So(err.Error(), ShouldEqual, "JS exec error: (anonymous): Line 1:45 Unexpected token )")
 	})
 	Convey("should have the built in functions:", t, func() {
-		d, _, h := setupTestChain("test")
+		d, _, h := prepareTestChain("test")
 		defer cleanupTestDir(d)
 
 		v, err := NewJSNucleus(h, "")
@@ -39,8 +39,13 @@ func TestNewJSNucleus(t *testing.T) {
 			So(err, ShouldBeNil)
 			s, _ := z.lastResult.ToString()
 			So(s, ShouldEqual, "a bogus test holochain")
-		})
 
+			_, err = z.Run(`property("` + ID_PROPERTY + `")`)
+			So(err, ShouldBeNil)
+			id, _ := h.ID()
+			So(z.lastResult.String(), ShouldEqual, id.String())
+
+		})
 	})
 }
 

@@ -22,6 +22,10 @@ const (
 	JSON
 )
 
+const (
+	ID_PROPERTY = "_id"
+)
+
 // Interface holds the name and schema of an DNA exposed function
 type Interface struct {
 	Name   string

@@ -8,6 +8,7 @@ import (
 	net "github.com/libp2p/go-libp2p-net"
 	pstore "github.com/libp2p/go-libp2p-peerstore"
 	. "github.com/smartystreets/goconvey/convey"
+	// peer "gx/ipfs/QmZcUPvPhD1Xvk6mwijYF8AfR3mG31S1YsEfHG4khrFPRr/go-libp2p-peer"
 	"io/ioutil"
 	"strings"
 	"testing"
@@ -194,6 +195,35 @@ func TestSrcReceiver(t *testing.T) {
 
 	})
 }
+
+/*
+func TestFindPeer(t *testing.T) {
+	node1, err := makeNode(1234, "node1")
+	if err != nil {
+		panic(err)
+	}
+	defer node1.Close()
+
+	// generate a new unknown peerID
+	r := strings.NewReader("1234567890123456789012345678901234567890x")
+	key, _, err := ic.GenerateEd25519Key(r)
+	if err != nil {
+		panic(err)
+	}
+	pid, err := peer.IDFromPrivateKey(key)
+	if err != nil {
+		panic(err)
+	}
+
+	Convey("sending to an unknown peer should fail with no route to peer", t, func() {
+		m := Message{Type: PUT_REQUEST, Body: "fish"}
+		_, err := node1.Send(DHTProtocol, pid, &m)
+		//So(r, ShouldBeNil)
+		So(err, ShouldEqual, "fish")
+	})
+
+}
+*/
 
 func makeNode(port int, id string) (*Node, error) {
 	listenaddr := fmt.Sprintf("/ip4/127.0.0.1/tcp/%d", port)

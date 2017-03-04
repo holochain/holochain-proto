@@ -19,6 +19,7 @@ import (
 	protocol "github.com/libp2p/go-libp2p-protocol"
 	swarm "github.com/libp2p/go-libp2p-swarm"
 	bhost "github.com/libp2p/go-libp2p/p2p/host/basic"
+	rhost "github.com/libp2p/go-libp2p/p2p/host/routed"
 	ma "github.com/multiformats/go-multiaddr"
 	"io"
 	"time"
@@ -58,13 +59,22 @@ type Message struct {
 type Node struct {
 	HashAddr peer.ID
 	NetAddr  ma.Multiaddr
-	Host     *bhost.BasicHost
+	Host     *rhost.RoutedHost
 }
 
 const (
 	DHTProtocol    = protocol.ID("/holochain-dht/0.0.0")
 	SourceProtocol = protocol.ID("/holochain-src/0.0.0")
 )
+
+type HolochainRouter struct {
+	dummy int
+}
+
+func (r *HolochainRouter) FindPeer(context.Context, peer.ID) (peer pstore.PeerInfo, err error) {
+	err = errors.New("routing not implemented")
+	return
+}
 
 // NewNode creates a new ipfs basichost node with given identity
 func NewNode(listenAddr string, priv ic.PrivKey) (node *Node, err error) {
@@ -91,10 +101,14 @@ func NewNode(listenAddr string, priv ic.PrivKey) (node *Node, err error) {
 		return nil, err
 	}
 
-	n.Host, err = bhost.New(netw), nil
+	var bh *bhost.BasicHost
+	bh, err = bhost.New(netw), nil
 	if err != nil {
 		return
 	}
+	hr := HolochainRouter{}
+	n.Host = rhost.Wrap(bh, &hr)
+
 	node = &n
 	return
 }

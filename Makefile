@@ -3,6 +3,9 @@ all: deps hc
 hc: deps
 	go install ./cmd/hc
 
+bs: deps
+	go install ./cmd/bs
+
 test: testdeps
 	go test -v ./...
 

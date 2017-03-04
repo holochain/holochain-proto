@@ -276,12 +276,26 @@ func setupApp() (app *cli.App) {
 			},
 		},
 		{
+			Name:      "bs",
+			Aliases:   []string{"b"},
+			Usage:     "send bootstrap tickler to the chain bootsrap server",
+			ArgsUsage: "bs",
+			Action: func(c *cli.Context) error {
+				h, err := getHolochain(c, service, "bs")
+				if err != nil {
+					return err
+				}
+				h.BSpost()
+				return err
+			},
+		},
+		{
 			Name:      "serve",
 			Aliases:   []string{"w"},
 			Usage:     "serve a chain to the web",
 			ArgsUsage: "holochain-name [port]",
 			Action: func(c *cli.Context) error {
-				h, err := getHolochain(c, service, "test")
+				h, err := getHolochain(c, service, "serve")
 				if err != nil {
 					return err
 				}

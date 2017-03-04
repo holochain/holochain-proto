@@ -51,6 +51,7 @@ type Config struct {
 	Port            int
 	PeerModeAuthor  bool
 	PeerModeDHTNode bool
+	BootstrapServer string
 }
 
 // Holochain struct holds the full "DNA" of the holochain

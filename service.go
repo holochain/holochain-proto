@@ -28,6 +28,7 @@ const (
 type ServiceConfig struct {
 	DefaultPeerModeAuthor  bool
 	DefaultPeerModeDHTNode bool
+	DefaultBootstrapServer string
 }
 
 // Holochain service data structure
@@ -54,6 +55,7 @@ func Init(root string, agent AgentID) (service *Service, err error) {
 		Settings: ServiceConfig{
 			DefaultPeerModeDHTNode: true,
 			DefaultPeerModeAuthor:  true,
+			DefaultBootstrapServer: "bootstrap.holochain.net",
 		},
 		Path: root,
 	}

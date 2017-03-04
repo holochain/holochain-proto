@@ -22,7 +22,7 @@ func TestInit(t *testing.T) {
 
 		Convey("it should return a service with default values", func() {
 			So(s.DefaultAgent.ID(), ShouldEqual, AgentID(agent))
-			So(fmt.Sprintf("%v", s.Settings), ShouldEqual, "{true true}")
+			So(fmt.Sprintf("%v", s.Settings), ShouldEqual, "{true true bootstrap.holochain.net}")
 		})
 
 		p := d + "/" + DefaultDirectoryName

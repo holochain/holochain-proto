@@ -285,7 +285,7 @@ func setupApp() (app *cli.App) {
 				if err != nil {
 					return err
 				}
-				h.BSpost()
+				err = h.BSpost()
 				return err
 			},
 		},

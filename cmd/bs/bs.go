@@ -94,7 +94,7 @@ func h(w http.ResponseWriter, r *http.Request) {
 		chain := string(path[1])
 
 		err = store.View(func(tx *buntdb.Tx) error {
-			nodes := make([]string, 0)
+			nodes := make([]holo.BSResp, 0)
 			//hid := fmt.Sprintf(`{"HID":"%s"}`, chain)
 
 			tx.Ascend("chain", func(key, value string) bool {
@@ -102,7 +102,8 @@ func h(w http.ResponseWriter, r *http.Request) {
 				json.Unmarshal([]byte(value), &nd)
 				if nd.HID == chain {
 					log.Infof("Found: %s=>%s", key, value)
-					nodes = append(nodes, value)
+					resp := holo.BSResp{Req: nd.Req, Remote: nd.Remote}
+					nodes = append(nodes, resp)
 				}
 				return true
 			})

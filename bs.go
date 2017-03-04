@@ -10,8 +10,10 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	//ma "gx/ipfs/QmSWLfmj5frN9xVLMMN846dMDriy5wN5jeghUm7aTW3DAG/go-multiaddr"
 	peer "github.com/libp2p/go-libp2p-peer"
+	pstore "github.com/libp2p/go-libp2p-peerstore"
+	ma "github.com/multiformats/go-multiaddr"
+	"io/ioutil"
 	"net/http"
 )
 
@@ -21,21 +23,63 @@ type BSReq struct {
 	NodeAddr string
 }
 
-func (h *Holochain) BSpost() {
+type BSResp struct {
+	Req    BSReq
+	Remote string
+}
+
+func (h *Holochain) BSpost() (err error) {
 	nodeID := peer.IDB58Encode(h.node.HashAddr)
 	req := BSReq{Version: 1, NodeID: nodeID, NodeAddr: h.node.NetAddr.String()}
 	host := h.config.BootstrapServer
 	id, _ := h.ID()
 	url := fmt.Sprintf("http://%s/%s/%s", host, id.String(), nodeID)
-	log.Infof("posting to:%s", url)
-	b, err := json.Marshal(req)
-	var resp *http.Response
+	var b []byte
+	b, err = json.Marshal(req)
+	//var resp *http.Response
 	if err == nil {
-		resp, err = http.Post(url, "application/json", bytes.NewBuffer(b))
+		_, err = http.Post(url, "application/json", bytes.NewBuffer(b))
 	}
-	if err != nil {
-		log.Info(err.Error())
-	}
-	log.Infof("Response: %v", resp)
+	return
+}
 
+func (h *Holochain) BSget() (err error) {
+	host := h.config.BootstrapServer
+	if host == "" {
+		return
+	}
+	id, _ := h.ID()
+	url := fmt.Sprintf("http://%s/%s", host, id.String())
+	var resp *http.Response
+	resp, err = http.Get(url)
+	if err == nil {
+		defer resp.Body.Close()
+		var b []byte
+		b, err = ioutil.ReadAll(resp.Body)
+		//log.Infof("bs responded with:%s", string(b))
+		if err == nil {
+			var nodes []BSResp
+			err = json.Unmarshal(b, &nodes)
+			if err == nil {
+				myNodeID := peer.IDB58Encode(h.node.HashAddr)
+				for _, r := range nodes {
+					var id peer.ID
+					var addr ma.Multiaddr
+					id, err = peer.IDB58Decode(r.Req.NodeID)
+					if err == nil {
+						addr, err = ma.NewMultiaddr(r.Req.NodeAddr)
+						if err == nil {
+							if myNodeID != r.Req.NodeID {
+								log.Infof("discovered peer: %s", r.Req.NodeID)
+								h.node.Host.Peerstore().AddAddr(id, addr, pstore.PermanentAddrTTL)
+							}
+
+						}
+					}
+
+				}
+			}
+		}
+	}
+	return
 }

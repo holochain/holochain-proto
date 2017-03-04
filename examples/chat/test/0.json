@@ -1,1 +1,1 @@
-{"Zome":"chat","FnName":"addSpace","Input":"{\"name\":\"general\",\"purpose\":\"talk about anything\"}","Output":"\"%h%\"","Err":""}
+[{"Zome":"chat","FnName":"addSpace","Input":"{\"name\":\"general\",\"purpose\":\"talk about anything\"}","Output":"\"%h%\"","Err":""}]

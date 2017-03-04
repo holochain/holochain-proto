@@ -575,7 +575,7 @@ func (s *Service) GenDev(path string, format string) (hP *Holochain, err error) 
 			return
 		}
 
-		fixtures := [9]TestData{
+		fixtures := [7]TestData{
 			TestData{
 				Zome:   "myZome",
 				FnName: "addData",
@@ -603,16 +603,6 @@ func (s *Service) GenDev(path string, format string) (hP *Holochain, err error) 
 				Err:    `Error calling 'commit': Invalid entry: {"Atype":"hash", "prime":4, "zKeyOrder":["prime"]}`},
 			TestData{
 				Zome:   "jsZome",
-				FnName: "addOdd",
-				Input:  "7",
-				Output: "%h%"},
-			TestData{
-				Zome:   "jsZome",
-				FnName: "addOdd",
-				Input:  "2",
-				Err:    "Invalid entry: 2"},
-			TestData{
-				Zome:   "jsZome",
 				FnName: "addProfile",
 				Input:  `{"firstName":"Art","lastName":"Brock"}`,
 				Output: `"%h%"`},
@@ -621,6 +611,19 @@ func (s *Service) GenDev(path string, format string) (hP *Holochain, err error) 
 				FnName: "getProperty",
 				Input:  "_id",
 				Output: "%id%"},
+		}
+
+		fixtures2 := [2]TestData{
+			TestData{
+				Zome:   "jsZome",
+				FnName: "addOdd",
+				Input:  "7",
+				Output: "%h%"},
+			TestData{
+				Zome:   "jsZome",
+				FnName: "addOdd",
+				Input:  "2",
+				Err:    "Invalid entry: 2"},
 		}
 
 		ui := `
@@ -725,16 +728,30 @@ return false
 				return
 			}
 		}
+
+		// write out the tests
 		for i, d := range fixtures {
 			fn := fmt.Sprintf("%d.json", i)
 			var j []byte
-			j, err = json.Marshal(d)
+			t := []TestData{d}
+			j, err = json.Marshal(t)
 			if err != nil {
 				return
 			}
 			if err = writeFile(testPath, fn, j); err != nil {
 				return
 			}
+		}
+
+		// also write out some grouped tests
+		fn := fmt.Sprintf("%d.json", len(fixtures))
+		var j []byte
+		j, err = json.Marshal(fixtures2)
+		if err != nil {
+			return
+		}
+		if err = writeFile(testPath, fn, j); err != nil {
+			return
 		}
 		hP = &h
 		return
@@ -1105,7 +1122,7 @@ func (h *Holochain) Test() error {
 
 	// load up the test files into the tests array
 	re := regexp.MustCompile(`([0-9])+\.(.*)`)
-	var tests = make(map[int]TestData)
+	var tests = make(map[int][]TestData)
 	for _, f := range files {
 		if f.Mode().IsRegular() {
 			x := re.FindStringSubmatch(f.Name())
@@ -1120,7 +1137,7 @@ func (h *Holochain) Test() error {
 				if err != nil {
 					return err
 				}
-				var t TestData
+				var t []TestData
 				err = json.Unmarshal(v, &t)
 				if err != nil {
 					return err
@@ -1130,51 +1147,53 @@ func (h *Holochain) Test() error {
 		}
 	}
 
-	for i, t := range tests {
-		result, err := h.Call(t.Zome, t.FnName, t.Input)
-		log.Debugf("Test Result:%v, Err:%v", result, err)
-		if t.Err != "" {
-			if err == nil {
-				return fmt.Errorf("Test: %d\n  Expected Error: %s\n  Got: nil\n", i+1, t.Err)
-			} else {
-
-				if err.Error() != t.Err {
-					return fmt.Errorf("Test: %d\n  Expected Error: %s\n  Got Error: %s\n", i+1, t.Err, err.Error())
-				}
-				err = nil
-			}
-		} else {
-			if err != nil {
-				return fmt.Errorf("Test: %d\n  Expected: %s\n  Got Error: %s\n", i+1, t.Output, err.Error())
-			} else {
-
-				// @TODO this should probably act according the function schema
-				// not just the return value
-				var r string
-				switch t := result.(type) {
-				case []byte:
-					r = string(t)
-				case string:
-					r = t
-				default:
-					r = fmt.Sprintf("%v", t)
-				}
-
-				// get the top hash for substituting for %h% in the test expectation
-				top, err := h.Top()
-				if err != nil {
-					return err
-				}
-				o := strings.Replace(t.Output, "%h%", top.String(), -1)
-
-				// get the id hash for substituting for %id% in the test expectation
-				id, err := h.ID()
+	for _, ts := range tests {
+		for i, t := range ts {
+			result, err := h.Call(t.Zome, t.FnName, t.Input)
+			log.Debugf("Test Result:%v, Err:%v", result, err)
+			if t.Err != "" {
 				if err == nil {
-					o = strings.Replace(o, "%id%", id.String(), -1)
-				}
+					return fmt.Errorf("Test: %d\n  Expected Error: %s\n  Got: nil\n", i+1, t.Err)
+				} else {
 
-				if r != o {
-					return fmt.Errorf("Test: %d\n  Expected: %v\n  Got: %v\n", i+1, o, r)
+					if err.Error() != t.Err {
+						return fmt.Errorf("Test: %d\n  Expected Error: %s\n  Got Error: %s\n", i+1, t.Err, err.Error())
+					}
+					err = nil
+				}
+			} else {
+				if err != nil {
+					return fmt.Errorf("Test: %d\n  Expected: %s\n  Got Error: %s\n", i+1, t.Output, err.Error())
+				} else {
+
+					// @TODO this should probably act according the function schema
+					// not just the return value
+					var r string
+					switch t := result.(type) {
+					case []byte:
+						r = string(t)
+					case string:
+						r = t
+					default:
+						r = fmt.Sprintf("%v", t)
+					}
+
+					// get the top hash for substituting for %h% in the test expectation
+					top, err := h.Top()
+					if err != nil {
+						return err
+					}
+					o := strings.Replace(t.Output, "%h%", top.String(), -1)
+
+					// get the id hash for substituting for %id% in the test expectation
+					id, err := h.ID()
+					if err == nil {
+						o = strings.Replace(o, "%id%", id.String(), -1)
+					}
+
+					if r != o {
+						return fmt.Errorf("Test: %d\n  Expected: %v\n  Got: %v\n", i+1, o, r)
+					}
 				}
 			}
 		}

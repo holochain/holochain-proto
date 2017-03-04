@@ -1148,23 +1148,24 @@ func (h *Holochain) Test() error {
 		}
 	}
 
-	for _, ts := range tests {
+	for j, ts := range tests {
 		for i, t := range ts {
+			testID := fmt.Sprintf("%d:%d", j, i)
 			result, err := h.Call(t.Zome, t.FnName, t.Input)
 			log.Debugf("Test Result:%v, Err:%v", result, err)
 			if t.Err != "" {
 				if err == nil {
-					return fmt.Errorf("Test: %d\n  Expected Error: %s\n  Got: nil\n", i+1, t.Err)
+					return fmt.Errorf("Test: %s\n  Expected Error: %s\n  Got: nil\n", testID, t.Err)
 				} else {
 
 					if err.Error() != t.Err {
-						return fmt.Errorf("Test: %d\n  Expected Error: %s\n  Got Error: %s\n", i+1, t.Err, err.Error())
+						return fmt.Errorf("Test: %s\n  Expected Error: %s\n  Got Error: %s\n", testID, t.Err, err.Error())
 					}
 					err = nil
 				}
 			} else {
 				if err != nil {
-					return fmt.Errorf("Test: %d\n  Expected: %s\n  Got Error: %s\n", i+1, t.Output, err.Error())
+					return fmt.Errorf("Test: %s\n  Expected: %s\n  Got Error: %s\n", testID, t.Output, err.Error())
 				} else {
 
 					// @TODO this should probably act according the function schema

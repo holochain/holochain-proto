@@ -473,7 +473,7 @@ func TestTest(t *testing.T) {
 		So(err, ShouldBeNil)
 		err = h.Test()
 		So(err, ShouldNotBeNil)
-		So(err.Error(), ShouldEqual, "Test: 1\n  Expected Error: bogus error\n  Got: nil\n")
+		So(err.Error(), ShouldEqual, "Test: 0:0\n  Expected Error: bogus error\n  Got: nil\n")
 	})
 
 }

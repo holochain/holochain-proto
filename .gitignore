@@ -35,3 +35,6 @@
 .floo*
 tmp/
 floospace/
+
+#OSX
+.DS_Store

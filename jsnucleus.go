@@ -92,7 +92,7 @@ func (z *JSNucleus) expose(iface Interface) (err error) {
 }
 
 const (
-	JSLibrary = `var _STRING=0; var _JSON=1;version=` + `"` + Version + `";`
+	JSLibrary = `var HC={STRING:0,JSON:1};version=` + `"` + Version + `";`
 )
 
 // Call calls the zygo function that was registered with expose
@@ -171,9 +171,10 @@ func NewJSNucleus(h *Holochain, code string) (n Nucleus, err error) {
 		if v.IsString() {
 			entry, _ = v.ToString()
 		} else if v.IsObject() {
+			v, _ = z.vm.Call("JSON.stringify", nil, v)
 			entry, _ = v.ToString()
 		} else {
-			return z.vm.MakeCustomError("HolochainError", "commit expected string or object as second argument")
+			return z.vm.MakeCustomError("HolochainError", "commit expected string as second argument")
 		}
 		err = h.ValidateEntry(entryType, entry)
 		var headerHash Hash

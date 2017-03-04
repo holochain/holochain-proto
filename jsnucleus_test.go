@@ -19,7 +19,7 @@ func TestNewJSNucleus(t *testing.T) {
 	Convey("new fail to create nucleus when code is bad", t, func() {
 		v, err := NewJSNucleus(nil, "1+ )")
 		So(v, ShouldBeNil)
-		So(err.Error(), ShouldEqual, "JS exec error: (anonymous): Line 1:47 Unexpected token )")
+		So(err.Error(), ShouldEqual, "JS exec error: (anonymous): Line 1:45 Unexpected token )")
 	})
 	Convey("should have the built in functions:", t, func() {
 		d, _, h := setupTestChain("test")
@@ -76,11 +76,11 @@ func TestJSExposeCall(t *testing.T) {
 	var z *JSNucleus
 	Convey("should run", t, func() {
 		v, err := NewJSNucleus(nil, `
-expose("cater",_STRING);
+expose("cater",HC.STRING);
 function cater(x) {return "result: "+x};
-expose("adder",_STRING);
+expose("adder",HC.STRING);
 function adder(x){ return parseInt(x)+2};
-expose("jtest",_JSON);
+expose("jtest",HC.JSON);
 function jtest(x){ x.output = x.input*2; return x;};
 `)
 		So(err, ShouldBeNil)

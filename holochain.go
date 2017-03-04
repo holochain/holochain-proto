@@ -519,8 +519,8 @@ func (s *Service) GenDev(path string, format string) (hP *Holochain, err error) 
 				Description: "this is a javascript test zome",
 				NucleusType: JSNucleusType,
 				Entries: map[string]EntryDef{
-					"myOdds": EntryDef{Name: "myOdds", DataFormat: "js"},
-					//"profile": EntryDef{Name: "profile", DataFormat: "JSON", Schema: "schema_profile.json"},
+					"myOdds":  EntryDef{Name: "myOdds", DataFormat: "js"},
+					"profile": EntryDef{Name: "profile", DataFormat: "JSON", Schema: "schema_profile.json"},
 				},
 			},
 		}
@@ -575,7 +575,7 @@ func (s *Service) GenDev(path string, format string) (hP *Holochain, err error) 
 			return
 		}
 
-		fixtures := [7]TestData{
+		fixtures := [8]TestData{
 			TestData{
 				Zome:   "myZome",
 				FnName: "addData",
@@ -611,6 +611,11 @@ func (s *Service) GenDev(path string, format string) (hP *Holochain, err error) 
 				FnName: "addOdd",
 				Input:  "2",
 				Err:    "Invalid entry: 2"},
+			TestData{
+				Zome:   "jsZome",
+				FnName: "addProfile",
+				Input:  `{"firstName":"Art","lastName":"Brock"}`,
+				Output: `"%h%"`},
 		}
 
 		ui := `
@@ -676,11 +681,16 @@ func (s *Service) GenDev(path string, format string) (hP *Holochain, err error) 
 (defn validateChain [entry user_data] true)
 `
 		code["jsZome"] = `
-expose("addOdd",_STRING);
+expose("addOdd",HC.STRING);
 function addOdd(x) {return commit("myOdds",x);}
+expose("addProfile",HC.JSON);
+function addProfile(x) {return commit("profile",x);}
 function validate(entry_type,entry) {
 if (entry_type=="myOdds") {
   return entry%2 != 0
+}
+if (entry_type=="profile") {
+  return true
 }
 return false
 }

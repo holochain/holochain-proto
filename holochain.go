@@ -349,6 +349,12 @@ func (h *Holochain) TopType(t string) (top Hash, err error) {
 // keys for signing.  See GenDev()
 func (h *Holochain) GenChain() (keyHash Hash, err error) {
 
+	defer func() {
+		if err != nil {
+			panic("cleanup after failed gen not implemented!  Error was: " + err.Error())
+		}
+	}()
+
 	_, err = h.ID()
 	if err == nil {
 		err = mkErr("chain already started")
@@ -364,7 +370,8 @@ func (h *Holochain) GenChain() (keyHash Hash, err error) {
 
 	e := GobEntry{C: buf.Bytes()}
 
-	_, dnaHeader, err := h.NewEntry(time.Now(), DNAEntryType, &e)
+	var dnaHeader *Header
+	_, dnaHeader, err = h.NewEntry(time.Now(), DNAEntryType, &e)
 	if err != nil {
 		return
 	}
@@ -374,9 +381,6 @@ func (h *Holochain) GenChain() (keyHash Hash, err error) {
 	k.KeyType = h.agent.KeyType()
 
 	pk := h.agent.PrivKey().GetPublic()
-	if err != nil {
-		return
-	}
 
 	k.Key, err = ic.MarshalPublicKey(pk)
 	if err != nil {
@@ -392,6 +396,18 @@ func (h *Holochain) GenChain() (keyHash Hash, err error) {
 	err = h.store.PutMeta(IDMetaKey, dnaHeader.EntryLink.H)
 	if err != nil {
 		return
+	}
+
+	// run the init functions of each zome
+	for _, z := range h.Zomes {
+		var n Nucleus
+		n, err = h.makeNucleus(z)
+		if err != nil {
+			err = n.InitChain()
+			if err != nil {
+				return
+			}
+		}
 	}
 
 	return
@@ -687,7 +703,7 @@ func (s *Service) GenDev(path string, format string) (hP *Holochain, err error) 
         (== entryType "profile") true
         false)
 )
-(defn validateChain [entry user_data] true)
+(defn init [] true)
 `
 		code["jsZome"] = `
 expose("getProperty",HC.STRING);
@@ -705,6 +721,7 @@ if (entry_type=="profile") {
 }
 return false
 }
+function init() {return true}
 `
 
 		testPath := path + "/test"

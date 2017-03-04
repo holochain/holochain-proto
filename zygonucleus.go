@@ -29,6 +29,34 @@ type ZygoNucleus struct {
 // Name returns the string value under which this nucleus is registered
 func (z *ZygoNucleus) Type() string { return ZygoNucleusType }
 
+// InitChain runs the application init function
+// this function gets called after the genesis entries are added to the chain
+func (z *ZygoNucleus) InitChain() (err error) {
+	err = z.env.LoadString(`(init)`)
+	if err != nil {
+		return
+	}
+	result, err := z.env.Run()
+	if err != nil {
+		err = fmt.Errorf("Error executing init: %v", err)
+		return
+	}
+	switch result.(type) {
+	case *zygo.SexpBool:
+		r := result.(*zygo.SexpBool).Val
+		if !r {
+			err = fmt.Errorf("init failed")
+		}
+	case *zygo.SexpSentinel:
+		err = errors.New("init should return boolean, got nil")
+
+	default:
+		err = errors.New("init should return boolean, got: " + fmt.Sprintf("%v", result))
+	}
+	return
+
+}
+
 // ValidateEntry checks the contents of an entry against the validation rules
 // this is the zgo implementation
 func (z *ZygoNucleus) ValidateEntry(d *EntryDef, entry interface{}) (err error) {

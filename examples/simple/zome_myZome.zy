@@ -11,4 +11,4 @@
         (== entry_type "profile") true
         false)
 )
-(defn validateChain [entry user_data] true)
+(defn init [] true)

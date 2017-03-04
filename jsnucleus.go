@@ -27,6 +27,32 @@ type JSNucleus struct {
 // Name returns the string value under which this nucleus is registered
 func (z *JSNucleus) Type() string { return JSNucleusType }
 
+// InitChain runs the application init function
+// this function gets called after the genesis entries are added to the chain
+func (z *JSNucleus) InitChain() (err error) {
+	v, err := z.vm.Run(`init()`)
+	if err != nil {
+		err = fmt.Errorf("Error executing init: %v", err)
+		return
+	}
+	if v.IsBoolean() {
+		if v.IsBoolean() {
+			var b bool
+			b, err = v.ToBoolean()
+			if err != nil {
+				return
+			}
+			if !b {
+				err = fmt.Errorf("init failed")
+			}
+		}
+	} else {
+		err = fmt.Errorf("init should return boolean, got: %v", v)
+	}
+	return
+
+}
+
 // ValidateEntry checks the contents of an entry against the validation rules
 // this is the zgo implementation
 func (z *JSNucleus) ValidateEntry(d *EntryDef, entry interface{}) (err error) {

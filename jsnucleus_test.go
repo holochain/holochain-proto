@@ -54,6 +54,19 @@ func TestNewJSNucleus(t *testing.T) {
 	})
 }
 
+func TestJSInit(t *testing.T) {
+	Convey("it should fail if the init function returns false", t, func() {
+		z, _ := NewJSNucleus(nil, `function init() {return false}`)
+		err := z.InitChain()
+		So(err.Error(), ShouldEqual, "init failed")
+	})
+	Convey("it should work if the init function returns true", t, func() {
+		z, _ := NewJSNucleus(nil, `function init() {return true}`)
+		err := z.InitChain()
+		So(err, ShouldBeNil)
+	})
+}
+
 func TestJSValidateEntry(t *testing.T) {
 	Convey("should run an entry value against the defined validator for string data", t, func() {
 		v, err := NewJSNucleus(nil, `function validate(name,entry) { return (entry=="fish")};`)

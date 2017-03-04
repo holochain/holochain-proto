@@ -125,7 +125,7 @@ func (dht *DHT) get(key Hash) (data []byte, err error) {
 // putMeta associates a value with a stored hash
 // N.B. this function assumes that the data associated has been properly retrieved
 // and validated from the cource chain
-func (dht *DHT) putMeta(key Hash, metaKey Hash, metaType string, value []byte) (err error) {
+func (dht *DHT) putMeta(key Hash, metaKey Hash, metaType string, entry Entry) (err error) {
 	k := key.String()
 	err = dht.db.Update(func(tx *buntdb.Tx) error {
 		_, err := tx.Get("entry:" + k)
@@ -133,7 +133,11 @@ func (dht *DHT) putMeta(key Hash, metaKey Hash, metaType string, value []byte) (
 			return ErrHashNotFound
 		}
 		mk := metaKey.String()
-		_, _, err = tx.Set("meta:"+k+":"+mk+":"+metaType, string(value), nil)
+		var b []byte
+		b, err = entry.Marshal()
+		if err == nil {
+			_, _, err = tx.Set("meta:"+k+":"+mk+":"+metaType, string(b), nil)
+		}
 		return err
 	})
 	return
@@ -149,20 +153,23 @@ func filter(ss []Meta, test func(*Meta) bool) (ret []Meta) {
 }
 
 // getMeta retrieves values associated with hashes
-func (dht *DHT) getMeta(key Hash, metaType string) (results []Meta, err error) {
+func (dht *DHT) getMeta(key Hash, metaType string) (results []Entry, err error) {
 	k := key.String()
 	err = dht.db.View(func(tx *buntdb.Tx) error {
 		_, err := tx.Get("entry:" + k)
 		if err == buntdb.ErrNotFound {
 			return ErrHashNotFound
 		}
-		results = make([]Meta, 0)
+		results = make([]Entry, 0)
 		err = tx.Ascend("meta", func(key, value string) bool {
 			x := strings.Split(key, ":")
 			if string(x[1]) == k && string(x[3]) == metaType {
-				H, _ := NewHash(x[2])
-				m := Meta{H: H, T: metaType, V: []byte(value)}
-				results = append(results, m)
+				var entry GobEntry
+				err := entry.Unmarshal([]byte(value))
+				if err != nil {
+					return false
+				}
+				results = append(results, &entry)
 			}
 			return true
 		})
@@ -269,11 +276,7 @@ func (dht *DHT) handlePutReqs() (err error) {
 					return
 				}
 				// @TODO do the validation here!!!
-				entry := r.(Entry)
-				b, err := entry.Marshal()
-				if err == nil {
-					err = dht.putMeta(t.O, t.M, t.T, b)
-				}
+				err = dht.putMeta(t.O, t.M, t.T, r.(Entry))
 			default:
 				err = errors.New("unexpected body type in handlePutReqs")
 			}

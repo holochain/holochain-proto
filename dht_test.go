@@ -1,7 +1,6 @@
 package holochain
 
 import (
-	"bytes"
 	"fmt"
 	peer "github.com/libp2p/go-libp2p-peer"
 	. "github.com/smartystreets/goconvey/convey"
@@ -50,7 +49,8 @@ func TestPutGetMeta(t *testing.T) {
 	metaHash1, _ := NewHash("QmY8Mzg9F69e5P9AoQPYat655HEhc1TVGs11tmfNSzkqh3")
 	metaHash2, _ := NewHash("QmY8Mzg9F69e5P9AoQPYat655HEhc1TVGs11tmfNSzkqh4")
 	Convey("It should fail if hash doesn't exist", t, func() {
-		err := dht.putMeta(hash, metaHash1, "someType", []byte("some data"))
+		e1 := GobEntry{C: "some data"}
+		err := dht.putMeta(hash, metaHash1, "someType", &e1)
 		So(err, ShouldEqual, ErrHashNotFound)
 
 		v, err := dht.getMeta(hash, "someType")
@@ -69,30 +69,31 @@ func TestPutGetMeta(t *testing.T) {
 		So(err, ShouldNotBeNil)
 		So(err.Error(), ShouldEqual, "No values for someType")
 
-		err = dht.putMeta(hash, metaHash1, "someType", []byte("value 1"))
+		e1 := GobEntry{C: "value 1"}
+		err = dht.putMeta(hash, metaHash1, "someType", &e1)
 		So(err, ShouldBeNil)
 
-		err = dht.putMeta(hash, metaHash2, "someType", []byte("value 2"))
+		e2 := GobEntry{C: "value 2"}
+		err = dht.putMeta(hash, metaHash2, "someType", &e2)
 		So(err, ShouldBeNil)
 
-		err = dht.putMeta(hash, metaHash1, "otherType", []byte("value 3"))
+		e3 := GobEntry{C: "value 3"}
+		err = dht.putMeta(hash, metaHash1, "otherType", &e3)
 		So(err, ShouldBeNil)
 
 		data, err = dht.getMeta(hash, "someType")
 		So(err, ShouldBeNil)
 		So(len(data), ShouldEqual, 2)
 		m := data[0]
-		So(m.H.String(), ShouldEqual, "QmY8Mzg9F69e5P9AoQPYat655HEhc1TVGs11tmfNSzkqh3")
-		So(string(m.V), ShouldEqual, "value 1")
+
+		So(m.Content(), ShouldEqual, "value 1")
 		m = data[1]
-		So(m.H.String(), ShouldEqual, "QmY8Mzg9F69e5P9AoQPYat655HEhc1TVGs11tmfNSzkqh4")
-		So(string(m.V), ShouldEqual, "value 2")
+		So(m.Content(), ShouldEqual, "value 2")
 
 		data, err = dht.getMeta(hash, "otherType")
 		So(err, ShouldBeNil)
 		So(len(data), ShouldEqual, 1)
-		So(string(data[0].V), ShouldEqual, "value 3")
-
+		So(data[0].Content(), ShouldEqual, "value 3")
 	})
 }
 
@@ -225,7 +226,6 @@ func TestDHTReceiver(t *testing.T) {
 
 	e = GobEntry{C: "some meta data"}
 	_, hd, _ = h.NewEntry(now, "myMetaData", &e)
-	b, _ := e.Marshal()
 	Convey("PUTMETA_REQUEST should store meta values", t, func() {
 		me := MetaReq{O: hash, M: hd.EntryLink, T: "myMetaType"}
 		m := h.node.NewMessage(PUTMETA_REQUEST, me)
@@ -240,9 +240,7 @@ func TestDHTReceiver(t *testing.T) {
 		// check that it got put
 		meta, err := h.dht.getMeta(hash, "myMetaType")
 		So(err, ShouldBeNil)
-		So(meta[0].H.Equal(&me.M), ShouldBeTrue)
-		So(meta[0].T, ShouldEqual, me.T)
-		So(bytes.Equal(meta[0].V, b), ShouldBeTrue)
+		So(meta[0].Content(), ShouldEqual, "some meta data")
 	})
 
 	Convey("GETMETA_REQUEST should retrieve meta values", t, func() {
@@ -250,9 +248,8 @@ func TestDHTReceiver(t *testing.T) {
 		m := h.node.NewMessage(GETMETA_REQUEST, mq)
 		r, err := DHTReceiver(h, m)
 		So(err, ShouldBeNil)
-		results := r.([]Meta)
-		So(results[0].H.Equal(&hd.EntryLink), ShouldBeTrue)
-		So(bytes.Equal(results[0].V, b), ShouldBeTrue)
+		results := r.([]Entry)
+		So(results[0].Content(), ShouldEqual, "some meta data")
 	})
 
 }

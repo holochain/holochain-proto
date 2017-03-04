@@ -248,7 +248,7 @@ func (z *ZygoNucleus) getmeta(env *zygo.Glisp, h *Holochain, metahash string, me
 	response, err := h.dht.SendGetMeta(MetaQuery{H: metakey, T: metatype})
 	if err == nil {
 		switch t := response.(type) {
-		case []Meta:
+		case []Entry:
 			// @TODO figure out encoding by entry type.
 			j, err := json.Marshal(t)
 			if err == nil {

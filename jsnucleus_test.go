@@ -172,7 +172,7 @@ func TestJSDHT(t *testing.T) {
 		v, err := NewJSNucleus(h, fmt.Sprintf(`getmeta("%s","myMetaType");`, hash.String()))
 		So(err, ShouldBeNil)
 		z := v.(*JSNucleus)
-		So(z.lastResult.String(), ShouldEqual, `[{"H":{"H":"EiAPcpL4FU4DUv7npvdEGZZtPNQUPweOv15G07xiPdOo7Q=="},"T":"myMetaType","V":"GxAABnN0cmluZwwQAA5zb21lIG1ldGEgZGF0YQ=="}]`)
+		So(z.lastResult.String(), ShouldEqual, `[{"C":"some meta data"}]`)
 	})
 
 }

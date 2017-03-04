@@ -575,7 +575,7 @@ func (s *Service) GenDev(path string, format string) (hP *Holochain, err error) 
 			return
 		}
 
-		fixtures := [8]TestData{
+		fixtures := [9]TestData{
 			TestData{
 				Zome:   "myZome",
 				FnName: "addData",
@@ -616,6 +616,11 @@ func (s *Service) GenDev(path string, format string) (hP *Holochain, err error) 
 				FnName: "addProfile",
 				Input:  `{"firstName":"Art","lastName":"Brock"}`,
 				Output: `"%h%"`},
+			TestData{
+				Zome:   "jsZome",
+				FnName: "getProperty",
+				Input:  "_id",
+				Output: "%id%"},
 		}
 
 		ui := `
@@ -681,6 +686,8 @@ func (s *Service) GenDev(path string, format string) (hP *Holochain, err error) 
 (defn validateChain [entry user_data] true)
 `
 		code["jsZome"] = `
+expose("getProperty",HC.STRING);
+function getProperty(x) {return property(x)};
 expose("addOdd",HC.STRING);
 function addOdd(x) {return commit("myOdds",x);}
 expose("addProfile",HC.JSON);
@@ -1159,6 +1166,13 @@ func (h *Holochain) Test() error {
 					return err
 				}
 				o := strings.Replace(t.Output, "%h%", top.String(), -1)
+
+				// get the id hash for substituting for %id% in the test expectation
+				id, err := h.ID()
+				if err == nil {
+					o = strings.Replace(o, "%id%", id.String(), -1)
+				}
+
 				if r != o {
 					return fmt.Errorf("Test: %d\n  Expected: %v\n  Got: %v\n", i+1, o, r)
 				}
@@ -1170,5 +1184,16 @@ func (h *Holochain) Test() error {
 
 // GetProperty returns the value of a DNA property
 func (h *Holochain) GetProperty(prop string) (property string, err error) {
-	return h.Properties[prop], err
+	if prop == ID_PROPERTY {
+		var id Hash
+		id, err = h.ID()
+		if err != nil {
+			property = ""
+		} else {
+			property = id.String()
+		}
+	} else {
+		property = h.Properties[prop]
+	}
+	return
 }

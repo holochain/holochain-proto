@@ -62,11 +62,11 @@ Once you've gotten everything working as described above you can execute some ba
 
 Since holochain is basically a distributed database engine, you will probably only do some basic maintenance through the command line. To initialize holochain service and build the directories, files, and generates public/private keys:
 
-    hc init '"Fred Flinstone" <fred@flintsone.com>'
+    hc init pebbles@flintsone.com
 
-You can use a pre-existing holochain configuration by replacing SOURCE with path for loading existing DNA.  You can use a live chain from your .holochain directory, or one of the templates in the examples directory:
+You can use a pre-existing holochain configuration by cloning a holochain with the `clone` command.  You can use a live chain from your .holochain directory, or one of the templates in the examples directory:
 
-    hc gen from <SOURCE_PATH> <NAME>
+    hc clone <SOURCE_PATH> <NAME>
 
 If you are a developer and want to build your own group configuration, data schemas, and validation rules for a holochain you can set up the initial scaffolding and files with:
 

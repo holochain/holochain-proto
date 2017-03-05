@@ -45,32 +45,33 @@ func setupApp() (app *cli.App) {
 
 	app.Commands = []cli.Command{
 		{
+			Name:      "clone",
+			Aliases:   []string{"c"},
+			Usage:     "clone a holochain instance from a source",
+			ArgsUsage: "src-path holochain-name",
+			Action: func(c *cli.Context) error {
+				srcPath := c.Args().First()
+				if srcPath == "" {
+					return errors.New("clone: missing required source path argument")
+				}
+				if len(c.Args()) == 1 {
+					return errors.New("clone: missing required holochain-name argument")
+				}
+				name := c.Args()[1]
+				h, err := service.GenFrom(srcPath, root+"/"+name)
+				if err == nil {
+					if verbose {
+						fmt.Printf("cloned %s from %s with new id: %v\n", name, srcPath, h.Id)
+					}
+				}
+				return err
+			},
+		},
+		{
 			Name:    "gen",
+			Usage:   "generate genesis entries or keys for a cloned holochain",
 			Aliases: []string{"g"},
 			Subcommands: []cli.Command{
-				{
-					Name:      "from",
-					Aliases:   []string{"f"},
-					Usage:     "generate a holochain instance from  source",
-					ArgsUsage: "src-path holochain-name",
-					Action: func(c *cli.Context) error {
-						srcPath := c.Args().First()
-						if srcPath == "" {
-							return errors.New("gen from: missing required source path argument")
-						}
-						if len(c.Args()) == 1 {
-							return errors.New("gen from: missing required holochain-name argument")
-						}
-						name := c.Args()[1]
-						h, err := service.GenFrom(srcPath, root+"/"+name)
-						if err == nil {
-							if verbose {
-								fmt.Printf("cloned %s from %s with new id: %v\n", name, srcPath, h.Id)
-							}
-						}
-						return err
-					},
-				},
 				{
 					Name:      "dev",
 					Aliases:   []string{"d"},
@@ -282,7 +283,7 @@ func setupApp() (app *cli.App) {
 		{
 			Name:      "bs",
 			Aliases:   []string{"b"},
-			Usage:     "send bootstrap tickler to the chain bootsrap server",
+			Usage:     "send bootstrap tickler to the chain bootstrap server",
 			ArgsUsage: "bs",
 			Action: func(c *cli.Context) error {
 				h, err := getHolochain(c, service, "bs")

@@ -1,7 +1,10 @@
 {
-	"title": "Member Schema",
+	"title": "Profile Schema",
 	"type": "object",
 	"properties": {
+		"agent_id": {
+			"type": "string"
+		},
 		"username": {
 			"type": "string"
 		},
@@ -18,5 +21,5 @@
 			"type": "string"
 		}
 	},
-    "required": ["username","firstName", "lastName","email"]
+    "required": ["agent_id", "username", "firstName", "lastName", "email"]
 }

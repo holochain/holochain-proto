@@ -1,0 +1,19 @@
+{
+	"title": "Message Schema",
+	"type": "object",
+	"properties": {
+		"content": {
+			"type": "string"
+		},
+		"timestamp": {
+			"type": "string"
+		},
+		"room": {
+			"type": "string"
+		},
+		"inReplyTo": {
+			"type": "string"
+		}
+	},
+    "required": ["content", "timestamp", "room"]
+}

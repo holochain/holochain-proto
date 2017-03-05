@@ -5,7 +5,8 @@
     "Properties": {
         "name": "My Chat",
         "purpose": "chatting up a storm",
-        "language": "en"
+        "language": "en",
+        "initial_admin": "Chuck Norris"
     },
     "PropertiesSchema": "schema_properties.json",
     "HashType": "sha2-256",
@@ -16,29 +17,37 @@
         "chat": {
             "Name": "chat",
             "Description": "chat code",
-            "Code": "zome_chat.zy",
+            "Code": "zome_chat.js",
             "CodeHash": {
                 "H": null
             },
             "Entries": {
-                "space": {
-                    "Name": "space",
+                "room": {
+                    "Name": "room",
                     "DataFormat": "JSON",
-                    "Schema": "schema_space.json",
+                    "Schema": "schema_room.json",
                     "SchemaHash": {
                         "H": null
                     }
                 },
                 "member": {
-                    "Name": "member",
+                    "Name": "profile",
                     "DataFormat": "JSON",
-                    "Schema": "schema_member.json",
+                    "Schema": "schema_profile.json",
                     "SchemaHash": {
                         "H": null
                     }
+                },
+                "message": {
+                  "Name": "message",
+                  "DataFormat": "JSON",
+                  "Schema": "schema_message.json",
+                  "SchemaHash": {
+                      "H": null
+                  }
                 }
             },
-            "NucleusType": "zygo"
+            "NucleusType": "js"
         }
     }
 }

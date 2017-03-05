@@ -16,6 +16,14 @@ In other words, a holochain functions very much **like a blockchain without bott
 <!-- TOC START min:2 max:4 link:true update:true -->
   - [Installation](#installation)
   - [Usage](#usage)
+    - [Starting a Holochain](#starting-a-holochain)
+    - [1. Initializing Holochain Service for the First Time](#1-initializing-holochain-service-for-the-first-time)
+    - [2. Getting Application DNA](#2-getting-application-dna)
+    - [3. Generate New Chain](#3-generate-new-chain)
+    - [4. Testing your Application](#4-testing-your-application)
+    - [5. Launching the Holochain Server](#5-launching-the-holochain-server)
+    - [Other Useful Commandds](#other-useful-commandds)
+    - [File Locations](#file-locations)
   - [Architecture](#architecture)
     - [Functional Domains](#functional-domains)
       - [Group DNA / Holochain configuration](#group-dna--holochain-configuration)
@@ -25,8 +33,9 @@ In other words, a holochain functions very much **like a blockchain without bott
       - [1. Authoring your Local Chain](#1-authoring-your-local-chain)
       - [2. Running a DHT Node](#2-running-a-dht-node)
   - [Documentation](#documentation)
-  - [Testing](#testing)
   - [Development --](#development---)
+    - [Dependencies](#dependencies)
+    - [Tests](#tests)
     - [Contributor Guidelines](#contributor-guidelines)
       - [Tech](#tech)
       - [Social --](#social---)
@@ -37,12 +46,13 @@ In other words, a holochain functions very much **like a blockchain without bott
 
 ## Installation
 
-1. Make sure you have a working environment set up for the Go language version 1.7 or later. [See the installation instructions for Go](http://golang.org/doc/install.html). Follow their instructions for setting your $GOPATH too.
-2. Install the [gx package manager](https://github.com/whyrusleeping/gx):
+1. Make sure you have a working environment set up for the Go language version 1.7 or later. [See the installation instructions for Go](http://golang.org/doc/install.html).
+2. Follow their instructions on the above doc page for **exporting** your **$GOPATH** and adding your go/bin directory to your search **PATH** for programs. Almost all installation problems reported, stem from skipping one of these path related steps.
+3. Install the [gx package manager](https://github.com/whyrusleeping/gx):
 ```
 $ go get -u github.com/whyrusleeping/gx
 ```
-3. Then you can install the holochain command line interface with:
+4. Then you can install the holochain command line interface with:
 ```
 $ go get -d github.com/metacurrency/holochain
 $ cd $GOPATH/src/github.com/metacurrency/holochain
@@ -54,60 +64,72 @@ Make sure your `PATH` includes the `$GOPATH/bin` directory so the program it bui
 $ export PATH=$PATH:$GOPATH/bin
 ```
 
+
 ## Usage
+Since holochain is essentially a data integrity engine intended to be used by distributed applications, you will normally only do some basic setup and maintenance through the command line.
 
-Once you've gotten everything working as described above you can execute some basic holochain commands from the command line like this:
+Once you've gotten everything working as described above you can execute some basic holochain commands from the command line like this: ``` hc help ```
 
-    hc help
+And you can get help on specific sub commands with ```hc <cmd> help```. For example: ```hc gen help```
 
-Since holochain is basically a distributed database engine, you will probably only do some basic maintenance through the command line. To initialize holochain service and build the directories, files, and generates public/private keys:
+### Starting a Holochain
+You've installed and built a distributed data engine, but you don't have a data application running in it yet. Here's the basic flow involved in getting a chain running:
 
-    hc init pebbles@flintsone.com
+1. ```hc init```
+2. ```hc clone```
+3. ```hc gen chain```
+4. ```hc test```
+4. ```hc serve```
 
-You can use a pre-existing holochain configuration by cloning a holochain with the `clone` command.  You can use a live chain from your .holochain directory, or one of the templates in the examples directory:
+Details of each of these steps are below...
 
-    hc clone <SOURCE_PATH> <NAME>
+### 1. Initializing Holochain Service for the First Time
+The first time the holochain service is run, you need to create your default public/private keys, set up config files and directories, and set a default identity token for your participation on chains. As a general user, you should only need to do this once, but as a developer, you will need to do this if you remove your ```.holochain``` directory during testing and such.
 
-If you are a developer and want to build your own group configuration, data schemas, and validation rules for a holochain you can set up the initial scaffolding and files with:
+Here's a full example of the initialization command, just substitute your own email address.
 
-    hc gen dev <NAME> [<FORMAT>]
+    hc init 'pebbles@flintstone.com'
 
-`<FORMAT>` is the encoding type of your DNA file which can be one of `yaml`, `json` or `toml`.
+### 2. Getting Application DNA
+You can use a pre-existing holochain application configuration by replacing SOURCE with path for loading existing application files. You can source from files anywhere such as from a git repo you've cloned, from a live chain you're already running in your ```.holochain``` directory, or one of the examples included in the holochain repository.
 
-To aid development, the `gen dev` command also produces a sample `test` sub-directory with exposed function calls of the format `<test_num>.json`
+    hc clone <SOURCE_PATH> <NAME_FOR_NEW_HOLOCHAIN>
 
-The command:
+For example: ```hc clone ./examples/sample sample```
 
-    hc test <NAME>
+Before you launch your chain, this is the chance for you to customize the application settings like the NAME, and the UUID
 
-runs those test functions.  Thus you can use this command as you make changes to your holochain DNA files to aid in test-driven-development.
+### 3. Generate New Chain
 
-After you have cloned or completed development for a chain, you can start the chain (i.e. create the genesis entries) with:
+After you have cloned and/or completed development for your chain, you need to generate the genesis entries which start your new chain. The first entry is the DNA which is the hash of all the application code. This confirms every person's chain starts with the the same code/DNA. The second block registers your keys so you have an address, identity, and signing keys for communicating on the chain.
 
-    hc gen chain <NAME>
+    hc gen chain <HOLOCHAIN_NAME>
 
-Then you serve it via http on localhost with:
+### 4. Testing your Application
+We have designed holochains to function around test-driven development, so each developer should have tests to confirm that you've built a functioning chain. Run the tests with;
 
-    hc serve <NAME> [<PORT>]
+    hc test <HOLOCHAIN_NAME>
 
-To view all the chains on your system and their status, use:
+If you're a developer, you should be running this command as you make changes to your holochain DNA files to leverage test-driven development.
 
-    hc status
+### 5. Launching the Holochain Server
+Holochains service function requests via local web sockets. This let's interface developers have a lot of freedom to build html / javascript files and drop them in that chain's UI directory. You launch the service to listen on the socket on localhost with:
 
-You can inspect the contents of a particular chain with:
+    hc serve <HOLOCHAIN_NAME> [<PORT>]
 
-    hc dump <NAME>
+In a web browser you can go to ```localhost:3141``` (or whatever PORT you served it under) to access UI files and send and receive JSON with exposed application functions
 
+### Other Useful Commandds
+ * ```hc status``` to view all the chains on your system and their status
+  * ```hc dump <HOLOCHAIN_NAME>``` to can inspect the contents of your local chain
+
+### File Locations
 By default `hc` stores all holochain data and configuration files to the `~/.holochain` directory.  You can override this with the -path flag or by setting the `HOLOPATH` environment variable, e.g.:
 
     hc -path ~/mychains init '<my@other.identity>'
     HOLOPATH=~/mychains hc
 
-Note that you can use the form:
-
-    hc -path=/your/path/here
-
-but beware as that form will not do shell substitutions (i.e. ~ won't get converted to your home dir)
+You can use the form: ```hc -path=/your/path/here``` but you must use the absolute path, as shell substitutions will not happen
 
 ## Architecture
 ### Functional Domains

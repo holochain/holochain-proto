@@ -118,14 +118,14 @@ func TestGenDev(t *testing.T) {
 	})
 }
 
-func TestGenFrom(t *testing.T) {
+func TestClone(t *testing.T) {
 	d, s := setupTestService()
 	defer cleanupTestDir(d)
 	name := "test"
 	root := s.Path + "/" + name
 
 	Convey("it should create a chain from the examples directory", t, func() {
-		h, err := s.GenFrom("examples/simple", root)
+		h, err := s.Clone("examples/simple", root)
 		So(err, ShouldBeNil)
 		So(h.Name, ShouldEqual, "test")
 		agent, err := LoadAgent(s.Path)

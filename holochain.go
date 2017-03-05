@@ -422,8 +422,8 @@ func (h *Holochain) GenChain() (keyHash Hash, err error) {
 	return
 }
 
-// GenFrom copies DNA files from a source
-func (s *Service) GenFrom(srcPath string, path string) (hP *Holochain, err error) {
+// Clone copies DNA files from a source
+func (s *Service) Clone(srcPath string, path string) (hP *Holochain, err error) {
 	hP, err = gen(path, func(path string) (hP *Holochain, err error) {
 
 		format, err := findDNA(srcPath)
@@ -469,8 +469,10 @@ func (s *Service) GenFrom(srcPath string, path string) (hP *Holochain, err error
 			return
 		}
 
-		if err = CopyDir(srcPath+"/test", path+"/test"); err != nil {
-			return
+		if dirExists(srcPath + "/test") {
+			if err = CopyDir(srcPath+"/test", path+"/test"); err != nil {
+				return
+			}
 		}
 
 		for _, z := range h.Zomes {

@@ -412,7 +412,7 @@ func (h *Holochain) GenChain() (keyHash Hash, err error) {
 		var n Nucleus
 		n, err = h.makeNucleus(z)
 		if err != nil {
-			err = n.InitChain()
+			err = n.ChainGenesis()
 			if err != nil {
 				return
 			}
@@ -712,7 +712,7 @@ func (s *Service) GenDev(path string, format string) (hP *Holochain, err error) 
         (== entryType "profile") true
         false)
 )
-(defn init [] true)
+(defn genesis [] true)
 `
 		code["jsZome"] = `
 expose("getProperty",HC.STRING);
@@ -730,7 +730,7 @@ if (entry_type=="profile") {
 }
 return false
 }
-function init() {return true}
+function genesis() {return true}
 `
 
 		testPath := path + "/test"

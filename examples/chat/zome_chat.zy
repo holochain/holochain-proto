@@ -10,4 +10,4 @@
         (== entry_type "member")  true
         false)
 )
-(defn init [] true)
+(defn genesis [] true)

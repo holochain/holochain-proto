@@ -60,15 +60,15 @@ func TestNewJSNucleus(t *testing.T) {
 	})
 }
 
-func TestJSInit(t *testing.T) {
+func TestJSGenesis(t *testing.T) {
 	Convey("it should fail if the init function returns false", t, func() {
-		z, _ := NewJSNucleus(nil, `function init() {return false}`)
-		err := z.InitChain()
-		So(err.Error(), ShouldEqual, "init failed")
+		z, _ := NewJSNucleus(nil, `function genesis() {return false}`)
+		err := z.ChainGenesis()
+		So(err.Error(), ShouldEqual, "genesis failed")
 	})
-	Convey("it should work if the init function returns true", t, func() {
-		z, _ := NewJSNucleus(nil, `function init() {return true}`)
-		err := z.InitChain()
+	Convey("it should work if the genesis function returns true", t, func() {
+		z, _ := NewJSNucleus(nil, `function genesis() {return true}`)
+		err := z.ChainGenesis()
 		So(err, ShouldBeNil)
 	})
 }

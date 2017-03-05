@@ -47,7 +47,7 @@ type ValidationProps struct {
 type Nucleus interface {
 	Type() string
 	ValidateEntry(def *EntryDef, entry Entry, props *ValidationProps) error
-	InitChain() error
+	ChainGenesis() error
 	expose(iface Interface) error
 	Interfaces() (i []Interface)
 	Call(iface string, params interface{}) (interface{}, error)

@@ -69,28 +69,28 @@ func TestJSInit(t *testing.T) {
 
 func TestJSValidateEntry(t *testing.T) {
 	Convey("should run an entry value against the defined validator for string data", t, func() {
-		v, err := NewJSNucleus(nil, `function validate(name,entry) { return (entry=="fish")};`)
+		v, err := NewJSNucleus(nil, `function validate(name,entry,meta) { return (entry=="fish")};`)
 		So(err, ShouldBeNil)
 		d := EntryDef{Name: "myData", DataFormat: "string"}
-		err = v.ValidateEntry(&d, &GobEntry{C: "cow"})
+		err = v.ValidateEntry(&d, &GobEntry{C: "cow"}, "")
 		So(err.Error(), ShouldEqual, "Invalid entry: cow")
-		err = v.ValidateEntry(&d, &GobEntry{C: "fish"})
+		err = v.ValidateEntry(&d, &GobEntry{C: "fish"}, "")
 		So(err, ShouldBeNil)
 	})
 	Convey("should run an entry value against the defined validator for js data", t, func() {
-		v, err := NewJSNucleus(nil, `function validate(name,entry) { return (entry=="fish")};`)
+		v, err := NewJSNucleus(nil, `function validate(name,entry,meta) { return (entry=="fish")};`)
 		d := EntryDef{Name: "myData", DataFormat: "js"}
-		err = v.ValidateEntry(&d, &GobEntry{C: "\"cow\""})
+		err = v.ValidateEntry(&d, &GobEntry{C: "\"cow\""}, "")
 		So(err.Error(), ShouldEqual, "Invalid entry: \"cow\"")
-		err = v.ValidateEntry(&d, &GobEntry{C: "\"fish\""})
+		err = v.ValidateEntry(&d, &GobEntry{C: "\"fish\""}, "")
 		So(err, ShouldBeNil)
 	})
 	Convey("should run an entry value against the defined validator for json data", t, func() {
-		v, err := NewJSNucleus(nil, `function validate(name,entry) { return (entry.data=="fish")};`)
+		v, err := NewJSNucleus(nil, `function validate(name,entry,meta) { return (entry.data=="fish")};`)
 		d := EntryDef{Name: "myData", DataFormat: "JSON"}
-		err = v.ValidateEntry(&d, &GobEntry{C: `{"data":"cow"}`})
+		err = v.ValidateEntry(&d, &GobEntry{C: `{"data":"cow"}`}, "")
 		So(err.Error(), ShouldEqual, `Invalid entry: {"data":"cow"}`)
-		err = v.ValidateEntry(&d, &GobEntry{C: `{"data":"fish"}`})
+		err = v.ValidateEntry(&d, &GobEntry{C: `{"data":"fish"}`}, "")
 		So(err, ShouldBeNil)
 	})
 }

@@ -263,7 +263,7 @@ func (dht *DHT) handlePutReqs() (err error) {
 				}
 				resp := r.(*ValidateResponse)
 
-				err = dht.h.ValidateEntry(resp.Type, resp.Entry)
+				err = dht.h.ValidateEntry(resp.Type, resp.Entry, "")
 				if err != nil {
 					//@todo store as INVALID
 				} else {
@@ -281,7 +281,7 @@ func (dht *DHT) handlePutReqs() (err error) {
 					return
 				}
 				resp := r.(*ValidateResponse)
-				err = dht.h.ValidateEntry(resp.Type, resp.Entry)
+				err = dht.h.ValidateEntry(resp.Type, resp.Entry, t.T)
 				if err != nil {
 					//@todo store as INVALID
 				} else {

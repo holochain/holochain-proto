@@ -5,7 +5,7 @@
 (defn addData [x] (commit "myData" x))
 (expose "addPrime" JSON)
 (defn addPrime [x] (commit "primes" x))
-(defn validate [entry_type entry]
+(defn validate [entry_type entry meta]
   (cond (== entry_type "myData")  (cond (== (mod entry 2) 0) true false)
         (== entry_type "primes")  (isprime (hget entry %prime))
         (== entry_type "profile") true

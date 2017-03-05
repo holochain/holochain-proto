@@ -58,7 +58,7 @@ func (z *ZygoNucleus) InitChain() (err error) {
 }
 
 // ValidateEntry checks the contents of an entry against the validation rules
-func (z *ZygoNucleus) ValidateEntry(d *EntryDef, entry Entry) (err error) {
+func (z *ZygoNucleus) ValidateEntry(d *EntryDef, entry Entry, meta string) (err error) {
 	c := entry.Content().(string)
 	// @todo handle JSON if schema type is different
 	var e string
@@ -73,7 +73,7 @@ func (z *ZygoNucleus) ValidateEntry(d *EntryDef, entry Entry) (err error) {
 		err = errors.New("data format not implemented: " + d.DataFormat)
 		return
 	}
-	err = z.env.LoadString(fmt.Sprintf(`(validate "%s" %s)`, d.Name, e))
+	err = z.env.LoadString(fmt.Sprintf(`(validate "%s" %s "%s")`, d.Name, e, meta))
 	if err != nil {
 		return
 	}
@@ -382,7 +382,7 @@ func NewZygoNucleus(h *Holochain, code string) (n Nucleus, err error) {
 					errors.New("2nd argument of commit should be string or hash")
 			}
 
-			err = h.ValidateEntry(entryType, &GobEntry{C: entry})
+			err = h.ValidateEntry(entryType, &GobEntry{C: entry}, "")
 			var headerHash Hash
 			if err == nil {
 				e := GobEntry{C: entry}

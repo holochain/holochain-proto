@@ -1,19 +1,19 @@
 package main
 
 import (
-	_ "encoding/json"
 	"errors"
 	"fmt"
 	holo "github.com/metacurrency/holochain"
+	"github.com/op/go-logging"
 	"github.com/urfave/cli"
 	"os"
 	"os/user"
 	"strings"
-	//"github.com/google/uuid"
 )
 
 var uninitialized error
 var initialized bool
+var log *logging.Logger
 
 func setupApp() (app *cli.App) {
 	app = cli.NewApp()
@@ -21,16 +21,20 @@ func setupApp() (app *cli.App) {
 	app.Usage = "holochain peer command line interface"
 	app.Version = "0.0.1"
 	var verbose bool
+	var debug bool
 	var root string
 	var service *holo.Service
-
-	holo.Register()
 
 	app.Flags = []cli.Flag{
 		cli.BoolFlag{
 			Name:        "verbose",
 			Usage:       "verbose output",
 			Destination: &verbose,
+		},
+		cli.BoolFlag{
+			Name:        "debug",
+			Usage:       "debugging output",
+			Destination: &debug,
 		},
 		cli.StringFlag{
 			Name:        "path",
@@ -312,6 +316,13 @@ func setupApp() (app *cli.App) {
 	}
 
 	app.Before = func(c *cli.Context) error {
+		level := logging.INFO
+		if debug {
+			level = logging.DEBUG
+		}
+		log = logging.MustGetLogger("holochain")
+		logging.SetLevel(level, "holochain")
+		holo.Register(log)
 		if verbose {
 			fmt.Printf("app version: %s; Holochain lib version %s\n ", app.Version, holo.Version)
 		}

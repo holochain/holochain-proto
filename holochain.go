@@ -76,16 +76,16 @@ type Holochain struct {
 	chain          *Chain // the chain itself
 }
 
-var log = logging.MustGetLogger("holochain")
+var log *logging.Logger
 
 // Register function that must be called once at startup by any client app
-func Register() {
+func Register(logger *logging.Logger) {
 	gob.Register(Header{})
 	gob.Register(KeyEntry{})
 	gob.Register(Hash{})
 	RegisterBultinNucleii()
 	RegisterBultinPersisters()
-	logging.SetLevel(logging.INFO, "holochain")
+	log = logger
 }
 
 func findDNA(path string) (f string, err error) {

@@ -12,7 +12,6 @@ import (
 	websocket "github.com/gorilla/websocket"
 	holo "github.com/metacurrency/holochain"
 	"io/ioutil"
-	"log"
 	"net/http"
 	"strings"
 )
@@ -30,7 +29,7 @@ func serve(h *holo.Holochain, port string) {
 	http.HandleFunc("/_sock/", func(w http.ResponseWriter, r *http.Request) {
 		conn, err := upgrader.Upgrade(w, r, nil)
 		if err != nil {
-			log.Println(err)
+			log.Info(err)
 			return
 		}
 
@@ -38,10 +37,10 @@ func serve(h *holo.Holochain, port string) {
 			var v map[string]string
 			err := conn.ReadJSON(&v)
 
-			log.Printf("conn got: %v\n", v)
+			log.Debugf("conn got: %v\n", v)
 
 			if err != nil {
-				log.Println(err)
+				log.Info(err)
 				return
 			}
 			zome := v["zome"]
@@ -58,7 +57,7 @@ func serve(h *holo.Holochain, port string) {
 			}
 
 			if err != nil {
-				log.Println(err)
+				log.Info(err)
 				return
 			}
 		}
@@ -70,7 +69,7 @@ func serve(h *holo.Holochain, port string) {
 		var errCode int = 400
 		defer func() {
 			if err != nil {
-				fmt.Printf("ERROR:%s,code:%d", err.Error(), errCode)
+				log.Debugf("ERROR:%s,code:%d", err.Error(), errCode)
 				http.Error(w, err.Error(), errCode)
 			}
 		}()
@@ -95,12 +94,12 @@ func serve(h *holo.Holochain, port string) {
 		args := string(body)
 		result, err := call(w, h, zome, function, args)
 		if err != nil {
-			fmt.Printf(" result error: %v\n", err)
+			log.Debugf(" result error: %v\n", err)
 			http.Error(w, err.Error(), 400)
 
 			return
 		} else {
-			fmt.Printf(" result: %v\n", result)
+			log.Debugf(" result: %v\n", result)
 			switch t := result.(type) {
 			case string:
 				fmt.Fprintf(w, t)
@@ -111,7 +110,7 @@ func serve(h *holo.Holochain, port string) {
 			}
 		}
 	}) // set router
-	fmt.Printf("starting server on localhost:%s\n", port)
+	log.Infof("starting server on localhost:%s\n", port)
 	err := http.ListenAndServe(":"+port, nil) // set listen port
 	if err != nil {
 		log.Fatal("ListenAndServe: ", err)
@@ -126,7 +125,7 @@ func call(w http.ResponseWriter, h *holo.Holochain, zome string, function string
 
 		for _, f := range i {
 			if f.Name == function {
-				fmt.Printf("calling %s:%s\n", zome, function)
+				log.Debugf("calling %s:%s\n", zome, function)
 				result, err = h.Call(zome, function, args)
 				return
 			}

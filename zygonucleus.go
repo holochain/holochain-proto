@@ -58,17 +58,17 @@ func (z *ZygoNucleus) InitChain() (err error) {
 }
 
 // ValidateEntry checks the contents of an entry against the validation rules
-// this is the zgo implementation
-func (z *ZygoNucleus) ValidateEntry(d *EntryDef, entry interface{}) (err error) {
+func (z *ZygoNucleus) ValidateEntry(d *EntryDef, entry Entry) (err error) {
+	c := entry.Content().(string)
 	// @todo handle JSON if schema type is different
 	var e string
 	switch d.DataFormat {
 	case "zygo":
-		e = entry.(string)
+		e = c
 	case "string":
-		e = "\"" + sanitizeString(entry.(string)) + "\""
+		e = "\"" + sanitizeString(c) + "\""
 	case "JSON":
-		e = fmt.Sprintf(`(unjson (raw "%s"))`, sanitizeString(entry.(string)))
+		e = fmt.Sprintf(`(unjson (raw "%s"))`, sanitizeString(c))
 	default:
 		err = errors.New("data format not implemented: " + d.DataFormat)
 		return
@@ -86,7 +86,7 @@ func (z *ZygoNucleus) ValidateEntry(d *EntryDef, entry interface{}) (err error) 
 	case *zygo.SexpBool:
 		r := result.(*zygo.SexpBool).Val
 		if !r {
-			err = fmt.Errorf("Invalid entry: %v", entry)
+			err = fmt.Errorf("Invalid entry: %v", entry.Content())
 		}
 	case *zygo.SexpSentinel:
 		err = errors.New("validate should return boolean, got nil")
@@ -382,7 +382,7 @@ func NewZygoNucleus(h *Holochain, code string) (n Nucleus, err error) {
 					errors.New("2nd argument of commit should be string or hash")
 			}
 
-			err = h.ValidateEntry(entryType, entry)
+			err = h.ValidateEntry(entryType, &GobEntry{C: entry})
 			var headerHash Hash
 			if err == nil {
 				e := GobEntry{C: entry}

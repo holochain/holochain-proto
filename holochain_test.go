@@ -374,7 +374,7 @@ func TestValidateEntry(t *testing.T) {
 	Convey("it should fail if a validator doesn't exist for the entry type", t, func() {
 		hdr := mkTestHeader("bogusType")
 		myData := "2"
-		err = h.ValidateEntry(hdr.Type, myData)
+		err = h.ValidateEntry(hdr.Type, &GobEntry{C: myData})
 		So(err.Error(), ShouldEqual, "no definition for entry type: bogusType")
 	})
 
@@ -386,23 +386,23 @@ func TestValidateEntry(t *testing.T) {
 	Convey("a valid entry validates", t, func() {
 		hdr := mkTestHeader("myData")
 		myData := "2" //`(message (from "art") (to "eric") (contents "test"))`
-		err = h.ValidateEntry(hdr.Type, myData)
+		err = h.ValidateEntry(hdr.Type, &GobEntry{C: myData})
 		So(err, ShouldBeNil)
 	})
 	Convey("an invalid entry doesn't validate", t, func() {
 		hdr := mkTestHeader("myData")
 		myData := "1" //`(message (from "art") (to "eric") (contents "test"))`
-		err = h.ValidateEntry(hdr.Type, myData)
+		err = h.ValidateEntry(hdr.Type, &GobEntry{C: myData})
 		So(err.Error(), ShouldEqual, "Invalid entry: 1")
 	})
 	Convey("validate on a schema based entry should check entry against the schema", t, func() {
 		hdr := mkTestHeader("profile")
 		profile := `{"firstName":"Eric","lastName":"H-B"}`
-		err = h.ValidateEntry(hdr.Type, profile)
+		err = h.ValidateEntry(hdr.Type, &GobEntry{C: profile})
 		So(err, ShouldBeNil)
 		h.Prepare()
 		profile = `{"firstName":"Eric"}` // missing required lastName
-		err = h.ValidateEntry(hdr.Type, profile)
+		err = h.ValidateEntry(hdr.Type, &GobEntry{C: profile})
 		So(err, ShouldNotBeNil)
 		So(err.Error(), ShouldEqual, "validator schema_profile.json failed: object property 'lastName' is required")
 	})

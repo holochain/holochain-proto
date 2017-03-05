@@ -72,25 +72,25 @@ func TestJSValidateEntry(t *testing.T) {
 		v, err := NewJSNucleus(nil, `function validate(name,entry) { return (entry=="fish")};`)
 		So(err, ShouldBeNil)
 		d := EntryDef{Name: "myData", DataFormat: "string"}
-		err = v.ValidateEntry(&d, "cow")
+		err = v.ValidateEntry(&d, &GobEntry{C: "cow"})
 		So(err.Error(), ShouldEqual, "Invalid entry: cow")
-		err = v.ValidateEntry(&d, "fish")
+		err = v.ValidateEntry(&d, &GobEntry{C: "fish"})
 		So(err, ShouldBeNil)
 	})
 	Convey("should run an entry value against the defined validator for js data", t, func() {
 		v, err := NewJSNucleus(nil, `function validate(name,entry) { return (entry=="fish")};`)
 		d := EntryDef{Name: "myData", DataFormat: "js"}
-		err = v.ValidateEntry(&d, "\"cow\"")
+		err = v.ValidateEntry(&d, &GobEntry{C: "\"cow\""})
 		So(err.Error(), ShouldEqual, "Invalid entry: \"cow\"")
-		err = v.ValidateEntry(&d, "\"fish\"")
+		err = v.ValidateEntry(&d, &GobEntry{C: "\"fish\""})
 		So(err, ShouldBeNil)
 	})
 	Convey("should run an entry value against the defined validator for json data", t, func() {
 		v, err := NewJSNucleus(nil, `function validate(name,entry) { return (entry.data=="fish")};`)
 		d := EntryDef{Name: "myData", DataFormat: "JSON"}
-		err = v.ValidateEntry(&d, `{"data":"cow"}`)
+		err = v.ValidateEntry(&d, &GobEntry{C: `{"data":"cow"}`})
 		So(err.Error(), ShouldEqual, `Invalid entry: {"data":"cow"}`)
-		err = v.ValidateEntry(&d, `{"data":"fish"}`)
+		err = v.ValidateEntry(&d, &GobEntry{C: `{"data":"fish"}`})
 		So(err, ShouldBeNil)
 	})
 }
@@ -139,7 +139,7 @@ func TestJSDHT(t *testing.T) {
 	// add an entry onto the chain
 	now := time.Unix(1, 1) // pick a constant time so the test will always work
 	e := GobEntry{C: data}
-	_, hd, err := h.NewEntry(now, "jsData", &e)
+	_, hd, err := h.NewEntry(now, "myOdds", &e)
 	if err != nil {
 		panic(err)
 	}
@@ -169,8 +169,8 @@ func TestJSDHT(t *testing.T) {
 		So(z.lastResult.String(), ShouldEqual, `"7"`)
 	})
 
-	e = GobEntry{C: "some meta data"}
-	_, mhd, _ := h.NewEntry(now, "myMetaData", &e)
+	e = GobEntry{C: `{"firstName":"Zippy","lastName":"Pinhead"}`}
+	_, mhd, _ := h.NewEntry(now, "profile", &e)
 	metaHash := mhd.EntryLink
 	//b, _ := e.Marshal()
 
@@ -190,7 +190,7 @@ func TestJSDHT(t *testing.T) {
 		v, err := NewJSNucleus(h, fmt.Sprintf(`getmeta("%s","myMetaType");`, hash.String()))
 		So(err, ShouldBeNil)
 		z := v.(*JSNucleus)
-		So(z.lastResult.String(), ShouldEqual, `[{"C":"some meta data"}]`)
+		So(z.lastResult.String(), ShouldEqual, `[{"C":"{\"firstName\":\"Zippy\",\"lastName\":\"Pinhead\"}"}]`)
 	})
 
 }

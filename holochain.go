@@ -1003,7 +1003,7 @@ func (h *Holochain) Validate(entriesToo bool) (valid bool, err error) {
 			return errors.New("header hash doesn't match")
 		}
 
-		// @TODO check entry hashes too if entriesToo set
+		// @TODO check entry hashes Etoo if entriesToo set
 		if entriesToo {
 
 		}
@@ -1033,7 +1033,7 @@ func (h *Holochain) GetEntryDef(t string) (zome *Zome, d *EntryDef, err error) {
 
 // ValidateEntry passes an entry data to the chain's validation routine
 // If the entry is valid err will be nil, otherwise it will contain some information about why the validation failed (or, possibly, some other system error)
-func (h *Holochain) ValidateEntry(entryType string, entry interface{}) (err error) {
+func (h *Holochain) ValidateEntry(entryType string, entry Entry) (err error) {
 
 	if entry == nil {
 		return errors.New("nil entry invalid")
@@ -1048,7 +1048,7 @@ func (h *Holochain) ValidateEntry(entryType string, entry interface{}) (err erro
 	if d.validator != nil {
 		var input interface{}
 		if d.DataFormat == "JSON" {
-			if err = json.Unmarshal([]byte(entry.(string)), &input); err != nil {
+			if err = json.Unmarshal([]byte(entry.Content().(string)), &input); err != nil {
 				return
 			}
 		} else {

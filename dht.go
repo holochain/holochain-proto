@@ -262,12 +262,16 @@ func (dht *DHT) handlePutReqs() (err error) {
 					return
 				}
 				resp := r.(*ValidateResponse)
-				// @TODO do the validation here!!!
 
-				entry := resp.Entry
-				b, err := entry.Marshal()
-				if err == nil {
-					err = dht.put(t, from, b)
+				err = dht.h.ValidateEntry(resp.Type, resp.Entry)
+				if err != nil {
+					//@todo store as INVALID
+				} else {
+					entry := resp.Entry
+					b, err := entry.Marshal()
+					if err == nil {
+						err = dht.put(t, from, b)
+					}
 				}
 			case MetaReq:
 				log.Debugf("handling putmeta: %v", m)
@@ -277,8 +281,12 @@ func (dht *DHT) handlePutReqs() (err error) {
 					return
 				}
 				resp := r.(*ValidateResponse)
-				// @TODO do the validation here!!!
-				err = dht.putMeta(t.O, t.M, t.T, resp.Entry)
+				err = dht.h.ValidateEntry(resp.Type, resp.Entry)
+				if err != nil {
+					//@todo store as INVALID
+				} else {
+					err = dht.putMeta(t.O, t.M, t.T, resp.Entry)
+				}
 			default:
 				err = errors.New("unexpected body type in handlePutReqs")
 			}

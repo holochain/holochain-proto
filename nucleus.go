@@ -36,7 +36,7 @@ type Interface struct {
 // Nucleus type abstracts the functions of code execution environments
 type Nucleus interface {
 	Type() string
-	ValidateEntry(def *EntryDef, entry interface{}) error
+	ValidateEntry(def *EntryDef, entry Entry) error
 	InitChain() error
 	expose(iface Interface) error
 	Interfaces() (i []Interface)

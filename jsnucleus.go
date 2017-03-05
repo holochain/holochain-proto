@@ -55,15 +55,16 @@ func (z *JSNucleus) InitChain() (err error) {
 
 // ValidateEntry checks the contents of an entry against the validation rules
 // this is the zgo implementation
-func (z *JSNucleus) ValidateEntry(d *EntryDef, entry interface{}) (err error) {
+func (z *JSNucleus) ValidateEntry(d *EntryDef, entry Entry) (err error) {
+	c := entry.Content().(string)
 	var e string
 	switch d.DataFormat {
 	case "js":
-		e = entry.(string)
+		e = c
 	case "string":
-		e = "\"" + sanitizeString(entry.(string)) + "\""
+		e = "\"" + sanitizeString(c) + "\""
 	case "JSON":
-		e = fmt.Sprintf(`JSON.parse("%s")`, sanitizeString(entry.(string)))
+		e = fmt.Sprintf(`JSON.parse("%s")`, sanitizeString(c))
 	default:
 		err = errors.New("data format not implemented: " + d.DataFormat)
 		return
@@ -81,7 +82,7 @@ func (z *JSNucleus) ValidateEntry(d *EntryDef, entry interface{}) (err error) {
 				return
 			}
 			if !b {
-				err = fmt.Errorf("Invalid entry: %v", entry)
+				err = fmt.Errorf("Invalid entry: %v", entry.Content())
 			}
 		}
 	} else {
@@ -202,7 +203,7 @@ func NewJSNucleus(h *Holochain, code string) (n Nucleus, err error) {
 		} else {
 			return z.vm.MakeCustomError("HolochainError", "commit expected string as second argument")
 		}
-		err = h.ValidateEntry(entryType, entry)
+		err = h.ValidateEntry(entryType, &GobEntry{C: entry})
 		var headerHash Hash
 
 		if err == nil {

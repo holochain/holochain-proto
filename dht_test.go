@@ -135,7 +135,7 @@ func TestSend(t *testing.T) {
 	})
 
 	now := time.Unix(1, 1) // pick a constant time so the test will always work
-	e := GobEntry{C: "some data"}
+	e := GobEntry{C: "4"}
 	_, hd, err := h.NewEntry(now, "myData", &e)
 	if err != nil {
 		panic(err)
@@ -203,7 +203,7 @@ func TestDHTReceiver(t *testing.T) {
 	})
 
 	now := time.Unix(1, 1) // pick a constant time so the test will always work
-	e := GobEntry{C: "some data"}
+	e := GobEntry{C: "124"}
 	_, hd, _ := h.NewEntry(now, "myData", &e)
 	hash = hd.EntryLink
 
@@ -224,8 +224,9 @@ func TestDHTReceiver(t *testing.T) {
 		So(fmt.Sprintf("%v", r), ShouldEqual, fmt.Sprintf("%v", &e))
 	})
 
-	e = GobEntry{C: "some meta data"}
-	_, hd, _ = h.NewEntry(now, "myMetaData", &e)
+	someData := `{"firstName":"Zippy","lastName":"Pinhead"}`
+	e = GobEntry{C: someData}
+	_, hd, _ = h.NewEntry(now, "profile", &e)
 	Convey("PUTMETA_REQUEST should store meta values", t, func() {
 		me := MetaReq{O: hash, M: hd.EntryLink, T: "myMetaType"}
 		m := h.node.NewMessage(PUTMETA_REQUEST, me)
@@ -240,7 +241,7 @@ func TestDHTReceiver(t *testing.T) {
 		// check that it got put
 		meta, err := h.dht.getMeta(hash, "myMetaType")
 		So(err, ShouldBeNil)
-		So(meta[0].Content(), ShouldEqual, "some meta data")
+		So(meta[0].Content(), ShouldEqual, someData)
 	})
 
 	Convey("GETMETA_REQUEST should retrieve meta values", t, func() {
@@ -249,7 +250,7 @@ func TestDHTReceiver(t *testing.T) {
 		r, err := DHTReceiver(h, m)
 		So(err, ShouldBeNil)
 		results := r.([]Entry)
-		So(results[0].Content(), ShouldEqual, "some meta data")
+		So(results[0].Content(), ShouldEqual, someData)
 	})
 
 }
@@ -259,8 +260,8 @@ func TestHandlePutReqs(t *testing.T) {
 	defer cleanupTestDir(d)
 
 	now := time.Unix(1, 1) // pick a constant time so the test will always work
-	e := GobEntry{C: "some data"}
-	_, hd, err := h.NewEntry(now, "myData", &e)
+	e := GobEntry{C: "{\"prime\":7}"}
+	_, hd, err := h.NewEntry(now, "primes", &e)
 	if err != nil {
 		panic(err)
 	}

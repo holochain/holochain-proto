@@ -12,6 +12,7 @@ import (
 	q "github.com/golang-collections/go-datastructures/queue"
 	peer "github.com/libp2p/go-libp2p-peer"
 	"github.com/tidwall/buntdb"
+	"strconv"
 	"strings"
 )
 
@@ -35,9 +36,25 @@ type Meta struct {
 	V []byte // meta-data
 }
 
+const (
+	PutNew = iota
+	PutUpdate
+	PutDelete
+	PutUndelete
+)
+
+const (
+	LIVE = iota
+	REJECTED
+	DELETED
+	UPDATED
+)
+
 // PutReq holds the data of a put request
 type PutReq struct {
 	H Hash
+	S int
+	D interface{}
 }
 
 // GetReq holds the data of a put request
@@ -77,7 +94,7 @@ func NewDHT(h *Holochain) *DHT {
 
 // put stores a value to the DHT store
 // N.B. This call assumes that the value has already been validated
-func (dht *DHT) put(key Hash, src peer.ID, value []byte) (err error) {
+func (dht *DHT) put(key Hash, src peer.ID, value []byte, status int) (err error) {
 	k := key.String()
 	err = dht.db.Update(func(tx *buntdb.Tx) error {
 		_, _, err := tx.Set("entry:"+k, string(value), nil)
@@ -85,10 +102,15 @@ func (dht *DHT) put(key Hash, src peer.ID, value []byte) (err error) {
 			return err
 		}
 		_, _, err = tx.Set("src:"+k, peer.IDB58Encode(src), nil)
+		if err != nil {
+			return err
+		}
+		_, _, err = tx.Set("status:"+k, fmt.Sprintf("%d", status), nil)
+		if err != nil {
+			return err
+		}
 		return err
 	})
-	//	dht.store[k] = value
-	//	dht.sources[k] = src
 	return
 }
 
@@ -120,14 +142,17 @@ func (dht *DHT) source(key Hash) (id peer.ID, err error) {
 }
 
 // get retrieves a value from the DHT store
-func (dht *DHT) get(key Hash) (data []byte, err error) {
+func (dht *DHT) get(key Hash) (data []byte, status int, err error) {
 	err = dht.db.View(func(tx *buntdb.Tx) error {
-		val, err := tx.Get("entry:" + key.String())
+		k := key.String()
+		val, err := tx.Get("entry:" + k)
 		if err == buntdb.ErrNotFound {
 			err = ErrHashNotFound
 		}
 		if err == nil {
 			data = []byte(val)
+			val, err = tx.Get("status:" + k)
+			status, err = strconv.Atoi(val)
 		}
 		return err
 	})
@@ -282,7 +307,7 @@ func (dht *DHT) handlePutReqs() (err error) {
 					entry := resp.Entry
 					b, err := entry.Marshal()
 					if err == nil {
-						err = dht.put(t.H, from, b)
+						err = dht.put(t.H, from, b, LIVE)
 					}
 				}
 			case MetaReq:
@@ -327,7 +352,7 @@ func DHTReceiver(h *Holochain, m *Message) (response interface{}, err error) {
 		switch t := m.Body.(type) {
 		case GetReq:
 			var b []byte
-			b, err = h.dht.get(t.H)
+			b, _, err = h.dht.get(t.H)
 			if err == nil {
 				var e GobEntry
 				err = e.Unmarshal(b)

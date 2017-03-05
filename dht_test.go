@@ -27,16 +27,20 @@ func TestPutGet(t *testing.T) {
 	var id peer.ID = h.node.HashAddr
 	Convey("It should store and retrieve", t, func() {
 		hash, _ := NewHash("QmY8Mzg9F69e5P9AoQPYat655HEhc1TVGs11tmfNSzkqh2")
-		err := dht.put(hash, id, []byte("some value"))
+		err := dht.put(hash, id, []byte("some value"), LIVE)
 		So(err, ShouldBeNil)
-		data, err := dht.get(hash)
+
+		data, status, err := dht.get(hash)
 		So(err, ShouldBeNil)
 		So(string(data), ShouldEqual, "some value")
-		hash, _ = NewHash("QmY8Mzg9F69e5P9AoQPYat6x5HEhc1TVGs11tmfNSzkqh2")
-		data, err = dht.get(hash)
+		So(status, ShouldEqual, LIVE)
+
+		hash, _ = NewHash("QmY8Mzg9F69e5P9AoQPYat655HEhc1TVGs11tmfNSzkqh3")
+		data, _, err = dht.get(hash)
 		So(data, ShouldBeNil)
 		So(err, ShouldEqual, ErrHashNotFound)
 	})
+
 }
 
 func TestPutGetMeta(t *testing.T) {
@@ -59,7 +63,7 @@ func TestPutGetMeta(t *testing.T) {
 	})
 
 	var id peer.ID
-	err := dht.put(hash, id, []byte("some value"))
+	err := dht.put(hash, id, []byte("some value"), LIVE)
 	if err != nil {
 		panic(err)
 	}
@@ -272,7 +276,7 @@ func TestHandlePutReqs(t *testing.T) {
 	Convey("handle put request should pull data from source and verify it", t, func() {
 		err := h.dht.handlePutReqs()
 		So(err, ShouldBeNil)
-		data, err := h.dht.get(hd.EntryLink)
+		data, _, err := h.dht.get(hd.EntryLink)
 		So(err, ShouldBeNil)
 		b, _ := e.Marshal()
 		So(fmt.Sprintf("%v", data), ShouldEqual, fmt.Sprintf("%v", b))

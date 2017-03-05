@@ -229,6 +229,10 @@ func (s *Service) load(name string, format string) (hP *Holochain, err error) {
 		return
 	}
 
+	if err = h.PrepareHashType(); err != nil {
+		return
+	}
+
 	h.chain, err = NewChainFromFile(h.hashSpec, path+"/"+StoreFileName+".dat")
 	if err != nil {
 		return

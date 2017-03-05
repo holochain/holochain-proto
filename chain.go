@@ -53,6 +53,11 @@ func NewChain() (chain *Chain) {
 // Creates a chain from a file, loading any data there, and setting it to be persisted to
 // if no file exists it will be created
 func NewChainFromFile(h HashSpec, path string) (c *Chain, err error) {
+	defer func() {
+		if err != nil {
+			log.Debugf("error loading chain :%s", err.Error())
+		}
+	}()
 	c = NewChain()
 
 	var f *os.File
@@ -71,6 +76,7 @@ func NewChainFromFile(h HashSpec, path string) (c *Chain, err error) {
 				break
 			}
 			if err != nil {
+				log.Debugf("error reading pair:%s", err.Error())
 				return
 			}
 			c.addPair(header, e, i)
@@ -266,6 +272,11 @@ func (c *Chain) addPair(header *Header, entry Entry, i int) {
 
 // UnmarshalChain unserializes a chain from a reader
 func UnmarshalChain(reader io.Reader) (c *Chain, err error) {
+	defer func() {
+		if err != nil {
+			log.Debugf("error unmarshaling chain:%s", err.Error())
+		}
+	}()
 	c = NewChain()
 	var l, i uint64
 	err = binary.Read(reader, binary.LittleEndian, &l)

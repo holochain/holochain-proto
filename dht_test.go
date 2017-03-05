@@ -129,7 +129,7 @@ func TestSend(t *testing.T) {
 	hash, _ := NewHash("QmY8Mzg9F69e5P9AoQPYat655HEhc1TVGs11tmfNSzkqh2")
 
 	Convey("send GET_REQUEST message for non existent hash should get error", t, func() {
-		r, err := h.dht.send(node.HashAddr, GET_REQUEST, hash)
+		r, err := h.dht.send(node.HashAddr, GET_REQUEST, GetReq{H: hash})
 		So(r, ShouldBeNil)
 		So(err, ShouldEqual, ErrHashNotFound)
 	})
@@ -149,7 +149,7 @@ func TestSend(t *testing.T) {
 	})
 
 	Convey("after send PUT_REQUEST message queue should have the message in it", t, func() {
-		r, err := h.dht.send(node.HashAddr, PUT_REQUEST, hash)
+		r, err := h.dht.send(node.HashAddr, PUT_REQUEST, PutReq{H: hash})
 		So(err, ShouldBeNil)
 		So(r, ShouldEqual, "queued")
 		So(h.dht.Queue.Len(), ShouldEqual, 1)
@@ -157,12 +157,12 @@ func TestSend(t *testing.T) {
 		So(err, ShouldBeNil)
 		m := messages[0].(*Message)
 		So(m.Type, ShouldEqual, PUT_REQUEST)
-		hs := m.Body.(Hash)
-		So(hs.Equal(&hash), ShouldBeTrue)
+		pr := m.Body.(PutReq)
+		So(pr.H.Equal(&hash), ShouldBeTrue)
 	})
 
 	Convey("after a handled PUT_REQUEST data should be stored in DHT", t, func() {
-		r, err := h.dht.send(node.HashAddr, PUT_REQUEST, hash)
+		r, err := h.dht.send(node.HashAddr, PUT_REQUEST, PutReq{H: hash})
 		So(err, ShouldBeNil)
 		So(r, ShouldEqual, "queued")
 		h.dht.handlePutReqs()
@@ -171,7 +171,7 @@ func TestSend(t *testing.T) {
 	})
 
 	Convey("send GET_REQUEST message should return content", t, func() {
-		r, err := h.dht.send(node.HashAddr, GET_REQUEST, hash)
+		r, err := h.dht.send(node.HashAddr, GET_REQUEST, GetReq{H: hash})
 		So(err, ShouldBeNil)
 		So(fmt.Sprintf("%v", r), ShouldEqual, fmt.Sprintf("%v", &e))
 	})
@@ -184,13 +184,13 @@ func TestDHTReceiver(t *testing.T) {
 	Convey("PUT_REQUEST should fail if body isn't a hash", t, func() {
 		m := h.node.NewMessage(PUT_REQUEST, "fish")
 		_, err := DHTReceiver(h, m)
-		So(err.Error(), ShouldEqual, "expected hash")
+		So(err.Error(), ShouldEqual, ErrDHTExpectedPutReqInBody.Error())
 	})
 
 	Convey("PUTMETA_REQUEST should fail if body not a good put meta request", t, func() {
 		m := h.node.NewMessage(PUTMETA_REQUEST, "fish")
 		_, err := DHTReceiver(h, m)
-		So(err.Error(), ShouldEqual, "expected meta struct")
+		So(err.Error(), ShouldEqual, ErrDHTExpectedMetaReqInBody.Error())
 	})
 
 	hash, _ := NewHash("QmY8Mzg9F69e5P9AoQPYat655HEhc1TVGs11tmfNSzkqh2")
@@ -208,7 +208,7 @@ func TestDHTReceiver(t *testing.T) {
 	hash = hd.EntryLink
 
 	Convey("PUT_REQUEST should queue a valid message", t, func() {
-		m := h.node.NewMessage(PUT_REQUEST, hash)
+		m := h.node.NewMessage(PUT_REQUEST, PutReq{H: hash})
 		r, err := DHTReceiver(h, m)
 		So(err, ShouldBeNil)
 		So(r, ShouldEqual, "queued")
@@ -218,7 +218,7 @@ func TestDHTReceiver(t *testing.T) {
 		panic(err)
 	}
 	Convey("GET_REQUEST should return the value of the has", t, func() {
-		m := h.node.NewMessage(GET_REQUEST, hash)
+		m := h.node.NewMessage(GET_REQUEST, GetReq{H: hash})
 		r, err := DHTReceiver(h, m)
 		So(err, ShouldBeNil)
 		So(fmt.Sprintf("%v", r), ShouldEqual, fmt.Sprintf("%v", &e))
@@ -266,7 +266,7 @@ func TestHandlePutReqs(t *testing.T) {
 		panic(err)
 	}
 
-	m := h.node.NewMessage(PUT_REQUEST, hd.EntryLink)
+	m := h.node.NewMessage(PUT_REQUEST, PutReq{H: hd.EntryLink})
 	err = h.dht.Queue.Put(m)
 
 	Convey("handle put request should pull data from source and verify it", t, func() {

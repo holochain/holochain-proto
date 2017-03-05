@@ -15,8 +15,10 @@ import (
 	"strings"
 )
 
-var ErrDHTExpectedHashInBody error = errors.New("expected hash")
-var ErrDHTExpectedMetaInBody error = errors.New("expected meta struct")
+var ErrDHTExpectedGetReqInBody error = errors.New("expected get request")
+var ErrDHTExpectedPutReqInBody error = errors.New("expected put request")
+var ErrDHTExpectedMetaReqInBody error = errors.New("expected meta request")
+var ErrDHTExpectedMetaQueryInBody error = errors.New("expected meta query")
 
 // DHT struct holds the data necessary to run the distributed hash table
 type DHT struct {
@@ -33,7 +35,17 @@ type Meta struct {
 	V []byte // meta-data
 }
 
-// Meta holds a putMeta request
+// PutReq holds the data of a put request
+type PutReq struct {
+	H Hash
+}
+
+// GetReq holds the data of a put request
+type GetReq struct {
+	H Hash
+}
+
+// MetaReq holds a putMeta request
 type MetaReq struct {
 	O Hash   // original data on which to put the meta
 	M Hash   // hash of the meta-data
@@ -190,7 +202,7 @@ func (dht *DHT) SendPut(key Hash) (err error) {
 	if err != nil {
 		return
 	}
-	_, err = dht.send(n.HashAddr, PUT_REQUEST, key)
+	_, err = dht.send(n.HashAddr, PUT_REQUEST, PutReq{H: key})
 	return
 }
 
@@ -200,7 +212,7 @@ func (dht *DHT) SendGet(key Hash) (response interface{}, err error) {
 	if err != nil {
 		return
 	}
-	response, err = dht.send(n.HashAddr, GET_REQUEST, key)
+	response, err = dht.send(n.HashAddr, GET_REQUEST, GetReq{H: key})
 	return
 }
 
@@ -254,10 +266,10 @@ func (dht *DHT) handlePutReqs() (err error) {
 			m := r.(*Message)
 			from := r.(*Message).From
 			switch t := m.Body.(type) {
-			case Hash:
+			case PutReq:
 				log.Debugf("handling put: %v", m)
 				var r interface{}
-				r, err = dht.h.Send(SourceProtocol, from, SRC_VALIDATE, t, SrcReceiver)
+				r, err = dht.h.Send(SourceProtocol, from, SRC_VALIDATE, t.H, SrcReceiver)
 				if err != nil {
 					return
 				}
@@ -270,7 +282,7 @@ func (dht *DHT) handlePutReqs() (err error) {
 					entry := resp.Entry
 					b, err := entry.Marshal()
 					if err == nil {
-						err = dht.put(t, from, b)
+						err = dht.put(t.H, from, b)
 					}
 				}
 			case MetaReq:
@@ -301,20 +313,20 @@ func DHTReceiver(h *Holochain, m *Message) (response interface{}, err error) {
 	switch m.Type {
 	case PUT_REQUEST:
 		switch m.Body.(type) {
-		case Hash:
+		case PutReq:
 			err = h.dht.Queue.Put(m)
 			if err == nil {
 				response = "queued"
 			}
 		default:
-			err = ErrDHTExpectedHashInBody
+			err = ErrDHTExpectedPutReqInBody
 		}
 		return
 	case GET_REQUEST:
 		switch t := m.Body.(type) {
-		case Hash:
+		case GetReq:
 			var b []byte
-			b, err = h.dht.get(t)
+			b, err = h.dht.get(t.H)
 			if err == nil {
 				var e GobEntry
 				err = e.Unmarshal(b)
@@ -324,7 +336,7 @@ func DHTReceiver(h *Holochain, m *Message) (response interface{}, err error) {
 			}
 
 		default:
-			err = ErrDHTExpectedHashInBody
+			err = ErrDHTExpectedGetReqInBody
 		}
 		return
 	case PUTMETA_REQUEST:
@@ -339,14 +351,14 @@ func DHTReceiver(h *Holochain, m *Message) (response interface{}, err error) {
 			}
 
 		default:
-			err = ErrDHTExpectedMetaInBody
+			err = ErrDHTExpectedMetaReqInBody
 		}
 	case GETMETA_REQUEST:
 		switch t := m.Body.(type) {
 		case MetaQuery:
 			response, err = h.dht.getMeta(t.H, t.T)
 		default:
-			err = ErrDHTExpectedMetaInBody
+			err = ErrDHTExpectedMetaQueryInBody
 		}
 
 	default:

@@ -83,6 +83,10 @@ func Register(logger *logging.Logger) {
 	gob.Register(Header{})
 	gob.Register(KeyEntry{})
 	gob.Register(Hash{})
+	gob.Register(PutReq{})
+	gob.Register(GetReq{})
+	gob.Register(MetaReq{})
+	gob.Register(MetaQuery{})
 	RegisterBultinNucleii()
 	RegisterBultinPersisters()
 	log = logger

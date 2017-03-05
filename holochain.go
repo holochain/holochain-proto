@@ -15,6 +15,7 @@ import (
 	"github.com/boltdb/bolt"
 	"github.com/google/uuid"
 	ic "github.com/libp2p/go-libp2p-crypto"
+	peer "github.com/libp2p/go-libp2p-peer"
 	mh "github.com/multiformats/go-multihash"
 	"github.com/op/go-logging"
 	"io"
@@ -1235,6 +1236,8 @@ func (h *Holochain) GetProperty(prop string) (property string, err error) {
 			property = id.String()
 		}
 	} else if prop == AGENT_ID_PROPERTY {
+		property = peer.IDB58Encode(h.node.HashAddr)
+	} else if prop == AGENT_NAME_PROPERTY {
 		property = string(h.Agent().ID())
 	} else {
 		property = h.Properties[prop]

@@ -2,6 +2,7 @@ package holochain
 
 import (
 	"fmt"
+	peer "github.com/libp2p/go-libp2p-peer"
 	"github.com/robertkrimen/otto"
 	. "github.com/smartystreets/goconvey/convey"
 	"testing"
@@ -47,7 +48,12 @@ func TestNewJSNucleus(t *testing.T) {
 
 			_, err = z.Run(`property("` + AGENT_ID_PROPERTY + `")`)
 			So(err, ShouldBeNil)
-			aid := string(h.Agent().ID())
+			aid := peer.IDB58Encode(h.node.HashAddr)
+			So(z.lastResult.String(), ShouldEqual, aid)
+
+			_, err = z.Run(`property ("` + AGENT_NAME_PROPERTY + `")`)
+			So(err, ShouldBeNil)
+			aid = string(h.Agent().ID())
 			So(z.lastResult.String(), ShouldEqual, aid)
 
 		})

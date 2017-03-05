@@ -137,7 +137,7 @@ func (dht *DHT) get(key Hash) (data []byte, err error) {
 // putMeta associates a value with a stored hash
 // N.B. this function assumes that the data associated has been properly retrieved
 // and validated from the cource chain
-func (dht *DHT) putMeta(key Hash, metaKey Hash, metaType string, entry Entry) (err error) {
+func (dht *DHT) putMeta(key Hash, metaKey Hash, metaTag string, entry Entry) (err error) {
 	k := key.String()
 	err = dht.db.Update(func(tx *buntdb.Tx) error {
 		_, err := tx.Get("entry:" + k)
@@ -148,7 +148,7 @@ func (dht *DHT) putMeta(key Hash, metaKey Hash, metaType string, entry Entry) (e
 		var b []byte
 		b, err = entry.Marshal()
 		if err == nil {
-			_, _, err = tx.Set("meta:"+k+":"+mk+":"+metaType, string(b), nil)
+			_, _, err = tx.Set("meta:"+k+":"+mk+":"+metaTag, string(b), nil)
 		}
 		return err
 	})
@@ -165,7 +165,7 @@ func filter(ss []Meta, test func(*Meta) bool) (ret []Meta) {
 }
 
 // getMeta retrieves values associated with hashes
-func (dht *DHT) getMeta(key Hash, metaType string) (results []Entry, err error) {
+func (dht *DHT) getMeta(key Hash, metaTag string) (results []Entry, err error) {
 	k := key.String()
 	err = dht.db.View(func(tx *buntdb.Tx) error {
 		_, err := tx.Get("entry:" + k)
@@ -175,7 +175,7 @@ func (dht *DHT) getMeta(key Hash, metaType string) (results []Entry, err error) 
 		results = make([]Entry, 0)
 		err = tx.Ascend("meta", func(key, value string) bool {
 			x := strings.Split(key, ":")
-			if string(x[1]) == k && string(x[3]) == metaType {
+			if string(x[1]) == k && string(x[3]) == metaTag {
 				var entry GobEntry
 				err := entry.Unmarshal([]byte(value))
 				if err != nil {
@@ -186,7 +186,7 @@ func (dht *DHT) getMeta(key Hash, metaType string) (results []Entry, err error) 
 			return true
 		})
 		if len(results) == 0 {
-			err = fmt.Errorf("No values for %s", metaType)
+			err = fmt.Errorf("No values for %s", metaTag)
 		}
 		return err
 	})
@@ -274,8 +274,8 @@ func (dht *DHT) handlePutReqs() (err error) {
 					return
 				}
 				resp := r.(*ValidateResponse)
-
-				err = dht.h.ValidateEntry(resp.Type, resp.Entry, "")
+				p := ValidationProps{}
+				err = dht.h.ValidateEntry(resp.Type, resp.Entry, &p)
 				if err != nil {
 					//@todo store as INVALID
 				} else {
@@ -293,7 +293,8 @@ func (dht *DHT) handlePutReqs() (err error) {
 					return
 				}
 				resp := r.(*ValidateResponse)
-				err = dht.h.ValidateEntry(resp.Type, resp.Entry, t.T)
+				p := ValidationProps{MetaTag: t.T}
+				err = dht.h.ValidateEntry(resp.Type, resp.Entry, &p)
 				if err != nil {
 					//@todo store as INVALID
 				} else {

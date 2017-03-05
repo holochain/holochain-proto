@@ -10,6 +10,7 @@ import (
 	"errors"
 	"fmt"
 	zygo "github.com/glycerine/zygomys/repl"
+	peer "github.com/libp2p/go-libp2p-peer"
 	"math"
 	"strconv"
 	"strings"
@@ -58,7 +59,7 @@ func (z *ZygoNucleus) InitChain() (err error) {
 }
 
 // ValidateEntry checks the contents of an entry against the validation rules
-func (z *ZygoNucleus) ValidateEntry(d *EntryDef, entry Entry, meta string) (err error) {
+func (z *ZygoNucleus) ValidateEntry(d *EntryDef, entry Entry, props *ValidationProps) (err error) {
 	c := entry.Content().(string)
 	// @todo handle JSON if schema type is different
 	var e string
@@ -73,7 +74,15 @@ func (z *ZygoNucleus) ValidateEntry(d *EntryDef, entry Entry, meta string) (err 
 		err = errors.New("data format not implemented: " + d.DataFormat)
 		return
 	}
-	err = z.env.LoadString(fmt.Sprintf(`(validate "%s" %s "%s")`, d.Name, e, meta))
+	// @TODO this is a quick way to build an object from the props structure, but it's
+	// expensive, we should just build the Javascript directly and not make the VM parse it
+	var b []byte
+	b, err = json.Marshal(props)
+	if err != nil {
+		return
+	}
+	s := sanitizeString(string(b))
+	err = z.env.LoadString(fmt.Sprintf(`(validate "%s" %s (unjson (raw "%s")))`, d.Name, e, s))
 	if err != nil {
 		return
 	}
@@ -204,7 +213,7 @@ func (z *ZygoNucleus) put(env *zygo.Glisp, h *Holochain, hash string) (result *z
 }
 
 // putmeta exposes DHTPutMeta to zygo
-func (z *ZygoNucleus) putmeta(env *zygo.Glisp, h *Holochain, hash string, metahash string, metatype string) (result *zygo.SexpHash, err error) {
+func (z *ZygoNucleus) putmeta(env *zygo.Glisp, h *Holochain, hash string, metaHash string, metaTag string) (result *zygo.SexpHash, err error) {
 	result, err = zygo.MakeHash(nil, "hash", env)
 	if err != nil {
 		return nil, err
@@ -214,13 +223,13 @@ func (z *ZygoNucleus) putmeta(env *zygo.Glisp, h *Holochain, hash string, metaha
 	if err != nil {
 		return
 	}
-	var metakey Hash
-	metakey, err = NewHash(metahash)
+	var metaKey Hash
+	metaKey, err = NewHash(metaHash)
 	if err != nil {
 		return
 	}
 
-	err = h.dht.SendPutMeta(MetaReq{O: key, M: metakey, T: metatype})
+	err = h.dht.SendPutMeta(MetaReq{O: key, M: metaKey, T: metaTag})
 	if err != nil {
 		err = result.HashSet(env.MakeSymbol("error"), &zygo.SexpStr{S: err.Error()})
 	} else {
@@ -261,7 +270,7 @@ func (z *ZygoNucleus) get(env *zygo.Glisp, h *Holochain, hash string) (result *z
 }
 
 // getmeta exposes GetPutMeta to zygo
-func (z *ZygoNucleus) getmeta(env *zygo.Glisp, h *Holochain, metahash string, metatype string) (result *zygo.SexpHash, err error) {
+func (z *ZygoNucleus) getmeta(env *zygo.Glisp, h *Holochain, metahash string, metaTag string) (result *zygo.SexpHash, err error) {
 	result, err = zygo.MakeHash(nil, "hash", env)
 	if err != nil {
 		return nil, err
@@ -273,7 +282,7 @@ func (z *ZygoNucleus) getmeta(env *zygo.Glisp, h *Holochain, metahash string, me
 		return
 	}
 
-	response, err := h.dht.SendGetMeta(MetaQuery{H: metakey, T: metatype})
+	response, err := h.dht.SendGetMeta(MetaQuery{H: metakey, T: metaTag})
 	if err == nil {
 		switch t := response.(type) {
 		case []Entry:
@@ -382,7 +391,8 @@ func NewZygoNucleus(h *Holochain, code string) (n Nucleus, err error) {
 					errors.New("2nd argument of commit should be string or hash")
 			}
 
-			err = h.ValidateEntry(entryType, &GobEntry{C: entry}, "")
+			p := ValidationProps{Sources: []string{peer.IDB58Encode(h.node.HashAddr)}}
+			err = h.ValidateEntry(entryType, &GobEntry{C: entry}, &p)
 			var headerHash Hash
 			if err == nil {
 				e := GobEntry{C: entry}

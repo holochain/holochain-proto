@@ -82,28 +82,29 @@ func TestZygoInit(t *testing.T) {
 }
 
 func TestZygoValidateEntry(t *testing.T) {
+	p := ValidationProps{}
 	Convey("should run an entry value against the defined validator for string data", t, func() {
 		v, err := NewZygoNucleus(nil, `(defn validate [name entry meta] (cond (== entry "fish") true false))`)
 		d := EntryDef{Name: "myData", DataFormat: "string"}
-		err = v.ValidateEntry(&d, &GobEntry{C: "cow"}, "")
+		err = v.ValidateEntry(&d, &GobEntry{C: "cow"}, &p)
 		So(err.Error(), ShouldEqual, "Invalid entry: cow")
-		err = v.ValidateEntry(&d, &GobEntry{C: "fish"}, "")
+		err = v.ValidateEntry(&d, &GobEntry{C: "fish"}, &p)
 		So(err, ShouldBeNil)
 	})
 	Convey("should run an entry value against the defined validator for zygo data", t, func() {
 		v, err := NewZygoNucleus(nil, `(defn validate [name entry meta] (cond (== entry "fish") true false))`)
 		d := EntryDef{Name: "myData", DataFormat: "zygo"}
-		err = v.ValidateEntry(&d, &GobEntry{C: "\"cow\""}, "")
+		err = v.ValidateEntry(&d, &GobEntry{C: "\"cow\""}, &p)
 		So(err.Error(), ShouldEqual, "Invalid entry: \"cow\"")
-		err = v.ValidateEntry(&d, &GobEntry{C: "\"fish\""}, "")
+		err = v.ValidateEntry(&d, &GobEntry{C: "\"fish\""}, &p)
 		So(err, ShouldBeNil)
 	})
 	Convey("should run an entry value against the defined validator for json data", t, func() {
 		v, err := NewZygoNucleus(nil, `(defn validate [name entry meta] (cond (== (hget entry data:) "fish") true false))`)
 		d := EntryDef{Name: "myData", DataFormat: "JSON"}
-		err = v.ValidateEntry(&d, &GobEntry{C: `{"data":"cow"}`}, "")
+		err = v.ValidateEntry(&d, &GobEntry{C: `{"data":"cow"}`}, &p)
 		So(err.Error(), ShouldEqual, `Invalid entry: {"data":"cow"}`)
-		err = v.ValidateEntry(&d, &GobEntry{C: `{"data":"fish"}`}, "")
+		err = v.ValidateEntry(&d, &GobEntry{C: `{"data":"fish"}`}, &p)
 		So(err, ShouldBeNil)
 	})
 }
@@ -195,7 +196,7 @@ func TestZygoDHT(t *testing.T) {
 	//b, _ := e.Marshal()
 
 	Convey("it should have a putmeta function", t, func() {
-		v, err := NewZygoNucleus(h, fmt.Sprintf(`(putmeta "%s" "%s" "myMetaType")`, hash.String(), metaHash.String()))
+		v, err := NewZygoNucleus(h, fmt.Sprintf(`(putmeta "%s" "%s" "myMetaTag")`, hash.String(), metaHash.String()))
 		So(err, ShouldBeNil)
 		z := v.(*ZygoNucleus)
 		r, err := z.lastResult.(*zygo.SexpHash).HashGet(z.env, z.env.MakeSymbol("result"))
@@ -208,7 +209,7 @@ func TestZygoDHT(t *testing.T) {
 	}
 
 	Convey("it should have a getmeta function", t, func() {
-		v, err := NewZygoNucleus(h, fmt.Sprintf(`(getmeta "%s" "myMetaType")`, hash.String()))
+		v, err := NewZygoNucleus(h, fmt.Sprintf(`(getmeta "%s" "myMetaTag")`, hash.String()))
 		So(err, ShouldBeNil)
 		z := v.(*ZygoNucleus)
 		r, err := z.lastResult.(*zygo.SexpHash).HashGet(z.env, z.env.MakeSymbol("result"))

@@ -196,7 +196,7 @@ func TestDHTReceiver(t *testing.T) {
 	hash, _ := NewHash("QmY8Mzg9F69e5P9AoQPYat655HEhc1TVGs11tmfNSzkqh2")
 
 	Convey("PUTMETA_REQUEST should fail if hash doesn't exist", t, func() {
-		me := MetaReq{O: hash, M: hash, T: "myMetaType"}
+		me := MetaReq{O: hash, M: hash, T: "myMetaTag"}
 		m := h.node.NewMessage(PUTMETA_REQUEST, me)
 		_, err := DHTReceiver(h, m)
 		So(err.Error(), ShouldEqual, "hash not found")
@@ -228,7 +228,7 @@ func TestDHTReceiver(t *testing.T) {
 	e = GobEntry{C: someData}
 	_, hd, _ = h.NewEntry(now, "profile", &e)
 	Convey("PUTMETA_REQUEST should store meta values", t, func() {
-		me := MetaReq{O: hash, M: hd.EntryLink, T: "myMetaType"}
+		me := MetaReq{O: hash, M: hd.EntryLink, T: "myMetaTag"}
 		m := h.node.NewMessage(PUTMETA_REQUEST, me)
 		r, err := DHTReceiver(h, m)
 		So(err, ShouldBeNil)
@@ -239,13 +239,13 @@ func TestDHTReceiver(t *testing.T) {
 		So(err, ShouldBeNil)
 
 		// check that it got put
-		meta, err := h.dht.getMeta(hash, "myMetaType")
+		meta, err := h.dht.getMeta(hash, "myMetaTag")
 		So(err, ShouldBeNil)
 		So(meta[0].Content(), ShouldEqual, someData)
 	})
 
 	Convey("GETMETA_REQUEST should retrieve meta values", t, func() {
-		mq := MetaQuery{H: hash, T: "myMetaType"}
+		mq := MetaQuery{H: hash, T: "myMetaTag"}
 		m := h.node.NewMessage(GETMETA_REQUEST, mq)
 		r, err := DHTReceiver(h, m)
 		So(err, ShouldBeNil)

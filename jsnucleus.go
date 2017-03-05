@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	peer "github.com/libp2p/go-libp2p-peer"
 	"github.com/robertkrimen/otto"
 	_ "math"
 	"time"
@@ -55,7 +56,7 @@ func (z *JSNucleus) InitChain() (err error) {
 
 // ValidateEntry checks the contents of an entry against the validation rules
 // this is the zgo implementation
-func (z *JSNucleus) ValidateEntry(d *EntryDef, entry Entry, meta string) (err error) {
+func (z *JSNucleus) ValidateEntry(d *EntryDef, entry Entry, props *ValidationProps) (err error) {
 	c := entry.Content().(string)
 	var e string
 	switch d.DataFormat {
@@ -69,7 +70,15 @@ func (z *JSNucleus) ValidateEntry(d *EntryDef, entry Entry, meta string) (err er
 		err = errors.New("data format not implemented: " + d.DataFormat)
 		return
 	}
-	v, err := z.vm.Run(fmt.Sprintf(`validate("%s",%s,"%s")`, d.Name, e, meta))
+
+	// @TODO this is a quick way to build an object from the props structure, but it's
+	// expensive, we should just build the Javascript directly and not make the VM parse it
+	var b []byte
+	b, err = json.Marshal(props)
+	if err != nil {
+		return
+	}
+	v, err := z.vm.Run(fmt.Sprintf(`validate("%s",%s,JSON.parse("%s"))`, d.Name, e, sanitizeString(string(b))))
 	if err != nil {
 		err = fmt.Errorf("Error executing validate: %v", err)
 		return
@@ -203,7 +212,8 @@ func NewJSNucleus(h *Holochain, code string) (n Nucleus, err error) {
 		} else {
 			return z.vm.MakeCustomError("HolochainError", "commit expected string as second argument")
 		}
-		err = h.ValidateEntry(entryType, &GobEntry{C: entry}, "")
+		p := ValidationProps{Sources: []string{peer.IDB58Encode(h.node.HashAddr)}}
+		err = h.ValidateEntry(entryType, &GobEntry{C: entry}, &p)
 		var headerHash Hash
 
 		if err == nil {

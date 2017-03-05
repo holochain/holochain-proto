@@ -9,6 +9,7 @@ package holochain
 import (
 	"errors"
 	"fmt"
+	//peer "gx/ipfs/QmZcUPvPhD1Xvk6mwijYF8AfR3mG31S1YsEfHG4khrFPRr/go-libp2p-peer"
 	"sort"
 	"strings"
 )
@@ -33,10 +34,18 @@ type Interface struct {
 	Schema InterfaceSchemaType
 }
 
+// ValidationProps holds the properties passed to the application validation routine
+// This includes the Headers and Sources
+type ValidationProps struct {
+	Sources []string // B58 encoded peer
+	Headers []Header
+	MetaTag string // if validating a putMeta this will have the meta type set
+}
+
 // Nucleus type abstracts the functions of code execution environments
 type Nucleus interface {
 	Type() string
-	ValidateEntry(def *EntryDef, entry Entry, meta string) error
+	ValidateEntry(def *EntryDef, entry Entry, props *ValidationProps) error
 	InitChain() error
 	expose(iface Interface) error
 	Interfaces() (i []Interface)

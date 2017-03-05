@@ -371,38 +371,39 @@ func TestValidateEntry(t *testing.T) {
 	defer cleanupTestDir(d)
 	var err error
 
+	p := ValidationProps{}
 	Convey("it should fail if a validator doesn't exist for the entry type", t, func() {
 		hdr := mkTestHeader("bogusType")
 		myData := "2"
-		err = h.ValidateEntry(hdr.Type, &GobEntry{C: myData}, "")
+		err = h.ValidateEntry(hdr.Type, &GobEntry{C: myData}, &p)
 		So(err.Error(), ShouldEqual, "no definition for entry type: bogusType")
 	})
 
 	Convey("a nil entry is invalid", t, func() {
 		hdr := mkTestHeader("myData")
-		err = h.ValidateEntry(hdr.Type, nil, "")
+		err = h.ValidateEntry(hdr.Type, nil, &p)
 		So(err.Error(), ShouldEqual, "nil entry invalid")
 	})
 	Convey("a valid entry validates", t, func() {
 		hdr := mkTestHeader("myData")
 		myData := "2" //`(message (from "art") (to "eric") (contents "test"))`
-		err = h.ValidateEntry(hdr.Type, &GobEntry{C: myData}, "")
+		err = h.ValidateEntry(hdr.Type, &GobEntry{C: myData}, &p)
 		So(err, ShouldBeNil)
 	})
 	Convey("an invalid entry doesn't validate", t, func() {
 		hdr := mkTestHeader("myData")
 		myData := "1" //`(message (from "art") (to "eric") (contents "test"))`
-		err = h.ValidateEntry(hdr.Type, &GobEntry{C: myData}, "")
+		err = h.ValidateEntry(hdr.Type, &GobEntry{C: myData}, &p)
 		So(err.Error(), ShouldEqual, "Invalid entry: 1")
 	})
 	Convey("validate on a schema based entry should check entry against the schema", t, func() {
 		hdr := mkTestHeader("profile")
 		profile := `{"firstName":"Eric","lastName":"H-B"}`
-		err = h.ValidateEntry(hdr.Type, &GobEntry{C: profile}, "")
+		err = h.ValidateEntry(hdr.Type, &GobEntry{C: profile}, &p)
 		So(err, ShouldBeNil)
 		h.Prepare()
 		profile = `{"firstName":"Eric"}` // missing required lastName
-		err = h.ValidateEntry(hdr.Type, &GobEntry{C: profile}, "")
+		err = h.ValidateEntry(hdr.Type, &GobEntry{C: profile}, &p)
 		So(err, ShouldNotBeNil)
 		So(err.Error(), ShouldEqual, "validator schema_profile.json failed: object property 'lastName' is required")
 	})
@@ -426,7 +427,7 @@ func TestMakeNucleus(t *testing.T) {
 }
 
 func TestCall(t *testing.T) {
-	d, _, h := setupTestChain("test")
+	d, _, h := prepareTestChain("test")
 	defer cleanupTestDir(d)
 	Convey("it should call the exposed function", t, func() {
 		result, err := h.Call("myZome", "exposedfn", "arg1 arg2")

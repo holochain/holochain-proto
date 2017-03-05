@@ -701,7 +701,7 @@ func (s *Service) GenDev(path string, format string) (hP *Holochain, err error) 
 (defn addData [x] (commit "myData" x))
 (expose "addPrime" JSON)
 (defn addPrime [x] (commit "primes" x))
-(defn validate [entryType entry meta]
+(defn validate [entryType entry props]
   (cond (== entryType "myData")  (cond (== (mod entry 2) 0) true false)
         (== entryType "primes")  (isprime (hget entry %prime))
         (== entryType "profile") true
@@ -716,7 +716,7 @@ expose("addOdd",HC.STRING);
 function addOdd(x) {return commit("myOdds",x);}
 expose("addProfile",HC.JSON);
 function addProfile(x) {return commit("profile",x);}
-function validate(entry_type,entry,meta) {
+function validate(entry_type,entry,props) {
 if (entry_type=="myOdds") {
   return entry%2 != 0
 }
@@ -1037,7 +1037,7 @@ func (h *Holochain) GetEntryDef(t string) (zome *Zome, d *EntryDef, err error) {
 
 // ValidateEntry passes an entry data to the chain's validation routine
 // If the entry is valid err will be nil, otherwise it will contain some information about why the validation failed (or, possibly, some other system error)
-func (h *Holochain) ValidateEntry(entryType string, entry Entry, meta string) (err error) {
+func (h *Holochain) ValidateEntry(entryType string, entry Entry, props *ValidationProps) (err error) {
 
 	if entry == nil {
 		return errors.New("nil entry invalid")
@@ -1068,7 +1068,7 @@ func (h *Holochain) ValidateEntry(entryType string, entry Entry, meta string) (e
 	if err != nil {
 		return
 	}
-	err = n.ValidateEntry(d, entry, meta)
+	err = n.ValidateEntry(d, entry, props)
 	return
 }
 

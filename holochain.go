@@ -1152,6 +1152,7 @@ func (h *Holochain) Test() error {
 		}
 	}
 
+	var lastResults [3]interface{}
 	for name, ts := range tests {
 		log.Debugf("Test: %s starting...", name)
 		for i, t := range ts {
@@ -1159,9 +1160,18 @@ func (h *Holochain) Test() error {
 			_, err = h.GenChain()
 			if err == nil {
 				testID := fmt.Sprintf("%s:%d", name, i)
+				input := t.Input
+				log.Debugf("Input before replacement: %s", input)
+				input = strings.Replace(input, "%r1%", strings.Trim(fmt.Sprintf("%v", lastResults[0]), "\""), -1)
+				input = strings.Replace(input, "%r2%", strings.Trim(fmt.Sprintf("%v", lastResults[1]), "\""), -1)
+				input = strings.Replace(input, "%r3%", strings.Trim(fmt.Sprintf("%v", lastResults[2]), "\""), -1)
+				log.Debugf("Input after replacement: %s", input)
 				var result interface{}
-				result, err = h.Call(t.Zome, t.FnName, t.Input)
+				result, err = h.Call(t.Zome, t.FnName, input)
 				log.Debugf("Test: %s result:%v, Err:%v", testID, result, err)
+				lastResults[2] = lastResults[1]
+				lastResults[1] = lastResults[0]
+				lastResults[0] = result
 				if t.Err != "" {
 					log.Debugf("Test: %s expecting error %v", testID, t.Err)
 					if err == nil {

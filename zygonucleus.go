@@ -312,6 +312,27 @@ func NewZygoNucleus(h *Holochain, code string) (n Nucleus, err error) {
 	addExtras(&z)
 
 	// use a closure so that the registered zygo function can call Expose on the correct ZygoNucleus obj
+
+	z.env.AddFunction("debug",
+		func(env *zygo.Glisp, name string, args []zygo.Sexp) (zygo.Sexp, error) {
+			if len(args) != 1 {
+				return zygo.SexpNull, zygo.WrongNargs
+			}
+
+			var msg string
+
+			switch t := args[0].(type) {
+			case *zygo.SexpStr:
+				msg = t.S
+			default:
+				return zygo.SexpNull,
+					errors.New("argument of debug should be string")
+			}
+
+			log.Debug(msg)
+			return zygo.SexpNull, err
+		})
+
 	z.env.AddFunction("expose",
 		func(env *zygo.Glisp, name string, args []zygo.Sexp) (zygo.Sexp, error) {
 			if len(args) != 2 {

@@ -26,6 +26,7 @@ type DHT struct {
 	h     *Holochain // pointer to the holochain this DHT is part of
 	Queue q.Queue    // a queue for incoming puts
 	db    *buntdb.DB
+	alive bool
 }
 
 // Meta holds data that can be associated with a hash
@@ -90,6 +91,18 @@ func NewDHT(h *Holochain) *DHT {
 
 	dht.db = db
 	return &dht
+}
+
+// SetupDHT prepares a DHT for use by adding the holochain's ID
+func (dht *DHT) SetupDHT() (err error) {
+	var ID Hash
+	ID, err = dht.h.ID()
+	if err != nil {
+		return
+	}
+	x := ""
+	err = dht.put(ID, dht.h.id, []byte(x), LIVE)
+	return
 }
 
 // put stores a value to the DHT store
@@ -336,6 +349,7 @@ func (dht *DHT) handlePutReqs() (err error) {
 
 // DHTReceiver handles messages on the dht protocol
 func DHTReceiver(h *Holochain, m *Message) (response interface{}, err error) {
+	log.Debug("DHTRecevier got: %v", m)
 	switch m.Type {
 	case PUT_REQUEST:
 		switch m.Body.(type) {
@@ -400,6 +414,18 @@ func (dht *DHT) StartDHT() (err error) {
 		e := dht.h.BSget()
 		if e != nil {
 			log.Infof("error in BSget: %s", e.Error())
+		}
+	}
+	return
+}
+
+// HandlePutReqs is suitable for running in a loop in a separate go routine
+func (dht *DHT) HandlePutReqs() (err error) {
+	dht.alive = true
+	for dht.alive {
+		e := dht.handlePutReqs()
+		if e != nil {
+			log.Debugf("HandPutReq got err: %v", e)
 		}
 	}
 	return

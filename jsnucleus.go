@@ -217,7 +217,7 @@ func NewJSNucleus(h *Holochain, code string) (n Nucleus, err error) {
 		} else {
 			return z.vm.MakeCustomError("HolochainError", "commit expected string as second argument")
 		}
-		p := ValidationProps{Sources: []string{peer.IDB58Encode(h.node.HashAddr)}}
+		p := ValidationProps{Sources: []string{peer.IDB58Encode(h.id)}}
 		err = h.ValidateEntry(entryType, &GobEntry{C: entry}, &p)
 		var headerHash Hash
 

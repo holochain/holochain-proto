@@ -1185,8 +1185,12 @@ func (h *Holochain) Test() error {
 
 	var lastResults [3]interface{}
 	for name, ts := range tests {
+		log.Debugf("===========================")
 		log.Debugf("Test: %s starting...", name)
+		log.Debugf("===========================")
 		for i, t := range ts {
+			log.Debugf("Test line %d: %s", i, t)
+			log.Debugf("-------------------------")
 			// setup the genesis entries
 			_, err = h.GenChain()
 			go h.HandlePutReqs()

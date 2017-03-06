@@ -711,6 +711,7 @@ func (s *Service) GenDev(path string, format string) (hP *Holochain, err error) 
     </select>
     <select id="fn" name="fn">
       <option value="addData">addData</option>
+      <option value="getProperty">getProperty</option>
     </select>
     <input id="data" name="data">
     <button onclick="send();">Send</button>
@@ -731,6 +732,8 @@ func (s *Service) GenDev(path string, format string) (hP *Holochain, err error) 
 
 		code := make(map[string]string)
 		code["myZome"] = `
+(expose "getProperty" STRING)
+(defn getProperty [x] (property x))
 (expose "exposedfn" STRING)
 (defn exposedfn [x] (concat "result: " x))
 (expose "addData" STRING)

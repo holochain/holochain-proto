@@ -109,6 +109,7 @@ func TestGenDev(t *testing.T) {
 
 		So(fileExists(h.path+"/schema_profile.json"), ShouldBeTrue)
 		So(fileExists(h.path+"/ui/index.html"), ShouldBeTrue)
+		So(fileExists(h.path+"/ui/hc.js"), ShouldBeTrue)
 		So(fileExists(h.path+"/"+ConfigFileName+".json"), ShouldBeTrue)
 
 		Convey("we should not be able re generate it", func() {

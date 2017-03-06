@@ -683,51 +683,14 @@ func (s *Service) GenDev(path string, format string) (hP *Holochain, err error) 
 				Err:    "Invalid entry: 2"},
 		}
 
-		ui := `
-<html>
-  <head>
-    <title>Test</title>
-    <script type="text/javascript" src="http://code.jquery.com/jquery-latest.js"></script>
-    <script type="text/javascript">
-     function send() {
-         $.post(
-             "/fn/"+$('select[name=zome]').val()+"/"+$('select[name=fn]').val(),
-             $('#data').val(),
-             function(data) {
-                 $("#result").html("result:"+data)
-                 $("#err").html("")
-             }
-         ).error(function(response) {
-             $("#err").html(response.responseText)
-             $("#result").html("")
-         })
-         ;
-     };
-    </script>
-  </head>
-  <body>
-    <select id="zome" name="zome">
-      <option value="myZome">myZome</option>
-    </select>
-    <select id="fn" name="fn">
-      <option value="addData">addData</option>
-      <option value="getProperty">getProperty</option>
-    </select>
-    <input id="data" name="data">
-    <button onclick="send();">Send</button>
-    send an even number and get back a hash, send and odd end get a error
-
-    <div id="result"></div>
-    <div id="err"></div>
-  </body>
-</html>
-`
 		uiPath := path + "/ui"
 		if err = os.MkdirAll(uiPath, os.ModePerm); err != nil {
 			return nil, err
 		}
-		if err = writeFile(uiPath, "index.html", []byte(ui)); err != nil {
-			return
+		for fileName, fileText := range SampleUI {
+			if err = writeFile(uiPath, fileName, []byte(fileText)); err != nil {
+				return
+			}
 		}
 
 		code := make(map[string]string)
@@ -1240,15 +1203,7 @@ func (h *Holochain) Test() error {
 				}
 			}
 			// restore the state for the next test file
-			e := h.store.Remove()
-			if e != nil {
-				panic(e)
-			}
-			e = h.store.Init()
-			if e != nil {
-				panic(e)
-			}
-			e = os.RemoveAll(h.path + "/" + StoreFileName + ".dat")
+			e := h.Reset()
 			if e != nil {
 				panic(e)
 			}
@@ -1278,5 +1233,20 @@ func (h *Holochain) GetProperty(prop string) (property string, err error) {
 	} else {
 		property = h.Properties[prop]
 	}
+	return
+}
+
+// reset deletes all chain data
+func (h *Holochain) Reset() (err error) {
+	err = h.store.Remove()
+	if err != nil {
+		return
+	}
+	err = h.store.Init()
+	if err != nil {
+		panic(err)
+	}
+	//	h.chain.s.Close()
+	err = os.RemoveAll(h.path + "/" + StoreFileName + ".dat")
 	return
 }

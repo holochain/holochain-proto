@@ -169,6 +169,10 @@ func setupApp() (app *cli.App) {
 						if err != nil {
 							return err
 						}
+						err = h.Activate()
+						if err != nil {
+							return err
+						}
 						_, err = h.GenChain()
 						if err != nil {
 							return err

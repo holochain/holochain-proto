@@ -391,18 +391,18 @@ func NewZygoNucleus(h *Holochain, code string) (n Nucleus, err error) {
 					errors.New("2nd argument of commit should be string or hash")
 			}
 
-			p := ValidationProps{Sources: []string{peer.IDB58Encode(h.node.HashAddr)}}
+			p := ValidationProps{Sources: []string{peer.IDB58Encode(h.id)}}
 			err = h.ValidateEntry(entryType, &GobEntry{C: entry}, &p)
-			var headerHash Hash
+			var header *Header
 			if err == nil {
 				e := GobEntry{C: entry}
-				headerHash, _, err = h.NewEntry(time.Now(), entryType, &e)
+				_, header, err = h.NewEntry(time.Now(), entryType, &e)
 
 			}
 			if err != nil {
 				return zygo.SexpNull, err
 			}
-			var result = zygo.SexpStr{S: headerHash.String()}
+			var result = zygo.SexpStr{S: header.EntryLink.String()}
 			return &result, nil
 		})
 

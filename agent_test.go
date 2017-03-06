@@ -9,7 +9,7 @@ import (
 func TestAgent(t *testing.T) {
 	d := setupTestDir()
 	defer cleanupTestDir(d)
-	a := AgentID("zippy@someemail.com")
+	a := AgentName("zippy@someemail.com")
 
 	Convey("it should fail to create an agent with an unknown key type", t, func() {
 		_, err := NewAgent(99, a)
@@ -22,7 +22,7 @@ func TestAgent(t *testing.T) {
 		So(err, ShouldBeNil)
 		a2, err := LoadAgent(d)
 		So(err, ShouldBeNil)
-		So(a2.ID(), ShouldEqual, a1.ID())
+		So(a2.Name(), ShouldEqual, a1.Name())
 		So(ic.KeyEqual(a1.PrivKey(), a2.PrivKey()), ShouldBeTrue)
 
 	})

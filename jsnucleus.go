@@ -184,6 +184,12 @@ func NewJSNucleus(h *Holochain, code string) (n Nucleus, err error) {
 		return nil, err
 	}
 
+	err = z.vm.Set("debug", func(call otto.FunctionCall) otto.Value {
+		msg, _ := call.Argument(0).ToString()
+		log.Debug(msg)
+		return otto.UndefinedValue()
+	})
+
 	err = z.vm.Set("expose", func(call otto.FunctionCall) otto.Value {
 		fnName, _ := call.Argument(0).ToString()
 		schema, _ := call.Argument(1).ToInteger()
@@ -211,19 +217,19 @@ func NewJSNucleus(h *Holochain, code string) (n Nucleus, err error) {
 		} else {
 			return z.vm.MakeCustomError("HolochainError", "commit expected string as second argument")
 		}
-		p := ValidationProps{Sources: []string{peer.IDB58Encode(h.node.HashAddr)}}
+		p := ValidationProps{Sources: []string{peer.IDB58Encode(h.id)}}
 		err = h.ValidateEntry(entryType, &GobEntry{C: entry}, &p)
-		var headerHash Hash
+		var header *Header
 
 		if err == nil {
 			e := GobEntry{C: entry}
-			headerHash, _, err = h.NewEntry(time.Now(), entryType, &e)
+			_, header, err = h.NewEntry(time.Now(), entryType, &e)
 		}
 		if err != nil {
 			return z.vm.MakeCustomError("HolochainError", err.Error())
 		}
 
-		result, _ := z.vm.ToValue(headerHash.String())
+		result, _ := z.vm.ToValue(header.EntryLink.String())
 		return result
 	})
 	if err != nil {

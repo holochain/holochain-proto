@@ -20,11 +20,24 @@ func TestNewDHT(t *testing.T) {
 	})
 }
 
+func TestSetupDHT(t *testing.T) {
+	d, _, h := prepareTestChain("test")
+	defer cleanupTestDir(d)
+
+	err := h.dht.SetupDHT()
+	Convey("it should add the holochain ID to the DHT", t, func() {
+		So(err, ShouldBeNil)
+		ID, _ := h.ID()
+		So(h.dht.exists(ID), ShouldBeNil)
+	})
+}
+
 func TestPutGet(t *testing.T) {
 	d, _, h := prepareTestChain("test")
 	defer cleanupTestDir(d)
+
 	dht := h.dht
-	var id peer.ID = h.node.HashAddr
+	var id peer.ID = h.id
 	Convey("It should store and retrieve", t, func() {
 		hash, _ := NewHash("QmY8Mzg9F69e5P9AoQPYat655HEhc1TVGs11tmfNSzkqh2")
 		err := dht.put(hash, id, []byte("some value"), LIVE)
@@ -109,14 +122,13 @@ func TestFindNodeForHash(t *testing.T) {
 
 		// for now the node it finds is ourself for any hash because we haven't implemented
 		// anything about neighborhoods or other nodes...
-		self := h.node.HashAddr
 		hash, err := NewHash("QmY8Mzg9F69e5P9AoQPYat655HEhc1TVGs11tmfNSzkqh2")
 		if err != nil {
 			panic(err)
 		}
 		node, err := h.dht.FindNodeForHash(hash)
 		So(err, ShouldBeNil)
-		So(node.HashAddr.Pretty(), ShouldEqual, self.Pretty())
+		So(node.HashAddr.Pretty(), ShouldEqual, h.id.Pretty())
 	})
 }
 
@@ -124,7 +136,7 @@ func TestSend(t *testing.T) {
 	d, _, h := prepareTestChain("test")
 	defer cleanupTestDir(d)
 
-	node, err := NewNode("/ip4/127.0.0.1/tcp/1234", h.Agent().PrivKey())
+	node, err := NewNode("/ip4/127.0.0.1/tcp/1234", h.id, h.Agent().PrivKey())
 	if err != nil {
 		panic(err)
 	}

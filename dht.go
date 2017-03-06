@@ -26,6 +26,7 @@ type DHT struct {
 	h     *Holochain // pointer to the holochain this DHT is part of
 	Queue q.Queue    // a queue for incoming puts
 	db    *buntdb.DB
+	alive bool
 }
 
 // Meta holds data that can be associated with a hash
@@ -90,6 +91,18 @@ func NewDHT(h *Holochain) *DHT {
 
 	dht.db = db
 	return &dht
+}
+
+// SetupDHT prepares a DHT for use by adding the holochain's ID
+func (dht *DHT) SetupDHT() (err error) {
+	var ID Hash
+	ID, err = dht.h.ID()
+	if err != nil {
+		return
+	}
+	x := ""
+	err = dht.put(ID, dht.h.id, []byte(x), LIVE)
+	return
 }
 
 // put stores a value to the DHT store
@@ -338,6 +351,7 @@ func (dht *DHT) handlePutReqs() (err error) {
 func DHTReceiver(h *Holochain, m *Message) (response interface{}, err error) {
 	switch m.Type {
 	case PUT_REQUEST:
+		log.Debug("DHTRecevier got PUT_REQUEST: %v", m)
 		switch m.Body.(type) {
 		case PutReq:
 			err = h.dht.Queue.Put(m)
@@ -349,6 +363,7 @@ func DHTReceiver(h *Holochain, m *Message) (response interface{}, err error) {
 		}
 		return
 	case GET_REQUEST:
+		log.Debug("DHTRecevier got GET_REQUEST: %v", m)
 		switch t := m.Body.(type) {
 		case GetReq:
 			var b []byte
@@ -366,6 +381,7 @@ func DHTReceiver(h *Holochain, m *Message) (response interface{}, err error) {
 		}
 		return
 	case PUTMETA_REQUEST:
+		log.Debug("DHTRecevier got PUTMETA_REQUEST: %v", m)
 		switch t := m.Body.(type) {
 		case MetaReq:
 			err = h.dht.exists(t.O)
@@ -375,11 +391,11 @@ func DHTReceiver(h *Holochain, m *Message) (response interface{}, err error) {
 					response = "queued"
 				}
 			}
-
 		default:
 			err = ErrDHTExpectedMetaReqInBody
 		}
 	case GETMETA_REQUEST:
+		log.Debug("DHTRecevier got GETMETA_REQUEST: %v", m)
 		switch t := m.Body.(type) {
 		case MetaQuery:
 			response, err = h.dht.getMeta(t.H, t.T)
@@ -400,6 +416,18 @@ func (dht *DHT) StartDHT() (err error) {
 		e := dht.h.BSget()
 		if e != nil {
 			log.Infof("error in BSget: %s", e.Error())
+		}
+	}
+	return
+}
+
+// HandlePutReqs is suitable for running in a loop in a separate go routine
+func (h *Holochain) HandlePutReqs() (err error) {
+	h.dht.alive = true
+	for h.dht.alive {
+		e := h.dht.handlePutReqs()
+		if e != nil {
+			log.Debugf("HandPutReq got err: %v", e)
 		}
 	}
 	return

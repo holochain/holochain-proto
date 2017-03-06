@@ -31,7 +31,7 @@ const Version string = "0.0.1"
 
 // KeyEntry structure for building KeyEntryType entries
 type KeyEntry struct {
-	ID      AgentID
+	Name    AgentName
 	KeyType KeytypeType
 	Key     []byte // marshaled public key
 }
@@ -65,6 +65,7 @@ type Holochain struct {
 	BasedOn          Hash // holochain hash for base schemas and code
 	Zomes            map[string]*Zome
 	//---- private values not serialized; initialized on Load
+	id             peer.ID // this is hash of the id, also used in the node
 	path           string
 	agent          Agent
 	store          Persister
@@ -156,6 +157,13 @@ func New(agent Agent, path string, format string, zomes ...Zome) Holochain {
 		path:           path,
 		encodingFormat: format,
 	}
+
+	// once the agent is set up we can calculate the id
+	h.id, err = peer.IDFromPrivateKey(agent.PrivKey())
+	if err != nil {
+		panic(err)
+	}
+
 	h.PrepareHashType()
 	h.Zomes = make(map[string]*Zome)
 	for i, _ := range zomes {
@@ -217,6 +225,12 @@ func (s *Service) load(name string, format string) (hP *Holochain, err error) {
 		return
 	}
 	h.agent = agent
+
+	// once the agent is set up we can calculate the id
+	h.id, err = peer.IDFromPrivateKey(agent.PrivKey())
+	if err != nil {
+		return
+	}
 
 	h.store, err = CreatePersister(BoltPersisterName, path+"/"+StoreFileName+".db")
 	if err != nil {
@@ -292,13 +306,18 @@ func (h *Holochain) Prepare() (err error) {
 		}
 	}
 
+	h.dht = NewDHT(h)
+
+	return
+}
+
+// Activate fires up the holochain node
+func (h *Holochain) Activate() (err error) {
 	listenaddr := fmt.Sprintf("/ip4/127.0.0.1/tcp/%d", h.config.Port)
-	h.node, err = NewNode(listenaddr, h.Agent().PrivKey())
+	h.node, err = NewNode(listenaddr, h.id, h.Agent().PrivKey())
 	if err != nil {
 		return
 	}
-
-	h.dht = NewDHT(h)
 
 	if h.config.PeerModeDHTNode {
 		if err = h.dht.StartDHT(); err != nil {
@@ -385,7 +404,7 @@ func (h *Holochain) GenChain() (keyHash Hash, err error) {
 	}
 
 	var k KeyEntry
-	k.ID = h.agent.ID()
+	k.Name = h.agent.Name()
 	k.KeyType = h.agent.KeyType()
 
 	pk := h.agent.PrivKey().GetPublic()
@@ -402,6 +421,11 @@ func (h *Holochain) GenChain() (keyHash Hash, err error) {
 	}
 
 	err = h.store.PutMeta(IDMetaKey, dnaHeader.EntryLink.H)
+	if err != nil {
+		return
+	}
+
+	err = h.dht.SetupDHT()
 	if err != nil {
 		return
 	}
@@ -447,6 +471,12 @@ func (s *Service) Clone(srcPath string, path string) (hP *Holochain, err error) 
 		}
 		h.path = path
 		h.agent = agent
+
+		// once the agent is set up we can calculate the id
+		h.id, err = peer.IDFromPrivateKey(agent.PrivKey())
+		if err != nil {
+			return
+		}
 
 		// make a config file
 		err = makeConfig(h, s)
@@ -1159,6 +1189,7 @@ func (h *Holochain) Test() error {
 		for i, t := range ts {
 			// setup the genesis entries
 			_, err = h.GenChain()
+			go h.HandlePutReqs()
 			if err == nil {
 				testID := fmt.Sprintf("%s:%d", name, i)
 				input := t.Input
@@ -1204,7 +1235,7 @@ func (h *Holochain) Test() error {
 
 						// get the top hash for substituting for %h% in the test expectation
 						var top Hash
-						top, _ = h.Top()
+						top = h.chain.Top().EntryLink
 						o := strings.Replace(t.Output, "%h%", top.String(), -1)
 
 						// get the id hash for substituting for %id% in the test expectation
@@ -1249,9 +1280,9 @@ func (h *Holochain) GetProperty(prop string) (property string, err error) {
 			property = id.String()
 		}
 	} else if prop == AGENT_ID_PROPERTY {
-		property = peer.IDB58Encode(h.node.HashAddr)
+		property = peer.IDB58Encode(h.id)
 	} else if prop == AGENT_NAME_PROPERTY {
-		property = string(h.Agent().ID())
+		property = string(h.Agent().Name())
 	} else {
 		property = h.Properties[prop]
 	}

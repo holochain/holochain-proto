@@ -118,14 +118,14 @@ func TestGenDev(t *testing.T) {
 	})
 }
 
-func TestGenFrom(t *testing.T) {
+func TestClone(t *testing.T) {
 	d, s := setupTestService()
 	defer cleanupTestDir(d)
 	name := "test"
 	root := s.Path + "/" + name
 
 	Convey("it should create a chain from the examples directory", t, func() {
-		h, err := s.GenFrom("examples/simple", root)
+		h, err := s.Clone("examples/simple", root)
 		So(err, ShouldBeNil)
 		So(h.Name, ShouldEqual, "test")
 		agent, err := LoadAgent(s.Path)
@@ -469,12 +469,12 @@ func TestTest(t *testing.T) {
 		So(err, ShouldBeNil)
 	})
 	Convey("it should fail the test on incorrect data", t, func() {
-		os.Remove(d + "/.holochain/test/test/0.zy")
-		err := writeFile(d+"/.holochain/test/test", "0.zy", []byte(`[{"Zome":"myZome","FnName":"addData","Input":"2","Output":"","Err":"bogus error"}]`))
+		os.Remove(d + "/.holochain/test/test/test_0.json")
+		err := writeFile(d+"/.holochain/test/test", "test_0.json", []byte(`[{"Zome":"myZome","FnName":"addData","Input":"2","Output":"","Err":"bogus error"}]`))
 		So(err, ShouldBeNil)
 		err = h.Test()
 		So(err, ShouldNotBeNil)
-		So(err.Error(), ShouldEqual, "Test: 0:0\n  Expected Error: bogus error\n  Got: nil\n")
+		So(err.Error(), ShouldEqual, "Test: test_0:0\n  Expected Error: bogus error\n  Got: nil\n")
 	})
 
 }

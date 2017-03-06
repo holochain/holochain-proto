@@ -28,12 +28,12 @@ type JSNucleus struct {
 // Name returns the string value under which this nucleus is registered
 func (z *JSNucleus) Type() string { return JSNucleusType }
 
-// InitChain runs the application init function
+// ChainGenesis runs the application init function
 // this function gets called after the genesis entries are added to the chain
-func (z *JSNucleus) InitChain() (err error) {
-	v, err := z.vm.Run(`init()`)
+func (z *JSNucleus) ChainGenesis() (err error) {
+	v, err := z.vm.Run(`genesis()`)
 	if err != nil {
-		err = fmt.Errorf("Error executing init: %v", err)
+		err = fmt.Errorf("Error executing genesis: %v", err)
 		return
 	}
 	if v.IsBoolean() {
@@ -44,14 +44,13 @@ func (z *JSNucleus) InitChain() (err error) {
 				return
 			}
 			if !b {
-				err = fmt.Errorf("init failed")
+				err = fmt.Errorf("genesis failed")
 			}
 		}
 	} else {
-		err = fmt.Errorf("init should return boolean, got: %v", v)
+		err = fmt.Errorf("genesis should return boolean, got: %v", v)
 	}
 	return
-
 }
 
 // ValidateEntry checks the contents of an entry against the validation rules

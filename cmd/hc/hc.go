@@ -58,7 +58,7 @@ func setupApp() (app *cli.App) {
 					return errors.New("clone: missing required holochain-name argument")
 				}
 				name := c.Args()[1]
-				h, err := service.GenFrom(srcPath, root+"/"+name)
+				h, err := service.Clone(srcPath, root+"/"+name)
 				if err == nil {
 					if verbose {
 						fmt.Printf("cloned %s from %s with new id: %v\n", name, srcPath, h.Id)

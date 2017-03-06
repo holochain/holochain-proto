@@ -11,4 +11,4 @@
         (== entryType "profile") true
         false)
 )
-(defn init [] true)
+(defn genesis [] true)

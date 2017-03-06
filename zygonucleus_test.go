@@ -74,15 +74,15 @@ func TestNewZygoNucleus(t *testing.T) {
 	})
 }
 
-func TestZygoInit(t *testing.T) {
-	Convey("it should fail if the init function returns false", t, func() {
-		z, _ := NewZygoNucleus(nil, `(defn init [] false)`)
-		err := z.InitChain()
-		So(err.Error(), ShouldEqual, "init failed")
+func TestZygoGenesis(t *testing.T) {
+	Convey("it should fail if the genesis function returns false", t, func() {
+		z, _ := NewZygoNucleus(nil, `(defn genesis [] false)`)
+		err := z.ChainGenesis()
+		So(err.Error(), ShouldEqual, "genesis failed")
 	})
-	Convey("it should work if the init function returns true", t, func() {
-		z, _ := NewZygoNucleus(nil, `(defn init [] true)`)
-		err := z.InitChain()
+	Convey("it should work if the genesis function returns true", t, func() {
+		z, _ := NewZygoNucleus(nil, `(defn genesis [] true)`)
+		err := z.ChainGenesis()
 		So(err, ShouldBeNil)
 	})
 }

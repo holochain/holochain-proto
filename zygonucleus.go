@@ -30,29 +30,29 @@ type ZygoNucleus struct {
 // Name returns the string value under which this nucleus is registered
 func (z *ZygoNucleus) Type() string { return ZygoNucleusType }
 
-// InitChain runs the application init function
+// ChainGenesis runs the application genesis function
 // this function gets called after the genesis entries are added to the chain
-func (z *ZygoNucleus) InitChain() (err error) {
-	err = z.env.LoadString(`(init)`)
+func (z *ZygoNucleus) ChainGenesis() (err error) {
+	err = z.env.LoadString(`(genesis)`)
 	if err != nil {
 		return
 	}
 	result, err := z.env.Run()
 	if err != nil {
-		err = fmt.Errorf("Error executing init: %v", err)
+		err = fmt.Errorf("Error executing genesis: %v", err)
 		return
 	}
 	switch result.(type) {
 	case *zygo.SexpBool:
 		r := result.(*zygo.SexpBool).Val
 		if !r {
-			err = fmt.Errorf("init failed")
+			err = fmt.Errorf("genesis failed")
 		}
 	case *zygo.SexpSentinel:
-		err = errors.New("init should return boolean, got nil")
+		err = errors.New("genesis should return boolean, got nil")
 
 	default:
-		err = errors.New("init should return boolean, got: " + fmt.Sprintf("%v", result))
+		err = errors.New("genesis should return boolean, got: " + fmt.Sprintf("%v", result))
 	}
 	return
 

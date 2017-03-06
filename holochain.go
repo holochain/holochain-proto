@@ -23,7 +23,6 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
-	"strconv"
 	"strings"
 	"time"
 )
@@ -760,7 +759,7 @@ function genesis() {return true}
 
 		// write out the tests
 		for i, d := range fixtures {
-			fn := fmt.Sprintf("%d.json", i)
+			fn := fmt.Sprintf("test_%d.json", i)
 			var j []byte
 			t := []TestData{d}
 			j, err = json.Marshal(t)
@@ -773,7 +772,7 @@ function genesis() {return true}
 		}
 
 		// also write out some grouped tests
-		fn := fmt.Sprintf("%d.json", len(fixtures))
+		fn := "grouped.json"
 		var j []byte
 		j, err = json.Marshal(fixtures2)
 		if err != nil {
@@ -1129,38 +1128,15 @@ func (h *Holochain) Test() error {
 		return errors.New("no test data found in: " + h.path + "/test")
 	}
 
-	// setup the genesis entries
-	h.GenChain()
-
-	// and make sure the store gets reset to null after the test runs
-	defer func() {
-		err = h.store.Remove()
-		if err != nil {
-			panic(err)
-		}
-		err = h.store.Init()
-		if err != nil {
-			panic(err)
-		}
-		err := os.RemoveAll(h.path + "/" + StoreFileName + ".dat")
-		if err != nil {
-			panic(err)
-		}
-
-	}()
-
 	// load up the test files into the tests array
-	re := regexp.MustCompile(`([0-9])+\.(.*)`)
-	var tests = make(map[int][]TestData)
+	re := regexp.MustCompile(`(.*)\.json`)
+	var tests = make(map[string][]TestData)
 	for _, f := range files {
 		if f.Mode().IsRegular() {
 			x := re.FindStringSubmatch(f.Name())
 			if len(x) > 0 {
-				var i int
-				i, err = strconv.Atoi(x[1])
-				if err != nil {
-					return err
-				}
+				name := x[1]
+
 				var v []byte
 				v, err = readFile(p, x[0])
 				if err != nil {
@@ -1171,16 +1147,19 @@ func (h *Holochain) Test() error {
 				if err != nil {
 					return err
 				}
-				tests[i] = t
+				tests[name] = t
 			}
 		}
 	}
 
-	for j, ts := range tests {
+	for name, ts := range tests {
 		for i, t := range ts {
-			testID := fmt.Sprintf("%d:%d", j, i)
+			// setup the genesis entries
+			h.GenChain()
+
+			testID := fmt.Sprintf("%s:%d", name, i)
 			result, err := h.Call(t.Zome, t.FnName, t.Input)
-			log.Debugf("Test Result:%v, Err:%v", result, err)
+			log.Debugf("%s test result:%v, Err:%v", testID, result, err)
 			if t.Err != "" {
 				if err == nil {
 					return fmt.Errorf("Test: %s\n  Expected Error: %s\n  Got: nil\n", testID, t.Err)
@@ -1226,6 +1205,21 @@ func (h *Holochain) Test() error {
 					}
 				}
 			}
+
+			// restore the state for the next test file
+			err = h.store.Remove()
+			if err != nil {
+				panic(err)
+			}
+			err = h.store.Init()
+			if err != nil {
+				panic(err)
+			}
+			err = os.RemoveAll(h.path + "/" + StoreFileName + ".dat")
+			if err != nil {
+				panic(err)
+			}
+
 		}
 	}
 	return err

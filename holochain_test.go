@@ -469,12 +469,12 @@ func TestTest(t *testing.T) {
 		So(err, ShouldBeNil)
 	})
 	Convey("it should fail the test on incorrect data", t, func() {
-		os.Remove(d + "/.holochain/test/test/0.zy")
-		err := writeFile(d+"/.holochain/test/test", "0.zy", []byte(`[{"Zome":"myZome","FnName":"addData","Input":"2","Output":"","Err":"bogus error"}]`))
+		os.Remove(d + "/.holochain/test/test/test_0.json")
+		err := writeFile(d+"/.holochain/test/test", "test_0.json", []byte(`[{"Zome":"myZome","FnName":"addData","Input":"2","Output":"","Err":"bogus error"}]`))
 		So(err, ShouldBeNil)
 		err = h.Test()
 		So(err, ShouldNotBeNil)
-		So(err.Error(), ShouldEqual, "Test: 0:0\n  Expected Error: bogus error\n  Got: nil\n")
+		So(err.Error(), ShouldEqual, "Test: test_0:0\n  Expected Error: bogus error\n  Got: nil\n")
 	})
 
 }

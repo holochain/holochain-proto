@@ -407,12 +407,13 @@ func (h *Holochain) GenChain() (keyHash Hash, err error) {
 	}
 
 	// run the init functions of each zome
-	for _, z := range h.Zomes {
+	for zomeName, z := range h.Zomes {
 		var n Nucleus
 		n, err = h.makeNucleus(z)
 		if err == nil {
 			err = n.ChainGenesis()
 			if err != nil {
+				err = fmt.Errorf("In '%s' zome: %s", zomeName, err.Error())
 				return
 			}
 		}

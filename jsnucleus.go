@@ -184,6 +184,12 @@ func NewJSNucleus(h *Holochain, code string) (n Nucleus, err error) {
 		return nil, err
 	}
 
+	err = z.vm.Set("debug", func(call otto.FunctionCall) otto.Value {
+		msg, _ := call.Argument(0).ToString()
+		log.Debug(msg)
+		return otto.UndefinedValue()
+	})
+
 	err = z.vm.Set("expose", func(call otto.FunctionCall) otto.Value {
 		fnName, _ := call.Argument(0).ToString()
 		schema, _ := call.Argument(1).ToInteger()

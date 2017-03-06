@@ -1,16 +1,16 @@
 
 <html>
-  <head>
+  <head>f
     <title>Test</title>
     <script type="text/javascript" src="http://code.jquery.com/jquery-latest.js"></script>
-    <script type="text/javascript">
-     function send() {
+    <script type="text/javascript"> 
+     function send(arg) {
          $.post(
-             "/fn/"+$('select[name=zome]').val()+"/"+$('select[name=fn]').val(),
-             $('#data').val(),
+             "/fn/"+$('select[name=lispZome]').val()+"/"+$('select[name=fn]').val(),
+             $(arg).val(),
              function(data) {
                  $("#result").html("result:"+data)
-                 $("#err").html("")
+                 $("#err").html("") 
              }
          ).error(function(response) {
              $("#err").html(response.responseText)
@@ -18,18 +18,20 @@
          })
          ;
      };
+     function 
     </script>
   </head>
   <body>
-    <select id="zome" name="zome">
-      <option value="myZome">myZome</option>
-    </select>
-    <select id="fn" name="fn">
-      <option value="addData">addData</option>
-    </select>
-    <input id="data" name="data">
-    <button onclick="send();">Send</button>
-    send an even number and get back a hash, send and odd end get a error
+      <h1>Add even numbers</h1>
+      <input type="text" id="even">
+      <button onclick="send(\"#even\");">Send</button>
+      <h2>Add prime numbers</h2>
+      <input type="text" id="prime">
+      <button onclick="send(\"#odd\");">Send</button>
+      <h3>Add profile</h3>
+      <input type="text" id="profile">
+      <button onclick="send(\"#profile\");">Send</button>
+      
 
     <div id="result"></div>
     <div id="err"></div>

@@ -15,39 +15,70 @@
     },
     "Zomes": {
         "chat": {
-            "Name": "chat",
-            "Description": "chat code",
-            "Code": "zome_chat.js",
-            "CodeHash": {
-                "H": null
-            },
-            "Entries": {
-                "room": {
-                    "Name": "room",
-                    "DataFormat": "JSON",
-                    "Schema": "schema_room.json",
-                    "SchemaHash": {
-                        "H": null
-                    }
-                },
-                "member": {
-                    "Name": "profile",
-                    "DataFormat": "JSON",
-                    "Schema": "schema_profile.json",
-                    "SchemaHash": {
-                        "H": null
-                    }
-                },
-                "message": {
-                  "Name": "message",
-                  "DataFormat": "JSON",
-                  "Schema": "schema_message.json",
-                  "SchemaHash": {
-                      "H": null
-                  }
-                }
-            },
-            "NucleusType": "js"
+          "Name": "chat",
+          "Description": "chat code",
+          "NucleusType": "js",
+          "Code": "zome_chat.js",
+          "CodeHash": {
+              "H": null
+          },
+        },
+        "rooms": {
+          "Name": "rooms",
+          "Description": "Rooms controller",
+          "NucleusType": "js",
+          "Code": "zome_rooms.js",
+          "CodeHash": {
+              "H": null
+          },
+          "Entries": {
+            "room": {
+              "Name": "room",
+              "DataFormat": "JSON",
+              "Schema": "schema_room.json",
+              "SchemaHash": {
+                  "H": null
+              }
+            }
+          }
+        },
+        "messages": {
+          "Name": "messages",
+          "Description": "Messages controller",
+          "NucleusType": "js",
+          "Code": "zome_messages.js",
+          "CodeHash": {
+              "H": null
+          },
+          "Entries": {
+            "messages": {
+              "Name": "message",
+              "DataFormat": "JSON",
+              "Schema": "schema_message.json",
+              "SchemaHash": {
+                  "H": null
+              }
+            }
+          }
+        },
+        "profiles": {
+          "Name": "profiles",
+          "Description": "Profiles controller",
+          "NucleusType": "js",
+          "Code": "zome_profiles.js",
+          "CodeHash": {
+              "H": null
+          },
+          "Entries": {
+            "profile": {
+              "Name": "profile",
+              "DataFormat": "JSON",
+              "Schema": "schema_profile.json",
+              "SchemaHash": {
+                  "H": null
+              }
+            }
+          }
         }
     }
 }

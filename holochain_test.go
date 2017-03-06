@@ -119,20 +119,22 @@ func TestGenDev(t *testing.T) {
 }
 
 func TestClone(t *testing.T) {
-	d, s := setupTestService()
+	d, s, _ := setupTestChain("test")
 	defer cleanupTestDir(d)
-	name := "test"
+
+	name := "test2"
 	root := s.Path + "/" + name
 
+	orig := s.Path + "/test"
 	Convey("it should create a chain from the examples directory", t, func() {
-		h, err := s.Clone("examples/simple", root)
+		h, err := s.Clone(orig, root)
 		So(err, ShouldBeNil)
-		So(h.Name, ShouldEqual, "test")
+		So(h.Name, ShouldEqual, "test2")
 		agent, err := LoadAgent(s.Path)
 		So(err, ShouldBeNil)
 		So(h.agent.ID(), ShouldEqual, agent.ID())
 		So(ic.KeyEqual(h.agent.PrivKey(), agent.PrivKey()), ShouldBeTrue)
-		src, _ := readFile("examples/simple", "zome_myZome.zy")
+		src, _ := readFile(orig, "zome_myZome.zy")
 		dst, _ := readFile(root, "zome_myZome.zy")
 		So(string(src), ShouldEqual, string(dst))
 		So(fileExists(h.path+"/ui/index.html"), ShouldBeTrue)

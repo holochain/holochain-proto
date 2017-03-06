@@ -22,17 +22,9 @@ In other words, a holochain functions very much **like a blockchain without bott
     - [3. Generate New Chain](#3-generate-new-chain)
     - [4. Testing your Application](#4-testing-your-application)
     - [5. Launching the Holochain Server](#5-launching-the-holochain-server)
-    - [Other Useful Commandds](#other-useful-commandds)
-    - [File Locations](#file-locations)
-  - [Architecture](#architecture)
-    - [Functional Domains](#functional-domains)
-      - [Group DNA / Holochain configuration](#group-dna--holochain-configuration)
-      - [Individuals Authoring Content](#individuals-authoring-content)
-      - [Application API](#application-api)
-    - [Two Distinct SubSystems](#two-distinct-subsystems)
-      - [1. Authoring your Local Chain](#1-authoring-your-local-chain)
-      - [2. Running a DHT Node](#2-running-a-dht-node)
-  - [Documentation](#documentation)
+      - [Other Useful Commands](#other-useful-commands)
+      - [File Locations](#file-locations)
+  - [Architecture Overview and Documentation](#architecture-overview-and-documentation)
   - [Development --](#development---)
     - [Dependencies](#dependencies)
     - [Tests](#tests)
@@ -63,7 +55,6 @@ Make sure your `PATH` includes the `$GOPATH/bin` directory so the program it bui
 ```
 $ export PATH=$PATH:$GOPATH/bin
 ```
-
 
 ## Usage
 Since holochain is essentially a data integrity engine intended to be used by distributed applications, you will normally only do some basic setup and maintenance through the command line.
@@ -110,7 +101,7 @@ We have designed holochains to function around test-driven development, so each 
 
     hc test <HOLOCHAIN_NAME>
 
-If you're a developer, you should be running this command as you make changes to your holochain DNA files to leverage test-driven development.
+If the tests fail, then you know your application DNA is broken and you should not proceed thinking that your system is going to work. If you're a developer, you should be running this command as you make changes to your holochain DNA files to leverage test-driven development. And obviously, please do not send out applications that don't pass their own tests.
 
 ### 5. Launching the Holochain Server
 Holochains service function requests via local web sockets. This let's interface developers have a lot of freedom to build html / javascript files and drop them in that chain's UI directory. You launch the service to listen on the socket on localhost with:
@@ -119,11 +110,11 @@ Holochains service function requests via local web sockets. This let's interface
 
 In a web browser you can go to ```localhost:3141``` (or whatever PORT you served it under) to access UI files and send and receive JSON with exposed application functions
 
-### Other Useful Commandds
+#### Other Useful Commands
  * ```hc status``` to view all the chains on your system and their status
-  * ```hc dump <HOLOCHAIN_NAME>``` to can inspect the contents of your local chain
+ * ```hc dump <HOLOCHAIN_NAME>``` to can inspect the contents of your local chain
 
-### File Locations
+#### File Locations
 By default `hc` stores all holochain data and configuration files to the `~/.holochain` directory.  You can override this with the -path flag or by setting the `HOLOPATH` environment variable, e.g.:
 
     hc -path ~/mychains init '<my@other.identity>'
@@ -131,42 +122,8 @@ By default `hc` stores all holochain data and configuration files to the `~/.hol
 
 You can use the form: ```hc -path=/your/path/here``` but you must use the absolute path, as shell substitutions will not happen
 
-## Architecture
-### Functional Domains
-Holochains, by design, should be used in the context of a group operating by a shared set of agreements. Generally speaking, you don't need a holochain if you are just managing your own data.
-
-These agreements are encoded in the validation rules which are checked before authoring to one's local chain, and are also checked by every DHT node asked to publish the new data.
-
-In essence these ensure holochain participants operate according the same rules. Just like in blockchains, if you collude to break validation rules, you essentially have forked the chain. If you commit things to your chain, or try to publish things which don't comply with the validation rules, the rest of the network/DHT rejects it.
-
-#### Group DNA / Holochain configuration
-At this stage, a developer needs to set up the technical configuration of the collective agreements enforced by a holochain. This includes such things as: the holochain name, UUID, address & name spaces, data schemas, validation rules for chain entries and data propagation on the DHT,
-
-#### Individuals Authoring Content
-As an individual, you can join a holochain by installing its holochain configuration and configuring your ID, keys, chain, and DHT node in accord with the DNA specs.
-
-#### Application API
-Holochains function like a database. They don't have much end-user interface, and are primarily used by an application or program to store data. Unless you're a developer building one of these applications, you're not likely to interact directly with a holochain. Hopefully, you install an application that does all that for you and the holochain stays nice and invisible enabling the application to store its information in a decentralized manner.
-
-### Two Distinct SubSystems
-There are two modes to participate in a holochain: as a **chain author**, and as a **DHT node**. We expect most installations will be doing both things and acting as full peers in a P2P data system. However, each could be run in a separate container, communicating only by network interface.
-
-#### 1. Authoring your Local Chain
-Your chain is your signed, sequential record of the data you create to share on the holochain. Depending on the holochain's validation rules, this data may also be immutable and non-repudiable. Your local chain/data-store follows this pattern:
-
-1. Validates your new data
-2. Stores the data in a new chain entry
-3. Signs it to your chain
-4. Indexes the content
-5. Shares it to the DHT
-6. Responds to validation requests from DHT nodes
-
-#### 2. Running a DHT Node
-For serving data shared across the network. When your node receives a request from another node to publish DHT data, it will first validate the signatures, chain links, and any other application specific data integrity in the entity's source chain who is publishing the data.
-
-## Documentation
-
-Find additional documentation in the [Holochain Wiki](https://github.com/metacurrency/holochain/wiki).
+## Architecture Overview and Documentation
+Start in the [Holochain Wiki](https://github.com/metacurrency/holochain/wiki), and hopefully it will keep growing with good development resources.
 
 You can also find the [auto-generated Reference API for Holochain on GoDocs](https://godoc.org/github.com/metacurrency/holochain)
 
@@ -227,5 +184,7 @@ This program is free software: you can redistribute it and/or modify it under th
 * **MetaCurrency & Ceptr**: Holochains are a sub-project of [Ceptr](http://ceptr.org) which is a semantic, distributed computing platform under development by the [MetaCurrency Project](http://metacurrency.org).
 &nbsp;
 * **Ian Grigg**: Some of our initial plans for this architecture were inspired in 2006 by [his paper about Triple Entry Accounting](http://iang.org/papers/triple_entry.html) and his work on [Ricardian Contracts](http://iang.org/papers/ricardian_contract.html).
-<!-- * **Juan Benet**: For all his work on IPFS and being a generally cool guy. The libP2P library has been extremely helpful in getting our peered node communications running. -->
-* **Crypto Pioneers** And of course the people who paved the road before us by writing good crypto libraries and **preaching the blockchain gospel**. Nobody understood what we were talking about when we started sharing our designs. The main reason people want it now, is because blockchains have opened their eyes to new patterns of power available from decentralized architectures.
+&nbsp;
+* **Juan Benet**: For all his work on IPFS and being a generally cool guy. Various functions like multihash, multiaddress, and such come from IPFS as well as the libP2P library which helped get peered node communications up and running.
+&nbsp;
+* **Crypto Pioneers** And of course the people who paved the road before us by writing good crypto libraries and *preaching the blockchain gospel*. Back in 2008, nobody understood what we were talking about when we started sharing our designs. The main reason people want it now, is because blockchains have opened their eyes to the power of decentralized architectures.

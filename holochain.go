@@ -1112,20 +1112,21 @@ func (h *Holochain) makeNucleus(z *Zome) (n Nucleus, err error) {
 // Test loops through each of the test files calling the functions specified
 // This function is useful only in the context of developing a holochain and will return
 // an error if the chain has already been started (i.e. has genesis entries)
-func (h *Holochain) Test() error {
+func (h *Holochain) Test() []error {
 	_, err := h.ID()
+	var errs []error
 	if err == nil {
 		err = errors.New("chain already started")
-		return err
+		return []error{err}
 	}
 	p := h.path + "/test"
 	files, err := ioutil.ReadDir(p)
 	if err != nil {
-		return err
+		return []error{err}
 	}
 
 	if len(files) == 0 {
-		return errors.New("no test data found in: " + h.path + "/test")
+		return []error{errors.New("no test data found in: " + h.path + "/test")}
 	}
 
 	// load up the test files into the tests array
@@ -1140,12 +1141,12 @@ func (h *Holochain) Test() error {
 				var v []byte
 				v, err = readFile(p, x[0])
 				if err != nil {
-					return err
+					return []error{err}
 				}
 				var t []TestData
 				err = json.Unmarshal(v, &t)
 				if err != nil {
-					return err
+					return []error{err}
 				}
 				tests[name] = t
 			}
@@ -1220,11 +1221,11 @@ func (h *Holochain) Test() error {
 			}
 
 			if err != nil {
-				return err
+				errs = append(errs, err)
 			}
 		}
 	}
-	return err
+	return errs
 }
 
 // GetProperty returns the value of a DNA property

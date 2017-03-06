@@ -410,7 +410,7 @@ func (h *Holochain) GenChain() (keyHash Hash, err error) {
 	for _, z := range h.Zomes {
 		var n Nucleus
 		n, err = h.makeNucleus(z)
-		if err != nil {
+		if err == nil {
 			err = n.ChainGenesis()
 			if err != nil {
 				return
@@ -1153,73 +1153,75 @@ func (h *Holochain) Test() error {
 	}
 
 	for name, ts := range tests {
+		log.Debugf("Test: %s starting...", name)
 		for i, t := range ts {
 			// setup the genesis entries
-			h.GenChain()
-
-			testID := fmt.Sprintf("%s:%d", name, i)
-			result, err := h.Call(t.Zome, t.FnName, t.Input)
-			log.Debugf("%s test result:%v, Err:%v", testID, result, err)
-			if t.Err != "" {
-				if err == nil {
-					return fmt.Errorf("Test: %s\n  Expected Error: %s\n  Got: nil\n", testID, t.Err)
-				} else {
-
-					if err.Error() != t.Err {
-						return fmt.Errorf("Test: %s\n  Expected Error: %s\n  Got Error: %s\n", testID, t.Err, err.Error())
-					}
-					err = nil
-				}
-			} else {
-				if err != nil {
-					return fmt.Errorf("Test: %s\n  Expected: %s\n  Got Error: %s\n", testID, t.Output, err.Error())
-				} else {
-
-					// @TODO this should probably act according the function schema
-					// not just the return value
-					var r string
-					switch t := result.(type) {
-					case []byte:
-						r = string(t)
-					case string:
-						r = t
-					default:
-						r = fmt.Sprintf("%v", t)
-					}
-
-					// get the top hash for substituting for %h% in the test expectation
-					top, err := h.Top()
-					if err != nil {
-						return err
-					}
-					o := strings.Replace(t.Output, "%h%", top.String(), -1)
-
-					// get the id hash for substituting for %id% in the test expectation
-					id, err := h.ID()
+			_, err = h.GenChain()
+			if err == nil {
+				testID := fmt.Sprintf("%s:%d", name, i)
+				var result interface{}
+				result, err = h.Call(t.Zome, t.FnName, t.Input)
+				log.Debugf("Test: %s result:%v, Err:%v", testID, result, err)
+				if t.Err != "" {
+					log.Debugf("Test: %s expecting error %v", testID, t.Err)
 					if err == nil {
-						o = strings.Replace(o, "%id%", id.String(), -1)
+						err = fmt.Errorf("Test: %s\n  Expected Error: %s\n  Got: nil\n", testID, t.Err)
+					} else {
+						if err.Error() != t.Err {
+							err = fmt.Errorf("Test: %s\n  Expected Error: %s\n  Got Error: %s\n", testID, t.Err, err.Error())
+						} else {
+							err = nil
+						}
 					}
+				} else {
+					log.Debugf("Test: %s expecting output %v", testID, t.Output)
+					if err != nil {
+						err = fmt.Errorf("Test: %s\n  Expected: %s\n  Got Error: %s\n", testID, t.Output, err.Error())
+					} else {
 
-					if r != o {
-						return fmt.Errorf("Test: %d\n  Expected: %v\n  Got: %v\n", i+1, o, r)
+						// @TODO this should probably act according the function schema
+						// not just the return value
+						var r string
+						switch t := result.(type) {
+						case []byte:
+							r = string(t)
+						case string:
+							r = t
+						default:
+							r = fmt.Sprintf("%v", t)
+						}
+
+						// get the top hash for substituting for %h% in the test expectation
+						var top Hash
+						top, _ = h.Top()
+						o := strings.Replace(t.Output, "%h%", top.String(), -1)
+
+						// get the id hash for substituting for %id% in the test expectation
+						id, _ := h.ID()
+						o = strings.Replace(o, "%id%", id.String(), -1)
+						if r != o {
+							err = fmt.Errorf("Test: %d\n  Expected: %v\n  Got: %v\n", i+1, o, r)
+						}
 					}
 				}
 			}
-
 			// restore the state for the next test file
-			err = h.store.Remove()
-			if err != nil {
-				panic(err)
+			e := h.store.Remove()
+			if e != nil {
+				panic(e)
 			}
-			err = h.store.Init()
-			if err != nil {
-				panic(err)
+			e = h.store.Init()
+			if e != nil {
+				panic(e)
 			}
-			err = os.RemoveAll(h.path + "/" + StoreFileName + ".dat")
-			if err != nil {
-				panic(err)
+			e = os.RemoveAll(h.path + "/" + StoreFileName + ".dat")
+			if e != nil {
+				panic(e)
 			}
 
+			if err != nil {
+				return err
+			}
 		}
 	}
 	return err

@@ -1,39 +1,50 @@
-
 <html>
-  <head>
-    <title>Test</title>
-    <script type="text/javascript" src="http://code.jquery.com/jquery-latest.js"></script>
-    <script type="text/javascript"> 
-     function send(arg) {
-         $.post(
-             "/fn/"+$('select[name=lispZome]').val()+"/"+$('select[name=fn]').val(),
-             $(arg).val(),
-             function(data) {
-                 $("#result").html("result:"+data)
-                 $("#err").html("") 
-             }
-         ).error(function(response) {
-             $("#err").html(response.responseText)
-             $("#result").html("")
-         })
-         ;
-     };
-     function 
-    </script>
-  </head>
-  <body>
-      <h1>Add even numbers</h1>
-      <input type="text" id="even">
-      <button onclick="send(\"#even\");">Send</button>
-      <h2>Add prime numbers</h2>
-      <input type="text" id="prime">
-      <button onclick="send(\"#odd\");">Send</button>
-      <h3>Add profile</h3>
-      <input type="text" id="profile">
-      <button onclick="send(\"#profile\");">Send</button>
-      
+    <head>
+        <title>Test</title>
+        <script type="text/javascript" src="http://code.jquery.com/jquery-latest.js"></script>
+        <script type="text/javascript">
+            function capitalize(word) {
+                return word.charAt(0).toUpperCase() + word.slice(1);
+            }
 
+            function displayResponse(response) {
+                $("#error").html(response.responseText);
+                $("#result").html("");
+            }
+
+            function loadChains() {
+                var types = ['even', 'prime', 'profile'];
+
+                types.forEach(function(type) {
+                    $.post("/fn/lispZome/list" + capitalize(type),
+                        function(response) {
+                            $('#' + type + "list").html(response.responseText);
+                        }).error(displayResponse);
+                });
+            }
+
+            function send(arg) {
+                $.post("/fn/lispZome/add" + capitalize(arg), $("#" + arg).val(), displayResponse).error(displayResponse);
+            };
+
+            window.onload = loadChains;
+        </script>
+    </head>
+    <h1>A Simple Holochain Demo</h1>
+    <body>
+        <h2>Add even numbers</h2>
+        <input type="text" id="even">
+        <button onclick="send(\"even\");">Send</button>
+        <div id="evenlist"></div>
+        <h2>Add prime numbers</h2>
+        <input type="text" id="prime">
+        <button onclick="send(\"odd\");">Send</button>
+        <div id="primelist"></div>
+        <h2>Add profile</h2>
+        <input type="text" id="profile">
+        <button onclick="send(\"profile\");">Send</button>
+        <div id="profilelist"></div>
     <div id="result"></div>
-    <div id="err"></div>
+    <div id="error"></div>
   </body>
 </html>

@@ -22,6 +22,7 @@ func setupApp() (app *cli.App) {
 	app.Version = "0.0.1"
 	var verbose bool
 	var debug bool
+	var force bool
 	var root string
 	var service *holo.Service
 
@@ -45,6 +46,13 @@ func setupApp() (app *cli.App) {
 
 	app.Commands = []cli.Command{
 		{
+			Flags: []cli.Flag{
+				cli.BoolFlag{
+					Name:        "force",
+					Usage:       "overwrite existing holochain",
+					Destination: &force,
+				},
+			},
 			Name:      "clone",
 			Aliases:   []string{"c"},
 			Usage:     "clone a holochain instance from a source",
@@ -58,6 +66,12 @@ func setupApp() (app *cli.App) {
 					return errors.New("clone: missing required holochain-name argument")
 				}
 				name := c.Args()[1]
+				if force {
+					e := os.RemoveAll(root + "/" + name)
+					if e != nil {
+						return e
+					}
+				}
 				h, err := service.Clone(srcPath, root+"/"+name)
 				if err == nil {
 					if verbose {

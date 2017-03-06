@@ -439,11 +439,7 @@ func TestCall(t *testing.T) {
 		result, err = h.Call("myZome", "addData", "42")
 		So(err, ShouldBeNil)
 
-		ph, err := h.Top()
-		if err != nil {
-			panic(err)
-		}
-
+		ph := h.chain.Top().EntryLink
 		So(result.(string), ShouldEqual, ph.String())
 
 		_, err = h.Call("myZome", "addData", "41")

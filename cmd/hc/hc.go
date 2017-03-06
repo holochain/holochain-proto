@@ -256,6 +256,10 @@ func setupApp() (app *cli.App) {
 				if err != nil {
 					return err
 				}
+				err = h.Activate()
+				if err != nil {
+					return err
+				}
 				err = h.Test()
 				return err
 			},
@@ -324,6 +328,11 @@ func setupApp() (app *cli.App) {
 				} else {
 					port = c.Args()[1]
 				}
+				err = h.Activate()
+				if err != nil {
+					return err
+				}
+				go h.HandlePutReqs()
 				serve(h, port)
 				return err
 			},

@@ -1187,7 +1187,7 @@ func (h *Holochain) Test() error {
 		for i, t := range ts {
 			// setup the genesis entries
 			_, err = h.GenChain()
-			go h.dht.HandlePutReqs()
+			go h.HandlePutReqs()
 			if err == nil {
 				testID := fmt.Sprintf("%s:%d", name, i)
 				var result interface{}
@@ -1224,7 +1224,7 @@ func (h *Holochain) Test() error {
 
 						// get the top hash for substituting for %h% in the test expectation
 						var top Hash
-						top, _ = h.Top()
+						top = h.chain.Top().EntryLink
 						o := strings.Replace(t.Output, "%h%", top.String(), -1)
 
 						// get the id hash for substituting for %id% in the test expectation

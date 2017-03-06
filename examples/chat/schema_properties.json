@@ -1,0 +1,15 @@
+{
+	"title": "Properties Schema",
+	"type": "object",
+	"properties": {
+		"name": {
+			"type": "string"
+		},
+		"purpose": {
+			"type": "string"
+		},
+		"language": {
+			"type": "string"
+		}
+	}
+}

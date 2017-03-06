@@ -19,12 +19,17 @@ function isAllowed(author) {
   return false;
 }
 
+function genesis() {
+  return true;
+}
+
 // Local validate an entry before committing ???
 function validate(entry_type, entry, validation_props) {
   return true;
   if( validation_props.MetaTag ) { //validating a putmeta
     return true;
   } else { //validating a commit
+    return true;
     isAllowed(validation_props.Sources[0])
   }
 }

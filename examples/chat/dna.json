@@ -21,7 +21,7 @@
           "Code": "zome_chat.js",
           "CodeHash": {
               "H": null
-          },
+          }
         },
         "rooms": {
           "Name": "rooms",
@@ -51,7 +51,7 @@
               "H": null
           },
           "Entries": {
-            "messages": {
+            "message": {
               "Name": "message",
               "DataFormat": "JSON",
               "Schema": "schema_message.json",

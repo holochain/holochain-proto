@@ -1,5 +1,5 @@
 // Get list of posts in a Space
-expose("listMessages", HC.JSON);
+expose("listMessages", HC.STRING);
 function listMessages(room) {
   var message_keys = getmeta(room, "message");
   var messages = new Array(message_keys.length);
@@ -14,6 +14,7 @@ function listMessages(room) {
 // Create a new post in a Space / Channel
 expose("newMessage", HC.JSON); // receives content, room, [inReplyTo]
 function newMessage(x) {
+  x.timestamp = new Date();
   var key = commit("message", x);
   put(key)
   putmeta(x.room, key, "message")
@@ -36,6 +37,10 @@ function isAllowed(author) {
     if( allowed_agents[i] == author) return true;
   }
   return false;
+}
+
+function genesis() {
+  return true;
 }
 
 // Local validate an entry before committing ???

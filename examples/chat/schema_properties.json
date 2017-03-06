@@ -10,6 +10,9 @@
 		},
 		"language": {
 			"type": "string"
+		},
+		"initial_admin": {
+			"type": "string"
 		}
 	}
 }

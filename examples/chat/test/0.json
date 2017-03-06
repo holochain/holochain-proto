@@ -1,8 +1,0 @@
-[
-  {"Zome":"chat","FnName":"addSpace","Input":"{\"name\":\"general\",\"purpose\":\"talk about anything\"}","Output":"\"%h%\"","Err":""},
-  {"Zome":"chat","FnName":"addMember","Input":"{\"username\":\"pparker\",\"firstName\":\"Peter\",\"lastName\":\"Parker\",\"email\":\"parker@dailybugle.com\"}","Output":"\"%h%\"","Err":""},
-  {"Zome":"chat","FnName":"addPost","Input":"{\"content\":\"Hi guys!\",\"timestamp\":\"now\",\"parentSpace\":\"blabla\"}","Output":"\"%h%\"","Err":""},
-  {"Zome":"chat","FnName":"getProperty","Input":"name","Output":"My Chat","Err":""},
-  {"Zome":"chat","FnName":"getSpaces","Input":"","Output":"\"%h%\"","Err":""},
-  {"Zome":"chat","FnName":"getProperty","Input":"_id","Output":"My Chat","Err":""}
-]

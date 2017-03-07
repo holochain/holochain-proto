@@ -173,7 +173,9 @@ func TestJSDHT(t *testing.T) {
 		v, err = NewJSNucleus(h, fmt.Sprintf(`get ("%s");`, hash.String()))
 		So(err, ShouldBeNil)
 		z = v.(*JSNucleus)
-		So(z.lastResult.String(), ShouldEqual, `"7"`)
+		x, err := z.lastResult.Export()
+		So(err, ShouldBeNil)
+		So(fmt.Sprintf("%v", x.(Entry).Content()), ShouldEqual, `7`)
 	})
 
 	e = GobEntry{C: `{"firstName":"Zippy","lastName":"Pinhead"}`}
@@ -197,7 +199,10 @@ func TestJSDHT(t *testing.T) {
 		v, err := NewJSNucleus(h, fmt.Sprintf(`getmeta("%s","myMetaTag");`, hash.String()))
 		So(err, ShouldBeNil)
 		z := v.(*JSNucleus)
-		So(z.lastResult.String(), ShouldEqual, `[{"C":"{\"firstName\":\"Zippy\",\"lastName\":\"Pinhead\"}"}]`)
+		So(z.lastResult.Class(), ShouldEqual, "GoArray")
+		x, err := z.lastResult.Export()
+		So(err, ShouldBeNil)
+		So(fmt.Sprintf("%v", x.([]Entry)[0].Content()), ShouldEqual, `{"firstName":"Zippy","lastName":"Pinhead"}`)
 	})
 
 }

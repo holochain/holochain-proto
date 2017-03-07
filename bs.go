@@ -56,7 +56,6 @@ func (h *Holochain) BSget() (err error) {
 		defer resp.Body.Close()
 		var b []byte
 		b, err = ioutil.ReadAll(resp.Body)
-		//log.Infof("bs responded with:%s", string(b))
 		if err == nil {
 			var nodes []BSResp
 			err = json.Unmarshal(b, &nodes)
@@ -70,7 +69,7 @@ func (h *Holochain) BSget() (err error) {
 						addr, err = ma.NewMultiaddr(r.Req.NodeAddr)
 						if err == nil {
 							if myNodeID != r.Req.NodeID {
-								log.Infof("discovered peer: %s", r.Req.NodeID)
+								log.Debugf("discovered peer: %s", r.Req.NodeID)
 								h.node.Host.Peerstore().AddAddr(id, addr, pstore.PermanentAddrTTL)
 							}
 

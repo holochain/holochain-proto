@@ -105,6 +105,7 @@ func TestGenDev(t *testing.T) {
 		So(lh.config.Port, ShouldEqual, DefaultPort)
 		So(h.config.PeerModeDHTNode, ShouldEqual, s.Settings.DefaultPeerModeDHTNode)
 		So(h.config.PeerModeAuthor, ShouldEqual, s.Settings.DefaultPeerModeAuthor)
+		So(h.config.BootstrapServer, ShouldEqual, s.Settings.DefaultBootstrapServer)
 		lh.store.Close()
 
 		So(fileExists(h.path+"/schema_profile.json"), ShouldBeTrue)

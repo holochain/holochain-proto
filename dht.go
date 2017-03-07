@@ -420,7 +420,7 @@ func (dht *DHT) StartDHT() (err error) {
 	if err == nil {
 		e := dht.h.BSget()
 		if e != nil {
-			log.Infof("error in BSget: %s", e.Error())
+			log.Debugf("error in BSget: %s", e.Error())
 		}
 	}
 	return

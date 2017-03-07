@@ -549,6 +549,7 @@ func makeConfig(h *Holochain, s *Service) error {
 	h.config.Port = DefaultPort
 	h.config.PeerModeDHTNode = s.Settings.DefaultPeerModeDHTNode
 	h.config.PeerModeAuthor = s.Settings.DefaultPeerModeAuthor
+	h.config.BootstrapServer = s.Settings.DefaultBootstrapServer
 
 	p := h.path + "/" + ConfigFileName + "." + h.encodingFormat
 	f, err := os.Create(p)

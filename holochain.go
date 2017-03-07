@@ -1152,12 +1152,13 @@ func (h *Holochain) Test() []error {
 
 	var lastResults [3]interface{}
 	for name, ts := range tests {
-		log.Debugf("===========================")
-		log.Debugf("Test: %s starting...", name)
-		log.Debugf("===========================")
+		log.Infof("========================================")
+		log.Infof("Test: '%s' starting...", name)
+		log.Infof("========================================")
 		for i, t := range ts {
-			log.Debugf("Test line %d: %s", i, t)
-			log.Debugf("-------------------------")
+			log.Debugf("------------------------------")
+			log.Infof("Test '%s' line %d: %s", name, i, t)
+
 			// setup the genesis entries
 			_, err = h.GenChain()
 			go h.HandlePutReqs()
@@ -1171,7 +1172,7 @@ func (h *Holochain) Test() []error {
 				log.Debugf("Input after replacement: %s", input)
 				var result interface{}
 				result, err = h.Call(t.Zome, t.FnName, input)
-				log.Debugf("Test: %s result:%v, Err:%v", testID, result, err)
+				//log.Infof("Test: %s result:%v, Err:%v", testID, result, err)
 				lastResults[2] = lastResults[1]
 				lastResults[1] = lastResults[0]
 				lastResults[0] = result
@@ -1190,6 +1191,7 @@ func (h *Holochain) Test() []error {
 					log.Debugf("Test: %s expecting output %v", testID, t.Output)
 					if err != nil {
 						err = fmt.Errorf("Test: %s\n  Expected: %s\n  Got Error: %s\n", testID, t.Output, err.Error())
+						log.Infof(err.Error())
 					} else {
 
 						// @TODO this should probably act according the function schema
@@ -1213,7 +1215,10 @@ func (h *Holochain) Test() []error {
 						id, _ := h.ID()
 						o = strings.Replace(o, "%id%", id.String(), -1)
 						if r != o {
-							err = fmt.Errorf("Test: %d\n  Expected: %v\n  Got: %v\n", i+1, o, r)
+							err = fmt.Errorf(comparisonString)
+							log.Infof("\n=====================\n%s\n\tfailed! m(\n=====================", comparisonString)
+						} else {
+							log.Debugf("%s\n\tpassed! :D", comparisonString)
 						}
 					}
 				}

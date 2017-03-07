@@ -1193,39 +1193,33 @@ func (h *Holochain) Test() []error {
 				input = strings.Replace(input, "%r2%", strings.Trim(fmt.Sprintf("%v", lastResults[1]), "\""), -1)
 				input = strings.Replace(input, "%r3%", strings.Trim(fmt.Sprintf("%v", lastResults[2]), "\""), -1)
 				log.Debugf("Input after replacement: %s", input)
-				var result interface{}
 				//====================
-				result, err = h.Call(t.Zome, t.FnName, input)
+				var actualResult, actualError = h.Call(t.Zome, t.FnName, input)
+				var expectedResult, expectedError = t.Output, t.Err
 				//====================
 				//log.Infof("Test: %s result:%v, Err:%v", testID, result, err)
 				lastResults[2] = lastResults[1]
 				lastResults[1] = lastResults[0]
-				lastResults[0] = result
-				if t.Err != "" {
-					log.Debugf("Test: %s expecting error %v", testID, t.Err)
-					if err == nil {
-						err = fmt.Errorf("Test: %s\n  Expected Error: %s\n  Got: nil\n", testID, t.Err)
+				lastResults[0] = actualResult
+				if expectedError != "" {
+					comparisonString := fmt.Sprintf("\nTest: %s\n\tExpected error:\t%v\n\tGot error:\t\t%v", testID, expectedError, actualError)
+					if actualError == nil || (actualError.Error() != expectedError) {
+						log.Infof("\n=====================\n%s\n\tfailed! m(\n=====================", comparisonString)
+						err = fmt.Errorf(expectedError)
 					} else {
-						if err.Error() != t.Err {
-							err = fmt.Errorf("Test: %s\n  Expected Error: %s\n  Got Error: %s\n", testID, t.Err, err.Error())
-						} else {
-							err = nil
-						}
+						// all fine
+						log.Debugf("%s\n\tpassed :D", comparisonString)
+						err = nil
 					}
 				} else {
-					log.Debugf("Test: %s expecting output %v", testID, t.Output)
-					if err != nil {
-						err = fmt.Errorf("Test: %s\n  Expected: %s\n  Got Error: %s\n", testID, t.Output, err.Error())
+					if actualError != nil {
+						err = fmt.Errorf("Test: %s\n  Expected: %s\n  Got Error: %s\n", testID, expectedResult, actualError)
 						log.Infof(err.Error())
 					} else {
-
-						var resultString = ToString(result)
+						var resultString = ToString(actualResult)
 
 						// get the top hash for substituting for %h% in the test expectation
-						var top Hash
-						top = h.chain.Top().EntryLink
-						o := strings.Replace(t.Output, "%h%", top.String(), -1)
-
+						o := strings.Replace(expectedResult, "%h%", h.chain.Top().EntryLink.String(), -1)
 						// get the id hash for substituting for %id% in the test expectation
 						id, _ := h.ID()
 						o = strings.Replace(o, "%id%", id.String(), -1)

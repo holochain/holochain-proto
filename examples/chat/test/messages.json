@@ -31,7 +31,7 @@
     "Zome":"messages",
     "FnName":"listMessages",
     "Input":"%r2%",
-    "Output":"[{\"name\":\"general\", \"purpose\":\"everything goes in here\"}]",
+    "Regexp":"^\\{\"content\":\"bla\",\"room\":\"%r2%\",\"timestamp\":\"\\S*\"\\}$",
     "Err":""
   }
 ]

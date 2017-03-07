@@ -538,6 +538,7 @@ type TestData struct {
 	Input  string
 	Output string
 	Err    string
+	Regexp string
 }
 
 func makeConfig(h *Holochain, s *Service) error {
@@ -1156,6 +1157,21 @@ func ToString(input interface{}) string {
 	return output
 }
 
+func (h *Holochain) TestStringReplacements(input, r1, r2, r3 string) string {
+	// get the top hash for substituting for %h% in the test expectation
+	top := h.chain.Top().EntryLink
+	// get the id hash for substituting for %id% in the test expectation
+	id, _ := h.ID()
+
+	var output string
+	output = strings.Replace(input, "%h%", top.String(), -1)
+	output = strings.Replace(output, "%id%", id.String(), -1)
+	output = strings.Replace(output, "%r1%", r1, -1)
+	output = strings.Replace(output, "%r2%", r2, -1)
+	output = strings.Replace(output, "%r3%", r3, -1)
+	return output
+}
+
 // Test loops through each of the test files calling the functions specified
 // This function is useful only in the context of developing a holochain and will return
 // an error if the chain has already been started (i.e. has genesis entries)
@@ -1189,13 +1205,15 @@ func (h *Holochain) Test() []error {
 				testID := fmt.Sprintf("%s:%d", name, i)
 				input := t.Input
 				log.Debugf("Input before replacement: %s", input)
-				input = strings.Replace(input, "%r1%", strings.Trim(fmt.Sprintf("%v", lastResults[0]), "\""), -1)
-				input = strings.Replace(input, "%r2%", strings.Trim(fmt.Sprintf("%v", lastResults[1]), "\""), -1)
-				input = strings.Replace(input, "%r3%", strings.Trim(fmt.Sprintf("%v", lastResults[2]), "\""), -1)
+				r1 := strings.Trim(fmt.Sprintf("%v", lastResults[0]), "\"")
+				r2 := strings.Trim(fmt.Sprintf("%v", lastResults[1]), "\"")
+				r3 := strings.Trim(fmt.Sprintf("%v", lastResults[2]), "\"")
+				input = h.TestStringReplacements(input, r1, r2, r3)
 				log.Debugf("Input after replacement: %s", input)
 				//====================
 				var actualResult, actualError = h.Call(t.Zome, t.FnName, input)
 				var expectedResult, expectedError = t.Output, t.Err
+				var expectedResultRegexp = t.Regexp
 				//====================
 				//log.Infof("Test: %s result:%v, Err:%v", testID, result, err)
 				lastResults[2] = lastResults[1]
@@ -1217,18 +1235,30 @@ func (h *Holochain) Test() []error {
 						log.Infof(err.Error())
 					} else {
 						var resultString = ToString(actualResult)
+						var match bool
+						var comparisonString string
+						if expectedResultRegexp != "" {
+							log.Debugf("Test %s matching against regexp...", testID)
+							expectedResultRegexp = h.TestStringReplacements(expectedResultRegexp, r1, r2, r3)
+							comparisonString = fmt.Sprintf("\nTest: %s\n\tExpected regexp:\t%v\n\tGot:\t\t%v", testID, expectedResultRegexp, resultString)
+							var matchError error
+							match, matchError = regexp.MatchString(expectedResultRegexp, resultString)
+							//match, matchError = regexp.MatchString("[0-9]", "7")
+							if matchError != nil {
+								log.Infof(err.Error())
+							}
+						} else {
+							log.Debugf("Test %s matching against string...", testID)
+							expectedResult = h.TestStringReplacements(expectedResult, r1, r2, r3)
+							comparisonString = fmt.Sprintf("\nTest: %s\n\tExpected:\t%v\n\tGot:\t\t%v", testID, expectedResult, resultString)
+							match = (resultString == expectedResult)
+						}
 
-						// get the top hash for substituting for %h% in the test expectation
-						o := strings.Replace(expectedResult, "%h%", h.chain.Top().EntryLink.String(), -1)
-						// get the id hash for substituting for %id% in the test expectation
-						id, _ := h.ID()
-						o = strings.Replace(o, "%id%", id.String(), -1)
-						comparisonString := fmt.Sprintf("\nTest: %s\n\tExpected:\t%v\n\tGot:\t\t%v", testID, o, resultString)
-						if resultString != o {
+						if match {
+							log.Debugf("%s\n\tpassed! :D", comparisonString)
+						} else {
 							err = fmt.Errorf(comparisonString)
 							log.Infof("\n=====================\n%s\n\tfailed! m(\n=====================", comparisonString)
-						} else {
-							log.Debugf("%s\n\tpassed! :D", comparisonString)
 						}
 					}
 				}

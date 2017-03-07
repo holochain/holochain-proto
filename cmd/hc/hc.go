@@ -156,7 +156,7 @@ func setupApp() (app *cli.App) {
 					Aliases:   []string{"c"},
 					Usage:     "generate the genesis blocks from the configuration and keys",
 					ArgsUsage: "holochain-name",
-					Action: func(c *cli.Context) []error {
+					Action: func(c *cli.Context) error {
 						name, err := checkForName(c, "gen chain")
 						if err != nil {
 							return err
@@ -277,8 +277,12 @@ func setupApp() (app *cli.App) {
 				if err != nil {
 					return err
 				}
-				err = h.Test()
-				return err
+				var errs = h.Test()
+				var s string
+				for _, e := range errs {
+					s += e.Error()
+				}
+				return errors.New(s)
 			},
 		},
 		{

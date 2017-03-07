@@ -379,6 +379,9 @@ func (h *Holochain) GenChain() (keyHash Hash, err error) {
 
 	defer func() {
 		if err != nil {
+			if err.Error() == "holochain: chain already started" {
+				return
+			}
 			panic("cleanup after failed gen not implemented!  Error was: " + err.Error())
 		}
 	}()

@@ -37,11 +37,11 @@ HashType = "sha2-256"
         [Zomes.myZome.Entries.myData.SchemaHash]
       [Zomes.myZome.Entries.primes]
         Name = "primes"
-        DataFormat = "JSON"
+        DataFormat = "json"
         Schema = ""
         [Zomes.myZome.Entries.primes.SchemaHash]
       [Zomes.myZome.Entries.profile]
         Name = "profile"
-        DataFormat = "JSON"
+        DataFormat = "json"
         Schema = "schema_profile.json"
         [Zomes.myZome.Entries.profile.SchemaHash]

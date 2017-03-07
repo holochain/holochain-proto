@@ -22,6 +22,13 @@ const (
 	KeyEntryType = "_key"
 )
 
+const (
+	DataFormatJSON    = "json"
+	DataFormatString  = "string"
+	DataFormatRawJS   = "js"
+	DataFormatRawZygo = "zygo"
+)
+
 // EntryDef struct holds an entry definition
 type EntryDef struct {
 	Name       string
@@ -116,7 +123,7 @@ func (e *GobEntry) Unmarshal(b []byte) (err error) {
 	err = ByteDecoder(b, &e.C)
 	return
 }
- 
+
 func (e *GobEntry) Content() interface{} { return e.C }
 
 // implementation of Entry interface with JSON

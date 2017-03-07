@@ -64,11 +64,11 @@ func (z *ZygoNucleus) ValidateEntry(d *EntryDef, entry Entry, props *ValidationP
 	// @todo handle JSON if schema type is different
 	var e string
 	switch d.DataFormat {
-	case "zygo":
+	case DataFormatRawZygo:
 		e = c
-	case "string":
+	case DataFormatString:
 		e = "\"" + sanitizeString(c) + "\""
-	case "JSON":
+	case DataFormatJSON:
 		e = fmt.Sprintf(`(unjson (raw "%s"))`, sanitizeString(c))
 	default:
 		err = errors.New("data format not implemented: " + d.DataFormat)

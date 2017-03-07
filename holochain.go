@@ -569,17 +569,17 @@ func (s *Service) GenDev(path string, format string) (hP *Holochain, err error) 
 				Description: "this is a zygomas test zome",
 				NucleusType: ZygoNucleusType,
 				Entries: map[string]EntryDef{
-					"myData":  EntryDef{Name: "myData", DataFormat: "zygo"},
-					"primes":  EntryDef{Name: "primes", DataFormat: "JSON"},
-					"profile": EntryDef{Name: "profile", DataFormat: "JSON", Schema: "schema_profile.json"},
+					"myData":  EntryDef{Name: "myData", DataFormat: DataFormatRawZygo},
+					"primes":  EntryDef{Name: "primes", DataFormat: DataFormatJSON},
+					"profile": EntryDef{Name: "profile", DataFormat: DataFormatJSON, Schema: "schema_profile.json"},
 				},
 			},
 			Zome{Name: "jsZome",
 				Description: "this is a javascript test zome",
 				NucleusType: JSNucleusType,
 				Entries: map[string]EntryDef{
-					"myOdds":  EntryDef{Name: "myOdds", DataFormat: "js"},
-					"profile": EntryDef{Name: "profile", DataFormat: "JSON", Schema: "schema_profile.json"},
+					"myOdds":  EntryDef{Name: "myOdds", DataFormat: DataFormatRawJS},
+					"profile": EntryDef{Name: "profile", DataFormat: DataFormatJSON, Schema: "schema_profile.json"},
 				},
 			},
 		}
@@ -1055,7 +1055,7 @@ func (h *Holochain) ValidateEntry(entryType string, entry Entry, props *Validati
 	// see if there is a schema validator for the entry type and validate it if so
 	if d.validator != nil {
 		var input interface{}
-		if d.DataFormat == "JSON" {
+		if d.DataFormat == DataFormatJSON {
 			if err = json.Unmarshal([]byte(entry.Content().(string)), &input); err != nil {
 				return
 			}

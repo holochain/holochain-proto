@@ -34,7 +34,7 @@
           "Entries": {
             "room": {
               "Name": "room",
-              "DataFormat": "JSON",
+              "DataFormat": "json",
               "Schema": "schema_room.json",
               "SchemaHash": {
                   "H": null
@@ -53,7 +53,7 @@
           "Entries": {
             "message": {
               "Name": "message",
-              "DataFormat": "JSON",
+              "DataFormat": "json",
               "Schema": "schema_message.json",
               "SchemaHash": {
                   "H": null
@@ -72,7 +72,7 @@
           "Entries": {
             "profile": {
               "Name": "profile",
-              "DataFormat": "JSON",
+              "DataFormat": "json",
               "Schema": "schema_profile.json",
               "SchemaHash": {
                   "H": null

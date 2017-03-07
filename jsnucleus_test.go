@@ -78,7 +78,7 @@ func TestJSValidateEntry(t *testing.T) {
 	Convey("should run an entry value against the defined validator for string data", t, func() {
 		v, err := NewJSNucleus(nil, `function validate(name,entry,meta) { return (entry=="fish")};`)
 		So(err, ShouldBeNil)
-		d := EntryDef{Name: "myData", DataFormat: "string"}
+		d := EntryDef{Name: "myData", DataFormat: DataFormatString}
 		err = v.ValidateEntry(&d, &GobEntry{C: "cow"}, &p)
 		So(err.Error(), ShouldEqual, "Invalid entry: cow")
 		err = v.ValidateEntry(&d, &GobEntry{C: "fish"}, &p)
@@ -86,7 +86,7 @@ func TestJSValidateEntry(t *testing.T) {
 	})
 	Convey("should run an entry value against the defined validator for js data", t, func() {
 		v, err := NewJSNucleus(nil, `function validate(name,entry,meta) { return (entry=="fish")};`)
-		d := EntryDef{Name: "myData", DataFormat: "js"}
+		d := EntryDef{Name: "myData", DataFormat: DataFormatRawJS}
 		err = v.ValidateEntry(&d, &GobEntry{C: "\"cow\""}, &p)
 		So(err.Error(), ShouldEqual, "Invalid entry: \"cow\"")
 		err = v.ValidateEntry(&d, &GobEntry{C: "\"fish\""}, &p)
@@ -94,7 +94,7 @@ func TestJSValidateEntry(t *testing.T) {
 	})
 	Convey("should run an entry value against the defined validator for json data", t, func() {
 		v, err := NewJSNucleus(nil, `function validate(name,entry,meta) { return (entry.data=="fish")};`)
-		d := EntryDef{Name: "myData", DataFormat: "JSON"}
+		d := EntryDef{Name: "myData", DataFormat: DataFormatJSON}
 		err = v.ValidateEntry(&d, &GobEntry{C: `{"data":"cow"}`}, &p)
 		So(err.Error(), ShouldEqual, `Invalid entry: {"data":"cow"}`)
 		err = v.ValidateEntry(&d, &GobEntry{C: `{"data":"fish"}`}, &p)
@@ -173,7 +173,9 @@ func TestJSDHT(t *testing.T) {
 		v, err = NewJSNucleus(h, fmt.Sprintf(`get ("%s");`, hash.String()))
 		So(err, ShouldBeNil)
 		z = v.(*JSNucleus)
-		So(z.lastResult.String(), ShouldEqual, `"7"`)
+		x, err := z.lastResult.Export()
+		So(err, ShouldBeNil)
+		So(fmt.Sprintf("%v", x.(Entry).Content()), ShouldEqual, `7`)
 	})
 
 	e = GobEntry{C: `{"firstName":"Zippy","lastName":"Pinhead"}`}
@@ -197,7 +199,10 @@ func TestJSDHT(t *testing.T) {
 		v, err := NewJSNucleus(h, fmt.Sprintf(`getmeta("%s","myMetaTag");`, hash.String()))
 		So(err, ShouldBeNil)
 		z := v.(*JSNucleus)
-		So(z.lastResult.String(), ShouldEqual, `[{"C":"{\"firstName\":\"Zippy\",\"lastName\":\"Pinhead\"}"}]`)
+		So(z.lastResult.Class(), ShouldEqual, "GoArray")
+		x, err := z.lastResult.Export()
+		So(err, ShouldBeNil)
+		So(fmt.Sprintf("%v", x.([]Entry)[0].Content()), ShouldEqual, `{"firstName":"Zippy","lastName":"Pinhead"}`)
 	})
 
 }

@@ -19,8 +19,8 @@ In other words, a holochain functions very much **like a blockchain without bott
     - [Starting a Holochain](#starting-a-holochain)
     - [1. Initializing Holochain Service for the First Time](#1-initializing-holochain-service-for-the-first-time)
     - [2. Getting Application DNA](#2-getting-application-dna)
-    - [3. Generate New Chain](#3-generate-new-chain)
-    - [4. Testing your Application](#4-testing-your-application)
+    - [3. Testing your Application](#3-testing-your-application)
+    - [4. Generate New Chain](#4-generate-new-chain)
     - [5. Launching the Holochain Server](#5-launching-the-holochain-server)
       - [Other Useful Commands](#other-useful-commands)
       - [File Locations](#file-locations)
@@ -68,9 +68,9 @@ You've installed and built a distributed data engine, but you don't have a data 
 
 1. ```hc init```
 2. ```hc clone```
-3. ```hc gen chain```
-4. ```hc test```
-4. ```hc serve```
+3. ```hc test```
+4. ```hc gen chain```
+5. ```hc serve```
 
 Details of each of these steps are below...
 
@@ -90,19 +90,18 @@ For example: ```hc clone ./examples/sample sample```
 
 Before you launch your chain, this is the chance for you to customize the application settings like the NAME, and the UUID
 
-### 3. Generate New Chain
-
-After you have cloned and/or completed development for your chain, you need to generate the genesis entries which start your new chain. The first entry is the DNA which is the hash of all the application code. This confirms every person's chain starts with the the same code/DNA. The second block registers your keys so you have an address, identity, and signing keys for communicating on the chain.
-
-    hc gen chain <HOLOCHAIN_NAME>
-
-### 4. Testing your Application
+### 3. Testing your Application
 We have designed holochains to function around test-driven development, so each developer should have tests to confirm that you've built a functioning chain. Run the tests with;
 
     hc test <HOLOCHAIN_NAME>
 
 If the tests fail, then you know your application DNA is broken and you should not proceed thinking that your system is going to work. If you're a developer, you should be running this command as you make changes to your holochain DNA files to leverage test-driven development. And obviously, please do not send out applications that don't pass their own tests.
 
+### 4. Generate New Chain
+
+After you have cloned and/or completed development for your chain, you need to generate the genesis entries which start your new chain. The first entry is the DNA which is the hash of all the application code. This confirms every person's chain starts with the the same code/DNA. The second block registers your keys so you have an address, identity, and signing keys for communicating on the chain.
+
+    hc gen chain <HOLOCHAIN_NAME>
 ### 5. Launching the Holochain Server
 Holochains service function requests via local web sockets. This let's interface developers have a lot of freedom to build html / javascript files and drop them in that chain's UI directory. You launch the service to listen on the socket on localhost with:
 

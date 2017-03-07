@@ -59,11 +59,11 @@ func (z *JSNucleus) ValidateEntry(d *EntryDef, entry Entry, props *ValidationPro
 	c := entry.Content().(string)
 	var e string
 	switch d.DataFormat {
-	case "js":
+	case DataFormatRawJS:
 		e = c
-	case "string":
+	case DataFormatString:
 		e = "\"" + sanitizeString(c) + "\""
-	case "JSON":
+	case DataFormatJSON:
 		e = fmt.Sprintf(`JSON.parse("%s")`, sanitizeString(c))
 	default:
 		err = errors.New("data format not implemented: " + d.DataFormat)
@@ -280,15 +280,8 @@ func NewJSNucleus(h *Holochain, code string) (n Nucleus, err error) {
 			if err == nil {
 				switch t := response.(type) {
 				case *GobEntry:
-					// @TODO figure out encoding by entry type.
-					var j []byte
-					j, err = json.Marshal(t.C)
-					if err == nil {
-						result, err = z.vm.ToValue(string(j))
-						if err == nil {
-							return
-						}
-					}
+					result, err = z.vm.ToValue(t)
+					return
 					// @TODO what about if the hash was of a header??
 				default:
 					err = fmt.Errorf("unexpected response type from SendGet: %v", t)
@@ -342,11 +335,7 @@ func NewJSNucleus(h *Holochain, code string) (n Nucleus, err error) {
 		if err == nil {
 			response, err = h.dht.SendGetMeta(MetaQuery{H: key, T: typestr})
 			if err == nil {
-				var j []byte
-				j, err = json.Marshal(response)
-				if err == nil {
-					result, err = z.vm.ToValue(string(j))
-				}
+				result, err = z.vm.ToValue(response)
 			}
 		}
 

@@ -28,9 +28,6 @@
 				<button type="button" onclick="addPost()">Meow</button>
 			</form>
 			<div id="meows">
-				<div class="meow">@name says: Meow</div>
-				<div class="meow">@name says: Meow</div>
-				<div class="meow">@name says: Meow</div>
 			</div>
 			<div class="section group">
 				<div id="footer">
@@ -38,10 +35,12 @@
 				</div>
 			</div>
 		</div>
+                <button type="button" onclick="getPosts('eric@hb.com')">Get</button>
+
 	</div>
         <script type="text/javascript">
          window.onload = function() {
-              getProfile();
+             getProfile();
          }
         </script>
 </body>

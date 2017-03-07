@@ -4,7 +4,9 @@
     "properties": {
 	"message": {
 	    "type": "string"
+	},
+	"stamp": {
+	    "type": "integer"
 	}
-    },
-    "required": ["message"]
+    }
 }

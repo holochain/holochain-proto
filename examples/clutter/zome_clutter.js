@@ -8,24 +8,28 @@ function addPost(x) {
     putmeta(id,k,"_post_by_"+nick);
     return k;
 }
-expose("users",HC.JSON)
+expose("users",HC.JSON);
 function users() {
-    debug("xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx")
-    return getmeta(property("_id"),"users")
+    debug("xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx");
+    return getmeta(property("_id"),"users");
 }
 
-expose("get",HC.JSON)
+expose("get",HC.JSON);
 function get(i) {
-    debug("get")
+    debug("get");
     if (i.what == "nick") {
         return property("_agent_name");
+    }
+    else if (i.what == "posts") {
+        var id = property("_id");
+        return getmeta(id,"_post_by_"+i.whom);
     }
     return {}
 }
 
 function genesis() {
     var id = property("_id");
-    debug("id is "+id)
+    debug("id is "+id);
     var k = addProfile({nick:property("_agent_name")});
     var err = putmeta(id,k,"users");
     if (!err) {
@@ -35,8 +39,9 @@ function genesis() {
 }
 
 function validate(entry_type,entry,meta) {
+    debug("validate: "+entry_type);
     if (entry_type=="post") {
-        var l = entry.message;
+        var l = entry.message.length;
         if (l>0 && l<256) {return true;}
         return false;
     }

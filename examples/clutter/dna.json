@@ -22,7 +22,7 @@
             "Entries": {
                 "post": {
                     "Name": "post",
-                    "DataFormat": "js",
+                    "DataFormat": "json",
                     "Schema": "schema_post.json",
                     "SchemaHash": {
                         "H": null
@@ -30,7 +30,7 @@
                 },
                 "profile": {
                     "Name": "profile",
-                    "DataFormat": "JSON",
+                    "DataFormat": "json",
                     "Schema": "schema_profile.json",
                     "SchemaHash": {
                         "H": null

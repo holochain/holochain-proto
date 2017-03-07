@@ -1061,6 +1061,7 @@ func (h *Holochain) ValidateEntry(entryType string, entry Entry, props *Validati
 		} else {
 			input = entry
 		}
+		log.Debugf("Validating %v against schema", input)
 		if err = d.validator.Validate(input); err != nil {
 			return
 		}

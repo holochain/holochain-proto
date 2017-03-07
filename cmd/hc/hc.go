@@ -19,7 +19,8 @@ func setupApp() (app *cli.App) {
 	app = cli.NewApp()
 	app.Name = "hc"
 	app.Usage = "holochain peer command line interface"
-	app.Version = "0.0.1"
+	app.Version = "0.0.2"
+
 	var verbose bool
 	var debug bool
 	var force bool
@@ -405,7 +406,11 @@ func setupApp() (app *cli.App) {
 
 func main() {
 	app := setupApp()
-	app.Run(os.Args)
+
+	err := app.Run(os.Args)
+	if err != nil {
+		fmt.Printf("Error: %v\n", err)
+	}
 }
 
 func getHolochain(c *cli.Context, service *holo.Service, cmd string) (h *holo.Holochain, err error) {

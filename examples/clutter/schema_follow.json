@@ -1,0 +1,9 @@
+{
+    "title": "Follow Schema",
+    "type": "object",
+    "properties": {
+	"whom": {
+	    "type": "string"
+	}
+    }
+}

@@ -28,6 +28,14 @@
                         "H": null
                     }
                 },
+                "follow": {
+                    "Name": "follow",
+                    "DataFormat": "json",
+                    "Schema": "schema_follow.json",
+                    "SchemaHash": {
+                        "H": null
+                    }
+                },
                 "profile": {
                     "Name": "profile",
                     "DataFormat": "json",

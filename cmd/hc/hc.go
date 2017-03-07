@@ -284,8 +284,12 @@ func setupApp() (app *cli.App) {
 				if err != nil {
 					return err
 				}
-				h.Test()
-				return nil
+				var errs = h.Test()
+				var s string
+				for _, e := range errs {
+					s += e.Error()
+				}
+				return errors.New(s)
 			},
 		},
 		{

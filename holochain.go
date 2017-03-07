@@ -1141,6 +1141,21 @@ func LoadTestData(path string) (map[string][]TestData, error) {
 	return tests, err
 }
 
+func ToString(input interface{}) string {
+	// @TODO this should probably act according the function schema
+	// not just the return value
+	var output string
+	switch t := input.(type) {
+	case []byte:
+		output = string(t)
+	case string:
+		output = t
+	default:
+		output = fmt.Sprintf("%v", t)
+	}
+	return output
+}
+
 // Test loops through each of the test files calling the functions specified
 // This function is useful only in the context of developing a holochain and will return
 // an error if the chain has already been started (i.e. has genesis entries)
@@ -1204,17 +1219,7 @@ func (h *Holochain) Test() []error {
 						log.Infof(err.Error())
 					} else {
 
-						// @TODO this should probably act according the function schema
-						// not just the return value
-						var r string
-						switch t := result.(type) {
-						case []byte:
-							r = string(t)
-						case string:
-							r = t
-						default:
-							r = fmt.Sprintf("%v", t)
-						}
+						var resultString = ToString(result)
 
 						// get the top hash for substituting for %h% in the test expectation
 						var top Hash
@@ -1224,7 +1229,8 @@ func (h *Holochain) Test() []error {
 						// get the id hash for substituting for %id% in the test expectation
 						id, _ := h.ID()
 						o = strings.Replace(o, "%id%", id.String(), -1)
-						if r != o {
+						comparisonString := fmt.Sprintf("\nTest: %s\n\tExpected:\t%v\n\tGot:\t\t%v", testID, o, resultString)
+						if resultString != o {
 							err = fmt.Errorf(comparisonString)
 							log.Infof("\n=====================\n%s\n\tfailed! m(\n=====================", comparisonString)
 						} else {

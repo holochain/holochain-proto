@@ -453,7 +453,7 @@ func TestTest(t *testing.T) {
 	cleanupTestDir(d + "/.holochain/test/test/") // delete the test data created by gen dev
 	Convey("it should fail if there's no test data", t, func() {
 		err := h.Test()
-		So(err.Error(), ShouldEqual, "open "+h.path+"/test: no such file or directory")
+		So(err[0].Error(), ShouldEqual, "open "+h.path+"/test: no such file or directory")
 	})
 	cleanupTestDir(d)
 
@@ -471,7 +471,7 @@ func TestTest(t *testing.T) {
 		os.Remove(d + "/.holochain/test/test/test_0.json")
 		err := writeFile(d+"/.holochain/test/test", "test_0.json", []byte(`[{"Zome":"myZome","FnName":"addData","Input":"2","Output":"","Err":"bogus error"}]`))
 		So(err, ShouldBeNil)
-		err = h.Test()
+		err = h.Test()[0]
 		So(err, ShouldNotBeNil)
 		So(err.Error(), ShouldEqual, "Test: test_0:0\n  Expected Error: bogus error\n  Got: nil\n")
 	})

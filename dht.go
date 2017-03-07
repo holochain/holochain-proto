@@ -417,11 +417,5 @@ func DHTReceiver(h *Holochain, m *Message) (response interface{}, err error) {
 // StartDHT initiates listening for DHT protocol messages on the node
 func (dht *DHT) StartDHT() (err error) {
 	err = dht.h.node.StartProtocol(dht.h, DHTProtocol, DHTReceiver)
-	if err == nil {
-		e := dht.h.BSget()
-		if e != nil {
-			log.Debugf("error in BSget: %s", e.Error())
-		}
-	}
 	return
 }

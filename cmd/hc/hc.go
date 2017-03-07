@@ -15,14 +15,15 @@ var uninitialized error
 var initialized bool
 var log *logging.Logger
 
+var verbose bool
+var debug bool
+
 func setupApp() (app *cli.App) {
 	app = cli.NewApp()
 	app.Name = "hc"
 	app.Usage = "holochain peer command line interface"
 	app.Version = "0.0.2"
 
-	var verbose bool
-	var debug bool
 	var force bool
 	var root string
 	var service *holo.Service
@@ -73,11 +74,35 @@ func setupApp() (app *cli.App) {
 						return e
 					}
 				}
-				h, err := service.Clone(srcPath, root+"/"+name)
+				h, err := service.Clone(srcPath, root+"/"+name, true)
 				if err == nil {
 					if verbose {
 						fmt.Printf("cloned %s from %s with new id: %v\n", name, srcPath, h.Id)
 					}
+				}
+				return err
+			},
+		},
+		{
+			Name:      "join",
+			Aliases:   []string{"c"},
+			Usage:     "joins a holochain by copying an instance from a source and generating genesis blocks",
+			ArgsUsage: "src-path holochain-name",
+			Action: func(c *cli.Context) error {
+				srcPath := c.Args().First()
+				if srcPath == "" {
+					return errors.New("join: missing required source path argument")
+				}
+				if len(c.Args()) == 1 {
+					return errors.New("join: missing required holochain-name argument")
+				}
+				name := c.Args()[1]
+				_, err := service.Clone(srcPath, root+"/"+name, false)
+				if err == nil {
+					if verbose {
+						fmt.Printf("joined %s from %s\n", name, srcPath)
+					}
+					err = genChain(service, name)
 				}
 				return err
 			},
@@ -162,29 +187,8 @@ func setupApp() (app *cli.App) {
 						if err != nil {
 							return err
 						}
-						h, err := service.Load(name)
-						if err != nil {
-							return err
-						}
-						err = h.GenDNAHashes()
-						if err != nil {
-							return err
-						}
-						err = h.Activate()
-						if err != nil {
-							return err
-						}
-						_, err = h.GenChain()
-						if err != nil {
-							return err
-						}
-						go h.DHT().HandlePutReqs()
-						id, err := h.ID()
-						if err != nil {
-							return err
-						}
 
-						fmt.Printf("Genesis entries added and DNA hashed for new holochain with ID: %s\n", id.String())
+						err = genChain(service, name)
 						return nil
 					},
 				},
@@ -454,4 +458,33 @@ func listChains(s *holo.Service) {
 func mkErr(etext string, code int) (int, error) {
 	fmt.Println("Error:", code, etext)
 	return code, errors.New(etext)
+}
+
+func genChain(service *holo.Service, name string) error {
+	h, err := service.Load(name)
+	if err != nil {
+		return err
+	}
+	err = h.GenDNAHashes()
+	if err != nil {
+		return err
+	}
+	err = h.Activate()
+	if err != nil {
+		return err
+	}
+	_, err = h.GenChain()
+	if err != nil {
+		return err
+	}
+	go h.DHT().HandlePutReqs()
+	id, err := h.ID()
+	if err != nil {
+		return err
+	}
+
+	if verbose {
+		fmt.Printf("Genesis entries added and DNA hashed for new holochain with ID: %s\n", id.String())
+	}
+	return nil
 }

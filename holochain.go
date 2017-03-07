@@ -324,6 +324,14 @@ func (h *Holochain) Activate() (err error) {
 		if err = h.dht.StartDHT(); err != nil {
 			return
 		}
+		e := h.BSpost()
+		if e != nil {
+			log.Debugf("error in BSpost: %s", e.Error())
+		}
+		e = h.BSget()
+		if e != nil {
+			log.Debugf("error in BSget: %s", e.Error())
+		}
 	}
 	if h.config.PeerModeAuthor {
 		if err = h.node.StartSrc(h); err != nil {
@@ -451,7 +459,7 @@ func (h *Holochain) GenChain() (keyHash Hash, err error) {
 }
 
 // Clone copies DNA files from a source
-func (s *Service) Clone(srcPath string, path string) (hP *Holochain, err error) {
+func (s *Service) Clone(srcPath string, path string, new bool) (hP *Holochain, err error) {
 	hP, err = gen(path, func(path string) (hP *Holochain, err error) {
 
 		format, err := findDNA(srcPath)
@@ -468,7 +476,7 @@ func (s *Service) Clone(srcPath string, path string) (hP *Holochain, err error) 
 		if err != nil {
 			return
 		}
-
+		log.Debugf("NAME:%s", h.Name)
 		agent, err := LoadAgent(filepath.Dir(path))
 		if err != nil {
 			return
@@ -488,12 +496,18 @@ func (s *Service) Clone(srcPath string, path string) (hP *Holochain, err error) 
 			return
 		}
 
-		// generate a new UUID
-		u, err := uuid.NewUUID()
-		if err != nil {
-			return
+		if new {
+			// generate a new UUID
+			var u uuid.UUID
+			u, err = uuid.NewUUID()
+			if err != nil {
+				return
+			}
+			h.Id = u
+
+			// use the path as the name
+			h.Name = filepath.Base(path)
 		}
-		h.Id = u
 
 		if err = CopyDir(srcPath+"/ui", path+"/ui"); err != nil {
 			return
@@ -590,6 +604,9 @@ func (s *Service) GenDev(path string, format string) (hP *Holochain, err error) 
 		}
 
 		h := New(agent, path, format, zomes...)
+
+		// use the path as the name
+		h.Name = filepath.Base(path)
 
 		err = makeConfig(&h, s)
 		if err != nil {
@@ -810,8 +827,6 @@ func gen(path string, makeH func(path string) (hP *Holochain, err error)) (h *Ho
 	if err != nil {
 		return
 	}
-
-	h.Name = filepath.Base(path)
 
 	h.chain, err = NewChainFromFile(h.hashSpec, path+"/"+StoreFileName+".dat")
 	if err != nil {

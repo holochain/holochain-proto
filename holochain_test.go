@@ -120,8 +120,8 @@ func TestGenDev(t *testing.T) {
 	})
 }
 
-func TestClone(t *testing.T) {
-	d, s, _ := setupTestChain("test")
+func TestCloneNew(t *testing.T) {
+	d, s, h0 := setupTestChain("test")
 	defer cleanupTestDir(d)
 
 	name := "test2"
@@ -129,9 +129,37 @@ func TestClone(t *testing.T) {
 
 	orig := s.Path + "/test"
 	Convey("it should create a chain from the examples directory", t, func() {
-		h, err := s.Clone(orig, root)
+		h, err := s.Clone(orig, root, true)
 		So(err, ShouldBeNil)
 		So(h.Name, ShouldEqual, "test2")
+		So(h.Id, ShouldNotEqual, h0.Id)
+		agent, err := LoadAgent(s.Path)
+		So(err, ShouldBeNil)
+		So(h.agent.Name(), ShouldEqual, agent.Name())
+		So(ic.KeyEqual(h.agent.PrivKey(), agent.PrivKey()), ShouldBeTrue)
+		src, _ := readFile(orig, "zome_myZome.zy")
+		dst, _ := readFile(root, "zome_myZome.zy")
+		So(string(src), ShouldEqual, string(dst))
+		So(fileExists(h.path+"/ui/index.html"), ShouldBeTrue)
+		So(fileExists(h.path+"/schema_profile.json"), ShouldBeTrue)
+		So(fileExists(h.path+"/schema_properties.json"), ShouldBeTrue)
+		So(fileExists(h.path+"/"+ConfigFileName+".toml"), ShouldBeTrue)
+	})
+}
+
+func TestCloneJoin(t *testing.T) {
+	d, s, h0 := setupTestChain("test")
+	defer cleanupTestDir(d)
+
+	name := "test2"
+	root := s.Path + "/" + name
+
+	orig := s.Path + "/test"
+	Convey("it should create a chain from the examples directory", t, func() {
+		h, err := s.Clone(orig, root, false)
+		So(err, ShouldBeNil)
+		So(h.Name, ShouldEqual, "test")
+		So(h.Id, ShouldEqual, h0.Id)
 		agent, err := LoadAgent(s.Path)
 		So(err, ShouldBeNil)
 		So(h.agent.Name(), ShouldEqual, agent.Name())

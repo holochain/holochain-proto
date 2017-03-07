@@ -196,8 +196,8 @@ func TestZygoDHT(t *testing.T) {
 		So(r.(*zygo.SexpStr).S, ShouldEqual, `"2"`)
 	})
 
-	e = GobEntry{C: "some meta data"}
-	_, mhd, _ := h.NewEntry(now, "myMetaData", &e)
+	e = GobEntry{C: `{"firstName":"Zippy","lastName":"Pinhead"}`}
+	_, mhd, _ := h.NewEntry(now, "profile", &e)
 	metaHash := mhd.EntryLink
 	//b, _ := e.Marshal()
 
@@ -205,7 +205,9 @@ func TestZygoDHT(t *testing.T) {
 		v, err := NewZygoNucleus(h, fmt.Sprintf(`(putmeta "%s" "%s" "myMetaTag")`, hash.String(), metaHash.String()))
 		So(err, ShouldBeNil)
 		z := v.(*ZygoNucleus)
-		r, err := z.lastResult.(*zygo.SexpHash).HashGet(z.env, z.env.MakeSymbol("result"))
+
+		sh := z.lastResult.(*zygo.SexpHash)
+		r, err := sh.HashGet(z.env, z.env.MakeSymbol("result"))
 		So(err, ShouldBeNil)
 		So(r.(*zygo.SexpStr).S, ShouldEqual, "ok")
 	})
@@ -218,8 +220,10 @@ func TestZygoDHT(t *testing.T) {
 		v, err := NewZygoNucleus(h, fmt.Sprintf(`(getmeta "%s" "myMetaTag")`, hash.String()))
 		So(err, ShouldBeNil)
 		z := v.(*ZygoNucleus)
-		r, err := z.lastResult.(*zygo.SexpHash).HashGet(z.env, z.env.MakeSymbol("result"))
+		sh := z.lastResult.(*zygo.SexpHash)
+
+		r, err := sh.HashGet(z.env, z.env.MakeSymbol("result"))
 		So(err, ShouldBeNil)
-		So(r.(*zygo.SexpStr).S, ShouldEqual, `[{"C":"2"}]`)
+		So(r.(*zygo.SexpStr).S, ShouldEqual, `[{"C":"{\"firstName\":\"Zippy\",\"lastName\":\"Pinhead\"}"}]`)
 	})
 }

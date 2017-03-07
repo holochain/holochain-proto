@@ -1194,13 +1194,14 @@ func (h *Holochain) Test() []error {
 		log.Infof("========================================")
 		log.Infof("Test: '%s' starting...", name)
 		log.Infof("========================================")
+		// setup the genesis entries
+		_, err = h.GenChain()
+		go h.HandlePutReqs()
+
 		for i, t := range ts {
 			log.Debugf("------------------------------")
 			log.Infof("Test '%s' line %d: %s", name, i, t)
-
-			// setup the genesis entries
-			_, err = h.GenChain()
-			go h.HandlePutReqs()
+			time.Sleep(time.Millisecond)
 			if err == nil {
 				testID := fmt.Sprintf("%s:%d", name, i)
 				input := t.Input
@@ -1263,15 +1264,15 @@ func (h *Holochain) Test() []error {
 					}
 				}
 			}
-			// restore the state for the next test file
-			e := h.Reset()
-			if e != nil {
-				panic(e)
-			}
 
 			if err != nil {
 				errs = append(errs, err)
 			}
+		}
+		// restore the state for the next test file
+		e := h.Reset()
+		if e != nil {
+			panic(e)
 		}
 	}
 	return errs
@@ -1307,7 +1308,14 @@ func (h *Holochain) Reset() (err error) {
 	if err != nil {
 		panic(err)
 	}
+
+	h.chain = NewChain()
+
 	//	h.chain.s.Close()
 	err = os.RemoveAll(h.path + "/" + StoreFileName + ".dat")
+	err = os.RemoveAll(h.path + "/dht.dat")
+
+	h.dht = NewDHT(h)
+
 	return
 }

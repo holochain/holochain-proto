@@ -13,6 +13,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/boltdb/bolt"
+	"github.com/fatih/color"
 	"github.com/google/uuid"
 	ic "github.com/libp2p/go-libp2p-crypto"
 	peer "github.com/libp2p/go-libp2p-peer"
@@ -1258,9 +1259,10 @@ func (h *Holochain) Test() []error {
 
 						if match {
 							log.Debugf("%s\n\tpassed! :D", comparisonString)
+							color.Green("\b√")
 						} else {
 							err = fmt.Errorf(comparisonString)
-							log.Infof("\n=====================\n%s\n\tfailed! m(\n=====================", comparisonString)
+							color.Red(fmt.Sprintf("\n=====================\n%s\n\tfailed! m(\n=====================", comparisonString))
 						}
 					}
 				}

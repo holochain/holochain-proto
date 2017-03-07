@@ -1106,6 +1106,41 @@ func (h *Holochain) makeNucleus(z *Zome) (n Nucleus, err error) {
 	return
 }
 
+func LoadTestData(path string) (map[string][]TestData, error) {
+	files, err := ioutil.ReadDir(path)
+	if err != nil {
+		return nil, err
+	}
+
+	if len(files) == 0 {
+		return nil, errors.New("no test data found in: " + path + "/test")
+	}
+
+	re := regexp.MustCompile(`(.*)\.json`)
+	var tests = make(map[string][]TestData)
+	for _, f := range files {
+		if f.Mode().IsRegular() {
+			x := re.FindStringSubmatch(f.Name())
+			if len(x) > 0 {
+				name := x[1]
+
+				var v []byte
+				v, err = readFile(path, x[0])
+				if err != nil {
+					return nil, err
+				}
+				var t []TestData
+				err = json.Unmarshal(v, &t)
+				if err != nil {
+					return nil, err
+				}
+				tests[name] = t
+			}
+		}
+	}
+	return tests, err
+}
+
 // Test loops through each of the test files calling the functions specified
 // This function is useful only in the context of developing a holochain and will return
 // an error if the chain has already been started (i.e. has genesis entries)
@@ -1116,38 +1151,11 @@ func (h *Holochain) Test() []error {
 		err = errors.New("chain already started")
 		return []error{err}
 	}
-	p := h.path + "/test"
-	files, err := ioutil.ReadDir(p)
-	if err != nil {
-		return []error{err}
-	}
-
-	if len(files) == 0 {
-		return []error{errors.New("no test data found in: " + h.path + "/test")}
-	}
 
 	// load up the test files into the tests array
-	re := regexp.MustCompile(`(.*)\.json`)
-	var tests = make(map[string][]TestData)
-	for _, f := range files {
-		if f.Mode().IsRegular() {
-			x := re.FindStringSubmatch(f.Name())
-			if len(x) > 0 {
-				name := x[1]
-
-				var v []byte
-				v, err = readFile(p, x[0])
-				if err != nil {
-					return []error{err}
-				}
-				var t []TestData
-				err = json.Unmarshal(v, &t)
-				if err != nil {
-					return []error{err}
-				}
-				tests[name] = t
-			}
-		}
+	var tests, errorLoad = LoadTestData(h.path + "/test")
+	if errorLoad != nil {
+		return []error{errorLoad}
 	}
 
 	var lastResults [3]interface{}
@@ -1171,7 +1179,9 @@ func (h *Holochain) Test() []error {
 				input = strings.Replace(input, "%r3%", strings.Trim(fmt.Sprintf("%v", lastResults[2]), "\""), -1)
 				log.Debugf("Input after replacement: %s", input)
 				var result interface{}
+				//====================
 				result, err = h.Call(t.Zome, t.FnName, input)
+				//====================
 				//log.Infof("Test: %s result:%v, Err:%v", testID, result, err)
 				lastResults[2] = lastResults[1]
 				lastResults[1] = lastResults[0]

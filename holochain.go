@@ -1201,8 +1201,7 @@ func (h *Holochain) Test() []error {
 		log.Infof("========================================")
 		// setup the genesis entries
 		_, err = h.GenChain()
-		go h.HandlePutReqs()
-
+		go h.dht.HandlePutReqs()
 		for i, t := range ts {
 			log.Debugf("------------------------------")
 			log.Infof("Test '%s' line %d: %s", name, i, t)
@@ -1304,7 +1303,7 @@ func (h *Holochain) GetProperty(prop string) (property string, err error) {
 	return
 }
 
-// reset deletes all chain data
+// Reset deletes all chain and dht data and resets data structures
 func (h *Holochain) Reset() (err error) {
 	err = h.store.Remove()
 	if err != nil {
@@ -1321,7 +1320,13 @@ func (h *Holochain) Reset() (err error) {
 	err = os.RemoveAll(h.path + "/" + StoreFileName + ".dat")
 	err = os.RemoveAll(h.path + "/dht.dat")
 
+	close(h.dht.puts)
 	h.dht = NewDHT(h)
 
 	return
+}
+
+// DHT exposes the DHT structure
+func (h *Holochain) DHT() *DHT {
+	return h.dht
 }

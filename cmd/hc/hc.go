@@ -178,6 +178,7 @@ func setupApp() (app *cli.App) {
 						if err != nil {
 							return err
 						}
+						go h.DHT().HandlePutReqs()
 						id, err := h.ID()
 						if err != nil {
 							return err
@@ -351,7 +352,7 @@ func setupApp() (app *cli.App) {
 				if err != nil {
 					return err
 				}
-				go h.HandlePutReqs()
+				go h.DHT().HandlePutReqs()
 				serve(h, port)
 				return err
 			},

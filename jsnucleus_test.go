@@ -166,7 +166,7 @@ func TestJSDHT(t *testing.T) {
 		z := v.(*JSNucleus)
 		So(z.lastResult.String(), ShouldEqual, "HolochainError: hash not found")
 
-		if err := h.dht.handlePutReqs(); err != nil {
+		if err := h.dht.simHandlePutReqs(); err != nil {
 			panic(err)
 		}
 
@@ -191,7 +191,7 @@ func TestJSDHT(t *testing.T) {
 		So(z.lastResult.String(), ShouldEqual, otto.UndefinedValue().String())
 	})
 
-	if err := h.dht.handlePutReqs(); err != nil {
+	if err := h.dht.simHandlePutReqs(); err != nil {
 		panic(err)
 	}
 

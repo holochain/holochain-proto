@@ -160,28 +160,11 @@ func TestSend(t *testing.T) {
 	// publish the entry data to the dht
 	hash = hd.EntryLink
 
-	Convey("before send PUT_REQUEST message queue should be empty", t, func() {
-		So(h.dht.Queue.Len(), ShouldEqual, 0)
-	})
-
-	Convey("after send PUT_REQUEST message queue should have the message in it", t, func() {
-		r, err := h.dht.send(node.HashAddr, PUT_REQUEST, PutReq{H: hash})
-		So(err, ShouldBeNil)
-		So(r, ShouldEqual, "queued")
-		So(h.dht.Queue.Len(), ShouldEqual, 1)
-		messages, err := h.dht.Queue.Get(1)
-		So(err, ShouldBeNil)
-		m := messages[0].(*Message)
-		So(m.Type, ShouldEqual, PUT_REQUEST)
-		pr := m.Body.(PutReq)
-		So(pr.H.Equal(&hash), ShouldBeTrue)
-	})
-
 	Convey("after a handled PUT_REQUEST data should be stored in DHT", t, func() {
 		r, err := h.dht.send(node.HashAddr, PUT_REQUEST, PutReq{H: hash})
 		So(err, ShouldBeNil)
 		So(r, ShouldEqual, "queued")
-		h.dht.handlePutReqs()
+		h.dht.simHandlePutReqs()
 		hd, _ := h.chain.GetEntryHeader(hash)
 		So(hd.EntryLink.Equal(&hash), ShouldBeTrue)
 	})
@@ -230,7 +213,7 @@ func TestDHTReceiver(t *testing.T) {
 		So(r, ShouldEqual, "queued")
 	})
 
-	if err := h.dht.handlePutReqs(); err != nil {
+	if err := h.dht.simHandlePutReqs(); err != nil {
 		panic(err)
 	}
 	Convey("GET_REQUEST should return the value of the has", t, func() {
@@ -251,7 +234,7 @@ func TestDHTReceiver(t *testing.T) {
 		So(r, ShouldEqual, "queued")
 
 		// fake the handleputreqs
-		err = h.dht.handlePutReqs()
+		err = h.dht.simHandlePutReqs()
 		So(err, ShouldBeNil)
 
 		// check that it got put
@@ -283,10 +266,10 @@ func TestHandlePutReqs(t *testing.T) {
 	}
 
 	m := h.node.NewMessage(PUT_REQUEST, PutReq{H: hd.EntryLink})
-	err = h.dht.Queue.Put(m)
+	h.dht.puts <- m
 
 	Convey("handle put request should pull data from source and verify it", t, func() {
-		err := h.dht.handlePutReqs()
+		err := h.dht.simHandlePutReqs()
 		So(err, ShouldBeNil)
 		data, _, err := h.dht.get(hd.EntryLink)
 		So(err, ShouldBeNil)
@@ -294,4 +277,10 @@ func TestHandlePutReqs(t *testing.T) {
 		So(fmt.Sprintf("%v", data), ShouldEqual, fmt.Sprintf("%v", b))
 	})
 
+}
+
+func (dht *DHT) simHandlePutReqs() (err error) {
+	m := <-dht.puts
+	err = dht.handlePutReq(m)
+	return
 }

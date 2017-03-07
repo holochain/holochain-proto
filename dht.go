@@ -9,7 +9,6 @@ package holochain
 import (
 	"errors"
 	"fmt"
-	q "github.com/golang-collections/go-datastructures/queue"
 	peer "github.com/libp2p/go-libp2p-peer"
 	"github.com/tidwall/buntdb"
 	"strconv"
@@ -23,10 +22,9 @@ var ErrDHTExpectedMetaQueryInBody error = errors.New("expected meta query")
 
 // DHT struct holds the data necessary to run the distributed hash table
 type DHT struct {
-	h     *Holochain // pointer to the holochain this DHT is part of
-	Queue q.Queue    // a queue for incoming puts
-	db    *buntdb.DB
-	alive bool
+	h    *Holochain // pointer to the holochain this DHT is part of
+	db   *buntdb.DB
+	puts chan *Message
 }
 
 // Meta holds data that can be associated with a hash
@@ -90,6 +88,8 @@ func NewDHT(h *Holochain) *DHT {
 	db.CreateIndex("meta", "meta:*", buntdb.IndexString)
 
 	dht.db = db
+	dht.puts = make(chan *Message, 10)
+
 	return &dht
 }
 
@@ -297,52 +297,61 @@ func (dht *DHT) FindNodeForHash(key Hash) (n *Node, err error) {
 	return
 }
 
-func (dht *DHT) handlePutReqs() (err error) {
-	x, err := dht.Queue.Get(10)
-	if err == nil {
-		for _, r := range x {
-			m := r.(*Message)
-			from := r.(*Message).From
-			switch t := m.Body.(type) {
-			case PutReq:
-				log.Debugf("handling put: %v", m)
-				var r interface{}
-				r, err = dht.h.Send(SourceProtocol, from, SRC_VALIDATE, t.H, SrcReceiver)
-				if err != nil {
-					return
-				}
-				resp := r.(*ValidateResponse)
-				p := ValidationProps{}
-				err = dht.h.ValidateEntry(resp.Type, resp.Entry, &p)
-				if err != nil {
-					//@todo store as INVALID
-				} else {
-					entry := resp.Entry
-					b, err := entry.Marshal()
-					if err == nil {
-						err = dht.put(t.H, from, b, LIVE)
-					}
-				}
-			case MetaReq:
-				log.Debugf("handling putmeta: %v", m)
-				var r interface{}
-				r, err = dht.h.Send(SourceProtocol, from, SRC_VALIDATE, t.M, SrcReceiver)
-				if err != nil {
-					return
-				}
-				resp := r.(*ValidateResponse)
-				p := ValidationProps{MetaTag: t.T}
-				err = dht.h.ValidateEntry(resp.Type, resp.Entry, &p)
-				if err != nil {
-					//@todo store as INVALID
-				} else {
-					err = dht.putMeta(t.O, t.M, t.T, resp.Entry)
-				}
-			default:
-				err = errors.New("unexpected body type in handlePutReqs")
-			}
-
+// HandlePutReqs waits on a chanel for messages to handle
+func (dht *DHT) HandlePutReqs() (err error) {
+	for {
+		log.Debug("HandlePutReq: waiting for put request")
+		m, ok := <-dht.puts
+		if !ok {
+			break
 		}
+		err = dht.handlePutReq(m)
+		if err != nil {
+			log.Debugf("HandlePutReq: got err: %v", err)
+		}
+	}
+	return nil
+}
+
+func (dht *DHT) handlePutReq(m *Message) (err error) {
+	from := m.From
+	switch t := m.Body.(type) {
+	case PutReq:
+		log.Debugf("handling put: %v", m)
+		var r interface{}
+		r, err = dht.h.Send(SourceProtocol, from, SRC_VALIDATE, t.H, SrcReceiver)
+		if err != nil {
+			return
+		}
+		resp := r.(*ValidateResponse)
+		p := ValidationProps{}
+		err = dht.h.ValidateEntry(resp.Type, resp.Entry, &p)
+		if err != nil {
+			//@todo store as INVALID
+		} else {
+			entry := resp.Entry
+			b, err := entry.Marshal()
+			if err == nil {
+				err = dht.put(t.H, from, b, LIVE)
+			}
+		}
+	case MetaReq:
+		log.Debugf("handling putmeta: %v", m)
+		var r interface{}
+		r, err = dht.h.Send(SourceProtocol, from, SRC_VALIDATE, t.M, SrcReceiver)
+		if err != nil {
+			return
+		}
+		resp := r.(*ValidateResponse)
+		p := ValidationProps{MetaTag: t.T}
+		err = dht.h.ValidateEntry(resp.Type, resp.Entry, &p)
+		if err != nil {
+			//@todo store as INVALID
+		} else {
+			err = dht.putMeta(t.O, t.M, t.T, resp.Entry)
+		}
+	default:
+		err = errors.New("unexpected body type in handlePutReq")
 	}
 	return
 }
@@ -354,10 +363,8 @@ func DHTReceiver(h *Holochain, m *Message) (response interface{}, err error) {
 		log.Debug("DHTRecevier got PUT_REQUEST: %v", m)
 		switch m.Body.(type) {
 		case PutReq:
-			err = h.dht.Queue.Put(m)
-			if err == nil {
-				response = "queued"
-			}
+			h.dht.puts <- m
+			response = "queued"
 		default:
 			err = ErrDHTExpectedPutReqInBody
 		}
@@ -386,10 +393,8 @@ func DHTReceiver(h *Holochain, m *Message) (response interface{}, err error) {
 		case MetaReq:
 			err = h.dht.exists(t.O)
 			if err == nil {
-				err = h.dht.Queue.Put(m)
-				if err == nil {
-					response = "queued"
-				}
+				h.dht.puts <- m
+				response = "queued"
 			}
 		default:
 			err = ErrDHTExpectedMetaReqInBody
@@ -416,18 +421,6 @@ func (dht *DHT) StartDHT() (err error) {
 		e := dht.h.BSget()
 		if e != nil {
 			log.Infof("error in BSget: %s", e.Error())
-		}
-	}
-	return
-}
-
-// HandlePutReqs is suitable for running in a loop in a separate go routine
-func (h *Holochain) HandlePutReqs() (err error) {
-	h.dht.alive = true
-	for h.dht.alive {
-		e := h.dht.handlePutReqs()
-		if e != nil {
-			log.Debugf("HandPutReq got err: %v", e)
 		}
 	}
 	return

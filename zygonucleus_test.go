@@ -185,7 +185,7 @@ func TestZygoDHT(t *testing.T) {
 		So(err, ShouldBeNil)
 		So(r.(*zygo.SexpStr).S, ShouldEqual, "hash not found")
 
-		if err := h.dht.handlePutReqs(); err != nil {
+		if err := h.dht.simHandlePutReqs(); err != nil {
 			panic(err)
 		}
 		v, err = NewZygoNucleus(h, fmt.Sprintf(`(get "%s")`, hash.String()))
@@ -212,7 +212,7 @@ func TestZygoDHT(t *testing.T) {
 		So(r.(*zygo.SexpStr).S, ShouldEqual, "ok")
 	})
 
-	if err := h.dht.handlePutReqs(); err != nil {
+	if err := h.dht.simHandlePutReqs(); err != nil {
 		panic(err)
 	}
 

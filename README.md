@@ -39,7 +39,7 @@ In other words, a holochain functions very much **like a blockchain without bott
 ## Installation
 
 1. Make sure you have a working environment set up for the Go language version 1.7 or later. [See the installation instructions for Go](http://golang.org/doc/install.html).
-2. Follow their instructions on the above doc page for **exporting** your **$GOPATH** and adding your go/bin directory to your search **PATH** for programs. Almost all installation problems reported, stem from skipping one of these path related steps.
+2. Follow their instructions on the above doc page for **exporting** your **$GOPATH** and adding your $GOPATH/bin directory to your search **PATH** for programs. (Almost all installation problems that have been reported stem from skipping one of these path related steps.)
 3. Install the [gx package manager](https://github.com/whyrusleeping/gx):
 ```
 $ go get -u github.com/whyrusleeping/gx

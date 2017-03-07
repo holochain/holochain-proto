@@ -59,11 +59,11 @@ func (z *JSNucleus) ValidateEntry(d *EntryDef, entry Entry, props *ValidationPro
 	c := entry.Content().(string)
 	var e string
 	switch d.DataFormat {
-	case "js":
+	case DataFormatRawJS:
 		e = c
-	case "string":
+	case DataFormatString:
 		e = "\"" + sanitizeString(c) + "\""
-	case "JSON":
+	case DataFormatJSON:
 		e = fmt.Sprintf(`JSON.parse("%s")`, sanitizeString(c))
 	default:
 		err = errors.New("data format not implemented: " + d.DataFormat)

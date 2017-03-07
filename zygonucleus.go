@@ -478,7 +478,7 @@ func NewZygoNucleus(h *Holochain, code string) (n Nucleus, err error) {
 					errors.New("1st argument of putmeta should be string")
 			}
 			var metahashstr string
-			switch t := args[0].(type) {
+			switch t := args[1].(type) {
 			case *zygo.SexpStr:
 				metahashstr = t.S
 			default:
@@ -486,7 +486,7 @@ func NewZygoNucleus(h *Holochain, code string) (n Nucleus, err error) {
 					errors.New("2nd argument of putmeta should be string")
 			}
 			var typestr string
-			switch t := args[0].(type) {
+			switch t := args[2].(type) {
 			case *zygo.SexpStr:
 				typestr = t.S
 			default:
@@ -513,7 +513,7 @@ func NewZygoNucleus(h *Holochain, code string) (n Nucleus, err error) {
 			}
 
 			var typestr string
-			switch t := args[0].(type) {
+			switch t := args[1].(type) {
 			case *zygo.SexpStr:
 				typestr = t.S
 			default:

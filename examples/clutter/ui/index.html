@@ -1,4 +1,3 @@
-
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
 <html xmlns="http://www.w3.org/1999/xhtml">
 <head>
@@ -6,6 +5,8 @@
 	<meta name="google-site-verification" content="OitftAoQ5E7PKeUupCAnxIVwK_TbYe0sGKuzdlkwJJU" />
 	<link href="style.css" rel="stylesheet" type="text/css" />
 	<link href="https://fonts.googleapis.com/css?family=Griffy|Play" rel="stylesheet">
+        <script type="text/javascript" src="http://code.jquery.com/jquery-latest.js"></script>
+        <script type="text/javascript" src="/clutter.js"></script>
 
 	<title>Clutter</title>
 </head>
@@ -20,13 +21,13 @@
 	<div style="position: absolute; left: 2.8em; bottom: 1.5em;"><img src="cat-eating-bird-circle.png" style="width: 13em; height: 13em;" /></div>
 	<div class="contentcontainer">
 		<div id="banner">Clutter<div class="subtitle">can haz herd cats?</div></div>
-
+                <div id="nick"></div>
 		<div id="content">
 			<form action="" style="text-align: center; margin-bottom: 1.75em;">
-				<input type="text" size="64" />
-				<button type="button">Meow</button>
+				<input id="meow" name="meow" type="text" size="64" />
+				<button type="button" onclick="addPost()">Meow</button>
 			</form>
-			<div>
+			<div id="meows">
 				<div class="meow">@name says: Meow</div>
 				<div class="meow">@name says: Meow</div>
 				<div class="meow">@name says: Meow</div>
@@ -38,5 +39,10 @@
 			</div>
 		</div>
 	</div>
+        <script type="text/javascript">
+         window.onload = function() {
+              getProfile();
+         }
+        </script>
 </body>
 </html>

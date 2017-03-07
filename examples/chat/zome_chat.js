@@ -15,8 +15,9 @@ function addMember(x) {
 
 // Initialize by adding agent to holochain
 function genesis() {
-  putmeta(property("_id"), property("_agent_id"), "member");
-  putmeta(property("_id"), property("_agent_id"), "room");
+  //putmeta(property("_id"), property("_agent_id"), "member");
+  //putmeta(property("_id"), property("_agent_id"), "room");
+  return true;
 }
 
 // Local validate an entry before committing ???

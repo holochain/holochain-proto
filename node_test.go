@@ -6,9 +6,9 @@ import (
 	"fmt"
 	ic "github.com/libp2p/go-libp2p-crypto"
 	net "github.com/libp2p/go-libp2p-net"
+	peer "github.com/libp2p/go-libp2p-peer"
 	pstore "github.com/libp2p/go-libp2p-peerstore"
 	. "github.com/smartystreets/goconvey/convey"
-	// peer "gx/ipfs/QmZcUPvPhD1Xvk6mwijYF8AfR3mG31S1YsEfHG4khrFPRr/go-libp2p-peer"
 	"io/ioutil"
 	"strings"
 	"testing"
@@ -234,5 +234,7 @@ func makeNode(port int, id string) (*Node, error) {
 	if err != nil {
 		panic(err)
 	}
-	return NewNode(listenaddr, key)
+	pid, _ := peer.IDFromPrivateKey(key)
+
+	return NewNode(listenaddr, pid, key)
 }

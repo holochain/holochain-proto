@@ -16,12 +16,12 @@ func TestInit(t *testing.T) {
 
 	agent := "Fred Flintstone <fred@flintstone.com>"
 
-	s, err := Init(d+"/"+DefaultDirectoryName, AgentID(agent))
+	s, err := Init(d+"/"+DefaultDirectoryName, AgentName(agent))
 	Convey("when initializing service in a directory", t, func() {
 		So(err, ShouldEqual, nil)
 
 		Convey("it should return a service with default values", func() {
-			So(s.DefaultAgent.ID(), ShouldEqual, AgentID(agent))
+			So(s.DefaultAgent.Name(), ShouldEqual, AgentName(agent))
 			So(fmt.Sprintf("%v", s.Settings), ShouldEqual, "{true true bootstrap.holochain.net}")
 		})
 
@@ -29,7 +29,7 @@ func TestInit(t *testing.T) {
 		Convey("it should create agent files", func() {
 			a, err := LoadAgent(p)
 			So(err, ShouldEqual, nil)
-			So(a.ID(), ShouldEqual, AgentID(agent))
+			So(a.Name(), ShouldEqual, AgentName(agent))
 		})
 
 		Convey("we can detect that it was initialized", func() {
@@ -54,7 +54,7 @@ func TestLoadService(t *testing.T) {
 		So(s.Path, ShouldEqual, root)
 		So(s.Settings.DefaultPeerModeDHTNode, ShouldEqual, true)
 		So(s.Settings.DefaultPeerModeAuthor, ShouldEqual, true)
-		So(s.DefaultAgent.ID(), ShouldEqual, AgentID("Herbert <h@bert.com>"))
+		So(s.DefaultAgent.Name(), ShouldEqual, AgentName("Herbert <h@bert.com>"))
 	})
 
 }

@@ -14,7 +14,7 @@ func mkTestDirName() string {
 
 func setupTestService() (d string, s *Service) {
 	d = mkTestDirName()
-	agent := AgentID("Herbert <h@bert.com>")
+	agent := AgentName("Herbert <h@bert.com>")
 	s, err := Init(d+"/"+DefaultDirectoryName, agent)
 	if err != nil {
 		panic(err)
@@ -35,6 +35,10 @@ func setupTestChain(n string) (d string, s *Service, h *Holochain) {
 func prepareTestChain(n string) (d string, s *Service, h *Holochain) {
 	d, s, h = setupTestChain("test")
 	_, err := h.GenChain()
+	if err != nil {
+		panic(err)
+	}
+	err = h.Activate()
 	if err != nil {
 		panic(err)
 	}

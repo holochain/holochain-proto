@@ -1,12 +1,16 @@
 // Get list of posts in a Space
-expose("listMessages", HC.JSON);
+expose("listMessages", HC.STRING);
 function listMessages(room) {
-  var message_keys = getmeta(room, "message");
-  var messages = new Array(message_keys.length);
-  for( i=0; i<message_keys.length; i++) {
-    messages[i] = get(message_keys[i]);
+  var messages = getmeta(room, "message");
+  if( messages ) {
+    var return_messages = new Array(messages.length);
+    for( i=0; i<messages.length; i++) {
+      return_messages[i] = messages[i]["C"]
+    }
+    return return_messages
+  } else {
+    return []
   }
-  return messages;
 }
 // TODO Replace edited posts. Drop deleted/invalidated ones.
 
@@ -14,6 +18,7 @@ function listMessages(room) {
 // Create a new post in a Space / Channel
 expose("newMessage", HC.JSON); // receives content, room, [inReplyTo]
 function newMessage(x) {
+  x.timestamp = new Date();
   var key = commit("message", x);
   put(key)
   putmeta(x.room, key, "message")
@@ -36,6 +41,10 @@ function isAllowed(author) {
     if( allowed_agents[i] == author) return true;
   }
   return false;
+}
+
+function genesis() {
+  return true;
 }
 
 // Local validate an entry before committing ???

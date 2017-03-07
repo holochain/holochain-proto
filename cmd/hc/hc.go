@@ -82,36 +82,49 @@ func setupApp() (app *cli.App) {
 			},
 		},
 		{
+			Name: "dev",
+			Flags: []cli.Flag{
+				cli.BoolFlag{
+					Name:        "force",
+					Usage:       "overwrite existing holochain",
+					Destination: &force,
+				},
+			},
+			Aliases:   []string{"d"},
+			Usage:     "generate a default configuration files, suitable for editing",
+			ArgsUsage: "holochain-name [dna-format]",
+			Action: func(c *cli.Context) error {
+				name, err := checkForName(c, "dev")
+				if err != nil {
+					return err
+				}
+				format := "toml"
+				if len(c.Args()) == 2 {
+					format = c.Args()[1]
+					if !(format == "json" || format == "yaml" || format == "toml") {
+						return errors.New("gen dev: format must be one of yaml,toml,json")
+					}
+				}
+				if force {
+					e := os.RemoveAll(root + "/" + name)
+					if e != nil {
+						return e
+					}
+				}
+				h, err := service.GenDev(root+"/"+name, format)
+				if err == nil {
+					if verbose {
+						fmt.Printf("created %s with new id: %v\n", name, h.Id)
+					}
+				}
+				return err
+			},
+		},
+		{
 			Name:    "gen",
 			Usage:   "generate genesis entries or keys for a cloned holochain",
 			Aliases: []string{"g"},
 			Subcommands: []cli.Command{
-				{
-					Name:      "dev",
-					Aliases:   []string{"d"},
-					Usage:     "generate a default configuration files, suitable for editing",
-					ArgsUsage: "holochain-name [dna-format]",
-					Action: func(c *cli.Context) error {
-						name, err := checkForName(c, "gen dev")
-						if err != nil {
-							return err
-						}
-						format := "toml"
-						if len(c.Args()) == 2 {
-							format = c.Args()[1]
-							if !(format == "json" || format == "yaml" || format == "toml") {
-								return errors.New("gen dev: format must be one of yaml,toml,json")
-							}
-						}
-						h, err := service.GenDev(root+"/"+name, format)
-						if err == nil {
-							if verbose {
-								fmt.Printf("created %s with new id: %v\n", name, h.Id)
-							}
-						}
-						return err
-					},
-				},
 				{
 					Name:      "keys",
 					Aliases:   []string{"k", "key"},
@@ -156,6 +169,10 @@ func setupApp() (app *cli.App) {
 						if err != nil {
 							return err
 						}
+						err = h.Activate()
+						if err != nil {
+							return err
+						}
 						_, err = h.GenChain()
 						if err != nil {
 							return err
@@ -181,7 +198,7 @@ func setupApp() (app *cli.App) {
 				if agent == "" {
 					return errors.New("missing required agent-id argument to init")
 				}
-				_, err := holo.Init(root, holo.AgentID(agent))
+				_, err := holo.Init(root, holo.AgentName(agent))
 				if err == nil {
 					fmt.Println("Holochain service initialized")
 					if verbose {
@@ -256,7 +273,12 @@ func setupApp() (app *cli.App) {
 				if err != nil {
 					return err
 				}
-				return h.Test()
+				err = h.Activate()
+				if err != nil {
+					return err
+				}
+				err = h.Test()
+				return err
 			},
 		},
 		{
@@ -323,6 +345,11 @@ func setupApp() (app *cli.App) {
 				} else {
 					port = c.Args()[1]
 				}
+				err = h.Activate()
+				if err != nil {
+					return err
+				}
+				go h.HandlePutReqs()
 				serve(h, port)
 				return err
 			},

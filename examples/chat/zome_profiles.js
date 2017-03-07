@@ -17,3 +17,17 @@ function modProfile(x, old_profile) {
   put(key)
   putmeta(old_profile, key, "replacedBy")
 }
+
+function genesis() {
+  return true;
+}
+
+// Local validate an entry before committing ???
+function validate(entry_type, entry, validation_props) {
+  return true;
+  if( validation_props.MetaTag ) { //validating a putmeta
+    return true;
+  } else { //validating a commit
+    return validation_props.Sources[0] == entry.agent_id
+  }
+}

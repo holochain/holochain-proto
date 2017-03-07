@@ -21,7 +21,7 @@ func TestNew(t *testing.T) {
 		h := New(a, "some/path", "json")
 		nID := string(uuid.NodeID())
 		So(nID, ShouldEqual, string(h.Id.NodeID()))
-		So(h.agent.ID(), ShouldEqual, "Joe")
+		So(h.agent.Name(), ShouldEqual, "Joe")
 		So(h.agent.PrivKey(), ShouldEqual, a.PrivKey())
 		So(h.path, ShouldEqual, "some/path")
 		So(h.encodingFormat, ShouldEqual, "json")
@@ -101,7 +101,7 @@ func TestGenDev(t *testing.T) {
 
 		lh, err := s.load(name, "json")
 		So(err, ShouldBeNil)
-		So(lh.ID, ShouldEqual, h.ID)
+		So(lh.id, ShouldEqual, h.id)
 		So(lh.config.Port, ShouldEqual, DefaultPort)
 		So(h.config.PeerModeDHTNode, ShouldEqual, s.Settings.DefaultPeerModeDHTNode)
 		So(h.config.PeerModeAuthor, ShouldEqual, s.Settings.DefaultPeerModeAuthor)
@@ -109,6 +109,7 @@ func TestGenDev(t *testing.T) {
 
 		So(fileExists(h.path+"/schema_profile.json"), ShouldBeTrue)
 		So(fileExists(h.path+"/ui/index.html"), ShouldBeTrue)
+		So(fileExists(h.path+"/ui/hc.js"), ShouldBeTrue)
 		So(fileExists(h.path+"/"+ConfigFileName+".json"), ShouldBeTrue)
 
 		Convey("we should not be able re generate it", func() {
@@ -132,7 +133,7 @@ func TestClone(t *testing.T) {
 		So(h.Name, ShouldEqual, "test2")
 		agent, err := LoadAgent(s.Path)
 		So(err, ShouldBeNil)
-		So(h.agent.ID(), ShouldEqual, agent.ID())
+		So(h.agent.Name(), ShouldEqual, agent.Name())
 		So(ic.KeyEqual(h.agent.PrivKey(), agent.PrivKey()), ShouldBeTrue)
 		src, _ := readFile(orig, "zome_myZome.zy")
 		dst, _ := readFile(root, "zome_myZome.zy")
@@ -290,7 +291,7 @@ func TestGenChain(t *testing.T) {
 		So(err, ShouldBeNil)
 		header = hdr
 		var k KeyEntry = entry.(KeyEntry)
-		So(k.ID, ShouldEqual, h.agent.ID())
+		So(k.Name, ShouldEqual, h.agent.Name())
 		//So(k.Key,ShouldEqual,"something?") // test that key got correctly retrieved
 	})
 
@@ -439,11 +440,7 @@ func TestCall(t *testing.T) {
 		result, err = h.Call("myZome", "addData", "42")
 		So(err, ShouldBeNil)
 
-		ph, err := h.Top()
-		if err != nil {
-			panic(err)
-		}
-
+		ph := h.chain.Top().EntryLink
 		So(result.(string), ShouldEqual, ph.String())
 
 		_, err = h.Call("myZome", "addData", "41")

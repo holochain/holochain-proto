@@ -31,7 +31,7 @@ const Version string = "0.0.1"
 
 // KeyEntry structure for building KeyEntryType entries
 type KeyEntry struct {
-	ID      AgentID
+	Name    AgentName
 	KeyType KeytypeType
 	Key     []byte // marshaled public key
 }
@@ -65,6 +65,7 @@ type Holochain struct {
 	BasedOn          Hash // holochain hash for base schemas and code
 	Zomes            map[string]*Zome
 	//---- private values not serialized; initialized on Load
+	id             peer.ID // this is hash of the id, also used in the node
 	path           string
 	agent          Agent
 	store          Persister
@@ -156,6 +157,13 @@ func New(agent Agent, path string, format string, zomes ...Zome) Holochain {
 		path:           path,
 		encodingFormat: format,
 	}
+
+	// once the agent is set up we can calculate the id
+	h.id, err = peer.IDFromPrivateKey(agent.PrivKey())
+	if err != nil {
+		panic(err)
+	}
+
 	h.PrepareHashType()
 	h.Zomes = make(map[string]*Zome)
 	for i, _ := range zomes {
@@ -217,6 +225,12 @@ func (s *Service) load(name string, format string) (hP *Holochain, err error) {
 		return
 	}
 	h.agent = agent
+
+	// once the agent is set up we can calculate the id
+	h.id, err = peer.IDFromPrivateKey(agent.PrivKey())
+	if err != nil {
+		return
+	}
 
 	h.store, err = CreatePersister(BoltPersisterName, path+"/"+StoreFileName+".db")
 	if err != nil {
@@ -292,13 +306,18 @@ func (h *Holochain) Prepare() (err error) {
 		}
 	}
 
+	h.dht = NewDHT(h)
+
+	return
+}
+
+// Activate fires up the holochain node
+func (h *Holochain) Activate() (err error) {
 	listenaddr := fmt.Sprintf("/ip4/127.0.0.1/tcp/%d", h.config.Port)
-	h.node, err = NewNode(listenaddr, h.Agent().PrivKey())
+	h.node, err = NewNode(listenaddr, h.id, h.Agent().PrivKey())
 	if err != nil {
 		return
 	}
-
-	h.dht = NewDHT(h)
 
 	if h.config.PeerModeDHTNode {
 		if err = h.dht.StartDHT(); err != nil {
@@ -385,7 +404,7 @@ func (h *Holochain) GenChain() (keyHash Hash, err error) {
 	}
 
 	var k KeyEntry
-	k.ID = h.agent.ID()
+	k.Name = h.agent.Name()
 	k.KeyType = h.agent.KeyType()
 
 	pk := h.agent.PrivKey().GetPublic()
@@ -406,13 +425,19 @@ func (h *Holochain) GenChain() (keyHash Hash, err error) {
 		return
 	}
 
+	err = h.dht.SetupDHT()
+	if err != nil {
+		return
+	}
+
 	// run the init functions of each zome
-	for _, z := range h.Zomes {
+	for zomeName, z := range h.Zomes {
 		var n Nucleus
 		n, err = h.makeNucleus(z)
 		if err == nil {
 			err = n.ChainGenesis()
 			if err != nil {
+				err = fmt.Errorf("In '%s' zome: %s", zomeName, err.Error())
 				return
 			}
 		}
@@ -446,6 +471,12 @@ func (s *Service) Clone(srcPath string, path string) (hP *Holochain, err error) 
 		}
 		h.path = path
 		h.agent = agent
+
+		// once the agent is set up we can calculate the id
+		h.id, err = peer.IDFromPrivateKey(agent.PrivKey())
+		if err != nil {
+			return
+		}
 
 		// make a config file
 		err = makeConfig(h, s)
@@ -653,54 +684,20 @@ func (s *Service) GenDev(path string, format string) (hP *Holochain, err error) 
 				Err:    "Invalid entry: 2"},
 		}
 
-		ui := `
-<html>
-  <head>
-    <title>Test</title>
-    <script type="text/javascript" src="http://code.jquery.com/jquery-latest.js"></script>
-    <script type="text/javascript">
-     function send() {
-         $.post(
-             "/fn/"+$('select[name=zome]').val()+"/"+$('select[name=fn]').val(),
-             $('#data').val(),
-             function(data) {
-                 $("#result").html("result:"+data)
-                 $("#err").html("")
-             }
-         ).error(function(response) {
-             $("#err").html(response.responseText)
-             $("#result").html("")
-         })
-         ;
-     };
-    </script>
-  </head>
-  <body>
-    <select id="zome" name="zome">
-      <option value="myZome">myZome</option>
-    </select>
-    <select id="fn" name="fn">
-      <option value="addData">addData</option>
-    </select>
-    <input id="data" name="data">
-    <button onclick="send();">Send</button>
-    send an even number and get back a hash, send and odd end get a error
-
-    <div id="result"></div>
-    <div id="err"></div>
-  </body>
-</html>
-`
 		uiPath := path + "/ui"
 		if err = os.MkdirAll(uiPath, os.ModePerm); err != nil {
 			return nil, err
 		}
-		if err = writeFile(uiPath, "index.html", []byte(ui)); err != nil {
-			return
+		for fileName, fileText := range SampleUI {
+			if err = writeFile(uiPath, fileName, []byte(fileText)); err != nil {
+				return
+			}
 		}
 
 		code := make(map[string]string)
 		code["myZome"] = `
+(expose "getProperty" STRING)
+(defn getProperty [x] (property x))
 (expose "exposedfn" STRING)
 (defn exposedfn [x] (concat "result: " x))
 (expose "addData" STRING)
@@ -1153,16 +1150,31 @@ func (h *Holochain) Test() []error {
 		}
 	}
 
+	var lastResults [3]interface{}
 	for name, ts := range tests {
+		log.Debugf("===========================")
 		log.Debugf("Test: %s starting...", name)
+		log.Debugf("===========================")
 		for i, t := range ts {
+			log.Debugf("Test line %d: %s", i, t)
+			log.Debugf("-------------------------")
 			// setup the genesis entries
 			_, err = h.GenChain()
+			go h.HandlePutReqs()
 			if err == nil {
 				testID := fmt.Sprintf("%s:%d", name, i)
+				input := t.Input
+				log.Debugf("Input before replacement: %s", input)
+				input = strings.Replace(input, "%r1%", strings.Trim(fmt.Sprintf("%v", lastResults[0]), "\""), -1)
+				input = strings.Replace(input, "%r2%", strings.Trim(fmt.Sprintf("%v", lastResults[1]), "\""), -1)
+				input = strings.Replace(input, "%r3%", strings.Trim(fmt.Sprintf("%v", lastResults[2]), "\""), -1)
+				log.Debugf("Input after replacement: %s", input)
 				var result interface{}
-				result, err = h.Call(t.Zome, t.FnName, t.Input)
+				result, err = h.Call(t.Zome, t.FnName, input)
 				log.Debugf("Test: %s result:%v, Err:%v", testID, result, err)
+				lastResults[2] = lastResults[1]
+				lastResults[1] = lastResults[0]
+				lastResults[0] = result
 				if t.Err != "" {
 					log.Debugf("Test: %s expecting error %v", testID, t.Err)
 					if err == nil {
@@ -1194,7 +1206,7 @@ func (h *Holochain) Test() []error {
 
 						// get the top hash for substituting for %h% in the test expectation
 						var top Hash
-						top, _ = h.Top()
+						top = h.chain.Top().EntryLink
 						o := strings.Replace(t.Output, "%h%", top.String(), -1)
 
 						// get the id hash for substituting for %id% in the test expectation
@@ -1207,15 +1219,7 @@ func (h *Holochain) Test() []error {
 				}
 			}
 			// restore the state for the next test file
-			e := h.store.Remove()
-			if e != nil {
-				panic(e)
-			}
-			e = h.store.Init()
-			if e != nil {
-				panic(e)
-			}
-			e = os.RemoveAll(h.path + "/" + StoreFileName + ".dat")
+			e := h.Reset()
 			if e != nil {
 				panic(e)
 			}
@@ -1239,11 +1243,26 @@ func (h *Holochain) GetProperty(prop string) (property string, err error) {
 			property = id.String()
 		}
 	} else if prop == AGENT_ID_PROPERTY {
-		property = peer.IDB58Encode(h.node.HashAddr)
+		property = peer.IDB58Encode(h.id)
 	} else if prop == AGENT_NAME_PROPERTY {
-		property = string(h.Agent().ID())
+		property = string(h.Agent().Name())
 	} else {
 		property = h.Properties[prop]
 	}
+	return
+}
+
+// reset deletes all chain data
+func (h *Holochain) Reset() (err error) {
+	err = h.store.Remove()
+	if err != nil {
+		return
+	}
+	err = h.store.Init()
+	if err != nil {
+		panic(err)
+	}
+	//	h.chain.s.Close()
+	err = os.RemoveAll(h.path + "/" + StoreFileName + ".dat")
 	return
 }

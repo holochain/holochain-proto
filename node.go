@@ -77,7 +77,7 @@ func (r *HolochainRouter) FindPeer(context.Context, peer.ID) (peer pstore.PeerIn
 }
 
 // NewNode creates a new ipfs basichost node with given identity
-func NewNode(listenAddr string, priv ic.PrivKey) (node *Node, err error) {
+func NewNode(listenAddr string, id peer.ID, priv ic.PrivKey) (node *Node, err error) {
 	var n Node
 	n.NetAddr, err = ma.NewMultiaddr(listenAddr)
 	if err != nil {
@@ -89,6 +89,12 @@ func NewNode(listenAddr string, priv ic.PrivKey) (node *Node, err error) {
 	if err != nil {
 		return
 	}
+
+	if pid.String() != id.String() {
+		err = errors.New("NewNode: Id doesn't match key")
+		return
+	}
+
 	n.HashAddr = pid
 	ps.AddPrivKey(pid, priv)
 	ps.AddPubKey(pid, priv.GetPublic())

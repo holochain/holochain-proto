@@ -62,12 +62,12 @@ func TestNewZygoNucleus(t *testing.T) {
 
 			_, err = z.Run(`(property "` + AGENT_ID_PROPERTY + `")`)
 			So(err, ShouldBeNil)
-			aid := peer.IDB58Encode(h.node.HashAddr)
+			aid := peer.IDB58Encode(h.id)
 			So(z.lastResult.(*zygo.SexpStr).S, ShouldEqual, aid)
 
 			_, err = z.Run(`(property "` + AGENT_NAME_PROPERTY + `")`)
 			So(err, ShouldBeNil)
-			aid = string(h.Agent().ID())
+			aid = string(h.Agent().Name())
 			So(z.lastResult.(*zygo.SexpStr).S, ShouldEqual, aid)
 
 		})

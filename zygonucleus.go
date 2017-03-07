@@ -312,6 +312,27 @@ func NewZygoNucleus(h *Holochain, code string) (n Nucleus, err error) {
 	addExtras(&z)
 
 	// use a closure so that the registered zygo function can call Expose on the correct ZygoNucleus obj
+
+	z.env.AddFunction("debug",
+		func(env *zygo.Glisp, name string, args []zygo.Sexp) (zygo.Sexp, error) {
+			if len(args) != 1 {
+				return zygo.SexpNull, zygo.WrongNargs
+			}
+
+			var msg string
+
+			switch t := args[0].(type) {
+			case *zygo.SexpStr:
+				msg = t.S
+			default:
+				return zygo.SexpNull,
+					errors.New("argument of debug should be string")
+			}
+
+			log.Debug(msg)
+			return zygo.SexpNull, err
+		})
+
 	z.env.AddFunction("expose",
 		func(env *zygo.Glisp, name string, args []zygo.Sexp) (zygo.Sexp, error) {
 			if len(args) != 2 {
@@ -391,18 +412,18 @@ func NewZygoNucleus(h *Holochain, code string) (n Nucleus, err error) {
 					errors.New("2nd argument of commit should be string or hash")
 			}
 
-			p := ValidationProps{Sources: []string{peer.IDB58Encode(h.node.HashAddr)}}
+			p := ValidationProps{Sources: []string{peer.IDB58Encode(h.id)}}
 			err = h.ValidateEntry(entryType, &GobEntry{C: entry}, &p)
-			var headerHash Hash
+			var header *Header
 			if err == nil {
 				e := GobEntry{C: entry}
-				headerHash, _, err = h.NewEntry(time.Now(), entryType, &e)
+				_, header, err = h.NewEntry(time.Now(), entryType, &e)
 
 			}
 			if err != nil {
 				return zygo.SexpNull, err
 			}
-			var result = zygo.SexpStr{S: headerHash.String()}
+			var result = zygo.SexpStr{S: header.EntryLink.String()}
 			return &result, nil
 		})
 

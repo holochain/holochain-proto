@@ -46,7 +46,7 @@ func IsInitialized(root string) bool {
 // Init initializes service defaults including a signing key pair for an agent
 // and writes them out to configuration files in the root path (making the
 // directory if necessary)
-func Init(root string, agent AgentID) (service *Service, err error) {
+func Init(root string, agent AgentName) (service *Service, err error) {
 	err = os.MkdirAll(root, os.ModePerm)
 	if err != nil {
 		return

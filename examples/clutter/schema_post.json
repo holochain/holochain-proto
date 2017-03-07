@@ -1,0 +1,10 @@
+{
+    "title": "Post Schema",
+    "type": "object",
+    "properties": {
+	"message": {
+	    "type": "string"
+	}
+    },
+    "required": ["message"]
+}

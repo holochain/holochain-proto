@@ -55,7 +55,7 @@ func Init(root string, agent AgentName) (service *Service, err error) {
 		Settings: ServiceConfig{
 			DefaultPeerModeDHTNode: true,
 			DefaultPeerModeAuthor:  true,
-			DefaultBootstrapServer: "bootstrap.holochain.net",
+			DefaultBootstrapServer: "bootstrap.holochain.net:10000",
 		},
 		Path: root,
 	}

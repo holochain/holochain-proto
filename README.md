@@ -55,6 +55,11 @@ Make sure your `PATH` includes the `$GOPATH/bin` directory so the program it bui
 ```
 $ export PATH=$PATH:$GOPATH/bin
 ```
+Since holochain is essentially a data integrity engine intended to be used by distributed applications, you will normally only do some basic setup and maintenance through the command line.
+
+Once you've gotten everything working as described above you can execute some basic holochain commands from the command line like this: ``` hc help ```
+
+And you can get help on specific sub commands with ```hc <cmd> help```. For example: ```hc gen help```
 
 ## Installation on Windows
 1. Install Go 1.7.5](https://golang.org/dl/).
@@ -64,11 +69,6 @@ $ export PATH=$PATH:$GOPATH/bin
 5. Now, double-click PATH under System Variables, and click New in the window that pops up. Add the path to go's bin directory as the value (usually C:\go\bin). This will allow you to run compiled executables from anywhere in the Windows command line.
 6. Now click New again time and add the path to your GnuWin32 make bin directory (usually C:\Program Files (x86)\GnuWin32\bin).
 5. Follow the remaining instructions starting at step 2 above. You should be able to use 'go' and 'make' from the Windows command line. (Add -x to the Go 'get' command to see verbose output as the packages download.)## Usage
-Since holochain is essentially a data integrity engine intended to be used by distributed applications, you will normally only do some basic setup and maintenance through the command line.
-
-Once you've gotten everything working as described above you can execute some basic holochain commands from the command line like this: ``` hc help ```
-
-And you can get help on specific sub commands with ```hc <cmd> help```. For example: ```hc gen help```
 
 ### Starting a Holochain
 You've installed and built a distributed data engine, but you don't have a data application running in it yet. Here's the basic flow involved in getting a chain running:

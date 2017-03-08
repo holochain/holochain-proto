@@ -12,6 +12,7 @@ import (
 	peer "github.com/libp2p/go-libp2p-peer"
 	"github.com/robertkrimen/otto"
 	_ "math"
+	"strings"
 	"time"
 )
 
@@ -62,9 +63,9 @@ func (z *JSNucleus) ValidateEntry(d *EntryDef, entry Entry, props *ValidationPro
 	case DataFormatRawJS:
 		e = c
 	case DataFormatString:
-		e = "\"" + sanitizeString(c) + "\""
+		e = "\"" + jsSanitizeString(c) + "\""
 	case DataFormatJSON:
-		e = fmt.Sprintf(`JSON.parse("%s")`, sanitizeString(c))
+		e = fmt.Sprintf(`JSON.parse("%s")`, jsSanitizeString(c))
 	default:
 		err = errors.New("data format not implemented: " + d.DataFormat)
 		return
@@ -77,7 +78,7 @@ func (z *JSNucleus) ValidateEntry(d *EntryDef, entry Entry, props *ValidationPro
 	if err != nil {
 		return
 	}
-	v, err := z.vm.Run(fmt.Sprintf(`validate("%s",%s,JSON.parse("%s"))`, d.Name, e, sanitizeString(string(b))))
+	v, err := z.vm.Run(fmt.Sprintf(`validate("%s",%s,JSON.parse("%s"))`, d.Name, e, jsSanitizeString(string(b))))
 	if err != nil {
 		err = fmt.Errorf("Error executing validate: %v", err)
 		return
@@ -130,6 +131,13 @@ const (
 	JSLibrary = `var HC={STRING:0,JSON:1};version=` + `"` + Version + `";`
 )
 
+// jsSanatizeString makes sure all quotes are quoted
+func jsSanitizeString(s string) string {
+	s = strings.Replace(s, "\"", "\\\"", -1)
+	s = strings.Replace(s, "\n", "\\n", -1)
+	return s
+}
+
 // Call calls the zygo function that was registered with expose
 func (z *JSNucleus) Call(iface string, params interface{}) (result interface{}, err error) {
 	var i *Interface
@@ -140,9 +148,9 @@ func (z *JSNucleus) Call(iface string, params interface{}) (result interface{}, 
 	var code string
 	switch i.Schema {
 	case STRING:
-		code = fmt.Sprintf(`%s("%s");`, iface, sanitizeString(params.(string)))
+		code = fmt.Sprintf(`%s("%s");`, iface, jsSanitizeString(params.(string)))
 	case JSON:
-		code = fmt.Sprintf(`JSON.stringify(%s(JSON.parse("%s")));`, iface, sanitizeString(params.(string)))
+		code = fmt.Sprintf(`JSON.stringify(%s(JSON.parse("%s")));`, iface, jsSanitizeString(params.(string)))
 	default:
 		err = errors.New("params type not implemented")
 		return

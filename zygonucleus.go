@@ -128,7 +128,8 @@ func (z *ZygoNucleus) Interfaces() (i []Interface) {
 
 // sanatizeString makes sure all quotes are quoted
 func sanitizeString(s string) string {
-	return strings.Replace(s, "\"", "\\\"", -1)
+	s = strings.Replace(s, "\"", "\\\"", -1)
+	return s
 }
 
 // Call calls the zygo function that was registered with expose

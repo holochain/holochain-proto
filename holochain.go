@@ -1253,8 +1253,9 @@ func (h *Holochain) Test() []error {
 					}
 				} else {
 					if actualError != nil {
-						err = fmt.Errorf("Test: %s\n  Expected: %s\n  Got Error: %s\n", testID, expectedResult, actualError)
-						log.Infof(err.Error())
+						errorString := fmt.Sprintf("\nTest: %s\n\tExpected: %s\n\tGot Error:\t\t%s\n", testID, expectedResult, actualError)
+						err = fmt.Errorf(errorString)
+						color.Red(fmt.Sprintf("\n=====================\n%s\n\tfailed! m(\n=====================", errorString))
 					} else {
 						var resultString = ToString(actualResult)
 						var match bool
@@ -1289,6 +1290,7 @@ func (h *Holochain) Test() []error {
 
 			if err != nil {
 				errs = append(errs, err)
+				err = nil
 			}
 		}
 		// restore the state for the next test file
@@ -1296,6 +1298,11 @@ func (h *Holochain) Test() []error {
 		if e != nil {
 			panic(e)
 		}
+	}
+	if len(errs) == 0 {
+		color.Green(fmt.Sprintf("\n==================================================================\n\t\t+++++ All tests passed :D +++++\n=================================================================="))
+	} else {
+		color.Red(fmt.Sprintf("\n==================================================================\n\t\t+++++ %d tests failed :( +++++\n==================================================================", len(errs)))
 	}
 	return errs
 }

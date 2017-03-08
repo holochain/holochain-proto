@@ -102,6 +102,14 @@ func TestJSValidateEntry(t *testing.T) {
 	})
 }
 
+func TestJSSanitize(t *testing.T) {
+	Convey("should strip quotes and returns", t, func() {
+		So(jsSanitizeString(`"`), ShouldEqual, `\"`)
+		fmt.Printf("CRAXY:%s", jsSanitizeString("\"x\ny"))
+		So(jsSanitizeString("\"x\ny"), ShouldEqual, "\\\"xy")
+	})
+}
+
 func TestJSExposeCall(t *testing.T) {
 	var z *JSNucleus
 	Convey("should run", t, func() {
@@ -132,6 +140,16 @@ function jtest(x){ x.output = x.input*2; return x;};
 	})
 	Convey("should allow calling exposed JSON based functions", t, func() {
 		result, err := z.Call("jtest", `{"input": 2}`)
+		So(err, ShouldBeNil)
+		So(result.(string), ShouldEqual, `{"input":2,"output":4}`)
+	})
+	Convey("should sanitize against bad strings", t, func() {
+		result, err := z.Call("cater", "fish \"\nzippy\"")
+		So(err, ShouldBeNil)
+		So(result.(string), ShouldEqual, "result: fish \"zippy\"")
+	})
+	Convey("should sanitize against bad JSON", t, func() {
+		result, err := z.Call("jtest", "{\"input\n\": 2}")
 		So(err, ShouldBeNil)
 		So(result.(string), ShouldEqual, `{"input":2,"output":4}`)
 	})

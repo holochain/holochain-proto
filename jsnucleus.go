@@ -131,11 +131,12 @@ const (
 	JSLibrary = `var HC={STRING:0,JSON:1};version=` + `"` + Version + `";`
 )
 
-// jsSanatizeString makes sure all quotes are quoted
+// jsSanatizeString makes sure all quotes are quoted and returns are removed
 func jsSanitizeString(s string) string {
-	s = strings.Replace(s, "\"", "\\\"", -1)
-	s = strings.Replace(s, "\n", "\\n", -1)
-	return s
+	s0 := strings.Replace(s, "\n", "", -1)
+	s1 := strings.Replace(s0, "\r", "", -1)
+	s2 := strings.Replace(s1, "\"", "\\\"", -1)
+	return s2
 }
 
 // Call calls the zygo function that was registered with expose
@@ -150,12 +151,13 @@ func (z *JSNucleus) Call(iface string, params interface{}) (result interface{}, 
 	case STRING:
 		code = fmt.Sprintf(`%s("%s");`, iface, jsSanitizeString(params.(string)))
 	case JSON:
-		code = fmt.Sprintf(`JSON.stringify(%s(JSON.parse("%s")));`, iface, jsSanitizeString(params.(string)))
+		p := jsSanitizeString(params.(string))
+		code = fmt.Sprintf(`JSON.stringify(%s(JSON.parse("%s")));`, iface, p)
 	default:
 		err = errors.New("params type not implemented")
 		return
 	}
-	log.Debugf("JS Call:\n%s", code)
+	log.Debugf("JS Call: %s", code)
 	var v otto.Value
 	v, err = z.vm.Run(code)
 	if err == nil {

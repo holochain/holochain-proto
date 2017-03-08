@@ -476,7 +476,7 @@ func (s *Service) Clone(srcPath string, path string, new bool) (hP *Holochain, e
 		if err != nil {
 			return
 		}
-		log.Debugf("NAME:%s", h.Name)
+
 		agent, err := LoadAgent(filepath.Dir(path))
 		if err != nil {
 			return

@@ -111,6 +111,11 @@ func NewDHT(h *Holochain) *DHT {
 	return &dht
 }
 
+func (dht *DHT) ShutDown() {
+	close(dht.puts)
+	dht.db.Close()
+}
+
 // SetupDHT prepares a DHT for use by adding the holochain's ID
 func (dht *DHT) SetupDHT() (err error) {
 	var ID Hash

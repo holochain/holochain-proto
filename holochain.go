@@ -1253,7 +1253,7 @@ func (h *Holochain) Test() []error {
 					}
 				} else {
 					if actualError != nil {
-						errorString := fmt.Sprintf("\nTest: %s\n\tExpected: %s\n\tGot Error:\t\t%s\n", testID, expectedResult, actualError)
+						errorString := fmt.Sprintf("\nTest: %s\n\tExpected:\t%s\n\tGot Error:\t\t%s\n", testID, expectedResult, actualError)
 						err = fmt.Errorf(errorString)
 						color.Red(fmt.Sprintf("\n=====================\n%s\n\tfailed! m(\n=====================", errorString))
 					} else {

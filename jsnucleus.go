@@ -78,7 +78,9 @@ func (z *JSNucleus) ValidateEntry(d *EntryDef, entry Entry, props *ValidationPro
 	if err != nil {
 		return
 	}
-	v, err := z.vm.Run(fmt.Sprintf(`validate("%s",%s,JSON.parse("%s"))`, d.Name, e, jsSanitizeString(string(b))))
+	code := fmt.Sprintf(`validate("%s",%s,JSON.parse("%s"))`, d.Name, e, jsSanitizeString(string(b)))
+	log.Debug(fmt.Sprintf(`validate("%s",%s,JSON.parse("%s"))`, d.Name, e, jsSanitizeString(string(b))))
+	v, err := z.vm.Run(code)
 	if err != nil {
 		err = fmt.Errorf("Error executing validate: %v", err)
 		return

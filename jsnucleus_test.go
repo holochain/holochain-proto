@@ -120,6 +120,8 @@ expose("adder",HC.STRING);
 function adder(x){ return parseInt(x)+2};
 expose("jtest",HC.JSON);
 function jtest(x){ x.output = x.input*2; return x;};
+expose("emptyParametersJson",HC.JSON);
+function emptyParametersJson(x){ return [{a:'b'}] };
 `)
 		So(err, ShouldBeNil)
 		z = v.(*JSNucleus)
@@ -127,7 +129,7 @@ function jtest(x){ x.output = x.input*2; return x;};
 
 	Convey("should build up interfaces list", t, func() {
 		i := z.Interfaces()
-		So(fmt.Sprintf("%v", i), ShouldEqual, "[{cater 0} {adder 0} {jtest 1}]")
+		So(fmt.Sprintf("%v", i), ShouldEqual, "[{cater 0} {adder 0} {jtest 1} {emptyParametersJson 1}]")
 	})
 	Convey("should allow calling exposed STRING based functions", t, func() {
 		result, err := z.Call("cater", "fish \"zippy\"")
@@ -152,6 +154,11 @@ function jtest(x){ x.output = x.input*2; return x;};
 		result, err := z.Call("jtest", "{\"input\n\": 2}")
 		So(err, ShouldBeNil)
 		So(result.(string), ShouldEqual, `{"input":2,"output":4}`)
+	})
+	Convey("should allow a function declared with JSON parameter to be called with no parameter", t, func() {
+		result, err := z.Call("emptyParametersJson", "")
+		So(err, ShouldBeNil)
+		So(result, ShouldEqual, "[{\"a\":\"b\"}]")
 	})
 }
 

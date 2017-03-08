@@ -143,7 +143,11 @@ func (z *ZygoNucleus) Call(iface string, params interface{}) (result interface{}
 	case STRING:
 		code = fmt.Sprintf(`(%s "%s")`, iface, sanitizeString(params.(string)))
 	case JSON:
-		code = fmt.Sprintf(`(json (%s (unjson (raw "%s"))))`, iface, sanitizeString(params.(string)))
+		if params.(string) == "" {
+			code = fmt.Sprintf(`(json (%s (raw "%s")))`, iface, sanitizeString(params.(string)))
+		} else {
+			code = fmt.Sprintf(`(json (%s (unjson (raw "%s"))))`, iface, sanitizeString(params.(string)))
+		}
 	default:
 		err = errors.New("params type not implemented")
 		return

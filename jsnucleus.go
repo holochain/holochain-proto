@@ -153,8 +153,12 @@ func (z *JSNucleus) Call(iface string, params interface{}) (result interface{}, 
 	case STRING:
 		code = fmt.Sprintf(`%s("%s");`, iface, jsSanitizeString(params.(string)))
 	case JSON:
-		p := jsSanitizeString(params.(string))
-		code = fmt.Sprintf(`JSON.stringify(%s(JSON.parse("%s")));`, iface, p)
+		if params.(string) == "" {
+			code = fmt.Sprintf(`JSON.stringify(%s());`, iface)
+		} else {
+			p := jsSanitizeString(params.(string))
+			code = fmt.Sprintf(`JSON.stringify(%s(JSON.parse("%s")));`, iface, p)
+		}
 	default:
 		err = errors.New("params type not implemented")
 		return

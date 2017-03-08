@@ -1222,7 +1222,7 @@ func (h *Holochain) Test() []error {
 		for i, t := range ts {
 			log.Debugf("------------------------------")
 			log.Infof("Test '%s' line %d: %s", name, i, t)
-			time.Sleep(time.Millisecond)
+			time.Sleep(time.Millisecond * 10)
 			if err == nil {
 				testID := fmt.Sprintf("%s:%d", name, i)
 				input := t.Input
@@ -1329,7 +1329,7 @@ func (h *Holochain) GetProperty(prop string) (property string, err error) {
 
 // Reset deletes all chain and dht data and resets data structures
 func (h *Holochain) Reset() (err error) {
-	
+
 	err = h.store.Remove()
 	if err != nil {
 		panic(err)

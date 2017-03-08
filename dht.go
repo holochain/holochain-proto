@@ -19,6 +19,7 @@ var ErrDHTExpectedGetReqInBody error = errors.New("expected get request")
 var ErrDHTExpectedPutReqInBody error = errors.New("expected put request")
 var ErrDHTExpectedMetaReqInBody error = errors.New("expected meta request")
 var ErrDHTExpectedMetaQueryInBody error = errors.New("expected meta query")
+var ErrDHTExpectedGossipReqInBody error = errors.New("expected gossip request")
 
 // DHT struct holds the data necessary to run the distributed hash table
 type DHT struct {
@@ -76,6 +77,22 @@ type MetaQuery struct {
 	// filter, etc
 }
 
+// Put holds a put or putmeta for gossiping
+type Put struct {
+	M Message
+}
+
+// Gossip holds a gossip message
+type Gossip struct {
+	Puts []Put
+}
+
+// GossipReq holds a gossip request
+type GossipReq struct {
+	MyIdx   int
+	YourIdx int
+}
+
 // NewDHT creates a new DHT structure
 func NewDHT(h *Holochain) *DHT {
 	dht := DHT{
@@ -86,6 +103,7 @@ func NewDHT(h *Holochain) *DHT {
 		panic(err)
 	}
 	db.CreateIndex("meta", "meta:*", buntdb.IndexString)
+	db.CreateIndex("idx", "idx:*", buntdb.IndexInt)
 
 	dht.db = db
 	dht.puts = make(chan *Message, 10)
@@ -101,16 +119,105 @@ func (dht *DHT) SetupDHT() (err error) {
 		return
 	}
 	x := ""
-	err = dht.put(ID, dht.h.id, []byte(x), LIVE)
+	err = dht.put(nil, ID, dht.h.id, []byte(x), LIVE)
+	return
+}
+
+// incIdx adds a new index record to dht for gossiping later
+func incIdx(tx *buntdb.Tx, m *Message) (err error) {
+	var idx int
+	idx, err = getIdx(tx)
+	if err != nil {
+		return
+	}
+	idx++
+	idxs := fmt.Sprintf("%d", idx)
+	_, _, err = tx.Set("_idx", idxs, nil)
+	if err != nil {
+		return err
+	}
+
+	var msg string
+
+	if m != nil {
+		var b []byte
+		b, err = ByteEncoder(m)
+		if err != nil {
+			return err
+		}
+		msg = string(b)
+	}
+	_, _, err = tx.Set("idx:"+idxs, msg, nil)
+	if err != nil {
+		return err
+	}
+	return
+}
+
+func getIdx(tx *buntdb.Tx) (idx int, err error) {
+	var val string
+	val, err = tx.Get("_idx")
+	if err == buntdb.ErrNotFound {
+		err = nil
+	} else if err != nil {
+		return
+	} else {
+		idx, err = strconv.Atoi(val)
+		if err != nil {
+			return
+		}
+	}
+	return
+}
+
+// GetIdx returns the current put index for gossip
+func (dht *DHT) GetIdx() (idx int, err error) {
+	err = dht.db.View(func(tx *buntdb.Tx) error {
+		var e error
+		idx, e = getIdx(tx)
+		if e != nil {
+			return e
+		}
+		return nil
+	})
+	return
+}
+
+// GetPuts returns a list of puts after the given index
+func (dht *DHT) GetPuts(since int) (puts []Put, err error) {
+	puts = make([]Put, 0)
+	err = dht.db.View(func(tx *buntdb.Tx) error {
+		err = tx.AscendGreaterOrEqual("idx", string(since), func(key, value string) bool {
+			x := strings.Split(key, ":")
+			idx, _ := strconv.Atoi(x[1])
+			if idx >= since {
+				var p Put
+				if value != "" {
+					err := ByteDecoder([]byte(value), &p.M)
+					if err != nil {
+						return false
+					}
+				}
+				puts = append(puts, p)
+			}
+			return true
+		})
+		return err
+	})
 	return
 }
 
 // put stores a value to the DHT store
 // N.B. This call assumes that the value has already been validated
-func (dht *DHT) put(key Hash, src peer.ID, value []byte, status int) (err error) {
+func (dht *DHT) put(m *Message, key Hash, src peer.ID, value []byte, status int) (err error) {
 	k := key.String()
+	log.Debugf("DHT put: %v=>%s", key, string(value))
 	err = dht.db.Update(func(tx *buntdb.Tx) error {
-		_, _, err := tx.Set("entry:"+k, string(value), nil)
+		err := incIdx(tx, m)
+		if err != nil {
+			return err
+		}
+		_, _, err = tx.Set("entry:"+k, string(value), nil)
 		if err != nil {
 			return err
 		}
@@ -175,7 +282,8 @@ func (dht *DHT) get(key Hash) (data []byte, status int, err error) {
 // putMeta associates a value with a stored hash
 // N.B. this function assumes that the data associated has been properly retrieved
 // and validated from the cource chain
-func (dht *DHT) putMeta(key Hash, metaKey Hash, metaTag string, entry Entry) (err error) {
+func (dht *DHT) putMeta(m *Message, key Hash, metaKey Hash, metaTag string, entry Entry) (err error) {
+	log.Debugf("DHT putmeta: on %v %v=>%v as %s", key, metaKey, entry, metaTag)
 	k := key.String()
 	err = dht.db.Update(func(tx *buntdb.Tx) error {
 		_, err := tx.Get("entry:" + k)
@@ -185,10 +293,22 @@ func (dht *DHT) putMeta(key Hash, metaKey Hash, metaTag string, entry Entry) (er
 		mk := metaKey.String()
 		var b []byte
 		b, err = entry.Marshal()
-		if err == nil {
-			_, _, err = tx.Set("meta:"+k+":"+mk+":"+metaTag, string(b), nil)
+		if err != nil {
+			return err
 		}
-		return err
+
+		x := "meta:" + k + ":" + mk + ":" + metaTag
+		_, _, err = tx.Set(x, string(b), nil)
+		if err != nil {
+			return err
+		}
+
+		err = incIdx(tx, m)
+		if err != nil {
+			return err
+		}
+
+		return nil
 	})
 	return
 }
@@ -332,7 +452,7 @@ func (dht *DHT) handlePutReq(m *Message) (err error) {
 			entry := resp.Entry
 			b, err := entry.Marshal()
 			if err == nil {
-				err = dht.put(t.H, from, b, LIVE)
+				err = dht.put(m, t.H, from, b, LIVE)
 			}
 		}
 	case MetaReq:
@@ -348,7 +468,7 @@ func (dht *DHT) handlePutReq(m *Message) (err error) {
 		if err != nil {
 			//@todo store as INVALID
 		} else {
-			err = dht.putMeta(t.O, t.M, t.T, resp.Entry)
+			err = dht.putMeta(m, t.O, t.M, t.T, resp.Entry)
 		}
 	default:
 		err = errors.New("unexpected body type in handlePutReq")
@@ -407,6 +527,18 @@ func DHTReceiver(h *Holochain, m *Message) (response interface{}, err error) {
 		default:
 			err = ErrDHTExpectedMetaQueryInBody
 		}
+	case GOSSIP_REQUEST:
+		log.Debug("DHTRecevier got GOSSIP_REQUEST: %v", m)
+		switch t := m.Body.(type) {
+		case GossipReq:
+			log.Debugf("%v wants my puts since %d and is at %d", m.From, t.YourIdx, t.MyIdx)
+			var puts []Put
+			puts, err = h.dht.GetPuts(t.YourIdx)
+			g := Gossip{Puts: puts}
+			response = g
+		default:
+			err = ErrDHTExpectedGossipReqInBody
+		}
 
 	default:
 		err = fmt.Errorf("message type %d not in holochain-dht protocol", int(m.Type))
@@ -417,5 +549,10 @@ func DHTReceiver(h *Holochain, m *Message) (response interface{}, err error) {
 // StartDHT initiates listening for DHT protocol messages on the node
 func (dht *DHT) StartDHT() (err error) {
 	err = dht.h.node.StartProtocol(dht.h, DHTProtocol, DHTReceiver)
+	return
+}
+
+// gossip picks a random node in my neighborhood and sends gossips with it
+func (dht *DHT) gossip() (err error) {
 	return
 }

@@ -21,6 +21,7 @@ import (
 	"github.com/op/go-logging"
 	"io"
 	"io/ioutil"
+	"math/rand"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -91,6 +92,7 @@ func Register(logger *logging.Logger) {
 	gob.Register(MetaQuery{})
 	RegisterBultinNucleii()
 	RegisterBultinPersisters()
+	rand.Seed(time.Now().Unix()) // initialize global pseudo random generator
 	log = logger
 }
 

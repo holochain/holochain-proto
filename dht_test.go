@@ -262,7 +262,31 @@ func TestDHTReceiver(t *testing.T) {
 	})
 }
 
-func TestGossip(t *testing.T) {
+func TestGossiper(t *testing.T) {
+	d, _, h := prepareTestChain("test")
+	defer cleanupTestDir(d)
+	dht := h.dht
+	Convey("FindGossiper should start empty", t, func() {
+		_, err := dht.FindGossiper()
+		So(err, ShouldEqual, ErrDHTErrNoGossipersAvailable)
+
+	})
+
+	Convey("UpdateGossiper should add a gossiper", t, func() {
+		idx, _ := dht.GetIdx()
+		err := dht.UpdateGossiper(h.node.HashAddr, idx)
+		So(err, ShouldBeNil)
+	})
+
+	Convey("FindGossiper should return the gossiper", t, func() {
+		g, err := dht.FindGossiper()
+		So(err, ShouldBeNil)
+		So(g.Idx, ShouldEqual, 0)
+		So(g.Id, ShouldEqual, h.node.HashAddr)
+	})
+}
+
+func TestGossipData(t *testing.T) {
 	d, _, h := prepareTestChain("test")
 	defer cleanupTestDir(d)
 	dht := h.dht
@@ -306,6 +330,18 @@ func TestGossip(t *testing.T) {
 		So(err, ShouldBeNil)
 		So(len(puts), ShouldEqual, 1)
 		So(fmt.Sprintf("%v", puts[0].M), ShouldEqual, fmt.Sprintf("%v", *m2))
+	})
+}
+
+func TestGossip(t *testing.T) {
+	d, _, h := prepareTestChain("test")
+	defer cleanupTestDir(d)
+	dht := h.dht
+	Convey("gossip should send a request", t, func() {
+		var err error
+		//err := dht.gossip()
+		So(dht, ShouldNotBeNil)
+		So(err, ShouldBeNil)
 	})
 }
 

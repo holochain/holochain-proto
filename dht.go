@@ -11,8 +11,10 @@ import (
 	"fmt"
 	peer "github.com/libp2p/go-libp2p-peer"
 	"github.com/tidwall/buntdb"
+	"math/rand"
 	"strconv"
 	"strings"
+	"time"
 )
 
 var ErrDHTExpectedGetReqInBody error = errors.New("expected get request")
@@ -20,6 +22,7 @@ var ErrDHTExpectedPutReqInBody error = errors.New("expected put request")
 var ErrDHTExpectedMetaReqInBody error = errors.New("expected meta request")
 var ErrDHTExpectedMetaQueryInBody error = errors.New("expected meta query")
 var ErrDHTExpectedGossipReqInBody error = errors.New("expected gossip request")
+var ErrDHTErrNoGossipersAvailable error = errors.New("no gossipers available")
 
 // DHT struct holds the data necessary to run the distributed hash table
 type DHT struct {
@@ -93,6 +96,13 @@ type GossipReq struct {
 	YourIdx int
 }
 
+// Gossiper holds data about a gossiper
+type Gossiper struct {
+	Id       peer.ID
+	Idx      int
+	LastSeen time.Time
+}
+
 // NewDHT creates a new DHT structure
 func NewDHT(h *Holochain) *DHT {
 	dht := DHT{
@@ -104,6 +114,7 @@ func NewDHT(h *Holochain) *DHT {
 	}
 	db.CreateIndex("meta", "meta:*", buntdb.IndexString)
 	db.CreateIndex("idx", "idx:*", buntdb.IndexInt)
+	db.CreateIndex("peer", "peer:*", buntdb.IndexString)
 
 	dht.db = db
 	dht.puts = make(chan *Message, 10)
@@ -126,7 +137,7 @@ func (dht *DHT) SetupDHT() (err error) {
 // incIdx adds a new index record to dht for gossiping later
 func incIdx(tx *buntdb.Tx, m *Message) (err error) {
 	var idx int
-	idx, err = getIdx(tx)
+	idx, err = getIntVal("_idx", tx)
 	if err != nil {
 		return
 	}
@@ -154,9 +165,10 @@ func incIdx(tx *buntdb.Tx, m *Message) (err error) {
 	return
 }
 
-func getIdx(tx *buntdb.Tx) (idx int, err error) {
+// getIntVal returns an integer value at a given key, and assumes the value 0 if the key doesn't exist
+func getIntVal(key string, tx *buntdb.Tx) (idx int, err error) {
 	var val string
-	val, err = tx.Get("_idx")
+	val, err = tx.Get(key)
 	if err == buntdb.ErrNotFound {
 		err = nil
 	} else if err != nil {
@@ -174,7 +186,7 @@ func getIdx(tx *buntdb.Tx) (idx int, err error) {
 func (dht *DHT) GetIdx() (idx int, err error) {
 	err = dht.db.View(func(tx *buntdb.Tx) error {
 		var e error
-		idx, e = getIdx(tx)
+		idx, e = getIntVal("_idx", tx)
 		if e != nil {
 			return e
 		}
@@ -203,6 +215,52 @@ func (dht *DHT) GetPuts(since int) (puts []Put, err error) {
 			return true
 		})
 		return err
+	})
+	return
+}
+
+// FindGossiper picks a random DHT node to gossip with
+func (dht *DHT) FindGossiper() (g *Gossiper, err error) {
+	glist := make([]Gossiper, 0)
+
+	err = dht.db.View(func(tx *buntdb.Tx) error {
+		err = tx.Ascend("peer", func(key, value string) bool {
+			log.Debugf("xxx %s, %s", key, value)
+			x := strings.Split(key, ":")
+			id, e := peer.IDB58Decode(x[1])
+			if e != nil {
+				return false
+			}
+			idx, e := strconv.Atoi(value)
+			g := Gossiper{Id: id, Idx: idx}
+			glist = append(glist, g)
+			return true
+		})
+		return nil
+	})
+
+	if len(glist) == 0 {
+		err = ErrDHTErrNoGossipersAvailable
+	} else {
+		g = &glist[rand.Intn(len(glist))]
+	}
+	return
+}
+
+// UpdateGossiper updates a gossiper
+func (dht *DHT) UpdateGossiper(id peer.ID, count int) (err error) {
+	log.Debugf("Gossiper: adding %v with %d", id, count)
+	err = dht.db.Update(func(tx *buntdb.Tx) error {
+		key := "peer:" + peer.IDB58Encode(id)
+		idx, e := getIntVal(key, tx)
+		if e != nil {
+			return e
+		}
+		_, _, err = tx.Set(key, string(idx+count), nil)
+		if err != nil {
+			return err
+		}
+		return nil
 	})
 	return
 }
@@ -554,5 +612,31 @@ func (dht *DHT) StartDHT() (err error) {
 
 // gossip picks a random node in my neighborhood and sends gossips with it
 func (dht *DHT) gossip() (err error) {
+
+	var g *Gossiper
+	var mydx int
+	g, err = dht.FindGossiper()
+	if err != nil {
+		return
+	}
+
+	log.Debugf("gossiping with %v", g)
+
+	mydx, err = dht.GetIdx()
+	if err != nil {
+		return
+	}
+	var r interface{}
+	r, err = dht.send(g.Id, GOSSIP_REQUEST, GossipReq{MyIdx: mydx, YourIdx: g.Idx})
+	if err != nil {
+		return
+	}
+
+	puts := r.([]Put)
+	log.Debugf("got %v", puts)
+	if len(puts) > 0 {
+		err = dht.UpdateGossiper(g.Id, len(puts))
+	}
+
 	return
 }

@@ -7,9 +7,7 @@
 package holochain
 
 import (
-	"bytes"
 	"encoding/binary"
-	"encoding/gob"
 	"encoding/json"
 	"github.com/lestrrat/go-jsschema"
 	"github.com/lestrrat/go-jsval"
@@ -58,26 +56,6 @@ type GobEntry struct {
 // JSONEntry is a structure for implementing JSON encoding of Entry content
 type JSONEntry struct {
 	C interface{}
-}
-
-// ByteEncoder encodes anything using gob
-func ByteEncoder(data interface{}) (b []byte, err error) {
-	var buf bytes.Buffer
-	enc := gob.NewEncoder(&buf)
-	err = enc.Encode(data)
-	if err != nil {
-		return
-	}
-	b = buf.Bytes()
-	return
-}
-
-// ByteEncoder decodes data encoded by ByteEncoder
-func ByteDecoder(b []byte, to interface{}) (err error) {
-	buf := bytes.NewBuffer(b)
-	dec := gob.NewDecoder(buf)
-	err = dec.Decode(to)
-	return
 }
 
 // MarshalEntry serializes an entry to a writer

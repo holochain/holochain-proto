@@ -1,15 +1,15 @@
 // Get list of posts in a Space
-expose("listMessages", HC.STRING);
+expose("listMessages", HC.JSON);
 function listMessages(room) {
   var messages = getmeta(room, "message");
-  if( messages ) {
+  if( messages instanceof Error ) {
+    return []
+  } else {
     var return_messages = new Array(messages.length);
     for( i=0; i<messages.length; i++) {
-      return_messages[i] = messages[i]["C"]
+      return_messages[i] = JSON.parse(messages[i]["C"])
     }
     return return_messages
-  } else {
-    return []
   }
 }
 // TODO Replace edited posts. Drop deleted/invalidated ones.

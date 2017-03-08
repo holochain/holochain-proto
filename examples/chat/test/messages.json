@@ -10,7 +10,7 @@
     "Zome":"messages",
     "FnName":"listMessages",
     "Input":"",
-    "Output":"",
+    "Output":"[]",
     "Err":""
   },
   {
@@ -30,8 +30,8 @@
   {
     "Zome":"messages",
     "FnName":"listMessages",
-    "Input":"%r2%",
-    "Regexp":"^\\{\"content\":\"bla\",\"room\":\"%r2%\",\"timestamp\":\"[^\"]*\"\\}$",
+    "Input":"\"%r2%\"",
+    "Regexp":"^\\[\\{\"content\":\"bla\",\"room\":\"%r2%\",\"timestamp\":\"[^\"]*\"\\}\\]$",
     "Err":""
   }
 ]

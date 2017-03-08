@@ -1,6 +1,17 @@
 // Get list of chat Spaces / Rooms / Channels
-expose("listRooms", HC.STRING);
-function listRooms() {return getmeta(property("_id"), "room");}
+expose("listRooms", HC.JSON);
+function listRooms() {
+  var rooms = getmeta(property("_id"), "room");
+  if( rooms instanceof Error ){
+      return []
+  } else {
+    var return_rooms = new Array(rooms.length);
+    for( i=0; i<rooms.length; i++) {
+      return_rooms[i] = JSON.parse(rooms[i]["C"])
+    }
+    return return_rooms
+  }
+}
 
 // Create a new chat Space / Channel
 expose("newRoom", HC.JSON);

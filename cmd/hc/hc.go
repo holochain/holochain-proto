@@ -190,7 +190,7 @@ func setupApp() (app *cli.App) {
 						}
 
 						err = genChain(service, name)
-						return nil
+						return err
 					},
 				},
 			},
@@ -466,7 +466,7 @@ func checkForName(c *cli.Context, cmd string) (name string, err error) {
 	}
 	name = c.Args().First()
 	if name == "" {
-		err = errors.New("missing require holochain-name argument to " + cmd)
+		err = errors.New("missing required holochain-name argument to " + cmd)
 	}
 	return
 }

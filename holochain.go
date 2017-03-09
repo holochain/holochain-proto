@@ -1370,3 +1370,8 @@ func (h *Holochain) Reset() (err error) {
 func (h *Holochain) DHT() *DHT {
 	return h.dht
 }
+
+// HashSpec exposes the hashSpec structure
+func (h *Holochain) HashSpec() HashSpec {
+	return h.hashSpec
+}

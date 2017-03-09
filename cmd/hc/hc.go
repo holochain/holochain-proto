@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	holo "github.com/metacurrency/holochain"
@@ -105,6 +106,30 @@ func setupApp() (app *cli.App) {
 					}
 					err = genChain(service, name)
 				}
+				return err
+			},
+		},
+		{
+			Name:      "seed",
+			Usage:     "seed calculates DNA hashes and builds DNA file without generating genesis entries.  Useful only for testing and development.",
+			ArgsUsage: "holochain-name",
+			Action: func(c *cli.Context) error {
+				h, err := getHolochain(c, service, "seed")
+				if err != nil {
+					return err
+				}
+				err = h.GenDNAHashes()
+				if err != nil {
+					return err
+				}
+				var buf bytes.Buffer
+				err = h.EncodeDNA(&buf)
+				if err != nil {
+					return err
+				}
+				e := holo.GobEntry{C: buf.Bytes()}
+				hash, err := e.Sum(h.HashSpec())
+				fmt.Printf("holochain id:%v\n", hash)
 				return err
 			},
 		},

@@ -41,6 +41,7 @@ type Entry interface {
 	Marshal() ([]byte, error)
 	Unmarshal([]byte) error
 	Content() interface{}
+	Sum(s HashSpec) (hash Hash, err error)
 }
 
 // SchemaValidator interface for schema validation
@@ -103,6 +104,22 @@ func (e *GobEntry) Unmarshal(b []byte) (err error) {
 }
 
 func (e *GobEntry) Content() interface{} { return e.C }
+
+func (e *GobEntry) Sum(s HashSpec) (h Hash, err error) {
+	// encode the entry into bytes
+	m, err := e.Marshal()
+	if err != nil {
+		return
+	}
+
+	// calculate the entry's hash and store it in the header
+	err = h.Sum(s, m)
+	if err != nil {
+		return
+	}
+
+	return
+}
 
 // implementation of Entry interface with JSON
 

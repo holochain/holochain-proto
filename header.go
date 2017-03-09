@@ -39,14 +39,7 @@ func newHeader(h HashSpec, now time.Time, t string, entry Entry, key ic.PrivKey,
 	hd.HeaderLink = prev
 	hd.TypeLink = prevType
 
-	// encode the entry into bytes
-	m, err := entry.Marshal()
-	if err != nil {
-		return
-	}
-
-	// calculate the entry's hash and store it in the header
-	err = hd.EntryLink.Sum(h, m)
+	hd.EntryLink, err = entry.Sum(h)
 	if err != nil {
 		return
 	}

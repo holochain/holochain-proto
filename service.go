@@ -20,6 +20,7 @@ const (
 	AgentFileName        string = "agent.txt"   // User ID info
 	PrivKeyFileName      string = "priv.key"    // Signing key - private
 	StoreFileName        string = "chain"       // Filename for local data store
+	DNAHashFileName      string = "dna.hash"    // Filename for storing the hash of the holochain
 
 	DefaultPort = 6283
 )

@@ -43,7 +43,7 @@ func TestNewJSNucleus(t *testing.T) {
 
 			_, err = z.Run(`property("` + ID_PROPERTY + `")`)
 			So(err, ShouldBeNil)
-			id, _ := h.ID()
+			id := h.DNAhash()
 			So(z.lastResult.String(), ShouldEqual, id.String())
 
 			_, err = z.Run(`property("` + AGENT_ID_PROPERTY + `")`)
@@ -105,7 +105,6 @@ func TestJSValidateEntry(t *testing.T) {
 func TestJSSanitize(t *testing.T) {
 	Convey("should strip quotes and returns", t, func() {
 		So(jsSanitizeString(`"`), ShouldEqual, `\"`)
-		fmt.Printf("CRAXY:%s", jsSanitizeString("\"x\ny"))
 		So(jsSanitizeString("\"x\ny"), ShouldEqual, "\\\"xy")
 	})
 }

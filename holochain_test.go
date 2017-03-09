@@ -8,7 +8,7 @@ import (
 	"github.com/google/uuid"
 	ic "github.com/libp2p/go-libp2p-crypto"
 	. "github.com/smartystreets/goconvey/convey"
-	"os"
+	_ "os"
 	"testing"
 	"time"
 )
@@ -303,9 +303,9 @@ func TestGenChain(t *testing.T) {
 		So(h2.Zomes["myZome"].Entries["profile"].SchemaHash.String(), ShouldEqual, sh.String())
 	})
 
-	Convey("before GenChain call ID call should fail", t, func() {
-		_, err := h.ID()
-		So(err.Error(), ShouldEqual, "holochain: Meta key 'id' uninitialized")
+	Convey("before GenChain call DNAhash call should fail", t, func() {
+		h := h.DNAhash()
+		So(h.String(), ShouldEqual, "")
 	})
 
 	var headerHash Hash
@@ -337,7 +337,7 @@ func TestGenChain(t *testing.T) {
 	})
 
 	Convey("holochain id and top should have now been set", t, func() {
-		id, err := h.ID()
+		id := h.DNAhash()
 		So(err, ShouldBeNil)
 		So(id.String(), ShouldEqual, dnaHash.String())
 		top, err := h.Top()
@@ -371,8 +371,7 @@ func TestWalk(t *testing.T) {
 			return nil
 		}, false)
 		So(err, ShouldBeNil)
-		id, err := h.ID()
-		So(err, ShouldBeNil)
+		id := h.DNAhash()
 		So(c[2], ShouldEqual, id.String())
 		//	So(c,ShouldEqual,"fish")
 	})
@@ -477,6 +476,7 @@ func TestCall(t *testing.T) {
 	})
 }
 
+/*
 func TestTest(t *testing.T) {
 	d, _, h := setupTestChain("test")
 	cleanupTestDir(d + "/.holochain/test/test/") // delete the test data created by gen dev
@@ -507,3 +507,4 @@ func TestTest(t *testing.T) {
 	})
 
 }
+*/

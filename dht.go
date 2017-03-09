@@ -126,11 +126,9 @@ func NewDHT(h *Holochain) *DHT {
 // SetupDHT prepares a DHT for use by adding the holochain's ID
 func (dht *DHT) SetupDHT() (err error) {
 	var ID Hash
-	ID, err = dht.h.ID()
-	if err != nil {
-		return
-	}
+	ID = dht.h.DNAhash()
 	x := ""
+	// put the holochain ID so it always exists for putmeta
 	err = dht.put(nil, ID, dht.h.id, []byte(x), LIVE)
 	return
 }
@@ -590,7 +588,10 @@ func DHTReceiver(h *Holochain, m *Message) (response interface{}, err error) {
 			if err == nil {
 				h.dht.puts <- m
 				response = "queued"
+			} else {
+				log.Debugf("DHTRecevier key %v doesn't exist, ignoring", t.O)
 			}
+
 		default:
 			err = ErrDHTExpectedMetaReqInBody
 		}

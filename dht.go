@@ -81,6 +81,17 @@ type MetaQuery struct {
 	// filter, etc
 }
 
+// MetaEntry holds associated entries
+type MetaEntry struct {
+	E Entry
+	H string
+}
+
+// MetaQueryResp holds response to getMeta query
+type MetaQueryResp struct {
+	Entries []MetaEntry
+}
+
 // Put holds a put or putmeta for gossiping
 type Put struct {
 	M Message
@@ -396,14 +407,14 @@ func filter(ss []Meta, test func(*Meta) bool) (ret []Meta) {
 }
 
 // getMeta retrieves values associated with hashes
-func (dht *DHT) getMeta(key Hash, metaTag string) (results []Entry, err error) {
+func (dht *DHT) getMeta(key Hash, metaTag string) (results []MetaEntry, err error) {
 	k := key.String()
 	err = dht.db.View(func(tx *buntdb.Tx) error {
 		_, err := tx.Get("entry:" + k)
 		if err == buntdb.ErrNotFound {
 			return ErrHashNotFound
 		}
-		results = make([]Entry, 0)
+		results = make([]MetaEntry, 0)
 		err = tx.Ascend("meta", func(key, value string) bool {
 			x := strings.Split(key, ":")
 			if string(x[1]) == k && string(x[3]) == metaTag {
@@ -412,7 +423,8 @@ func (dht *DHT) getMeta(key Hash, metaTag string) (results []Entry, err error) {
 				if err != nil {
 					return false
 				}
-				results = append(results, &entry)
+				metaEntry := MetaEntry{E: &entry, H: x[2]}
+				results = append(results, metaEntry)
 			}
 			return true
 		})
@@ -421,7 +433,6 @@ func (dht *DHT) getMeta(key Hash, metaTag string) (results []Entry, err error) {
 		}
 		return err
 	})
-
 	return
 }
 
@@ -606,7 +617,9 @@ func DHTReceiver(h *Holochain, m *Message) (response interface{}, err error) {
 		log.Debug("DHTRecevier got GETMETA_REQUEST: %v", m)
 		switch t := m.Body.(type) {
 		case MetaQuery:
-			response, err = h.dht.getMeta(t.H, t.T)
+			var r MetaQueryResp
+			r.Entries, err = h.dht.getMeta(t.H, t.T)
+			response = r
 		default:
 			err = ErrDHTExpectedMetaQueryInBody
 		}

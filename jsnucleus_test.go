@@ -223,10 +223,11 @@ func TestJSDHT(t *testing.T) {
 		v, err := NewJSNucleus(h, fmt.Sprintf(`getmeta("%s","myMetaTag");`, hash.String()))
 		So(err, ShouldBeNil)
 		z := v.(*JSNucleus)
-		So(z.lastResult.Class(), ShouldEqual, "GoArray")
+		So(z.lastResult.Class(), ShouldEqual, "Object")
 		x, err := z.lastResult.Export()
+		mqr := x.(MetaQueryResp)
 		So(err, ShouldBeNil)
-		So(fmt.Sprintf("%v", x.([]Entry)[0].Content()), ShouldEqual, `{"firstName":"Zippy","lastName":"Pinhead"}`)
+		So(fmt.Sprintf("%v", mqr.Entries[0].E.Content()), ShouldEqual, `{"firstName":"Zippy","lastName":"Pinhead"}`)
 	})
 
 }

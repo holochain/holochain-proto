@@ -95,6 +95,8 @@ func Register(logger *logging.Logger) {
 	gob.Register(ValidateResponse{})
 	gob.Register(Put{})
 	gob.Register(GobEntry{})
+	gob.Register(MetaQueryResp{})
+	gob.Register(MetaEntry{})
 
 	RegisterBultinNucleii()
 	RegisterBultinPersisters()

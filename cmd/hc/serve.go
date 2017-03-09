@@ -125,7 +125,7 @@ func call(w http.ResponseWriter, h *holo.Holochain, zome string, function string
 
 		for _, f := range i {
 			if f.Name == function {
-				log.Debugf("calling %s:%s\n", zome, function)
+				log.Debugf("calling %s:%s(%s)\n", zome, function, args)
 				result, err = h.Call(zome, function, args)
 				return
 			}

@@ -273,6 +273,13 @@ func setupApp() (app *cli.App) {
 			},
 		},
 		{
+			Flags: []cli.Flag{
+				cli.BoolFlag{
+					Name:        "force",
+					Usage:       "overwrite existing holochain",
+					Destination: &force,
+				},
+			},
 			Name:    "test",
 			Aliases: []string{"t"},
 			Usage:   "run validation against test data for a chain in development",
@@ -280,6 +287,12 @@ func setupApp() (app *cli.App) {
 				h, err := getHolochain(c, service, "test")
 				if err != nil {
 					return err
+				}
+				if force {
+					err = h.Reset()
+					if err != nil {
+						return err
+					}
 				}
 				err = h.Activate()
 				if err != nil {

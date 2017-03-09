@@ -94,8 +94,8 @@ func serve(h *holo.Holochain, port string) {
 		args := string(body)
 		result, err := call(w, h, zome, function, args)
 		if err != nil {
-			log.Debugf(" result error: %v\n", err)
-			http.Error(w, err.Error(), 400)
+			log.Debugf("HC Serve: call of %s:%s resulted in error: %v\n", zome, function, err)
+			http.Error(w, err.Error(), 500)
 
 			return
 		} else {

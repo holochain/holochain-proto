@@ -389,6 +389,18 @@ func setupApp() (app *cli.App) {
 				if err != nil {
 					return err
 				}
+				id, err := h.ID()
+				if err != nil {
+					if err.Error() == "holochain: Meta key 'id' uninitialized" {
+						return fmt.Errorf("Can't serve an un-started chain. Run 'gen chain %s' to generate genesis entries and start the chain.", h.Name)
+					}
+					return err
+				}
+
+				if verbose {
+					fmt.Printf("Serving holochain ID:%v\n", id)
+				}
+
 				var port string
 				if len(c.Args()) == 1 {
 					port = "3141"
@@ -430,7 +442,7 @@ func setupApp() (app *cli.App) {
 		logging.SetLevel(level, "holochain")
 		holo.Register(log)
 		if verbose {
-			fmt.Printf("app version: %s; Holochain lib version %s\n ", app.Version, holo.Version)
+			fmt.Printf("app version: %s; Holochain lib version %s\n", app.Version, holo.Version)
 		}
 		var err error
 		if root == "" {

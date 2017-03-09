@@ -1198,6 +1198,8 @@ func (h *Holochain) TestStringReplacements(input, r1, r2, r3 string) string {
 	output = strings.Replace(output, "%r1%", r1, -1)
 	output = strings.Replace(output, "%r2%", r2, -1)
 	output = strings.Replace(output, "%r3%", r3, -1)
+	dna, _ := h.GetProperty("_id")
+	output = strings.Replace(output, "%dna%", dna, -1)
 	return output
 }
 

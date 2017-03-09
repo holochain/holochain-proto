@@ -60,6 +60,10 @@ func Init(root string, agent AgentName) (service *Service, err error) {
 		Path: root,
 	}
 
+	if os.Getenv("HC_BOOTSTRAPSERVER") != "" { 
+		s.Settings.DefaultBootstrapServer=os.Getenv("HC_BOOTSTRAPSERVER")
+	}
+
 	err = writeToml(root, SysFileName, s.Settings, false)
 	if err != nil {
 		return

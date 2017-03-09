@@ -23,6 +23,8 @@ RUN make bs
 
 RUN make test
 
+
 ADD . $GOPATH/src/github.com/metacurrency/holochain
+
 
 #CMD ["/usr/bin/node", "/var/www/app.js"]

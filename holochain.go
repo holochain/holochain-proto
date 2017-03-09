@@ -1205,9 +1205,9 @@ func (h *Holochain) Test() []error {
 
 	var lastResults [3]interface{}
 	for name, ts := range tests {
-		log.Infof("========================================")
-		log.Infof("Test: '%s' starting...", name)
-		log.Infof("========================================")
+		color.White("========================================")
+		color.White("Test: '%s' starting...", name)
+		color.White("========================================")
 		// setup the genesis entries
 		err = h.Reset()
 		_, err = h.GenChain()
@@ -1217,7 +1217,7 @@ func (h *Holochain) Test() []error {
 		go h.dht.HandlePutReqs()
 		for i, t := range ts {
 			log.Debugf("------------------------------")
-			log.Infof("Test '%s' line %d: %s", name, i, t)
+			color.White("Test '%s' line %d: %s", name, i, t)
 			time.Sleep(time.Millisecond * 10)
 			if err == nil {
 				testID := fmt.Sprintf("%s:%d", name, i)

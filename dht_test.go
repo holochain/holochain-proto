@@ -281,7 +281,7 @@ func TestGossiper(t *testing.T) {
 	Convey("FindGossiper should return the gossiper", t, func() {
 		g, err := dht.FindGossiper()
 		So(err, ShouldBeNil)
-		So(g.Idx, ShouldEqual, 0)
+		So(g.Idx, ShouldEqual, 1)
 		So(g.Id, ShouldEqual, h.node.HashAddr)
 	})
 }
@@ -337,10 +337,13 @@ func TestGossip(t *testing.T) {
 	d, _, h := prepareTestChain("test")
 	defer cleanupTestDir(d)
 	dht := h.dht
+
+	idx, _ := dht.GetIdx()
+	dht.UpdateGossiper(h.node.HashAddr, idx)
+
 	Convey("gossip should send a request", t, func() {
 		var err error
-		//err := dht.gossip()
-		So(dht, ShouldNotBeNil)
+		err = dht.gossip()
 		So(err, ShouldBeNil)
 	})
 }

@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/user"
 	"strings"
+	"time"
 )
 
 var uninitialized error
@@ -361,6 +362,7 @@ func setupApp() (app *cli.App) {
 					return err
 				}
 				go h.DHT().HandlePutReqs()
+				go h.DHT().Gossip(2 * time.Second)
 				serve(h, port)
 				return err
 			},

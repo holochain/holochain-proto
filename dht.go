@@ -26,9 +26,10 @@ var ErrDHTErrNoGossipersAvailable error = errors.New("no gossipers available")
 
 // DHT struct holds the data necessary to run the distributed hash table
 type DHT struct {
-	h    *Holochain // pointer to the holochain this DHT is part of
-	db   *buntdb.DB
-	puts chan *Message
+	h         *Holochain // pointer to the holochain this DHT is part of
+	db        *buntdb.DB
+	puts      chan *Message
+	gossiping bool
 }
 
 // Meta holds data that can be associated with a hash
@@ -174,6 +175,7 @@ func getIntVal(key string, tx *buntdb.Tx) (idx int, err error) {
 	} else if err != nil {
 		return
 	} else {
+		log.Debugf("GgetIntVal of %s", val)
 		idx, err = strconv.Atoi(val)
 		if err != nil {
 			return
@@ -256,7 +258,8 @@ func (dht *DHT) UpdateGossiper(id peer.ID, count int) (err error) {
 		if e != nil {
 			return e
 		}
-		_, _, err = tx.Set(key, string(idx+count), nil)
+		sidx := fmt.Sprintf("%d", idx+count)
+		_, _, err = tx.Set(key, sidx, nil)
 		if err != nil {
 			return err
 		}
@@ -620,7 +623,7 @@ func (dht *DHT) gossip() (err error) {
 		return
 	}
 
-	log.Debugf("gossiping with %v", g)
+	log.Debugf("Gossip: with %v", g)
 
 	mydx, err = dht.GetIdx()
 	if err != nil {
@@ -632,11 +635,24 @@ func (dht *DHT) gossip() (err error) {
 		return
 	}
 
-	puts := r.([]Put)
-	log.Debugf("got %v", puts)
+	gossip := r.(Gossip)
+	puts := gossip.Puts
+	log.Debugf("Gossip: received puts: %v", puts)
 	if len(puts) > 0 {
 		err = dht.UpdateGossiper(g.Id, len(puts))
 	}
 
 	return
+}
+
+// Gossip gossips every interval
+func (dht *DHT) Gossip(interval time.Duration) {
+	dht.gossiping = true
+	for dht.gossiping {
+		err := dht.gossip()
+		if err != nil {
+			log.Debugf("Gossip error: %v", err)
+		}
+		time.Sleep(interval)
+	}
 }

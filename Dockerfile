@@ -2,9 +2,9 @@ FROM ubuntu
 MAINTAINER Duke Dorje
 
 RUN apt-get update
+RUN apt-get install -y software-properties-common python wget git-core curl
 RUN wget -q https://storage.googleapis.com/golang/go1.8.linux-amd64.tar.gz -O golang.tar.gz
 RUN tar -zxvf golang.tar.gz -C /usr/local/
-RUN apt-get install -y software-properties-common python wget git-core curl
 RUN mkdir /golang
 ENV GOPATH /golang
 ENV PATH $GOPATH/bin:/usr/local/go/bin:$PATH

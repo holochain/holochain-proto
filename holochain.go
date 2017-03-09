@@ -1320,7 +1320,7 @@ func (h *Holochain) GetProperty(prop string) (property string, err error) {
 // Reset deletes all chain and dht data and resets data structures
 func (h *Holochain) Reset() (err error) {
 
-	h.dnaHash = NullHash()
+	h.dnaHash = Hash{}
 
 	if h.chain.s != nil {
 		h.chain.s.Close()

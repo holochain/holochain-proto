@@ -8,7 +8,7 @@ import (
 	"github.com/google/uuid"
 	ic "github.com/libp2p/go-libp2p-crypto"
 	. "github.com/smartystreets/goconvey/convey"
-	_ "os"
+	"os"
 	"testing"
 	"time"
 )
@@ -479,7 +479,6 @@ func TestCall(t *testing.T) {
 	})
 }
 
-/*
 func TestTest(t *testing.T) {
 	d, _, h := setupTestChain("test")
 	cleanupTestDir(d + "/.holochain/test/test/") // delete the test data created by gen dev
@@ -510,4 +509,3 @@ func TestTest(t *testing.T) {
 	})
 
 }
-*/

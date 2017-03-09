@@ -60,33 +60,37 @@ func TestNewChainFromFile(t *testing.T) {
 
 func TestTop(t *testing.T) {
 	c := NewChain()
+	var hash *Hash
+	var hd *Header
 	Convey("it should return an nil for an empty chain", t, func() {
-		hd := c.Top()
+		hd = c.Top()
 		So(hd, ShouldBeNil)
-		hd = c.TopType("myData")
+		hash, hd = c.TopType("myData")
 		So(hd, ShouldBeNil)
+		So(hash, ShouldBeNil)
 	})
 	h, key, now := chainTestSetup()
 	e := GobEntry{C: "some data"}
 	c.AddEntry(h, now, "myData", &e, key)
 
 	Convey("Top it should return the top header", t, func() {
-		hd := c.Top()
+		hd = c.Top()
 		So(hd, ShouldEqual, c.Headers[0])
 	})
 	Convey("TopType should return nil for non existent type", t, func() {
-		hd := c.TopType("otherData")
+		hash, hd = c.TopType("otherData")
 		So(hd, ShouldBeNil)
+		So(hash, ShouldEqual, nil)
 	})
 	Convey("TopType should return header for correct type", t, func() {
-		hd := c.TopType("myData")
+		hash, hd = c.TopType("myData")
 		So(hd, ShouldEqual, c.Headers[0])
 	})
 	c.AddEntry(h, now, "otherData", &e, key)
 	Convey("TopType should return headers for both types", t, func() {
-		hd := c.TopType("myData")
+		hash, hd = c.TopType("myData")
 		So(hd, ShouldEqual, c.Headers[0])
-		hd = c.TopType("otherData")
+		hash, hd = c.TopType("otherData")
 		So(hd, ShouldEqual, c.Headers[1])
 	})
 }
@@ -94,8 +98,9 @@ func TestTop(t *testing.T) {
 func TestTopType(t *testing.T) {
 	c := NewChain()
 	Convey("it should return nil for an empty chain", t, func() {
-		hd := c.TopType("myData")
+		hash, hd := c.TopType("myData")
 		So(hd, ShouldBeNil)
+		So(hash, ShouldEqual, nil)
 	})
 	Convey("it should return nil for an chain with no entries of the type", t, func() {
 	})

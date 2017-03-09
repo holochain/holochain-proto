@@ -39,7 +39,7 @@ type Interface struct {
 // This includes the Headers and Sources
 type ValidationProps struct {
 	Sources []string // B58 encoded peer
-	Headers []Header
+	Hash    string
 	MetaTag string // if validating a putMeta this will have the meta type set
 }
 

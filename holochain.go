@@ -71,7 +71,6 @@ type Holochain struct {
 	dnaHash        Hash
 	path           string
 	agent          Agent
-	store          Persister
 	encodingFormat string
 	hashSpec       HashSpec
 	config         Config
@@ -99,8 +98,11 @@ func Register(logger *logging.Logger) {
 
 	RegisterBultinNucleii()
 	RegisterBultinPersisters()
-	rand.Seed(time.Now().Unix()) // initialize global pseudo random generator
+
 	log = logger
+
+	rand.Seed(time.Now().Unix()) // initialize global pseudo random generator
+
 }
 
 func findDNA(path string) (f string, err error) {
@@ -134,13 +136,13 @@ func (s *Service) IsConfigured(name string) (f string, err error) {
 		return
 	}
 
-	// found a format now check that there's a store
-	p := path + "/" + StoreFileName + ".db"
-	if !fileExists(p) {
-		err = errors.New("chain store missing: " + p)
-		return
-	}
-
+	/*	// found a format now check that there's a store
+		p := path + "/" + StoreFileName + ".db"
+		if !fileExists(p) {
+			err = errors.New("chain store missing: " + p)
+			return
+		}
+	*/
 	return
 }
 
@@ -242,16 +244,16 @@ func (s *Service) load(name string, format string) (hP *Holochain, err error) {
 		return
 	}
 
-	h.store, err = CreatePersister(BoltPersisterName, path+"/"+StoreFileName+".db")
-	if err != nil {
-		return
-	}
+	/*	h.store, err = CreatePersister(BoltPersisterName, path+"/"+StoreFileName+".db")
+		if err != nil {
+			return
+		}
 
-	err = h.store.Init()
-	if err != nil {
-		return
-	}
-
+		err = h.store.Init()
+		if err != nil {
+			return
+		}
+	*/
 	if err = h.PrepareHashType(); err != nil {
 		return
 	}
@@ -362,6 +364,7 @@ func (h *Holochain) Activate() (err error) {
 	return
 }
 
+/*
 // getMetaHash gets a value from the store that's a hash
 func (h *Holochain) getMetaHash(key string) (hash Hash, err error) {
 	v, err := h.store.GetMeta(key)
@@ -374,16 +377,11 @@ func (h *Holochain) getMetaHash(key string) (hash Hash, err error) {
 	}
 	return
 }
+*/
 
 // Path returns a holochain path
 func (h *Holochain) Path() string {
 	return h.path
-}
-
-// ID returns a holochain ID hash or err if not yet defined
-func (h *Holochain) ID() (id Hash, err error) {
-	id, err = h.getMetaHash(IDMetaKey)
-	return
 }
 
 // DNAhash returns the hash of the DNA entry which is also the holochain ID
@@ -393,15 +391,7 @@ func (h *Holochain) DNAhash() (id Hash) {
 
 // Top returns a hash of top header or err if not yet defined
 func (h *Holochain) Top() (top Hash, err error) {
-	tp, err := h.getMetaHash(TopMetaKey)
-	top = tp.Clone()
-
-	return
-}
-
-// Top returns a hash of top header of the given type or err if not yet defined
-func (h *Holochain) TopType(t string) (top Hash, err error) {
-	tp, err := h.getMetaHash(TopMetaKey + "_" + t)
+	tp := h.chain.Hashes[len(h.chain.Hashes)-1]
 	top = tp.Clone()
 	return
 }
@@ -466,11 +456,12 @@ func (h *Holochain) GenChain() (keyHash Hash, err error) {
 		return
 	}
 
-	err = h.store.PutMeta(IDMetaKey, dnaHeader.EntryLink.H)
-	if err != nil {
-		return
-	}
-
+	/*
+		err = h.store.PutMeta(IDMetaKey, dnaHeader.EntryLink.H)
+		if err != nil {
+			return
+		}
+	*/
 	err = h.dht.SetupDHT()
 	if err != nil {
 		return
@@ -867,16 +858,17 @@ func gen(path string, makeH func(path string) (hP *Holochain, err error)) (h *Ho
 		return
 	}
 
-	h.store, err = CreatePersister(BoltPersisterName, path+"/"+StoreFileName+".db")
-	if err != nil {
-		return
-	}
+	/*
+		h.store, err = CreatePersister(BoltPersisterName, path+"/"+StoreFileName+".db")
+		if err != nil {
+			return
+		}
 
-	err = h.store.Init()
-	if err != nil {
-		return
-	}
-
+		err = h.store.Init()
+		if err != nil {
+			return
+		}
+	*/
 	err = h.SaveDNA(false)
 	if err != nil {
 		return
@@ -941,48 +933,48 @@ func (h *Holochain) GenDNAHashes() (err error) {
 }
 
 // NewEntry adds an entry and it's header to the chain and returns the header and it's hash
-func (h *Holochain) NewEntry(now time.Time, t string, entry Entry) (hash Hash, header *Header, err error) {
+func (h *Holochain) NewEntry(now time.Time, entryType string, entry Entry) (hash Hash, header *Header, err error) {
 
-	// this is extra for now.
-	_, err = h.chain.AddEntry(h.hashSpec, now, t, entry, h.agent.PrivKey())
-	if err != nil {
-		return
+	var l int
+	l, hash, header, err = h.chain.PrepareHeader(h.hashSpec, now, entryType, entry, h.agent.PrivKey())
+	if err == nil {
+		err = h.chain.addEntry(l, hash, header, entry)
 	}
+	/*
+		// get the current top of the chain
+		ph, err := h.Top()
+		if err != nil {
+			ph = NullHash()
+		}
 
-	// get the current top of the chain
-	ph, err := h.Top()
-	if err != nil {
-		ph = NullHash()
-	}
+		// and also the the top entry of this type
+		pth, err := h.TopType(t)
+		if err != nil {
+			pth = NullHash()
+		}
 
-	// and also the the top entry of this type
-	pth, err := h.TopType(t)
-	if err != nil {
-		pth = NullHash()
-	}
+		hash, header, err = newHeader(h.hashSpec, now, t, entry, h.agent.PrivKey(), ph, pth)
+		if err != nil {
+			return
+		}
 
-	hash, header, err = newHeader(h.hashSpec, now, t, entry, h.agent.PrivKey(), ph, pth)
-	if err != nil {
-		return
-	}
+		// @TODO
+		// we have to do this stuff because currently we are persisting immediatly.
+		// instead we should be persisting from the Chain object.
 
-	// @TODO
-	// we have to do this stuff because currently we are persisting immediatly.
-	// instead we should be persisting from the Chain object.
+		// encode the header for saving
+		b, err := header.Marshal()
+		if err != nil {
+			return
+		}
+		// encode the entry into bytes
+		m, err := entry.Marshal()
+		if err != nil {
+			return
+		}
 
-	// encode the header for saving
-	b, err := header.Marshal()
-	if err != nil {
-		return
-	}
-	// encode the entry into bytes
-	m, err := entry.Marshal()
-	if err != nil {
-		return
-	}
-
-	err = h.store.Put(t, hash, b, header.EntryLink, m)
-
+		err = h.store.Put(t, hash, b, header.EntryLink, m)
+	*/
 	return
 }
 
@@ -1006,44 +998,9 @@ func get(hb *bolt.Bucket, eb *bolt.Bucket, key []byte, getEntry bool) (header He
 	return
 }
 
-func (h *Holochain) Walk(fn func(key *Hash, h *Header, entry interface{}) error, entriesToo bool) (err error) {
-	nullHash := NullHash()
-	err = h.store.(*BoltPersister).DB().View(func(tx *bolt.Tx) error {
-		hb := tx.Bucket([]byte(HeaderBucket))
-		eb := tx.Bucket([]byte(EntryBucket))
-		mb := tx.Bucket([]byte(MetaBucket))
-		key := mb.Get([]byte(TopMetaKey))
-
-		var keyH Hash
-		var header Header
-		var visited = make(map[string]bool)
-		for err == nil && !bytes.Equal(nullHash.H, key) {
-			keyH.H = key
-			// build up map of all visited headers to prevent loops
-			s := string(key)
-			_, present := visited[s]
-			if present {
-				err = errors.New("loop detected in walk")
-			} else {
-				visited[s] = true
-				var e interface{}
-				header, e, err = get(hb, eb, key, entriesToo)
-				if err == nil {
-					err = fn(&keyH, &header, e)
-					key = header.HeaderLink.H
-				}
-			}
-		}
-		if err != nil {
-			return err
-		}
-		// if the last item doesn't gets us to bottom, i.e. the header who's entry link is
-		// the same as ID key then, the chain is invalid...
-		if !bytes.Equal(header.EntryLink.H, mb.Get([]byte(IDMetaKey))) {
-			return errors.New("chain didn't end at DNA!")
-		}
-		return err
-	})
+//func(key *Hash, h *Header, entry interface{}) error
+func (h *Holochain) Walk(fn WalkerFn, entriesToo bool) (err error) {
+	err = h.chain.Walk(fn)
 	return
 }
 
@@ -1052,7 +1009,7 @@ func (h *Holochain) Walk(fn func(key *Hash, h *Header, entry interface{}) error,
 // if the holochain file was copied from somewhere you can consider this a self-check
 func (h *Holochain) Validate(entriesToo bool) (valid bool, err error) {
 
-	err = h.Walk(func(key *Hash, header *Header, entry interface{}) (err error) {
+	err = h.Walk(func(key *Hash, header *Header, entry Entry) (err error) {
 		// confirm the correctness of the header hash
 
 		var bH Hash
@@ -1369,11 +1326,11 @@ func (h *Holochain) Reset() (err error) {
 		h.chain.s.Close()
 	}
 
-	err = h.store.Remove()
-	if err != nil {
-		panic(err)
-	}
-
+	/*	err = h.store.Remove()
+		if err != nil {
+			panic(err)
+		}
+	*/
 	err = os.RemoveAll(h.path + "/" + DNAHashFileName)
 	if err != nil {
 		panic(err)
@@ -1387,12 +1344,12 @@ func (h *Holochain) Reset() (err error) {
 	if err != nil {
 		panic(err)
 	}
-
-	err = h.store.Init()
-	if err != nil {
-		panic(err)
-	}
-
+	/*
+		err = h.store.Init()
+		if err != nil {
+			panic(err)
+		}
+	*/
 	h.chain = NewChain()
 	h.dht = NewDHT(h)
 	return

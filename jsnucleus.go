@@ -233,13 +233,25 @@ func NewJSNucleus(h *Holochain, code string) (n Nucleus, err error) {
 		} else {
 			return z.vm.MakeCustomError("HolochainError", "commit expected string as second argument")
 		}
-		p := ValidationProps{Sources: []string{peer.IDB58Encode(h.id)}}
-		err = h.ValidateEntry(entryType, &GobEntry{C: entry}, &p)
+
+		e := GobEntry{C: entry}
+		var l int
+		var hash Hash
 		var header *Header
+		l, hash, header, err = h.chain.PrepareHeader(h.hashSpec, time.Now(), entryType, &e, h.agent.PrivKey())
+		if err != nil {
+			return z.vm.MakeCustomError("HolochainError", err.Error())
+		}
+
+		p := ValidationProps{
+			Sources: []string{peer.IDB58Encode(h.id)},
+			Hash:    hash.String(),
+		}
+
+		err = h.ValidateEntry(entryType, &e, &p)
 
 		if err == nil {
-			e := GobEntry{C: entry}
-			_, header, err = h.NewEntry(time.Now(), entryType, &e)
+			err = h.chain.addEntry(l, hash, header, &e)
 		}
 		if err != nil {
 			return z.vm.MakeCustomError("HolochainError", err.Error())

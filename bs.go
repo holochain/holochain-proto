@@ -32,7 +32,7 @@ func (h *Holochain) BSpost() (err error) {
 	nodeID := peer.IDB58Encode(h.node.HashAddr)
 	req := BSReq{Version: 1, NodeID: nodeID, NodeAddr: h.node.NetAddr.String()}
 	host := h.config.BootstrapServer
-	id, _ := h.ID()
+	id := h.DNAhash()
 	url := fmt.Sprintf("http://%s/%s/%s", host, id.String(), nodeID)
 	var b []byte
 	b, err = json.Marshal(req)
@@ -48,7 +48,7 @@ func (h *Holochain) BSget() (err error) {
 	if host == "" {
 		return
 	}
-	id, _ := h.ID()
+	id := h.DNAhash()
 	url := fmt.Sprintf("http://%s/%s", host, id.String())
 	var resp *http.Response
 	resp, err = http.Get(url)

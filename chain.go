@@ -130,16 +130,29 @@ func (c *Chain) Top() (header *Header) {
 }
 
 // TopType returns the latest header of a given type
-func (c *Chain) TopType(entryType string) (header *Header) {
+func (c *Chain) TopType(entryType string) (hash *Hash, header *Header) {
 	i, ok := c.TypeTops[entryType]
 	if ok {
 		header = c.Headers[i]
+		var hs Hash = c.Hashes[i].Clone()
+		hash = &hs
 	}
 	return
 }
 
 // AddEntry creates a new header and adds it to a chain
 func (c *Chain) AddEntry(h HashSpec, now time.Time, entryType string, e Entry, key ic.PrivKey) (hash Hash, err error) {
+	var l int
+	var header *Header
+	l, hash, header, err = c.PrepareHeader(h, now, entryType, e, key)
+	if err == nil {
+		err = c.addEntry(l, hash, header, e)
+	}
+	return
+}
+
+func (c *Chain) PrepareHeader(h HashSpec, now time.Time, entryType string, e Entry, key ic.PrivKey) (entryIdx int, hash Hash, header *Header, err error) {
+
 	// get the previous hashes
 	var ph, pth Hash
 
@@ -158,12 +171,11 @@ func (c *Chain) AddEntry(h HashSpec, now time.Time, entryType string, e Entry, k
 		pth = c.Hashes[i]
 	}
 
-	var header *Header
 	hash, header, err = newHeader(h, now, entryType, e, key, ph, pth)
 	if err != nil {
 		return
 	}
-	err = c.addEntry(l, hash, header, e)
+	entryIdx = l
 	return
 }
 

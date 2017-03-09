@@ -89,7 +89,7 @@ func TestGenDev(t *testing.T) {
 	Convey("when generating a dev holochain", t, func() {
 		h, err := s.GenDev(root, "json")
 		So(err, ShouldBeNil)
-		h.store.Close()
+		//		h.store.Close()
 
 		f, err := s.IsConfigured(name)
 		So(err, ShouldBeNil)
@@ -97,7 +97,7 @@ func TestGenDev(t *testing.T) {
 
 		h, err = s.Load(name)
 		So(err, ShouldBeNil)
-		h.store.Close()
+		//		h.store.Close()
 
 		lh, err := s.load(name, "json")
 		So(err, ShouldBeNil)
@@ -106,7 +106,7 @@ func TestGenDev(t *testing.T) {
 		So(h.config.PeerModeDHTNode, ShouldEqual, s.Settings.DefaultPeerModeDHTNode)
 		So(h.config.PeerModeAuthor, ShouldEqual, s.Settings.DefaultPeerModeAuthor)
 		So(h.config.BootstrapServer, ShouldEqual, s.Settings.DefaultBootstrapServer)
-		lh.store.Close()
+		//		lh.store.Close()
 
 		So(fileExists(h.path+"/schema_profile.json"), ShouldBeTrue)
 		So(fileExists(h.path+"/ui/index.html"), ShouldBeTrue)
@@ -223,14 +223,13 @@ func TestNewEntry(t *testing.T) {
 		s1 := fmt.Sprintf("%v", *header)
 		d1 := fmt.Sprintf("%v", myData)
 
-		h2, e, err := h.store.Get(headerHash, false)
+		h2, err := h.chain.Get(headerHash)
 		So(err, ShouldBeNil)
-		So(e, ShouldBeNil)
-		s2 := fmt.Sprintf("%v", h2)
+		s2 := fmt.Sprintf("%v", *h2)
 		So(s2, ShouldEqual, s1)
 
 		Convey("and the returned header should hash to the same value", func() {
-			b, _ := (&h2).Marshal()
+			b, _ := (h2).Marshal()
 			var hh Hash
 			err = hh.Sum(h.hashSpec, b)
 			So(err, ShouldBeNil)
@@ -238,18 +237,17 @@ func TestNewEntry(t *testing.T) {
 		})
 
 		var d2 interface{}
-		h2, d2, err = h.store.Get(headerHash, true)
+		var d2t string
+		d2, d2t, err = h.chain.GetEntry(h2.EntryLink)
 		So(err, ShouldBeNil)
+		So(d2t, ShouldEqual, "myData")
+
 		So(d2, ShouldNotBeNil)
-		s2 = fmt.Sprintf("%v", d2)
-		So(s2, ShouldEqual, d1)
+		So(d2.(Entry).Content(), ShouldEqual, d1)
 	})
 
-	Convey("it should modify store's TOP key to point to the added Entry header", t, func() {
+	Convey("Top should still work", t, func() {
 		hash, err := h.Top()
-		So(err, ShouldBeNil)
-		So(hash.Equal(&headerHash), ShouldBeTrue)
-		hash, err = h.TopType("myData")
 		So(err, ShouldBeNil)
 		So(hash.Equal(&headerHash), ShouldBeTrue)
 	})
@@ -316,24 +314,29 @@ func TestGenChain(t *testing.T) {
 
 	var header Header
 	Convey("top link should be Key entry", t, func() {
-		hdr, entry, err := h.store.Get(headerHash, true)
+		hdr, err := h.chain.Get(headerHash)
 		So(err, ShouldBeNil)
-		header = hdr
-		var k KeyEntry = entry.(KeyEntry)
+		entry, _, err := h.chain.GetEntry(hdr.EntryLink)
+		So(err, ShouldBeNil)
+		header = *hdr
+		var k KeyEntry = entry.Content().(KeyEntry)
 		So(k.Name, ShouldEqual, h.agent.Name())
 		//So(k.Key,ShouldEqual,"something?") // test that key got correctly retrieved
 	})
 
 	var dnaHash Hash
 	Convey("next link should be the dna entry", t, func() {
-		hd, entry, err := h.store.Get(header.HeaderLink, true)
+		hdr, err := h.chain.Get(header.HeaderLink)
 		So(err, ShouldBeNil)
+		entry, et, err := h.chain.GetEntry(hdr.EntryLink)
+		So(err, ShouldBeNil)
+		So(et, ShouldEqual, DNAEntryType)
 
 		var buf bytes.Buffer
 		err = h.EncodeDNA(&buf)
 		So(err, ShouldBeNil)
-		So(string(entry.([]byte)), ShouldEqual, string(buf.Bytes()))
-		dnaHash = hd.EntryLink
+		So(string(entry.Content().([]byte)), ShouldEqual, buf.String())
+		dnaHash = hdr.EntryLink
 	})
 
 	Convey("holochain id and top should have now been set", t, func() {
@@ -364,7 +367,7 @@ func TestWalk(t *testing.T) {
 		c := make(map[int]string, 0)
 		//	c := make([]string,0)
 		idx := 0
-		err := h.Walk(func(key *Hash, header *Header, entry interface{}) (err error) {
+		err := h.Walk(func(key *Hash, header *Header, entry Entry) (err error) {
 			c[idx] = header.EntryLink.String()
 			idx++
 			//	c = append(c, header.HeaderLink.String())

@@ -57,8 +57,7 @@ func TestNewZygoNucleus(t *testing.T) {
 
 			_, err = z.Run(`(property "` + ID_PROPERTY + `")`)
 			So(err, ShouldBeNil)
-			id, _ := h.ID()
-			So(z.lastResult.(*zygo.SexpStr).S, ShouldEqual, id.String())
+			So(z.lastResult.(*zygo.SexpStr).S, ShouldEqual, h.dnaHash.String())
 
 			_, err = z.Run(`(property "` + AGENT_ID_PROPERTY + `")`)
 			So(err, ShouldBeNil)

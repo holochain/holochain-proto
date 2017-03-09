@@ -21,7 +21,12 @@ const (
 	PrivKeyFileName      string = "priv.key"    // Signing key - private
 	StoreFileName        string = "chain"       // Filename for local data store
 
-	DefaultPort = 6283
+
+	DefaultPort 								= 6283
+	DefaultBootstrapServer 			= "bootstrap.holochain.net:10000"
+	//DefaultBootstrapPort				= 10000
+	HC_BOOTSTRAPSERVER 					= "HC_BOOTSTRAPSERVER"
+	//HC_BOOTSTRAPPORT						= "HC_BOOTSTRAPPORT"
 )
 
 // ServiceConfig holds the service settings
@@ -55,10 +60,17 @@ func Init(root string, agent AgentName) (service *Service, err error) {
 		Settings: ServiceConfig{
 			DefaultPeerModeDHTNode: true,
 			DefaultPeerModeAuthor:  true,
-			DefaultBootstrapServer: "bootstrap.holochain.net:10000",
+			DefaultBootstrapServer: DefaultBootstrapServer,
 		},
 		Path: root,
 	}
+
+	if os.Getenv(HC_BOOTSTRAPSERVER) != "" { 
+		s.Settings.DefaultBootstrapServer=os.Getenv(HC_BOOTSTRAPSERVER)
+	}
+	
+	log.Infof("Configured to connect to bootstrap server at: %s\n", s.Settings.DefaultBootstrapServer)
+
 
 	err = writeToml(root, SysFileName, s.Settings, false)
 	if err != nil {

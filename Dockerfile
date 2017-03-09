@@ -1,5 +1,5 @@
 FROM ubuntu
-MAINTAINER Duke Dorje && Dayz
+MAINTAINER Duke Dorje && DayZee
 
 RUN apt-get update
 RUN apt-get install -y build-essential software-properties-common python curl wget git-core 

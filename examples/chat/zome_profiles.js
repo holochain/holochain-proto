@@ -7,6 +7,18 @@ function register(x) {
   return key
 }
 
+expose("isRegistered", HC.JSON);
+function isRegistered() {
+  var registered_users = getmeta(property("_id"), "registered_users");
+  var agent_id = property("_agent_id")
+  for(var i=0; i < registered_users.length; i++) {
+    var profile = JSON.parse(registered_users[i]["C"])
+    debug("Registered user "+i+" is " + profile.username)
+    if( profile.agent_id == agent_id) return true;
+  }
+  return false;
+}
+
 // Get profile information for a user
 expose("getProfile", HC.JSON); // receives a user hashkey
 function getProfile(x) {

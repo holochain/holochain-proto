@@ -1,3 +1,23 @@
 [
-
+  {
+    "Zome":"profiles",
+    "FnName":"isRegistered",
+    "Input":"",
+    "Output":"false",
+    "Err":""
+  },
+  {
+    "Zome":"profiles",
+    "FnName":"register",
+    "Input":"{\"username\":\"cnorris\", \"firstName\":\"Chuck\", \"lastName\":\"Norris\", \"email\":\"chuck@norris.com\"}",
+    "Output":"\"%h%\"",
+    "Err":""
+  },
+  {
+    "Zome":"profiles",
+    "FnName":"isRegistered",
+    "Input":"",
+    "Output":"true",
+    "Err":""
+  }
 ]

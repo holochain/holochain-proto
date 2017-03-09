@@ -221,6 +221,20 @@ func (dht *DHT) GetPuts(since int) (puts []Put, err error) {
 	return
 }
 
+// GetGossiper picks a random DHT node to gossip with
+func (dht *DHT) GetGossiper(id peer.ID) (idx int, err error) {
+	key := "peer:" + peer.IDB58Encode(id)
+	err = dht.db.View(func(tx *buntdb.Tx) error {
+		var e error
+		idx, e = getIntVal(key, tx)
+		if e != nil {
+			return e
+		}
+		return nil
+	})
+	return
+}
+
 // FindGossiper picks a random DHT node to gossip with
 func (dht *DHT) FindGossiper() (g *Gossiper, err error) {
 	glist := make([]Gossiper, 0)
@@ -592,11 +606,27 @@ func DHTReceiver(h *Holochain, m *Message) (response interface{}, err error) {
 		log.Debug("DHTRecevier got GOSSIP_REQUEST: %v", m)
 		switch t := m.Body.(type) {
 		case GossipReq:
-			log.Debugf("%v wants my puts since %d and is at %d", m.From, t.YourIdx, t.MyIdx)
+			log.Debugf("Gossip: %v wants my puts since %d and is at %d", m.From, t.YourIdx, t.MyIdx)
+
+			// give the gossiper what they want
 			var puts []Put
 			puts, err = h.dht.GetPuts(t.YourIdx)
 			g := Gossip{Puts: puts}
 			response = g
+
+			// check to see what we know they said, and if our record is less
+			// that where they are currently at, gossip back
+			idx, e := h.dht.GetGossiper(m.From)
+			if e == nil && idx < t.MyIdx {
+				log.Debugf("Gossip: we only have %d from %v so gossiping back", idx, m.From)
+				go func() {
+					e := h.dht.gossipWith(m.From, idx)
+					if e != nil {
+						log.Debugf("Gossip: gossip back returned error: %v", e)
+					}
+				}()
+			}
+
 		default:
 			err = ErrDHTExpectedGossipReqInBody
 		}
@@ -613,24 +643,18 @@ func (dht *DHT) StartDHT() (err error) {
 	return
 }
 
-// gossip picks a random node in my neighborhood and sends gossips with it
-func (dht *DHT) gossip() (err error) {
+// gossipWith gossips with an peer asking for everything after since
+func (dht *DHT) gossipWith(id peer.ID, after int) (err error) {
+	log.Debugf("Gossip: with %v", id)
 
-	var g *Gossiper
-	var mydx int
-	g, err = dht.FindGossiper()
+	var myIdx int
+	myIdx, err = dht.GetIdx()
 	if err != nil {
 		return
 	}
 
-	log.Debugf("Gossip: with %v", g)
-
-	mydx, err = dht.GetIdx()
-	if err != nil {
-		return
-	}
 	var r interface{}
-	r, err = dht.send(g.Id, GOSSIP_REQUEST, GossipReq{MyIdx: mydx, YourIdx: g.Idx})
+	r, err = dht.send(id, GOSSIP_REQUEST, GossipReq{MyIdx: myIdx, YourIdx: after + 1})
 	if err != nil {
 		return
 	}
@@ -638,10 +662,29 @@ func (dht *DHT) gossip() (err error) {
 	gossip := r.(Gossip)
 	puts := gossip.Puts
 	log.Debugf("Gossip: received puts: %v", puts)
+
+	// gossiper has more stuff that we new about before so update the gossipers status
+	// and also run their puts
 	if len(puts) > 0 {
-		err = dht.UpdateGossiper(g.Id, len(puts))
+		err = dht.UpdateGossiper(id, len(puts))
+		for _, p := range puts {
+			log.Debug("Gossip: running puts")
+			DHTReceiver(dht.h, &p.M)
+		}
+	}
+	return
+}
+
+// gossip picks a random node in my neighborhood and sends gossips with it
+func (dht *DHT) gossip() (err error) {
+
+	var g *Gossiper
+	g, err = dht.FindGossiper()
+	if err != nil {
+		return
 	}
 
+	err = dht.gossipWith(g.Id, g.Idx)
 	return
 }
 

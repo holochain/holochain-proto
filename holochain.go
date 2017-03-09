@@ -90,6 +90,12 @@ func Register(logger *logging.Logger) {
 	gob.Register(GetReq{})
 	gob.Register(MetaReq{})
 	gob.Register(MetaQuery{})
+	gob.Register(GossipReq{})
+	gob.Register(Gossip{})
+	gob.Register(ValidateResponse{})
+	gob.Register(Put{})
+	gob.Register(GobEntry{})
+
 	RegisterBultinNucleii()
 	RegisterBultinPersisters()
 	rand.Seed(time.Now().Unix()) // initialize global pseudo random generator

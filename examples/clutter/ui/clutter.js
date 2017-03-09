@@ -51,8 +51,8 @@ function makePostHTML(id,post) {
 
 function makeUserHTML(user) {
     return '<div class="user">'+user.nick+'</div>';
-}
 
+}
 function getPosts(by) {
     send("get",{what:"posts",whom:by},function(arr) {
         for (var i = 0, len = arr.length; i < len; i++) {

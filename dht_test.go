@@ -278,12 +278,19 @@ func TestGossiper(t *testing.T) {
 		So(err, ShouldBeNil)
 	})
 
+	Convey("GetGossiper should return the gossiper idx", t, func() {
+		idx, err := dht.GetGossiper(h.node.HashAddr)
+		So(err, ShouldBeNil)
+		So(idx, ShouldEqual, 1)
+	})
+
 	Convey("FindGossiper should return the gossiper", t, func() {
 		g, err := dht.FindGossiper()
 		So(err, ShouldBeNil)
 		So(g.Idx, ShouldEqual, 1)
 		So(g.Id, ShouldEqual, h.node.HashAddr)
 	})
+
 }
 
 func TestGossipData(t *testing.T) {

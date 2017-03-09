@@ -70,7 +70,7 @@ type GetReq struct {
 type MetaReq struct {
 	O Hash   // original data on which to put the meta
 	M Hash   // hash of the meta-data
-	T string // meta type
+	T string // type of the meta-data
 }
 
 // MetaQuery holds a getMeta query
@@ -517,7 +517,10 @@ func (dht *DHT) handlePutReq(m *Message) (err error) {
 			return
 		}
 		resp := r.(*ValidateResponse)
-		p := ValidationProps{Sources: []string{peer.IDB58Encode(from)}}
+		p := ValidationProps{
+			Sources: []string{peer.IDB58Encode(from)},
+			Hash:    t.H.String(),
+		}
 		err = dht.h.ValidateEntry(resp.Type, resp.Entry, &p)
 		if err != nil {
 			//@todo store as INVALID
@@ -536,7 +539,11 @@ func (dht *DHT) handlePutReq(m *Message) (err error) {
 			return
 		}
 		resp := r.(*ValidateResponse)
-		p := ValidationProps{MetaTag: t.T, Sources: []string{peer.IDB58Encode(from)}}
+		p := ValidationProps{
+			MetaTag:  t.T,
+			Sources:  []string{peer.IDB58Encode(from)},
+			MetaHash: t.M.String(),
+		}
 		err = dht.h.ValidateEntry(resp.Type, resp.Entry, &p)
 		if err != nil {
 			//@todo store as INVALID

@@ -367,6 +367,20 @@ func setupApp() (app *cli.App) {
 				return err
 			},
 		},
+		{
+			Name:      "reset",
+			Aliases:   []string{"r"},
+			Usage:     "reset a chain. Warning this destroys all chain data!",
+			ArgsUsage: "holochain-name",
+			Action: func(c *cli.Context) error {
+				h, err := getHolochain(c, service, "reset")
+				if err != nil {
+					return err
+				}
+				err = h.Reset()
+				return err
+			},
+		},
 	}
 
 	app.Before = func(c *cli.Context) error {

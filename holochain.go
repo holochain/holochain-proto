@@ -1332,6 +1332,10 @@ func (h *Holochain) GetProperty(prop string) (property string, err error) {
 // Reset deletes all chain and dht data and resets data structures
 func (h *Holochain) Reset() (err error) {
 
+	if h.chain.s != nil {
+		h.chain.s.Close()
+	}
+
 	err = h.store.Remove()
 	if err != nil {
 		panic(err)
@@ -1352,11 +1356,7 @@ func (h *Holochain) Reset() (err error) {
 	}
 
 	h.chain = NewChain()
-
-	//	h.chain.s.Close()
-
 	h.dht = NewDHT(h)
-
 	return
 }
 

@@ -11,7 +11,7 @@ ENV GOPATH /golang
 ENV PATH $GOPATH/bin:/usr/local/go/bin:$PATH
 
 RUN go get -v -u github.com/whyrusleeping/gx
-RUN rm $GOPATH/src/github.com/ethereum/tests -r
+RUN rm $GOPATH/src/github.com/ethereum/go-ethereum/tests -r
 
 RUN go get -v -u github.com/metacurrency/holochain
 

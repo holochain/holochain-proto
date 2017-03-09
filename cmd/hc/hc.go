@@ -223,7 +223,7 @@ func setupApp() (app *cli.App) {
 		{
 			Name:      "init",
 			Aliases:   []string{"i"},
-			Usage:     "boostrap the holochain service",
+			Usage:     "bootstrap the holochain service",
 			ArgsUsage: "agent-id",
 			Action: func(c *cli.Context) error {
 				agent := c.Args().First()

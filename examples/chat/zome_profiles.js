@@ -1,7 +1,10 @@
-expose("newProfile", HC.JSON);
-function newProfile(x) {
+expose("register", HC.JSON);
+function register(x) {
   x.agent_id = property("_agent_id")
-  return commit("profile", x);
+  var key = commit("profile", x);
+  put(key)
+  putmeta(property("_id"), key, "registered_users")
+  return key
 }
 
 // Get profile information for a user
@@ -24,10 +27,9 @@ function genesis() {
 
 // Local validate an entry before committing ???
 function validate(entry_type, entry, validation_props) {
-  return true;
   if( validation_props.MetaTag ) { //validating a putmeta
     return true;
-  } else { //validating a commit
+  } else { //validating a commit or put
     return validation_props.Sources[0] == entry.agent_id
   }
 }

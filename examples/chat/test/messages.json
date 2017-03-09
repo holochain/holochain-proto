@@ -17,6 +17,20 @@
     "Zome":"rooms",
     "FnName":"newRoom",
     "Input":"{\"name\":\"general\", \"purpose\":\"everything goes in here\"}",
+    "Output":"{\"message\":\"Invalid entry: {\\\"name\\\":\\\"general\\\",\\\"purpose\\\":\\\"everything goes in here\\\"}\",\"name\":\"HolochainError\"}",
+    "Err":""
+  },
+  {
+    "Zome":"profiles",
+    "FnName":"register",
+    "Input":"{\"username\":\"cnorris\", \"firstName\":\"Chuck\", \"lastName\":\"Norris\", \"email\":\"chuck@norris.com\"}",
+    "Output":"\"%h%\"",
+    "Err":""
+  },
+  {
+    "Zome":"rooms",
+    "FnName":"newRoom",
+    "Input":"{\"name\":\"general\", \"purpose\":\"everything goes in here\"}",
     "Output":"\"%h%\"",
     "Err":""
   },

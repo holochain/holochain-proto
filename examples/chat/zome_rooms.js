@@ -23,9 +23,12 @@ function newRoom(x) {
 }
 
 function isAllowed(author) {
-  var allowed_agents = getmeta(property("_id"), "member");
-  for(var i=0; i < allowed_agents.length; i++) {
-    if( allowed_agents[i] == author) return true;
+  debug("Checking if "+author+" is a registered user...")
+  var registered_users = getmeta(property("_id"), "registered_users");
+  for(var i=0; i < registered_users.length; i++) {
+    var profile = JSON.parse(registered_users[i]["C"])
+    debug("Registered user "+i+" is " + profile.username)
+    if( profile.agent_id == author) return true;
   }
   return false;
 }
@@ -35,12 +38,10 @@ function genesis() {
 }
 
 // Local validate an entry before committing ???
-function validate(entry_type, entry, validation_props) {
-  return true;
+function validate(entry_type, entry, validation_props) {;
   if( validation_props.MetaTag ) { //validating a putmeta
     return true;
   } else { //validating a commit
-    return true;
-    isAllowed(validation_props.Sources[0])
+    return isAllowed(validation_props.Sources[0])
   }
 }

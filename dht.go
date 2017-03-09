@@ -519,7 +519,7 @@ func (dht *DHT) handlePutReq(m *Message) (err error) {
 			return
 		}
 		resp := r.(*ValidateResponse)
-		p := ValidationProps{}
+		p := ValidationProps{Sources: []string{peer.IDB58Encode(from)}}
 		err = dht.h.ValidateEntry(resp.Type, resp.Entry, &p)
 		if err != nil {
 			//@todo store as INVALID
@@ -538,7 +538,7 @@ func (dht *DHT) handlePutReq(m *Message) (err error) {
 			return
 		}
 		resp := r.(*ValidateResponse)
-		p := ValidationProps{MetaTag: t.T}
+		p := ValidationProps{MetaTag: t.T, Sources: []string{peer.IDB58Encode(from)}}
 		err = dht.h.ValidateEntry(resp.Type, resp.Entry, &p)
 		if err != nil {
 			//@todo store as INVALID

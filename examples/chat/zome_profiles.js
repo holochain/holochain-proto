@@ -25,6 +25,18 @@ function getProfile(x) {
   return get(x);
 }
 
+expose("myProfile", HC.JSON);
+function myProfile() {
+  var registered_users = getmeta(property("_id"), "registered_users");
+  var agent_id = property("_agent_id")
+  for(var i=0; i < registered_users.length; i++) {
+    var profile = JSON.parse(registered_users[i]["C"])
+    debug("Registered user "+i+" is " + profile.username)
+    if( profile.agent_id == agent_id) return profile;
+  }
+  return false;
+}
+
 // Update profile information for an agent_id
 expose("modProfile", HC.JSON);
 function modProfile(x, old_profile) {

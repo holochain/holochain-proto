@@ -8,6 +8,13 @@
   },
   {
     "Zome":"profiles",
+    "FnName":"myProfile",
+    "Input":"",
+    "Output":"false",
+    "Err":""
+  },
+  {
+    "Zome":"profiles",
     "FnName":"register",
     "Input":"{\"username\":\"cnorris\", \"firstName\":\"Chuck\", \"lastName\":\"Norris\", \"email\":\"chuck@norris.com\"}",
     "Output":"\"%h%\"",
@@ -18,6 +25,13 @@
     "FnName":"isRegistered",
     "Input":"",
     "Output":"true",
+    "Err":""
+  },
+  {
+    "Zome":"profiles",
+    "FnName":"myProfile",
+    "Input":"",
+    "Regexp":"^\\{\"agent_id\":\"[^\"]*\",\"email\":\"chuck@norris.com\",\"firstName\":\"Chuck\",\"lastName\":\"Norris\",\"username\":\"cnorris\"\\}$",
     "Err":""
   }
 ]

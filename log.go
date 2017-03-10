@@ -13,6 +13,7 @@ import (
 	"os"
 	"regexp"
 	"strings"
+	"time"
 )
 
 // Logger holds logger configuration
@@ -20,32 +21,20 @@ type Logger struct {
 	Enabled bool
 	Format  string
 	f       string
+	tf      string
 	color   *color.Color
 	w       io.Writer
 }
 
-func (l *Logger) New(w io.Writer) (err error) {
-
-	if w == nil {
-		l.w = os.Stdout
-	} else {
-		l.w = w
-	}
-	var f string
-	if l.Format == "" {
-		f = `%{message}`
-	} else {
-		f = l.Format
-	}
-
-	re := regexp.MustCompile(`^\%\{color:([^\}]+)\}(.*)`)
+func (l *Logger) setupColor(f string) (colorResult *color.Color, result string) {
+	re := regexp.MustCompile(`(.*)\%\{color:([^\}]+)\}(.*)`)
 	x := re.FindStringSubmatch(f)
 	var txtColor string
 	if len(x) > 0 {
-		l.f = x[2]
-		txtColor = x[1]
+		result = x[1] + x[3]
+		txtColor = x[2]
 	} else {
-		l.f = f
+		result = f
 	}
 
 	if txtColor != "" {
@@ -66,7 +55,39 @@ func (l *Logger) New(w io.Writer) (err error) {
 		case "magenta":
 			c = color.FgMagenta
 		}
-		l.color = color.New(c)
+		colorResult = color.New(c)
+	}
+	return
+}
+
+func (l *Logger) setupTime(f string) (timeFormat string, result string) {
+	re := regexp.MustCompile(`(.*)\%\{time(:[^\}]+)*\}(.*)`)
+	x := re.FindStringSubmatch(f)
+	if len(x) > 0 {
+		result = x[1] + "%{time}" + x[3]
+		timeFormat = strings.TrimLeft(x[2], ":")
+		if timeFormat == "" {
+			timeFormat = time.Stamp
+		}
+	} else {
+		result = f
+	}
+	return
+}
+
+func (l *Logger) New(w io.Writer) (err error) {
+
+	if w == nil {
+		l.w = os.Stdout
+	} else {
+		l.w = w
+	}
+
+	if l.Format == "" {
+		l.f = `%{message}`
+	} else {
+		l.color, l.f = l.setupColor(l.Format)
+		l.tf, l.f = l.setupTime(l.f)
 	}
 
 	d := os.Getenv("DEBUG")
@@ -81,12 +102,25 @@ func (l *Logger) New(w io.Writer) (err error) {
 }
 
 func (l *Logger) parse(m string) (output string) {
+	var t *time.Time
+	if l.tf != "" {
+		now := time.Now()
+		t = &now
+	}
+	return l._parse(m, t)
+}
+
+func (l *Logger) _parse(m string, t *time.Time) (output string) {
 	output = strings.Replace(l.f, "%{message}", m, -1)
+	if t != nil {
+		tTxt := t.Format(l.tf)
+		output = strings.Replace(output, "%{time}", tTxt, -1)
+	}
 	return
 }
 
 func (l *Logger) p(m interface{}) {
-	l.pf("%v\n", m)
+	l.pf("%v", m)
 }
 
 func (l *Logger) pf(m string, args ...interface{}) {

@@ -625,8 +625,8 @@ func makeConfig(h *Holochain, s *Service) (err error) {
 		BootstrapServer: s.Settings.DefaultBootstrapServer,
 		Loggers: Loggers{
 			App:        Logger{Format: "%{color:cyan}%{message}", Enabled: true},
-			DHT:        Logger{Format: "%{color:yellow}DHT: %{message}"},
-			Gossip:     Logger{Format: "%{color:blue}Gossip: %{message}"},
+			DHT:        Logger{Format: "%{color:yellow}%{time} DHT: %{message}"},
+			Gossip:     Logger{Format: "%{color:blue}%{time} Gossip: %{message}"},
 			TestPassed: Logger{Format: "%{color:green}%{message}", Enabled: true},
 			TestFailed: Logger{Format: "%{color:red}%{message}", Enabled: true},
 			TestInfo:   Logger{Format: "%{message}", Enabled: true},

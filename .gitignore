@@ -36,5 +36,7 @@
 tmp/
 floospace/
 
+*.swp
+
 #OSX
 .DS_Store

@@ -1,4 +1,4 @@
-# Holochain
+  # Holochain
 
  ![Code Status](https://img.shields.io/badge/Code-Pre--Alpha-orange.svg) [![Travis](https://img.shields.io/travis/metacurrency/holochain.svg)](https://travis-ci.org/metacurrency/holochain) [![Go Report Card](https://goreportcard.com/badge/github.com/metacurrency/holochain)](https://goreportcard.com/report/github.com/metacurrency/holochain) [![Gitter](https://badges.gitter.im/metacurrency/holochain.svg)](https://gitter.im/metacurrency/holochain?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=body_badge) [![In Progress](https://badge.waffle.io/metacurrency/holochain.svg?label=in%20progress&title=In%20Progress)](http://waffle.io/metacurrency/holochain)
 
@@ -15,6 +15,8 @@ In other words, a holochain functions very much **like a blockchain without bott
 **Table of Contents**
 <!-- TOC START min:2 max:4 link:true update:true -->
   - [Installation](#installation)
+    - [Docker Style Installation (recommended)](#docker-style-installation-recommended)
+    - [Manual Installation](#manual-installation)
   - [Usage](#usage)
     - [Starting a Holochain](#starting-a-holochain)
     - [1. Initializing Holochain Service for the First Time](#1-initializing-holochain-service-for-the-first-time)
@@ -37,6 +39,17 @@ In other words, a holochain functions very much **like a blockchain without bott
 <!-- TOC END -->
 
 ## Installation
+
+Docker eases the installation of the Holochain software, eases the deveopment cycle of HoloChain rule sets and eases the development of the Holochain core.
+
+## Docker Style Installation (recommended)
+
+1. Install Docker
+2. Clone this repository
+3. Build the development environment using the Dockerfile in the root of this repository
+4. 
+
+## Manual Installation
 
 1. Make sure you have a working environment set up for the Go language version 1.7 or later. [See the installation instructions for Go](http://golang.org/doc/install.html).
 2. Follow their instructions on the above doc page for **exporting** your **$GOPATH** and adding your $GOPATH/bin directory to your search **PATH** for programs. (Almost all installation problems that have been reported stem from skipping one of these path related steps.)

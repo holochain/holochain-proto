@@ -22,6 +22,7 @@ RUN make
 RUN make bs
 
 RUN make test
+VOLUME ["/root"]
 
 ADD . $GOPATH/src/github.com/metacurrency/holochain
 

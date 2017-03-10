@@ -40,3 +40,4 @@ floospace/
 
 #OSX
 .DS_Store
+.cache

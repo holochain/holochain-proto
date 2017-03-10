@@ -6,12 +6,14 @@ services:
       context: .
       dockerfile: Dockerfile.joinService
     volumes:
-      - ./chainData:/root/.holochain
+      - ./.cache:/root/.holochain
   hc:
     build:
       context: .
     ports:
       - "3141"
     volumes:
-      - ./chainData:/clutter
+      - ./.cache/clutter:/clutterChain
+    depends_on: [chainjoincontainer]
+
 

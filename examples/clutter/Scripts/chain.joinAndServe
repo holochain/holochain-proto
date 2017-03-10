@@ -1,4 +1,12 @@
+#!/bin/bash
+
+echo "hc init $HOSTNAME"
 hc init $HOSTNAME
-hc join /clutter clutter
+echo
+echo "hc join /clutter clutter"
+hc join /clutterChain clutter
+echo
+echo "hc serve clutter"
 hc serve clutter
+echo
 

@@ -18,7 +18,7 @@ func TestNew(t *testing.T) {
 
 	Convey("New should fill Holochain struct with provided values and new UUID", t, func() {
 
-		h := New(a, "some/path", "json")
+		h := NewHolochain(a, "some/path", "json")
 		nID := string(uuid.NodeID())
 		So(nID, ShouldEqual, string(h.Id.NodeID()))
 		So(h.agent.Name(), ShouldEqual, "Joe")
@@ -36,7 +36,7 @@ func TestNew(t *testing.T) {
 			},
 		}
 
-		h := New(a, "some/path", "yaml", z)
+		h := NewHolochain(a, "some/path", "yaml", z)
 		nz := h.Zomes["myZome"]
 		So(nz.Description, ShouldEqual, "zome desc")
 		So(nz.Code, ShouldEqual, "zome_myZome.zy")
@@ -482,6 +482,11 @@ func TestCall(t *testing.T) {
 func TestTest(t *testing.T) {
 	d, _, h := setupTestChain("test")
 	cleanupTestDir(d + "/.holochain/test/test/") // delete the test data created by gen dev
+	if os.Getenv("DEBUG") != "1" {
+		h.config.Loggers.TestPassed.Enabled = false
+		h.config.Loggers.TestFailed.Enabled = false
+		h.config.Loggers.TestInfo.Enabled = false
+	}
 	Convey("it should fail if there's no test data", t, func() {
 		err := h.Test()
 		So(err[0].Error(), ShouldEqual, "open "+h.path+"/test: no such file or directory")
@@ -490,6 +495,11 @@ func TestTest(t *testing.T) {
 
 	d, _, h = setupTestChain("test")
 	defer cleanupTestDir(d)
+	if os.Getenv("DEBUG") != "1" {
+		h.config.Loggers.TestPassed.Enabled = false
+		h.config.Loggers.TestFailed.Enabled = false
+		h.config.Loggers.TestInfo.Enabled = false
+	}
 	Convey("it should validate on test data", t, func() {
 		err := h.Test()
 		So(err, ShouldBeNil)

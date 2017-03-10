@@ -16,7 +16,12 @@ import (
 	"strings"
 )
 
+var log = holo.Logger{Format: "%{color:magenta}%{message}"}
+
 func serve(h *holo.Holochain, port string) {
+
+	log.New(nil)
+
 	fs := http.FileServer(http.Dir(h.Path() + "/ui"))
 	http.Handle("/", fs)
 
@@ -113,7 +118,7 @@ func serve(h *holo.Holochain, port string) {
 	log.Infof("starting server on localhost:%s\n", port)
 	err := http.ListenAndServe(":"+port, nil) // set listen port
 	if err != nil {
-		log.Fatal("ListenAndServe: ", err)
+		log.Debugf("ListenAndServe: ", err)
 	}
 }
 

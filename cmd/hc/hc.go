@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	holo "github.com/metacurrency/holochain"
-	"github.com/op/go-logging"
 	"github.com/urfave/cli"
 	"os"
 	"os/user"
@@ -15,7 +14,6 @@ import (
 
 var uninitialized error
 var initialized bool
-var log *logging.Logger
 
 var verbose bool
 var debug bool
@@ -427,13 +425,10 @@ func setupApp() (app *cli.App) {
 	}
 
 	app.Before = func(c *cli.Context) error {
-		level := logging.INFO
 		if debug {
-			level = logging.DEBUG
+			os.Setenv("DEBUG", "1")
 		}
-		log = logging.MustGetLogger("holochain")
-		logging.SetLevel(level, "holochain")
-		holo.Register(log)
+		holo.Register()
 		if verbose {
 			fmt.Printf("app version: %s; Holochain lib version %s\n", app.Version, holo.Version)
 		}

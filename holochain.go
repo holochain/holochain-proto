@@ -13,12 +13,10 @@ import (
 	"errors"
 	"fmt"
 	"github.com/boltdb/bolt"
-	"github.com/fatih/color"
 	"github.com/google/uuid"
 	ic "github.com/libp2p/go-libp2p-crypto"
 	peer "github.com/libp2p/go-libp2p-peer"
 	mh "github.com/multiformats/go-multihash"
-	"github.com/op/go-logging"
 	"io"
 	"io/ioutil"
 	"math/rand"
@@ -48,12 +46,23 @@ type Zome struct {
 	NucleusType string
 }
 
+// Loggers holds the logging structures for the different parts of the system
+type Loggers struct {
+	App        Logger
+	DHT        Logger
+	Gossip     Logger
+	TestPassed Logger
+	TestFailed Logger
+	TestInfo   Logger
+}
+
 // Config holds the non-DNA configuration for a holo-chain
 type Config struct {
 	Port            int
 	PeerModeAuthor  bool
 	PeerModeDHTNode bool
 	BootstrapServer string
+	Loggers         Loggers
 }
 
 // Holochain struct holds the full "DNA" of the holochain
@@ -79,10 +88,10 @@ type Holochain struct {
 	chain          *Chain // the chain itself
 }
 
-var log *logging.Logger
+var log Logger
 
 // Register function that must be called once at startup by any client app
-func Register(logger *logging.Logger) {
+func Register() {
 	gob.Register(Header{})
 	gob.Register(KeyEntry{})
 	gob.Register(Hash{})
@@ -101,10 +110,9 @@ func Register(logger *logging.Logger) {
 	RegisterBultinNucleii()
 	RegisterBultinPersisters()
 
-	log = logger
+	log.New(nil)
 
 	rand.Seed(time.Now().Unix()) // initialize global pseudo random generator
-
 }
 
 func findDNA(path string) (f string, err error) {
@@ -158,8 +166,8 @@ func (s *Service) Load(name string) (h *Holochain, err error) {
 	return
 }
 
-// New creates a new holochain structure with a randomly generated ID and default values
-func New(agent Agent, path string, format string, zomes ...Zome) Holochain {
+// NewHolochain creates a new holochain structure with a randomly generated ID and default values
+func NewHolochain(agent Agent, path string, format string, zomes ...Zome) Holochain {
 	u, err := uuid.NewUUID()
 	if err != nil {
 		panic(err)
@@ -226,6 +234,9 @@ func (s *Service) load(name string, format string) (hP *Holochain, err error) {
 	defer f.Close()
 	err = Decode(f, format, &h.config)
 	if err != nil {
+		return
+	}
+	if err = h.setupConfig(); err != nil {
 		return
 	}
 
@@ -453,7 +464,6 @@ func (h *Holochain) GenChain() (keyHash Hash, err error) {
 		return
 	}
 
-	log.Debug("WRITING DNAHASH FILE")
 	if err = writeFile(h.path, DNAHashFileName, []byte(h.dnaHash.String())); err != nil {
 		return
 	}
@@ -518,8 +528,7 @@ func (s *Service) Clone(srcPath string, path string, new bool) (hP *Holochain, e
 		}
 
 		// make a config file
-		err = makeConfig(h, s)
-		if err != nil {
+		if err = makeConfig(h, s); err != nil {
 			return
 		}
 
@@ -586,11 +595,43 @@ type TestData struct {
 	Regexp string
 }
 
-func makeConfig(h *Holochain, s *Service) error {
-	h.config.Port = DefaultPort
-	h.config.PeerModeDHTNode = s.Settings.DefaultPeerModeDHTNode
-	h.config.PeerModeAuthor = s.Settings.DefaultPeerModeAuthor
-	h.config.BootstrapServer = s.Settings.DefaultBootstrapServer
+func (h *Holochain) setupConfig() (err error) {
+	if err = h.config.Loggers.App.New(nil); err != nil {
+		return
+	}
+	if err = h.config.Loggers.DHT.New(nil); err != nil {
+		return
+	}
+	if err = h.config.Loggers.Gossip.New(nil); err != nil {
+		return
+	}
+	if err = h.config.Loggers.TestPassed.New(nil); err != nil {
+		return
+	}
+	if err = h.config.Loggers.TestFailed.New(nil); err != nil {
+		return
+	}
+	if err = h.config.Loggers.TestInfo.New(nil); err != nil {
+		return
+	}
+	return
+}
+
+func makeConfig(h *Holochain, s *Service) (err error) {
+	h.config = Config{
+		Port:            DefaultPort,
+		PeerModeDHTNode: s.Settings.DefaultPeerModeDHTNode,
+		PeerModeAuthor:  s.Settings.DefaultPeerModeAuthor,
+		BootstrapServer: s.Settings.DefaultBootstrapServer,
+		Loggers: Loggers{
+			App:        Logger{Format: "%{color:cyan}%{message}", Enabled: true},
+			DHT:        Logger{Format: "%{color:yellow}DHT: %{message}"},
+			Gossip:     Logger{Format: "%{color:blue}Gossip: %{message}"},
+			TestPassed: Logger{Format: "%{color:green}%{message}", Enabled: true},
+			TestFailed: Logger{Format: "%{color:red}%{message}", Enabled: true},
+			TestInfo:   Logger{Format: "%{message}", Enabled: true},
+		},
+	}
 
 	p := h.path + "/" + ConfigFileName + "." + h.encodingFormat
 	f, err := os.Create(p)
@@ -599,7 +640,13 @@ func makeConfig(h *Holochain, s *Service) error {
 	}
 	defer f.Close()
 
-	return Encode(f, h.encodingFormat, &h.config)
+	if err = Encode(f, h.encodingFormat, &h.config); err != nil {
+		return
+	}
+	if err = h.setupConfig(); err != nil {
+		return
+	}
+	return
 }
 
 // GenDev generates starter holochain DNA files from which to develop a chain
@@ -630,13 +677,12 @@ func (s *Service) GenDev(path string, format string) (hP *Holochain, err error) 
 			},
 		}
 
-		h := New(agent, path, format, zomes...)
+		h := NewHolochain(agent, path, format, zomes...)
 
 		// use the path as the name
 		h.Name = filepath.Base(path)
 
-		err = makeConfig(&h, s)
-		if err != nil {
+		if err = makeConfig(&h, s); err != nil {
 			return
 		}
 
@@ -1192,6 +1238,10 @@ func (h *Holochain) TestStringReplacements(input, r1, r2, r3 string) string {
 // This function is useful only in the context of developing a holochain and will return
 // an error if the chain has already been started (i.e. has genesis entries)
 func (h *Holochain) Test() []error {
+	info := h.config.Loggers.TestInfo
+	passed := h.config.Loggers.TestPassed
+	failed := h.config.Loggers.TestFailed
+
 	var err error
 	var errs []error
 	if h.Started() {
@@ -1207,9 +1257,9 @@ func (h *Holochain) Test() []error {
 
 	var lastResults [3]interface{}
 	for name, ts := range tests {
-		color.White("========================================")
-		color.White("Test: '%s' starting...", name)
-		color.White("========================================")
+		info.p("========================================")
+		info.pf("Test: '%s' starting...", name)
+		info.p("========================================")
 		// setup the genesis entries
 		err = h.Reset()
 		_, err = h.GenChain()
@@ -1219,7 +1269,7 @@ func (h *Holochain) Test() []error {
 		go h.dht.HandlePutReqs()
 		for i, t := range ts {
 			log.Debugf("------------------------------")
-			color.White("Test '%s' line %d: %s", name, i, t)
+			info.pf("Test '%s' line %d: %s", name, i, t)
 			time.Sleep(time.Millisecond * 10)
 			if err == nil {
 				testID := fmt.Sprintf("%s:%d", name, i)
@@ -1242,7 +1292,7 @@ func (h *Holochain) Test() []error {
 				if expectedError != "" {
 					comparisonString := fmt.Sprintf("\nTest: %s\n\tExpected error:\t%v\n\tGot error:\t\t%v", testID, expectedError, actualError)
 					if actualError == nil || (actualError.Error() != expectedError) {
-						color.Red("\n=====================\n%s\n\tfailed! m(\n=====================", comparisonString)
+						failed.pf("\n=====================\n%s\n\tfailed! m(\n=====================", comparisonString)
 						err = fmt.Errorf(expectedError)
 					} else {
 						// all fine
@@ -1253,7 +1303,7 @@ func (h *Holochain) Test() []error {
 					if actualError != nil {
 						errorString := fmt.Sprintf("\nTest: %s\n\tExpected:\t%s\n\tGot Error:\t\t%s\n", testID, expectedResult, actualError)
 						err = fmt.Errorf(errorString)
-						color.Red(fmt.Sprintf("\n=====================\n%s\n\tfailed! m(\n=====================", errorString))
+						failed.pf(fmt.Sprintf("\n=====================\n%s\n\tfailed! m(\n=====================", errorString))
 					} else {
 						var resultString = ToString(actualResult)
 						var match bool
@@ -1277,10 +1327,10 @@ func (h *Holochain) Test() []error {
 
 						if match {
 							log.Debugf("%s\n\tpassed! :D", comparisonString)
-							color.Green("passed! ✔")
+							passed.p("passed! ✔")
 						} else {
 							err = fmt.Errorf(comparisonString)
-							color.Red(fmt.Sprintf("\n=====================\n%s\n\tfailed! m(\n=====================", comparisonString))
+							failed.pf(fmt.Sprintf("\n=====================\n%s\n\tfailed! m(\n=====================", comparisonString))
 						}
 					}
 				}
@@ -1298,9 +1348,9 @@ func (h *Holochain) Test() []error {
 		}
 	}
 	if len(errs) == 0 {
-		color.Green(fmt.Sprintf("\n==================================================================\n\t\t+++++ All tests passed :D +++++\n=================================================================="))
+		passed.p(fmt.Sprintf("\n==================================================================\n\t\t+++++ All tests passed :D +++++\n=================================================================="))
 	} else {
-		color.Red(fmt.Sprintf("\n==================================================================\n\t\t+++++ %d test(s) failed :( +++++\n==================================================================", len(errs)))
+		failed.pf(fmt.Sprintf("\n==================================================================\n\t\t+++++ %d test(s) failed :( +++++\n==================================================================", len(errs)))
 	}
 	return errs
 }

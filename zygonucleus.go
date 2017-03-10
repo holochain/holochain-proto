@@ -334,7 +334,7 @@ func NewZygoNucleus(h *Holochain, code string) (n Nucleus, err error) {
 					errors.New("argument of debug should be string")
 			}
 
-			log.Debug(msg)
+			h.config.Loggers.App.p(msg)
 			return zygo.SexpNull, err
 		})
 

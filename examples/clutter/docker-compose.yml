@@ -1,0 +1,13 @@
+version: '3'
+
+services:
+  hc:
+    build:
+      context: .
+    ports:
+      - "3141"
+  bs:
+    image: metacurrency/holochain
+    command: bs
+    ports:
+      - "3142:10000"

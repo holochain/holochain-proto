@@ -9,6 +9,6 @@ RUN make bs
 
 RUN make test
 
-EXPOSE 3142
-CMD ["bs"]
+#EXPOSE 3142
+#CMD ["bs"]
 #CMD ["/usr/bin/node", "/var/www/app.js"]

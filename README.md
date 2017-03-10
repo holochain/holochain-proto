@@ -44,10 +44,33 @@ Docker eases the installation of the Holochain software, eases the deveopment cy
 
 ## Docker Style Installation (recommended)
 
-1. Install Docker
-2. Clone this repository
+1. Install the ***latest*** version of Docker directly from [the docker website](https://docs.docker.com/engine/getstarted/step_one/)
+2. Clone the *metacurrency*/*holochain* repository [from github](https://github.com/metacurrency/holochain)
+```bash
+> mkdir -p metacurrency/holochain
+> cd metacurrency/holochain
+> git clone https://github.com/metacurrency/holochain.git .
+```
 3. Build the development environment using the Dockerfile in the root of this repository
-4. 
+  ```bash
+  > docker build -t metacurrency/holochain .
+  ``` 
+  > this means build a docker image tagged as metacurrency/holochain, using the default Dockerfile `(./Dockerfile)`. The context is the current directory `'.'`
+  
+  This can take some time. At the end of the process, docker will have:
+    1. built an [ubuntu](https://www.ubuntu.com/) container
+    2. added an installation of [Google's Golang](https://golang.org/)
+    3. compiled the [holochain](https://github.com/metacurrency/holochain) app, and run the tests
+to enter the environment, use docker run:
+```bash
+> docker run -v ~/.holochain:/root/.holochain -Pit metacurrency/holochain
+```
+> this means run the docker image we have built and tagged as metacurrency/holochain. There can only be one image with a given tag on any machine at a time.
+the `-v ~/.holochain:/root/.holochain` section links the .holochain directory inside the docker container to your home directory on your development machine
+`-Pit` means: expose all the ports; run interactively; tagged image
+To terminate and exit the docker image, use `ctrl-d`. This will destroy the container, keeping the contents of .holochain in your user directory
+
+You can continue from the section [Starting a Holochain](#starting-a-holochain)
 
 ## Manual Installation
 

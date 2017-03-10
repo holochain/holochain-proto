@@ -24,6 +24,7 @@ In other words, a holochain functions very much **like a blockchain without bott
     - [5. Launching the Holochain Server](#5-launching-the-holochain-server)
       - [Other Useful Commands](#other-useful-commands)
       - [File Locations](#file-locations)
+      - [Logging](#logging)
   - [Architecture Overview and Documentation](#architecture-overview-and-documentation)
   - [Development --](#development---)
     - [Dependencies](#dependencies)
@@ -127,6 +128,10 @@ By default `hc` stores all holochain data and configuration files to the `~/.hol
     HOLOPATH=~/mychains hc
 
 You can use the form: ```hc -path=/your/path/here``` but you must use the absolute path, as shell substitutions will not happen
+
+#### Logging
+
+The -debug flag will turn on a number of different kinds of debugging.  You can also control exactly which of these logging types you wish to see in the chain's config.json file.  You can also set the DEBUG environment variable to 0 or 1 to temporarily override your settings to turn everything on or off.
 
 ## Architecture Overview and Documentation
 Start in the [Holochain Wiki](https://github.com/metacurrency/holochain/wiki), and hopefully it will keep growing with good development resources.

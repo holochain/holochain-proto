@@ -1358,10 +1358,13 @@ func (h *Holochain) Test() []error {
 // GetProperty returns the value of a DNA property
 func (h *Holochain) GetProperty(prop string) (property string, err error) {
 	if prop == ID_PROPERTY {
+		ChangeAppProperty.Deprecated()
 		property = h.DNAhash().String()
 	} else if prop == AGENT_ID_PROPERTY {
+		ChangeAppProperty.Deprecated()
 		property = peer.IDB58Encode(h.id)
 	} else if prop == AGENT_NAME_PROPERTY {
+		ChangeAppProperty.Deprecated()
 		property = string(h.Agent().Name())
 	} else {
 		property = h.Properties[prop]

@@ -1,0 +1,5 @@
+FROM metacurrency/holochain
+
+ADD . /clutter
+
+#CMD ["/clutter/Scripts/chain.joinService", bash]

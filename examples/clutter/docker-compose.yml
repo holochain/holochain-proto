@@ -1,13 +1,17 @@
 version: '3'
 
 services:
+  chainjoincontainer:
+    build:
+      context: .
+      dockerfile: Dockerfile.joinService
+    volumes:
+      - ./chainData:/root/.holochain
   hc:
     build:
       context: .
     ports:
       - "3141"
-  bs:
-    image: metacurrency/holochain
-    command: bs
-    ports:
-      - "3142:10000"
+    volumes:
+      - ./chainData:/clutter
+

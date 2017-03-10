@@ -1,0 +1,4 @@
+hc init $HOSTNAME
+hc join /clutter clutter
+hc serve clutter
+

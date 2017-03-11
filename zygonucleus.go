@@ -30,6 +30,47 @@ type ZygoNucleus struct {
 // Name returns the string value under which this nucleus is registered
 func (z *ZygoNucleus) Type() string { return ZygoNucleusType }
 
+// ChainReqires runs the application requires function
+// this function gets called so that the holochain library can confirm that it is capable of
+// servicing the needs of the application.
+func (z *ZygoNucleus) ChainRequires() (err error) {
+	if err = z.env.LoadString(`(requires)`); err != nil {
+		return
+	}
+	var result interface{}
+	result, err = z.env.Run()
+	if err != nil {
+		if err.Error() == "symbol `requires` not found" {
+			ChangeRequires.Log()
+			err = nil
+		} else {
+			err = fmt.Errorf("Error executing requires: %v", err)
+		}
+		return
+	}
+	var expr zygo.Sexp
+	switch t := result.(type) {
+	case *zygo.SexpHash:
+		expr, err = t.HashGet(z.env, z.env.MakeSymbol("version"))
+		if err != nil {
+			return
+		}
+		switch t := expr.(type) {
+		case *zygo.SexpInt:
+			if t.Val > int64(Version) {
+				err = fmt.Errorf("Zome requires version %d", t.Val)
+			}
+		default:
+			err = errors.New("expected version to be an integer")
+		}
+
+	default:
+		err = errors.New("require should return a hash")
+	}
+
+	return
+}
+
 // ChainGenesis runs the application genesis function
 // this function gets called after the genesis entries are added to the chain
 func (z *ZygoNucleus) ChainGenesis() (err error) {
@@ -311,7 +352,7 @@ func NewZygoNucleus(h *Holochain, code string) (n Nucleus, err error) {
 	z.env = zygo.NewGlispSandbox()
 	z.env.AddFunction("version",
 		func(env *zygo.Glisp, name string, args []zygo.Sexp) (zygo.Sexp, error) {
-			return &zygo.SexpStr{S: Version}, nil
+			return &zygo.SexpStr{S: VersionStr}, nil
 		})
 
 	addExtras(&z)

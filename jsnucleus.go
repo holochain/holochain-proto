@@ -29,7 +29,40 @@ type JSNucleus struct {
 // Name returns the string value under which this nucleus is registered
 func (z *JSNucleus) Type() string { return JSNucleusType }
 
-// ChainGenesis runs the application init function
+// ChainReqires runs the application requires function
+// this function gets called so that the holochain library can confirm that it is capable of
+// servicing the needs of the application.
+func (z *JSNucleus) ChainRequires() (err error) {
+	v, err := z.vm.Run(`requires()`)
+	if err != nil {
+		if err.Error() == "ReferenceError: 'requires' is not defined" {
+			ChangeRequires.Log()
+			err = nil
+		} else {
+			err = fmt.Errorf("Error executing requires: %v", err)
+		}
+		return
+	}
+	if v.IsObject() {
+		var vObj otto.Value
+		vObj, err = v.Object().Get("version")
+		if err == nil {
+			var version int64
+			version, err = vObj.ToInteger()
+			if err == nil {
+				if version > int64(Version) {
+					err = fmt.Errorf("Zome requires version %d", version)
+				}
+			}
+		}
+
+	} else {
+		err = fmt.Errorf("require should return an object, got: %v", v)
+	}
+	return
+}
+
+// ChainGenesis runs the application genesis function
 // this function gets called after the genesis entries are added to the chain
 func (z *JSNucleus) ChainGenesis() (err error) {
 	v, err := z.vm.Run(`genesis()`)
@@ -38,16 +71,15 @@ func (z *JSNucleus) ChainGenesis() (err error) {
 		return
 	}
 	if v.IsBoolean() {
-		if v.IsBoolean() {
-			var b bool
-			b, err = v.ToBoolean()
-			if err != nil {
-				return
-			}
-			if !b {
-				err = fmt.Errorf("genesis failed")
-			}
+		var b bool
+		b, err = v.ToBoolean()
+		if err != nil {
+			return
 		}
+		if !b {
+			err = fmt.Errorf("genesis failed")
+		}
+
 	} else {
 		err = fmt.Errorf("genesis should return boolean, got: %v", v)
 	}
@@ -130,7 +162,7 @@ func (z *JSNucleus) expose(iface Interface) (err error) {
 }
 
 const (
-	JSLibrary = `var HC={STRING:0,JSON:1};version=` + `"` + Version + `";`
+	JSLibrary = `var HC={STRING:0,JSON:1};version=` + `"` + VersionStr + `";`
 )
 
 // jsSanatizeString makes sure all quotes are quoted and returns are removed

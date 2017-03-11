@@ -34,6 +34,14 @@ func (c *Change) Log() {
 	log.Debugf(h+c.Message, c.AsOf)
 }
 
+var ChangeAppProperty = Change{
+	Type:    Deprecation,
+	Message: "Getting special properties via property() is deprecated as of %d",
+	AsOf:    2,
 }
 
+var ChangeRequires = Change{
+	Type:    Warning,
+	Message: "Zomes must define 'requires' function as of version %d, assuming no requirements.",
+	AsOf:    2,
 }

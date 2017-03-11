@@ -1,5 +1,4 @@
-the `-v ~/.holochain:/root/.holochain` section links the .holochain directory inside the docker container to your home directory on your development machine
-  # Holochain
+# Holochain
 
  ![Code Status](https://img.shields.io/badge/Code-Pre--Alpha-orange.svg) [![Travis](https://img.shields.io/travis/metacurrency/holochain.svg)](https://travis-ci.org/metacurrency/holochain) [![Go Report Card](https://goreportcard.com/badge/github.com/metacurrency/holochain)](https://goreportcard.com/report/github.com/metacurrency/holochain) [![Gitter](https://badges.gitter.im/metacurrency/holochain.svg)](https://gitter.im/metacurrency/holochain?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=body_badge) [![In Progress](https://badge.waffle.io/metacurrency/holochain.svg?label=in%20progress&title=In%20Progress)](http://waffle.io/metacurrency/holochain)
 
@@ -41,17 +40,15 @@ In other words, a holochain functions very much **like a blockchain without bott
 
 ## Installation
 
-Docker eases the installation of the Holochain software, eases the deveopment cycle of HoloChain rule sets and eases the development of the Holochain core.
+Docker eases the installation of the Holochain software, eases the deveopment cycle of holoChain rule sets and eases the development of the Holochain core. Docker is awesome. Use Docker.
 
 ## Docker Style Installation (recommended)
-
 1. Install the ***latest*** version of Docker directly from [the docker website](https://docs.docker.com/engine/getstarted/step_one/)
-2. Clone the *metacurrency*/*holochain* repository [from github](https://github.com/metacurrency/holochain)
-```bash
-> #navigate to where you wanna be
-> mkdir lochain
-> cd holochain
-> git clone https://github.com/metacurrency/holochain.git .
+2. Clone the *metacurrency*/*holochain* repository [from github](https://github.com/metacurrency/holochain)```bash
+  > #navigate to where you wanna be
+  > mkdir holochain
+  > cd holochain
+  > git clone https://github.com/metacurrency/holochain.git .
 ```
 3. Build the development environment using the included Dockerfile
   ```bash
@@ -69,9 +66,13 @@ to enter the environment, use docker run:
 > docker run -v ~/.holochain:/root/.holochain -Pi -t metacurrency/holochain
 ```
 > this means: `run` a docker image; `-v...` mount my `$HOME/.holochain` directory to `/root/.holochain` inside the docker container; `-P` expose all ports (more on this later); `-i` interactive container (rather than daemonised); `-t` the image tagged "metacurrency/holochain" - this will be the image we built earlier. The -t flag is the last flag. stuff after this is interpreted as commands to run inside the container
+
 > It is perfectly possible to keep a docker container around for a long time. To disconnect from one, use `Ctrl-p Ctrl-q`. HOWEVER: docker containers are designed to be ephmeral, or rather a Dockerfile should be designed such that destroying and creating docker containers is "best practice". To terminate and exit the docker image, use `ctrl-d`. This will stop the container. 
+
 > By default, docker keeps *absolutely everything you ever do* in images on your machine. Because docker's filesystem is so [***very very very clever***](https://docs.docker.com/engine/userguide/storagedriver/aufs-driver/#image-layering-and-sharing-with-aufs), this is done in an extremely efficient way. It is quite possible to have hundreds or thousands of container states on your machine and never notice. This is a *good thing* in principal. In practice, unless you work very very hard to bury some work inside a docker container, you will never need to use this feature. 
+
 > All of our dockerfiles, scripts and best practice processes allow you to destroy ***all*** the docker containers and images on your system *at any time*. This is how you should work with docker. If somehow you realise you accidentally did a days work inside a docker container and have no idea where it is, jaunt over to #docker on freenode, or file a ticket with us and we will do our best to help you out. This should never happen.
+
 > In general, you will be running docker containers in daemonised mode. The rest of this introduction will take you through directly using `hc`, to get a feel for it, but it is rare (if ever?) that you will want to actually do this in either development or end-user scenarios.
 
 You can continue from the section [Starting a Holochain](#starting-a-holochain)

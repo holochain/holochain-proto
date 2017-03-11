@@ -47,14 +47,14 @@ Docker eases the installation of the Holochain software, eases the deveopment cy
 2. Clone the *metacurrency*/*holochain* repository [from github](https://github.com/metacurrency/holochain)
 
     ```bash 
-      $ #navigate to where you wanna be
-      $ mkdir holochain
-      $ cd holochain
-      $ git clone https://github.com/metacurrency/holochain.git .
+    $ #navigate to where you wanna be
+    $ mkdir holochain
+    $ cd holochain
+    $ git clone https://github.com/metacurrency/holochain.git .
     ```
 3. Build the development environment using the included Dockerfile
     ```bash
-      $ docker build -t metacurrency/holochain .
+    $ docker build -t metacurrency/holochain .
     ```
 > this means: build a docker image; give the image the tag "metacurrency/holochain"
 

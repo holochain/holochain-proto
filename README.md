@@ -44,7 +44,7 @@ Docker eases the installation of the Holochain software, eases the deveopment cy
 
 ## Docker Style Installation (recommended)
 1. Install the ***latest*** version of Docker directly from [the docker website](https://docs.docker.com/engine/getstarted/step_one/)
-2. Clone the *metacurrency*/*holochain* repository [from github](https://github.com/metacurrency/holochain)
+2. Clone the `*metacurrency*/*holochain*` repository [from github](https://github.com/metacurrency/holochain)
 
     ```bash 
     $ #navigate to where you wanna be
@@ -59,7 +59,7 @@ Docker eases the installation of the Holochain software, eases the deveopment cy
     ```
       > this means:
       * build a docker image
-      * `-t...` give the image the tag *metacurrency*/*holochain*
+      * `-t...` give the image the tag `*metacurrency*/*holochain*`
       * `.` build the image in the context "." (the current directory)
 4. Run a docker container from the image
     ```bash
@@ -71,7 +71,7 @@ Docker eases the installation of the Holochain software, eases the deveopment cy
       * `-v...` mount my `$HOME/.holochain` directory to `/root/.holochain` inside the docker container
       * `-P` expose all ports (more on this later)
       * `-i` interactive container (rather than `-d` daemonised)
-      * `-t` the image tagged *metacurrency*/*holochain* - which is what we tagged the image we build earlier. In Docker, tags are unique.
+      * `-t` the image tagged `*metacurrency*/*holochain*` - which is what we tagged the image we build earlier. In Docker, tags are unique.
       * The -t flag is the last flag. stuff after this is interpreted as commands to run inside the container
 
 > It is perfectly possible to keep a docker container around for a long time. To disconnect from one, leaving it running, use `Ctrl-p Ctrl-q`. HOWEVER: docker containers are designed to be ephemeral, or rather a Dockerfile should be designed such that destroying and creating docker containers is "best practice". To exit the docker container, use `ctrl-d`. This will stop the container, where it can be found in the list `docker ps -a`

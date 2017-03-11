@@ -45,29 +45,36 @@ Docker eases the installation of the Holochain software, eases the deveopment cy
 ## Docker Style Installation (recommended)
 1. Install the ***latest*** version of Docker directly from [the docker website](https://docs.docker.com/engine/getstarted/step_one/)
 2. Clone the *metacurrency*/*holochain* repository [from github](https://github.com/metacurrency/holochain)
-```bash > #navigate to where you wanna be
-  > mkdir holochain
-  > cd holochain
-  > git clone https://github.com/metacurrency/holochain.git .
+```bash 
+  $ #navigate to where you wanna be
+  $ mkdir holochain
+  $ cd holochain
+  $ git clone https://github.com/metacurrency/holochain.git .
 ```
 3. Build the development environment using the included Dockerfile
-  ```bash
-  > docker build -t metacurrency/holochain .
-  ``` 
-  > this means: build a docker image; give the image the tag "metacurrency/holochain"
-  
-  This can take some time. At the end of the process, docker will have:
-    1. built an [ubuntu](https://www.ubuntu.com/) container
-    2. added an installation of [Google's Golang](https://golang.org/)
-    3. compiled the [holochain](https://github.com/metacurrency/holochain) app, and run the tests
-
-to enter the environment, use docker run:
 ```bash
-> docker run -v ~/.holochain:/root/.holochain -Pi -t metacurrency/holochain
+  $ docker build -t metacurrency/holochain .
 ```
-> this means: `run` a docker image; `-v...` mount my `$HOME/.holochain` directory to `/root/.holochain` inside the docker container; `-P` expose all ports (more on this later); `-i` interactive container (rather than daemonised); `-t` the image tagged "metacurrency/holochain" - this will be the image we built earlier. The -t flag is the last flag. stuff after this is interpreted as commands to run inside the container
+> this means: build a docker image; give the image the tag "metacurrency/holochain"
 
-> It is perfectly possible to keep a docker container around for a long time. To disconnect from one, use `Ctrl-p Ctrl-q`. HOWEVER: docker containers are designed to be ephemeral, or rather a Dockerfile should be designed such that destroying and creating docker containers is "best practice". To exit the docker container, use `ctrl-d`. This will stop the container, where it can be found in the list `docker ps -a`
+Building the image can take some time. At the end of the process, docker will have:
+  1. built an [ubuntu](https://www.ubuntu.com/) container
+  2. added an installation of [Google's Golang](https://golang.org/)
+  3. compiled the [holochain](https://github.com/metacurrency/holochain) app, and run the tests
+  
+  docker run creates a container (running instance) from an image:
+```bash
+  > docker run -v ~/.holochain:/root/.holochain -Pi -t metacurrency/holochain
+```
+  > this means:
+  * `run` a docker image
+  * `-v...` mount my `$HOME/.holochain` directory to `/root/.holochain` inside the docker container
+  * `-P` expose all ports (more on this later)
+  * `-i` interactive container (rather than `-d` daemonised)
+  * `-t` the image tagged "metacurrency/holochain" - which is what we tagged the image we build earlier. In Docker, tags are unique.
+  * The -t flag is the last flag. stuff after this is interpreted as commands to run inside the container
+
+> It is perfectly possible to keep a docker container around for a long time. To disconnect from one, leaving it running, use `Ctrl-p Ctrl-q`. HOWEVER: docker containers are designed to be ephemeral, or rather a Dockerfile should be designed such that destroying and creating docker containers is "best practice". To exit the docker container, use `ctrl-d`. This will stop the container, where it can be found in the list `docker ps -a`
 
 > By default, docker keeps *absolutely everything you ever do* in images on your machine. Because docker's filesystem is so [***very very very clever***](https://docs.docker.com/engine/userguide/storagedriver/aufs-driver/#image-layering-and-sharing-with-aufs), this is done in an extremely efficient way. It is quite possible to have hundreds or thousands of container states on your machine and never notice. This is a *good thing* in principal. In practice, unless you work very very hard to bury some work inside a docker container, you will never need to use this feature. 
 

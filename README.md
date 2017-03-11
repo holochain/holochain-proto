@@ -52,29 +52,27 @@ Docker eases the installation of the Holochain software, eases the deveopment cy
     $ cd holochain
     $ git clone https://github.com/metacurrency/holochain.git .
     ```
-3. Build the development environment using the included Dockerfile
+3. Build the development environment using the included Dockerfile, as a docker image
  
     ```bash
     $ docker build -t metacurrency/holochain .
     ```
-      > this means: build a docker image; give the image the tag "metacurrency/holochain"
-
-Building the image can take some time. At the end of the process, docker will have:
-  1. built an [ubuntu](https://www.ubuntu.com/) container
-  2. added an installation of [Google's Golang](https://golang.org/)
-  3. compiled the [holochain](https://github.com/metacurrency/holochain) app, and run the tests
-  
-  docker run creates a container (running instance) from an image:
-```bash
-  > docker run -v ~/.holochain:/root/.holochain -Pi -t metacurrency/holochain
-```
-    > this means:
-    * `run` a docker image
-    * `-v...` mount my `$HOME/.holochain` directory to `/root/.holochain` inside the docker container
-    * `-P` expose all ports (more on this later)
-    * `-i` interactive container (rather than `-d` daemonised)
-    * `-t` the image tagged "metacurrency/holochain" - which is what we tagged the image we build earlier. In Docker, tags are unique.
-    * The -t flag is the last flag. stuff after this is interpreted as commands to run inside the container
+      > this means:
+      * build a docker image
+      * `-t...` give the image the tag "metacurrency/holochain"
+      * `.` build the image in the context "."
+4. Run a docker container from the image
+    ```bash
+    $ docker run -v ~/.holochain:/root/.holochain -Pi -t metacurrency/holochain
+    ```
+    
+      > this means:
+      * `run` a docker image
+      * `-v...` mount my `$HOME/.holochain` directory to `/root/.holochain` inside the docker container
+      * `-P` expose all ports (more on this later)
+      * `-i` interactive container (rather than `-d` daemonised)
+      * `-t` the image tagged "metacurrency/holochain" - which is what we tagged the image we build earlier. In Docker, tags are unique.
+      * The -t flag is the last flag. stuff after this is interpreted as commands to run inside the container
 
 > It is perfectly possible to keep a docker container around for a long time. To disconnect from one, leaving it running, use `Ctrl-p Ctrl-q`. HOWEVER: docker containers are designed to be ephemeral, or rather a Dockerfile should be designed such that destroying and creating docker containers is "best practice". To exit the docker container, use `ctrl-d`. This will stop the container, where it can be found in the list `docker ps -a`
 

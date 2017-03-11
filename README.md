@@ -40,7 +40,7 @@ In other words, a holochain functions very much **like a blockchain without bott
 
 ## Installation
 
-Docker eases the installation of the Holochain software, eases the deveopment cycle of holoChain rule sets and eases the development of the Holochain core. Docker is awesome. Use Docker.
+Docker eases the installation of the Holochain software, eases the deveopment cycle of holoChain rule sets and eases the development of the HoloChain core. For local development and testing of networked applications, docker provides tools which make the process more simple and more robust than other soluations.
 
 ## Docker Style Installation (recommended)
 1. Install the ***latest*** version of Docker directly from [the docker website](https://docs.docker.com/engine/getstarted/step_one/)

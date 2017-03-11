@@ -4,7 +4,7 @@ echo "hc init $HOSTNAME"
 hc init $HOSTNAME
 echo
 echo "hc join /clutter clutter"
-hc join /clutterChain clutter
+hc join /chain.clutter clutter
 echo
 echo "hc serve clutter"
 hc serve clutter

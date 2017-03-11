@@ -1,23 +1,24 @@
 package holochain
 
 import (
-	"bytes"
 	. "github.com/smartystreets/goconvey/convey"
 	"testing"
 )
 
 // needed to setup the holochain environment, not really a test.
 func TestChange(t *testing.T) {
-	c := Change{DeprecationMessage: "deprecated as of %s", AsOf: "0.0.2"}
 	Convey("it should be able to log deprecation messages", t, func() {
-		var buf bytes.Buffer
-		w := log.w
-		log.w = &buf
-		e := log.Enabled
-		log.Enabled = true
-		c.Deprecated()
-		So(buf.String(), ShouldEqual, "Deprecation warning: deprecated as of 0.0.2\n")
-		log.Enabled = e
-		log.w = w
+		c := Change{Type: Deprecation, Message: "deprecated as of %d", AsOf: 2}
+		ShouldLog(&log, "Deprecation warning: deprecated as of 2\n", func() {
+			c.Log()
+		})
+
+	})
+
+	Convey("it should be able to log requirement messages", t, func() {
+		c := Change{Type: Warning, Message: "required as of %d", AsOf: 2}
+		ShouldLog(&log, "Warning: required as of 2\n", func() {
+			c.Log()
+		})
 	})
 }

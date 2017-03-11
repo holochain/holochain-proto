@@ -27,7 +27,8 @@ import (
 	"time"
 )
 
-const Version string = "0.0.1"
+const Version int = 2
+const VersionStr string = "2"
 
 // KeyEntry structure for building KeyEntryType entries
 type KeyEntry struct {
@@ -321,7 +322,16 @@ func (h *Holochain) Prepare() (err error) {
 	if err = h.PrepareHashType(); err != nil {
 		return
 	}
-	for _, z := range h.Zomes {
+	for zomeType, z := range h.Zomes {
+		var n Nucleus
+		n, err = h.MakeNucleus(zomeType)
+		if err != nil {
+			return
+		}
+		if err = n.ChainRequires(); err != nil {
+			return
+		}
+
 		if !fileExists(h.path + "/" + z.Code) {
 			return errors.New("DNA specified code file missing: " + z.Code)
 		}
@@ -1358,13 +1368,13 @@ func (h *Holochain) Test() []error {
 // GetProperty returns the value of a DNA property
 func (h *Holochain) GetProperty(prop string) (property string, err error) {
 	if prop == ID_PROPERTY {
-		ChangeAppProperty.Deprecated()
+		ChangeAppProperty.Log()
 		property = h.DNAhash().String()
 	} else if prop == AGENT_ID_PROPERTY {
-		ChangeAppProperty.Deprecated()
+		ChangeAppProperty.Log()
 		property = peer.IDB58Encode(h.id)
 	} else if prop == AGENT_NAME_PROPERTY {
-		ChangeAppProperty.Deprecated()
+		ChangeAppProperty.Log()
 		property = string(h.Agent().Name())
 	} else {
 		property = h.Properties[prop]

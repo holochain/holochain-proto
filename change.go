@@ -9,17 +9,31 @@ package holochain
 
 import ()
 
-var ChangeAppProperty = Change{
-	DeprecationMessage: "Getting special properties via property() is deprecated as of %s",
-	AsOf:               "0.0.2",
-}
+type ChangeType int8
+
+const (
+	Deprecation ChangeType = iota
+	Warning
+)
 
 // Change represents a semantic change that needs to be reported
 type Change struct {
-	DeprecationMessage string
-	AsOf               string
+	Type    ChangeType
+	Message string
+	AsOf    int
 }
 
-func (c *Change) Deprecated() {
-	log.Debugf("Deprecation warning: "+c.DeprecationMessage, c.AsOf)
+func (c *Change) Log() {
+	var h string
+	switch c.Type {
+	case Deprecation:
+		h = "Deprecation warning: "
+	case Warning:
+		h = "Warning: "
+	}
+	log.Debugf(h+c.Message, c.AsOf)
+}
+
+}
+
 }

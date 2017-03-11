@@ -1,6 +1,8 @@
 package holochain
 
 import (
+	"bytes"
+	. "github.com/smartystreets/goconvey/convey"
 	"os"
 	"strconv"
 	"time"
@@ -68,4 +70,16 @@ func cleanupTestDir(path string) {
 	if err != nil {
 		panic(err)
 	}
+}
+
+func ShouldLog(log *Logger, message string, fn func()) {
+	var buf bytes.Buffer
+	w := log.w
+	log.w = &buf
+	e := log.Enabled
+	log.Enabled = true
+	fn()
+	So(buf.String(), ShouldEqual, message)
+	log.Enabled = e
+	log.w = w
 }

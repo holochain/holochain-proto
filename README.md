@@ -6,32 +6,29 @@
 
 In other words, a holochain functions very much **like a blockchain without bottlenecks** when it comes to enforcing validation rules, but is designed to  be fully distributed with each node only needing to hold a small portion of the data instead of everything needing a full copy of a global ledger. This makes it feasible to run blockchain-like applications on devices as lightweight as mobile phones.
 
-**[Code Status:](https://github.com/metacurrency/holochain/milestones?direction=asc&sort=due_date&state=all)** Active development for **proof-of-concept stage**. Pre-alpha. Not for production use. We still expect to destructively restructure data chains at this time.
+**[Code Status:](https://github.com/metacurrency/holochain/milestones?direction=asc&sort=due_date&state=all)** Active development for **proof-of-concept stage**. Pre-alpha. Not for production use. We still expect to destructively restructure data chains at this time. These instructions are really for developers who want to build distributed apps on holochains, not so much for end users who should probably use a nice packaged installation.
 <br/>
 
 | Holochain Links: | [FAQ](https://github.com/metacurrency/holochain/wiki/FAQ) | [Developer Wiki](https://github.com/metacurrency/holochain/wiki) | [White Paper](http://ceptr.org/projects/holochain) | [GoDocs](https://godoc.org/github.com/metacurrency/holochain) |
 |---|---|---|---|---|
 
 **Table of Contents**
+
 <!-- TOC START min:2 max:4 link:true update:true -->
+- [Holochain](#holochain)
   - [Installation](#installation)
-  - [Usage](#usage)
+    - [Installation on Windows](#installation-on-windows)
     - [Starting a Holochain](#starting-a-holochain)
     - [1. Initializing Holochain Service for the First Time](#1-initializing-holochain-service-for-the-first-time)
     - [2. Getting Application DNA](#2-getting-application-dna)
     - [3. Testing your Application](#3-testing-your-application)
     - [4. Generate New Chain](#4-generate-new-chain)
     - [5. Launching the Holochain Server](#5-launching-the-holochain-server)
-      - [Other Useful Commands](#other-useful-commands)
-      - [File Locations](#file-locations)
-      - [Logging](#logging)
   - [Architecture Overview and Documentation](#architecture-overview-and-documentation)
   - [Development --](#development---)
     - [Dependencies](#dependencies)
     - [Tests](#tests)
     - [Contributor Guidelines](#contributor-guidelines)
-      - [Tech](#tech)
-      - [Social --](#social---)
   - [License](#license)
   - [Acknowledgements](#acknowledgements)
 
@@ -62,17 +59,17 @@ Once you've gotten everything working as described above you can execute some ba
 
 And you can get help on specific sub commands with ```hc <cmd> help```. For example: ```hc gen help```
 
-## Installation on Windows
-1. Install Go 1.7.5](https://golang.org/dl/).
+### Installation on Windows
+1. Install [Go 1.7.5](https://golang.org/dl/).
 2. Install [Windows git](https://git-scm.com/downloads). Be sure to select the appropriate options so that git is accessible from the Windows command line.
 3. Install [GnuWin32 make](http://gnuwin32.sourceforge.net/packages/make.htm).Add C:\Program Files (x86)\GnuWin32\bin to your PATHS directory. (Make sure C:\go\bin is in your PATHS directory already, too)
 4. Click Start, type "System" and press Enter. Click "Advanced system settings" in the sidebar. Click "Environment Variables...". Under System Variables, click New..., and put GOPATH as the name, and the path to your Go installation in the value (usually C:\go).
 5. Now, double-click PATH under System Variables, and click New in the window that pops up. Add the path to go's bin directory as the value (usually C:\go\bin). This will allow you to run compiled executables from anywhere in the Windows command line.
 6. Now click New again time and add the path to your GnuWin32 make bin directory (usually C:\Program Files (x86)\GnuWin32\bin).
-5. Follow the remaining instructions starting at step 2 above. You should be able to use 'go' and 'make' from the Windows command line. (Add -x to the Go 'get' command to see verbose output as the packages download.)## Usage
+7. Follow the remaining instructions starting at step 2 above. You should be able to use 'go' and 'make' from the Windows command line. (Add -x to the Go 'get' command to see verbose output as the packages download.)## Usage
 
-### Starting a Holochain
-You've installed and built a distributed data engine, but you don't have a data application running in it yet. Here's the basic flow involved in getting a chain running:
+### Setting up a Holochain
+You've installed and built the distributed data integrity engine, but you haven't set up an application running on it yet. The basic flow involved in getting a chain running looks like this:
 
 1. ```hc init```
 2. ```hc clone```
@@ -80,7 +77,7 @@ You've installed and built a distributed data engine, but you don't have a data 
 4. ```hc gen chain```
 5. ```hc serve```
 
-Details of each of these steps are below...
+Instructions for each of these steps are below...
 
 ### 1. Initializing Holochain Service for the First Time
 The first time the holochain service is run, you need to create your default public/private keys, set up config files and directories, and set a default identity token for your participation on chains. As a general user, you should only need to do this once, but as a developer, you will need to do this if you remove your ```.holochain``` directory during testing and such.

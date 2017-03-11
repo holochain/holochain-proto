@@ -47,8 +47,9 @@ Docker eases the installation of the Holochain software, eases the deveopment cy
 1. Install the ***latest*** version of Docker directly from [the docker website](https://docs.docker.com/engine/getstarted/step_one/)
 2. Clone the *metacurrency*/*holochain* repository [from github](https://github.com/metacurrency/holochain)
 ```bash
-> mkdir -p metacurrency/holochain
-> cd metacurrency/holochain
+> #navigate to where you wanna be
+> mkdir lochain
+> cd holochain
 > git clone https://github.com/metacurrency/holochain.git .
 ```
 3. Build the development environment using the Dockerfile in the root of this repository

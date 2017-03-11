@@ -31,8 +31,8 @@ func TestNew(t *testing.T) {
 			Description: "zome desc",
 			Code:        "zome_myZome.zy",
 			Entries: map[string]EntryDef{
-				"myData1": EntryDef{Name: "myData1", DataFormat: DataFormatString},
-				"myData2": EntryDef{Name: "myData2", DataFormat: DataFormatRawZygo},
+				"myData1": {Name: "myData1", DataFormat: DataFormatString},
+				"myData2": {Name: "myData2", DataFormat: DataFormatRawZygo},
 			},
 		}
 

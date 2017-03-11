@@ -207,7 +207,7 @@ func NewHolochain(agent Agent, path string, format string, zomes ...Zome) Holoch
 
 	h.PrepareHashType()
 	h.Zomes = make(map[string]*Zome)
-	for i, _ := range zomes {
+	for i := range zomes {
 		z := zomes[i]
 		h.Zomes[z.Name] = &z
 	}
@@ -686,21 +686,21 @@ func (s *Service) GenDev(path string, format string) (hP *Holochain, err error) 
 		}
 
 		zomes := []Zome{
-			Zome{Name: "myZome",
+			{Name: "myZome",
 				Description: "this is a zygomas test zome",
 				NucleusType: ZygoNucleusType,
 				Entries: map[string]EntryDef{
-					"myData":  EntryDef{Name: "myData", DataFormat: DataFormatRawZygo},
-					"primes":  EntryDef{Name: "primes", DataFormat: DataFormatJSON},
-					"profile": EntryDef{Name: "profile", DataFormat: DataFormatJSON, Schema: "schema_profile.json"},
+					"myData":  {Name: "myData", DataFormat: DataFormatRawZygo},
+					"primes":  {Name: "primes", DataFormat: DataFormatJSON},
+					"profile": {Name: "profile", DataFormat: DataFormatJSON, Schema: "schema_profile.json"},
 				},
 			},
-			Zome{Name: "jsZome",
+			{Name: "jsZome",
 				Description: "this is a javascript test zome",
 				NucleusType: JSNucleusType,
 				Entries: map[string]EntryDef{
-					"myOdds":  EntryDef{Name: "myOdds", DataFormat: DataFormatRawJS},
-					"profile": EntryDef{Name: "profile", DataFormat: DataFormatJSON, Schema: "schema_profile.json"},
+					"myOdds":  {Name: "myOdds", DataFormat: DataFormatRawJS},
+					"profile": {Name: "profile", DataFormat: DataFormatJSON, Schema: "schema_profile.json"},
 				},
 			},
 		}
@@ -758,37 +758,37 @@ func (s *Service) GenDev(path string, format string) (hP *Holochain, err error) 
 		}
 
 		fixtures := [7]TestData{
-			TestData{
+			{
 				Zome:   "myZome",
 				FnName: "addData",
 				Input:  "2",
 				Output: "%h%"},
-			TestData{
+			{
 				Zome:   "myZome",
 				FnName: "addData",
 				Input:  "4",
 				Output: "%h%"},
-			TestData{
+			{
 				Zome:   "myZome",
 				FnName: "addData",
 				Input:  "5",
 				Err:    "Error calling 'commit': Invalid entry: 5"},
-			TestData{
+			{
 				Zome:   "myZome",
 				FnName: "addPrime",
 				Input:  "{\"prime\":7}",
 				Output: "\"%h%\""}, // quoted because return value is json
-			TestData{
+			{
 				Zome:   "myZome",
 				FnName: "addPrime",
 				Input:  "{\"prime\":4}",
 				Err:    `Error calling 'commit': Invalid entry: {"Atype":"hash", "prime":4, "zKeyOrder":["prime"]}`},
-			TestData{
+			{
 				Zome:   "jsZome",
 				FnName: "addProfile",
 				Input:  `{"firstName":"Art","lastName":"Brock"}`,
 				Output: `"%h%"`},
-			TestData{
+			{
 				Zome:   "jsZome",
 				FnName: "getProperty",
 				Input:  "_id",
@@ -796,12 +796,12 @@ func (s *Service) GenDev(path string, format string) (hP *Holochain, err error) 
 		}
 
 		fixtures2 := [2]TestData{
-			TestData{
+			{
 				Zome:   "jsZome",
 				FnName: "addOdd",
 				Input:  "7",
 				Output: "%h%"},
-			TestData{
+			{
 				Zome:   "jsZome",
 				FnName: "addOdd",
 				Input:  "2",
@@ -860,7 +860,7 @@ function genesis() {return true}
 			return nil, err
 		}
 
-		for n, _ := range h.Zomes {
+		for n := range h.Zomes {
 			z, _ := h.Zomes[n]
 			switch z.NucleusType {
 			case JSNucleusType:

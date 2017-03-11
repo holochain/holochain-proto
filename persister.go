@@ -242,7 +242,7 @@ func CreatePersister(ptype string, config string) (Persister, error) {
 		// Factory has not been registered.
 		// Make a list of all available datastore factories for logging.
 		available := make([]string, 0)
-		for k, _ := range persistorFactories {
+		for k := range persistorFactories {
 			available = append(available, k)
 		}
 		return nil, fmt.Errorf("Invalid persister name. Must be one of: %s", strings.Join(available, ", "))

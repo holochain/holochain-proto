@@ -111,7 +111,6 @@ func (z *JSNucleus) ValidateEntry(d *EntryDef, entry Entry, props *ValidationPro
 		return
 	}
 	code := fmt.Sprintf(`validate("%s",%s,JSON.parse("%s"))`, d.Name, e, jsSanitizeString(string(b)))
-	log.Debug(fmt.Sprintf(`validate("%s",%s,JSON.parse("%s"))`, d.Name, e, jsSanitizeString(string(b))))
 	v, err := z.vm.Run(code)
 	if err != nil {
 		err = fmt.Errorf("Error executing validate: %v", err)
@@ -195,12 +194,12 @@ func (z *JSNucleus) Call(iface string, params interface{}) (result interface{}, 
 		err = errors.New("params type not implemented")
 		return
 	}
-	log.Debugf("JS Call: %s", code)
+	Debugf("JS Call: %s", code)
 	var v otto.Value
 	v, err = z.vm.Run(code)
 	if err == nil {
 		if v.IsObject() && v.Class() == "Error" {
-			log.Debugf("JS Error:\n%v", v)
+			Debugf("JS Error:\n%v", v)
 			var message otto.Value
 			message, err = v.Object().Get("message")
 			if err == nil {

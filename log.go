@@ -134,18 +134,10 @@ func (l *Logger) pf(m string, args ...interface{}) {
 	}
 }
 
-func (l *Logger) Debug(m interface{}) {
+func (l *Logger) Log(m interface{}) {
 	l.p(m)
 }
 
-func (l *Logger) Debugf(m string, args ...interface{}) {
-	l.pf(m, args...)
-}
-
-func (l *Logger) Info(m interface{}) {
-	l.p(m)
-}
-
-func (l *Logger) Infof(m string, args ...interface{}) {
+func (l *Logger) Logf(m string, args ...interface{}) {
 	l.pf(m, args...)
 }

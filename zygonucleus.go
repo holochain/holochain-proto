@@ -193,6 +193,7 @@ func (z *ZygoNucleus) Call(iface string, params interface{}) (result interface{}
 		err = errors.New("params type not implemented")
 		return
 	}
+	Debugf("Zygo Call: %s", code)
 	err = z.env.LoadString(code)
 	if err != nil {
 		return

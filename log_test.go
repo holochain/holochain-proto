@@ -23,8 +23,8 @@ func TestNewLog(t *testing.T) {
 		}
 		err = l2.New(&buf)
 		So(err, ShouldBeNil)
-		l1.Debug("fish")
-		l2.Debugf("%d blue", 2)
+		l1.Log("fish")
+		l2.Logf("%d blue", 2)
 		So(buf.String(), ShouldEqual, "fish\nL2:2 blue\n")
 	})
 

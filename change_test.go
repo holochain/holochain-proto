@@ -9,7 +9,7 @@ import (
 func TestChange(t *testing.T) {
 	Convey("it should be able to log deprecation messages", t, func() {
 		c := Change{Type: Deprecation, Message: "deprecated as of %d", AsOf: 2}
-		ShouldLog(&log, "Deprecation warning: deprecated as of 2\n", func() {
+		ShouldLog(&infoLog, "Deprecation warning: deprecated as of 2\n", func() {
 			c.Log()
 		})
 
@@ -17,7 +17,7 @@ func TestChange(t *testing.T) {
 
 	Convey("it should be able to log requirement messages", t, func() {
 		c := Change{Type: Warning, Message: "required as of %d", AsOf: 2}
-		ShouldLog(&log, "Warning: required as of 2\n", func() {
+		ShouldLog(&infoLog, "Warning: required as of 2\n", func() {
 			c.Log()
 		})
 	})

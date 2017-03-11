@@ -55,7 +55,7 @@ func NewChain() (chain *Chain) {
 func NewChainFromFile(h HashSpec, path string) (c *Chain, err error) {
 	defer func() {
 		if err != nil {
-			log.Debugf("error loading chain :%s", err.Error())
+			Debugf("error loading chain :%s", err.Error())
 		}
 	}()
 	c = NewChain()
@@ -76,7 +76,7 @@ func NewChainFromFile(h HashSpec, path string) (c *Chain, err error) {
 				break
 			}
 			if err != nil {
-				log.Debugf("error reading pair:%s", err.Error())
+				Debugf("error reading pair:%s", err.Error())
 				return
 			}
 			c.addPair(header, e, i)
@@ -301,7 +301,7 @@ func (c *Chain) addPair(header *Header, entry Entry, i int) {
 func UnmarshalChain(reader io.Reader) (c *Chain, err error) {
 	defer func() {
 		if err != nil {
-			log.Debugf("error unmarshaling chain:%s", err.Error())
+			Debugf("error unmarshaling chain:%s", err.Error())
 		}
 	}()
 	c = NewChain()

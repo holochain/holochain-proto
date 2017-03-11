@@ -64,7 +64,7 @@ func TestJSRequires(t *testing.T) {
 	Convey("it should log a warning if requires not defined", t, func() {
 		z, _ := NewJSNucleus(nil, ``)
 		var err error
-		ShouldLog(&log, "Warning: Zomes must define 'requires' function as of version 2, assuming no requirements.\n", func() {
+		ShouldLog(&infoLog, "Warning: Zomes must define 'requires' function as of version 2, assuming no requirements.\n", func() {
 			err = z.ChainRequires()
 			So(err, ShouldBeNil)
 		})

@@ -89,7 +89,24 @@ type Holochain struct {
 	chain          *Chain // the chain itself
 }
 
-var log Logger
+var debugLog Logger
+var infoLog Logger
+
+func Debug(m string) {
+	debugLog.Log(m)
+}
+
+func Debugf(m string, args ...interface{}) {
+	debugLog.Logf(m, args...)
+}
+
+func Info(m string) {
+	infoLog.Log(m)
+}
+
+func Infof(m string, args ...interface{}) {
+	infoLog.Logf(m, args...)
+}
 
 // Register function that must be called once at startup by any client app
 func Register() {
@@ -111,7 +128,8 @@ func Register() {
 	RegisterBultinNucleii()
 	RegisterBultinPersisters()
 
-	log.New(nil)
+	infoLog.New(nil)
+	debugLog.New(nil)
 
 	rand.Seed(time.Now().Unix()) // initialize global pseudo random generator
 }
@@ -372,11 +390,11 @@ func (h *Holochain) Activate() (err error) {
 		}
 		e := h.BSpost()
 		if e != nil {
-			log.Debugf("error in BSpost: %s", e.Error())
+			h.dht.dlog.Logf("error in BSpost: %s", e.Error())
 		}
 		e = h.BSget()
 		if e != nil {
-			log.Debugf("error in BSget: %s", e.Error())
+			h.dht.dlog.Logf("error in BSget: %s", e.Error())
 		}
 	}
 	if h.config.PeerModeAuthor {
@@ -1131,7 +1149,7 @@ func (h *Holochain) ValidateEntry(entryType string, entry Entry, props *Validati
 		} else {
 			input = entry
 		}
-		log.Debugf("Validating %v against schema", input)
+		Debugf("Validating %v against schema", input)
 		if err = d.validator.Validate(input); err != nil {
 			return
 		}
@@ -1278,24 +1296,23 @@ func (h *Holochain) Test() []error {
 		}
 		go h.dht.HandlePutReqs()
 		for i, t := range ts {
-			log.Debugf("------------------------------")
+			Debugf("------------------------------")
 			info.pf("Test '%s' line %d: %s", name, i, t)
 			time.Sleep(time.Millisecond * 10)
 			if err == nil {
 				testID := fmt.Sprintf("%s:%d", name, i)
 				input := t.Input
-				log.Debugf("Input before replacement: %s", input)
+				Debugf("Input before replacement: %s", input)
 				r1 := strings.Trim(fmt.Sprintf("%v", lastResults[0]), "\"")
 				r2 := strings.Trim(fmt.Sprintf("%v", lastResults[1]), "\"")
 				r3 := strings.Trim(fmt.Sprintf("%v", lastResults[2]), "\"")
 				input = h.TestStringReplacements(input, r1, r2, r3)
-				log.Debugf("Input after replacement: %s", input)
+				Debugf("Input after replacement: %s", input)
 				//====================
 				var actualResult, actualError = h.Call(t.Zome, t.FnName, input)
 				var expectedResult, expectedError = t.Output, t.Err
 				var expectedResultRegexp = t.Regexp
 				//====================
-				//log.Infof("Test: %s result:%v, Err:%v", testID, result, err)
 				lastResults[2] = lastResults[1]
 				lastResults[1] = lastResults[0]
 				lastResults[0] = actualResult
@@ -1306,7 +1323,7 @@ func (h *Holochain) Test() []error {
 						err = fmt.Errorf(expectedError)
 					} else {
 						// all fine
-						log.Debugf("%s\n\tpassed :D", comparisonString)
+						Debugf("%s\n\tpassed :D", comparisonString)
 						err = nil
 					}
 				} else {
@@ -1319,24 +1336,24 @@ func (h *Holochain) Test() []error {
 						var match bool
 						var comparisonString string
 						if expectedResultRegexp != "" {
-							log.Debugf("Test %s matching against regexp...", testID)
+							Debugf("Test %s matching against regexp...", testID)
 							expectedResultRegexp = h.TestStringReplacements(expectedResultRegexp, r1, r2, r3)
 							comparisonString = fmt.Sprintf("\nTest: %s\n\tExpected regexp:\t%v\n\tGot:\t\t%v", testID, expectedResultRegexp, resultString)
 							var matchError error
 							match, matchError = regexp.MatchString(expectedResultRegexp, resultString)
 							//match, matchError = regexp.MatchString("[0-9]", "7")
 							if matchError != nil {
-								log.Infof(err.Error())
+								Infof(err.Error())
 							}
 						} else {
-							log.Debugf("Test %s matching against string...", testID)
+							Debugf("Test %s matching against string...", testID)
 							expectedResult = h.TestStringReplacements(expectedResult, r1, r2, r3)
 							comparisonString = fmt.Sprintf("\nTest: %s\n\tExpected:\t%v\n\tGot:\t\t%v", testID, expectedResult, resultString)
 							match = (resultString == expectedResult)
 						}
 
 						if match {
-							log.Debugf("%s\n\tpassed! :D", comparisonString)
+							Debugf("%s\n\tpassed! :D", comparisonString)
 							passed.p("passed! ✔")
 						} else {
 							err = fmt.Errorf(comparisonString)

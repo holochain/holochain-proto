@@ -69,7 +69,7 @@ func (h *Holochain) BSget() (err error) {
 						addr, err = ma.NewMultiaddr(r.Req.NodeAddr)
 						if err == nil {
 							if myNodeID != r.Req.NodeID {
-								log.Debugf("discovered peer: %s", r.Req.NodeID)
+								h.dht.dlog.Logf("discovered peer: %s", r.Req.NodeID)
 								h.node.Host.Peerstore().AddAddr(id, addr, pstore.PermanentAddrTTL)
 								err = h.dht.UpdateGossiper(id, 0)
 

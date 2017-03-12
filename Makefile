@@ -5,16 +5,14 @@ hc: deps
 bs: deps
 	go install ./cmd/bs
 test: deps
-	gx-go rewrite --undo
 	go get -t
-	gx-go rewrite
 	go test -v ./...||exit 1
 $(GOBIN)/gx:
 	go get github.com/whyrusleeping/gx
 $(GOBIN)/gx-go:
 	go get github.com/whyrusleeping/gx-go
 gx: $(GOBIN)/gx $(GOBIN)/gx-go
-	-gx install --global
+	gx install --global
 deps: gx
 	gx-go rewrite
 	go get -d ./...

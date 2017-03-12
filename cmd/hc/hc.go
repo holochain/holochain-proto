@@ -183,7 +183,7 @@ func setupApp() (app *cli.App) {
 					Action: func(c *cli.Context) error {
 						// need to implement this later when this would
 						// check to see if the chain is started, and if so
-						// actually add a new KeyEntry to a chain, otherwise
+						// actually add a new AgentEntry to a chain, otherwise
 						// it could just add chain specific files.
 						return errors.New("not yet implemented")
 						/*
@@ -281,10 +281,12 @@ func setupApp() (app *cli.App) {
 					fmt.Printf("    Entry: %v\n", hdr.EntryLink)
 					e := entries[i]
 					switch hdr.Type {
-					case holo.DNAEntryType:
-						fmt.Printf("       %s\n", string(e.([]byte)))
 					case holo.KeyEntryType:
-						fmt.Printf("       %v\n", e.(holo.KeyEntry))
+						fmt.Printf("       %v\n", e.(*holo.GobEntry).C)
+					case holo.DNAEntryType:
+						fmt.Printf("       %s\n", e.(*holo.GobEntry).C)
+					case holo.AgentEntryType:
+						fmt.Printf("       %v\n", e.(*holo.GobEntry).C.(holo.AgentEntry))
 					default:
 						fmt.Printf("       %v\n", e)
 					}

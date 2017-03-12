@@ -16,8 +16,9 @@ import (
 )
 
 const (
-	DNAEntryType = "_dna"
-	KeyEntryType = "_key"
+	DNAEntryType   = "%dna"
+	AgentEntryType = "%agent"
+	KeyEntryType   = "%%key" // virtual entry type, not actually on the chain
 )
 
 const (

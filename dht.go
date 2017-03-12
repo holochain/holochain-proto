@@ -141,11 +141,43 @@ func NewDHT(h *Holochain) *DHT {
 
 // SetupDHT prepares a DHT for use by adding the holochain's ID
 func (dht *DHT) SetupDHT() (err error) {
-	var ID Hash
-	ID = dht.h.DNAhash()
 	x := ""
-	// put the holochain ID so it always exists for putmeta
-	err = dht.put(nil, ID, dht.h.id, []byte(x), LIVE)
+	// put the holochain id so it always exists for putmeta
+	err = dht.put(nil, DNAEntryType, dht.h.DNAhash(), dht.h.id, []byte(x), LIVE)
+	if err != nil {
+		return
+	}
+	// put the AgentEntry so it always exists for putmeta
+	a := dht.h.Agenthash()
+	var e Entry
+	var t string
+	e, t, err = dht.h.chain.GetEntry(a)
+	if err != nil {
+		return err
+	}
+	// sanity check
+	if t != AgentEntryType {
+		panic("bad type!!")
+	}
+
+	var b []byte
+	b, err = e.Marshal()
+	if err != nil {
+		return
+	}
+	if err = dht.put(nil, AgentEntryType, a, dht.h.id, b, LIVE); err != nil {
+		return
+	}
+
+	// put the KeyEntry so it always exists for putmeta
+	kh, err := NewHash(peer.IDB58Encode(dht.h.id))
+	if err != nil {
+		return
+	}
+	if err = dht.put(nil, KeyEntryType, kh, dht.h.id, []byte(dht.h.id), LIVE); err != nil {
+		return
+	}
+
 	return
 }
 
@@ -296,7 +328,7 @@ func (dht *DHT) UpdateGossiper(id peer.ID, count int) (err error) {
 
 // put stores a value to the DHT store
 // N.B. This call assumes that the value has already been validated
-func (dht *DHT) put(m *Message, key Hash, src peer.ID, value []byte, status int) (err error) {
+func (dht *DHT) put(m *Message, entryType string, key Hash, src peer.ID, value []byte, status int) (err error) {
 	k := key.String()
 	dht.dlog.Logf("put %v=>%s", key, string(value))
 	err = dht.db.Update(func(tx *buntdb.Tx) error {
@@ -305,6 +337,10 @@ func (dht *DHT) put(m *Message, key Hash, src peer.ID, value []byte, status int)
 			return err
 		}
 		_, _, err = tx.Set("entry:"+k, string(value), nil)
+		if err != nil {
+			return err
+		}
+		_, _, err = tx.Set("type:"+k, entryType, nil)
 		if err != nil {
 			return err
 		}
@@ -349,12 +385,19 @@ func (dht *DHT) source(key Hash) (id peer.ID, err error) {
 }
 
 // get retrieves a value from the DHT store
-func (dht *DHT) get(key Hash) (data []byte, status int, err error) {
+func (dht *DHT) get(key Hash) (data []byte, entryType string, status int, err error) {
 	err = dht.db.View(func(tx *buntdb.Tx) error {
 		k := key.String()
 		val, err := tx.Get("entry:" + k)
-		if err == buntdb.ErrNotFound {
-			err = ErrHashNotFound
+		if err != nil {
+			if err == buntdb.ErrNotFound {
+				err = ErrHashNotFound
+			}
+			return err
+		}
+		entryType, err = tx.Get("type:" + k)
+		if err != nil {
+			return err
 		}
 		if err == nil {
 			data = []byte(val)
@@ -542,7 +585,7 @@ func (dht *DHT) handlePutReq(m *Message) (err error) {
 			entry := resp.Entry
 			b, err := entry.Marshal()
 			if err == nil {
-				err = dht.put(m, t.H, from, b, LIVE)
+				err = dht.put(m, resp.Type, t.H, from, b, LIVE)
 			}
 		}
 	case MetaReq:
@@ -589,7 +632,7 @@ func DHTReceiver(h *Holochain, m *Message) (response interface{}, err error) {
 		switch t := m.Body.(type) {
 		case GetReq:
 			var b []byte
-			b, _, err = h.dht.get(t.H)
+			b, _, _, err = h.dht.get(t.H)
 			if err == nil {
 				var e GobEntry
 				err = e.Unmarshal(b)

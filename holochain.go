@@ -30,8 +30,8 @@ import (
 const Version int = 2
 const VersionStr string = "2"
 
-// KeyEntry structure for building KeyEntryType entries
-type KeyEntry struct {
+// AgentEntry structure for building KeyEntryType entries
+type AgentEntry struct {
 	Name    AgentName
 	KeyType KeytypeType
 	Key     []byte // marshaled public key
@@ -79,6 +79,7 @@ type Holochain struct {
 	//---- private values not serialized; initialized on Load
 	id             peer.ID // this is hash of the id, also used in the node
 	dnaHash        Hash
+	agentHash      Hash
 	path           string
 	agent          Agent
 	encodingFormat string
@@ -111,7 +112,7 @@ func Infof(m string, args ...interface{}) {
 // Register function that must be called once at startup by any client app
 func Register() {
 	gob.Register(Header{})
-	gob.Register(KeyEntry{})
+	gob.Register(AgentEntry{})
 	gob.Register(Hash{})
 	gob.Register(PutReq{})
 	gob.Register(GetReq{})
@@ -290,7 +291,12 @@ func (s *Service) load(name string, format string) (hP *Holochain, err error) {
 		return
 	}
 
-	// if the chain has been started there will be a DNAHashFile which
+	h.chain, err = NewChainFromFile(h.hashSpec, path+"/"+StoreFileName+".dat")
+	if err != nil {
+		return
+	}
+
+	// if the chain has been started there should be a DNAHashFile which
 	// we can load to check against the actual hash of the DNA entry
 	var b []byte
 	b, err = readFile(h.path, DNAHashFileName)
@@ -302,11 +308,9 @@ func (s *Service) load(name string, format string) (hP *Holochain, err error) {
 		// @TODO compare value from file to actual hash
 	}
 
-	h.chain, err = NewChainFromFile(h.hashSpec, path+"/"+StoreFileName+".dat")
-	if err != nil {
-		return
+	if h.chain.Length() > 0 {
+		h.agentHash = h.chain.Headers[1].EntryLink
 	}
-
 	if err = h.Prepare(); err != nil {
 		return
 	}
@@ -430,6 +434,11 @@ func (h *Holochain) DNAhash() (id Hash) {
 	return h.dnaHash.Clone()
 }
 
+// AgentHash returns the hash of the Agent entry
+func (h *Holochain) Agenthash() (id Hash) {
+	return h.agentHash.Clone()
+}
+
 // Top returns a hash of top header or err if not yet defined
 func (h *Holochain) Top() (top Hash, err error) {
 	tp := h.chain.Hashes[len(h.chain.Hashes)-1]
@@ -445,7 +454,7 @@ func (h *Holochain) Started() bool {
 // GenChain establishes a holochain instance by creating the initial genesis entries in the chain
 // It assumes a properly set up .holochain sub-directory with a config file and
 // keys for signing.  See GenDev()
-func (h *Holochain) GenChain() (keyHash Hash, err error) {
+func (h *Holochain) GenChain() (headerHash Hash, err error) {
 
 	if h.Started() {
 		err = mkErr("chain already started")
@@ -475,7 +484,7 @@ func (h *Holochain) GenChain() (keyHash Hash, err error) {
 
 	h.dnaHash = dnaHeader.EntryLink.Clone()
 
-	var k KeyEntry
+	var k AgentEntry
 	k.Name = h.agent.Name()
 	k.KeyType = h.agent.KeyType()
 
@@ -487,10 +496,13 @@ func (h *Holochain) GenChain() (keyHash Hash, err error) {
 	}
 
 	e.C = k
-	keyHash, _, err = h.NewEntry(time.Now(), KeyEntryType, &e)
+	var agentHeader *Header
+	headerHash, agentHeader, err = h.NewEntry(time.Now(), AgentEntryType, &e)
 	if err != nil {
 		return
 	}
+
+	h.agentHash = agentHeader.EntryLink
 
 	if err = writeFile(h.path, DNAHashFileName, []byte(h.dnaHash.String())); err != nil {
 		return
@@ -1403,6 +1415,7 @@ func (h *Holochain) GetProperty(prop string) (property string, err error) {
 func (h *Holochain) Reset() (err error) {
 
 	h.dnaHash = Hash{}
+	h.agentHash = Hash{}
 
 	if h.chain.s != nil {
 		h.chain.s.Close()

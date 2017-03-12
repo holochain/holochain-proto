@@ -29,6 +29,36 @@ func TestSetupDHT(t *testing.T) {
 		So(err, ShouldBeNil)
 		ID := h.DNAhash()
 		So(h.dht.exists(ID), ShouldBeNil)
+		_, et, status, err := h.dht.get(h.dnaHash)
+		So(err, ShouldBeNil)
+		So(status, ShouldEqual, LIVE)
+		So(et, ShouldEqual, DNAEntryType)
+
+	})
+
+	Convey("it should push the agent entry to the DHT at genesis time", t, func() {
+		data, et, status, err := h.dht.get(h.agentHash)
+		So(err, ShouldBeNil)
+		So(status, ShouldEqual, LIVE)
+		So(et, ShouldEqual, AgentEntryType)
+
+		var e Entry
+		e, _, _ = h.chain.GetEntry(h.agentHash)
+
+		var b []byte
+		b, _ = e.Marshal()
+
+		So(string(data), ShouldEqual, string(b))
+	})
+
+	Convey("it should push the key to the DHT at genesis time", t, func() {
+		keyHash, _ := NewHash(peer.IDB58Encode(h.id))
+		data, et, status, err := h.dht.get(keyHash)
+		So(err, ShouldBeNil)
+		So(status, ShouldEqual, LIVE)
+		So(et, ShouldEqual, KeyEntryType)
+		So(string(data), ShouldEqual, string([]byte(h.id)))
+
 	})
 }
 
@@ -40,17 +70,19 @@ func TestPutGet(t *testing.T) {
 	var id peer.ID = h.id
 	Convey("It should store and retrieve", t, func() {
 		hash, _ := NewHash("QmY8Mzg9F69e5P9AoQPYat655HEhc1TVGs11tmfNSzkqh2")
-		err := dht.put(nil, hash, id, []byte("some value"), LIVE)
+		err := dht.put(nil, "someType", hash, id, []byte("some value"), LIVE)
 		So(err, ShouldBeNil)
 
-		data, status, err := dht.get(hash)
+		data, entryType, status, err := dht.get(hash)
 		So(err, ShouldBeNil)
 		So(string(data), ShouldEqual, "some value")
+		So(entryType, ShouldEqual, "someType")
 		So(status, ShouldEqual, LIVE)
 
 		hash, _ = NewHash("QmY8Mzg9F69e5P9AoQPYat655HEhc1TVGs11tmfNSzkqh3")
-		data, _, err = dht.get(hash)
+		data, entryType, _, err = dht.get(hash)
 		So(data, ShouldBeNil)
+		So(entryType, ShouldEqual, "")
 		So(err, ShouldEqual, ErrHashNotFound)
 	})
 
@@ -76,7 +108,7 @@ func TestPutGetMeta(t *testing.T) {
 	})
 
 	var id peer.ID
-	err := dht.put(nil, hash, id, []byte("some value"), LIVE)
+	err := dht.put(nil, "someType", hash, id, []byte("some value"), LIVE)
 	if err != nil {
 		panic(err)
 	}
@@ -260,7 +292,7 @@ func TestDHTReceiver(t *testing.T) {
 		r, err := DHTReceiver(h, m)
 		So(err, ShouldBeNil)
 		gr := r.(Gossip)
-		So(len(gr.Puts), ShouldEqual, 2)
+		So(len(gr.Puts), ShouldEqual, 4)
 	})
 }
 
@@ -283,13 +315,13 @@ func TestGossiper(t *testing.T) {
 	Convey("GetGossiper should return the gossiper idx", t, func() {
 		idx, err := dht.GetGossiper(h.node.HashAddr)
 		So(err, ShouldBeNil)
-		So(idx, ShouldEqual, 1)
+		So(idx, ShouldEqual, 3)
 	})
 
 	Convey("FindGossiper should return the gossiper", t, func() {
 		g, err := dht.FindGossiper()
 		So(err, ShouldBeNil)
-		So(g.Idx, ShouldEqual, 1)
+		So(g.Idx, ShouldEqual, 3)
 		So(g.Id, ShouldEqual, h.node.HashAddr)
 	})
 
@@ -299,11 +331,11 @@ func TestGossipData(t *testing.T) {
 	d, _, h := prepareTestChain("test")
 	defer cleanupTestDir(d)
 	dht := h.dht
-	Convey("Idx should be 1 at start (first put is DNAhash)", t, func() {
+	Convey("Idx should be 3 at start (first puts are DNA, Agent & Key)", t, func() {
 		var idx int
 		idx, err := dht.GetIdx()
 		So(err, ShouldBeNil)
-		So(idx, ShouldEqual, 1)
+		So(idx, ShouldEqual, 3)
 	})
 
 	// simulate a handled put request
@@ -321,21 +353,21 @@ func TestGossipData(t *testing.T) {
 	DHTReceiver(h, m2)
 	h.dht.simHandlePutReqs()
 
-	Convey("Idx should be 3 after puts", t, func() {
+	Convey("Idx should be 5 after puts", t, func() {
 		var idx int
 		idx, err := dht.GetIdx()
 		So(err, ShouldBeNil)
-		So(idx, ShouldEqual, 3)
+		So(idx, ShouldEqual, 5)
 	})
 
 	Convey("GetPuts should return a list of the puts since an index value", t, func() {
 		puts, err := dht.GetPuts(0)
 		So(err, ShouldBeNil)
-		So(len(puts), ShouldEqual, 3)
-		So(fmt.Sprintf("%v", puts[1].M), ShouldEqual, fmt.Sprintf("%v", *m1))
-		So(fmt.Sprintf("%v", puts[2].M), ShouldEqual, fmt.Sprintf("%v", *m2))
+		So(len(puts), ShouldEqual, 5)
+		So(fmt.Sprintf("%v", puts[3].M), ShouldEqual, fmt.Sprintf("%v", *m1))
+		So(fmt.Sprintf("%v", puts[4].M), ShouldEqual, fmt.Sprintf("%v", *m2))
 
-		puts, err = dht.GetPuts(3)
+		puts, err = dht.GetPuts(5)
 		So(err, ShouldBeNil)
 		So(len(puts), ShouldEqual, 1)
 		So(fmt.Sprintf("%v", puts[0].M), ShouldEqual, fmt.Sprintf("%v", *m2))
@@ -374,8 +406,9 @@ func TestHandlePutReqs(t *testing.T) {
 	Convey("handle put request should pull data from source and verify it", t, func() {
 		err := h.dht.simHandlePutReqs()
 		So(err, ShouldBeNil)
-		data, _, err := h.dht.get(hd.EntryLink)
+		data, et, _, err := h.dht.get(hd.EntryLink)
 		So(err, ShouldBeNil)
+		So(et, ShouldEqual, "primes")
 		b, _ := e.Marshal()
 		So(fmt.Sprintf("%v", data), ShouldEqual, fmt.Sprintf("%v", b))
 	})

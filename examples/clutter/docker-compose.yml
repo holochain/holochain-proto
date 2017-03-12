@@ -13,7 +13,9 @@ services:
     ports:
       - "3141"
     volumes:
-      - ~/holochain/clutter:/chain.clutter
+      - ~/.holochain/clutter:/clutter
+      - ./examples/clutter/Scripts:/Scripts
+    command: /Scripts/chain.joinAndServe
     depends_on: [chainjoincontainer]
 
 

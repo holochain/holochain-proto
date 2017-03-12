@@ -4,7 +4,7 @@ hc: deps
 	go install ./cmd/hc
 bs: deps
 	go install ./cmd/bs
-test: gx
+test: deps
 	gx-go rewrite --undo
 	go get -t
 	gx-go rewrite

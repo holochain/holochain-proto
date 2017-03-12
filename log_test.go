@@ -49,7 +49,7 @@ func TestNewLog(t *testing.T) {
 
 		l.New(&buf)
 		now := time.Unix(1, 1)
-		So(l._parse("fish", &now), ShouldEqual, "Dec 31 19:00:01:fish")
+		So(l._parse("fish", &now), ShouldEqual, now.Format(time.Stamp)+":fish")
 	})
 
 	Convey("it should handle color", t, func() {
@@ -69,6 +69,6 @@ func TestNewLog(t *testing.T) {
 
 		l.New(&buf)
 		now := time.Unix(1, 1)
-		So(l._parse("fish", &now), ShouldEqual, "Dec 31 19:00:01:fish")
+		So(l._parse("fish", &now), ShouldEqual, now.Format(time.Stamp)+":fish")
 	})
 }

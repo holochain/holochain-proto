@@ -469,6 +469,7 @@ func main() {
 	err := app.Run(os.Args)
 	if err != nil {
 		fmt.Printf("Error: %v\n", err)
+		os.Exit(1)
 	}
 }
 

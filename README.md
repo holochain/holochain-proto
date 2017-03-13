@@ -16,7 +16,7 @@ In other words, a holochain functions very much **like a blockchain without bott
 
 <!-- TOC START min:2 max:4 link:true update:true -->
 - [Holochain](#holochain)
-  - Getting Started
+  - [Getting Started](#getting-started)
     - [Installation](#installation)
       - [Docker Style Installation (recommended)](#docker-style-installation-recommended)
       - [Manual Installation](#manual-installation)
@@ -37,6 +37,8 @@ In other words, a holochain functions very much **like a blockchain without bott
   - [Acknowledgements](#acknowledgements)
 
 <!-- TOC END -->
+# Getting Started
+This section will take you through downloading, compiling and installing the `hc` application and creating your first holochain. For development of the `core` or of your own `holochain app` please see the relevant sections
 
 ## Installation
 

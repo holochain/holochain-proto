@@ -8,7 +8,7 @@ services:
     volumes:
       - ~/.holochain:/root/.holochain
       - ./Scripts:/Scripts
-    command: /Scripts/service.chain.genReset
+    command: /Scripts/service.chain.seed
   hc:
     build:
       context: .

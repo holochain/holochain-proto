@@ -3,4 +3,3 @@ FROM metacurrency/holochain
 ADD . /clutter
 WORKDIR /clutter
 
-CMD ["/clutter/Scripts/chain.joinService"]

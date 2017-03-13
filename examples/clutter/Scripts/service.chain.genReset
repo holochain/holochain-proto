@@ -15,3 +15,7 @@ echo "hc clone /clutter clutter"
 hc clone /clutter clutter
 echo "hc gen chain clutter"
 hc gen chain clutter
+echo
+echo "hc reset clutter"
+hc reset clutter
+echo

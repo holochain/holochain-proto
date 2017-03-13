@@ -14,7 +14,7 @@ services:
       - "3141"
     volumes:
       - ~/.holochain/clutter:/clutter
-      - ./examples/clutter/Scripts:/Scripts
+      - ./Scripts:/Scripts
     command: /Scripts/chain.joinAndServe
     depends_on: [chainjoincontainer]
 

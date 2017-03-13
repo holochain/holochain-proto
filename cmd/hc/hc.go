@@ -255,7 +255,7 @@ func setupApp() (app *cli.App) {
 				if !h.Started() {
 					return errors.New("No data to dump, chain not yet initialized.")
 				}
-				dnaHash := h.DNAhash()
+				dnaHash := h.DNAHash()
 
 				fmt.Printf("Chain: %s\n", dnaHash)
 
@@ -391,7 +391,7 @@ func setupApp() (app *cli.App) {
 				}
 
 				if verbose {
-					fmt.Printf("Serving holochain with DNA hash:%v\n", h.DNAhash())
+					fmt.Printf("Serving holochain with DNA hash:%v\n", h.DNAHash())
 				}
 
 				var port string
@@ -504,7 +504,7 @@ func listChains(s *holo.Service) {
 	if len(chains) > 0 {
 		fmt.Println("installed holochains: ")
 		for k := range chains {
-			id := chains[k].DNAhash()
+			id := chains[k].DNAHash()
 			var sid = "<not-started>"
 			if id.String() != "" {
 				sid = id.String()
@@ -541,7 +541,7 @@ func genChain(service *holo.Service, name string) error {
 	go h.DHT().HandlePutReqs()
 
 	if verbose {
-		fmt.Printf("Genesis entries added and DNA hashed for new holochain with ID: %s\n", h.DNAhash().String())
+		fmt.Printf("Genesis entries added and DNA hashed for new holochain with ID: %s\n", h.DNAHash().String())
 	}
 	return nil
 }

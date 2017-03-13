@@ -143,7 +143,7 @@ func NewDHT(h *Holochain) *DHT {
 func (dht *DHT) SetupDHT() (err error) {
 	x := ""
 	// put the holochain id so it always exists for putmeta
-	err = dht.put(nil, DNAEntryType, dht.h.DNAhash(), dht.h.id, []byte(x), LIVE)
+	err = dht.put(nil, DNAEntryType, dht.h.DNAHash(), dht.h.id, []byte(x), LIVE)
 	if err != nil {
 		return
 	}

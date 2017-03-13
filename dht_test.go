@@ -27,7 +27,7 @@ func TestSetupDHT(t *testing.T) {
 	err := h.dht.SetupDHT()
 	Convey("it should add the holochain ID to the DHT", t, func() {
 		So(err, ShouldBeNil)
-		ID := h.DNAhash()
+		ID := h.DNAHash()
 		So(h.dht.exists(ID), ShouldBeNil)
 		_, et, status, err := h.dht.get(h.dnaHash)
 		So(err, ShouldBeNil)

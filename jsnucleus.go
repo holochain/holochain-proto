@@ -407,8 +407,11 @@ func NewJSNucleus(h *Holochain, code string) (n Nucleus, err error) {
 	if err != nil {
 		return nil, err
 	}
-
-	_, err = z.Run(JSLibrary + code)
+	l := JSLibrary
+	if h != nil {
+		l += fmt.Sprintf(`var App = {DNAHash:"%s",AgentHash:"%s",AgentStr:"%s",KeyHash:"%s"};`, h.dnaHash, h.agentHash, h.Agent().Name(), peer.IDB58Encode(h.id))
+	}
+	_, err = z.Run(l + code)
 	if err != nil {
 		return
 	}

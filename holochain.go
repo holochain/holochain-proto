@@ -429,8 +429,8 @@ func (h *Holochain) Path() string {
 	return h.path
 }
 
-// DNAhash returns the hash of the DNA entry which is also the holochain ID
-func (h *Holochain) DNAhash() (id Hash) {
+// DNAHash returns the hash of the DNA entry which is also the holochain ID
+func (h *Holochain) DNAHash() (id Hash) {
 	return h.dnaHash.Clone()
 }
 
@@ -448,7 +448,7 @@ func (h *Holochain) Top() (top Hash, err error) {
 
 // Started returns true if the chain has been gened
 func (h *Holochain) Started() bool {
-	return h.DNAhash().String() != ""
+	return h.DNAHash().String() != ""
 }
 
 // GenChain establishes a holochain instance by creating the initial genesis entries in the chain
@@ -801,10 +801,10 @@ func (s *Service) GenDev(path string, format string) (hP *Holochain, err error) 
 				Input:  `{"firstName":"Art","lastName":"Brock"}`,
 				Output: `"%h%"`},
 			{
-				Zome:   "jsZome",
-				FnName: "getProperty",
-				Input:  "_id",
-				Output: "%id%"},
+				Zome:   "myZome",
+				FnName: "getDNA",
+				Input:  "",
+				Output: "%dna%"},
 		}
 
 		fixtures2 := [2]TestData{
@@ -832,8 +832,8 @@ func (s *Service) GenDev(path string, format string) (hP *Holochain, err error) 
 
 		code := make(map[string]string)
 		code["myZome"] = `
-(expose "getProperty" STRING)
-(defn getProperty [x] (property x))
+(expose "getDNA" STRING)
+(defn getDNA [x] App_DNAHash)
 (expose "exposedfn" STRING)
 (defn exposedfn [x] (concat "result: " x))
 (expose "addData" STRING)
@@ -1260,17 +1260,16 @@ func ToString(input interface{}) string {
 func (h *Holochain) TestStringReplacements(input, r1, r2, r3 string) string {
 	// get the top hash for substituting for %h% in the test expectation
 	top := h.chain.Top().EntryLink
-	// get the id hash for substituting for %id% in the test expectation
-	id := h.DNAhash()
 
 	var output string
 	output = strings.Replace(input, "%h%", top.String(), -1)
-	output = strings.Replace(output, "%id%", id.String(), -1)
 	output = strings.Replace(output, "%r1%", r1, -1)
 	output = strings.Replace(output, "%r2%", r2, -1)
 	output = strings.Replace(output, "%r3%", r3, -1)
-	dna, _ := h.GetProperty("_id")
-	output = strings.Replace(output, "%dna%", dna, -1)
+	output = strings.Replace(output, "%dna%", h.dnaHash.String(), -1)
+	output = strings.Replace(output, "%agent%", h.agentHash.String(), -1)
+	output = strings.Replace(output, "%agentstr%", string(h.Agent().Name()), -1)
+	output = strings.Replace(output, "%key%", peer.IDB58Encode(h.id), -1)
 	return output
 }
 
@@ -1396,15 +1395,8 @@ func (h *Holochain) Test() []error {
 
 // GetProperty returns the value of a DNA property
 func (h *Holochain) GetProperty(prop string) (property string, err error) {
-	if prop == ID_PROPERTY {
+	if prop == ID_PROPERTY || prop == AGENT_ID_PROPERTY || prop == AGENT_NAME_PROPERTY {
 		ChangeAppProperty.Log()
-		property = h.DNAhash().String()
-	} else if prop == AGENT_ID_PROPERTY {
-		ChangeAppProperty.Log()
-		property = peer.IDB58Encode(h.id)
-	} else if prop == AGENT_NAME_PROPERTY {
-		ChangeAppProperty.Log()
-		property = string(h.Agent().Name())
 	} else {
 		property = h.Properties[prop]
 	}

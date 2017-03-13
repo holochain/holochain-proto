@@ -15,7 +15,6 @@ RUN rm $GOPATH/src/github.com/ethereum/go-ethereum/tests -r
 
 RUN go get -v -u github.com/metacurrency/holochain
 
-
 WORKDIR $GOPATH/src/github.com/metacurrency/holochain
 
 RUN make
@@ -24,5 +23,11 @@ RUN make bs
 RUN make test
 
 ADD . $GOPATH/src/github.com/metacurrency/holochain
+
+RUN make
+RUN make bs
+
+RUN make test
+
 
 #CMD ["/usr/bin/node", "/var/www/app.js"]

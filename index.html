@@ -1,0 +1,47 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+	<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+	<meta name="google-site-verification" content="OitftAoQ5E7PKeUupCAnxIVwK_TbYe0sGKuzdlkwJJU" />
+	<link href="style.css" rel="stylesheet" type="text/css" />
+	<link href="https://fonts.googleapis.com/css?family=Griffy|Play" rel="stylesheet">
+        <script type="text/javascript" src="http://code.jquery.com/jquery-latest.js"></script>
+        <script type="text/javascript" src="/clutter.js"></script>
+
+	<title>Clutter</title>
+</head>
+<body>
+	<div class="alphabox" style="float: right; padding-left: 1em; padding-right: 1em; margin-bottom: 0.5em; margin-left: 0.5em;">
+		<h2>What is Clutter?</h2>
+		<p>A <a href="https://en.wiktionary.org/wiki/clutter"><em>clutter</em></a> is a flock of cats.</p>
+		<p><strong>Clutter</strong> is a fully decentralized alternative to Twitter.</p>
+		<p>Impossible to censor, cats refuse to be silenced.</p>
+		<p>Join the meowvolution on <a href="http://ceptr.org">Ceptr.org</a>.</p>
+	</div>
+	<div style="position: absolute; left: 2.8em; bottom: 1.5em;"><img src="cat-eating-bird-circle.png" style="width: 13em; height: 13em;" /></div>
+	<div class="contentcontainer">
+		<div id="banner">Clutter<div class="subtitle">can haz herd cats?</div></div>
+                <div id="nick"></div>
+		<div id="content">
+			<form action="" style="text-align: center; margin-bottom: 1.75em;">
+				<input id="meow" name="meow" type="text" size="64" />
+				<button type="button" onclick="addPost()">Meow</button>
+			</form>
+			<div id="meows">
+			</div>
+			<div class="section group">
+				<div id="footer">
+					<p><a href="http://validator.w3.org/check?uri=referer">Validate XHTML</a></p>
+				</div>
+			</div>
+		</div>
+                <button type="button" onclick="getPosts('eric@hb.com')">Get</button>
+
+	</div>
+        <script type="text/javascript">
+         window.onload = function() {
+             getProfile();
+         }
+        </script>
+</body>
+</html>

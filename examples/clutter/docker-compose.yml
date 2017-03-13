@@ -1,0 +1,21 @@
+version: '3'
+
+services:
+  chainjoincontainer:
+    build:
+      context: .
+      dockerfile: Dockerfile.joinService
+    volumes:
+      - ~/.holochain:/root/.holochain
+  hc:
+    build:
+      context: .
+    ports:
+      - "3141"
+    volumes:
+      - ~/.holochain/clutter:/clutter
+      - ./Scripts:/Scripts
+    command: /Scripts/chain.joinAndServe
+    depends_on: [chainjoincontainer]
+
+

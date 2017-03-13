@@ -17,8 +17,11 @@ In other words, a holochain functions very much **like a blockchain without bott
 <!-- TOC START min:2 max:4 link:true update:true -->
 - [Holochain](#holochain)
   - [Installation](#installation)
+    - [Docker Style Installation (recommended)](#docker-style-installation-recommended)
+    - [Manual Installation](#manual-installation)
     - [Installation on Windows](#installation-on-windows)
-    - [Starting a Holochain](#starting-a-holochain)
+      - [Usage](#usage)
+  - [Starting a Holochain](#starting-a-holochain)
     - [1. Initializing Holochain Service for the First Time](#1-initializing-holochain-service-for-the-first-time)
     - [2. Getting Application DNA](#2-getting-application-dna)
     - [3. Testing your Application](#3-testing-your-application)
@@ -35,6 +38,52 @@ In other words, a holochain functions very much **like a blockchain without bott
 <!-- TOC END -->
 
 ## Installation
+
+Docker eases the installation of the Holochain software, eases the deveopment cycle of holoChain rule sets and eases the development of the HoloChain core. For local development and testing of networked applications, docker provides tools which make the process more simple and more robust than other solutions.
+
+## Docker Style Installation (recommended)
+1. Install the ***latest*** version of Docker directly from [the docker website](https://docs.docker.com/engine/getstarted/step_one/)
+2. Clone the `metacurrency/holochain` repository [from github](https://github.com/metacurrency/holochain)
+
+    ```bash 
+    $ #navigate to where you wanna be
+    $ mkdir holochain
+    $ cd holochain
+    $ git clone https://github.com/metacurrency/holochain.git .
+    ```
+3. Build the development environment using the included Dockerfile, as a docker image
+ 
+    ```bash
+    $ docker build -t metacurrency/holochain .
+    ```
+      > this means:
+      * build a docker image
+      * `-t...` give the image the tag `metacurrency/holochain`
+      * `.` build the image in the context "." (the current directory)
+4. Run a docker container from the image
+    ```bash
+    $ docker run -v ~/.holochain:/root/.holochain -Pi -t metacurrency/holochain
+    ```
+    
+      > this means:
+      * `run` a docker image
+      * `-v...` mount my `$HOME/.holochain` directory to `/root/.holochain` inside the docker container
+      * `-P` expose all ports (more on this later)
+      * `-i` interactive container (rather than `-d` daemonised)
+      * `-t` the image tagged `metacurrency/holochain` - which is what we tagged the image we build earlier. In Docker, tags are unique.
+      * The -t flag is the last flag. stuff after this is interpreted as commands to run inside the container
+
+> It is perfectly possible to keep a docker container around for a long time. To disconnect from one, leaving it running, use `Ctrl-p Ctrl-q`. HOWEVER: docker containers are designed to be ephemeral, or rather a Dockerfile should be designed such that destroying and creating docker containers is "best practice". To exit the docker container, use `ctrl-d`. This will stop the container, where it can be found in the list `docker ps -a`
+
+> By default, docker keeps *absolutely everything you ever do* in images on your machine. Because docker's filesystem is so [***very very very clever***](https://docs.docker.com/engine/userguide/storagedriver/aufs-driver/#image-layering-and-sharing-with-aufs), this is done in an extremely efficient way. It is quite possible to have hundreds or thousands of container states on your machine and never notice. This is a *good thing* in principal. In practice, unless you work very very hard to bury some work inside a docker container, you will never need to use this feature. 
+
+> All of our dockerfiles, scripts and best practice processes allow you to destroy ***all*** the docker containers and images on your system *at any time*. This is how you should work with docker. If you realise that you have somehow done a days work inside a docker container, that didnt get saved in .holochain somewhere, and have no idea where it is, jaunt over to #docker on freenode, or file a ticket with us and we will do our best to help you out. This should never happen.
+
+> In general, you will be running docker containers in daemonised mode. The rest of this introduction will take you through directly using `hc`, to get a feel for it, but it is rare (if ever?) that you will want to actually do this in either development or end-user scenarios.
+
+You can continue from the section [Starting a Holochain](#starting-a-holochain)
+
+## Manual Installation
 
 1. Make sure you have a working environment set up for the Go language version 1.7 or later. [See the installation instructions for Go](http://golang.org/doc/install.html).
 2. Follow their instructions on the above doc page for **exporting** your **$GOPATH** and adding your $GOPATH/bin directory to your search **PATH** for programs. (Almost all installation problems that have been reported stem from skipping one of these path related steps.)
@@ -66,7 +115,10 @@ And you can get help on specific sub commands with ```hc <cmd> help```. For exam
 4. Click Start, type "System" and press Enter. Click "Advanced system settings" in the sidebar. Click "Environment Variables...". Under System Variables, click New..., and put GOPATH as the name, and the path to your Go installation in the value (usually C:\go).
 5. Now, double-click PATH under System Variables, and click New in the window that pops up. Add the path to go's bin directory as the value (usually C:\go\bin). This will allow you to run compiled executables from anywhere in the Windows command line.
 6. Now click New again time and add the path to your GnuWin32 make bin directory (usually C:\Program Files (x86)\GnuWin32\bin).
-7. Follow the remaining instructions starting at step 2 above. You should be able to use 'go' and 'make' from the Windows command line. (Add -x to the Go 'get' command to see verbose output as the packages download.)## Usage
+7. Follow the remaining instructions starting at step 2 above. You should be able to use 'go' and 'make' from the Windows command line. (Add -x to the Go 'get' command to see verbose output as the packages download.)
+
+## Usage
+> TODO
 
 ### Setting up a Holochain
 You've installed and built the distributed data integrity engine, but you haven't set up an application running on it yet. The basic flow involved in getting a chain running looks like this:

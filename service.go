@@ -22,11 +22,10 @@ const (
 	StoreFileName        string = "chain"       // Filename for local data store
 	DNAHashFileName      string = "dna.hash"    // Filename for storing the hash of the holochain
 
-
-	DefaultPort 								= 6283
-	DefaultBootstrapServer 			= "bootstrap.holochain.net:10000"
+	DefaultPort            = 6283
+	DefaultBootstrapServer = "bootstrap.holochain.net:10000"
 	//DefaultBootstrapPort				= 10000
-	HC_BOOTSTRAPSERVER 					= "HC_BOOTSTRAPSERVER"
+	HC_BOOTSTRAPSERVER = "HC_BOOTSTRAPSERVER"
 	//HC_BOOTSTRAPPORT						= "HC_BOOTSTRAPPORT"
 )
 
@@ -66,12 +65,11 @@ func Init(root string, agent AgentName) (service *Service, err error) {
 		Path: root,
 	}
 
-	if os.Getenv(HC_BOOTSTRAPSERVER) != "" { 
-		s.Settings.DefaultBootstrapServer=os.Getenv(HC_BOOTSTRAPSERVER)
+	if os.Getenv(HC_BOOTSTRAPSERVER) != "" {
+		s.Settings.DefaultBootstrapServer = os.Getenv(HC_BOOTSTRAPSERVER)
 	}
-	
-	log.Infof("Configured to connect to bootstrap server at: %s\n", s.Settings.DefaultBootstrapServer)
 
+	Infof("Configured to connect to bootstrap server at: %s\n", s.Settings.DefaultBootstrapServer)
 
 	err = writeToml(root, SysFileName, s.Settings, false)
 	if err != nil {

@@ -33,9 +33,9 @@ func (c *Change) Log() {
 }
 
 var ChangeAppProperty = Change{
-	Type:    Deprecation,
-	Message: "Getting special properties via property() is deprecated as of %d",
-	AsOf:    2,
+	Type:    Warning,
+	Message: "Getting special properties via property() is deprecated as of %d. Returning nil values.  Use App* instead",
+	AsOf:    3,
 }
 
 var ChangeRequires = Change{

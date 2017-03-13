@@ -402,3 +402,8 @@ func (c *Chain) String() string {
 	}
 	return r
 }
+
+// Length returns the number of entries in the chain
+func (c *Chain) Length() int {
+	return len(c.Headers)
+}

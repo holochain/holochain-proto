@@ -25,6 +25,7 @@ type ZygoNucleus struct {
 	env        *zygo.Glisp
 	interfaces []Interface
 	lastResult zygo.Sexp
+	library    string
 }
 
 // Name returns the string value under which this nucleus is registered
@@ -582,7 +583,14 @@ func NewZygoNucleus(h *Holochain, code string) (n Nucleus, err error) {
 			result, err := z.getmeta(env, h, hashstr, typestr)
 			return result, err
 		})
-	_, err = z.Run(ZygoLibrary + code)
+
+	l := ZygoLibrary
+	if h != nil {
+		l += fmt.Sprintf(`(def App_DNAHash "%s")(def App_AgentHash "%s")(def App_AgentStr "%s")(def App_KeyHash "%s")`, h.dnaHash, h.agentHash, h.Agent().Name(), peer.IDB58Encode(h.id))
+	}
+	z.library = l
+
+	_, err = z.Run(l + code)
 	if err != nil {
 		return
 	}
@@ -592,7 +600,8 @@ func NewZygoNucleus(h *Holochain, code string) (n Nucleus, err error) {
 
 // Run executes zygo code
 func (z *ZygoNucleus) Run(code string) (result zygo.Sexp, err error) {
-	err = z.env.LoadString(code)
+	c := fmt.Sprintf("(begin %s %s)", z.library, code)
+	err = z.env.LoadString(c)
 	if err != nil {
 		err = errors.New("Zygomys load error: " + err.Error())
 		return

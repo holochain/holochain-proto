@@ -27,11 +27,11 @@ import (
 	"time"
 )
 
-const Version int = 2
-const VersionStr string = "2"
+const Version int = 3
+const VersionStr string = "3"
 
-// KeyEntry structure for building KeyEntryType entries
-type KeyEntry struct {
+// AgentEntry structure for building KeyEntryType entries
+type AgentEntry struct {
 	Name    AgentName
 	KeyType KeytypeType
 	Key     []byte // marshaled public key
@@ -79,6 +79,7 @@ type Holochain struct {
 	//---- private values not serialized; initialized on Load
 	id             peer.ID // this is hash of the id, also used in the node
 	dnaHash        Hash
+	agentHash      Hash
 	path           string
 	agent          Agent
 	encodingFormat string
@@ -111,7 +112,7 @@ func Infof(m string, args ...interface{}) {
 // Register function that must be called once at startup by any client app
 func Register() {
 	gob.Register(Header{})
-	gob.Register(KeyEntry{})
+	gob.Register(AgentEntry{})
 	gob.Register(Hash{})
 	gob.Register(PutReq{})
 	gob.Register(GetReq{})
@@ -290,7 +291,12 @@ func (s *Service) load(name string, format string) (hP *Holochain, err error) {
 		return
 	}
 
-	// if the chain has been started there will be a DNAHashFile which
+	h.chain, err = NewChainFromFile(h.hashSpec, path+"/"+StoreFileName+".dat")
+	if err != nil {
+		return
+	}
+
+	// if the chain has been started there should be a DNAHashFile which
 	// we can load to check against the actual hash of the DNA entry
 	var b []byte
 	b, err = readFile(h.path, DNAHashFileName)
@@ -302,11 +308,9 @@ func (s *Service) load(name string, format string) (hP *Holochain, err error) {
 		// @TODO compare value from file to actual hash
 	}
 
-	h.chain, err = NewChainFromFile(h.hashSpec, path+"/"+StoreFileName+".dat")
-	if err != nil {
-		return
+	if h.chain.Length() > 0 {
+		h.agentHash = h.chain.Headers[1].EntryLink
 	}
-
 	if err = h.Prepare(); err != nil {
 		return
 	}
@@ -425,9 +429,14 @@ func (h *Holochain) Path() string {
 	return h.path
 }
 
-// DNAhash returns the hash of the DNA entry which is also the holochain ID
-func (h *Holochain) DNAhash() (id Hash) {
+// DNAHash returns the hash of the DNA entry which is also the holochain ID
+func (h *Holochain) DNAHash() (id Hash) {
 	return h.dnaHash.Clone()
+}
+
+// AgentHash returns the hash of the Agent entry
+func (h *Holochain) Agenthash() (id Hash) {
+	return h.agentHash.Clone()
 }
 
 // Top returns a hash of top header or err if not yet defined
@@ -439,13 +448,13 @@ func (h *Holochain) Top() (top Hash, err error) {
 
 // Started returns true if the chain has been gened
 func (h *Holochain) Started() bool {
-	return h.DNAhash().String() != ""
+	return h.DNAHash().String() != ""
 }
 
 // GenChain establishes a holochain instance by creating the initial genesis entries in the chain
 // It assumes a properly set up .holochain sub-directory with a config file and
 // keys for signing.  See GenDev()
-func (h *Holochain) GenChain() (keyHash Hash, err error) {
+func (h *Holochain) GenChain() (headerHash Hash, err error) {
 
 	if h.Started() {
 		err = mkErr("chain already started")
@@ -475,7 +484,7 @@ func (h *Holochain) GenChain() (keyHash Hash, err error) {
 
 	h.dnaHash = dnaHeader.EntryLink.Clone()
 
-	var k KeyEntry
+	var k AgentEntry
 	k.Name = h.agent.Name()
 	k.KeyType = h.agent.KeyType()
 
@@ -487,10 +496,13 @@ func (h *Holochain) GenChain() (keyHash Hash, err error) {
 	}
 
 	e.C = k
-	keyHash, _, err = h.NewEntry(time.Now(), KeyEntryType, &e)
+	var agentHeader *Header
+	headerHash, agentHeader, err = h.NewEntry(time.Now(), AgentEntryType, &e)
 	if err != nil {
 		return
 	}
+
+	h.agentHash = agentHeader.EntryLink
 
 	if err = writeFile(h.path, DNAHashFileName, []byte(h.dnaHash.String())); err != nil {
 		return
@@ -789,10 +801,10 @@ func (s *Service) GenDev(path string, format string) (hP *Holochain, err error) 
 				Input:  `{"firstName":"Art","lastName":"Brock"}`,
 				Output: `"%h%"`},
 			{
-				Zome:   "jsZome",
-				FnName: "getProperty",
-				Input:  "_id",
-				Output: "%id%"},
+				Zome:   "myZome",
+				FnName: "getDNA",
+				Input:  "",
+				Output: "%dna%"},
 		}
 
 		fixtures2 := [2]TestData{
@@ -820,8 +832,8 @@ func (s *Service) GenDev(path string, format string) (hP *Holochain, err error) 
 
 		code := make(map[string]string)
 		code["myZome"] = `
-(expose "getProperty" STRING)
-(defn getProperty [x] (property x))
+(expose "getDNA" STRING)
+(defn getDNA [x] App_DNAHash)
 (expose "exposedfn" STRING)
 (defn exposedfn [x] (concat "result: " x))
 (expose "addData" STRING)
@@ -1248,17 +1260,16 @@ func ToString(input interface{}) string {
 func (h *Holochain) TestStringReplacements(input, r1, r2, r3 string) string {
 	// get the top hash for substituting for %h% in the test expectation
 	top := h.chain.Top().EntryLink
-	// get the id hash for substituting for %id% in the test expectation
-	id := h.DNAhash()
 
 	var output string
 	output = strings.Replace(input, "%h%", top.String(), -1)
-	output = strings.Replace(output, "%id%", id.String(), -1)
 	output = strings.Replace(output, "%r1%", r1, -1)
 	output = strings.Replace(output, "%r2%", r2, -1)
 	output = strings.Replace(output, "%r3%", r3, -1)
-	dna, _ := h.GetProperty("_id")
-	output = strings.Replace(output, "%dna%", dna, -1)
+	output = strings.Replace(output, "%dna%", h.dnaHash.String(), -1)
+	output = strings.Replace(output, "%agent%", h.agentHash.String(), -1)
+	output = strings.Replace(output, "%agentstr%", string(h.Agent().Name()), -1)
+	output = strings.Replace(output, "%key%", peer.IDB58Encode(h.id), -1)
 	return output
 }
 
@@ -1384,15 +1395,8 @@ func (h *Holochain) Test() []error {
 
 // GetProperty returns the value of a DNA property
 func (h *Holochain) GetProperty(prop string) (property string, err error) {
-	if prop == ID_PROPERTY {
+	if prop == ID_PROPERTY || prop == AGENT_ID_PROPERTY || prop == AGENT_NAME_PROPERTY {
 		ChangeAppProperty.Log()
-		property = h.DNAhash().String()
-	} else if prop == AGENT_ID_PROPERTY {
-		ChangeAppProperty.Log()
-		property = peer.IDB58Encode(h.id)
-	} else if prop == AGENT_NAME_PROPERTY {
-		ChangeAppProperty.Log()
-		property = string(h.Agent().Name())
 	} else {
 		property = h.Properties[prop]
 	}
@@ -1403,6 +1407,7 @@ func (h *Holochain) GetProperty(prop string) (property string, err error) {
 func (h *Holochain) Reset() (err error) {
 
 	h.dnaHash = Hash{}
+	h.agentHash = Hash{}
 
 	if h.chain.s != nil {
 		h.chain.s.Close()

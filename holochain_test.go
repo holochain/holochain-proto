@@ -301,8 +301,8 @@ func TestGenChain(t *testing.T) {
 		So(h2.Zomes["myZome"].Entries["profile"].SchemaHash.String(), ShouldEqual, sh.String())
 	})
 
-	Convey("before GenChain call DNAhash call should fail", t, func() {
-		h := h.DNAhash()
+	Convey("before GenChain call DNAHash call should fail", t, func() {
+		h := h.DNAHash()
 		So(h.String(), ShouldEqual, "")
 	})
 
@@ -319,8 +319,8 @@ func TestGenChain(t *testing.T) {
 		entry, _, err := h.chain.GetEntry(hdr.EntryLink)
 		So(err, ShouldBeNil)
 		header = *hdr
-		var k KeyEntry = entry.Content().(KeyEntry)
-		So(k.Name, ShouldEqual, h.agent.Name())
+		var a AgentEntry = entry.Content().(AgentEntry)
+		So(a.Name, ShouldEqual, h.agent.Name())
 		//So(k.Key,ShouldEqual,"something?") // test that key got correctly retrieved
 	})
 
@@ -340,7 +340,7 @@ func TestGenChain(t *testing.T) {
 	})
 
 	Convey("holochain id and top should have now been set", t, func() {
-		id := h.DNAhash()
+		id := h.DNAHash()
 		So(err, ShouldBeNil)
 		So(id.String(), ShouldEqual, dnaHash.String())
 		top, err := h.Top()
@@ -374,7 +374,7 @@ func TestWalk(t *testing.T) {
 			return nil
 		}, false)
 		So(err, ShouldBeNil)
-		id := h.DNAhash()
+		id := h.DNAHash()
 		So(c[2], ShouldEqual, id.String())
 		//	So(c,ShouldEqual,"fish")
 	})

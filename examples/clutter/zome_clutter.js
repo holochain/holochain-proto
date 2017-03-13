@@ -1,7 +1,7 @@
 expose("addPost",HC.JSON);
 function addPost(x) {
-    var id = property("_id");
-    var nick = property("_agent_name");
+    var id = App.DNAHash;
+    var nick = App.Agent.String;
     var k = commit("post",x);
     put(k);
     putmeta(id,k,"_post_by_"+nick);
@@ -11,9 +11,9 @@ function addPost(x) {
 expose("get",HC.JSON);
 function get(i) {
     debug("get");
-    var id = property("_id");
+    var id = App.DNAHash;
     if (i.what == "nick") {
-        return property("_agent_name");
+        return App.Agent.String;
     }
     else if (i.what == "posts") {
         return getmeta(id,"_post_by_"+i.whom);
@@ -29,8 +29,8 @@ function get(i) {
 
 expose("follow",HC.JSON);
 function follow(x) {
-    var id = property("_id");
-    var nick = property("_agent_name");
+    var id = App.DNAHash;
+    var nick = App.Agent.String;
     var k = commit("follow",x);
     put(k);
     putmeta(id,k,"_follows_by_"+nick);
@@ -39,7 +39,7 @@ function follow(x) {
 
 // callbacks -----------------------------------------------------
 function genesis() {
-    var id = property("_id");
+    var id = App.DNAHash;
     debug("id is "+id);
     var k = commit("profile",{nick:property("_agent_name")});
     put(k);

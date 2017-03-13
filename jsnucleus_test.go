@@ -22,6 +22,36 @@ func TestNewJSNucleus(t *testing.T) {
 		So(v, ShouldBeNil)
 		So(err.Error(), ShouldEqual, "JS exec error: (anonymous): Line 1:41 Unexpected token )")
 	})
+
+	Convey("it should have an App structure:", t, func() {
+		d, _, h := prepareTestChain("test")
+		defer cleanupTestDir(d)
+
+		v, err := NewJSNucleus(h, "")
+		So(err, ShouldBeNil)
+		z := v.(*JSNucleus)
+
+		_, err = z.Run("App.DNAHash")
+		So(err, ShouldBeNil)
+		s, _ := z.lastResult.ToString()
+		So(s, ShouldEqual, h.dnaHash.String())
+
+		_, err = z.Run("App.Agent.Hash")
+		So(err, ShouldBeNil)
+		s, _ = z.lastResult.ToString()
+		So(s, ShouldEqual, h.agentHash.String())
+
+		_, err = z.Run("App.Agent.String")
+		So(err, ShouldBeNil)
+		s, _ = z.lastResult.ToString()
+		So(s, ShouldEqual, h.Agent().Name())
+
+		_, err = z.Run("App.Key.Hash")
+		So(err, ShouldBeNil)
+		s, _ = z.lastResult.ToString()
+		So(s, ShouldEqual, peer.IDB58Encode(h.id))
+	})
+
 	Convey("should have the built in functions:", t, func() {
 		d, _, h := prepareTestChain("test")
 		defer cleanupTestDir(d)
@@ -35,26 +65,17 @@ func TestNewJSNucleus(t *testing.T) {
 			s, _ := z.lastResult.ToString()
 			So(s, ShouldEqual, VersionStr)
 		})
+
 		Convey("property", func() {
 			_, err = z.Run(`property("description")`)
 			So(err, ShouldBeNil)
 			s, _ := z.lastResult.ToString()
 			So(s, ShouldEqual, "a bogus test holochain")
 
-			_, err = z.Run(`property("` + ID_PROPERTY + `")`)
-			So(err, ShouldBeNil)
-			id := h.DNAhash()
-			So(z.lastResult.String(), ShouldEqual, id.String())
-
-			_, err = z.Run(`property("` + AGENT_ID_PROPERTY + `")`)
-			So(err, ShouldBeNil)
-			aid := peer.IDB58Encode(h.id)
-			So(z.lastResult.String(), ShouldEqual, aid)
-
-			_, err = z.Run(`property ("` + AGENT_NAME_PROPERTY + `")`)
-			So(err, ShouldBeNil)
-			aid = string(h.Agent().Name())
-			So(z.lastResult.String(), ShouldEqual, aid)
+			ShouldLog(&infoLog, "Warning: Getting special properties via property() is deprecated as of 3. Returning nil values.  Use App* instead\n", func() {
+				_, err = z.Run(`property("` + ID_PROPERTY + `")`)
+				So(err, ShouldBeNil)
+			})
 
 		})
 	})

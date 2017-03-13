@@ -21,6 +21,35 @@ func TestNewZygoNucleus(t *testing.T) {
 		So(v, ShouldBeNil)
 		So(err.Error(), ShouldEqual, "Zygomys load error: Error on line 1: parser needs more input\n")
 	})
+
+	Convey("it should have an App structure:", t, func() {
+		d, _, h := prepareTestChain("test")
+		defer cleanupTestDir(d)
+
+		v, err := NewZygoNucleus(h, "")
+		So(err, ShouldBeNil)
+		z := v.(*ZygoNucleus)
+
+		_, err = z.Run("App_DNAHash")
+		So(err, ShouldBeNil)
+		s := z.lastResult.(*zygo.SexpStr).S
+		So(s, ShouldEqual, h.dnaHash.String())
+		_, err = z.Run("App_AgentHash")
+		So(err, ShouldBeNil)
+		s = z.lastResult.(*zygo.SexpStr).S
+		So(s, ShouldEqual, h.agentHash.String())
+
+		_, err = z.Run("App_AgentStr")
+		So(err, ShouldBeNil)
+		s = z.lastResult.(*zygo.SexpStr).S
+		So(s, ShouldEqual, h.Agent().Name())
+
+		_, err = z.Run("App_KeyHash")
+		So(err, ShouldBeNil)
+		s = z.lastResult.(*zygo.SexpStr).S
+		So(s, ShouldEqual, peer.IDB58Encode(h.id))
+	})
+
 	Convey("should have the built in functions:", t, func() {
 		d, _, h := prepareTestChain("test")
 		defer cleanupTestDir(d)
@@ -33,6 +62,7 @@ func TestNewZygoNucleus(t *testing.T) {
 			So(err, ShouldBeNil)
 			So(z.lastResult.(*zygo.SexpStr).S, ShouldEqual, VersionStr)
 		})
+
 		Convey("atoi", func() {
 			_, err = z.Run(`(atoi "3141")`)
 			So(err, ShouldBeNil)
@@ -55,19 +85,10 @@ func TestNewZygoNucleus(t *testing.T) {
 			So(err, ShouldBeNil)
 			So(z.lastResult.(*zygo.SexpStr).S, ShouldEqual, "a bogus test holochain")
 
-			_, err = z.Run(`(property "` + ID_PROPERTY + `")`)
-			So(err, ShouldBeNil)
-			So(z.lastResult.(*zygo.SexpStr).S, ShouldEqual, h.dnaHash.String())
-
-			_, err = z.Run(`(property "` + AGENT_ID_PROPERTY + `")`)
-			So(err, ShouldBeNil)
-			aid := peer.IDB58Encode(h.id)
-			So(z.lastResult.(*zygo.SexpStr).S, ShouldEqual, aid)
-
-			_, err = z.Run(`(property "` + AGENT_NAME_PROPERTY + `")`)
-			So(err, ShouldBeNil)
-			aid = string(h.Agent().Name())
-			So(z.lastResult.(*zygo.SexpStr).S, ShouldEqual, aid)
+			ShouldLog(&infoLog, "Warning: Getting special properties via property() is deprecated as of 3. Returning nil values.  Use App* instead\n", func() {
+				_, err = z.Run(`(property "` + ID_PROPERTY + `")`)
+				So(err, ShouldBeNil)
+			})
 
 		})
 	})

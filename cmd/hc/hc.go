@@ -183,7 +183,7 @@ func setupApp() (app *cli.App) {
 					Action: func(c *cli.Context) error {
 						// need to implement this later when this would
 						// check to see if the chain is started, and if so
-						// actually add a new KeyEntry to a chain, otherwise
+						// actually add a new AgentEntry to a chain, otherwise
 						// it could just add chain specific files.
 						return errors.New("not yet implemented")
 						/*
@@ -255,7 +255,7 @@ func setupApp() (app *cli.App) {
 				if !h.Started() {
 					return errors.New("No data to dump, chain not yet initialized.")
 				}
-				dnaHash := h.DNAhash()
+				dnaHash := h.DNAHash()
 
 				fmt.Printf("Chain: %s\n", dnaHash)
 
@@ -281,10 +281,12 @@ func setupApp() (app *cli.App) {
 					fmt.Printf("    Entry: %v\n", hdr.EntryLink)
 					e := entries[i]
 					switch hdr.Type {
-					case holo.DNAEntryType:
-						fmt.Printf("       %s\n", string(e.([]byte)))
 					case holo.KeyEntryType:
-						fmt.Printf("       %v\n", e.(holo.KeyEntry))
+						fmt.Printf("       %v\n", e.(*holo.GobEntry).C)
+					case holo.DNAEntryType:
+						fmt.Printf("       %s\n", e.(*holo.GobEntry).C)
+					case holo.AgentEntryType:
+						fmt.Printf("       %v\n", e.(*holo.GobEntry).C.(holo.AgentEntry))
 					default:
 						fmt.Printf("       %v\n", e)
 					}
@@ -389,7 +391,7 @@ func setupApp() (app *cli.App) {
 				}
 
 				if verbose {
-					fmt.Printf("Serving holochain with DNA hash:%v\n", h.DNAhash())
+					fmt.Printf("Serving holochain with DNA hash:%v\n", h.DNAHash())
 				}
 
 				var port string
@@ -469,6 +471,7 @@ func main() {
 	err := app.Run(os.Args)
 	if err != nil {
 		fmt.Printf("Error: %v\n", err)
+		os.Exit(1)
 	}
 }
 
@@ -501,7 +504,7 @@ func listChains(s *holo.Service) {
 	if len(chains) > 0 {
 		fmt.Println("installed holochains: ")
 		for k := range chains {
-			id := chains[k].DNAhash()
+			id := chains[k].DNAHash()
 			var sid = "<not-started>"
 			if id.String() != "" {
 				sid = id.String()
@@ -538,7 +541,7 @@ func genChain(service *holo.Service, name string) error {
 	go h.DHT().HandlePutReqs()
 
 	if verbose {
-		fmt.Printf("Genesis entries added and DNA hashed for new holochain with ID: %s\n", h.DNAhash().String())
+		fmt.Printf("Genesis entries added and DNA hashed for new holochain with ID: %s\n", h.DNAHash().String())
 	}
 	return nil
 }

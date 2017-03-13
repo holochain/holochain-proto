@@ -18,11 +18,11 @@ In other words, a holochain functions very much **like a blockchain without bott
 - [Holochain](#holochain)
   - [Getting Started](#getting-started)
     - [Installation](#installation)
-      - [Docker Style Installation (recommended)](#docker-style-installation-recommended)
-      - [Manual Installation](#manual-installation)
-      - [Installation on Windows](#installation-on-windows)
-        - [Usage](#usage)
-    - [Starting a Holochain](#starting-a-holochain)
+     - [Docker Style Installation (recommended)](#docker-style-installation-recommended)
+     - [Manual Installation](#manual-installation)
+     - [Installation on Windows](#installation-on-windows)
+    - [Usage](#usage)
+     - [Starting a Holochain](#starting-a-holochain)
       - [1. Initializing Holochain Service for the First Time](#1-initializing-holochain-service-for-the-first-time)
       - [2. Getting Application DNA](#2-getting-application-dna)
       - [3. Testing your Application](#3-testing-your-application)
@@ -110,6 +110,8 @@ Since holochain is essentially a data integrity engine intended to be used by di
 Once you've gotten everything working as described above you can execute some basic holochain commands from the command line like this: ``` hc help ```
 
 And you can get help on specific sub commands with ```hc <cmd> help```. For example: ```hc gen help```
+
+You can continue with "getting started" from the section [Starting a Holochain](#starting-a-holochain)
 
 ### Installation on Windows
 1. Install [Go 1.7.5](https://golang.org/dl/).

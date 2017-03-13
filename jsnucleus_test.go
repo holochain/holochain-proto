@@ -36,17 +36,17 @@ func TestNewJSNucleus(t *testing.T) {
 		s, _ := z.lastResult.ToString()
 		So(s, ShouldEqual, h.dnaHash.String())
 
-		_, err = z.Run("App.AgentHash")
+		_, err = z.Run("App.Agent.Hash")
 		So(err, ShouldBeNil)
 		s, _ = z.lastResult.ToString()
 		So(s, ShouldEqual, h.agentHash.String())
 
-		_, err = z.Run("App.AgentStr")
+		_, err = z.Run("App.Agent.String")
 		So(err, ShouldBeNil)
 		s, _ = z.lastResult.ToString()
 		So(s, ShouldEqual, h.Agent().Name())
 
-		_, err = z.Run("App.KeyHash")
+		_, err = z.Run("App.Key.Hash")
 		So(err, ShouldBeNil)
 		s, _ = z.lastResult.ToString()
 		So(s, ShouldEqual, peer.IDB58Encode(h.id))

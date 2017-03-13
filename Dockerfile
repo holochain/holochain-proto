@@ -17,6 +17,8 @@ RUN go get -v -u github.com/metacurrency/holochain
 
 WORKDIR $GOPATH/src/github.com/metacurrency/holochain
 
+RUN make deps
+
 RUN make
 RUN make bs
 

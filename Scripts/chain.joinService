@@ -1,3 +1,0 @@
-hc init $HOSTNAME
-hc clone /clutter clutter
-hc gen chain clutter

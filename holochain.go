@@ -27,8 +27,8 @@ import (
 	"time"
 )
 
-const Version int = 2
-const VersionStr string = "2"
+const Version int = 3
+const VersionStr string = "3"
 
 // AgentEntry structure for building KeyEntryType entries
 type AgentEntry struct {

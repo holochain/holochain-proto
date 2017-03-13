@@ -29,7 +29,7 @@ func (c *Change) Log() {
 	case Warning:
 		h = "Warning: "
 	}
-	log.Infof(h+c.Message, c.AsOf)
+	Infof(h+c.Message, c.AsOf)
 }
 
 var ChangeAppProperty = Change{

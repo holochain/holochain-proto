@@ -18,7 +18,7 @@ func TestNew(t *testing.T) {
 
 	Convey("New should fill Holochain struct with provided values and new UUID", t, func() {
 
-		h := New(a, "some/path", "json")
+		h := NewHolochain(a, "some/path", "json")
 		nID := string(uuid.NodeID())
 		So(nID, ShouldEqual, string(h.Id.NodeID()))
 		So(h.agent.Name(), ShouldEqual, "Joe")
@@ -31,12 +31,12 @@ func TestNew(t *testing.T) {
 			Description: "zome desc",
 			Code:        "zome_myZome.zy",
 			Entries: map[string]EntryDef{
-				"myData1": EntryDef{Name: "myData1", DataFormat: DataFormatString},
-				"myData2": EntryDef{Name: "myData2", DataFormat: DataFormatRawZygo},
+				"myData1": {Name: "myData1", DataFormat: DataFormatString},
+				"myData2": {Name: "myData2", DataFormat: DataFormatRawZygo},
 			},
 		}
 
-		h := New(a, "some/path", "yaml", z)
+		h := NewHolochain(a, "some/path", "yaml", z)
 		nz := h.Zomes["myZome"]
 		So(nz.Description, ShouldEqual, "zome desc")
 		So(nz.Code, ShouldEqual, "zome_myZome.zy")
@@ -89,7 +89,7 @@ func TestGenDev(t *testing.T) {
 	Convey("when generating a dev holochain", t, func() {
 		h, err := s.GenDev(root, "json")
 		So(err, ShouldBeNil)
-		h.store.Close()
+		//		h.store.Close()
 
 		f, err := s.IsConfigured(name)
 		So(err, ShouldBeNil)
@@ -97,7 +97,7 @@ func TestGenDev(t *testing.T) {
 
 		h, err = s.Load(name)
 		So(err, ShouldBeNil)
-		h.store.Close()
+		//		h.store.Close()
 
 		lh, err := s.load(name, "json")
 		So(err, ShouldBeNil)
@@ -106,7 +106,7 @@ func TestGenDev(t *testing.T) {
 		So(h.config.PeerModeDHTNode, ShouldEqual, s.Settings.DefaultPeerModeDHTNode)
 		So(h.config.PeerModeAuthor, ShouldEqual, s.Settings.DefaultPeerModeAuthor)
 		So(h.config.BootstrapServer, ShouldEqual, s.Settings.DefaultBootstrapServer)
-		lh.store.Close()
+		//		lh.store.Close()
 
 		So(fileExists(h.path+"/schema_profile.json"), ShouldBeTrue)
 		So(fileExists(h.path+"/ui/index.html"), ShouldBeTrue)
@@ -223,14 +223,13 @@ func TestNewEntry(t *testing.T) {
 		s1 := fmt.Sprintf("%v", *header)
 		d1 := fmt.Sprintf("%v", myData)
 
-		h2, e, err := h.store.Get(headerHash, false)
+		h2, err := h.chain.Get(headerHash)
 		So(err, ShouldBeNil)
-		So(e, ShouldBeNil)
-		s2 := fmt.Sprintf("%v", h2)
+		s2 := fmt.Sprintf("%v", *h2)
 		So(s2, ShouldEqual, s1)
 
 		Convey("and the returned header should hash to the same value", func() {
-			b, _ := (&h2).Marshal()
+			b, _ := (h2).Marshal()
 			var hh Hash
 			err = hh.Sum(h.hashSpec, b)
 			So(err, ShouldBeNil)
@@ -238,18 +237,17 @@ func TestNewEntry(t *testing.T) {
 		})
 
 		var d2 interface{}
-		h2, d2, err = h.store.Get(headerHash, true)
+		var d2t string
+		d2, d2t, err = h.chain.GetEntry(h2.EntryLink)
 		So(err, ShouldBeNil)
+		So(d2t, ShouldEqual, "myData")
+
 		So(d2, ShouldNotBeNil)
-		s2 = fmt.Sprintf("%v", d2)
-		So(s2, ShouldEqual, d1)
+		So(d2.(Entry).Content(), ShouldEqual, d1)
 	})
 
-	Convey("it should modify store's TOP key to point to the added Entry header", t, func() {
+	Convey("Top should still work", t, func() {
 		hash, err := h.Top()
-		So(err, ShouldBeNil)
-		So(hash.Equal(&headerHash), ShouldBeTrue)
-		hash, err = h.TopType("myData")
 		So(err, ShouldBeNil)
 		So(hash.Equal(&headerHash), ShouldBeTrue)
 	})
@@ -303,9 +301,9 @@ func TestGenChain(t *testing.T) {
 		So(h2.Zomes["myZome"].Entries["profile"].SchemaHash.String(), ShouldEqual, sh.String())
 	})
 
-	Convey("before GenChain call ID call should fail", t, func() {
-		_, err := h.ID()
-		So(err.Error(), ShouldEqual, "holochain: Meta key 'id' uninitialized")
+	Convey("before GenChain call DNAhash call should fail", t, func() {
+		h := h.DNAhash()
+		So(h.String(), ShouldEqual, "")
 	})
 
 	var headerHash Hash
@@ -316,28 +314,33 @@ func TestGenChain(t *testing.T) {
 
 	var header Header
 	Convey("top link should be Key entry", t, func() {
-		hdr, entry, err := h.store.Get(headerHash, true)
+		hdr, err := h.chain.Get(headerHash)
 		So(err, ShouldBeNil)
-		header = hdr
-		var k KeyEntry = entry.(KeyEntry)
+		entry, _, err := h.chain.GetEntry(hdr.EntryLink)
+		So(err, ShouldBeNil)
+		header = *hdr
+		var k KeyEntry = entry.Content().(KeyEntry)
 		So(k.Name, ShouldEqual, h.agent.Name())
 		//So(k.Key,ShouldEqual,"something?") // test that key got correctly retrieved
 	})
 
 	var dnaHash Hash
 	Convey("next link should be the dna entry", t, func() {
-		hd, entry, err := h.store.Get(header.HeaderLink, true)
+		hdr, err := h.chain.Get(header.HeaderLink)
 		So(err, ShouldBeNil)
+		entry, et, err := h.chain.GetEntry(hdr.EntryLink)
+		So(err, ShouldBeNil)
+		So(et, ShouldEqual, DNAEntryType)
 
 		var buf bytes.Buffer
 		err = h.EncodeDNA(&buf)
 		So(err, ShouldBeNil)
-		So(string(entry.([]byte)), ShouldEqual, string(buf.Bytes()))
-		dnaHash = hd.EntryLink
+		So(string(entry.Content().([]byte)), ShouldEqual, buf.String())
+		dnaHash = hdr.EntryLink
 	})
 
 	Convey("holochain id and top should have now been set", t, func() {
-		id, err := h.ID()
+		id := h.DNAhash()
 		So(err, ShouldBeNil)
 		So(id.String(), ShouldEqual, dnaHash.String())
 		top, err := h.Top()
@@ -364,15 +367,14 @@ func TestWalk(t *testing.T) {
 		c := make(map[int]string, 0)
 		//	c := make([]string,0)
 		idx := 0
-		err := h.Walk(func(key *Hash, header *Header, entry interface{}) (err error) {
+		err := h.Walk(func(key *Hash, header *Header, entry Entry) (err error) {
 			c[idx] = header.EntryLink.String()
 			idx++
 			//	c = append(c, header.HeaderLink.String())
 			return nil
 		}, false)
 		So(err, ShouldBeNil)
-		id, err := h.ID()
-		So(err, ShouldBeNil)
+		id := h.DNAhash()
 		So(c[2], ShouldEqual, id.String())
 		//	So(c,ShouldEqual,"fish")
 	})
@@ -480,6 +482,11 @@ func TestCall(t *testing.T) {
 func TestTest(t *testing.T) {
 	d, _, h := setupTestChain("test")
 	cleanupTestDir(d + "/.holochain/test/test/") // delete the test data created by gen dev
+	if os.Getenv("DEBUG") != "1" {
+		h.config.Loggers.TestPassed.Enabled = false
+		h.config.Loggers.TestFailed.Enabled = false
+		h.config.Loggers.TestInfo.Enabled = false
+	}
 	Convey("it should fail if there's no test data", t, func() {
 		err := h.Test()
 		So(err[0].Error(), ShouldEqual, "open "+h.path+"/test: no such file or directory")
@@ -488,6 +495,11 @@ func TestTest(t *testing.T) {
 
 	d, _, h = setupTestChain("test")
 	defer cleanupTestDir(d)
+	if os.Getenv("DEBUG") != "1" {
+		h.config.Loggers.TestPassed.Enabled = false
+		h.config.Loggers.TestFailed.Enabled = false
+		h.config.Loggers.TestInfo.Enabled = false
+	}
 	Convey("it should validate on test data", t, func() {
 		err := h.Test()
 		So(err, ShouldBeNil)

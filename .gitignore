@@ -38,3 +38,6 @@ floospace/
 
 #OSX
 .DS_Store
+
+# temporary files
+*.swp

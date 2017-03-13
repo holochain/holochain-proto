@@ -13,12 +13,10 @@ import (
 	"errors"
 	"fmt"
 	"github.com/boltdb/bolt"
-	"github.com/fatih/color"
 	"github.com/google/uuid"
 	ic "github.com/libp2p/go-libp2p-crypto"
 	peer "github.com/libp2p/go-libp2p-peer"
 	mh "github.com/multiformats/go-multihash"
-	"github.com/op/go-logging"
 	"io"
 	"io/ioutil"
 	"math/rand"
@@ -29,7 +27,8 @@ import (
 	"time"
 )
 
-const Version string = "0.0.1"
+const Version int = 2
+const VersionStr string = "2"
 
 // KeyEntry structure for building KeyEntryType entries
 type KeyEntry struct {
@@ -48,12 +47,23 @@ type Zome struct {
 	NucleusType string
 }
 
+// Loggers holds the logging structures for the different parts of the system
+type Loggers struct {
+	App        Logger
+	DHT        Logger
+	Gossip     Logger
+	TestPassed Logger
+	TestFailed Logger
+	TestInfo   Logger
+}
+
 // Config holds the non-DNA configuration for a holo-chain
 type Config struct {
 	Port            int
 	PeerModeAuthor  bool
 	PeerModeDHTNode bool
 	BootstrapServer string
+	Loggers         Loggers
 }
 
 // Holochain struct holds the full "DNA" of the holochain
@@ -68,9 +78,9 @@ type Holochain struct {
 	Zomes            map[string]*Zome
 	//---- private values not serialized; initialized on Load
 	id             peer.ID // this is hash of the id, also used in the node
+	dnaHash        Hash
 	path           string
 	agent          Agent
-	store          Persister
 	encodingFormat string
 	hashSpec       HashSpec
 	config         Config
@@ -79,10 +89,27 @@ type Holochain struct {
 	chain          *Chain // the chain itself
 }
 
-var log *logging.Logger
+var debugLog Logger
+var infoLog Logger
+
+func Debug(m string) {
+	debugLog.Log(m)
+}
+
+func Debugf(m string, args ...interface{}) {
+	debugLog.Logf(m, args...)
+}
+
+func Info(m string) {
+	infoLog.Log(m)
+}
+
+func Infof(m string, args ...interface{}) {
+	infoLog.Logf(m, args...)
+}
 
 // Register function that must be called once at startup by any client app
-func Register(logger *logging.Logger) {
+func Register() {
 	gob.Register(Header{})
 	gob.Register(KeyEntry{})
 	gob.Register(Hash{})
@@ -95,11 +122,16 @@ func Register(logger *logging.Logger) {
 	gob.Register(ValidateResponse{})
 	gob.Register(Put{})
 	gob.Register(GobEntry{})
+	gob.Register(MetaQueryResp{})
+	gob.Register(MetaEntry{})
 
 	RegisterBultinNucleii()
 	RegisterBultinPersisters()
+
+	infoLog.New(nil)
+	debugLog.New(nil)
+
 	rand.Seed(time.Now().Unix()) // initialize global pseudo random generator
-	log = logger
 }
 
 func findDNA(path string) (f string, err error) {
@@ -133,13 +165,13 @@ func (s *Service) IsConfigured(name string) (f string, err error) {
 		return
 	}
 
-	// found a format now check that there's a store
-	p := path + "/" + StoreFileName + ".db"
-	if !fileExists(p) {
-		err = errors.New("chain store missing: " + p)
-		return
-	}
-
+	/*	// found a format now check that there's a store
+		p := path + "/" + StoreFileName + ".db"
+		if !fileExists(p) {
+			err = errors.New("chain store missing: " + p)
+			return
+		}
+	*/
 	return
 }
 
@@ -153,8 +185,8 @@ func (s *Service) Load(name string) (h *Holochain, err error) {
 	return
 }
 
-// New creates a new holochain structure with a randomly generated ID and default values
-func New(agent Agent, path string, format string, zomes ...Zome) Holochain {
+// NewHolochain creates a new holochain structure with a randomly generated ID and default values
+func NewHolochain(agent Agent, path string, format string, zomes ...Zome) Holochain {
 	u, err := uuid.NewUUID()
 	if err != nil {
 		panic(err)
@@ -175,7 +207,7 @@ func New(agent Agent, path string, format string, zomes ...Zome) Holochain {
 
 	h.PrepareHashType()
 	h.Zomes = make(map[string]*Zome)
-	for i, _ := range zomes {
+	for i := range zomes {
 		z := zomes[i]
 		h.Zomes[z.Name] = &z
 	}
@@ -223,6 +255,9 @@ func (s *Service) load(name string, format string) (hP *Holochain, err error) {
 	if err != nil {
 		return
 	}
+	if err = h.setupConfig(); err != nil {
+		return
+	}
 
 	// try and get the agent from the holochain instance
 	agent, err := LoadAgent(path)
@@ -241,18 +276,30 @@ func (s *Service) load(name string, format string) (hP *Holochain, err error) {
 		return
 	}
 
-	h.store, err = CreatePersister(BoltPersisterName, path+"/"+StoreFileName+".db")
-	if err != nil {
-		return
-	}
+	/*	h.store, err = CreatePersister(BoltPersisterName, path+"/"+StoreFileName+".db")
+		if err != nil {
+			return
+		}
 
-	err = h.store.Init()
-	if err != nil {
-		return
-	}
-
+		err = h.store.Init()
+		if err != nil {
+			return
+		}
+	*/
 	if err = h.PrepareHashType(); err != nil {
 		return
+	}
+
+	// if the chain has been started there will be a DNAHashFile which
+	// we can load to check against the actual hash of the DNA entry
+	var b []byte
+	b, err = readFile(h.path, DNAHashFileName)
+	if err == nil {
+		h.dnaHash, err = NewHash(string(b))
+		if err != nil {
+			return
+		}
+		// @TODO compare value from file to actual hash
 	}
 
 	h.chain, err = NewChainFromFile(h.hashSpec, path+"/"+StoreFileName+".dat")
@@ -293,7 +340,16 @@ func (h *Holochain) Prepare() (err error) {
 	if err = h.PrepareHashType(); err != nil {
 		return
 	}
-	for _, z := range h.Zomes {
+	for zomeType, z := range h.Zomes {
+		var n Nucleus
+		n, err = h.MakeNucleus(zomeType)
+		if err != nil {
+			return
+		}
+		if err = n.ChainRequires(); err != nil {
+			return
+		}
+
 		if !fileExists(h.path + "/" + z.Code) {
 			return errors.New("DNA specified code file missing: " + z.Code)
 		}
@@ -334,11 +390,11 @@ func (h *Holochain) Activate() (err error) {
 		}
 		e := h.BSpost()
 		if e != nil {
-			log.Debugf("error in BSpost: %s", e.Error())
+			h.dht.dlog.Logf("error in BSpost: %s", e.Error())
 		}
 		e = h.BSget()
 		if e != nil {
-			log.Debugf("error in BSget: %s", e.Error())
+			h.dht.dlog.Logf("error in BSget: %s", e.Error())
 		}
 	}
 	if h.config.PeerModeAuthor {
@@ -349,6 +405,7 @@ func (h *Holochain) Activate() (err error) {
 	return
 }
 
+/*
 // getMetaHash gets a value from the store that's a hash
 func (h *Holochain) getMetaHash(key string) (hash Hash, err error) {
 	v, err := h.store.GetMeta(key)
@@ -361,31 +418,28 @@ func (h *Holochain) getMetaHash(key string) (hash Hash, err error) {
 	}
 	return
 }
+*/
 
 // Path returns a holochain path
 func (h *Holochain) Path() string {
 	return h.path
 }
 
-// ID returns a holochain ID hash or err if not yet defined
-func (h *Holochain) ID() (id Hash, err error) {
-	id, err = h.getMetaHash(IDMetaKey)
-	return
+// DNAhash returns the hash of the DNA entry which is also the holochain ID
+func (h *Holochain) DNAhash() (id Hash) {
+	return h.dnaHash.Clone()
 }
 
 // Top returns a hash of top header or err if not yet defined
 func (h *Holochain) Top() (top Hash, err error) {
-	tp, err := h.getMetaHash(TopMetaKey)
+	tp := h.chain.Hashes[len(h.chain.Hashes)-1]
 	top = tp.Clone()
-
 	return
 }
 
-// Top returns a hash of top header of the given type or err if not yet defined
-func (h *Holochain) TopType(t string) (top Hash, err error) {
-	tp, err := h.getMetaHash(TopMetaKey + "_" + t)
-	top = tp.Clone()
-	return
+// Started returns true if the chain has been gened
+func (h *Holochain) Started() bool {
+	return h.DNAhash().String() != ""
 }
 
 // GenChain establishes a holochain instance by creating the initial genesis entries in the chain
@@ -393,20 +447,16 @@ func (h *Holochain) TopType(t string) (top Hash, err error) {
 // keys for signing.  See GenDev()
 func (h *Holochain) GenChain() (keyHash Hash, err error) {
 
-	defer func() {
-		if err != nil {
-			if err.Error() == "holochain: chain already started" {
-				return
-			}
-			panic("cleanup after failed gen not implemented!  Error was: " + err.Error())
-		}
-	}()
-
-	_, err = h.ID()
-	if err == nil {
+	if h.Started() {
 		err = mkErr("chain already started")
 		return
 	}
+
+	defer func() {
+		if err != nil {
+			panic("cleanup after failed gen not implemented!  Error was: " + err.Error())
+		}
+	}()
 
 	if err = h.Prepare(); err != nil {
 		return
@@ -422,6 +472,8 @@ func (h *Holochain) GenChain() (keyHash Hash, err error) {
 	if err != nil {
 		return
 	}
+
+	h.dnaHash = dnaHeader.EntryLink.Clone()
 
 	var k KeyEntry
 	k.Name = h.agent.Name()
@@ -440,11 +492,16 @@ func (h *Holochain) GenChain() (keyHash Hash, err error) {
 		return
 	}
 
-	err = h.store.PutMeta(IDMetaKey, dnaHeader.EntryLink.H)
-	if err != nil {
+	if err = writeFile(h.path, DNAHashFileName, []byte(h.dnaHash.String())); err != nil {
 		return
 	}
 
+	/*
+		err = h.store.PutMeta(IDMetaKey, dnaHeader.EntryLink.H)
+		if err != nil {
+			return
+		}
+	*/
 	err = h.dht.SetupDHT()
 	if err != nil {
 		return
@@ -499,8 +556,7 @@ func (s *Service) Clone(srcPath string, path string, new bool) (hP *Holochain, e
 		}
 
 		// make a config file
-		err = makeConfig(h, s)
-		if err != nil {
+		if err = makeConfig(h, s); err != nil {
 			return
 		}
 
@@ -567,11 +623,43 @@ type TestData struct {
 	Regexp string
 }
 
-func makeConfig(h *Holochain, s *Service) error {
-	h.config.Port = DefaultPort
-	h.config.PeerModeDHTNode = s.Settings.DefaultPeerModeDHTNode
-	h.config.PeerModeAuthor = s.Settings.DefaultPeerModeAuthor
-	h.config.BootstrapServer = s.Settings.DefaultBootstrapServer
+func (h *Holochain) setupConfig() (err error) {
+	if err = h.config.Loggers.App.New(nil); err != nil {
+		return
+	}
+	if err = h.config.Loggers.DHT.New(nil); err != nil {
+		return
+	}
+	if err = h.config.Loggers.Gossip.New(nil); err != nil {
+		return
+	}
+	if err = h.config.Loggers.TestPassed.New(nil); err != nil {
+		return
+	}
+	if err = h.config.Loggers.TestFailed.New(nil); err != nil {
+		return
+	}
+	if err = h.config.Loggers.TestInfo.New(nil); err != nil {
+		return
+	}
+	return
+}
+
+func makeConfig(h *Holochain, s *Service) (err error) {
+	h.config = Config{
+		Port:            DefaultPort,
+		PeerModeDHTNode: s.Settings.DefaultPeerModeDHTNode,
+		PeerModeAuthor:  s.Settings.DefaultPeerModeAuthor,
+		BootstrapServer: s.Settings.DefaultBootstrapServer,
+		Loggers: Loggers{
+			App:        Logger{Format: "%{color:cyan}%{message}", Enabled: true},
+			DHT:        Logger{Format: "%{color:yellow}%{time} DHT: %{message}"},
+			Gossip:     Logger{Format: "%{color:blue}%{time} Gossip: %{message}"},
+			TestPassed: Logger{Format: "%{color:green}%{message}", Enabled: true},
+			TestFailed: Logger{Format: "%{color:red}%{message}", Enabled: true},
+			TestInfo:   Logger{Format: "%{message}", Enabled: true},
+		},
+	}
 
 	p := h.path + "/" + ConfigFileName + "." + h.encodingFormat
 	f, err := os.Create(p)
@@ -580,7 +668,13 @@ func makeConfig(h *Holochain, s *Service) error {
 	}
 	defer f.Close()
 
-	return Encode(f, h.encodingFormat, &h.config)
+	if err = Encode(f, h.encodingFormat, &h.config); err != nil {
+		return
+	}
+	if err = h.setupConfig(); err != nil {
+		return
+	}
+	return
 }
 
 // GenDev generates starter holochain DNA files from which to develop a chain
@@ -592,32 +686,31 @@ func (s *Service) GenDev(path string, format string) (hP *Holochain, err error) 
 		}
 
 		zomes := []Zome{
-			Zome{Name: "myZome",
+			{Name: "myZome",
 				Description: "this is a zygomas test zome",
 				NucleusType: ZygoNucleusType,
 				Entries: map[string]EntryDef{
-					"myData":  EntryDef{Name: "myData", DataFormat: DataFormatRawZygo},
-					"primes":  EntryDef{Name: "primes", DataFormat: DataFormatJSON},
-					"profile": EntryDef{Name: "profile", DataFormat: DataFormatJSON, Schema: "schema_profile.json"},
+					"myData":  {Name: "myData", DataFormat: DataFormatRawZygo},
+					"primes":  {Name: "primes", DataFormat: DataFormatJSON},
+					"profile": {Name: "profile", DataFormat: DataFormatJSON, Schema: "schema_profile.json"},
 				},
 			},
-			Zome{Name: "jsZome",
+			{Name: "jsZome",
 				Description: "this is a javascript test zome",
 				NucleusType: JSNucleusType,
 				Entries: map[string]EntryDef{
-					"myOdds":  EntryDef{Name: "myOdds", DataFormat: DataFormatRawJS},
-					"profile": EntryDef{Name: "profile", DataFormat: DataFormatJSON, Schema: "schema_profile.json"},
+					"myOdds":  {Name: "myOdds", DataFormat: DataFormatRawJS},
+					"profile": {Name: "profile", DataFormat: DataFormatJSON, Schema: "schema_profile.json"},
 				},
 			},
 		}
 
-		h := New(agent, path, format, zomes...)
+		h := NewHolochain(agent, path, format, zomes...)
 
 		// use the path as the name
 		h.Name = filepath.Base(path)
 
-		err = makeConfig(&h, s)
-		if err != nil {
+		if err = makeConfig(&h, s); err != nil {
 			return
 		}
 
@@ -665,37 +758,37 @@ func (s *Service) GenDev(path string, format string) (hP *Holochain, err error) 
 		}
 
 		fixtures := [7]TestData{
-			TestData{
+			{
 				Zome:   "myZome",
 				FnName: "addData",
 				Input:  "2",
 				Output: "%h%"},
-			TestData{
+			{
 				Zome:   "myZome",
 				FnName: "addData",
 				Input:  "4",
 				Output: "%h%"},
-			TestData{
+			{
 				Zome:   "myZome",
 				FnName: "addData",
 				Input:  "5",
 				Err:    "Error calling 'commit': Invalid entry: 5"},
-			TestData{
+			{
 				Zome:   "myZome",
 				FnName: "addPrime",
 				Input:  "{\"prime\":7}",
 				Output: "\"%h%\""}, // quoted because return value is json
-			TestData{
+			{
 				Zome:   "myZome",
 				FnName: "addPrime",
 				Input:  "{\"prime\":4}",
 				Err:    `Error calling 'commit': Invalid entry: {"Atype":"hash", "prime":4, "zKeyOrder":["prime"]}`},
-			TestData{
+			{
 				Zome:   "jsZome",
 				FnName: "addProfile",
 				Input:  `{"firstName":"Art","lastName":"Brock"}`,
 				Output: `"%h%"`},
-			TestData{
+			{
 				Zome:   "jsZome",
 				FnName: "getProperty",
 				Input:  "_id",
@@ -703,12 +796,12 @@ func (s *Service) GenDev(path string, format string) (hP *Holochain, err error) 
 		}
 
 		fixtures2 := [2]TestData{
-			TestData{
+			{
 				Zome:   "jsZome",
 				FnName: "addOdd",
 				Input:  "7",
 				Output: "%h%"},
-			TestData{
+			{
 				Zome:   "jsZome",
 				FnName: "addOdd",
 				Input:  "2",
@@ -767,7 +860,7 @@ function genesis() {return true}
 			return nil, err
 		}
 
-		for n, _ := range h.Zomes {
+		for n := range h.Zomes {
 			z, _ := h.Zomes[n]
 			switch z.NucleusType {
 			case JSNucleusType:
@@ -841,16 +934,17 @@ func gen(path string, makeH func(path string) (hP *Holochain, err error)) (h *Ho
 		return
 	}
 
-	h.store, err = CreatePersister(BoltPersisterName, path+"/"+StoreFileName+".db")
-	if err != nil {
-		return
-	}
+	/*
+		h.store, err = CreatePersister(BoltPersisterName, path+"/"+StoreFileName+".db")
+		if err != nil {
+			return
+		}
 
-	err = h.store.Init()
-	if err != nil {
-		return
-	}
-
+		err = h.store.Init()
+		if err != nil {
+			return
+		}
+	*/
 	err = h.SaveDNA(false)
 	if err != nil {
 		return
@@ -915,48 +1009,48 @@ func (h *Holochain) GenDNAHashes() (err error) {
 }
 
 // NewEntry adds an entry and it's header to the chain and returns the header and it's hash
-func (h *Holochain) NewEntry(now time.Time, t string, entry Entry) (hash Hash, header *Header, err error) {
+func (h *Holochain) NewEntry(now time.Time, entryType string, entry Entry) (hash Hash, header *Header, err error) {
 
-	// this is extra for now.
-	_, err = h.chain.AddEntry(h.hashSpec, now, t, entry, h.agent.PrivKey())
-	if err != nil {
-		return
+	var l int
+	l, hash, header, err = h.chain.PrepareHeader(h.hashSpec, now, entryType, entry, h.agent.PrivKey())
+	if err == nil {
+		err = h.chain.addEntry(l, hash, header, entry)
 	}
+	/*
+		// get the current top of the chain
+		ph, err := h.Top()
+		if err != nil {
+			ph = NullHash()
+		}
 
-	// get the current top of the chain
-	ph, err := h.Top()
-	if err != nil {
-		ph = NullHash()
-	}
+		// and also the the top entry of this type
+		pth, err := h.TopType(t)
+		if err != nil {
+			pth = NullHash()
+		}
 
-	// and also the the top entry of this type
-	pth, err := h.TopType(t)
-	if err != nil {
-		pth = NullHash()
-	}
+		hash, header, err = newHeader(h.hashSpec, now, t, entry, h.agent.PrivKey(), ph, pth)
+		if err != nil {
+			return
+		}
 
-	hash, header, err = newHeader(h.hashSpec, now, t, entry, h.agent.PrivKey(), ph, pth)
-	if err != nil {
-		return
-	}
+		// @TODO
+		// we have to do this stuff because currently we are persisting immediatly.
+		// instead we should be persisting from the Chain object.
 
-	// @TODO
-	// we have to do this stuff because currently we are persisting immediatly.
-	// instead we should be persisting from the Chain object.
+		// encode the header for saving
+		b, err := header.Marshal()
+		if err != nil {
+			return
+		}
+		// encode the entry into bytes
+		m, err := entry.Marshal()
+		if err != nil {
+			return
+		}
 
-	// encode the header for saving
-	b, err := header.Marshal()
-	if err != nil {
-		return
-	}
-	// encode the entry into bytes
-	m, err := entry.Marshal()
-	if err != nil {
-		return
-	}
-
-	err = h.store.Put(t, hash, b, header.EntryLink, m)
-
+		err = h.store.Put(t, hash, b, header.EntryLink, m)
+	*/
 	return
 }
 
@@ -980,44 +1074,9 @@ func get(hb *bolt.Bucket, eb *bolt.Bucket, key []byte, getEntry bool) (header He
 	return
 }
 
-func (h *Holochain) Walk(fn func(key *Hash, h *Header, entry interface{}) error, entriesToo bool) (err error) {
-	nullHash := NullHash()
-	err = h.store.(*BoltPersister).DB().View(func(tx *bolt.Tx) error {
-		hb := tx.Bucket([]byte(HeaderBucket))
-		eb := tx.Bucket([]byte(EntryBucket))
-		mb := tx.Bucket([]byte(MetaBucket))
-		key := mb.Get([]byte(TopMetaKey))
-
-		var keyH Hash
-		var header Header
-		var visited = make(map[string]bool)
-		for err == nil && !bytes.Equal(nullHash.H, key) {
-			keyH.H = key
-			// build up map of all visited headers to prevent loops
-			s := string(key)
-			_, present := visited[s]
-			if present {
-				err = errors.New("loop detected in walk")
-			} else {
-				visited[s] = true
-				var e interface{}
-				header, e, err = get(hb, eb, key, entriesToo)
-				if err == nil {
-					err = fn(&keyH, &header, e)
-					key = header.HeaderLink.H
-				}
-			}
-		}
-		if err != nil {
-			return err
-		}
-		// if the last item doesn't gets us to bottom, i.e. the header who's entry link is
-		// the same as ID key then, the chain is invalid...
-		if !bytes.Equal(header.EntryLink.H, mb.Get([]byte(IDMetaKey))) {
-			return errors.New("chain didn't end at DNA!")
-		}
-		return err
-	})
+//func(key *Hash, h *Header, entry interface{}) error
+func (h *Holochain) Walk(fn WalkerFn, entriesToo bool) (err error) {
+	err = h.chain.Walk(fn)
 	return
 }
 
@@ -1026,7 +1085,7 @@ func (h *Holochain) Walk(fn func(key *Hash, h *Header, entry interface{}) error,
 // if the holochain file was copied from somewhere you can consider this a self-check
 func (h *Holochain) Validate(entriesToo bool) (valid bool, err error) {
 
-	err = h.Walk(func(key *Hash, header *Header, entry interface{}) (err error) {
+	err = h.Walk(func(key *Hash, header *Header, entry Entry) (err error) {
 		// confirm the correctness of the header hash
 
 		var bH Hash
@@ -1090,7 +1149,7 @@ func (h *Holochain) ValidateEntry(entryType string, entry Entry, props *Validati
 		} else {
 			input = entry
 		}
-		log.Debugf("Validating %v against schema", input)
+		Debugf("Validating %v against schema", input)
 		if err = d.validator.Validate(input); err != nil {
 			return
 		}
@@ -1190,7 +1249,7 @@ func (h *Holochain) TestStringReplacements(input, r1, r2, r3 string) string {
 	// get the top hash for substituting for %h% in the test expectation
 	top := h.chain.Top().EntryLink
 	// get the id hash for substituting for %id% in the test expectation
-	id, _ := h.ID()
+	id := h.DNAhash()
 
 	var output string
 	output = strings.Replace(input, "%h%", top.String(), -1)
@@ -1207,9 +1266,13 @@ func (h *Holochain) TestStringReplacements(input, r1, r2, r3 string) string {
 // This function is useful only in the context of developing a holochain and will return
 // an error if the chain has already been started (i.e. has genesis entries)
 func (h *Holochain) Test() []error {
-	_, err := h.ID()
+	info := h.config.Loggers.TestInfo
+	passed := h.config.Loggers.TestPassed
+	failed := h.config.Loggers.TestFailed
+
+	var err error
 	var errs []error
-	if err == nil {
+	if h.Started() {
 		err = errors.New("chain already started")
 		return []error{err}
 	}
@@ -1222,77 +1285,79 @@ func (h *Holochain) Test() []error {
 
 	var lastResults [3]interface{}
 	for name, ts := range tests {
-		log.Infof("========================================")
-		log.Infof("Test: '%s' starting...", name)
-		log.Infof("========================================")
+		info.p("========================================")
+		info.pf("Test: '%s' starting...", name)
+		info.p("========================================")
 		// setup the genesis entries
 		err = h.Reset()
 		_, err = h.GenChain()
+		if err != nil {
+			panic("gen err " + err.Error())
+		}
 		go h.dht.HandlePutReqs()
 		for i, t := range ts {
-			log.Debugf("------------------------------")
-			log.Infof("Test '%s' line %d: %s", name, i, t)
+			Debugf("------------------------------")
+			info.pf("Test '%s' line %d: %s", name, i, t)
 			time.Sleep(time.Millisecond * 10)
 			if err == nil {
 				testID := fmt.Sprintf("%s:%d", name, i)
 				input := t.Input
-				log.Debugf("Input before replacement: %s", input)
+				Debugf("Input before replacement: %s", input)
 				r1 := strings.Trim(fmt.Sprintf("%v", lastResults[0]), "\"")
 				r2 := strings.Trim(fmt.Sprintf("%v", lastResults[1]), "\"")
 				r3 := strings.Trim(fmt.Sprintf("%v", lastResults[2]), "\"")
 				input = h.TestStringReplacements(input, r1, r2, r3)
-				log.Debugf("Input after replacement: %s", input)
+				Debugf("Input after replacement: %s", input)
 				//====================
 				var actualResult, actualError = h.Call(t.Zome, t.FnName, input)
 				var expectedResult, expectedError = t.Output, t.Err
 				var expectedResultRegexp = t.Regexp
 				//====================
-				//log.Infof("Test: %s result:%v, Err:%v", testID, result, err)
 				lastResults[2] = lastResults[1]
 				lastResults[1] = lastResults[0]
 				lastResults[0] = actualResult
 				if expectedError != "" {
 					comparisonString := fmt.Sprintf("\nTest: %s\n\tExpected error:\t%v\n\tGot error:\t\t%v", testID, expectedError, actualError)
 					if actualError == nil || (actualError.Error() != expectedError) {
-						color.Red("\n=====================\n%s\n\tfailed! m(\n=====================", comparisonString)
+						failed.pf("\n=====================\n%s\n\tfailed! m(\n=====================", comparisonString)
 						err = fmt.Errorf(expectedError)
 					} else {
 						// all fine
-						log.Debugf("%s\n\tpassed :D", comparisonString)
+						Debugf("%s\n\tpassed :D", comparisonString)
 						err = nil
 					}
 				} else {
 					if actualError != nil {
 						errorString := fmt.Sprintf("\nTest: %s\n\tExpected:\t%s\n\tGot Error:\t\t%s\n", testID, expectedResult, actualError)
 						err = fmt.Errorf(errorString)
-						color.Red(fmt.Sprintf("\n=====================\n%s\n\tfailed! m(\n=====================", errorString))
+						failed.pf(fmt.Sprintf("\n=====================\n%s\n\tfailed! m(\n=====================", errorString))
 					} else {
 						var resultString = ToString(actualResult)
 						var match bool
 						var comparisonString string
 						if expectedResultRegexp != "" {
-							log.Debugf("Test %s matching against regexp...", testID)
+							Debugf("Test %s matching against regexp...", testID)
 							expectedResultRegexp = h.TestStringReplacements(expectedResultRegexp, r1, r2, r3)
 							comparisonString = fmt.Sprintf("\nTest: %s\n\tExpected regexp:\t%v\n\tGot:\t\t%v", testID, expectedResultRegexp, resultString)
 							var matchError error
 							match, matchError = regexp.MatchString(expectedResultRegexp, resultString)
 							//match, matchError = regexp.MatchString("[0-9]", "7")
 							if matchError != nil {
-								log.Infof(err.Error())
+								Infof(err.Error())
 							}
 						} else {
-							log.Debugf("Test %s matching against string...", testID)
+							Debugf("Test %s matching against string...", testID)
 							expectedResult = h.TestStringReplacements(expectedResult, r1, r2, r3)
 							comparisonString = fmt.Sprintf("\nTest: %s\n\tExpected:\t%v\n\tGot:\t\t%v", testID, expectedResult, resultString)
 							match = (resultString == expectedResult)
 						}
 
 						if match {
-							log.Debugf("%s\n\tpassed! :D", comparisonString)
-							color.Green("passed! ✔")
+							Debugf("%s\n\tpassed! :D", comparisonString)
+							passed.p("passed! ✔")
 						} else {
 							err = fmt.Errorf(comparisonString)
-							color.Red(fmt.Sprintf("\n=====================\n%s\n\tfailed! m(\n=====================", comparisonString))
+							failed.pf(fmt.Sprintf("\n=====================\n%s\n\tfailed! m(\n=====================", comparisonString))
 						}
 					}
 				}
@@ -1310,9 +1375,9 @@ func (h *Holochain) Test() []error {
 		}
 	}
 	if len(errs) == 0 {
-		color.Green(fmt.Sprintf("\n==================================================================\n\t\t+++++ All tests passed :D +++++\n=================================================================="))
+		passed.p(fmt.Sprintf("\n==================================================================\n\t\t+++++ All tests passed :D +++++\n=================================================================="))
 	} else {
-		color.Red(fmt.Sprintf("\n==================================================================\n\t\t+++++ %d test(s) failed :( +++++\n==================================================================", len(errs)))
+		failed.pf(fmt.Sprintf("\n==================================================================\n\t\t+++++ %d test(s) failed :( +++++\n==================================================================", len(errs)))
 	}
 	return errs
 }
@@ -1320,16 +1385,13 @@ func (h *Holochain) Test() []error {
 // GetProperty returns the value of a DNA property
 func (h *Holochain) GetProperty(prop string) (property string, err error) {
 	if prop == ID_PROPERTY {
-		var id Hash
-		id, err = h.ID()
-		if err != nil {
-			property = ""
-		} else {
-			property = id.String()
-		}
+		ChangeAppProperty.Log()
+		property = h.DNAhash().String()
 	} else if prop == AGENT_ID_PROPERTY {
+		ChangeAppProperty.Log()
 		property = peer.IDB58Encode(h.id)
 	} else if prop == AGENT_NAME_PROPERTY {
+		ChangeAppProperty.Log()
 		property = string(h.Agent().Name())
 	} else {
 		property = h.Properties[prop]
@@ -1340,11 +1402,18 @@ func (h *Holochain) GetProperty(prop string) (property string, err error) {
 // Reset deletes all chain and dht data and resets data structures
 func (h *Holochain) Reset() (err error) {
 
+	h.dnaHash = Hash{}
+
 	if h.chain.s != nil {
 		h.chain.s.Close()
 	}
 
-	err = h.store.Remove()
+	/*	err = h.store.Remove()
+		if err != nil {
+			panic(err)
+		}
+	*/
+	err = os.RemoveAll(h.path + "/" + DNAHashFileName)
 	if err != nil {
 		panic(err)
 	}
@@ -1357,12 +1426,12 @@ func (h *Holochain) Reset() (err error) {
 	if err != nil {
 		panic(err)
 	}
-
-	err = h.store.Init()
-	if err != nil {
-		panic(err)
-	}
-
+	/*
+		err = h.store.Init()
+		if err != nil {
+			panic(err)
+		}
+	*/
 	h.chain = NewChain()
 	h.dht = NewDHT(h)
 	return

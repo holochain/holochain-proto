@@ -38,9 +38,10 @@ type Interface struct {
 // ValidationProps holds the properties passed to the application validation routine
 // This includes the Headers and Sources
 type ValidationProps struct {
-	Sources []string // B58 encoded peer
-	Headers []Header
-	MetaTag string // if validating a putMeta this will have the meta type set
+	Sources  []string // B58 encoded peer
+	Hash     string
+	MetaTag  string // if validating a putMeta this will have the meta type set
+	MetaHash string
 }
 
 // Nucleus type abstracts the functions of code execution environments
@@ -48,6 +49,7 @@ type Nucleus interface {
 	Type() string
 	ValidateEntry(def *EntryDef, entry Entry, props *ValidationProps) error
 	ChainGenesis() error
+	ChainRequires() error
 	expose(iface Interface) error
 	Interfaces() (i []Interface)
 	Call(iface string, params interface{}) (interface{}, error)

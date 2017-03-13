@@ -27,7 +27,7 @@ func TestSetupDHT(t *testing.T) {
 	err := h.dht.SetupDHT()
 	Convey("it should add the holochain ID to the DHT", t, func() {
 		So(err, ShouldBeNil)
-		ID, _ := h.ID()
+		ID := h.DNAhash()
 		So(h.dht.exists(ID), ShouldBeNil)
 	})
 }
@@ -103,14 +103,15 @@ func TestPutGetMeta(t *testing.T) {
 		So(len(data), ShouldEqual, 2)
 		m := data[0]
 
-		So(m.Content(), ShouldEqual, "value 1")
+		So(m.E.Content(), ShouldEqual, "value 1")
 		m = data[1]
-		So(m.Content(), ShouldEqual, "value 2")
+		So(m.E.Content(), ShouldEqual, "value 2")
 
 		data, err = dht.getMeta(hash, "otherType")
 		So(err, ShouldBeNil)
 		So(len(data), ShouldEqual, 1)
-		So(data[0].Content(), ShouldEqual, "value 3")
+		So(data[0].E.Content(), ShouldEqual, "value 3")
+		So(data[0].H, ShouldEqual, metaHash1.String())
 	})
 }
 
@@ -240,7 +241,8 @@ func TestDHTReceiver(t *testing.T) {
 		// check that it got put
 		meta, err := h.dht.getMeta(hash, "myMetaTag")
 		So(err, ShouldBeNil)
-		So(meta[0].Content(), ShouldEqual, someData)
+		So(meta[0].E.Content(), ShouldEqual, someData)
+		So(meta[0].H, ShouldEqual, hd.EntryLink.String())
 	})
 
 	Convey("GETMETA_REQUEST should retrieve meta values", t, func() {
@@ -248,8 +250,8 @@ func TestDHTReceiver(t *testing.T) {
 		m := h.node.NewMessage(GETMETA_REQUEST, mq)
 		r, err := DHTReceiver(h, m)
 		So(err, ShouldBeNil)
-		results := r.([]Entry)
-		So(results[0].Content(), ShouldEqual, someData)
+		results := r.(MetaQueryResp)
+		So(results.Entries[0].E.Content(), ShouldEqual, someData)
 	})
 
 	Convey("GOSSIP_REQUEST should request and advertise data by idx", t, func() {

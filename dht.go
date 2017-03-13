@@ -30,6 +30,8 @@ type DHT struct {
 	db        *buntdb.DB
 	puts      chan *Message
 	gossiping bool
+	glog      Logger // the gossip logger
+	dlog      Logger // the dht logger
 }
 
 // Meta holds data that can be associated with a hash
@@ -70,7 +72,7 @@ type GetReq struct {
 type MetaReq struct {
 	O Hash   // original data on which to put the meta
 	M Hash   // hash of the meta-data
-	T string // meta type
+	T string // type of the meta-data
 }
 
 // MetaQuery holds a getMeta query
@@ -79,6 +81,17 @@ type MetaQuery struct {
 	T string
 	// order
 	// filter, etc
+}
+
+// MetaEntry holds associated entries
+type MetaEntry struct {
+	E Entry
+	H string
+}
+
+// MetaQueryResp holds response to getMeta query
+type MetaQueryResp struct {
+	Entries []MetaEntry
 }
 
 // Put holds a put or putmeta for gossiping
@@ -120,17 +133,18 @@ func NewDHT(h *Holochain) *DHT {
 	dht.db = db
 	dht.puts = make(chan *Message, 10)
 
+	dht.glog = h.config.Loggers.Gossip
+	dht.dlog = h.config.Loggers.DHT
+
 	return &dht
 }
 
 // SetupDHT prepares a DHT for use by adding the holochain's ID
 func (dht *DHT) SetupDHT() (err error) {
 	var ID Hash
-	ID, err = dht.h.ID()
-	if err != nil {
-		return
-	}
+	ID = dht.h.DNAhash()
 	x := ""
+	// put the holochain ID so it always exists for putmeta
 	err = dht.put(nil, ID, dht.h.id, []byte(x), LIVE)
 	return
 }
@@ -175,7 +189,6 @@ func getIntVal(key string, tx *buntdb.Tx) (idx int, err error) {
 	} else if err != nil {
 		return
 	} else {
-		log.Debugf("GgetIntVal of %s", val)
 		idx, err = strconv.Atoi(val)
 		if err != nil {
 			return
@@ -241,7 +254,6 @@ func (dht *DHT) FindGossiper() (g *Gossiper, err error) {
 
 	err = dht.db.View(func(tx *buntdb.Tx) error {
 		err = tx.Ascend("peer", func(key, value string) bool {
-			log.Debugf("xxx %s, %s", key, value)
 			x := strings.Split(key, ":")
 			id, e := peer.IDB58Decode(x[1])
 			if e != nil {
@@ -265,7 +277,7 @@ func (dht *DHT) FindGossiper() (g *Gossiper, err error) {
 
 // UpdateGossiper updates a gossiper
 func (dht *DHT) UpdateGossiper(id peer.ID, count int) (err error) {
-	log.Debugf("Gossiper: adding %v with %d", id, count)
+	dht.glog.Logf("updaing %v with %d", id, count)
 	err = dht.db.Update(func(tx *buntdb.Tx) error {
 		key := "peer:" + peer.IDB58Encode(id)
 		idx, e := getIntVal(key, tx)
@@ -286,7 +298,7 @@ func (dht *DHT) UpdateGossiper(id peer.ID, count int) (err error) {
 // N.B. This call assumes that the value has already been validated
 func (dht *DHT) put(m *Message, key Hash, src peer.ID, value []byte, status int) (err error) {
 	k := key.String()
-	log.Debugf("DHT put: %v=>%s", key, string(value))
+	dht.dlog.Logf("put %v=>%s", key, string(value))
 	err = dht.db.Update(func(tx *buntdb.Tx) error {
 		err := incIdx(tx, m)
 		if err != nil {
@@ -358,7 +370,7 @@ func (dht *DHT) get(key Hash) (data []byte, status int, err error) {
 // N.B. this function assumes that the data associated has been properly retrieved
 // and validated from the cource chain
 func (dht *DHT) putMeta(m *Message, key Hash, metaKey Hash, metaTag string, entry Entry) (err error) {
-	log.Debugf("DHT putmeta: on %v %v=>%v as %s", key, metaKey, entry, metaTag)
+	dht.dlog.Logf("putmeta on %v %v=>%v as %s", key, metaKey, entry, metaTag)
 	k := key.String()
 	err = dht.db.Update(func(tx *buntdb.Tx) error {
 		_, err := tx.Get("entry:" + k)
@@ -398,14 +410,14 @@ func filter(ss []Meta, test func(*Meta) bool) (ret []Meta) {
 }
 
 // getMeta retrieves values associated with hashes
-func (dht *DHT) getMeta(key Hash, metaTag string) (results []Entry, err error) {
+func (dht *DHT) getMeta(key Hash, metaTag string) (results []MetaEntry, err error) {
 	k := key.String()
 	err = dht.db.View(func(tx *buntdb.Tx) error {
 		_, err := tx.Get("entry:" + k)
 		if err == buntdb.ErrNotFound {
 			return ErrHashNotFound
 		}
-		results = make([]Entry, 0)
+		results = make([]MetaEntry, 0)
 		err = tx.Ascend("meta", func(key, value string) bool {
 			x := strings.Split(key, ":")
 			if string(x[1]) == k && string(x[3]) == metaTag {
@@ -414,7 +426,8 @@ func (dht *DHT) getMeta(key Hash, metaTag string) (results []Entry, err error) {
 				if err != nil {
 					return false
 				}
-				results = append(results, &entry)
+				metaEntry := MetaEntry{E: &entry, H: x[2]}
+				results = append(results, metaEntry)
 			}
 			return true
 		})
@@ -423,7 +436,6 @@ func (dht *DHT) getMeta(key Hash, metaTag string) (results []Entry, err error) {
 		}
 		return err
 	})
-
 	return
 }
 
@@ -495,14 +507,14 @@ func (dht *DHT) FindNodeForHash(key Hash) (n *Node, err error) {
 // HandlePutReqs waits on a chanel for messages to handle
 func (dht *DHT) HandlePutReqs() (err error) {
 	for {
-		log.Debug("HandlePutReq: waiting for put request")
+		dht.dlog.Log("HandlePutReq: waiting for put request")
 		m, ok := <-dht.puts
 		if !ok {
 			break
 		}
 		err = dht.handlePutReq(m)
 		if err != nil {
-			log.Debugf("HandlePutReq: got err: %v", err)
+			dht.dlog.Logf("HandlePutReq: got err: %v", err)
 		}
 	}
 	return nil
@@ -512,14 +524,17 @@ func (dht *DHT) handlePutReq(m *Message) (err error) {
 	from := m.From
 	switch t := m.Body.(type) {
 	case PutReq:
-		log.Debugf("handling put: %v", m)
+		dht.dlog.Logf("handling put: %v", m)
 		var r interface{}
 		r, err = dht.h.Send(SourceProtocol, from, SRC_VALIDATE, t.H, SrcReceiver)
 		if err != nil {
 			return
 		}
 		resp := r.(*ValidateResponse)
-		p := ValidationProps{Sources: []string{peer.IDB58Encode(from)}}
+		p := ValidationProps{
+			Sources: []string{peer.IDB58Encode(from)},
+			Hash:    t.H.String(),
+		}
 		err = dht.h.ValidateEntry(resp.Type, resp.Entry, &p)
 		if err != nil {
 			//@todo store as INVALID
@@ -531,14 +546,18 @@ func (dht *DHT) handlePutReq(m *Message) (err error) {
 			}
 		}
 	case MetaReq:
-		log.Debugf("handling putmeta: %v", m)
+		dht.dlog.Logf("handling putmeta: %v", m)
 		var r interface{}
 		r, err = dht.h.Send(SourceProtocol, from, SRC_VALIDATE, t.M, SrcReceiver)
 		if err != nil {
 			return
 		}
 		resp := r.(*ValidateResponse)
-		p := ValidationProps{MetaTag: t.T, Sources: []string{peer.IDB58Encode(from)}}
+		p := ValidationProps{
+			MetaTag:  t.T,
+			Sources:  []string{peer.IDB58Encode(from)},
+			MetaHash: t.M.String(),
+		}
 		err = dht.h.ValidateEntry(resp.Type, resp.Entry, &p)
 		if err != nil {
 			//@todo store as INVALID
@@ -553,9 +572,10 @@ func (dht *DHT) handlePutReq(m *Message) (err error) {
 
 // DHTReceiver handles messages on the dht protocol
 func DHTReceiver(h *Holochain, m *Message) (response interface{}, err error) {
+	dht := h.dht
 	switch m.Type {
 	case PUT_REQUEST:
-		log.Debug("DHTRecevier got PUT_REQUEST: %v", m)
+		dht.dlog.Logf("DHTRecevier got PUT_REQUEST: %v", m)
 		switch m.Body.(type) {
 		case PutReq:
 			h.dht.puts <- m
@@ -565,7 +585,7 @@ func DHTReceiver(h *Holochain, m *Message) (response interface{}, err error) {
 		}
 		return
 	case GET_REQUEST:
-		log.Debug("DHTRecevier got GET_REQUEST: %v", m)
+		dht.dlog.Logf("DHTRecevier got GET_REQUEST: %v", m)
 		switch t := m.Body.(type) {
 		case GetReq:
 			var b []byte
@@ -583,30 +603,35 @@ func DHTReceiver(h *Holochain, m *Message) (response interface{}, err error) {
 		}
 		return
 	case PUTMETA_REQUEST:
-		log.Debug("DHTRecevier got PUTMETA_REQUEST: %v", m)
+		dht.dlog.Logf("DHTRecevier got PUTMETA_REQUEST: %v", m)
 		switch t := m.Body.(type) {
 		case MetaReq:
 			err = h.dht.exists(t.O)
 			if err == nil {
 				h.dht.puts <- m
 				response = "queued"
+			} else {
+				dht.dlog.Logf("DHTRecevier key %v doesn't exist, ignoring", t.O)
 			}
+
 		default:
 			err = ErrDHTExpectedMetaReqInBody
 		}
 	case GETMETA_REQUEST:
-		log.Debug("DHTRecevier got GETMETA_REQUEST: %v", m)
+		dht.dlog.Logf("DHTRecevier got GETMETA_REQUEST: %v", m)
 		switch t := m.Body.(type) {
 		case MetaQuery:
-			response, err = h.dht.getMeta(t.H, t.T)
+			var r MetaQueryResp
+			r.Entries, err = h.dht.getMeta(t.H, t.T)
+			response = r
 		default:
 			err = ErrDHTExpectedMetaQueryInBody
 		}
 	case GOSSIP_REQUEST:
-		log.Debug("DHTRecevier got GOSSIP_REQUEST: %v", m)
+		dht.glog.Logf("DHTRecevier got GOSSIP_REQUEST: %v", m)
 		switch t := m.Body.(type) {
 		case GossipReq:
-			log.Debugf("Gossip: %v wants my puts since %d and is at %d", m.From, t.YourIdx, t.MyIdx)
+			dht.glog.Logf("%v wants my puts since %d and is at %d", m.From, t.YourIdx, t.MyIdx)
 
 			// give the gossiper what they want
 			var puts []Put
@@ -618,11 +643,11 @@ func DHTReceiver(h *Holochain, m *Message) (response interface{}, err error) {
 			// that where they are currently at, gossip back
 			idx, e := h.dht.GetGossiper(m.From)
 			if e == nil && idx < t.MyIdx {
-				log.Debugf("Gossip: we only have %d from %v so gossiping back", idx, m.From)
+				dht.glog.Logf("we only have %d from %v so gossiping back", idx, m.From)
 				go func() {
 					e := h.dht.gossipWith(m.From, idx)
 					if e != nil {
-						log.Debugf("Gossip: gossip back returned error: %v", e)
+						dht.glog.Logf("gossip back returned error: %v", e)
 					}
 				}()
 			}
@@ -645,7 +670,7 @@ func (dht *DHT) StartDHT() (err error) {
 
 // gossipWith gossips with an peer asking for everything after since
 func (dht *DHT) gossipWith(id peer.ID, after int) (err error) {
-	log.Debugf("Gossip: with %v", id)
+	dht.glog.Logf("with %v", id)
 
 	var myIdx int
 	myIdx, err = dht.GetIdx()
@@ -661,14 +686,14 @@ func (dht *DHT) gossipWith(id peer.ID, after int) (err error) {
 
 	gossip := r.(Gossip)
 	puts := gossip.Puts
-	log.Debugf("Gossip: received puts: %v", puts)
+	dht.glog.Logf("received puts: %v", puts)
 
 	// gossiper has more stuff that we new about before so update the gossipers status
 	// and also run their puts
 	if len(puts) > 0 {
 		err = dht.UpdateGossiper(id, len(puts))
 		for _, p := range puts {
-			log.Debug("Gossip: running puts")
+			dht.glog.Log("running puts")
 			DHTReceiver(dht.h, &p.M)
 		}
 	}
@@ -694,7 +719,7 @@ func (dht *DHT) Gossip(interval time.Duration) {
 	for dht.gossiping {
 		err := dht.gossip()
 		if err != nil {
-			log.Debugf("Gossip error: %v", err)
+			dht.glog.Logf("error: %v", err)
 		}
 		time.Sleep(interval)
 	}

@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	holo "github.com/metacurrency/holochain"
-	"github.com/op/go-logging"
 	"github.com/urfave/cli"
 	"os"
 	"os/user"
@@ -15,7 +14,6 @@ import (
 
 var uninitialized error
 var initialized bool
-var log *logging.Logger
 
 var verbose bool
 var debug bool
@@ -254,21 +252,18 @@ func setupApp() (app *cli.App) {
 					return err
 				}
 
-				id, err := h.ID()
-
-				if err != nil && (err.Error() == "holochain: Meta key 'id' uninitialized") {
+				if !h.Started() {
 					return errors.New("No data to dump, chain not yet initialized.")
 				}
-				if err != nil {
-					return err
-				}
-				fmt.Printf("Chain: %s\n", id)
+				dnaHash := h.DNAhash()
+
+				fmt.Printf("Chain: %s\n", dnaHash)
 
 				links := make(map[string]holo.Header)
 				index := make(map[int]string)
 				entries := make(map[int]interface{})
 				idx := 0
-				err = h.Walk(func(key *holo.Hash, header *holo.Header, entry interface{}) (err error) {
+				err = h.Walk(func(key *holo.Hash, header *holo.Header, entry holo.Entry) (err error) {
 					ks := (*key).String()
 					index[idx] = ks
 					links[ks] = *header
@@ -389,16 +384,12 @@ func setupApp() (app *cli.App) {
 				if err != nil {
 					return err
 				}
-				id, err := h.ID()
-				if err != nil {
-					if err.Error() == "holochain: Meta key 'id' uninitialized" {
-						return fmt.Errorf("Can't serve an un-started chain. Run 'gen chain %s' to generate genesis entries and start the chain.", h.Name)
-					}
-					return err
+				if !h.Started() {
+					return fmt.Errorf("Can't serve an un-started chain. Run 'gen chain %s' to generate genesis entries and start the chain.", h.Name)
 				}
 
 				if verbose {
-					fmt.Printf("Serving holochain ID:%v\n", id)
+					fmt.Printf("Serving holochain with DNA hash:%v\n", h.DNAhash())
 				}
 
 				var port string
@@ -434,13 +425,10 @@ func setupApp() (app *cli.App) {
 	}
 
 	app.Before = func(c *cli.Context) error {
-		level := logging.INFO
 		if debug {
-			level = logging.DEBUG
+			os.Setenv("DEBUG", "1")
 		}
-		log = logging.MustGetLogger("holochain")
-		logging.SetLevel(level, "holochain")
-		holo.Register(log)
+		holo.Register()
 		if verbose {
 			fmt.Printf("app version: %s; Holochain lib version %s\n", app.Version, holo.Version)
 		}
@@ -513,9 +501,9 @@ func listChains(s *holo.Service) {
 	if len(chains) > 0 {
 		fmt.Println("installed holochains: ")
 		for k := range chains {
-			id, err := chains[k].ID()
+			id := chains[k].DNAhash()
 			var sid = "<not-started>"
-			if err == nil {
+			if id.String() != "" {
 				sid = id.String()
 			}
 			fmt.Println("    ", k, sid)
@@ -548,13 +536,9 @@ func genChain(service *holo.Service, name string) error {
 		return err
 	}
 	go h.DHT().HandlePutReqs()
-	id, err := h.ID()
-	if err != nil {
-		return err
-	}
 
 	if verbose {
-		fmt.Printf("Genesis entries added and DNA hashed for new holochain with ID: %s\n", id.String())
+		fmt.Printf("Genesis entries added and DNA hashed for new holochain with ID: %s\n", h.DNAhash().String())
 	}
 	return nil
 }

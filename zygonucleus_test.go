@@ -31,7 +31,7 @@ func TestNewZygoNucleus(t *testing.T) {
 		Convey("version", func() {
 			_, err = z.Run("(version)")
 			So(err, ShouldBeNil)
-			So(z.lastResult.(*zygo.SexpStr).S, ShouldEqual, "0.0.1")
+			So(z.lastResult.(*zygo.SexpStr).S, ShouldEqual, VersionStr)
 		})
 		Convey("atoi", func() {
 			_, err = z.Run(`(atoi "3141")`)
@@ -57,8 +57,7 @@ func TestNewZygoNucleus(t *testing.T) {
 
 			_, err = z.Run(`(property "` + ID_PROPERTY + `")`)
 			So(err, ShouldBeNil)
-			id, _ := h.ID()
-			So(z.lastResult.(*zygo.SexpStr).S, ShouldEqual, id.String())
+			So(z.lastResult.(*zygo.SexpStr).S, ShouldEqual, h.dnaHash.String())
 
 			_, err = z.Run(`(property "` + AGENT_ID_PROPERTY + `")`)
 			So(err, ShouldBeNil)
@@ -71,6 +70,30 @@ func TestNewZygoNucleus(t *testing.T) {
 			So(z.lastResult.(*zygo.SexpStr).S, ShouldEqual, aid)
 
 		})
+	})
+}
+
+func TestZygoRequires(t *testing.T) {
+	Convey("it should log a warning if requires not defined", t, func() {
+		z, _ := NewZygoNucleus(nil, ``)
+		var err error
+		ShouldLog(&infoLog, "Warning: Zomes must define 'requires' function as of version 2, assuming no requirements.\n", func() {
+			err = z.ChainRequires()
+			So(err, ShouldBeNil)
+		})
+	})
+
+	Convey("it should fail if the requires function returns non object", t, func() {
+		z, _ := NewZygoNucleus(nil, `(defn requires [] false)`)
+		err := z.ChainRequires()
+		So(err.Error(), ShouldEqual, "require should return a hash")
+	})
+
+	Convey("it should fail if the requires function returns version greater than current", t, func() {
+		nextVersion := fmt.Sprintf("%d", Version+1)
+		z, _ := NewZygoNucleus(nil, `(defn requires [] (hash version:`+nextVersion+`))`)
+		err := z.ChainRequires()
+		So(err.Error(), ShouldEqual, "Zome requires version "+nextVersion)
 	})
 }
 
@@ -231,6 +254,6 @@ func TestZygoDHT(t *testing.T) {
 
 		r, err := sh.HashGet(z.env, z.env.MakeSymbol("result"))
 		So(err, ShouldBeNil)
-		So(r.(*zygo.SexpStr).S, ShouldEqual, `[{"C":"{\"firstName\":\"Zippy\",\"lastName\":\"Pinhead\"}"}]`)
+		So(r.(*zygo.SexpStr).S, ShouldEqual, `[{"E":{"C":"{\"firstName\":\"Zippy\",\"lastName\":\"Pinhead\"}"},"H":"QmYeinX5vhuA91D3v24YbgyLofw9QAxY6PoATrBHnRwbtt"}]`)
 	})
 }

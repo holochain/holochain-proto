@@ -55,7 +55,7 @@ func NewChain() (chain *Chain) {
 func NewChainFromFile(h HashSpec, path string) (c *Chain, err error) {
 	defer func() {
 		if err != nil {
-			log.Debugf("error loading chain :%s", err.Error())
+			Debugf("error loading chain :%s", err.Error())
 		}
 	}()
 	c = NewChain()
@@ -76,7 +76,7 @@ func NewChainFromFile(h HashSpec, path string) (c *Chain, err error) {
 				break
 			}
 			if err != nil {
-				log.Debugf("error reading pair:%s", err.Error())
+				Debugf("error reading pair:%s", err.Error())
 				return
 			}
 			c.addPair(header, e, i)
@@ -130,16 +130,28 @@ func (c *Chain) Top() (header *Header) {
 }
 
 // TopType returns the latest header of a given type
-func (c *Chain) TopType(entryType string) (header *Header) {
+func (c *Chain) TopType(entryType string) (hash *Hash, header *Header) {
 	i, ok := c.TypeTops[entryType]
 	if ok {
 		header = c.Headers[i]
+		var hs Hash = c.Hashes[i].Clone()
+		hash = &hs
 	}
 	return
 }
 
 // AddEntry creates a new header and adds it to a chain
 func (c *Chain) AddEntry(h HashSpec, now time.Time, entryType string, e Entry, key ic.PrivKey) (hash Hash, err error) {
+	var l int
+	var header *Header
+	l, hash, header, err = c.PrepareHeader(h, now, entryType, e, key)
+	if err == nil {
+		err = c.addEntry(l, hash, header, e)
+	}
+	return
+}
+
+func (c *Chain) PrepareHeader(h HashSpec, now time.Time, entryType string, e Entry, key ic.PrivKey) (entryIdx int, hash Hash, header *Header, err error) {
 
 	// get the previous hashes
 	var ph, pth Hash
@@ -159,15 +171,30 @@ func (c *Chain) AddEntry(h HashSpec, now time.Time, entryType string, e Entry, k
 		pth = c.Hashes[i]
 	}
 
+	hash, header, err = newHeader(h, now, entryType, e, key, ph, pth)
+	if err != nil {
+		return
+	}
+	entryIdx = l
+	return
+}
+
+func (c *Chain) addEntry(entryIdx int, hash Hash, header *Header, e Entry) (err error) {
+
+	l := len(c.Hashes)
+	if l != entryIdx {
+		err = errors.New("entry indexes don't match can't create new entry")
+		return
+	}
 	var g GobEntry
 	g = *e.(*GobEntry)
-	hash, header, err := newHeader(h, now, entryType, e, key, ph, pth)
+
 	c.Hashes = append(c.Hashes, hash)
 	c.Headers = append(c.Headers, header)
 	c.Entries = append(c.Entries, &g)
-	c.TypeTops[entryType] = l
-	c.Emap[header.EntryLink.String()] = l
-	c.Hmap[hash.String()] = l
+	c.TypeTops[header.Type] = entryIdx
+	c.Emap[header.EntryLink.String()] = entryIdx
+	c.Hmap[hash.String()] = entryIdx
 
 	if c.s != nil {
 		err = writePair(c.s, header, &g)
@@ -274,7 +301,7 @@ func (c *Chain) addPair(header *Header, entry Entry, i int) {
 func UnmarshalChain(reader io.Reader) (c *Chain, err error) {
 	defer func() {
 		if err != nil {
-			log.Debugf("error unmarshaling chain:%s", err.Error())
+			Debugf("error unmarshaling chain:%s", err.Error())
 		}
 	}()
 	c = NewChain()

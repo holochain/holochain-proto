@@ -29,7 +29,40 @@ type JSNucleus struct {
 // Name returns the string value under which this nucleus is registered
 func (z *JSNucleus) Type() string { return JSNucleusType }
 
-// ChainGenesis runs the application init function
+// ChainReqires runs the application requires function
+// this function gets called so that the holochain library can confirm that it is capable of
+// servicing the needs of the application.
+func (z *JSNucleus) ChainRequires() (err error) {
+	v, err := z.vm.Run(`requires()`)
+	if err != nil {
+		if err.Error() == "ReferenceError: 'requires' is not defined" {
+			ChangeRequires.Log()
+			err = nil
+		} else {
+			err = fmt.Errorf("Error executing requires: %v", err)
+		}
+		return
+	}
+	if v.IsObject() {
+		var vObj otto.Value
+		vObj, err = v.Object().Get("version")
+		if err == nil {
+			var version int64
+			version, err = vObj.ToInteger()
+			if err == nil {
+				if version > int64(Version) {
+					err = fmt.Errorf("Zome requires version %d", version)
+				}
+			}
+		}
+
+	} else {
+		err = fmt.Errorf("require should return an object, got: %v", v)
+	}
+	return
+}
+
+// ChainGenesis runs the application genesis function
 // this function gets called after the genesis entries are added to the chain
 func (z *JSNucleus) ChainGenesis() (err error) {
 	v, err := z.vm.Run(`genesis()`)
@@ -38,16 +71,15 @@ func (z *JSNucleus) ChainGenesis() (err error) {
 		return
 	}
 	if v.IsBoolean() {
-		if v.IsBoolean() {
-			var b bool
-			b, err = v.ToBoolean()
-			if err != nil {
-				return
-			}
-			if !b {
-				err = fmt.Errorf("genesis failed")
-			}
+		var b bool
+		b, err = v.ToBoolean()
+		if err != nil {
+			return
 		}
+		if !b {
+			err = fmt.Errorf("genesis failed")
+		}
+
 	} else {
 		err = fmt.Errorf("genesis should return boolean, got: %v", v)
 	}
@@ -79,7 +111,6 @@ func (z *JSNucleus) ValidateEntry(d *EntryDef, entry Entry, props *ValidationPro
 		return
 	}
 	code := fmt.Sprintf(`validate("%s",%s,JSON.parse("%s"))`, d.Name, e, jsSanitizeString(string(b)))
-	log.Debug(fmt.Sprintf(`validate("%s",%s,JSON.parse("%s"))`, d.Name, e, jsSanitizeString(string(b))))
 	v, err := z.vm.Run(code)
 	if err != nil {
 		err = fmt.Errorf("Error executing validate: %v", err)
@@ -130,7 +161,7 @@ func (z *JSNucleus) expose(iface Interface) (err error) {
 }
 
 const (
-	JSLibrary = `var HC={STRING:0,JSON:1};version=` + `"` + Version + `";`
+	JSLibrary = `var HC={STRING:0,JSON:1};version=` + `"` + VersionStr + `";`
 )
 
 // jsSanatizeString makes sure all quotes are quoted and returns are removed
@@ -163,12 +194,12 @@ func (z *JSNucleus) Call(iface string, params interface{}) (result interface{}, 
 		err = errors.New("params type not implemented")
 		return
 	}
-	log.Debugf("JS Call: %s", code)
+	Debugf("JS Call: %s", code)
 	var v otto.Value
 	v, err = z.vm.Run(code)
 	if err == nil {
 		if v.IsObject() && v.Class() == "Error" {
-			log.Debugf("JS Error:\n%v", v)
+			Debugf("JS Error:\n%v", v)
 			var message otto.Value
 			message, err = v.Object().Get("message")
 			if err == nil {
@@ -202,7 +233,7 @@ func NewJSNucleus(h *Holochain, code string) (n Nucleus, err error) {
 
 	err = z.vm.Set("debug", func(call otto.FunctionCall) otto.Value {
 		msg, _ := call.Argument(0).ToString()
-		log.Debug(msg)
+		h.config.Loggers.App.p(msg)
 		return otto.UndefinedValue()
 	})
 
@@ -233,13 +264,25 @@ func NewJSNucleus(h *Holochain, code string) (n Nucleus, err error) {
 		} else {
 			return z.vm.MakeCustomError("HolochainError", "commit expected string as second argument")
 		}
-		p := ValidationProps{Sources: []string{peer.IDB58Encode(h.id)}}
-		err = h.ValidateEntry(entryType, &GobEntry{C: entry}, &p)
+
+		e := GobEntry{C: entry}
+		var l int
+		var hash Hash
 		var header *Header
+		l, hash, header, err = h.chain.PrepareHeader(h.hashSpec, time.Now(), entryType, &e, h.agent.PrivKey())
+		if err != nil {
+			return z.vm.MakeCustomError("HolochainError", err.Error())
+		}
+
+		p := ValidationProps{
+			Sources: []string{peer.IDB58Encode(h.id)},
+			Hash:    hash.String(),
+		}
+
+		err = h.ValidateEntry(entryType, &e, &p)
 
 		if err == nil {
-			e := GobEntry{C: entry}
-			_, header, err = h.NewEntry(time.Now(), entryType, &e)
+			err = h.chain.addEntry(l, hash, header, &e)
 		}
 		if err != nil {
 			return z.vm.MakeCustomError("HolochainError", err.Error())

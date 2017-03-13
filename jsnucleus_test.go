@@ -20,7 +20,7 @@ func TestNewJSNucleus(t *testing.T) {
 	Convey("new fail to create nucleus when code is bad", t, func() {
 		v, err := NewJSNucleus(nil, "1+ )")
 		So(v, ShouldBeNil)
-		So(err.Error(), ShouldEqual, "JS exec error: (anonymous): Line 1:45 Unexpected token )")
+		So(err.Error(), ShouldEqual, "JS exec error: (anonymous): Line 1:41 Unexpected token )")
 	})
 	Convey("should have the built in functions:", t, func() {
 		d, _, h := prepareTestChain("test")
@@ -33,7 +33,7 @@ func TestNewJSNucleus(t *testing.T) {
 			_, err = z.Run("version")
 			So(err, ShouldBeNil)
 			s, _ := z.lastResult.ToString()
-			So(s, ShouldEqual, "0.0.1")
+			So(s, ShouldEqual, VersionStr)
 		})
 		Convey("property", func() {
 			_, err = z.Run(`property("description")`)
@@ -43,7 +43,7 @@ func TestNewJSNucleus(t *testing.T) {
 
 			_, err = z.Run(`property("` + ID_PROPERTY + `")`)
 			So(err, ShouldBeNil)
-			id, _ := h.ID()
+			id := h.DNAhash()
 			So(z.lastResult.String(), ShouldEqual, id.String())
 
 			_, err = z.Run(`property("` + AGENT_ID_PROPERTY + `")`)
@@ -57,6 +57,30 @@ func TestNewJSNucleus(t *testing.T) {
 			So(z.lastResult.String(), ShouldEqual, aid)
 
 		})
+	})
+}
+
+func TestJSRequires(t *testing.T) {
+	Convey("it should log a warning if requires not defined", t, func() {
+		z, _ := NewJSNucleus(nil, ``)
+		var err error
+		ShouldLog(&infoLog, "Warning: Zomes must define 'requires' function as of version 2, assuming no requirements.\n", func() {
+			err = z.ChainRequires()
+			So(err, ShouldBeNil)
+		})
+	})
+
+	Convey("it should fail if the requires function returns non object", t, func() {
+		z, _ := NewJSNucleus(nil, `function requires() {return false}`)
+		err := z.ChainRequires()
+		So(err.Error(), ShouldEqual, "require should return an object, got: false")
+	})
+
+	Convey("it should fail if the requires function returns version greater than current", t, func() {
+		nextVersion := fmt.Sprintf("%d", Version+1)
+		z, _ := NewJSNucleus(nil, `function requires() {return {version:`+nextVersion+`}}`)
+		err := z.ChainRequires()
+		So(err.Error(), ShouldEqual, "Zome requires version "+nextVersion)
 	})
 }
 
@@ -105,7 +129,6 @@ func TestJSValidateEntry(t *testing.T) {
 func TestJSSanitize(t *testing.T) {
 	Convey("should strip quotes and returns", t, func() {
 		So(jsSanitizeString(`"`), ShouldEqual, `\"`)
-		fmt.Printf("CRAXY:%s", jsSanitizeString("\"x\ny"))
 		So(jsSanitizeString("\"x\ny"), ShouldEqual, "\\\"xy")
 	})
 }
@@ -224,10 +247,11 @@ func TestJSDHT(t *testing.T) {
 		v, err := NewJSNucleus(h, fmt.Sprintf(`getmeta("%s","myMetaTag");`, hash.String()))
 		So(err, ShouldBeNil)
 		z := v.(*JSNucleus)
-		So(z.lastResult.Class(), ShouldEqual, "GoArray")
+		So(z.lastResult.Class(), ShouldEqual, "Object")
 		x, err := z.lastResult.Export()
+		mqr := x.(MetaQueryResp)
 		So(err, ShouldBeNil)
-		So(fmt.Sprintf("%v", x.([]Entry)[0].Content()), ShouldEqual, `{"firstName":"Zippy","lastName":"Pinhead"}`)
+		So(fmt.Sprintf("%v", mqr.Entries[0].E.Content()), ShouldEqual, `{"firstName":"Zippy","lastName":"Pinhead"}`)
 	})
 
 }

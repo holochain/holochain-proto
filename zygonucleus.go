@@ -30,6 +30,47 @@ type ZygoNucleus struct {
 // Name returns the string value under which this nucleus is registered
 func (z *ZygoNucleus) Type() string { return ZygoNucleusType }
 
+// ChainReqires runs the application requires function
+// this function gets called so that the holochain library can confirm that it is capable of
+// servicing the needs of the application.
+func (z *ZygoNucleus) ChainRequires() (err error) {
+	if err = z.env.LoadString(`(requires)`); err != nil {
+		return
+	}
+	var result interface{}
+	result, err = z.env.Run()
+	if err != nil {
+		if err.Error() == "symbol `requires` not found" {
+			ChangeRequires.Log()
+			err = nil
+		} else {
+			err = fmt.Errorf("Error executing requires: %v", err)
+		}
+		return
+	}
+	var expr zygo.Sexp
+	switch t := result.(type) {
+	case *zygo.SexpHash:
+		expr, err = t.HashGet(z.env, z.env.MakeSymbol("version"))
+		if err != nil {
+			return
+		}
+		switch t := expr.(type) {
+		case *zygo.SexpInt:
+			if t.Val > int64(Version) {
+				err = fmt.Errorf("Zome requires version %d", t.Val)
+			}
+		default:
+			err = errors.New("expected version to be an integer")
+		}
+
+	default:
+		err = errors.New("require should return a hash")
+	}
+
+	return
+}
+
 // ChainGenesis runs the application genesis function
 // this function gets called after the genesis entries are added to the chain
 func (z *ZygoNucleus) ChainGenesis() (err error) {
@@ -152,6 +193,7 @@ func (z *ZygoNucleus) Call(iface string, params interface{}) (result interface{}
 		err = errors.New("params type not implemented")
 		return
 	}
+	Debugf("Zygo Call: %s", code)
 	err = z.env.LoadString(code)
 	if err != nil {
 		return
@@ -290,9 +332,9 @@ func (z *ZygoNucleus) getmeta(env *zygo.Glisp, h *Holochain, metahash string, me
 	response, err := h.dht.SendGetMeta(MetaQuery{H: metakey, T: metaTag})
 	if err == nil {
 		switch t := response.(type) {
-		case []Entry:
+		case MetaQueryResp:
 			// @TODO figure out encoding by entry type.
-			j, err := json.Marshal(t)
+			j, err := json.Marshal(t.Entries)
 			if err == nil {
 				err = result.HashSet(env.MakeSymbol("result"), &zygo.SexpStr{S: string(j)})
 			}
@@ -311,7 +353,7 @@ func NewZygoNucleus(h *Holochain, code string) (n Nucleus, err error) {
 	z.env = zygo.NewGlispSandbox()
 	z.env.AddFunction("version",
 		func(env *zygo.Glisp, name string, args []zygo.Sexp) (zygo.Sexp, error) {
-			return &zygo.SexpStr{S: Version}, nil
+			return &zygo.SexpStr{S: VersionStr}, nil
 		})
 
 	addExtras(&z)
@@ -334,7 +376,7 @@ func NewZygoNucleus(h *Holochain, code string) (n Nucleus, err error) {
 					errors.New("argument of debug should be string")
 			}
 
-			log.Debug(msg)
+			h.config.Loggers.App.p(msg)
 			return zygo.SexpNull, err
 		})
 
@@ -417,14 +459,26 @@ func NewZygoNucleus(h *Holochain, code string) (n Nucleus, err error) {
 					errors.New("2nd argument of commit should be string or hash")
 			}
 
-			p := ValidationProps{Sources: []string{peer.IDB58Encode(h.id)}}
-			err = h.ValidateEntry(entryType, &GobEntry{C: entry}, &p)
+			e := GobEntry{C: entry}
+			var l int
+			var hash Hash
 			var header *Header
-			if err == nil {
-				e := GobEntry{C: entry}
-				_, header, err = h.NewEntry(time.Now(), entryType, &e)
-
+			l, hash, header, err = h.chain.PrepareHeader(h.hashSpec, time.Now(), entryType, &e, h.agent.PrivKey())
+			if err != nil {
+				return zygo.SexpNull, err
 			}
+
+			p := ValidationProps{
+				Sources: []string{peer.IDB58Encode(h.id)},
+				Hash:    hash.String(),
+			}
+
+			err = h.ValidateEntry(entryType, &e, &p)
+
+			if err == nil {
+				err = h.chain.addEntry(l, hash, header, &e)
+			}
+
 			if err != nil {
 				return zygo.SexpNull, err
 			}

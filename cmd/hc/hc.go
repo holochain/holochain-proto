@@ -12,6 +12,10 @@ import (
 	"time"
 )
 
+const (
+	defaultPort = "3141"
+)
+
 var uninitialized error
 var initialized bool
 
@@ -40,7 +44,7 @@ func setupApp() (app *cli.App) {
 			Destination: &root,
 		},
 		cli.BoolFlag{
-			Name:        "verbose",
+			Name:        "verbose, V",
 			Usage:       "verbose output",
 			Destination: &verbose,
 		},
@@ -72,7 +76,7 @@ func setupApp() (app *cli.App) {
 		},
 		{
 			Name:      "clone",
-			Aliases:   []string{"c"},
+			Aliases:   []string{"cl", "c"},
 			ArgsUsage: "src-path holochain-name",
 			Usage:     "clone a holochain instance from a source",
 			Flags: []cli.Flag{
@@ -141,9 +145,9 @@ func setupApp() (app *cli.App) {
 			},
 		},
 		{
-			Name:    "gen",
+			Name:    "genesis",
 			Usage:   "generate genesis entries or keys for a cloned holochain",
-			Aliases: []string{"g"},
+			Aliases: []string{"gen", "g"},
 			Subcommands: []cli.Command{
 				{
 					Name:      "chain",
@@ -162,7 +166,7 @@ func setupApp() (app *cli.App) {
 				},
 				{
 					Name:      "keys",
-					Aliases:   []string{"k", "key"},
+					Aliases:   []string{"key", "k"},
 					ArgsUsage: "holochain-name",
 					Usage:     "generate separate key pair for entry signing on a specific holochain",
 					Action: func(c *cli.Context) error {
@@ -189,10 +193,10 @@ func setupApp() (app *cli.App) {
 			},
 		},
 		{
-			Name:      "serve",
-			Aliases:   []string{"w"},
+			Name:      "web",
+			Aliases:   []string{"serve", "w"},
 			ArgsUsage: "holochain-name [port]",
-			Usage:     "serve a chain to the web",
+			Usage:     fmt.Sprintf("serve a chain to the web on localhost:<port> (defaults to %s)", defaultPort),
 			Action: func(c *cli.Context) error {
 				h, err := getHolochain(c, service, "serve")
 				if err != nil {
@@ -208,7 +212,7 @@ func setupApp() (app *cli.App) {
 
 				var port string
 				if len(c.Args()) == 1 {
-					port = "3141"
+					port = defaultPort
 				} else {
 					port = c.Args()[1]
 				}
@@ -223,10 +227,9 @@ func setupApp() (app *cli.App) {
 			},
 		},
 		{
-			Name:      "bs",
-			Aliases:   []string{"b"},
-			ArgsUsage: "bs",
-			Usage:     "send bootstrap tickler to the chain bootstrap server",
+			Name:    "bootstrap",
+			Aliases: []string{"bs", "b"},
+			Usage:   "find initial peers by sending bootstrap tickler to the chain's bootstrap server",
 			Action: func(c *cli.Context) error {
 				h, err := getHolochain(c, service, "bs")
 				if err != nil {
@@ -238,7 +241,7 @@ func setupApp() (app *cli.App) {
 		},
 		{
 			Name:      "call",
-			Aliases:   []string{"c"},
+			Aliases:   []string{"ca"},
 			ArgsUsage: "holochain-name zome-name function args",
 			Usage:     "call an exposed function",
 			Action: func(c *cli.Context) error {
@@ -259,10 +262,10 @@ func setupApp() (app *cli.App) {
 			},
 		},
 		{
-			Name:      "dev",
-			Aliases:   []string{"d"},
-			ArgsUsage: "holochain-name [dna-format]",
-			Usage:     "generate a default configuration files, suitable for editing",
+			Name:      "template",
+			Aliases:   []string{"dev", "t"},
+			ArgsUsage: "holochain-name [template]",
+			Usage:     "generate a configuration file template suitable for editing",
 			Flags: []cli.Flag{
 				cli.BoolFlag{
 					Name:        "force",
@@ -271,7 +274,7 @@ func setupApp() (app *cli.App) {
 				},
 			},
 			Action: func(c *cli.Context) error {
-				name, err := checkForName(c, "dev")
+				name, err := checkForName(c, "template")
 				if err != nil {
 					return err
 				}
@@ -279,7 +282,7 @@ func setupApp() (app *cli.App) {
 				if len(c.Args()) == 2 {
 					format = c.Args()[1]
 					if !(format == "json" || format == "yaml" || format == "toml") {
-						return errors.New("gen dev: format must be one of yaml,toml,json")
+						return errors.New("template: format must be one of yaml,toml,json")
 					}
 				}
 				if force {

@@ -262,45 +262,6 @@ func setupApp() (app *cli.App) {
 			},
 		},
 		{
-			Name:      "template",
-			Aliases:   []string{"dev", "t"},
-			ArgsUsage: "holochain-name [template]",
-			Usage:     "generate a configuration file template suitable for editing",
-			Flags: []cli.Flag{
-				cli.BoolFlag{
-					Name:        "force",
-					Usage:       "overwrite existing holochain",
-					Destination: &force,
-				},
-			},
-			Action: func(c *cli.Context) error {
-				name, err := checkForName(c, "template")
-				if err != nil {
-					return err
-				}
-				format := "toml"
-				if len(c.Args()) == 2 {
-					format = c.Args()[1]
-					if !(format == "json" || format == "yaml" || format == "toml") {
-						return errors.New("template: format must be one of yaml,toml,json")
-					}
-				}
-				if force {
-					e := os.RemoveAll(root + "/" + name)
-					if e != nil {
-						return e
-					}
-				}
-				h, err := service.GenDev(root+"/"+name, format)
-				if err == nil {
-					if verbose {
-						fmt.Printf("created %s with new id: %v\n", name, h.Id)
-					}
-				}
-				return err
-			},
-		},
-		{
 			Name:      "dump",
 			Aliases:   []string{"d"},
 			ArgsUsage: "holochain-name",
@@ -425,6 +386,45 @@ func setupApp() (app *cli.App) {
 				}
 				listChains(service)
 				return nil
+			},
+		},
+		{
+			Name:      "template",
+			Aliases:   []string{"dev", "t"},
+			ArgsUsage: "holochain-name [template]",
+			Usage:     "generate a configuration file template suitable for editing",
+			Flags: []cli.Flag{
+				cli.BoolFlag{
+					Name:        "force",
+					Usage:       "overwrite existing holochain",
+					Destination: &force,
+				},
+			},
+			Action: func(c *cli.Context) error {
+				name, err := checkForName(c, "template")
+				if err != nil {
+					return err
+				}
+				format := "toml"
+				if len(c.Args()) == 2 {
+					format = c.Args()[1]
+					if !(format == "json" || format == "yaml" || format == "toml") {
+						return errors.New("template: format must be one of yaml,toml,json")
+					}
+				}
+				if force {
+					e := os.RemoveAll(root + "/" + name)
+					if e != nil {
+						return e
+					}
+				}
+				h, err := service.GenDev(root+"/"+name, format)
+				if err == nil {
+					if verbose {
+						fmt.Printf("created %s with new id: %v\n", name, h.Id)
+					}
+				}
+				return err
 			},
 		},
 	}

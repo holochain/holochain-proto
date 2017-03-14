@@ -12,12 +12,12 @@ test: deps
 	go get -t
 	go test -v ./...||exit 1
 	gx-go rewrite --undo
+deps: gx
+	gx-go rewrite
+	go get -d ./...
+gx: $(GOBIN)/gx $(GOBIN)/gx-go
+	gx install --global
 $(GOBIN)/gx:
 	go get -u github.com/whyrusleeping/gx
 $(GOBIN)/gx-go:
 	go get -u github.com/whyrusleeping/gx-go
-gx: $(GOBIN)/gx $(GOBIN)/gx-go
-	gx install --global
-deps: gx
-	gx-go rewrite
-	go get -d ./...

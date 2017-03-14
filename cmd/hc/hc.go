@@ -50,8 +50,8 @@ func setupApp() (app *cli.App) {
 		{
 			Name:      "init",
 			Aliases:   []string{"i"},
-			Usage:     "bootstrap the holochain service",
 			ArgsUsage: "agent-id",
+			Usage:     "bootstrap the holochain service",
 			Action: func(c *cli.Context) error {
 				agent := c.Args().First()
 				if agent == "" {
@@ -71,6 +71,10 @@ func setupApp() (app *cli.App) {
 			},
 		},
 		{
+			Name:      "clone",
+			Aliases:   []string{"c"},
+			ArgsUsage: "src-path holochain-name",
+			Usage:     "clone a holochain instance from a source",
 			Flags: []cli.Flag{
 				cli.BoolFlag{
 					Name:        "force",
@@ -78,10 +82,6 @@ func setupApp() (app *cli.App) {
 					Destination: &force,
 				},
 			},
-			Name:      "clone",
-			Aliases:   []string{"c"},
-			Usage:     "clone a holochain instance from a source",
-			ArgsUsage: "src-path holochain-name",
 			Action: func(c *cli.Context) error {
 				srcPath := c.Args().First()
 				if srcPath == "" {
@@ -107,6 +107,9 @@ func setupApp() (app *cli.App) {
 			},
 		},
 		{
+			Name:    "test",
+			Aliases: []string{"t"},
+			Usage:   "run validation against test data for a chain in development",
 			Flags: []cli.Flag{
 				cli.BoolFlag{
 					Name:        "force",
@@ -114,9 +117,6 @@ func setupApp() (app *cli.App) {
 					Destination: &force,
 				},
 			},
-			Name:    "test",
-			Aliases: []string{"t"},
-			Usage:   "run validation against test data for a chain in development",
 			Action: func(c *cli.Context) error {
 				h, err := getHolochain(c, service, "test")
 				if err != nil {
@@ -148,8 +148,8 @@ func setupApp() (app *cli.App) {
 				{
 					Name:      "chain",
 					Aliases:   []string{"c"},
-					Usage:     "generate the genesis blocks from the configuration and keys",
 					ArgsUsage: "holochain-name",
+					Usage:     "generate the genesis blocks from the configuration and keys",
 					Action: func(c *cli.Context) error {
 						name, err := checkForName(c, "gen chain")
 						if err != nil {
@@ -163,8 +163,8 @@ func setupApp() (app *cli.App) {
 				{
 					Name:      "keys",
 					Aliases:   []string{"k", "key"},
-					Usage:     "generate separate key pair for entry signing on a specific holochain",
 					ArgsUsage: "holochain-name",
+					Usage:     "generate separate key pair for entry signing on a specific holochain",
 					Action: func(c *cli.Context) error {
 						// need to implement this later when this would
 						// check to see if the chain is started, and if so
@@ -191,8 +191,8 @@ func setupApp() (app *cli.App) {
 		{
 			Name:      "serve",
 			Aliases:   []string{"w"},
-			Usage:     "serve a chain to the web",
 			ArgsUsage: "holochain-name [port]",
+			Usage:     "serve a chain to the web",
 			Action: func(c *cli.Context) error {
 				h, err := getHolochain(c, service, "serve")
 				if err != nil {
@@ -225,8 +225,8 @@ func setupApp() (app *cli.App) {
 		{
 			Name:      "bs",
 			Aliases:   []string{"b"},
-			Usage:     "send bootstrap tickler to the chain bootstrap server",
 			ArgsUsage: "bs",
+			Usage:     "send bootstrap tickler to the chain bootstrap server",
 			Action: func(c *cli.Context) error {
 				h, err := getHolochain(c, service, "bs")
 				if err != nil {
@@ -239,8 +239,8 @@ func setupApp() (app *cli.App) {
 		{
 			Name:      "call",
 			Aliases:   []string{"c"},
-			Usage:     "call an exposed function",
 			ArgsUsage: "holochain-name zome-name function args",
+			Usage:     "call an exposed function",
 			Action: func(c *cli.Context) error {
 				h, err := getHolochain(c, service, "call")
 				if err != nil {
@@ -259,7 +259,10 @@ func setupApp() (app *cli.App) {
 			},
 		},
 		{
-			Name: "dev",
+			Name:      "dev",
+			Aliases:   []string{"d"},
+			ArgsUsage: "holochain-name [dna-format]",
+			Usage:     "generate a default configuration files, suitable for editing",
 			Flags: []cli.Flag{
 				cli.BoolFlag{
 					Name:        "force",
@@ -267,9 +270,6 @@ func setupApp() (app *cli.App) {
 					Destination: &force,
 				},
 			},
-			Aliases:   []string{"d"},
-			Usage:     "generate a default configuration files, suitable for editing",
-			ArgsUsage: "holochain-name [dna-format]",
 			Action: func(c *cli.Context) error {
 				name, err := checkForName(c, "dev")
 				if err != nil {
@@ -300,8 +300,8 @@ func setupApp() (app *cli.App) {
 		{
 			Name:      "dump",
 			Aliases:   []string{"d"},
-			Usage:     "display a text dump of a chain",
 			ArgsUsage: "holochain-name",
+			Usage:     "display a text dump of a chain",
 			Action: func(c *cli.Context) error {
 				h, err := getHolochain(c, service, "dump")
 				if err != nil {
@@ -353,8 +353,8 @@ func setupApp() (app *cli.App) {
 		{
 			Name:      "join",
 			Aliases:   []string{"c"},
-			Usage:     "joins a holochain by copying an instance from a source and generating genesis blocks",
 			ArgsUsage: "src-path holochain-name",
+			Usage:     "joins a holochain by copying an instance from a source and generating genesis blocks",
 			Action: func(c *cli.Context) error {
 				srcPath := c.Args().First()
 				if srcPath == "" {
@@ -377,8 +377,8 @@ func setupApp() (app *cli.App) {
 		{
 			Name:      "reset",
 			Aliases:   []string{"r"},
-			Usage:     "reset a chain. Warning this destroys all chain data!",
 			ArgsUsage: "holochain-name",
+			Usage:     "reset a chain. Warning this destroys all chain data!",
 			Action: func(c *cli.Context) error {
 				h, err := getHolochain(c, service, "reset")
 				if err != nil {
@@ -390,8 +390,8 @@ func setupApp() (app *cli.App) {
 		},
 		{
 			Name:      "seed",
-			Usage:     "seed calculates DNA hashes and builds DNA file without generating genesis entries.  Useful only for testing and development.",
 			ArgsUsage: "holochain-name",
+			Usage:     "seed calculates DNA hashes and builds DNA file without generating genesis entries.  Useful only for testing and development.",
 			Action: func(c *cli.Context) error {
 				h, err := getHolochain(c, service, "seed")
 				if err != nil {

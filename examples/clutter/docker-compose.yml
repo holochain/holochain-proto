@@ -6,17 +6,19 @@ services:
       context: .
       dockerfile: Dockerfile.service
     volumes:
-      - ~/.holochain:/root/.holochain
+      - seed:/root/.holochain
       - ./Scripts:/Scripts
-    command: /Scripts/service.chain.genReset
+    command: /Scripts/service.chain.seed
   hc:
     build:
       context: .
     ports:
       - "3141"
     volumes:
-      - ~/.holochain/clutter:/clutter
+      - seed:/.holochain
       - ./Scripts:/Scripts
     command: /Scripts/chain.joinAndServe
     depends_on: [service.chain]
 
+volumes:
+  seed: 

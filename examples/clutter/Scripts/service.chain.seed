@@ -1,21 +1,18 @@
 #!/bin/bash
 
-echo "ls /root/.holochain"
-ls /root/.holochain
-echo
-hc init $HOSTNAME
+echo "backing up previous chains"
+backupDir="`date +"%Y%m%d.%H%M%S.%3N"`"
+mkdir /root/.holochain/$backupDir
+mv /root/.holochain/clutter /root/.holochain/$backupDir/clutter
 
-echo "ls /clutter"
-ls /clutter
+echo "hc init $HOSTNAME"
+hc init $HOSTNAME
 echo
-echo "ls /root/.holochain"
-ls /root/.holochain/clutter
-echo
+
 echo "hc clone /clutter clutter"
 hc clone /clutter clutter
-echo "hc gen chain clutter"
-hc gen chain clutter
-echo
-echo "hc reset clutter"
-hc reset clutter
+echo 
+
+echo "hc seed clutter"
+hc seed clutter
 echo

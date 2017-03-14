@@ -155,31 +155,31 @@ func h(w http.ResponseWriter, r *http.Request) {
 }
 
 func getCompleteConnectionList(response http.ResponseWriter, request *http.Request) {
-		var err error
-		err = store.View(func(tx *buntdb.Tx) error {
-			nodes := make([]holo.BSResp, 0)
-			//hid := fmt.Sprintf(`{"HID":"%s"}`, chain)
+	var err error
+	err = store.View(func(tx *buntdb.Tx) error {
+		nodes := make([]holo.BSResp, 0)
+		//hid := fmt.Sprintf(`{"HID":"%s"}`, chain)
 
-			tx.Ascend("chain", func(key, value string) bool {
-				var node Node
-				json.Unmarshal([]byte(value), &node)
+		tx.Ascend("chain", func(key, value string) bool {
+			var node Node
+			json.Unmarshal([]byte(value), &node)
 
-				log.Infof("Found: %s=>%s", key, value)
-				resp := holo.BSResp{Req: node.Req, Remote: node.Remote}
+			log.Infof("Found: %s=>%s", key, value)
+			resp := holo.BSResp{Req: node.Req, Remote: node.Remote}
 
-				nodes = append(nodes, resp)
+			nodes = append(nodes, resp)
 
-				return true
-			})
-			var b []byte
-			b, err = json.Marshal(nodes)
-			if err == nil {
-				fmt.Fprintf(response, string(b))
-				fmt.Fprintf(response, string("oK"))
-			}
+			return true
+		})
+		var b []byte
+		b, err = json.Marshal(nodes)
+		if err == nil {
+			fmt.Fprintf(response, string(b))
+			fmt.Fprintf(response, string("oK"))
+		}
 
-			return err
-		} )
+		return err
+	})
 }
 
 func serve(port int) (err error) {

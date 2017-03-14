@@ -41,7 +41,7 @@ func TestNewChainFromFile(t *testing.T) {
 	dump := c.String()
 	c.s.Close()
 	c, err = NewChainFromFile(h, path)
-	Convey("it should load chain data if availble", t, func() {
+	Convey("it should load chain data if available", t, func() {
 		So(err, ShouldBeNil)
 		So(c.String(), ShouldEqual, dump)
 	})

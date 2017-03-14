@@ -1047,7 +1047,7 @@ func (h *Holochain) NewEntry(now time.Time, entryType string, entry Entry) (hash
 		}
 
 		// @TODO
-		// we have to do this stuff because currently we are persisting immediatly.
+		// we have to do this stuff because currently we are persisting immediately.
 		// instead we should be persisting from the Chain object.
 
 		// encode the header for saving

@@ -15,8 +15,8 @@ import (
 var uninitialized error
 var initialized bool
 
-var verbose bool
 var debug bool
+var verbose bool
 
 func setupApp() (app *cli.App) {
 	app = cli.NewApp()
@@ -30,11 +30,6 @@ func setupApp() (app *cli.App) {
 
 	app.Flags = []cli.Flag{
 		cli.BoolFlag{
-			Name:        "verbose",
-			Usage:       "verbose output",
-			Destination: &verbose,
-		},
-		cli.BoolFlag{
 			Name:        "debug",
 			Usage:       "debugging output",
 			Destination: &debug,
@@ -44,9 +39,37 @@ func setupApp() (app *cli.App) {
 			Usage:       "path to holochain directory (default: ~/.holochain)",
 			Destination: &root,
 		},
+		cli.BoolFlag{
+			Name:        "verbose",
+			Usage:       "verbose output",
+			Destination: &verbose,
+		},
 	}
 
 	app.Commands = []cli.Command{
+		{
+			Name:      "init",
+			Aliases:   []string{"i"},
+			Usage:     "bootstrap the holochain service",
+			ArgsUsage: "agent-id",
+			Action: func(c *cli.Context) error {
+				agent := c.Args().First()
+				if agent == "" {
+					return errors.New("missing required agent-id argument to init")
+				}
+				_, err := holo.Init(root, holo.AgentName(agent))
+				if err == nil {
+					fmt.Println("Holochain service initialized")
+					if verbose {
+						fmt.Println("    ~/.holochain directory created")
+						fmt.Printf("    defaults stored to %s\n", holo.SysFileName)
+						fmt.Println("    key-pair generated")
+						fmt.Printf("    default agent stored to %s\n", holo.AgentFileName)
+					}
+				}
+				return err
+			},
+		},
 		{
 			Flags: []cli.Flag{
 				cli.BoolFlag{
@@ -84,51 +107,155 @@ func setupApp() (app *cli.App) {
 			},
 		},
 		{
-			Name:      "join",
-			Aliases:   []string{"c"},
-			Usage:     "joins a holochain by copying an instance from a source and generating genesis blocks",
-			ArgsUsage: "src-path holochain-name",
+			Flags: []cli.Flag{
+				cli.BoolFlag{
+					Name:        "force",
+					Usage:       "overwrite existing holochain",
+					Destination: &force,
+				},
+			},
+			Name:    "test",
+			Aliases: []string{"t"},
+			Usage:   "run validation against test data for a chain in development",
 			Action: func(c *cli.Context) error {
-				srcPath := c.Args().First()
-				if srcPath == "" {
-					return errors.New("join: missing required source path argument")
+				h, err := getHolochain(c, service, "test")
+				if err != nil {
+					return err
 				}
-				if len(c.Args()) == 1 {
-					return errors.New("join: missing required holochain-name argument")
-				}
-				name := c.Args()[1]
-				_, err := service.Clone(srcPath, root+"/"+name, false)
-				if err == nil {
-					if verbose {
-						fmt.Printf("joined %s from %s\n", name, srcPath)
+				if force {
+					err = h.Reset()
+					if err != nil {
+						return err
 					}
-					err = genChain(service, name)
 				}
+				err = h.Activate()
+				if err != nil {
+					return err
+				}
+				var errs = h.Test()
+				var s string
+				for _, e := range errs {
+					s += e.Error()
+				}
+				return errors.New(s)
+			},
+		},
+		{
+			Name:    "gen",
+			Usage:   "generate genesis entries or keys for a cloned holochain",
+			Aliases: []string{"g"},
+			Subcommands: []cli.Command{
+				{
+					Name:      "chain",
+					Aliases:   []string{"c"},
+					Usage:     "generate the genesis blocks from the configuration and keys",
+					ArgsUsage: "holochain-name",
+					Action: func(c *cli.Context) error {
+						name, err := checkForName(c, "gen chain")
+						if err != nil {
+							return err
+						}
+
+						err = genChain(service, name)
+						return err
+					},
+				},
+				{
+					Name:      "keys",
+					Aliases:   []string{"k", "key"},
+					Usage:     "generate separate key pair for entry signing on a specific holochain",
+					ArgsUsage: "holochain-name",
+					Action: func(c *cli.Context) error {
+						// need to implement this later when this would
+						// check to see if the chain is started, and if so
+						// actually add a new AgentEntry to a chain, otherwise
+						// it could just add chain specific files.
+						return errors.New("not yet implemented")
+						/*
+							name, err := checkForName(c, "gen keys")
+							if err != nil {
+								return err
+							}
+							h, err := service.Load(name)
+							if err != nil {
+								return err
+							}
+							h.agent.GenKeys()
+							err = holo.SaveAgent(h.path, h.agent)
+							return err*/
+
+					},
+				},
+			},
+		},
+		{
+			Name:      "serve",
+			Aliases:   []string{"w"},
+			Usage:     "serve a chain to the web",
+			ArgsUsage: "holochain-name [port]",
+			Action: func(c *cli.Context) error {
+				h, err := getHolochain(c, service, "serve")
+				if err != nil {
+					return err
+				}
+				if !h.Started() {
+					return fmt.Errorf("Can't serve an un-started chain. Run 'gen chain %s' to generate genesis entries and start the chain.", h.Name)
+				}
+
+				if verbose {
+					fmt.Printf("Serving holochain with DNA hash:%v\n", h.DNAHash())
+				}
+
+				var port string
+				if len(c.Args()) == 1 {
+					port = "3141"
+				} else {
+					port = c.Args()[1]
+				}
+				err = h.Activate()
+				if err != nil {
+					return err
+				}
+				go h.DHT().HandlePutReqs()
+				go h.DHT().Gossip(2 * time.Second)
+				serve(h, port)
 				return err
 			},
 		},
 		{
-			Name:      "seed",
-			Usage:     "seed calculates DNA hashes and builds DNA file without generating genesis entries.  Useful only for testing and development.",
-			ArgsUsage: "holochain-name",
+			Name:      "bs",
+			Aliases:   []string{"b"},
+			Usage:     "send bootstrap tickler to the chain bootstrap server",
+			ArgsUsage: "bs",
 			Action: func(c *cli.Context) error {
-				h, err := getHolochain(c, service, "seed")
+				h, err := getHolochain(c, service, "bs")
 				if err != nil {
 					return err
 				}
-				err = h.GenDNAHashes()
-				if err != nil {
-					return err
-				}
-				var buf bytes.Buffer
-				err = h.EncodeDNA(&buf)
-				if err != nil {
-					return err
-				}
-				e := holo.GobEntry{C: buf.Bytes()}
-				hash, err := e.Sum(h.HashSpec())
-				fmt.Printf("holochain id:%v\n", hash)
+				err = h.BSpost()
 				return err
+			},
+		},
+		{
+			Name:      "call",
+			Aliases:   []string{"c"},
+			Usage:     "call an exposed function",
+			ArgsUsage: "holochain-name zome-name function args",
+			Action: func(c *cli.Context) error {
+				h, err := getHolochain(c, service, "call")
+				if err != nil {
+					return err
+				}
+				zome := os.Args[3]
+				function := os.Args[4]
+				args := os.Args[5:]
+				fmt.Printf("calling %s on zome %s with params %v\n", function, zome, args)
+				result, err := h.Call(zome, function, strings.Join(args, " "))
+				if err != nil {
+					return err
+				}
+				fmt.Printf("%v\n", result)
+				return nil
 			},
 		},
 		{
@@ -165,77 +292,6 @@ func setupApp() (app *cli.App) {
 				if err == nil {
 					if verbose {
 						fmt.Printf("created %s with new id: %v\n", name, h.Id)
-					}
-				}
-				return err
-			},
-		},
-		{
-			Name:    "gen",
-			Usage:   "generate genesis entries or keys for a cloned holochain",
-			Aliases: []string{"g"},
-			Subcommands: []cli.Command{
-				{
-					Name:      "keys",
-					Aliases:   []string{"k", "key"},
-					Usage:     "generate separate key pair for entry signing on a specific holochain",
-					ArgsUsage: "holochain-name",
-					Action: func(c *cli.Context) error {
-						// need to implement this later when this would
-						// check to see if the chain is started, and if so
-						// actually add a new AgentEntry to a chain, otherwise
-						// it could just add chain specific files.
-						return errors.New("not yet implemented")
-						/*
-							name, err := checkForName(c, "gen keys")
-							if err != nil {
-								return err
-							}
-							h, err := service.Load(name)
-							if err != nil {
-								return err
-							}
-							h.agent.GenKeys()
-							err = holo.SaveAgent(h.path, h.agent)
-							return err*/
-
-					},
-				},
-				{
-					Name:      "chain",
-					Aliases:   []string{"c"},
-					Usage:     "generate the genesis blocks from the configuration and keys",
-					ArgsUsage: "holochain-name",
-					Action: func(c *cli.Context) error {
-						name, err := checkForName(c, "gen chain")
-						if err != nil {
-							return err
-						}
-
-						err = genChain(service, name)
-						return err
-					},
-				},
-			},
-		},
-		{
-			Name:      "init",
-			Aliases:   []string{"i"},
-			Usage:     "bootstrap the holochain service",
-			ArgsUsage: "agent-id",
-			Action: func(c *cli.Context) error {
-				agent := c.Args().First()
-				if agent == "" {
-					return errors.New("missing required agent-id argument to init")
-				}
-				_, err := holo.Init(root, holo.AgentName(agent))
-				if err == nil {
-					fmt.Println("Holochain service initialized")
-					if verbose {
-						fmt.Println("    ~/.holochain directory created")
-						fmt.Printf("    defaults stored to %s\n", holo.SysFileName)
-						fmt.Println("    key-pair generated")
-						fmt.Printf("    default agent stored to %s\n", holo.AgentFileName)
 					}
 				}
 				return err
@@ -295,118 +351,26 @@ func setupApp() (app *cli.App) {
 			},
 		},
 		{
-			Flags: []cli.Flag{
-				cli.BoolFlag{
-					Name:        "force",
-					Usage:       "overwrite existing holochain",
-					Destination: &force,
-				},
-			},
-			Name:    "test",
-			Aliases: []string{"t"},
-			Usage:   "run validation against test data for a chain in development",
-			Action: func(c *cli.Context) error {
-				h, err := getHolochain(c, service, "test")
-				if err != nil {
-					return err
-				}
-				if force {
-					err = h.Reset()
-					if err != nil {
-						return err
-					}
-				}
-				err = h.Activate()
-				if err != nil {
-					return err
-				}
-				var errs = h.Test()
-				var s string
-				for _, e := range errs {
-					s += e.Error()
-				}
-				return errors.New(s)
-			},
-		},
-		{
-			Name:    "status",
-			Aliases: []string{"s"},
-			Usage:   "display information about installed chains",
-			Action: func(c *cli.Context) error {
-				if !initialized {
-					return uninitialized
-				}
-				listChains(service)
-				return nil
-			},
-		},
-		{
-			Name:      "call",
+			Name:      "join",
 			Aliases:   []string{"c"},
-			Usage:     "call an exposed function",
-			ArgsUsage: "holochain-name zome-name function args",
+			Usage:     "joins a holochain by copying an instance from a source and generating genesis blocks",
+			ArgsUsage: "src-path holochain-name",
 			Action: func(c *cli.Context) error {
-				h, err := getHolochain(c, service, "call")
-				if err != nil {
-					return err
+				srcPath := c.Args().First()
+				if srcPath == "" {
+					return errors.New("join: missing required source path argument")
 				}
-				zome := os.Args[3]
-				function := os.Args[4]
-				args := os.Args[5:]
-				fmt.Printf("calling %s on zome %s with params %v\n", function, zome, args)
-				result, err := h.Call(zome, function, strings.Join(args, " "))
-				if err != nil {
-					return err
-				}
-				fmt.Printf("%v\n", result)
-				return nil
-			},
-		},
-		{
-			Name:      "bs",
-			Aliases:   []string{"b"},
-			Usage:     "send bootstrap tickler to the chain bootstrap server",
-			ArgsUsage: "bs",
-			Action: func(c *cli.Context) error {
-				h, err := getHolochain(c, service, "bs")
-				if err != nil {
-					return err
-				}
-				err = h.BSpost()
-				return err
-			},
-		},
-		{
-			Name:      "serve",
-			Aliases:   []string{"w"},
-			Usage:     "serve a chain to the web",
-			ArgsUsage: "holochain-name [port]",
-			Action: func(c *cli.Context) error {
-				h, err := getHolochain(c, service, "serve")
-				if err != nil {
-					return err
-				}
-				if !h.Started() {
-					return fmt.Errorf("Can't serve an un-started chain. Run 'gen chain %s' to generate genesis entries and start the chain.", h.Name)
-				}
-
-				if verbose {
-					fmt.Printf("Serving holochain with DNA hash:%v\n", h.DNAHash())
-				}
-
-				var port string
 				if len(c.Args()) == 1 {
-					port = "3141"
-				} else {
-					port = c.Args()[1]
+					return errors.New("join: missing required holochain-name argument")
 				}
-				err = h.Activate()
-				if err != nil {
-					return err
+				name := c.Args()[1]
+				_, err := service.Clone(srcPath, root+"/"+name, false)
+				if err == nil {
+					if verbose {
+						fmt.Printf("joined %s from %s\n", name, srcPath)
+					}
+					err = genChain(service, name)
 				}
-				go h.DHT().HandlePutReqs()
-				go h.DHT().Gossip(2 * time.Second)
-				serve(h, port)
 				return err
 			},
 		},
@@ -422,6 +386,42 @@ func setupApp() (app *cli.App) {
 				}
 				err = h.Reset()
 				return err
+			},
+		},
+		{
+			Name:      "seed",
+			Usage:     "seed calculates DNA hashes and builds DNA file without generating genesis entries.  Useful only for testing and development.",
+			ArgsUsage: "holochain-name",
+			Action: func(c *cli.Context) error {
+				h, err := getHolochain(c, service, "seed")
+				if err != nil {
+					return err
+				}
+				err = h.GenDNAHashes()
+				if err != nil {
+					return err
+				}
+				var buf bytes.Buffer
+				err = h.EncodeDNA(&buf)
+				if err != nil {
+					return err
+				}
+				e := holo.GobEntry{C: buf.Bytes()}
+				hash, err := e.Sum(h.HashSpec())
+				fmt.Printf("holochain id:%v\n", hash)
+				return err
+			},
+		},
+		{
+			Name:    "status",
+			Aliases: []string{"s"},
+			Usage:   "display information about installed chains",
+			Action: func(c *cli.Context) error {
+				if !initialized {
+					return uninitialized
+				}
+				listChains(service)
+				return nil
 			},
 		},
 	}

@@ -3,7 +3,7 @@
 echo "backing up previous chains"
 backupDir="`date +"%Y%m%d.%H%M%S.%3N"`"
 mkdir /root/.holochain/$backupDir
-mv /root/.holochain/clutter /root/.holochain/$backupDir/clutter
+mv /root/.holochain/clutter /root/.holochain/$backupDir
 
 echo "hc init $HOSTNAME"
 hc init $HOSTNAME

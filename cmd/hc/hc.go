@@ -227,19 +227,6 @@ func setupApp() (app *cli.App) {
 			},
 		},
 		{
-			Name:    "bootstrap",
-			Aliases: []string{"bs", "b"},
-			Usage:   "find initial peers by sending bootstrap tickler to the chain's bootstrap server",
-			Action: func(c *cli.Context) error {
-				h, err := getHolochain(c, service, "bs")
-				if err != nil {
-					return err
-				}
-				err = h.BSpost()
-				return err
-			},
-		},
-		{
 			Name:      "call",
 			Aliases:   []string{"ca"},
 			ArgsUsage: "holochain-name zome-name function args",

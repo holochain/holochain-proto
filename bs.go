@@ -9,6 +9,7 @@ package holochain
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	peer "github.com/libp2p/go-libp2p-peer"
 	pstore "github.com/libp2p/go-libp2p-peerstore"
@@ -29,7 +30,10 @@ type BSResp struct {
 }
 
 func (h *Holochain) BSpost() (err error) {
-	nodeID := peer.IDB58Encode(h.node.HashAddr)
+	if h.node == nil {
+		return errors.New("Node hasn't been initialized yet.")
+	}
+	nodeID := peer.IDB58Encode(h.id)
 	req := BSReq{Version: 1, NodeID: nodeID, NodeAddr: h.node.NetAddr.String()}
 	host := h.config.BootstrapServer
 	id := h.DNAHash()
@@ -44,6 +48,9 @@ func (h *Holochain) BSpost() (err error) {
 }
 
 func (h *Holochain) BSget() (err error) {
+	if h.node == nil {
+		return errors.New("Node hasn't been initialized yet.")
+	}
 	host := h.config.BootstrapServer
 	if host == "" {
 		return
@@ -60,7 +67,7 @@ func (h *Holochain) BSget() (err error) {
 			var nodes []BSResp
 			err = json.Unmarshal(b, &nodes)
 			if err == nil {
-				myNodeID := peer.IDB58Encode(h.node.HashAddr)
+				myNodeID := peer.IDB58Encode(h.id)
 				for _, r := range nodes {
 					var id peer.ID
 					var addr ma.Multiaddr

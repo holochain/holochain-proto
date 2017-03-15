@@ -38,7 +38,7 @@
     "Zome":"rooms",
     "FnName":"listRooms",
     "Input":"",
-    "Output":"[{\"name\":\"general\",\"purpose\":\"everything goes in here\"}]",
+    "Output":"[{\"id\":\"%r1%\",\"name\":\"general\",\"purpose\":\"everything goes in here\"}]",
     "Err":""
   }
 ]

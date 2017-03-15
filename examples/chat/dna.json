@@ -6,7 +6,7 @@
         "name": "My Chat",
         "purpose": "chatting up a storm",
         "language": "en",
-        "initial_admin": "Chuck Norris"
+        "initial_admin": "chuck@norris.com"
     },
     "PropertiesSchema": "schema_properties.json",
     "HashType": "sha2-256",

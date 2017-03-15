@@ -5,9 +5,11 @@ function listMessages(room) {
   if( messages instanceof Error ) {
     return []
   } else {
+    messages = messages.Entries
     var return_messages = new Array(messages.length);
     for( i=0; i<messages.length; i++) {
-      return_messages[i] = JSON.parse(messages[i]["C"])
+      return_messages[i] = JSON.parse(messages[i]["E"]["C"])
+      return_messages[i].id = messages[i]["H"]
     }
     return return_messages
   }
@@ -37,13 +39,28 @@ function modMessage(x, old_message) {
 
 function isAllowed(author) {
   debug("Checking if "+author+" is a registered user...")
-  var registered_users = getmeta(property("_id"), "registered_users");
+  var registered_users = getmeta(App.DNAHash, "registered_users");
+  if( registered_users instanceof Error ) return false;
+  registered_users = registered_users.Entries
   for(var i=0; i < registered_users.length; i++) {
-    var profile = JSON.parse(registered_users[i]["C"])
-    debug("Registered user "+i+" is " + profile.username)
+    var profile = JSON.parse(registered_users[i]["E"]["C"])
+    //debug("Registered user "+i+" is " + profile.username)
     if( profile.agent_id == author) return true;
   }
   return false;
+}
+
+function isValidRoom(room) {
+  var rooms = getmeta(App.DNAHash, "room");
+  if( rooms instanceof Error ){
+      return false
+  } else {
+    rooms = rooms.Entries
+    for( i=0; i<rooms.length; i++) {
+      if( rooms[i]["H"] == room) return true
+    }
+    return false
+  }
 }
 
 function genesis() {
@@ -55,6 +72,15 @@ function validate(entry_type, entry, validation_props) {
   if( validation_props.MetaTag ) { //validating a putmeta
     return true;
   } else { //validating a commit or put
-    return isAllowed(validation_props.Sources[0])
+    if( !isValidRoom(entry.room) ) {
+      debug("message not valid because room "+entry.room+" does not exist")
+      return false
+    }
+    if( isAllowed(validation_props.Sources[0]) ) {
+      debug("message \""+entry.content+"\" valid and added to room "+entry.room)
+      return true
+    } else {
+      return false
+    }
   }
 }

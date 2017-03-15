@@ -832,13 +832,13 @@ func (s *Service) GenDev(path string, format string) (hP *Holochain, err error) 
 
 		code := make(map[string]string)
 		code["myZome"] = `
-(expose "getDNA" STRING)
-(defn getDNA [x] App_DNAHash)
-(expose "exposedfn" STRING)
+(expose "getDNA" HC_STRING)
+(defn getDNA [x] App_DNA_Hash)
+(expose "exposedfn" HC_STRING)
 (defn exposedfn [x] (concat "result: " x))
-(expose "addData" STRING)
+(expose "addData" HC_STRING)
 (defn addData [x] (commit "myData" x))
-(expose "addPrime" JSON)
+(expose "addPrime" HC_JSON)
 (defn addPrime [x] (commit "primes" x))
 (defn validate [entryType entry props]
   (cond (== entryType "myData")  (cond (== (mod entry 2) 0) true false)

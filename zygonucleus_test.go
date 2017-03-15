@@ -30,24 +30,49 @@ func TestNewZygoNucleus(t *testing.T) {
 		So(err, ShouldBeNil)
 		z := v.(*ZygoNucleus)
 
-		_, err = z.Run("App_DNAHash")
+		_, err = z.Run("App_DNA_Hash")
 		So(err, ShouldBeNil)
 		s := z.lastResult.(*zygo.SexpStr).S
 		So(s, ShouldEqual, h.dnaHash.String())
-		_, err = z.Run("App_AgentHash")
+		_, err = z.Run("App_Agent_Hash")
 		So(err, ShouldBeNil)
 		s = z.lastResult.(*zygo.SexpStr).S
 		So(s, ShouldEqual, h.agentHash.String())
 
-		_, err = z.Run("App_AgentStr")
+		_, err = z.Run("App_Agent_String")
 		So(err, ShouldBeNil)
 		s = z.lastResult.(*zygo.SexpStr).S
 		So(s, ShouldEqual, h.Agent().Name())
 
-		_, err = z.Run("App_KeyHash")
+		_, err = z.Run("App_Key_Hash")
 		So(err, ShouldBeNil)
 		s = z.lastResult.(*zygo.SexpStr).S
 		So(s, ShouldEqual, peer.IDB58Encode(h.id))
+	})
+
+	Convey("it should have an App structure:", t, func() {
+		d, _, h := prepareTestChain("test")
+		defer cleanupTestDir(d)
+
+		v, err := NewZygoNucleus(h, "")
+		So(err, ShouldBeNil)
+		z := v.(*ZygoNucleus)
+
+		_, err = z.Run("HC_Version")
+		So(err, ShouldBeNil)
+		s := z.lastResult.(*zygo.SexpStr).S
+		So(s, ShouldEqual, VersionStr)
+
+		_, err = z.Run("HC_JSON")
+		So(err, ShouldBeNil)
+		i := z.lastResult.(*zygo.SexpInt).Val
+		So(i, ShouldEqual, JSON)
+
+		_, err = z.Run("HC_STRING")
+		So(err, ShouldBeNil)
+		i = z.lastResult.(*zygo.SexpInt).Val
+		So(i, ShouldEqual, STRING)
+
 	})
 
 	Convey("should have the built in functions:", t, func() {
@@ -57,11 +82,6 @@ func TestNewZygoNucleus(t *testing.T) {
 		v, err := NewZygoNucleus(h, "")
 		So(err, ShouldBeNil)
 		z := v.(*ZygoNucleus)
-		Convey("version", func() {
-			_, err = z.Run("(version)")
-			So(err, ShouldBeNil)
-			So(z.lastResult.(*zygo.SexpStr).S, ShouldEqual, VersionStr)
-		})
 
 		Convey("atoi", func() {
 			_, err = z.Run(`(atoi "3141")`)
@@ -163,13 +183,13 @@ func TestZygoExposeCall(t *testing.T) {
 	var z *ZygoNucleus
 	Convey("should run", t, func() {
 		v, err := NewZygoNucleus(nil, `
-(expose "cater" STRING)
+(expose "cater" HC_STRING)
 (defn cater [x] (concat "result: " x))
-(expose "adder" STRING)
+(expose "adder" HC_STRING)
 (defn adder [x] (+ (atoi x) 2))
-(expose "jtest" JSON)
+(expose "jtest" HC_JSON)
 (defn jtest [x] (begin (hset x output: (* (-> x input:) 2)) x))
-(expose "emptyParametersJson" JSON)
+(expose "emptyParametersJson" HC_JSON)
 (defn emptyParametersJson [x] (unjson (raw "[{\"a\":\"b\"}]")))
 `)
 

@@ -229,9 +229,7 @@ func (z *ZygoNucleus) Call(iface string, params interface{}) (result interface{}
 
 // These are the zygo implementations of the library functions that must available in
 // all Nucleii implementations.
-const (
-	ZygoLibrary = `(def STRING 0) (def JSON 1)`
-)
+var ZygoLibrary = `(def HC_STRING 0) (def HC_JSON 1) (def HC_Version "` + VersionStr + `")`
 
 // expose registers an interfaces defined in the DNA for calling by external clients
 // (you should probably never need to call this function as it is called by the DNA's expose functions)
@@ -586,7 +584,7 @@ func NewZygoNucleus(h *Holochain, code string) (n Nucleus, err error) {
 
 	l := ZygoLibrary
 	if h != nil {
-		l += fmt.Sprintf(`(def App_DNAHash "%s")(def App_AgentHash "%s")(def App_AgentStr "%s")(def App_KeyHash "%s")`, h.dnaHash, h.agentHash, h.Agent().Name(), peer.IDB58Encode(h.id))
+		l += fmt.Sprintf(`(def App_DNA_Hash "%s")(def App_Agent_Hash "%s")(def App_Agent_String "%s")(def App_Key_Hash "%s")`, h.dnaHash, h.agentHash, h.Agent().Name(), peer.IDB58Encode(h.id))
 	}
 	z.library = l
 

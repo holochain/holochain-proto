@@ -161,7 +161,7 @@ func (z *JSNucleus) expose(iface Interface) (err error) {
 }
 
 const (
-	JSLibrary = `var HC={STRING:0,JSON:1};version=` + `"` + VersionStr + `";`
+	JSLibrary = `var HC={STRING:0,JSON:1,Version:` + `"` + VersionStr + `"};`
 )
 
 // jsSanatizeString makes sure all quotes are quoted and returns are removed
@@ -409,7 +409,7 @@ func NewJSNucleus(h *Holochain, code string) (n Nucleus, err error) {
 	}
 	l := JSLibrary
 	if h != nil {
-		l += fmt.Sprintf(`var App = {DNAHash:"%s",Agent:{Hash:"%s",String:"%s"},Key:{Hash:"%s"}};`, h.dnaHash, h.agentHash, h.Agent().Name(), peer.IDB58Encode(h.id))
+		l += fmt.Sprintf(`var App = {DNA:{Hash:"%s"},Agent:{Hash:"%s",String:"%s"},Key:{Hash:"%s"}};`, h.dnaHash, h.agentHash, h.Agent().Name(), peer.IDB58Encode(h.id))
 	}
 	_, err = z.Run(l + code)
 	if err != nil {

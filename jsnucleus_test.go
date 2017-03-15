@@ -31,7 +31,7 @@ func TestNewJSNucleus(t *testing.T) {
 		So(err, ShouldBeNil)
 		z := v.(*JSNucleus)
 
-		_, err = z.Run("App.DNAHash")
+		_, err = z.Run("App.DNA.Hash")
 		So(err, ShouldBeNil)
 		s, _ := z.lastResult.ToString()
 		So(s, ShouldEqual, h.dnaHash.String())
@@ -50,6 +50,31 @@ func TestNewJSNucleus(t *testing.T) {
 		So(err, ShouldBeNil)
 		s, _ = z.lastResult.ToString()
 		So(s, ShouldEqual, peer.IDB58Encode(h.id))
+
+	})
+
+	Convey("it should have an HC structure:", t, func() {
+		d, _, h := prepareTestChain("test")
+		defer cleanupTestDir(d)
+
+		v, err := NewJSNucleus(h, "")
+		So(err, ShouldBeNil)
+		z := v.(*JSNucleus)
+
+		_, err = z.Run("HC.Version")
+		So(err, ShouldBeNil)
+		s, _ := z.lastResult.ToString()
+		So(s, ShouldEqual, VersionStr)
+
+		_, err = z.Run("HC.JSON")
+		So(err, ShouldBeNil)
+		i, _ := z.lastResult.ToInteger()
+		So(i, ShouldEqual, JSON)
+
+		_, err = z.Run("HC.STRING")
+		So(err, ShouldBeNil)
+		i, _ = z.lastResult.ToInteger()
+		So(i, ShouldEqual, STRING)
 	})
 
 	Convey("should have the built in functions:", t, func() {
@@ -59,12 +84,6 @@ func TestNewJSNucleus(t *testing.T) {
 		v, err := NewJSNucleus(h, "")
 		So(err, ShouldBeNil)
 		z := v.(*JSNucleus)
-		Convey("version", func() {
-			_, err = z.Run("version")
-			So(err, ShouldBeNil)
-			s, _ := z.lastResult.ToString()
-			So(s, ShouldEqual, VersionStr)
-		})
 
 		Convey("property", func() {
 			_, err = z.Run(`property("description")`)

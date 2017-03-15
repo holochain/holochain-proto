@@ -216,7 +216,7 @@ To compile and run all the tests:
     cd $GOPATH/github.com/metacurrency/holochain
     make test
 
-Or if you have already done the initial `make` or `make deps` step, you can simply use `go test` as usual.
+If you want to use the normal `go test` as you usually would, our package manager `gx` installs the correct versions via `gx-go rewrite` which you must run before `go test`.  Because this actually changes the import blocks in the code, before committing, you must also run `gx-go rewrite --undo`.  Because running `go test` is significantly faster than the full `make test` (and sometimes has useful options), we have set up the `make` tasks `work` and `pub` and use the first before beginning work, and the second before "publishing" i.e. making git commits.
 
 ### Contributor Guidelines
 

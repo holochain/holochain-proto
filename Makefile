@@ -1,5 +1,5 @@
 GOBIN = $(value GOPATH)/bin
-.PHONY: test deps gx work publish
+.PHONY: test deps gx work pub
 # Anything which requires deps should end with: gx-go rewrite --undo
 
 hc: deps
@@ -21,3 +21,7 @@ $(GOBIN)/gx:
 	go get -u github.com/whyrusleeping/gx
 $(GOBIN)/gx-go:
 	go get -u github.com/whyrusleeping/gx-go
+work: $(GOBIN)/gx-go
+	gx-go rewrite
+pub: $(GOBIN)/gx-go
+	gx-go rewrite --undo

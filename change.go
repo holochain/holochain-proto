@@ -37,9 +37,3 @@ var ChangeAppProperty = Change{
 	Message: "Getting special properties via property() is deprecated as of %d. Returning nil values.  Use App* instead",
 	AsOf:    3,
 }
-
-var ChangeRequires = Change{
-	Type:    Warning,
-	Message: "Zomes must define 'requires' function as of version %d, assuming no requirements.",
-	AsOf:    2,
-}

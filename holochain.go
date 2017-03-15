@@ -76,6 +76,7 @@ type Holochain struct {
 	HashType         string
 	BasedOn          Hash // holochain hash for base schemas and code
 	Zomes            map[string]*Zome
+	RequiresVersion  int
 	//---- private values not serialized; initialized on Load
 	id             peer.ID // this is hash of the id, also used in the node
 	dnaHash        Hash
@@ -193,11 +194,12 @@ func NewHolochain(agent Agent, path string, format string, zomes ...Zome) Holoch
 		panic(err)
 	}
 	h := Holochain{
-		Id:             u,
-		HashType:       "sha2-256",
-		agent:          agent,
-		path:           path,
-		encodingFormat: format,
+		Id:              u,
+		HashType:        "sha2-256",
+		RequiresVersion: Version,
+		agent:           agent,
+		path:            path,
+		encodingFormat:  format,
 	}
 
 	// once the agent is set up we can calculate the id
@@ -341,19 +343,15 @@ func (h *Holochain) PrepareHashType() (err error) {
 // validating the DNA, loading the schema validators, setting up a Network node and setting up the DHT
 func (h *Holochain) Prepare() (err error) {
 
+	if h.RequiresVersion > Version {
+		err = fmt.Errorf("Chain requires Holochain version %d", h.RequiresVersion)
+		return
+	}
+
 	if err = h.PrepareHashType(); err != nil {
 		return
 	}
-	for zomeType, z := range h.Zomes {
-		var n Nucleus
-		n, err = h.MakeNucleus(zomeType)
-		if err != nil {
-			return
-		}
-		if err = n.ChainRequires(); err != nil {
-			return
-		}
-
+	for _, z := range h.Zomes {
 		if !fileExists(h.path + "/" + z.Code) {
 			return errors.New("DNA specified code file missing: " + z.Code)
 		}

@@ -100,30 +100,6 @@ func TestNewJSNucleus(t *testing.T) {
 	})
 }
 
-func TestJSRequires(t *testing.T) {
-	Convey("it should log a warning if requires not defined", t, func() {
-		z, _ := NewJSNucleus(nil, ``)
-		var err error
-		ShouldLog(&infoLog, "Warning: Zomes must define 'requires' function as of version 2, assuming no requirements.\n", func() {
-			err = z.ChainRequires()
-			So(err, ShouldBeNil)
-		})
-	})
-
-	Convey("it should fail if the requires function returns non object", t, func() {
-		z, _ := NewJSNucleus(nil, `function requires() {return false}`)
-		err := z.ChainRequires()
-		So(err.Error(), ShouldEqual, "require should return an object, got: false")
-	})
-
-	Convey("it should fail if the requires function returns version greater than current", t, func() {
-		nextVersion := fmt.Sprintf("%d", Version+1)
-		z, _ := NewJSNucleus(nil, `function requires() {return {version:`+nextVersion+`}}`)
-		err := z.ChainRequires()
-		So(err.Error(), ShouldEqual, "Zome requires version "+nextVersion)
-	})
-}
-
 func TestJSGenesis(t *testing.T) {
 	Convey("it should fail if the init function returns false", t, func() {
 		z, _ := NewJSNucleus(nil, `function genesis() {return false}`)

@@ -114,30 +114,6 @@ func TestNewZygoNucleus(t *testing.T) {
 	})
 }
 
-func TestZygoRequires(t *testing.T) {
-	Convey("it should log a warning if requires not defined", t, func() {
-		z, _ := NewZygoNucleus(nil, ``)
-		var err error
-		ShouldLog(&infoLog, "Warning: Zomes must define 'requires' function as of version 2, assuming no requirements.\n", func() {
-			err = z.ChainRequires()
-			So(err, ShouldBeNil)
-		})
-	})
-
-	Convey("it should fail if the requires function returns non object", t, func() {
-		z, _ := NewZygoNucleus(nil, `(defn requires [] false)`)
-		err := z.ChainRequires()
-		So(err.Error(), ShouldEqual, "require should return a hash")
-	})
-
-	Convey("it should fail if the requires function returns version greater than current", t, func() {
-		nextVersion := fmt.Sprintf("%d", Version+1)
-		z, _ := NewZygoNucleus(nil, `(defn requires [] (hash version:`+nextVersion+`))`)
-		err := z.ChainRequires()
-		So(err.Error(), ShouldEqual, "Zome requires version "+nextVersion)
-	})
-}
-
 func TestZygoGenesis(t *testing.T) {
 	Convey("it should fail if the genesis function returns false", t, func() {
 		z, _ := NewZygoNucleus(nil, `(defn genesis [] false)`)

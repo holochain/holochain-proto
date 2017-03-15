@@ -46,6 +46,24 @@ func TestNew(t *testing.T) {
 
 }
 
+func TestPrepare(t *testing.T) {
+	Convey("it should fail if the requires version is incorrect", t, func() {
+		h := Holochain{RequiresVersion: Version + 1}
+		nextVersion := fmt.Sprintf("%d", Version+1)
+		err := h.Prepare()
+		So(err.Error(), ShouldEqual, "Chain requires Holochain version "+nextVersion)
+
+	})
+	Convey("it should return no err if the requires version is correct", t, func() {
+		d, _, h := setupTestChain("test")
+		defer cleanupTestDir(d)
+		h.RequiresVersion = Version
+		err := h.Prepare()
+		So(err, ShouldBeNil)
+	})
+	//@todo build out test for other tests for prepare
+}
+
 func TestPrepareHashType(t *testing.T) {
 
 	Convey("A bad hash type should return an error", t, func() {

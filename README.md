@@ -48,14 +48,14 @@ Docker eases the installation of the Holochain software, eases the deveopment cy
 1. Install the ***latest*** version of Docker directly from [the docker website](https://docs.docker.com/engine/getstarted/step_one/)
 2. Clone the `metacurrency/holochain` repository [from github](https://github.com/metacurrency/holochain)
 
-    ```bash 
+    ```bash
     $ #navigate to where you wanna be
     $ mkdir holochain
     $ cd holochain
     $ git clone https://github.com/metacurrency/holochain.git .
     ```
 3. Build the development environment using the included Dockerfile, as a docker image
- 
+
     ```bash
     $ docker build -t metacurrency/holochain .
     ```
@@ -67,7 +67,7 @@ Docker eases the installation of the Holochain software, eases the deveopment cy
     ```bash
     $ docker run -v ~/.holochain:/root/.holochain -Pi -t metacurrency/holochain
     ```
-    
+
       > this means:
       * `run` a docker image
       * `-v...` mount my `$HOME/.holochain` directory to `/root/.holochain` inside the docker container
@@ -78,7 +78,7 @@ Docker eases the installation of the Holochain software, eases the deveopment cy
 
 > It is perfectly possible to keep a docker container around for a long time. To disconnect from one, leaving it running, use `Ctrl-p Ctrl-q`. HOWEVER: docker containers are designed to be ephemeral, or rather a Dockerfile should be designed such that destroying and creating docker containers is "best practice". To exit the docker container, use `ctrl-d`. This will stop the container, where it can be found in the list `docker ps -a`
 
-> By default, docker keeps *absolutely everything you ever do* in images on your machine. Because docker's filesystem is so [***very very very clever***](https://docs.docker.com/engine/userguide/storagedriver/aufs-driver/#image-layering-and-sharing-with-aufs), this is done in an extremely efficient way. It is quite possible to have hundreds or thousands of container states on your machine and never notice. This is a *good thing* in principal. In practice, unless you work very very hard to bury some work inside a docker container, you will never need to use this feature. 
+> By default, docker keeps *absolutely everything you ever do* in images on your machine. Because docker's filesystem is so [***very very very clever***](https://docs.docker.com/engine/userguide/storagedriver/aufs-driver/#image-layering-and-sharing-with-aufs), this is done in an extremely efficient way. It is quite possible to have hundreds or thousands of container states on your machine and never notice. This is a *good thing* in principal. In practice, unless you work very very hard to bury some work inside a docker container, you will never need to use this feature.
 
 > All of our dockerfiles, scripts and best practice processes allow you to destroy ***all*** the docker containers and images on your system *at any time*. This is how you should work with docker. If you realise that you have somehow done a days work inside a docker container, that didnt get saved in .holochain somewhere, and have no idea where it is, jaunt over to #docker on freenode, or file a ticket with us and we will do our best to help you out. This should never happen.
 
@@ -132,7 +132,7 @@ You've installed and built the distributed data integrity engine, but you haven'
 2. ```hc clone```
 3. ```hc test```
 4. ```hc gen chain```
-5. ```hc serve```
+5. ```hc web```
 
 Instructions for each of these steps are below...
 
@@ -167,7 +167,7 @@ After you have cloned and/or completed development for your chain, you need to g
 ### 5. Launching the Holochain Server
 Holochains service function requests via local web sockets. This let's interface developers have a lot of freedom to build html / javascript files and drop them in that chain's UI directory. You launch the service to listen on the socket on localhost with:
 
-    hc serve <HOLOCHAIN_NAME> [<PORT>]
+    hc web <HOLOCHAIN_NAME> [<PORT>]
 
 In a web browser you can go to ```localhost:3141``` (or whatever PORT you served it under) to access UI files and send and receive JSON with exposed application functions
 
@@ -208,14 +208,6 @@ This project depends on various parts of [libp2p](https://github.com/libp2p/go-l
     make deps
 
 If you already installed the hc command line interface the dependencies will have been installed, and this step is unnecessary.
-
-Note that `make` and `make deps` have a side-effect of re-writing some of the imports in various files.  This is how `gx` handles dependencies on specific versions of go imports.  But this means that when you are ready to make commits to your repo, you must undo these re-writes so they don't get committed to the repo.  You can do this with:
-
-    make publish
-
-After you have made your commit and are ready to continue working, you can redo those rewrites without re-running the full dependency install with:
-
-    make work
 
 ### Tests
 

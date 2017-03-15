@@ -107,7 +107,6 @@ func TestGenDev(t *testing.T) {
 	Convey("when generating a dev holochain", t, func() {
 		h, err := s.GenDev(root, "json")
 		So(err, ShouldBeNil)
-		//		h.store.Close()
 
 		f, err := s.IsConfigured(name)
 		So(err, ShouldBeNil)
@@ -115,7 +114,6 @@ func TestGenDev(t *testing.T) {
 
 		h, err = s.Load(name)
 		So(err, ShouldBeNil)
-		//		h.store.Close()
 
 		lh, err := s.load(name, "json")
 		So(err, ShouldBeNil)

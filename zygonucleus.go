@@ -274,7 +274,7 @@ func (z *ZygoNucleus) get(env *zygo.Glisp, h *Holochain, hash string) (result *z
 	return result, err
 }
 
-// getmeta exposes GetPutMeta to zygo
+// getmeta exposes GetMeta to zygo
 func (z *ZygoNucleus) getmeta(env *zygo.Glisp, h *Holochain, metahash string, metaTag string) (result *zygo.SexpHash, err error) {
 	result, err = zygo.MakeHash(nil, "hash", env)
 	if err != nil {

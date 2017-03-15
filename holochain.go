@@ -12,7 +12,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/boltdb/bolt"
 	"github.com/google/uuid"
 	ic "github.com/libp2p/go-libp2p-crypto"
 	peer "github.com/libp2p/go-libp2p-peer"
@@ -128,7 +127,6 @@ func Register() {
 	gob.Register(MetaEntry{})
 
 	RegisterBultinNucleii()
-	RegisterBultinPersisters()
 
 	infoLog.New(nil)
 	debugLog.New(nil)
@@ -167,13 +165,6 @@ func (s *Service) IsConfigured(name string) (f string, err error) {
 		return
 	}
 
-	/*	// found a format now check that there's a store
-		p := path + "/" + StoreFileName + ".db"
-		if !fileExists(p) {
-			err = errors.New("chain store missing: " + p)
-			return
-		}
-	*/
 	return
 }
 
@@ -279,16 +270,6 @@ func (s *Service) load(name string, format string) (hP *Holochain, err error) {
 		return
 	}
 
-	/*	h.store, err = CreatePersister(BoltPersisterName, path+"/"+StoreFileName+".db")
-		if err != nil {
-			return
-		}
-
-		err = h.store.Init()
-		if err != nil {
-			return
-		}
-	*/
 	if err = h.PrepareHashType(); err != nil {
 		return
 	}
@@ -407,20 +388,7 @@ func (h *Holochain) Activate() (err error) {
 	return
 }
 
-/*
-// getMetaHash gets a value from the store that's a hash
-func (h *Holochain) getMetaHash(key string) (hash Hash, err error) {
-	v, err := h.store.GetMeta(key)
-	if err != nil {
-		return
-	}
-	hash.H = v
-	if v == nil {
-		err = mkErr("Meta key '" + key + "' uninitialized")
-	}
-	return
 }
-*/
 
 // Path returns a holochain path
 func (h *Holochain) Path() string {
@@ -506,12 +474,6 @@ func (h *Holochain) GenChain() (headerHash Hash, err error) {
 		return
 	}
 
-	/*
-		err = h.store.PutMeta(IDMetaKey, dnaHeader.EntryLink.H)
-		if err != nil {
-			return
-		}
-	*/
 	err = h.dht.SetupDHT()
 	if err != nil {
 		return
@@ -944,17 +906,6 @@ func gen(path string, makeH func(path string) (hP *Holochain, err error)) (h *Ho
 		return
 	}
 
-	/*
-		h.store, err = CreatePersister(BoltPersisterName, path+"/"+StoreFileName+".db")
-		if err != nil {
-			return
-		}
-
-		err = h.store.Init()
-		if err != nil {
-			return
-		}
-	*/
 	err = h.SaveDNA(false)
 	if err != nil {
 		return
@@ -1026,61 +977,7 @@ func (h *Holochain) NewEntry(now time.Time, entryType string, entry Entry) (hash
 	if err == nil {
 		err = h.chain.addEntry(l, hash, header, entry)
 	}
-	/*
-		// get the current top of the chain
-		ph, err := h.Top()
-		if err != nil {
-			ph = NullHash()
-		}
 
-		// and also the the top entry of this type
-		pth, err := h.TopType(t)
-		if err != nil {
-			pth = NullHash()
-		}
-
-		hash, header, err = newHeader(h.hashSpec, now, t, entry, h.agent.PrivKey(), ph, pth)
-		if err != nil {
-			return
-		}
-
-		// @TODO
-		// we have to do this stuff because currently we are persisting immediately.
-		// instead we should be persisting from the Chain object.
-
-		// encode the header for saving
-		b, err := header.Marshal()
-		if err != nil {
-			return
-		}
-		// encode the entry into bytes
-		m, err := entry.Marshal()
-		if err != nil {
-			return
-		}
-
-		err = h.store.Put(t, hash, b, header.EntryLink, m)
-	*/
-	return
-}
-
-// get low level access to entries/headers (only works inside a bolt transaction)
-func get(hb *bolt.Bucket, eb *bolt.Bucket, key []byte, getEntry bool) (header Header, entry interface{}, err error) {
-	v := hb.Get(key)
-
-	err = header.Unmarshal(v, 34)
-	if err != nil {
-		return
-	}
-	if getEntry {
-		v = eb.Get(header.EntryLink.H)
-		var g GobEntry
-		err = g.Unmarshal(v)
-		if err != nil {
-			return
-		}
-		entry = g.C
-	}
 	return
 }
 
@@ -1411,11 +1308,6 @@ func (h *Holochain) Reset() (err error) {
 		h.chain.s.Close()
 	}
 
-	/*	err = h.store.Remove()
-		if err != nil {
-			panic(err)
-		}
-	*/
 	err = os.RemoveAll(h.path + "/" + DNAHashFileName)
 	if err != nil {
 		panic(err)
@@ -1429,12 +1321,6 @@ func (h *Holochain) Reset() (err error) {
 	if err != nil {
 		panic(err)
 	}
-	/*
-		err = h.store.Init()
-		if err != nil {
-			panic(err)
-		}
-	*/
 	h.chain = NewChain()
 	h.dht = NewDHT(h)
 	return

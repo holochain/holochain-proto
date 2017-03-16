@@ -10,6 +10,7 @@ import (
 	pstore "github.com/libp2p/go-libp2p-peerstore"
 	. "github.com/smartystreets/goconvey/convey"
 	"io/ioutil"
+	"os"
 	"strings"
 	"testing"
 	"time"
@@ -95,8 +96,9 @@ func TestNodeSend(t *testing.T) {
 	defer node2.Close()
 
 	var h Holochain
-	h.path = d
+	h.rootPath = d
 	h.node = node1
+	os.MkdirAll(h.DBPath(), os.ModePerm)
 	h.dht = NewDHT(&h)
 	Convey("It should start the DHT protocol", t, func() {
 		err := h.dht.StartDHT()

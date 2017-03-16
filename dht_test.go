@@ -4,6 +4,7 @@ import (
 	"fmt"
 	peer "github.com/libp2p/go-libp2p-peer"
 	. "github.com/smartystreets/goconvey/convey"
+	"os"
 	"testing"
 	"time"
 )
@@ -12,11 +13,13 @@ func TestNewDHT(t *testing.T) {
 	d := setupTestDir()
 	defer cleanupTestDir(d)
 	var h Holochain
-	h.path = d
+	h.rootPath = d
+	os.MkdirAll(h.DBPath(), os.ModePerm)
+
 	dht := NewDHT(&h)
 	Convey("It should initialize the DHT struct", t, func() {
 		So(dht.h, ShouldEqual, &h)
-		So(fileExists(h.path+"/dht.db"), ShouldBeTrue)
+		So(fileExists(h.DBPath()+"/"+DHTStoreFileName), ShouldBeTrue)
 	})
 }
 
@@ -92,7 +95,8 @@ func TestPutGetMeta(t *testing.T) {
 	d := setupTestDir()
 	defer cleanupTestDir(d)
 	var h Holochain
-	h.path = d
+	h.rootPath = d
+	os.MkdirAll(h.DBPath(), os.ModePerm)
 	dht := NewDHT(&h)
 	hash, _ := NewHash("QmY8Mzg9F69e5P9AoQPYat655HEhc1TVGs11tmfNSzkqh2")
 	metaHash1, _ := NewHash("QmY8Mzg9F69e5P9AoQPYat655HEhc1TVGs11tmfNSzkqh3")

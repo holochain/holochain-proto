@@ -122,7 +122,7 @@ func NewDHT(h *Holochain) *DHT {
 	dht := DHT{
 		h: h,
 	}
-	db, err := buntdb.Open(h.path + "/dht.db")
+	db, err := buntdb.Open(h.DBPath() + "/" + DHTStoreFileName)
 	if err != nil {
 		panic(err)
 	}

@@ -1,0 +1,16 @@
+
+(expose "getDNA" HC_STRING)
+(defn getDNA [x] App_DNA_Hash)
+(expose "exposedfn" HC_STRING)
+(defn exposedfn [x] (concat "result: " x))
+(expose "addData" HC_STRING)
+(defn addData [x] (commit "myData" x))
+(expose "addPrime" HC_JSON)
+(defn addPrime [x] (commit "primes" x))
+(defn validate [entryType entry props]
+  (cond (== entryType "myData")  (cond (== (mod entry 2) 0) true false)
+        (== entryType "primes")  (isprime (hget entry %prime))
+        (== entryType "profile") true
+        false)
+)
+(defn genesis [] true)

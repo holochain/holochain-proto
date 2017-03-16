@@ -80,7 +80,7 @@ type Holochain struct {
 	id             peer.ID // this is hash of the id, also used in the node
 	dnaHash        Hash
 	agentHash      Hash
-	path           string
+	rootPath       string
 	agent          Agent
 	encodingFormat string
 	hashSpec       HashSpec
@@ -136,6 +136,7 @@ func Register() {
 
 func findDNA(path string) (f string, err error) {
 	p := path + "/" + DNAFileName
+
 	matches, err := filepath.Glob(p + ".*")
 	if err != nil {
 		return
@@ -150,7 +151,7 @@ func findDNA(path string) (f string, err error) {
 	}
 
 	if f == "" {
-		err = errors.New("DNA not found")
+		err = fmt.Errorf("No DNA file in %s/", path)
 		return
 	}
 	return
@@ -158,17 +159,18 @@ func findDNA(path string) (f string, err error) {
 
 // IsConfigured checks a directory for correctly set up holochain configuration files
 func (s *Service) IsConfigured(name string) (f string, err error) {
-	path := s.Path + "/" + name
+	root := s.Path + "/" + name
 
-	f, err = findDNA(path)
+	f, err = findDNA(root + "/" + ChainDNADir)
 	if err != nil {
 		return
 	}
+	//@todo check other things?
 
 	return
 }
 
-// Load instantiates a Holochain instance
+// Load instantiates a Holochain instance from disk
 func (s *Service) Load(name string) (h *Holochain, err error) {
 	f, err := s.IsConfigured(name)
 	if err != nil {
@@ -178,8 +180,21 @@ func (s *Service) Load(name string) (h *Holochain, err error) {
 	return
 }
 
+func (h *Holochain) mkChainDirs() (err error) {
+	if err = os.MkdirAll(h.DBPath(), os.ModePerm); err != nil {
+		return err
+	}
+	if err = os.MkdirAll(h.DNAPath(), os.ModePerm); err != nil {
+		return
+	}
+	if err = os.MkdirAll(h.UIPath(), os.ModePerm); err != nil {
+		return
+	}
+	return
+}
+
 // NewHolochain creates a new holochain structure with a randomly generated ID and default values
-func NewHolochain(agent Agent, path string, format string, zomes ...Zome) Holochain {
+func NewHolochain(agent Agent, root string, format string, zomes ...Zome) Holochain {
 	u, err := uuid.NewUUID()
 	if err != nil {
 		panic(err)
@@ -189,7 +204,7 @@ func NewHolochain(agent Agent, path string, format string, zomes ...Zome) Holoch
 		HashType:        "sha2-256",
 		RequiresVersion: Version,
 		agent:           agent,
-		path:            path,
+		rootPath:        root,
 		encodingFormat:  format,
 	}
 
@@ -225,9 +240,9 @@ func DecodeDNA(reader io.Reader, format string) (hP *Holochain, err error) {
 // load unmarshals a holochain structure for the named chain and format
 func (s *Service) load(name string, format string) (hP *Holochain, err error) {
 
-	path := s.Path + "/" + name
+	root := s.Path + "/" + name
 	var f *os.File
-	f, err = os.Open(path + "/" + DNAFileName + "." + format)
+	f, err = os.Open(root + "/" + ChainDNADir + "/" + DNAFileName + "." + format)
 	if err != nil {
 		return
 	}
@@ -236,11 +251,11 @@ func (s *Service) load(name string, format string) (hP *Holochain, err error) {
 	if err != nil {
 		return
 	}
-	h.path = path
 	h.encodingFormat = format
+	h.rootPath = root
 
 	// load the config
-	f, err = os.Open(path + "/" + ConfigFileName + "." + format)
+	f, err = os.Open(root + "/" + ConfigFileName + "." + format)
 	if err != nil {
 		return
 	}
@@ -254,10 +269,10 @@ func (s *Service) load(name string, format string) (hP *Holochain, err error) {
 	}
 
 	// try and get the agent from the holochain instance
-	agent, err := LoadAgent(path)
+	agent, err := LoadAgent(root)
 	if err != nil {
 		// get the default if not available
-		agent, err = LoadAgent(filepath.Dir(path))
+		agent, err = LoadAgent(filepath.Dir(root))
 	}
 	if err != nil {
 		return
@@ -274,7 +289,7 @@ func (s *Service) load(name string, format string) (hP *Holochain, err error) {
 		return
 	}
 
-	h.chain, err = NewChainFromFile(h.hashSpec, path+"/"+StoreFileName+".dat")
+	h.chain, err = NewChainFromFile(h.hashSpec, h.DBPath()+"/"+StoreFileName+".dat")
 	if err != nil {
 		return
 	}
@@ -282,7 +297,7 @@ func (s *Service) load(name string, format string) (hP *Holochain, err error) {
 	// if the chain has been started there should be a DNAHashFile which
 	// we can load to check against the actual hash of the DNA entry
 	var b []byte
-	b, err = readFile(h.path, DNAHashFileName)
+	b, err = readFile(h.rootPath, DNAHashFileName)
 	if err == nil {
 		h.dnaHash, err = NewHash(string(b))
 		if err != nil {
@@ -333,18 +348,18 @@ func (h *Holochain) Prepare() (err error) {
 		return
 	}
 	for _, z := range h.Zomes {
-		if !fileExists(h.path + "/" + z.Code) {
+		if !fileExists(h.DNAPath() + "/" + z.Code) {
 			return errors.New("DNA specified code file missing: " + z.Code)
 		}
 		for k := range z.Entries {
 			e := z.Entries[k]
 			sc := e.Schema
 			if sc != "" {
-				if !fileExists(h.path + "/" + sc) {
+				if !fileExists(h.DNAPath() + "/" + sc) {
 					return errors.New("DNA specified schema file missing: " + sc)
 				} else {
 					if strings.HasSuffix(sc, ".json") {
-						if err = e.BuildJSONSchemaValidator(h.path); err != nil {
+						if err = e.BuildJSONSchemaValidator(h.DNAPath()); err != nil {
 							return err
 						}
 						z.Entries[k] = e
@@ -388,11 +403,19 @@ func (h *Holochain) Activate() (err error) {
 	return
 }
 
+// Path returns a holochain UI path
+func (h *Holochain) UIPath() string {
+	return h.rootPath + "/" + ChainUIDir
 }
 
-// Path returns a holochain path
-func (h *Holochain) Path() string {
-	return h.path
+// Path returns a holochain DB path
+func (h *Holochain) DBPath() string {
+	return h.rootPath + "/" + ChainDataDir
+}
+
+// Path returns a holochain DNA path
+func (h *Holochain) DNAPath() string {
+	return h.rootPath + "/" + ChainDNADir
 }
 
 // DNAHash returns the hash of the DNA entry which is also the holochain ID
@@ -470,7 +493,7 @@ func (h *Holochain) GenChain() (headerHash Hash, err error) {
 
 	h.agentHash = agentHeader.EntryLink
 
-	if err = writeFile(h.path, DNAHashFileName, []byte(h.dnaHash.String())); err != nil {
+	if err = writeFile(h.rootPath, DNAHashFileName, []byte(h.dnaHash.String())); err != nil {
 		return
 	}
 
@@ -495,16 +518,17 @@ func (h *Holochain) GenChain() (headerHash Hash, err error) {
 	return
 }
 
-// Clone copies DNA files from a source
-func (s *Service) Clone(srcPath string, path string, new bool) (hP *Holochain, err error) {
-	hP, err = gen(path, func(path string) (hP *Holochain, err error) {
+// Clone copies DNA files from a source directory
+func (s *Service) Clone(srcPath string, root string, new bool) (hP *Holochain, err error) {
+	hP, err = gen(root, func(root string) (hP *Holochain, err error) {
 
-		format, err := findDNA(srcPath)
+		srcDNAPath := srcPath + "/" + ChainDNADir
+		format, err := findDNA(srcDNAPath)
 		if err != nil {
 			return
 		}
 
-		f, err := os.Open(srcPath + "/" + DNAFileName + "." + format)
+		f, err := os.Open(srcDNAPath + "/" + DNAFileName + "." + format)
 		if err != nil {
 			return
 		}
@@ -513,12 +537,12 @@ func (s *Service) Clone(srcPath string, path string, new bool) (hP *Holochain, e
 		if err != nil {
 			return
 		}
+		h.rootPath = root
 
-		agent, err := LoadAgent(filepath.Dir(path))
+		agent, err := LoadAgent(filepath.Dir(root))
 		if err != nil {
 			return
 		}
-		h.path = path
 		h.agent = agent
 
 		// once the agent is set up we can calculate the id
@@ -542,37 +566,51 @@ func (s *Service) Clone(srcPath string, path string, new bool) (hP *Holochain, e
 			h.Id = u
 
 			// use the path as the name
-			h.Name = filepath.Base(path)
+			h.Name = filepath.Base(root)
 		}
 
-		if err = CopyDir(srcPath+"/ui", path+"/ui"); err != nil {
-			return
+		// copy any UI files
+		srcUiPath := srcPath + "/" + ChainUIDir
+		if dirExists(srcUiPath) {
+			if err = CopyDir(srcUiPath, h.UIPath()); err != nil {
+				return
+			}
 		}
 
-		if err = CopyFile(srcPath+"/schema_properties.json", path+"/schema_properties.json"); err != nil {
-			return
+		// copy any test files
+		srcTestDir := srcPath + ChainTestDir
+		if dirExists(srcTestDir) {
+			if err = CopyDir(srcTestDir, root+"/"+ChainTestDir); err != nil {
+				return
+			}
 		}
 
-		if dirExists(srcPath + "/test") {
-			if err = CopyDir(srcPath+"/test", path+"/test"); err != nil {
+		// create the DNA directory and copy
+		if err := os.MkdirAll(h.DNAPath(), os.ModePerm); err != nil {
+			return nil, err
+		}
+
+		propertiesSchema := srcDNAPath + "/schema_properties.json"
+		if fileExists(propertiesSchema) {
+			if err = CopyFile(propertiesSchema, h.DNAPath()+"/schema_properties.json"); err != nil {
 				return
 			}
 		}
 
 		for _, z := range h.Zomes {
 			var bs []byte
-			bs, err = readFile(srcPath, z.Code)
+			bs, err = readFile(srcDNAPath, z.Code)
 			if err != nil {
 				return
 			}
-			if err = writeFile(path, z.Code, bs); err != nil {
+			if err = writeFile(h.DNAPath(), z.Code, bs); err != nil {
 				return
 			}
 			for k := range z.Entries {
 				e := z.Entries[k]
 				sc := e.Schema
 				if sc != "" {
-					if err = CopyFile(srcPath+"/"+sc, path+"/"+sc); err != nil {
+					if err = CopyFile(srcDNAPath+"/"+sc, h.DNAPath()+"/"+sc); err != nil {
 						return
 					}
 				}
@@ -633,7 +671,7 @@ func makeConfig(h *Holochain, s *Service) (err error) {
 		},
 	}
 
-	p := h.path + "/" + ConfigFileName + "." + h.encodingFormat
+	p := h.rootPath + "/" + ConfigFileName + "." + h.encodingFormat
 	f, err := os.Create(p)
 	if err != nil {
 		return err
@@ -650,9 +688,9 @@ func makeConfig(h *Holochain, s *Service) (err error) {
 }
 
 // GenDev generates starter holochain DNA files from which to develop a chain
-func (s *Service) GenDev(path string, format string) (hP *Holochain, err error) {
-	hP, err = gen(path, func(path string) (hP *Holochain, err error) {
-		agent, err := LoadAgent(filepath.Dir(path))
+func (s *Service) GenDev(root string, format string) (hP *Holochain, err error) {
+	hP, err = gen(root, func(root string) (hP *Holochain, err error) {
+		agent, err := LoadAgent(filepath.Dir(root))
 		if err != nil {
 			return
 		}
@@ -677,10 +715,14 @@ func (s *Service) GenDev(path string, format string) (hP *Holochain, err error) 
 			},
 		}
 
-		h := NewHolochain(agent, path, format, zomes...)
+		h := NewHolochain(agent, root, format, zomes...)
+
+		if err = h.mkChainDirs(); err != nil {
+			return nil, err
+		}
 
 		// use the path as the name
-		h.Name = filepath.Base(path)
+		h.Name = filepath.Base(root)
 
 		if err = makeConfig(&h, s); err != nil {
 			return
@@ -698,7 +740,8 @@ func (s *Service) GenDev(path string, format string) (hP *Holochain, err error) 
 		}
 	}
 }`
-		if err = writeFile(path, "schema_properties.json", []byte(schema)); err != nil {
+
+		if err = writeFile(h.DNAPath(), "schema_properties.json", []byte(schema)); err != nil {
 			return
 		}
 
@@ -725,7 +768,7 @@ func (s *Service) GenDev(path string, format string) (hP *Holochain, err error) 
 	},
 	"required": ["firstName", "lastName"]
 }`
-		if err = writeFile(path, "schema_profile.json", []byte(schema)); err != nil {
+		if err = writeFile(h.DNAPath(), "schema_profile.json", []byte(schema)); err != nil {
 			return
 		}
 
@@ -780,12 +823,8 @@ func (s *Service) GenDev(path string, format string) (hP *Holochain, err error) 
 				Err:    "Invalid entry: 2"},
 		}
 
-		uiPath := path + "/ui"
-		if err = os.MkdirAll(uiPath, os.ModePerm); err != nil {
-			return nil, err
-		}
 		for fileName, fileText := range SampleUI {
-			if err = writeFile(uiPath, fileName, []byte(fileText)); err != nil {
+			if err = writeFile(h.UIPath(), fileName, []byte(fileText)); err != nil {
 				return
 			}
 		}
@@ -827,7 +866,7 @@ return false
 function genesis() {return true}
 `
 
-		testPath := path + "/test"
+		testPath := root + "/test"
 		if err = os.MkdirAll(testPath, os.ModePerm); err != nil {
 			return nil, err
 		}
@@ -845,7 +884,7 @@ function genesis() {return true}
 			}
 
 			c, _ := code[z.Name]
-			if err = writeFile(path, z.Code, []byte(c)); err != nil {
+			if err = writeFile(h.DNAPath(), z.Code, []byte(c)); err != nil {
 				return
 			}
 		}
@@ -881,34 +920,38 @@ function genesis() {return true}
 }
 
 // gen calls a make function which should build the holochain structure and supporting files
-func gen(path string, makeH func(path string) (hP *Holochain, err error)) (h *Holochain, err error) {
-	if dirExists(path) {
-		return nil, mkErr(path + " already exists")
+func gen(root string, makeH func(root string) (hP *Holochain, err error)) (h *Holochain, err error) {
+	if dirExists(root) {
+		return nil, mkErr(root + " already exists")
 	}
-	if err := os.MkdirAll(path, os.ModePerm); err != nil {
+	if err := os.MkdirAll(root, os.ModePerm); err != nil {
 		return nil, err
 	}
 
 	// cleanup the directory if we enounter an error while generating
 	defer func() {
 		if err != nil {
-			os.RemoveAll(path)
+			os.RemoveAll(root)
 		}
 	}()
 
-	h, err = makeH(path)
+	h, err = makeH(root)
 	if err != nil {
-		return
+		return nil, err
 	}
 
-	h.chain, err = NewChainFromFile(h.hashSpec, path+"/"+StoreFileName+".dat")
+	if err := os.MkdirAll(h.DBPath(), os.ModePerm); err != nil {
+		return nil, err
+	}
+
+	h.chain, err = NewChainFromFile(h.hashSpec, h.DBPath()+"/"+StoreFileName+".dat")
 	if err != nil {
-		return
+		return nil, err
 	}
 
 	err = h.SaveDNA(false)
 	if err != nil {
-		return
+		return nil, err
 	}
 
 	return
@@ -921,7 +964,7 @@ func (h *Holochain) EncodeDNA(writer io.Writer) (err error) {
 
 // SaveDNA writes the holochain DNA to a file
 func (h *Holochain) SaveDNA(overwrite bool) (err error) {
-	p := h.path + "/" + DNAFileName + "." + h.encodingFormat
+	p := h.DNAPath() + "/" + DNAFileName + "." + h.encodingFormat
 	if !overwrite && fileExists(p) {
 		return mkErr(p + " already exists")
 	}
@@ -941,7 +984,7 @@ func (h *Holochain) GenDNAHashes() (err error) {
 	var b []byte
 	for _, z := range h.Zomes {
 		code := z.Code
-		b, err = readFile(h.path, code)
+		b, err = readFile(h.DNAPath(), code)
 		if err != nil {
 			return
 		}
@@ -952,7 +995,7 @@ func (h *Holochain) GenDNAHashes() (err error) {
 		for i, e := range z.Entries {
 			sc := e.Schema
 			if sc != "" {
-				b, err = readFile(h.path, sc)
+				b, err = readFile(h.DNAPath(), sc)
 				if err != nil {
 					return
 				}
@@ -1094,7 +1137,7 @@ func (h *Holochain) MakeNucleus(t string) (n Nucleus, err error) {
 
 func (h *Holochain) makeNucleus(z *Zome) (n Nucleus, err error) {
 	var code []byte
-	code, err = readFile(h.path, z.Code)
+	code, err = readFile(h.DNAPath(), z.Code)
 	if err != nil {
 		return
 	}
@@ -1184,7 +1227,7 @@ func (h *Holochain) Test() []error {
 	}
 
 	// load up the test files into the tests array
-	var tests, errorLoad = LoadTestData(h.path + "/test")
+	var tests, errorLoad = LoadTestData(h.rootPath + "/" + ChainTestDir)
 	if errorLoad != nil {
 		return []error{errorLoad}
 	}
@@ -1308,16 +1351,12 @@ func (h *Holochain) Reset() (err error) {
 		h.chain.s.Close()
 	}
 
-	err = os.RemoveAll(h.path + "/" + DNAHashFileName)
+	err = os.RemoveAll(h.DBPath() + "/" + ChainDataDir)
 	if err != nil {
 		panic(err)
 	}
 
-	err = os.RemoveAll(h.path + "/" + StoreFileName + ".db")
-	if err != nil {
-		panic(err)
-	}
-	err = os.RemoveAll(h.path + "/dht.db")
+	err = os.RemoveAll(h.rootPath + "/" + DNAHashFileName)
 	if err != nil {
 		panic(err)
 	}

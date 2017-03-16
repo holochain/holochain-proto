@@ -1,8 +1,9 @@
 Version = 0
 Id = "00000000-0000-0000-0000-000000000000"
-Name = "simple"
+Name = "sample"
 PropertiesSchema = "schema_properties.json"
 HashType = "sha2-256"
+RequiresVersion = 3
 
 [Properties]
   description = "a bogus test holochain"
@@ -23,6 +24,11 @@ HashType = "sha2-256"
         DataFormat = "js"
         Schema = ""
         [Zomes.jsZome.Entries.myOdds.SchemaHash]
+      [Zomes.jsZome.Entries.profile]
+        Name = "profile"
+        DataFormat = "json"
+        Schema = "schema_profile.json"
+        [Zomes.jsZome.Entries.profile.SchemaHash]
   [Zomes.myZome]
     Name = "myZome"
     Description = "this is a zygomas test zome"

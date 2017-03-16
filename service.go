@@ -14,13 +14,18 @@ import (
 // System settings, directory, and file names
 const (
 	DefaultDirectoryName string = ".holochain"  // Directory for storing config data
+	ChainDataDir         string = "db"          // Sub-directory for all chain content files
+	ChainDNADir          string = "dna"         // Sub-directory for all chain definition files
+	ChainUIDir           string = "ui"          // Sub-directory for all chain user interface files
+	ChainTestDir         string = "test"        // Sub-directory for all chain test files
 	DNAFileName          string = "dna"         // Definition of the Holochain
 	ConfigFileName       string = "config"      // Settings of the Holochain
 	SysFileName          string = "system.conf" // Server & System settings
 	AgentFileName        string = "agent.txt"   // User ID info
 	PrivKeyFileName      string = "priv.key"    // Signing key - private
-	StoreFileName        string = "chain"       // Filename for local data store
+	StoreFileName        string = "chain.db"    // Filename for local data store
 	DNAHashFileName      string = "dna.hash"    // Filename for storing the hash of the holochain
+	DHTStoreFileName     string = "dht.db"      // Filname for storing the dht
 
 	DefaultPort            = 6283
 	DefaultBootstrapServer = "bootstrap.holochain.net:10000"

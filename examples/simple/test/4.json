@@ -1,1 +1,0 @@
-[{"Zome":"myZome","FnName":"addPrime","Input":"{\"prime\":4}","Output":"","Err":"Error calling 'commit': Invalid entry: {\"Atype\":\"hash\", \"prime\":4, \"zKeyOrder\":[\"prime\"]}"}]

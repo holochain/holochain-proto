@@ -13,7 +13,7 @@ import (
 	"time"
 )
 
-func TestNew(t *testing.T) {
+func TestNewHolochain(t *testing.T) {
 	a, _ := NewAgent(IPFS, "Joe")
 
 	Convey("New should fill Holochain struct with provided values and new UUID", t, func() {
@@ -23,8 +23,11 @@ func TestNew(t *testing.T) {
 		So(nID, ShouldEqual, string(h.Id.NodeID()))
 		So(h.agent.Name(), ShouldEqual, "Joe")
 		So(h.agent.PrivKey(), ShouldEqual, a.PrivKey())
-		So(h.path, ShouldEqual, "some/path")
 		So(h.encodingFormat, ShouldEqual, "json")
+		So(h.rootPath, ShouldEqual, "some/path")
+		So(h.UIPath(), ShouldEqual, "some/path/ui")
+		So(h.DNAPath(), ShouldEqual, "some/path/dna")
+		So(h.DBPath(), ShouldEqual, "some/path/db")
 	})
 	Convey("New with Zome should fill them", t, func() {
 		z := Zome{Name: "myZome",
@@ -98,9 +101,9 @@ func TestGenDev(t *testing.T) {
 	Convey("we detected unconfigured holochains", t, func() {
 		f, err := s.IsConfigured(name)
 		So(f, ShouldEqual, "")
-		So(err.Error(), ShouldEqual, "DNA not found")
+		So(err.Error(), ShouldEqual, "No DNA file in "+root+"/"+ChainDNADir+"/")
 		_, err = s.load("test", "json")
-		So(err.Error(), ShouldEqual, "open "+root+"/"+DNAFileName+".json: no such file or directory")
+		So(err.Error(), ShouldEqual, "open "+root+"/"+ChainDNADir+"/"+DNAFileName+".json: no such file or directory")
 
 	})
 
@@ -122,12 +125,11 @@ func TestGenDev(t *testing.T) {
 		So(h.config.PeerModeDHTNode, ShouldEqual, s.Settings.DefaultPeerModeDHTNode)
 		So(h.config.PeerModeAuthor, ShouldEqual, s.Settings.DefaultPeerModeAuthor)
 		So(h.config.BootstrapServer, ShouldEqual, s.Settings.DefaultBootstrapServer)
-		//		lh.store.Close()
 
-		So(fileExists(h.path+"/schema_profile.json"), ShouldBeTrue)
-		So(fileExists(h.path+"/ui/index.html"), ShouldBeTrue)
-		So(fileExists(h.path+"/ui/hc.js"), ShouldBeTrue)
-		So(fileExists(h.path+"/"+ConfigFileName+".json"), ShouldBeTrue)
+		So(fileExists(h.DNAPath()+"/schema_profile.json"), ShouldBeTrue)
+		So(fileExists(h.UIPath()+"/index.html"), ShouldBeTrue)
+		So(fileExists(h.UIPath()+"/hc.js"), ShouldBeTrue)
+		So(fileExists(h.rootPath+"/"+ConfigFileName+".json"), ShouldBeTrue)
 
 		Convey("we should not be able re generate it", func() {
 			_, err = s.GenDev(root, "json")
@@ -153,13 +155,18 @@ func TestCloneNew(t *testing.T) {
 		So(err, ShouldBeNil)
 		So(h.agent.Name(), ShouldEqual, agent.Name())
 		So(ic.KeyEqual(h.agent.PrivKey(), agent.PrivKey()), ShouldBeTrue)
-		src, _ := readFile(orig, "zome_myZome.zy")
-		dst, _ := readFile(root, "zome_myZome.zy")
+		src, _ := readFile(orig+"/dna/", "zome_myZome.zy")
+		dst, _ := readFile(h.DNAPath(), "zome_myZome.zy")
 		So(string(src), ShouldEqual, string(dst))
-		So(fileExists(h.path+"/ui/index.html"), ShouldBeTrue)
-		So(fileExists(h.path+"/schema_profile.json"), ShouldBeTrue)
-		So(fileExists(h.path+"/schema_properties.json"), ShouldBeTrue)
-		So(fileExists(h.path+"/"+ConfigFileName+".toml"), ShouldBeTrue)
+		So(h.rootPath, ShouldEqual, root)
+		So(h.UIPath(), ShouldEqual, root+"/ui")
+		So(h.DNAPath(), ShouldEqual, root+"/dna")
+		So(h.DBPath(), ShouldEqual, root+"/db")
+
+		So(fileExists(h.UIPath()+"/index.html"), ShouldBeTrue)
+		So(fileExists(h.DNAPath()+"/schema_profile.json"), ShouldBeTrue)
+		So(fileExists(h.DNAPath()+"/schema_properties.json"), ShouldBeTrue)
+		So(fileExists(h.rootPath+"/"+ConfigFileName+".toml"), ShouldBeTrue)
 	})
 }
 
@@ -183,10 +190,10 @@ func TestCloneJoin(t *testing.T) {
 		src, _ := readFile(orig, "zome_myZome.zy")
 		dst, _ := readFile(root, "zome_myZome.zy")
 		So(string(src), ShouldEqual, string(dst))
-		So(fileExists(h.path+"/ui/index.html"), ShouldBeTrue)
-		So(fileExists(h.path+"/schema_profile.json"), ShouldBeTrue)
-		So(fileExists(h.path+"/schema_properties.json"), ShouldBeTrue)
-		So(fileExists(h.path+"/"+ConfigFileName+".toml"), ShouldBeTrue)
+		So(fileExists(h.UIPath()+"/index.html"), ShouldBeTrue)
+		So(fileExists(h.DNAPath()+"/schema_profile.json"), ShouldBeTrue)
+		So(fileExists(h.DNAPath()+"/schema_properties.json"), ShouldBeTrue)
+		So(fileExists(h.rootPath+"/"+ConfigFileName+".toml"), ShouldBeTrue)
 	})
 }
 
@@ -307,10 +314,10 @@ func TestGenChain(t *testing.T) {
 		err = h.GenDNAHashes()
 		So(err, ShouldBeNil)
 		var h2 Holochain
-		_, err = toml.DecodeFile(h.path+"/"+DNAFileName+".toml", &h2)
+		_, err = toml.DecodeFile(h.DNAPath()+"/"+DNAFileName+".toml", &h2)
 		So(err, ShouldBeNil)
 		So(h2.Zomes["myZome"].CodeHash.String(), ShouldEqual, h.Zomes["myZome"].CodeHash.String())
-		b, _ := readFile(h.path, "schema_profile.json")
+		b, _ := readFile(h.DNAPath(), "schema_profile.json")
 		var sh Hash
 		sh.Sum(h.hashSpec, b)
 
@@ -505,7 +512,7 @@ func TestTest(t *testing.T) {
 	}
 	Convey("it should fail if there's no test data", t, func() {
 		err := h.Test()
-		So(err[0].Error(), ShouldEqual, "open "+h.path+"/test: no such file or directory")
+		So(err[0].Error(), ShouldEqual, "open "+h.rootPath+"/"+ChainTestDir+": no such file or directory")
 	})
 	cleanupTestDir(d)
 

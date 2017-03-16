@@ -185,7 +185,7 @@ func setupApp() (app *cli.App) {
 								return err
 							}
 							h.agent.GenKeys()
-							err = holo.SaveAgent(h.path, h.agent)
+							err = holo.SaveAgent(h.rootPath, h.agent)
 							return err*/
 
 					},

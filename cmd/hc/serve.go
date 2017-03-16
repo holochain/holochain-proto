@@ -25,7 +25,7 @@ func serve(h *holo.Holochain, port string) {
 	log.New(nil)
 	errs.New(os.Stderr)
 
-	fs := http.FileServer(http.Dir(h.Path() + "/ui"))
+	fs := http.FileServer(http.Dir(h.UIPath()))
 	http.Handle("/", fs)
 
 	var upgrader = websocket.Upgrader{

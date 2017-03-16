@@ -8,7 +8,7 @@
         "language": "en",
         "initial_admin": "chuck@norris.com"
     },
-    "PropertiesSchema": "schema_properties.json",
+    "PropertiesSchema": "properties_schema.json",
     "HashType": "sha2-256",
     "BasedOn": {
         "H": null
@@ -18,7 +18,7 @@
           "Name": "chat",
           "Description": "chat code",
           "NucleusType": "js",
-          "Code": "zome_chat.js",
+          "Code": "chat.js",
           "CodeHash": {
               "H": null
           }
@@ -27,7 +27,7 @@
           "Name": "rooms",
           "Description": "Rooms controller",
           "NucleusType": "js",
-          "Code": "zome_rooms.js",
+          "Code": "rooms.js",
           "CodeHash": {
               "H": null
           },
@@ -35,7 +35,7 @@
             "room": {
               "Name": "room",
               "DataFormat": "json",
-              "Schema": "schema_room.json",
+              "Schema": "room.json",
               "SchemaHash": {
                   "H": null
               }
@@ -46,7 +46,7 @@
           "Name": "messages",
           "Description": "Messages controller",
           "NucleusType": "js",
-          "Code": "zome_messages.js",
+          "Code": "messages.js",
           "CodeHash": {
               "H": null
           },
@@ -54,7 +54,7 @@
             "message": {
               "Name": "message",
               "DataFormat": "json",
-              "Schema": "schema_message.json",
+              "Schema": "message.json",
               "SchemaHash": {
                   "H": null
               }
@@ -65,7 +65,7 @@
           "Name": "profiles",
           "Description": "Profiles controller",
           "NucleusType": "js",
-          "Code": "zome_profiles.js",
+          "Code": "profiles.js",
           "CodeHash": {
               "H": null
           },
@@ -73,7 +73,7 @@
             "profile": {
               "Name": "profile",
               "DataFormat": "json",
-              "Schema": "schema_profile.json",
+              "Schema": "profile.json",
               "SchemaHash": {
                   "H": null
               }

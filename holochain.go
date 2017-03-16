@@ -157,6 +157,12 @@ func findDNA(path string) (f string, err error) {
 	return
 }
 
+// ZomePath returns the path to the zome dna data
+// @todo sanitize the name value
+func (h *Holochain) ZomePath(z *Zome) string {
+	return h.DNAPath() + "/" + z.Name
+}
+
 // IsConfigured checks a directory for correctly set up holochain configuration files
 func (s *Service) IsConfigured(name string) (f string, err error) {
 	root := s.Path + "/" + name
@@ -348,18 +354,19 @@ func (h *Holochain) Prepare() (err error) {
 		return
 	}
 	for _, z := range h.Zomes {
-		if !fileExists(h.DNAPath() + "/" + z.Code) {
+		zpath := h.ZomePath(z)
+		if !fileExists(zpath + "/" + z.Code) {
 			return errors.New("DNA specified code file missing: " + z.Code)
 		}
 		for k := range z.Entries {
 			e := z.Entries[k]
 			sc := e.Schema
 			if sc != "" {
-				if !fileExists(h.DNAPath() + "/" + sc) {
+				if !fileExists(zpath + "/" + sc) {
 					return errors.New("DNA specified schema file missing: " + sc)
 				} else {
 					if strings.HasSuffix(sc, ".json") {
-						if err = e.BuildJSONSchemaValidator(h.DNAPath()); err != nil {
+						if err = e.BuildJSONSchemaValidator(zpath); err != nil {
 							return err
 						}
 						z.Entries[k] = e
@@ -590,27 +597,32 @@ func (s *Service) Clone(srcPath string, root string, new bool) (hP *Holochain, e
 			return nil, err
 		}
 
-		propertiesSchema := srcDNAPath + "/schema_properties.json"
+		propertiesSchema := srcDNAPath + "/properties_schema.json"
 		if fileExists(propertiesSchema) {
-			if err = CopyFile(propertiesSchema, h.DNAPath()+"/schema_properties.json"); err != nil {
+			if err = CopyFile(propertiesSchema, h.DNAPath()+"/properties_schema.json"); err != nil {
 				return
 			}
 		}
 
 		for _, z := range h.Zomes {
 			var bs []byte
-			bs, err = readFile(srcDNAPath, z.Code)
+			srczpath := srcDNAPath + "/" + z.Name
+			bs, err = readFile(srczpath, z.Code)
 			if err != nil {
 				return
 			}
-			if err = writeFile(h.DNAPath(), z.Code, bs); err != nil {
+			zpath := h.ZomePath(z)
+			if err = os.MkdirAll(zpath, os.ModePerm); err != nil {
+				return nil, err
+			}
+			if err = writeFile(zpath, z.Code, bs); err != nil {
 				return
 			}
 			for k := range z.Entries {
 				e := z.Entries[k]
 				sc := e.Schema
 				if sc != "" {
-					if err = CopyFile(srcDNAPath+"/"+sc, h.DNAPath()+"/"+sc); err != nil {
+					if err = CopyFile(srczpath+"/"+sc, zpath+"/"+sc); err != nil {
 						return
 					}
 				}
@@ -702,7 +714,7 @@ func (s *Service) GenDev(root string, format string) (hP *Holochain, err error) 
 				Entries: map[string]EntryDef{
 					"myData":  {Name: "myData", DataFormat: DataFormatRawZygo},
 					"primes":  {Name: "primes", DataFormat: DataFormatJSON},
-					"profile": {Name: "profile", DataFormat: DataFormatJSON, Schema: "schema_profile.json"},
+					"profile": {Name: "profile", DataFormat: DataFormatJSON, Schema: "profile.json"},
 				},
 			},
 			{Name: "jsZome",
@@ -710,7 +722,7 @@ func (s *Service) GenDev(root string, format string) (hP *Holochain, err error) 
 				NucleusType: JSNucleusType,
 				Entries: map[string]EntryDef{
 					"myOdds":  {Name: "myOdds", DataFormat: DataFormatRawJS},
-					"profile": {Name: "profile", DataFormat: DataFormatJSON, Schema: "schema_profile.json"},
+					"profile": {Name: "profile", DataFormat: DataFormatJSON, Schema: "profile.json"},
 				},
 			},
 		}
@@ -741,11 +753,11 @@ func (s *Service) GenDev(root string, format string) (hP *Holochain, err error) 
 	}
 }`
 
-		if err = writeFile(h.DNAPath(), "schema_properties.json", []byte(schema)); err != nil {
+		if err = writeFile(h.DNAPath(), "properties_schema.json", []byte(schema)); err != nil {
 			return
 		}
 
-		h.PropertiesSchema = "schema_properties.json"
+		h.PropertiesSchema = "properties_schema.json"
 		h.Properties = map[string]string{
 			"description": "a bogus test holochain",
 			"language":    "en"}
@@ -768,9 +780,6 @@ func (s *Service) GenDev(root string, format string) (hP *Holochain, err error) 
 	},
 	"required": ["firstName", "lastName"]
 }`
-		if err = writeFile(h.DNAPath(), "schema_profile.json", []byte(schema)); err != nil {
-			return
-		}
 
 		fixtures := [7]TestData{
 			{
@@ -873,20 +882,34 @@ function genesis() {return true}
 
 		for n := range h.Zomes {
 			z, _ := h.Zomes[n]
+
+			zpath := h.ZomePath(z)
+
+			if err = os.MkdirAll(zpath, os.ModePerm); err != nil {
+				return nil, err
+			}
+
 			switch z.NucleusType {
 			case JSNucleusType:
-				z.Code = fmt.Sprintf("zome_%s.js", z.Name)
+				z.Code = fmt.Sprintf("%s.js", z.Name)
 			case ZygoNucleusType:
-				z.Code = fmt.Sprintf("zome_%s.zy", z.Name)
+				z.Code = fmt.Sprintf("%s.zy", z.Name)
 			default:
 				err = fmt.Errorf("unknown nucleus type:%s", z.NucleusType)
 				return
 			}
 
 			c, _ := code[z.Name]
-			if err = writeFile(h.DNAPath(), z.Code, []byte(c)); err != nil {
+			if err = writeFile(zpath, z.Code, []byte(c)); err != nil {
 				return
 			}
+
+			// both zomes have the same profile schma, this will be generalized for
+			// scaffold building code.
+			if err = writeFile(zpath, "profile.json", []byte(schema)); err != nil {
+				return
+			}
+
 		}
 
 		// write out the tests
@@ -984,7 +1007,8 @@ func (h *Holochain) GenDNAHashes() (err error) {
 	var b []byte
 	for _, z := range h.Zomes {
 		code := z.Code
-		b, err = readFile(h.DNAPath(), code)
+		zpath := h.ZomePath(z)
+		b, err = readFile(zpath, code)
 		if err != nil {
 			return
 		}
@@ -995,7 +1019,7 @@ func (h *Holochain) GenDNAHashes() (err error) {
 		for i, e := range z.Entries {
 			sc := e.Schema
 			if sc != "" {
-				b, err = readFile(h.DNAPath(), sc)
+				b, err = readFile(zpath, sc)
 				if err != nil {
 					return
 				}
@@ -1137,7 +1161,8 @@ func (h *Holochain) MakeNucleus(t string) (n Nucleus, err error) {
 
 func (h *Holochain) makeNucleus(z *Zome) (n Nucleus, err error) {
 	var code []byte
-	code, err = readFile(h.DNAPath(), z.Code)
+	zpath := h.ZomePath(z)
+	code, err = readFile(zpath, z.Code)
 	if err != nil {
 		return
 	}

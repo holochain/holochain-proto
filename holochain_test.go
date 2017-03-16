@@ -126,7 +126,7 @@ func TestGenDev(t *testing.T) {
 		So(h.config.PeerModeAuthor, ShouldEqual, s.Settings.DefaultPeerModeAuthor)
 		So(h.config.BootstrapServer, ShouldEqual, s.Settings.DefaultBootstrapServer)
 
-		So(fileExists(h.DNAPath()+"/schema_profile.json"), ShouldBeTrue)
+		So(fileExists(h.DNAPath()+"/myZome/profile.json"), ShouldBeTrue)
 		So(fileExists(h.UIPath()+"/index.html"), ShouldBeTrue)
 		So(fileExists(h.UIPath()+"/hc.js"), ShouldBeTrue)
 		So(fileExists(h.rootPath+"/"+ConfigFileName+".json"), ShouldBeTrue)
@@ -155,8 +155,8 @@ func TestCloneNew(t *testing.T) {
 		So(err, ShouldBeNil)
 		So(h.agent.Name(), ShouldEqual, agent.Name())
 		So(ic.KeyEqual(h.agent.PrivKey(), agent.PrivKey()), ShouldBeTrue)
-		src, _ := readFile(orig+"/dna/", "zome_myZome.zy")
-		dst, _ := readFile(h.DNAPath(), "zome_myZome.zy")
+		src, _ := readFile(orig+"/dna/", "myZome.zy")
+		dst, _ := readFile(h.DNAPath(), "myZome.zy")
 		So(string(src), ShouldEqual, string(dst))
 		So(h.rootPath, ShouldEqual, root)
 		So(h.UIPath(), ShouldEqual, root+"/ui")
@@ -164,8 +164,8 @@ func TestCloneNew(t *testing.T) {
 		So(h.DBPath(), ShouldEqual, root+"/db")
 
 		So(fileExists(h.UIPath()+"/index.html"), ShouldBeTrue)
-		So(fileExists(h.DNAPath()+"/schema_profile.json"), ShouldBeTrue)
-		So(fileExists(h.DNAPath()+"/schema_properties.json"), ShouldBeTrue)
+		So(fileExists(h.DNAPath()+"/myZome/profile.json"), ShouldBeTrue)
+		So(fileExists(h.DNAPath()+"/properties_schema.json"), ShouldBeTrue)
 		So(fileExists(h.rootPath+"/"+ConfigFileName+".toml"), ShouldBeTrue)
 	})
 }
@@ -187,12 +187,12 @@ func TestCloneJoin(t *testing.T) {
 		So(err, ShouldBeNil)
 		So(h.agent.Name(), ShouldEqual, agent.Name())
 		So(ic.KeyEqual(h.agent.PrivKey(), agent.PrivKey()), ShouldBeTrue)
-		src, _ := readFile(orig, "zome_myZome.zy")
-		dst, _ := readFile(root, "zome_myZome.zy")
+		src, _ := readFile(orig+"/dna/", "myZome.zy")
+		dst, _ := readFile(root, "myZome.zy")
 		So(string(src), ShouldEqual, string(dst))
 		So(fileExists(h.UIPath()+"/index.html"), ShouldBeTrue)
-		So(fileExists(h.DNAPath()+"/schema_profile.json"), ShouldBeTrue)
-		So(fileExists(h.DNAPath()+"/schema_properties.json"), ShouldBeTrue)
+		So(fileExists(h.DNAPath()+"/myZome/profile.json"), ShouldBeTrue)
+		So(fileExists(h.DNAPath()+"/properties_schema.json"), ShouldBeTrue)
 		So(fileExists(h.rootPath+"/"+ConfigFileName+".toml"), ShouldBeTrue)
 	})
 }
@@ -317,7 +317,7 @@ func TestGenChain(t *testing.T) {
 		_, err = toml.DecodeFile(h.DNAPath()+"/"+DNAFileName+".toml", &h2)
 		So(err, ShouldBeNil)
 		So(h2.Zomes["myZome"].CodeHash.String(), ShouldEqual, h.Zomes["myZome"].CodeHash.String())
-		b, _ := readFile(h.DNAPath(), "schema_profile.json")
+		b, _ := readFile(h.DNAPath()+"/myZome", "profile.json")
 		var sh Hash
 		sh.Sum(h.hashSpec, b)
 
@@ -462,7 +462,7 @@ func TestValidateEntry(t *testing.T) {
 		profile = `{"firstName":"Eric"}` // missing required lastName
 		err = h.ValidateEntry(hdr.Type, &GobEntry{C: profile}, &p)
 		So(err, ShouldNotBeNil)
-		So(err.Error(), ShouldEqual, "validator schema_profile.json failed: object property 'lastName' is required")
+		So(err.Error(), ShouldEqual, "validator profile.json failed: object property 'lastName' is required")
 	})
 }
 

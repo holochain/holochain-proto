@@ -1,12 +1,12 @@
 {
     "Version": 0,
-    "Id": "9eced046-0169-11e7-a9f8-0090f5e8c3f9",
-    "Name": "wat",
+    "Id": "00000000-0000-0000-0000-000000000000",
+    "Name": "clutter",
     "Properties": {
         "description": "distributed micro-blogging",
         "language": "en"
     },
-    "PropertiesSchema": "schema_properties.json",
+    "PropertiesSchema": "properties_schema.json",
     "HashType": "sha2-256",
     "BasedOn": {
         "H": null
@@ -15,7 +15,7 @@
         "clutter": {
             "Name": "clutter",
             "Description": "zome that implements micro-blogging",
-            "Code": "zome_clutter.js",
+            "Code": "clutter.js",
             "CodeHash": {
                 "H": null
             },
@@ -23,7 +23,7 @@
                 "post": {
                     "Name": "post",
                     "DataFormat": "json",
-                    "Schema": "schema_post.json",
+                    "Schema": "post.json",
                     "SchemaHash": {
                         "H": null
                     }
@@ -31,7 +31,7 @@
                 "follow": {
                     "Name": "follow",
                     "DataFormat": "json",
-                    "Schema": "schema_follow.json",
+                    "Schema": "follow.json",
                     "SchemaHash": {
                         "H": null
                     }
@@ -39,7 +39,7 @@
                 "profile": {
                     "Name": "profile",
                     "DataFormat": "json",
-                    "Schema": "schema_profile.json",
+                    "Schema": "profile.json",
                     "SchemaHash": {
                         "H": null
                     }

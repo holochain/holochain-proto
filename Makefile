@@ -8,10 +8,16 @@ hc: deps
 bs: deps
 	go install ./cmd/bs
 	gx-go rewrite --undo
-test: deps
+init: hc
+	hc init node@example.com
+test: testcore
+	gx-go rewrite --undo
+testcore: deps
 	go get -t
 	go test -v ./...||exit 1
-	gx-go rewrite --undo
+testall: testcore hc init
+	hc --debug --verbose clone --force examples/chat   examples-chat   && hc --debug --verbose test examples-chat
+	hc --debug --verbose clone --force examples/sample examples-sample && hc --debug --verbose test examples-sample
 deps: gx
 	gx-go rewrite
 	go get -d ./...

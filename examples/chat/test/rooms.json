@@ -3,7 +3,7 @@
     "Zome":"rooms",
     "FnName":"newRoom",
     "Input":"{\"name\":\"asdf\"}",
-    "Output":"{\"message\":\"validator schema_room.json failed: object property 'purpose' is required\",\"name\":\"HolochainError\"}",
+    "Output":"{\"message\":\"validator room.json failed: object property 'purpose' is required\",\"name\":\"HolochainError\"}",
     "Err":""
   },
   {

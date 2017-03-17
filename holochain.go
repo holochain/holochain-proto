@@ -585,7 +585,7 @@ func (s *Service) Clone(srcPath string, root string, new bool) (hP *Holochain, e
 		}
 
 		// copy any test files
-		srcTestDir := srcPath + ChainTestDir
+		srcTestDir := srcPath + "/" + ChainTestDir
 		if dirExists(srcTestDir) {
 			if err = CopyDir(srcTestDir, root+"/"+ChainTestDir); err != nil {
 				return

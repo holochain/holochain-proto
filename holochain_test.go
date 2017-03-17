@@ -167,6 +167,9 @@ func TestCloneNew(t *testing.T) {
 		So(fileExists(h.DNAPath()+"/myZome/profile.json"), ShouldBeTrue)
 		So(fileExists(h.DNAPath()+"/properties_schema.json"), ShouldBeTrue)
 		So(fileExists(h.rootPath+"/"+ConfigFileName+".toml"), ShouldBeTrue)
+
+		So(fileExists(h.rootPath+"/"+ChainTestDir+"/test_0.json"), ShouldBeTrue)
+
 	})
 }
 

@@ -1,5 +1,5 @@
 GOBIN = $(value GOPATH)/bin
-.PHONY: test deps gx work pub
+.PHONY: test testcore testexamples testall init deps gx work pub
 # Anything which requires deps should end with: gx-go rewrite --undo
 
 hc: deps
@@ -12,11 +12,13 @@ init: hc
 	hc init node@example.com
 test: testcore
 	gx-go rewrite --undo
+testall: testcore hc init testexamples
+	gx-go rewrite --undo
 testcore: deps
 	go get -t
 	go test -v ./...||exit 1
-testall: testcore hc init
-	hc --debug --verbose clone --force examples/chat   examples-chat   && hc --debug --verbose test examples-chat
+testexamples: deps hc
+#	hc --debug --verbose clone --force examples/chat   examples-chat   && hc --debug --verbose test examples-chat
 	hc --debug --verbose clone --force examples/sample examples-sample && hc --debug --verbose test examples-sample
 deps: gx
 	gx-go rewrite

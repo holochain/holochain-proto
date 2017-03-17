@@ -3,7 +3,7 @@
     "Zome":"messages",
     "FnName":"newMessage",
     "Input":"{\"content\":\"hallo\"}",
-    "Output":"{\"message\":\"validator schema_message.json failed: object property 'room' is required\",\"name\":\"HolochainError\"}",
+    "Output":"{\"message\":\"validator message.json failed: object property 'room' is required\",\"name\":\"HolochainError\"}",
     "Err":""
   },
   {

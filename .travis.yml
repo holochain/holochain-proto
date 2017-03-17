@@ -6,7 +6,7 @@ language: go
 install: true
 
 script:
-  - make test
+  - make testall
 
 cache:
     directories:

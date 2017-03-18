@@ -44,9 +44,10 @@ const (
 	GOSSIP_REQUEST
 	GOSSIP
 
-	// Source Messages
+	// Validate Messages
 
-	SRC_VALIDATE
+	VALIDATE_REQUEST
+	VALIDATEMETA_REQUEST
 )
 
 // Message represents data that can be sent to node in the network
@@ -65,8 +66,8 @@ type Node struct {
 }
 
 const (
-	DHTProtocol    = protocol.ID("/holochain-dht/0.0.0")
-	SourceProtocol = protocol.ID("/holochain-src/0.0.0")
+	DHTProtocol      = protocol.ID("/holochain-dht/0.0.0")
+	ValidateProtocol = protocol.ID("/holochain-val/0.0.0")
 )
 
 type Router struct {
@@ -175,40 +176,6 @@ func (node *Node) StartProtocol(h *Holochain, proto protocol.ID, receiver Receiv
 		node.respondWith(s, err, response)
 	})
 	return
-}
-
-type ValidateResponse struct {
-	Entry Entry
-	Type  string
-}
-
-// SrcReceiver handles messages on the Source protocol
-func SrcReceiver(h *Holochain, m *Message) (response interface{}, err error) {
-	switch m.Type {
-	case SRC_VALIDATE:
-		switch t := m.Body.(type) {
-		case Hash:
-			//@TODO should we really be making this distinction!!!
-			// try to get the hash from the headers
-			var r ValidateResponse
-			response, err = h.chain.Get(t)
-			if err == ErrHashNotFound {
-				// if that fails get it from the entries
-				r.Entry, r.Type, err = h.chain.GetEntry(t)
-				response = &r
-			}
-		default:
-			err = errors.New("expected hash")
-		}
-	default:
-		err = fmt.Errorf("message type %d not in holochain-src protocol", int(m.Type))
-	}
-	return
-}
-
-// StartSrc initiates listening for Source protocol messages on the node
-func (node *Node) StartSrc(h *Holochain) (err error) {
-	return node.StartProtocol(h, SourceProtocol, SrcReceiver)
 }
 
 // Close shuts down the node

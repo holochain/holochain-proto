@@ -326,20 +326,11 @@ func NewJSNucleus(h *Holochain, code string) (n Nucleus, err error) {
 	}
 
 	err = z.vm.Set("putmeta", func(call otto.FunctionCall) otto.Value {
-		hashstr, _ := call.Argument(0).ToString()
-		metahashstr, _ := call.Argument(1).ToString()
-		typestr, _ := call.Argument(2).ToString()
+		hash, _ := call.Argument(0).ToString()
+		metaHash, _ := call.Argument(1).ToString()
+		metaTag, _ := call.Argument(2).ToString()
 
-		var key Hash
-		key, err = NewHash(hashstr)
-		if err == nil {
-			var metakey Hash
-			metakey, err = NewHash(metahashstr)
-			if err == nil {
-				err = h.dht.SendPutMeta(MetaReq{O: key, M: metakey, T: typestr})
-			}
-		}
-
+		err = h.PutMeta(hash, metaHash, metaTag)
 		if err != nil {
 			return z.vm.MakeCustomError("HolochainError", err.Error())
 		}

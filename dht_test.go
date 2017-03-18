@@ -232,7 +232,7 @@ func TestDHTReceiver(t *testing.T) {
 	hash, _ := NewHash("QmY8Mzg9F69e5P9AoQPYat655HEhc1TVGs11tmfNSzkqh2")
 
 	Convey("PUTMETA_REQUEST should fail if hash doesn't exist", t, func() {
-		me := MetaReq{O: hash, M: hash, T: "myMetaTag"}
+		me := MetaReq{O: hash, M: hash, T: hash}
 		m := h.node.NewMessage(PUTMETA_REQUEST, me)
 		_, err := DHTReceiver(h, m)
 		So(err.Error(), ShouldEqual, "hash not found")
@@ -263,8 +263,13 @@ func TestDHTReceiver(t *testing.T) {
 	someData := `{"firstName":"Zippy","lastName":"Pinhead"}`
 	e = GobEntry{C: someData}
 	_, hd, _ = h.NewEntry(now, "profile", &e)
+
+	me := MetaEntry{M: hd.EntryLink, Tag: "myMetaTag"}
+	ee := GobEntry{C: me}
+	_, mehd, _ := h.NewEntry(time.Now(), MetaEntryType, &ee)
+
 	Convey("PUTMETA_REQUEST should store meta values", t, func() {
-		me := MetaReq{O: hash, M: hd.EntryLink, T: "myMetaTag"}
+		me := MetaReq{O: hash, M: hd.EntryLink, T: mehd.EntryLink}
 		m := h.node.NewMessage(PUTMETA_REQUEST, me)
 		r, err := DHTReceiver(h, m)
 		So(err, ShouldBeNil)
@@ -351,9 +356,13 @@ func TestGossipData(t *testing.T) {
 	DHTReceiver(h, m1)
 	dht.simHandlePutReqs()
 
+	me := MetaEntry{H: hash, M: hash, Tag: "myMetaTag"}
+	ee := GobEntry{C: me}
+	_, mehd, _ := h.NewEntry(time.Now(), MetaEntryType, &ee)
+
 	// simulate a handled putmeta request
-	me := MetaReq{O: hash, M: hd.EntryLink, T: "myMetaTag"}
-	m2 := h.node.NewMessage(PUTMETA_REQUEST, me)
+	mr := MetaReq{O: hash, M: hd.EntryLink, T: mehd.EntryLink}
+	m2 := h.node.NewMessage(PUTMETA_REQUEST, mr)
 	DHTReceiver(h, m2)
 	h.dht.simHandlePutReqs()
 

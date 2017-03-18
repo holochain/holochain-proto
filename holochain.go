@@ -30,13 +30,6 @@ import (
 const Version int = 3
 const VersionStr string = "3"
 
-// AgentEntry structure for building KeyEntryType entries
-type AgentEntry struct {
-	Name    AgentName
-	KeyType KeytypeType
-	Key     []byte // marshaled public key
-}
-
 // Zome struct encapsulates logically related code, from "chromosome"
 type Zome struct {
 	Name        string
@@ -114,6 +107,7 @@ func Infof(m string, args ...interface{}) {
 func Register() {
 	gob.Register(Header{})
 	gob.Register(AgentEntry{})
+	gob.Register(MetaEntry{})
 	gob.Register(Hash{})
 	gob.Register(PutReq{})
 	gob.Register(GetReq{})
@@ -125,7 +119,7 @@ func Register() {
 	gob.Register(Put{})
 	gob.Register(GobEntry{})
 	gob.Register(MetaQueryResp{})
-	gob.Register(MetaEntry{})
+	gob.Register(TaggedEntry{})
 
 	RegisterBultinNucleii()
 
@@ -402,7 +396,7 @@ func (h *Holochain) Activate() (err error) {
 		}
 	}
 	if h.config.PeerModeAuthor {
-		if err = h.node.StartSrc(h); err != nil {
+		if err = h.node.StartValidate(h); err != nil {
 			return
 		}
 	}
@@ -1037,11 +1031,16 @@ func (h *Holochain) GenDNAHashes() (err error) {
 
 // NewEntry adds an entry and it's header to the chain and returns the header and it's hash
 func (h *Holochain) NewEntry(now time.Time, entryType string, entry Entry) (hash Hash, header *Header, err error) {
-
 	var l int
 	l, hash, header, err = h.chain.PrepareHeader(h.hashSpec, now, entryType, entry, h.agent.PrivKey())
 	if err == nil {
 		err = h.chain.addEntry(l, hash, header, entry)
+	}
+
+	if err == nil {
+		Debugf("NewEntry of %s added as: %s (entry: %v)", entryType, header.EntryLink, entry)
+	} else {
+		Debugf("NewEntry of %s failed with: %s (entry: %v)", entryType, err, entry)
 	}
 
 	return
@@ -1415,4 +1414,24 @@ func (h *Holochain) DHT() *DHT {
 // HashSpec exposes the hashSpec structure
 func (h *Holochain) HashSpec() HashSpec {
 	return h.hashSpec
+}
+
+// PutMeta is called by nucleus putmeta routines and both creates a meta entry and sends
+// the putmeta request to the dht
+func (h *Holochain) PutMeta(hash string, metaHash string, metaTag string) (err error) {
+	var key Hash
+	key, err = NewHash(hash)
+	if err == nil {
+		var metakey Hash
+		metakey, err = NewHash(metaHash)
+		if err == nil {
+			me := MetaEntry{H: key, M: metakey, Tag: metaTag}
+			e := GobEntry{C: me}
+			_, mehd, err := h.NewEntry(time.Now(), MetaEntryType, &e)
+			if err == nil {
+				err = h.dht.SendPutMeta(MetaReq{O: key, M: metakey, T: mehd.EntryLink})
+			}
+		}
+	}
+	return
 }

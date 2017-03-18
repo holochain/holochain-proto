@@ -104,8 +104,8 @@ func TestNodeSend(t *testing.T) {
 		err := h.dht.StartDHT()
 		So(err, ShouldBeNil)
 	})
-	Convey("It should start the Src protocol", t, func() {
-		err := node2.StartSrc(&h)
+	Convey("It should start the Validate protocol", t, func() {
+		err := node2.StartValidate(&h)
 		So(err, ShouldBeNil)
 	})
 
@@ -123,11 +123,11 @@ func TestNodeSend(t *testing.T) {
 
 	Convey("It should fail on incorrect message types", t, func() {
 		m := node1.NewMessage(PUT_REQUEST, "fish")
-		r, err := node1.Send(SourceProtocol, node2.HashAddr, m)
+		r, err := node1.Send(ValidateProtocol, node2.HashAddr, m)
 		So(err, ShouldBeNil)
 		So(r.Type, ShouldEqual, ERROR_RESPONSE)
 		So(r.From, ShouldEqual, node2.HashAddr) // response comes from who we sent to
-		So(r.Body, ShouldEqual, "message type 2 not in holochain-src protocol")
+		So(r.Body, ShouldEqual, "message type 2 not in holochain-validate protocol")
 	})
 
 	Convey("It should respond with queued on valid PUT_REQUESTS", t, func() {
@@ -162,39 +162,6 @@ func TestMessageCoding(t *testing.T) {
 		So(err, ShouldBeNil)
 
 		So(fmt.Sprintf("%v", m), ShouldEqual, fmt.Sprintf("%v", &m2))
-
-	})
-}
-
-func TestSrcReceiver(t *testing.T) {
-	d, _, h := prepareTestChain("test")
-	defer cleanupTestDir(d)
-
-	Convey("SRC_VALIDATE should fail if  body isn't a hash", t, func() {
-		m := h.node.NewMessage(SRC_VALIDATE, "fish")
-		_, err := SrcReceiver(h, m)
-		So(err.Error(), ShouldEqual, "expected hash")
-	})
-	Convey("SRC_VALIDATE should fail if hash doesn't exist", t, func() {
-		hash, _ := NewHash("QmY8Mzg9F69e5P9AoQPYat6x5HEhc1TVGs11tmfNSzkqh2")
-		m := h.node.NewMessage(SRC_VALIDATE, hash)
-		_, err := SrcReceiver(h, m)
-		So(err, ShouldNotBeNil)
-		So(err.Error(), ShouldEqual, "hash not found")
-	})
-	Convey("SRC_VALIDATE should return header or entry by hash", t, func() {
-		entry := GobEntry{C: "bogus entry data"}
-		h2, hd, err := h.NewEntry(time.Now(), "myData", &entry)
-		m := h.node.NewMessage(SRC_VALIDATE, h2)
-		r, err := SrcReceiver(h, m)
-		So(err, ShouldBeNil)
-		So(fmt.Sprintf("%v", r), ShouldEqual, fmt.Sprintf("%v", hd))
-
-		m = h.node.NewMessage(SRC_VALIDATE, hd.EntryLink)
-		r, err = SrcReceiver(h, m)
-		So(err, ShouldBeNil)
-		So(r.(*ValidateResponse).Type, ShouldEqual, "myData")
-		So(fmt.Sprintf("%v", r.(*ValidateResponse).Entry), ShouldEqual, fmt.Sprintf("%v", &entry))
 
 	})
 }

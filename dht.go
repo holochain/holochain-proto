@@ -42,6 +42,7 @@ type Meta struct {
 	V []byte // meta-data
 }
 
+// constants for the Put type
 const (
 	PutNew = iota
 	PutUpdate
@@ -49,6 +50,7 @@ const (
 	PutUndelete
 )
 
+// constants for the state of the meta data
 const (
 	LIVE = iota
 	REJECTED
@@ -70,9 +72,9 @@ type GetReq struct {
 
 // MetaReq holds a putMeta request
 type MetaReq struct {
-	O Hash   // original data on which to put the meta
-	M Hash   // hash of the meta-data
-	T string // type of the meta-data
+	O Hash // original data on which to put the meta
+	M Hash // hash of the meta-data
+	T Hash // hash of the tag entry
 }
 
 // MetaQuery holds a getMeta query
@@ -83,15 +85,15 @@ type MetaQuery struct {
 	// filter, etc
 }
 
-// MetaEntry holds associated entries
-type MetaEntry struct {
+// TaggedEntry holds associated entries for the MetaQueryResponse
+type TaggedEntry struct {
 	E Entry
 	H string
 }
 
 // MetaQueryResp holds response to getMeta query
 type MetaQueryResp struct {
-	Entries []MetaEntry
+	Entries []TaggedEntry
 }
 
 // Put holds a put or putmeta for gossiping
@@ -453,14 +455,14 @@ func filter(ss []Meta, test func(*Meta) bool) (ret []Meta) {
 }
 
 // getMeta retrieves values associated with hashes
-func (dht *DHT) getMeta(key Hash, metaTag string) (results []MetaEntry, err error) {
+func (dht *DHT) getMeta(key Hash, metaTag string) (results []TaggedEntry, err error) {
 	k := key.String()
 	err = dht.db.View(func(tx *buntdb.Tx) error {
 		_, err := tx.Get("entry:" + k)
 		if err == buntdb.ErrNotFound {
 			return ErrHashNotFound
 		}
-		results = make([]MetaEntry, 0)
+		results = make([]TaggedEntry, 0)
 		err = tx.Ascend("meta", func(key, value string) bool {
 			x := strings.Split(key, ":")
 			if string(x[1]) == k && string(x[3]) == metaTag {
@@ -469,7 +471,7 @@ func (dht *DHT) getMeta(key Hash, metaTag string) (results []MetaEntry, err erro
 				if err != nil {
 					return false
 				}
-				metaEntry := MetaEntry{E: &entry, H: x[2]}
+				metaEntry := TaggedEntry{E: &entry, H: x[2]}
 				results = append(results, metaEntry)
 			}
 			return true
@@ -569,43 +571,52 @@ func (dht *DHT) handlePutReq(m *Message) (err error) {
 	case PutReq:
 		dht.dlog.Logf("handling put: %v", m)
 		var r interface{}
-		r, err = dht.h.Send(SourceProtocol, from, SRC_VALIDATE, t.H, SrcReceiver)
+		r, err = dht.h.Send(ValidateProtocol, from, VALIDATE_REQUEST, ValidateQuery{H: t.H}, ValidateReceiver)
 		if err != nil {
 			return
 		}
-		resp := r.(*ValidateResponse)
-		p := ValidationProps{
-			Sources: []string{peer.IDB58Encode(from)},
-			Hash:    t.H.String(),
-		}
-		err = dht.h.ValidateEntry(resp.Type, resp.Entry, &p)
-		if err != nil {
-			//@todo store as INVALID
-		} else {
-			entry := resp.Entry
-			b, err := entry.Marshal()
-			if err == nil {
-				err = dht.put(m, resp.Type, t.H, from, b, LIVE)
+		switch resp := r.(type) {
+		case *ValidateResponse:
+			p := ValidationProps{
+				Sources: []string{peer.IDB58Encode(from)},
+				Hash:    t.H.String(),
 			}
+			err = dht.h.ValidateEntry(resp.Type, resp.Entry, &p)
+			if err != nil {
+				//@todo store as INVALID
+			} else {
+				entry := resp.Entry
+				b, err := entry.Marshal()
+				if err == nil {
+					err = dht.put(m, resp.Type, t.H, from, b, LIVE)
+				}
+			}
+		default:
+			err = errors.New("expected ValidateResponse from validator")
+
 		}
 	case MetaReq:
 		dht.dlog.Logf("handling putmeta: %v", m)
 		var r interface{}
-		r, err = dht.h.Send(SourceProtocol, from, SRC_VALIDATE, t.M, SrcReceiver)
+		r, err = dht.h.Send(ValidateProtocol, from, VALIDATEMETA_REQUEST, ValidateQuery{H: t.T}, ValidateReceiver)
 		if err != nil {
 			return
 		}
-		resp := r.(*ValidateResponse)
-		p := ValidationProps{
-			MetaTag:  t.T,
-			Sources:  []string{peer.IDB58Encode(from)},
-			MetaHash: t.M.String(),
-		}
-		err = dht.h.ValidateEntry(resp.Type, resp.Entry, &p)
-		if err != nil {
-			//@todo store as INVALID
-		} else {
-			err = dht.putMeta(m, t.O, t.M, t.T, resp.Entry)
+		switch resp := r.(type) {
+		case *ValidateMetaResponse:
+			p := ValidationProps{
+				MetaTag:  resp.Tag,
+				Sources:  []string{peer.IDB58Encode(from)},
+				MetaHash: t.M.String(),
+			}
+			err = dht.h.ValidateEntry(resp.Type, resp.Entry, &p)
+			if err != nil {
+				//@todo store as INVALID
+			} else {
+				err = dht.putMeta(m, t.O, t.M, resp.Tag, resp.Entry)
+			}
+		default:
+			err = errors.New("expected ValidateMetaResponse from validator")
 		}
 	default:
 		err = errors.New("unexpected body type in handlePutReq")
@@ -618,7 +629,7 @@ func DHTReceiver(h *Holochain, m *Message) (response interface{}, err error) {
 	dht := h.dht
 	switch m.Type {
 	case PUT_REQUEST:
-		dht.dlog.Logf("DHTRecevier got PUT_REQUEST: %v", m)
+		dht.dlog.Logf("DHTReceiver got PUT_REQUEST: %v", m)
 		switch m.Body.(type) {
 		case PutReq:
 			h.dht.puts <- m
@@ -628,7 +639,7 @@ func DHTReceiver(h *Holochain, m *Message) (response interface{}, err error) {
 		}
 		return
 	case GET_REQUEST:
-		dht.dlog.Logf("DHTRecevier got GET_REQUEST: %v", m)
+		dht.dlog.Logf("DHTReceiver got GET_REQUEST: %v", m)
 		switch t := m.Body.(type) {
 		case GetReq:
 			var b []byte
@@ -646,7 +657,7 @@ func DHTReceiver(h *Holochain, m *Message) (response interface{}, err error) {
 		}
 		return
 	case PUTMETA_REQUEST:
-		dht.dlog.Logf("DHTRecevier got PUTMETA_REQUEST: %v", m)
+		dht.dlog.Logf("DHTReceiver got PUTMETA_REQUEST: %v", m)
 		switch t := m.Body.(type) {
 		case MetaReq:
 			err = h.dht.exists(t.O)
@@ -654,14 +665,14 @@ func DHTReceiver(h *Holochain, m *Message) (response interface{}, err error) {
 				h.dht.puts <- m
 				response = "queued"
 			} else {
-				dht.dlog.Logf("DHTRecevier key %v doesn't exist, ignoring", t.O)
+				dht.dlog.Logf("DHTReceiver key %v doesn't exist, ignoring", t.O)
 			}
 
 		default:
 			err = ErrDHTExpectedMetaReqInBody
 		}
 	case GETMETA_REQUEST:
-		dht.dlog.Logf("DHTRecevier got GETMETA_REQUEST: %v", m)
+		dht.dlog.Logf("DHTReceiver got GETMETA_REQUEST: %v", m)
 		switch t := m.Body.(type) {
 		case MetaQuery:
 			var r MetaQueryResp
@@ -671,7 +682,7 @@ func DHTReceiver(h *Holochain, m *Message) (response interface{}, err error) {
 			err = ErrDHTExpectedMetaQueryInBody
 		}
 	case GOSSIP_REQUEST:
-		dht.glog.Logf("DHTRecevier got GOSSIP_REQUEST: %v", m)
+		dht.glog.Logf("DHTReceiver got GOSSIP_REQUEST: %v", m)
 		switch t := m.Body.(type) {
 		case GossipReq:
 			dht.glog.Logf("%v wants my puts since %d and is at %d", m.From, t.YourIdx, t.MyIdx)

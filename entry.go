@@ -18,6 +18,7 @@ import (
 const (
 	DNAEntryType   = "%dna"
 	AgentEntryType = "%agent"
+	MetaEntryType  = "%meta" // result from putmeta statements
 	KeyEntryType   = "%%key" // virtual entry type, not actually on the chain
 )
 
@@ -27,6 +28,20 @@ const (
 	DataFormatRawJS   = "js"
 	DataFormatRawZygo = "zygo"
 )
+
+// AgentEntry structure for building KeyEntryType entries
+type AgentEntry struct {
+	Name    AgentName
+	KeyType KeytypeType
+	Key     []byte // marshaled public key
+}
+
+// MetaEntry structure for holding meta tagging of putmeta
+type MetaEntry struct {
+	H   Hash   // original entry (perhaps elsewhere) which we are putting meta
+	M   Hash   // hash of the meta-data (must be in our chain)
+	Tag string // meta tag
+}
 
 // EntryDef struct holds an entry definition
 type EntryDef struct {

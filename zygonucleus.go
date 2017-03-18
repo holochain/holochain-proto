@@ -223,18 +223,8 @@ func (z *ZygoNucleus) putmeta(env *zygo.Glisp, h *Holochain, hash string, metaHa
 	if err != nil {
 		return nil, err
 	}
-	var key Hash
-	key, err = NewHash(hash)
-	if err != nil {
-		return
-	}
-	var metaKey Hash
-	metaKey, err = NewHash(metaHash)
-	if err != nil {
-		return
-	}
 
-	err = h.dht.SendPutMeta(MetaReq{O: key, M: metaKey, T: metaTag})
+	err = h.PutMeta(hash, metaHash, metaTag)
 	if err != nil {
 		err = result.HashSet(env.MakeSymbol("error"), &zygo.SexpStr{S: err.Error()})
 	} else {

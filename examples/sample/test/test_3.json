@@ -2,7 +2,7 @@
   {
     "Zome": "myZome",
     "FnName": "addPrime",
-    "Input": "{\"prime\":7}",
+    "Input": {"prime":7},
     "Output": "\"%h%\"",
     "Err": "",
     "Regexp": ""

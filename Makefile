@@ -12,6 +12,10 @@ init: hc
 	hc init node@example.com
 test: testcore
 	gx-go rewrite --undo
+
+# NOTE: testall also runs the holochain tests in the examples and is intended to be
+# run from a system that has never initialized holochain, specifically the CI server
+# it will fail if you run it on your machine after once having run 'hc init'
 testall: testcore hc init testexamples
 	gx-go rewrite --undo
 testcore: deps

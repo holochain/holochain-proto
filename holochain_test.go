@@ -534,6 +534,14 @@ func TestTest(t *testing.T) {
 		err := h.Test()
 		So(err, ShouldBeNil)
 	})
+	Convey("it should fail the test on incorrect input types", t, func() {
+		os.Remove(d + "/.holochain/test/test/test_0.json")
+		err := writeFile(d+"/.holochain/test/test", "test_0.json", []byte(`[{"Zome":"myZome","FnName":"addData","Input":2,"Output":"%h%","Err":""}]`))
+		So(err, ShouldBeNil)
+		err = h.Test()[0]
+		So(err, ShouldNotBeNil)
+		So(err.Error(), ShouldEqual, "Input was not an expected type: float64")
+	})
 	Convey("it should fail the test on incorrect data", t, func() {
 		os.Remove(d + "/.holochain/test/test/test_0.json")
 		err := writeFile(d+"/.holochain/test/test", "test_0.json", []byte(`[{"Zome":"myZome","FnName":"addData","Input":"2","Output":"","Err":"bogus error"}]`))

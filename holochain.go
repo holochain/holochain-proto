@@ -1284,72 +1284,70 @@ func (h *Holochain) Test() []error {
 					input = t.Input.(string)
 				case map[string]interface{}:
 					inputByteArray, err := json.Marshal(t.Input)
-					if err != nil {
-						return []error{err}
+					if err == nil {
+						input = string(inputByteArray)
 					}
-					input = string(inputByteArray)
 				default:
-					fmt.Printf("Unexpected type: %T", inputType)
-					//err = errors.New("Unexpected type: %T", inputType)
-					//return []error{err}
+					err = fmt.Errorf("Input was not an expected type: %T", inputType)
 				}
-
-				Debugf("Input before replacement: %s", input)
-				r1 := strings.Trim(fmt.Sprintf("%v", lastResults[0]), "\"")
-				r2 := strings.Trim(fmt.Sprintf("%v", lastResults[1]), "\"")
-				r3 := strings.Trim(fmt.Sprintf("%v", lastResults[2]), "\"")
-				input = h.TestStringReplacements(input, r1, r2, r3)
-				Debugf("Input after replacement: %s", input)
-				//====================
-				var actualResult, actualError = h.Call(t.Zome, t.FnName, input)
-				var expectedResult, expectedError = t.Output, t.Err
-				var expectedResultRegexp = t.Regexp
-				//====================
-				lastResults[2] = lastResults[1]
-				lastResults[1] = lastResults[0]
-				lastResults[0] = actualResult
-				if expectedError != "" {
-					comparisonString := fmt.Sprintf("\nTest: %s\n\tExpected error:\t%v\n\tGot error:\t\t%v", testID, expectedError, actualError)
-					if actualError == nil || (actualError.Error() != expectedError) {
-						failed.pf("\n=====================\n%s\n\tfailed! m(\n=====================", comparisonString)
-						err = fmt.Errorf(expectedError)
-					} else {
-						// all fine
-						Debugf("%s\n\tpassed :D", comparisonString)
-						err = nil
-					}
-				} else {
-					if actualError != nil {
-						errorString := fmt.Sprintf("\nTest: %s\n\tExpected:\t%s\n\tGot Error:\t\t%s\n", testID, expectedResult, actualError)
-						err = fmt.Errorf(errorString)
-						failed.pf(fmt.Sprintf("\n=====================\n%s\n\tfailed! m(\n=====================", errorString))
-					} else {
-						var resultString = ToString(actualResult)
-						var match bool
-						var comparisonString string
-						if expectedResultRegexp != "" {
-							Debugf("Test %s matching against regexp...", testID)
-							expectedResultRegexp = h.TestStringReplacements(expectedResultRegexp, r1, r2, r3)
-							comparisonString = fmt.Sprintf("\nTest: %s\n\tExpected regexp:\t%v\n\tGot:\t\t%v", testID, expectedResultRegexp, resultString)
-							var matchError error
-							match, matchError = regexp.MatchString(expectedResultRegexp, resultString)
-							//match, matchError = regexp.MatchString("[0-9]", "7")
-							if matchError != nil {
-								Infof(err.Error())
-							}
+				if err == nil {
+					Debugf("Input before replacement: %s", input)
+					r1 := strings.Trim(fmt.Sprintf("%v", lastResults[0]), "\"")
+					r2 := strings.Trim(fmt.Sprintf("%v", lastResults[1]), "\"")
+					r3 := strings.Trim(fmt.Sprintf("%v", lastResults[2]), "\"")
+					input = h.TestStringReplacements(input, r1, r2, r3)
+					Debugf("Input after replacement: %s", input)
+					//====================
+					var actualResult, actualError = h.Call(t.Zome, t.FnName, input)
+					var expectedResult, expectedError = t.Output, t.Err
+					var expectedResultRegexp = t.Regexp
+					//====================
+					lastResults[2] = lastResults[1]
+					lastResults[1] = lastResults[0]
+					lastResults[0] = actualResult
+					if expectedError != "" {
+						comparisonString := fmt.Sprintf("\nTest: %s\n\tExpected error:\t%v\n\tGot error:\t\t%v", testID, expectedError, actualError)
+						if actualError == nil || (actualError.Error() != expectedError) {
+							failed.pf("\n=====================\n%s\n\tfailed! m(\n=====================", comparisonString)
+							err = fmt.Errorf(expectedError)
 						} else {
-							Debugf("Test %s matching against string...", testID)
-							expectedResult = h.TestStringReplacements(expectedResult, r1, r2, r3)
-							comparisonString = fmt.Sprintf("\nTest: %s\n\tExpected:\t%v\n\tGot:\t\t%v", testID, expectedResult, resultString)
-							match = (resultString == expectedResult)
+							// all fine
+							Debugf("%s\n\tpassed :D", comparisonString)
+							err = nil
 						}
-
-						if match {
-							Debugf("%s\n\tpassed! :D", comparisonString)
-							passed.p("passed! ✔")
+					} else {
+						if actualError != nil {
+							errorString := fmt.Sprintf("\nTest: %s\n\tExpected:\t%s\n\tGot Error:\t\t%s\n", testID, expectedResult, actualError)
+							err = fmt.Errorf(errorString)
+							failed.pf(fmt.Sprintf("\n=====================\n%s\n\tfailed! m(\n=====================", errorString))
 						} else {
-							err = fmt.Errorf(comparisonString)
-							failed.pf(fmt.Sprintf("\n=====================\n%s\n\tfailed! m(\n=====================", comparisonString))
+							var resultString = ToString(actualResult)
+							var match bool
+							var comparisonString string
+							if expectedResultRegexp != "" {
+								Debugf("Test %s matching against regexp...", testID)
+								expectedResultRegexp = h.TestStringReplacements(expectedResultRegexp, r1, r2, r3)
+								comparisonString = fmt.Sprintf("\nTest: %s\n\tExpected regexp:\t%v\n\tGot:\t\t%v", testID, expectedResultRegexp, resultString)
+								var matchError error
+								match, matchError = regexp.MatchString(expectedResultRegexp, resultString)
+								//match, matchError = regexp.MatchString("[0-9]", "7")
+								if matchError != nil {
+									Infof(err.Error())
+								}
+							} else {
+								Debugf("Test %s matching against string...", testID)
+								expectedResult = h.TestStringReplacements(expectedResult, r1, r2, r3)
+								comparisonString = fmt.Sprintf("\nTest: %s\n\tExpected:\t%v\n\tGot:\t\t%v", testID, expectedResult, resultString)
+								match = (resultString == expectedResult)
+							}
+
+							if match {
+								Debugf("%s\n\tpassed! :D", comparisonString)
+								passed.p("passed! ✔")
+							} else {
+								err = fmt.Errorf(comparisonString)
+								failed.pf(fmt.Sprintf("\n=====================\n%s\n\tfailed! m(\n=====================", comparisonString))
+							}
 						}
 					}
 				}

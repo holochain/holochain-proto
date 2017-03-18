@@ -1,1 +1,10 @@
-[{"Zome":"myZome","FnName":"getDNA","Input":"","Output":"%dna%","Err":"","Regexp":""}]
+[
+  {
+    "Zome": "myZome",
+    "FnName": "getDNA",
+    "Input": "",
+    "Output": "%dna%",
+    "Err": "",
+    "Regexp": ""
+  }
+]

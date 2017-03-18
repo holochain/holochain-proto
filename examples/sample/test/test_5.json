@@ -1,1 +1,10 @@
-[{"Zome":"jsZome","FnName":"addProfile","Input":"{\"firstName\":\"Art\",\"lastName\":\"Brock\"}","Output":"\"%h%\"","Err":"","Regexp":""}]
+[
+  {
+    "Zome": "jsZome",
+    "FnName": "addProfile",
+    "Input": "{\"firstName\":\"Art\",\"lastName\":\"Brock\"}",
+    "Output": "\"%h%\"",
+    "Err": "",
+    "Regexp": ""
+  }
+]

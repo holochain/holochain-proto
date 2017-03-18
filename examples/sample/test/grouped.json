@@ -1,1 +1,18 @@
-[{"Zome":"jsZome","FnName":"addOdd","Input":"7","Output":"%h%","Err":"","Regexp":""},{"Zome":"jsZome","FnName":"addOdd","Input":"2","Output":"","Err":"Invalid entry: 2","Regexp":""}]
+[
+  {
+    "Zome": "jsZome",
+    "FnName": "addOdd",
+    "Input": "7",
+    "Output": "%h%",
+    "Err": "",
+    "Regexp": ""
+  },
+  {
+    "Zome": "jsZome",
+    "FnName": "addOdd",
+    "Input": "2",
+    "Output": "",
+    "Err": "Invalid entry: 2",
+    "Regexp": ""
+  }
+]

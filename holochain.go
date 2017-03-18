@@ -639,7 +639,7 @@ func (s *Service) Clone(srcPath string, root string, new bool) (hP *Holochain, e
 type TestData struct {
 	Zome   string
 	FnName string
-	Input  string
+	Input  interface{}
 	Output string
 	Err    string
 	Regexp string
@@ -1194,7 +1194,9 @@ func LoadTestData(path string) (map[string][]TestData, error) {
 					return nil, err
 				}
 				var t []TestData
+
 				err = json.Unmarshal(v, &t)
+
 				if err != nil {
 					return nil, err
 				}
@@ -1275,7 +1277,23 @@ func (h *Holochain) Test() []error {
 			time.Sleep(time.Millisecond * 10)
 			if err == nil {
 				testID := fmt.Sprintf("%s:%d", name, i)
-				input := t.Input
+
+				var input string
+				switch inputType := t.Input.(type) {
+				case string:
+					input = t.Input.(string)
+				case map[string]interface{}:
+					inputByteArray, err := json.Marshal(t.Input)
+					if err != nil {
+						return []error{err}
+					}
+					input = string(inputByteArray)
+				default:
+					fmt.Printf("Unexpected type: %T", inputType)
+					//err = errors.New("Unexpected type: %T", inputType)
+					//return []error{err}
+				}
+
 				Debugf("Input before replacement: %s", input)
 				r1 := strings.Trim(fmt.Sprintf("%v", lastResults[0]), "\"")
 				r2 := strings.Trim(fmt.Sprintf("%v", lastResults[1]), "\"")

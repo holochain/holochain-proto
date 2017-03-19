@@ -11,7 +11,6 @@ import (
 	//	host "github.com/libp2p/go-libp2p-host"
 	"encoding/gob"
 	"errors"
-	"fmt"
 	ic "github.com/libp2p/go-libp2p-crypto"
 	net "github.com/libp2p/go-libp2p-net"
 	peer "github.com/libp2p/go-libp2p-peer"
@@ -65,10 +64,13 @@ type Node struct {
 	Host     *rhost.RoutedHost
 }
 
-const (
-	DHTProtocol      = protocol.ID("/holochain-dht/0.0.0")
-	ValidateProtocol = protocol.ID("/holochain-val/0.0.0")
-)
+// Protocol encapsulates data for our different protocols
+type Protocol struct {
+	ID       protocol.ID
+	Receiver ReceiverFn
+}
+
+var DHTProtocol, ValidateProtocol, GossipProtocol Protocol
 
 type Router struct {
 	dummy int
@@ -160,8 +162,8 @@ func (node *Node) respondWith(s net.Stream, err error, body interface{}) {
 }
 
 // StartProtocol initiates listening for a protocol on the node
-func (node *Node) StartProtocol(h *Holochain, proto protocol.ID, receiver ReceiverFn) (err error) {
-	node.Host.SetStreamHandler(proto, func(s net.Stream) {
+func (node *Node) StartProtocol(h *Holochain, proto Protocol) (err error) {
+	node.Host.SetStreamHandler(proto.ID, func(s net.Stream) {
 		var m Message
 		err := m.Decode(s)
 		var response interface{}
@@ -170,7 +172,7 @@ func (node *Node) StartProtocol(h *Holochain, proto protocol.ID, receiver Receiv
 			err = errors.New("message must have a source")
 		} else {
 			if err == nil {
-				response, err = receiver(h, &m)
+				response, err = proto.Receiver(h, &m)
 			}
 		}
 		node.respondWith(s, err, response)
@@ -183,34 +185,9 @@ func (node *Node) Close() error {
 	return node.Host.Close()
 }
 
-// Send builds a message and either delivers it locally or via node.Send
-func (h *Holochain) Send(proto protocol.ID, to peer.ID, t MsgType, body interface{}, receiver ReceiverFn) (response interface{}, err error) {
-	message := h.node.NewMessage(t, body)
-	if err != nil {
-		return
-	}
-	// if we are sending to ourselves we should bypass the network mechanics and call
-	// the receiver directly
-	if to == h.node.HashAddr {
-		response, err = receiver(h, message)
-	} else {
-		var r Message
-		r, err = h.node.Send(proto, to, message)
-		if err != nil {
-			return
-		}
-		if r.Type == ERROR_RESPONSE {
-			err = fmt.Errorf("response error: %v", r.Body)
-		} else {
-			response = r.Body
-		}
-	}
-	return
-}
-
 // Send delivers a message to a node via the given protocol
-func (node *Node) Send(proto protocol.ID, addr peer.ID, m *Message) (response Message, err error) {
-	s, err := node.Host.NewStream(context.Background(), addr, proto)
+func (node *Node) Send(proto Protocol, addr peer.ID, m *Message) (response Message, err error) {
+	s, err := node.Host.NewStream(context.Background(), addr, proto.ID)
 	if err != nil {
 		return
 	}

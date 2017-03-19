@@ -9,7 +9,6 @@ package holochain
 import (
 	"errors"
 	"fmt"
-	//peer "gx/ipfs/QmZcUPvPhD1Xvk6mwijYF8AfR3mG31S1YsEfHG4khrFPRr/go-libp2p-peer"
 	"sort"
 	"strings"
 )
@@ -23,6 +22,8 @@ const (
 	JSON
 )
 
+// these constants are for a removed feature, see ChangeAppProperty
+// @TODO figure out how to remove code over time that becomes obsolete, i.e. for long-dead changes
 const (
 	ID_PROPERTY         = "_id"
 	AGENT_ID_PROPERTY   = "_agent_id"

@@ -218,13 +218,13 @@ func (z *ZygoNucleus) put(env *zygo.Glisp, h *Holochain, hash string) (result *z
 }
 
 // putmeta exposes DHTPutMeta to zygo
-func (z *ZygoNucleus) putmeta(env *zygo.Glisp, h *Holochain, hash string, metaHash string, metaTag string) (result *zygo.SexpHash, err error) {
+func (z *ZygoNucleus) putmeta(env *zygo.Glisp, h *Holochain, base string, metaHash string, tag string) (result *zygo.SexpHash, err error) {
 	result, err = zygo.MakeHash(nil, "hash", env)
 	if err != nil {
 		return nil, err
 	}
 
-	err = h.PutMeta(hash, metaHash, metaTag)
+	err = h.PutMeta(base, metaHash, tag)
 	if err != nil {
 		err = result.HashSet(env.MakeSymbol("error"), &zygo.SexpStr{S: err.Error()})
 	} else {
@@ -265,19 +265,14 @@ func (z *ZygoNucleus) get(env *zygo.Glisp, h *Holochain, hash string) (result *z
 }
 
 // getmeta exposes GetMeta to zygo
-func (z *ZygoNucleus) getmeta(env *zygo.Glisp, h *Holochain, metahash string, metaTag string) (result *zygo.SexpHash, err error) {
+func (z *ZygoNucleus) getmeta(env *zygo.Glisp, h *Holochain, base string, tag string) (result *zygo.SexpHash, err error) {
 	result, err = zygo.MakeHash(nil, "hash", env)
 	if err != nil {
 		return nil, err
 	}
 
-	var metakey Hash
-	metakey, err = NewHash(metahash)
-	if err != nil {
-		return
-	}
+	response, err := h.GetMeta(base, tag)
 
-	response, err := h.dht.SendGetMeta(MetaQuery{H: metakey, T: metaTag})
 	if err == nil {
 		switch t := response.(type) {
 		case MetaQueryResp:
@@ -476,10 +471,10 @@ func NewZygoNucleus(h *Holochain, code string) (n Nucleus, err error) {
 				return zygo.SexpNull, zygo.WrongNargs
 			}
 
-			var hashstr string
+			var basestr string
 			switch t := args[0].(type) {
 			case *zygo.SexpStr:
-				hashstr = t.S
+				basestr = t.S
 			default:
 				return zygo.SexpNull,
 					errors.New("1st argument of putmeta should be string")
@@ -500,7 +495,7 @@ func NewZygoNucleus(h *Holochain, code string) (n Nucleus, err error) {
 				return zygo.SexpNull,
 					errors.New("3rd argument of putmeta should be string")
 			}
-			result, err := z.putmeta(env, h, hashstr, metahashstr, typestr)
+			result, err := z.putmeta(env, h, basestr, metahashstr, typestr)
 			return result, err
 		})
 

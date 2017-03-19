@@ -98,43 +98,43 @@ func TestPutGetMeta(t *testing.T) {
 	h.rootPath = d
 	os.MkdirAll(h.DBPath(), os.ModePerm)
 	dht := NewDHT(&h)
-	hash, _ := NewHash("QmY8Mzg9F69e5P9AoQPYat655HEhc1TVGs11tmfNSzkqh2")
+	base, _ := NewHash("QmY8Mzg9F69e5P9AoQPYat655HEhc1TVGs11tmfNSzkqh2")
 	metaHash1, _ := NewHash("QmY8Mzg9F69e5P9AoQPYat655HEhc1TVGs11tmfNSzkqh3")
 	metaHash2, _ := NewHash("QmY8Mzg9F69e5P9AoQPYat655HEhc1TVGs11tmfNSzkqh4")
 	Convey("It should fail if hash doesn't exist", t, func() {
 		e1 := GobEntry{C: "some data"}
-		err := dht.putMeta(nil, hash, metaHash1, "someType", &e1)
+		err := dht.putMeta(nil, base, metaHash1, "someType", &e1)
 		So(err, ShouldEqual, ErrHashNotFound)
 
-		v, err := dht.getMeta(hash, "someType")
+		v, err := dht.getMeta(base, "someType")
 		So(v, ShouldBeNil)
 		So(err, ShouldEqual, ErrHashNotFound)
 	})
 
 	var id peer.ID
-	err := dht.put(nil, "someType", hash, id, []byte("some value"), LIVE)
+	err := dht.put(nil, "someType", base, id, []byte("some value"), LIVE)
 	if err != nil {
 		panic(err)
 	}
 
 	Convey("It should store and retrieve meta values on a hash", t, func() {
-		data, err := dht.getMeta(hash, "someType")
+		data, err := dht.getMeta(base, "someType")
 		So(err, ShouldNotBeNil)
 		So(err.Error(), ShouldEqual, "No values for someType")
 
 		e1 := GobEntry{C: "value 1"}
-		err = dht.putMeta(nil, hash, metaHash1, "someType", &e1)
+		err = dht.putMeta(nil, base, metaHash1, "someType", &e1)
 		So(err, ShouldBeNil)
 
 		e2 := GobEntry{C: "value 2"}
-		err = dht.putMeta(nil, hash, metaHash2, "someType", &e2)
+		err = dht.putMeta(nil, base, metaHash2, "someType", &e2)
 		So(err, ShouldBeNil)
 
 		e3 := GobEntry{C: "value 3"}
-		err = dht.putMeta(nil, hash, metaHash1, "otherType", &e3)
+		err = dht.putMeta(nil, base, metaHash1, "otherType", &e3)
 		So(err, ShouldBeNil)
 
-		data, err = dht.getMeta(hash, "someType")
+		data, err = dht.getMeta(base, "someType")
 		So(err, ShouldBeNil)
 		So(len(data), ShouldEqual, 2)
 		m := data[0]
@@ -143,7 +143,7 @@ func TestPutGetMeta(t *testing.T) {
 		m = data[1]
 		So(m.E.Content(), ShouldEqual, "value 2")
 
-		data, err = dht.getMeta(hash, "otherType")
+		data, err = dht.getMeta(base, "otherType")
 		So(err, ShouldBeNil)
 		So(len(data), ShouldEqual, 1)
 		So(data[0].E.Content(), ShouldEqual, "value 3")
@@ -232,7 +232,7 @@ func TestDHTReceiver(t *testing.T) {
 	hash, _ := NewHash("QmY8Mzg9F69e5P9AoQPYat655HEhc1TVGs11tmfNSzkqh2")
 
 	Convey("PUTMETA_REQUEST should fail if hash doesn't exist", t, func() {
-		me := MetaReq{O: hash, M: hash, T: hash}
+		me := MetaReq{Base: hash, M: hash, T: hash}
 		m := h.node.NewMessage(PUTMETA_REQUEST, me)
 		_, err := DHTReceiver(h, m)
 		So(err.Error(), ShouldEqual, "hash not found")
@@ -269,7 +269,7 @@ func TestDHTReceiver(t *testing.T) {
 	_, mehd, _ := h.NewEntry(time.Now(), MetaEntryType, &ee)
 
 	Convey("PUTMETA_REQUEST should store meta values", t, func() {
-		me := MetaReq{O: hash, M: hd.EntryLink, T: mehd.EntryLink}
+		me := MetaReq{Base: hash, M: hd.EntryLink, T: mehd.EntryLink}
 		m := h.node.NewMessage(PUTMETA_REQUEST, me)
 		r, err := DHTReceiver(h, m)
 		So(err, ShouldBeNil)
@@ -287,7 +287,7 @@ func TestDHTReceiver(t *testing.T) {
 	})
 
 	Convey("GETMETA_REQUEST should retrieve meta values", t, func() {
-		mq := MetaQuery{H: hash, T: "myMetaTag"}
+		mq := MetaQuery{Base: hash, T: "myMetaTag"}
 		m := h.node.NewMessage(GETMETA_REQUEST, mq)
 		r, err := DHTReceiver(h, m)
 		So(err, ShouldBeNil)
@@ -298,107 +298,10 @@ func TestDHTReceiver(t *testing.T) {
 	Convey("GOSSIP_REQUEST should request and advertise data by idx", t, func() {
 		g := GossipReq{MyIdx: 1, YourIdx: 2}
 		m := h.node.NewMessage(GOSSIP_REQUEST, g)
-		r, err := DHTReceiver(h, m)
+		r, err := GossipReceiver(h, m)
 		So(err, ShouldBeNil)
 		gr := r.(Gossip)
 		So(len(gr.Puts), ShouldEqual, 4)
-	})
-}
-
-func TestGossiper(t *testing.T) {
-	d, _, h := prepareTestChain("test")
-	defer cleanupTestDir(d)
-	dht := h.dht
-	Convey("FindGossiper should start empty", t, func() {
-		_, err := dht.FindGossiper()
-		So(err, ShouldEqual, ErrDHTErrNoGossipersAvailable)
-
-	})
-
-	Convey("UpdateGossiper should add a gossiper", t, func() {
-		idx, _ := dht.GetIdx()
-		err := dht.UpdateGossiper(h.node.HashAddr, idx)
-		So(err, ShouldBeNil)
-	})
-
-	Convey("GetGossiper should return the gossiper idx", t, func() {
-		idx, err := dht.GetGossiper(h.node.HashAddr)
-		So(err, ShouldBeNil)
-		So(idx, ShouldEqual, 3)
-	})
-
-	Convey("FindGossiper should return the gossiper", t, func() {
-		g, err := dht.FindGossiper()
-		So(err, ShouldBeNil)
-		So(g.Idx, ShouldEqual, 3)
-		So(g.ID, ShouldEqual, h.node.HashAddr)
-	})
-
-}
-
-func TestGossipData(t *testing.T) {
-	d, _, h := prepareTestChain("test")
-	defer cleanupTestDir(d)
-	dht := h.dht
-	Convey("Idx should be 3 at start (first puts are DNA, Agent & Key)", t, func() {
-		var idx int
-		idx, err := dht.GetIdx()
-		So(err, ShouldBeNil)
-		So(idx, ShouldEqual, 3)
-	})
-
-	// simulate a handled put request
-	now := time.Unix(1, 1) // pick a constant time so the test will always work
-	e := GobEntry{C: "124"}
-	_, hd, _ := h.NewEntry(now, "myData", &e)
-	hash := hd.EntryLink
-	m1 := h.node.NewMessage(PUT_REQUEST, PutReq{H: hash})
-	DHTReceiver(h, m1)
-	dht.simHandlePutReqs()
-
-	me := MetaEntry{H: hash, M: hash, Tag: "myMetaTag"}
-	ee := GobEntry{C: me}
-	_, mehd, _ := h.NewEntry(time.Now(), MetaEntryType, &ee)
-
-	// simulate a handled putmeta request
-	mr := MetaReq{O: hash, M: hd.EntryLink, T: mehd.EntryLink}
-	m2 := h.node.NewMessage(PUTMETA_REQUEST, mr)
-	DHTReceiver(h, m2)
-	h.dht.simHandlePutReqs()
-
-	Convey("Idx should be 5 after puts", t, func() {
-		var idx int
-		idx, err := dht.GetIdx()
-		So(err, ShouldBeNil)
-		So(idx, ShouldEqual, 5)
-	})
-
-	Convey("GetPuts should return a list of the puts since an index value", t, func() {
-		puts, err := dht.GetPuts(0)
-		So(err, ShouldBeNil)
-		So(len(puts), ShouldEqual, 5)
-		So(fmt.Sprintf("%v", puts[3].M), ShouldEqual, fmt.Sprintf("%v", *m1))
-		So(fmt.Sprintf("%v", puts[4].M), ShouldEqual, fmt.Sprintf("%v", *m2))
-
-		puts, err = dht.GetPuts(5)
-		So(err, ShouldBeNil)
-		So(len(puts), ShouldEqual, 1)
-		So(fmt.Sprintf("%v", puts[0].M), ShouldEqual, fmt.Sprintf("%v", *m2))
-	})
-}
-
-func TestGossip(t *testing.T) {
-	d, _, h := prepareTestChain("test")
-	defer cleanupTestDir(d)
-	dht := h.dht
-
-	idx, _ := dht.GetIdx()
-	dht.UpdateGossiper(h.node.HashAddr, idx)
-
-	Convey("gossip should send a request", t, func() {
-		var err error
-		err = dht.gossip()
-		So(err, ShouldBeNil)
 	})
 }
 

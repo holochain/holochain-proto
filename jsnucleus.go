@@ -326,11 +326,11 @@ func NewJSNucleus(h *Holochain, code string) (n Nucleus, err error) {
 	}
 
 	err = z.vm.Set("putmeta", func(call otto.FunctionCall) otto.Value {
-		hash, _ := call.Argument(0).ToString()
+		base, _ := call.Argument(0).ToString()
 		metaHash, _ := call.Argument(1).ToString()
-		metaTag, _ := call.Argument(2).ToString()
+		tag, _ := call.Argument(2).ToString()
 
-		err = h.PutMeta(hash, metaHash, metaTag)
+		err = h.PutMeta(base, metaHash, tag)
 		if err != nil {
 			return z.vm.MakeCustomError("HolochainError", err.Error())
 		}
@@ -342,20 +342,14 @@ func NewJSNucleus(h *Holochain, code string) (n Nucleus, err error) {
 	}
 
 	err = z.vm.Set("getmeta", func(call otto.FunctionCall) (result otto.Value) {
-		hashstr, _ := call.Argument(0).ToString()
-		typestr, _ := call.Argument(1).ToString()
+		base, _ := call.Argument(0).ToString()
+		tag, _ := call.Argument(1).ToString()
 
-		var key Hash
-		key, err = NewHash(hashstr)
 		var response interface{}
+		response, err = h.GetMeta(base, tag)
 		if err == nil {
-			response, err = h.dht.SendGetMeta(MetaQuery{H: key, T: typestr})
-			if err == nil {
-				result, err = z.vm.ToValue(response)
-			}
-		}
-
-		if err != nil {
+			result, err = z.vm.ToValue(response)
+		} else {
 			return z.vm.MakeCustomError("HolochainError", err.Error())
 		}
 

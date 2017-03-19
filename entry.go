@@ -38,9 +38,9 @@ type AgentEntry struct {
 
 // MetaEntry structure for holding meta tagging of putmeta
 type MetaEntry struct {
-	H   Hash   // original entry (perhaps elsewhere) which we are putting meta
-	M   Hash   // hash of the meta-data (must be in our chain)
-	Tag string // meta tag
+	Base Hash   // original entry (perhaps elsewhere) which we are putting meta
+	M    Hash   // hash of the meta-data (must be in our chain)
+	Tag  string // meta tag
 }
 
 // EntryDef struct holds an entry definition

@@ -423,7 +423,7 @@ func setupApp() (app *cli.App) {
 		if debug {
 			os.Setenv("DEBUG", "1")
 		}
-		holo.Register()
+		holo.Initialize()
 		if verbose {
 			fmt.Printf("app version: %s; Holochain lib version %s\n", app.Version, holo.Version)
 		}

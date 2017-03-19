@@ -16,6 +16,7 @@ import (
 	"github.com/google/uuid"
 	ic "github.com/libp2p/go-libp2p-crypto"
 	peer "github.com/libp2p/go-libp2p-peer"
+	protocol "github.com/libp2p/go-libp2p-protocol"
 	mh "github.com/multiformats/go-multihash"
 	"io"
 	"io/ioutil"
@@ -103,8 +104,8 @@ func Infof(m string, args ...interface{}) {
 	infoLog.Logf(m, args...)
 }
 
-// Register function that must be called once at startup by any client app
-func Register() {
+// Initialize function that must be called once at startup by any client app
+func Initialize() {
 	gob.Register(Header{})
 	gob.Register(AgentEntry{})
 	gob.Register(MetaEntry{})
@@ -127,6 +128,10 @@ func Register() {
 	debugLog.New(nil)
 
 	rand.Seed(time.Now().Unix()) // initialize global pseudo random generator
+
+	DHTProtocol = Protocol{protocol.ID("/hc-dht/0.0.0"), DHTReceiver}
+	ValidateProtocol = Protocol{protocol.ID("/hc-validate/0.0.0"), ValidateReceiver}
+	GossipProtocol = Protocol{protocol.ID("/hc-gossip/0.0.0"), GossipReceiver}
 }
 
 func findDNA(path string) (f string, err error) {
@@ -1416,22 +1421,59 @@ func (h *Holochain) HashSpec() HashSpec {
 	return h.hashSpec
 }
 
-// PutMeta is called by nucleus putmeta routines and both creates a meta entry and sends
-// the putmeta request to the dht
-func (h *Holochain) PutMeta(hash string, metaHash string, metaTag string) (err error) {
-	var key Hash
-	key, err = NewHash(hash)
+// Send builds a message and either delivers it locally or over the network via node.Send
+func (h *Holochain) Send(proto Protocol, to peer.ID, t MsgType, body interface{}) (response interface{}, err error) {
+	message := h.node.NewMessage(t, body)
+	if err != nil {
+		return
+	}
+	// if we are sending to ourselves we should bypass the network mechanics and call
+	// the receiver directly
+	if to == h.node.HashAddr {
+		response, err = proto.Receiver(h, message)
+	} else {
+		var r Message
+		r, err = h.node.Send(proto, to, message)
+		if err != nil {
+			return
+		}
+		if r.Type == ERROR_RESPONSE {
+			err = fmt.Errorf("response error: %v", r.Body)
+		} else {
+			response = r.Body
+		}
+	}
+	return
+}
+
+// ---- These functions implement the required functions called by nuclei
+
+// PutMeta services nucleus putmeta routines
+// it both creates a meta entry and sends the putmeta request to the dht
+func (h *Holochain) PutMeta(base string, metaHash string, tag string) (err error) {
+	var baseHash Hash
+	baseHash, err = NewHash(base)
 	if err == nil {
 		var metakey Hash
 		metakey, err = NewHash(metaHash)
 		if err == nil {
-			me := MetaEntry{H: key, M: metakey, Tag: metaTag}
+			me := MetaEntry{Base: baseHash, M: metakey, Tag: tag}
 			e := GobEntry{C: me}
 			_, mehd, err := h.NewEntry(time.Now(), MetaEntryType, &e)
 			if err == nil {
-				err = h.dht.SendPutMeta(MetaReq{O: key, M: metakey, T: mehd.EntryLink})
+				err = h.dht.SendPutMeta(MetaReq{Base: baseHash, M: metakey, T: mehd.EntryLink})
 			}
 		}
+	}
+	return
+}
+
+// GetMeta services nucleus getmata routines
+func (h *Holochain) GetMeta(basestr string, tag string) (response interface{}, err error) {
+	var base Hash
+	base, err = NewHash(basestr)
+	if err == nil {
+		response, err = h.dht.SendGetMeta(MetaQuery{Base: base, T: tag})
 	}
 	return
 }

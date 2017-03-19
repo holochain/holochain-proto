@@ -9,6 +9,8 @@ package holochain
 import (
 	"errors"
 	"fmt"
+	//peer "gx/ipfs/QmZcUPvPhD1Xvk6mwijYF8AfR3mG31S1YsEfHG4khrFPRr/go-libp2p-peer"
+	"sort"
 	"strings"
 )
 
@@ -21,16 +23,33 @@ const (
 	JSON
 )
 
+const (
+	ID_PROPERTY         = "_id"
+	AGENT_ID_PROPERTY   = "_agent_id"
+	AGENT_NAME_PROPERTY = "_agent_name"
+)
+
 // Interface holds the name and schema of an DNA exposed function
 type Interface struct {
 	Name   string
 	Schema InterfaceSchemaType
 }
 
+// ValidationProps holds the properties passed to the application validation routine
+// This includes the Headers and Sources
+type ValidationProps struct {
+	Sources  []string // B58 encoded peer
+	Hash     string
+	MetaTag  string // if validating a putMeta this will have the meta type set
+	MetaHash string
+}
+
 // Nucleus type abstracts the functions of code execution environments
 type Nucleus interface {
 	Type() string
-	ValidateEntry(def *EntryDef, entry interface{}) error
+	ValidateEntry(def *EntryDef, entry Entry, props *ValidationProps) error
+	ChainGenesis() error
+	ChainRequires() error
 	expose(iface Interface) error
 	Interfaces() (i []Interface)
 	Call(iface string, params interface{}) (interface{}, error)
@@ -64,19 +83,21 @@ func RegisterNucleus(name string, factory NucleusFactory) {
 // RegisterBultinNucleii adds the built in nucleus types to the factory hash
 func RegisterBultinNucleii() {
 	RegisterNucleus(ZygoNucleusType, NewZygoNucleus)
+	RegisterNucleus(JSNucleusType, NewJSNucleus)
 }
 
 // CreateNucleus returns a new Nucleus of the given type
-func CreateNucleus(h *Holochain, schema string, code string) (Nucleus, error) {
+func CreateNucleus(h *Holochain, nucleusType string, code string) (Nucleus, error) {
 
-	factory, ok := nucleusFactories[schema]
+	factory, ok := nucleusFactories[nucleusType]
 	if !ok {
 		// Factory has not been registered.
-		// Make a list of all available datastore factories for logging.
+		// Make a list of all available nucleus factories for error.
 		available := make([]string, 0)
 		for k := range nucleusFactories {
 			available = append(available, k)
 		}
+		sort.Strings(available)
 		return nil, fmt.Errorf("Invalid nucleus name. Must be one of: %s", strings.Join(available, ", "))
 	}
 

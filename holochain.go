@@ -120,7 +120,7 @@ func Initialize() {
 	gob.Register(Put{})
 	gob.Register(GobEntry{})
 	gob.Register(MetaQueryResp{})
-	gob.Register(TaggedEntry{})
+	gob.Register(TaggedHash{})
 
 	RegisterBultinNucleii()
 

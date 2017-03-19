@@ -81,15 +81,14 @@ type MetaQuery struct {
 	// filter, etc
 }
 
-// TaggedEntry holds associated entries for the MetaQueryResponse
-type TaggedEntry struct {
-	E Entry
+// TaggedHash holds associated entries for the MetaQueryResponse
+type TaggedHash struct {
 	H string
 }
 
 // MetaQueryResp holds response to getMeta query
 type MetaQueryResp struct {
-	Entries []TaggedEntry
+	Hashes []TaggedHash
 }
 
 // NewDHT creates a new DHT structure
@@ -162,7 +161,7 @@ func (dht *DHT) put(m *Message, entryType string, key Hash, src peer.ID, value [
 	k := key.String()
 	dht.dlog.Logf("put %v=>%s", key, string(value))
 	err = dht.db.Update(func(tx *buntdb.Tx) error {
-		err := incIdx(tx, m)
+		_, err := incIdx(tx, m)
 		if err != nil {
 			return err
 		}
@@ -242,28 +241,22 @@ func (dht *DHT) get(key Hash) (data []byte, entryType string, status int, err er
 // putMeta associates a value with a stored hash
 // N.B. this function assumes that the data associated has been properly retrieved
 // and validated from the cource chain
-func (dht *DHT) putMeta(m *Message, base Hash, metaKey Hash, tag string, entry Entry) (err error) {
-	dht.dlog.Logf("putmeta on %v %v=>%v as %s", base, metaKey, entry, tag)
-	k := base.String()
+func (dht *DHT) putMeta(m *Message, base Hash, metaKey Hash, tag string) (err error) {
+	dht.dlog.Logf("putmeta on %v %v as %s", base, metaKey, tag)
+	b := base.String()
 	err = dht.db.Update(func(tx *buntdb.Tx) error {
-		_, err := tx.Get("entry:" + k)
+		_, err := tx.Get("entry:" + b)
 		if err == buntdb.ErrNotFound {
 			return ErrHashNotFound
 		}
-		mk := metaKey.String()
-		var b []byte
-		b, err = entry.Marshal()
+		var index string
+		index, err = incIdx(tx, m)
 		if err != nil {
 			return err
 		}
 
-		x := "meta:" + k + ":" + mk + ":" + tag
-		_, _, err = tx.Set(x, string(b), nil)
-		if err != nil {
-			return err
-		}
-
-		err = incIdx(tx, m)
+		x := "meta:" + index + ":" + b + ":" + metaKey.String()
+		_, _, err = tx.Set(x, tag, nil)
 		if err != nil {
 			return err
 		}
@@ -283,24 +276,19 @@ func filter(ss []Meta, test func(*Meta) bool) (ret []Meta) {
 }
 
 // getMeta retrieves meta value associated with a base
-func (dht *DHT) getMeta(base Hash, tag string) (results []TaggedEntry, err error) {
-	k := base.String()
+func (dht *DHT) getMeta(base Hash, tag string) (results []TaggedHash, err error) {
+	b := base.String()
 	err = dht.db.View(func(tx *buntdb.Tx) error {
-		_, err := tx.Get("entry:" + k)
+		_, err := tx.Get("entry:" + b)
 		if err == buntdb.ErrNotFound {
 			return ErrHashNotFound
 		}
-		results = make([]TaggedEntry, 0)
+		results = make([]TaggedHash, 0)
 		err = tx.Ascend("meta", func(key, value string) bool {
 			x := strings.Split(key, ":")
-			if string(x[1]) == k && string(x[3]) == tag {
-				var entry GobEntry
-				err := entry.Unmarshal([]byte(value))
-				if err != nil {
-					return false
-				}
-				metaEntry := TaggedEntry{E: &entry, H: x[2]}
-				results = append(results, metaEntry)
+
+			if string(x[2]) == b && value == tag {
+				results = append(results, TaggedHash{H: string(x[3])})
 			}
 			return true
 		})
@@ -441,7 +429,7 @@ func (dht *DHT) handlePutReq(m *Message) (err error) {
 			if err != nil {
 				//@todo store as INVALID
 			} else {
-				err = dht.putMeta(m, t.Base, t.M, resp.Tag, resp.Entry)
+				err = dht.putMeta(m, t.Base, t.M, resp.Tag)
 			}
 		default:
 			err = errors.New("expected ValidateMetaResponse from validator")
@@ -504,7 +492,7 @@ func DHTReceiver(h *Holochain, m *Message) (response interface{}, err error) {
 		switch t := m.Body.(type) {
 		case MetaQuery:
 			var r MetaQueryResp
-			r.Entries, err = h.dht.getMeta(t.Base, t.T)
+			r.Hashes, err = h.dht.getMeta(t.Base, t.T)
 			response = r
 		default:
 			err = ErrDHTExpectedMetaQueryInBody

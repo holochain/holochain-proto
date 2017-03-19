@@ -98,12 +98,11 @@ func TestPutGetMeta(t *testing.T) {
 	h.rootPath = d
 	os.MkdirAll(h.DBPath(), os.ModePerm)
 	dht := NewDHT(&h)
-	base, _ := NewHash("QmY8Mzg9F69e5P9AoQPYat655HEhc1TVGs11tmfNSzkqh2")
-	metaHash1, _ := NewHash("QmY8Mzg9F69e5P9AoQPYat655HEhc1TVGs11tmfNSzkqh3")
-	metaHash2, _ := NewHash("QmY8Mzg9F69e5P9AoQPYat655HEhc1TVGs11tmfNSzkqh4")
+	base, _ := NewHash("QmY8Mzg9F69e5P9AoQPYat655HEhc1TVGs11tmfNSzkqh0")
+	metaHash1, _ := NewHash("QmY8Mzg9F69e5P9AoQPYat655HEhc1TVGs11tmfNSzkqh1")
+	metaHash2, _ := NewHash("QmY8Mzg9F69e5P9AoQPYat655HEhc1TVGs11tmfNSzkqh2")
 	Convey("It should fail if hash doesn't exist", t, func() {
-		e1 := GobEntry{C: "some data"}
-		err := dht.putMeta(nil, base, metaHash1, "someType", &e1)
+		err := dht.putMeta(nil, base, metaHash1, "someType")
 		So(err, ShouldEqual, ErrHashNotFound)
 
 		v, err := dht.getMeta(base, "someType")
@@ -122,16 +121,13 @@ func TestPutGetMeta(t *testing.T) {
 		So(err, ShouldNotBeNil)
 		So(err.Error(), ShouldEqual, "No values for someType")
 
-		e1 := GobEntry{C: "value 1"}
-		err = dht.putMeta(nil, base, metaHash1, "someType", &e1)
+		err = dht.putMeta(nil, base, metaHash1, "someType")
 		So(err, ShouldBeNil)
 
-		e2 := GobEntry{C: "value 2"}
-		err = dht.putMeta(nil, base, metaHash2, "someType", &e2)
+		err = dht.putMeta(nil, base, metaHash2, "someType")
 		So(err, ShouldBeNil)
 
-		e3 := GobEntry{C: "value 3"}
-		err = dht.putMeta(nil, base, metaHash1, "otherType", &e3)
+		err = dht.putMeta(nil, base, metaHash1, "otherType")
 		So(err, ShouldBeNil)
 
 		data, err = dht.getMeta(base, "someType")
@@ -139,14 +135,13 @@ func TestPutGetMeta(t *testing.T) {
 		So(len(data), ShouldEqual, 2)
 		m := data[0]
 
-		So(m.E.Content(), ShouldEqual, "value 1")
+		So(m.H, ShouldEqual, metaHash1.String())
 		m = data[1]
-		So(m.E.Content(), ShouldEqual, "value 2")
+		So(m.H, ShouldEqual, metaHash2.String())
 
 		data, err = dht.getMeta(base, "otherType")
 		So(err, ShouldBeNil)
 		So(len(data), ShouldEqual, 1)
-		So(data[0].E.Content(), ShouldEqual, "value 3")
 		So(data[0].H, ShouldEqual, metaHash1.String())
 	})
 }
@@ -282,7 +277,6 @@ func TestDHTReceiver(t *testing.T) {
 		// check that it got put
 		meta, err := h.dht.getMeta(hash, "myMetaTag")
 		So(err, ShouldBeNil)
-		So(meta[0].E.Content(), ShouldEqual, someData)
 		So(meta[0].H, ShouldEqual, hd.EntryLink.String())
 	})
 
@@ -292,7 +286,7 @@ func TestDHTReceiver(t *testing.T) {
 		r, err := DHTReceiver(h, m)
 		So(err, ShouldBeNil)
 		results := r.(MetaQueryResp)
-		So(results.Entries[0].E.Content(), ShouldEqual, someData)
+		So(results.Hashes[0].H, ShouldEqual, hd.EntryLink.String())
 	})
 
 	Convey("GOSSIP_REQUEST should request and advertise data by idx", t, func() {

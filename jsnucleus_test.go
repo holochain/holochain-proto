@@ -272,7 +272,7 @@ func TestJSDHT(t *testing.T) {
 		x, err := z.lastResult.Export()
 		mqr := x.(MetaQueryResp)
 		So(err, ShouldBeNil)
-		So(fmt.Sprintf("%v", mqr.Entries[0].E.Content()), ShouldEqual, `{"firstName":"Zippy","lastName":"Pinhead"}`)
+		So(fmt.Sprintf("%v", mqr.Hashes[0].H), ShouldEqual, mhd.EntryLink.String())
 	})
 
 }

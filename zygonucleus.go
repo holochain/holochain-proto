@@ -277,7 +277,7 @@ func (z *ZygoNucleus) getmeta(env *zygo.Glisp, h *Holochain, base string, tag st
 		switch t := response.(type) {
 		case MetaQueryResp:
 			// @TODO figure out encoding by entry type.
-			j, err := json.Marshal(t.Entries)
+			j, err := json.Marshal(t.Hashes)
 			if err == nil {
 				err = result.HashSet(env.MakeSymbol("result"), &zygo.SexpStr{S: string(j)})
 			}

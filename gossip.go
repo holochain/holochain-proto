@@ -44,17 +44,17 @@ var ErrDHTErrNoGossipersAvailable error = errors.New("no gossipers available")
 var ErrDHTExpectedGossipReqInBody error = errors.New("expected gossip request")
 
 // incIdx adds a new index record to dht for gossiping later
-func incIdx(tx *buntdb.Tx, m *Message) (err error) {
+func incIdx(tx *buntdb.Tx, m *Message) (index string, err error) {
 	var idx int
 	idx, err = getIntVal("_idx", tx)
 	if err != nil {
 		return
 	}
 	idx++
-	idxs := fmt.Sprintf("%d", idx)
-	_, _, err = tx.Set("_idx", idxs, nil)
+	index = fmt.Sprintf("%d", idx)
+	_, _, err = tx.Set("_idx", index, nil)
 	if err != nil {
-		return err
+		return
 	}
 
 	var msg string
@@ -63,13 +63,13 @@ func incIdx(tx *buntdb.Tx, m *Message) (err error) {
 		var b []byte
 		b, err = ByteEncoder(m)
 		if err != nil {
-			return err
+			return
 		}
 		msg = string(b)
 	}
-	_, _, err = tx.Set("idx:"+idxs, msg, nil)
+	_, _, err = tx.Set("idx:"+index, msg, nil)
 	if err != nil {
-		return err
+		return
 	}
 	return
 }

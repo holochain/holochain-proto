@@ -275,6 +275,6 @@ func TestZygoDHT(t *testing.T) {
 
 		r, err := sh.HashGet(z.env, z.env.MakeSymbol("result"))
 		So(err, ShouldBeNil)
-		So(r.(*zygo.SexpStr).S, ShouldEqual, `[{"E":{"C":"{\"firstName\":\"Zippy\",\"lastName\":\"Pinhead\"}"},"H":"QmYeinX5vhuA91D3v24YbgyLofw9QAxY6PoATrBHnRwbtt"}]`)
+		So(r.(*zygo.SexpStr).S, ShouldEqual, `[{"H":"QmYeinX5vhuA91D3v24YbgyLofw9QAxY6PoATrBHnRwbtt"}]`)
 	})
 }

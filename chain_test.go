@@ -35,9 +35,9 @@ func TestNewChainFromFile(t *testing.T) {
 	})
 
 	e := GobEntry{C: "some data1"}
-	c.AddEntry(h, now, "myData1", &e, key)
+	c.AddEntry(h, now, "entryTypeFoo1", &e, key)
 	e = GobEntry{C: "some other data2"}
-	c.AddEntry(h, now, "myData2", &e, key)
+	c.AddEntry(h, now, "entryTypeFoo2", &e, key)
 	dump := c.String()
 	c.s.Close()
 	c, err = NewChainFromFile(h, path)
@@ -65,13 +65,13 @@ func TestTop(t *testing.T) {
 	Convey("it should return an nil for an empty chain", t, func() {
 		hd = c.Top()
 		So(hd, ShouldBeNil)
-		hash, hd = c.TopType("myData")
+		hash, hd = c.TopType("entryTypeFoo")
 		So(hd, ShouldBeNil)
 		So(hash, ShouldBeNil)
 	})
 	h, key, now := chainTestSetup()
 	e := GobEntry{C: "some data"}
-	c.AddEntry(h, now, "myData", &e, key)
+	c.AddEntry(h, now, "entryTypeFoo", &e, key)
 
 	Convey("Top it should return the top header", t, func() {
 		hd = c.Top()
@@ -83,12 +83,12 @@ func TestTop(t *testing.T) {
 		So(hash, ShouldEqual, nil)
 	})
 	Convey("TopType should return header for correct type", t, func() {
-		hash, hd = c.TopType("myData")
+		hash, hd = c.TopType("entryTypeFoo")
 		So(hd, ShouldEqual, c.Headers[0])
 	})
 	c.AddEntry(h, now, "otherData", &e, key)
 	Convey("TopType should return headers for both types", t, func() {
-		hash, hd = c.TopType("myData")
+		hash, hd = c.TopType("entryTypeFoo")
 		So(hd, ShouldEqual, c.Headers[0])
 		hash, hd = c.TopType("otherData")
 		So(hd, ShouldEqual, c.Headers[1])
@@ -98,7 +98,7 @@ func TestTop(t *testing.T) {
 func TestTopType(t *testing.T) {
 	c := NewChain()
 	Convey("it should return nil for an empty chain", t, func() {
-		hash, hd := c.TopType("myData")
+		hash, hd := c.TopType("entryTypeFoo")
 		So(hd, ShouldBeNil)
 		So(hash, ShouldEqual, nil)
 	})
@@ -113,11 +113,11 @@ func TestAddEntry(t *testing.T) {
 
 	Convey("it should add nil to the chain", t, func() {
 		e := GobEntry{C: "some data"}
-		hash, err := c.AddEntry(h, now, "myData", &e, key)
+		hash, err := c.AddEntry(h, now, "entryTypeFoo", &e, key)
 		So(err, ShouldBeNil)
 		So(len(c.Headers), ShouldEqual, 1)
 		So(len(c.Entries), ShouldEqual, 1)
-		So(c.TypeTops["myData"], ShouldEqual, 0)
+		So(c.TypeTops["entryTypeFoo"], ShouldEqual, 0)
 		So(hash.Equal(&c.Hashes[0]), ShouldBeTrue)
 	})
 }
@@ -127,11 +127,11 @@ func TestGet(t *testing.T) {
 	h, key, now := chainTestSetup()
 
 	e1 := GobEntry{C: "some data"}
-	h1, _ := c.AddEntry(h, now, "myData", &e1, key)
+	h1, _ := c.AddEntry(h, now, "entryTypeFoo", &e1, key)
 	hd1, err1 := c.Get(h1)
 
 	e2 := GobEntry{C: "some other data"}
-	h2, _ := c.AddEntry(h, now, "myData", &e2, key)
+	h2, _ := c.AddEntry(h, now, "entryTypeFoo", &e2, key)
 	hd2, err2 := c.Get(h2)
 
 	Convey("it should get header by hash or by Entry hash", t, func() {
@@ -153,11 +153,11 @@ func TestGet(t *testing.T) {
 	Convey("it should get entry by hash", t, func() {
 		ed, et, err := c.GetEntry(hd1.EntryLink)
 		So(err, ShouldBeNil)
-		So(et, ShouldEqual, "myData")
+		So(et, ShouldEqual, "entryTypeFoo")
 		So(fmt.Sprintf("%v", &e1), ShouldEqual, fmt.Sprintf("%v", ed))
 		ed, et, err = c.GetEntry(hd2.EntryLink)
 		So(err, ShouldBeNil)
-		So(et, ShouldEqual, "myData")
+		So(et, ShouldEqual, "entryTypeFoo")
 		So(fmt.Sprintf("%v", &e2), ShouldEqual, fmt.Sprintf("%v", ed))
 	})
 
@@ -174,13 +174,13 @@ func TestMarshal(t *testing.T) {
 	h, key, now := chainTestSetup()
 
 	e := GobEntry{C: "some data"}
-	c.AddEntry(h, now, "myData1", &e, key)
+	c.AddEntry(h, now, "entryTypeFoo1", &e, key)
 
 	e = GobEntry{C: "some other data"}
-	c.AddEntry(h, now, "myData2", &e, key)
+	c.AddEntry(h, now, "entryTypeFoo2", &e, key)
 
 	e = GobEntry{C: "and more data"}
-	c.AddEntry(h, now, "myData3", &e, key)
+	c.AddEntry(h, now, "entryTypeFoo3", &e, key)
 
 	Convey("it should be able to marshal and unmarshal", t, func() {
 		var b bytes.Buffer
@@ -205,13 +205,13 @@ func TestWalkChain(t *testing.T) {
 	c := NewChain()
 	h, key, now := chainTestSetup()
 	e := GobEntry{C: "some data"}
-	c.AddEntry(h, now, "myData1", &e, key)
+	c.AddEntry(h, now, "entryTypeFoo1", &e, key)
 
 	e = GobEntry{C: "some other data"}
-	c.AddEntry(h, now, "myData2", &e, key)
+	c.AddEntry(h, now, "entryTypeFoo2", &e, key)
 
 	e = GobEntry{C: "and more data"}
-	c.AddEntry(h, now, "myData3", &e, key)
+	c.AddEntry(h, now, "entryTypeFoo3", &e, key)
 
 	Convey("it should walk back from the top through all entries", t, func() {
 		var x string
@@ -230,13 +230,13 @@ func TestValidateChain(t *testing.T) {
 	c := NewChain()
 	h, key, now := chainTestSetup()
 	e := GobEntry{C: "some data"}
-	c.AddEntry(h, now, "myData1", &e, key)
+	c.AddEntry(h, now, "entryTypeFoo1", &e, key)
 
 	e = GobEntry{C: "some other data"}
-	c.AddEntry(h, now, "myData1", &e, key)
+	c.AddEntry(h, now, "entryTypeFoo1", &e, key)
 
 	e = GobEntry{C: "and more data"}
-	c.AddEntry(h, now, "myData1", &e, key)
+	c.AddEntry(h, now, "entryTypeFoo1", &e, key)
 
 	Convey("it should validate", t, func() {
 		So(c.Validate(h), ShouldBeNil)
@@ -259,13 +259,13 @@ func TestPersistingChain(t *testing.T) {
 
 	h, key, now := chainTestSetup()
 	e := GobEntry{C: "some data"}
-	c.AddEntry(h, now, "myData1", &e, key)
+	c.AddEntry(h, now, "entryTypeFoo1", &e, key)
 
 	e = GobEntry{C: "some other data"}
-	c.AddEntry(h, now, "myData1", &e, key)
+	c.AddEntry(h, now, "entryTypeFoo1", &e, key)
 
 	e = GobEntry{C: "and more data"}
-	c.AddEntry(h, now, "myData1", &e, key)
+	c.AddEntry(h, now, "entryTypeFoo1", &e, key)
 
 	dec := gob.NewDecoder(&b)
 

@@ -30,21 +30,21 @@ func TestNewHolochain(t *testing.T) {
 		So(h.DBPath(), ShouldEqual, "some/path/db")
 	})
 	Convey("New with Zome should fill them", t, func() {
-		z := Zome{Name: "myZome",
+		z := Zome{Name: "zySampleZome",
 			Description: "zome desc",
-			Code:        "zome_myZome.zy",
+			Code:        "zome_zySampleZome.zy",
 			Entries: map[string]EntryDef{
-				"myData1": {Name: "myData1", DataFormat: DataFormatString},
-				"myData2": {Name: "myData2", DataFormat: DataFormatRawZygo},
+				"entryTypeFoo": {Name: "entryTypeFoo", DataFormat: DataFormatString},
+				"entryTypeBar": {Name: "entryTypeBar", DataFormat: DataFormatRawZygo},
 			},
 		}
 
 		h := NewHolochain(a, "some/path", "yaml", z)
-		nz := h.Zomes["myZome"]
+		nz := h.Zomes["zySampleZome"]
 		So(nz.Description, ShouldEqual, "zome desc")
-		So(nz.Code, ShouldEqual, "zome_myZome.zy")
-		So(fmt.Sprintf("%v", nz.Entries["myData1"]), ShouldEqual, "{myData1 string   <nil>}")
-		So(fmt.Sprintf("%v", nz.Entries["myData2"]), ShouldEqual, "{myData2 zygo   <nil>}")
+		So(nz.Code, ShouldEqual, "zome_zySampleZome.zy")
+		So(fmt.Sprintf("%v", nz.Entries["entryTypeFoo"]), ShouldEqual, "{entryTypeFoo string   <nil>}")
+		So(fmt.Sprintf("%v", nz.Entries["entryTypeBar"]), ShouldEqual, "{entryTypeBar zygo   <nil>}")
 	})
 
 }
@@ -126,7 +126,7 @@ func TestGenDev(t *testing.T) {
 		So(h.config.PeerModeAuthor, ShouldEqual, s.Settings.DefaultPeerModeAuthor)
 		So(h.config.BootstrapServer, ShouldEqual, s.Settings.DefaultBootstrapServer)
 
-		So(fileExists(h.DNAPath()+"/myZome/profile.json"), ShouldBeTrue)
+		So(fileExists(h.DNAPath()+"/zySampleZome/profile.json"), ShouldBeTrue)
 		So(fileExists(h.UIPath()+"/index.html"), ShouldBeTrue)
 		So(fileExists(h.UIPath()+"/hc.js"), ShouldBeTrue)
 		So(fileExists(h.rootPath+"/"+ConfigFileName+".json"), ShouldBeTrue)
@@ -155,8 +155,8 @@ func TestCloneNew(t *testing.T) {
 		So(err, ShouldBeNil)
 		So(h.agent.Name(), ShouldEqual, agent.Name())
 		So(ic.KeyEqual(h.agent.PrivKey(), agent.PrivKey()), ShouldBeTrue)
-		src, _ := readFile(orig+"/dna/", "myZome.zy")
-		dst, _ := readFile(h.DNAPath(), "myZome.zy")
+		src, _ := readFile(orig+"/dna/", "zySampleZome.zy")
+		dst, _ := readFile(h.DNAPath(), "zySampleZome.zy")
 		So(string(src), ShouldEqual, string(dst))
 		So(h.rootPath, ShouldEqual, root)
 		So(h.UIPath(), ShouldEqual, root+"/ui")
@@ -164,7 +164,7 @@ func TestCloneNew(t *testing.T) {
 		So(h.DBPath(), ShouldEqual, root+"/db")
 
 		So(fileExists(h.UIPath()+"/index.html"), ShouldBeTrue)
-		So(fileExists(h.DNAPath()+"/myZome/profile.json"), ShouldBeTrue)
+		So(fileExists(h.DNAPath()+"/zySampleZome/profile.json"), ShouldBeTrue)
 		So(fileExists(h.DNAPath()+"/properties_schema.json"), ShouldBeTrue)
 		So(fileExists(h.rootPath+"/"+ConfigFileName+".toml"), ShouldBeTrue)
 
@@ -190,11 +190,11 @@ func TestCloneJoin(t *testing.T) {
 		So(err, ShouldBeNil)
 		So(h.agent.Name(), ShouldEqual, agent.Name())
 		So(ic.KeyEqual(h.agent.PrivKey(), agent.PrivKey()), ShouldBeTrue)
-		src, _ := readFile(orig+"/dna/", "myZome.zy")
-		dst, _ := readFile(root, "myZome.zy")
+		src, _ := readFile(orig+"/dna/", "zySampleZome.zy")
+		dst, _ := readFile(root, "zySampleZome.zy")
 		So(string(src), ShouldEqual, string(dst))
 		So(fileExists(h.UIPath()+"/index.html"), ShouldBeTrue)
-		So(fileExists(h.DNAPath()+"/myZome/profile.json"), ShouldBeTrue)
+		So(fileExists(h.DNAPath()+"/zySampleZome/profile.json"), ShouldBeTrue)
 		So(fileExists(h.DNAPath()+"/properties_schema.json"), ShouldBeTrue)
 		So(fileExists(h.rootPath+"/"+ConfigFileName+".toml"), ShouldBeTrue)
 	})
@@ -210,16 +210,16 @@ func TestNewEntry(t *testing.T) {
 		panic(err)
 	}
 
-	myData := `(message (from "art") (to "eric") (contents "test"))`
+	entryTypeFoo := `(message (from "art") (to "eric") (contents "test"))`
 
 	now := time.Unix(1, 1) // pick a constant time so the test will always work
 
-	e := GobEntry{C: myData}
-	headerHash, header, err := h.NewEntry(now, "myData", &e)
+	e := GobEntry{C: entryTypeFoo}
+	headerHash, header, err := h.NewEntry(now, "entryTypeFoo", &e)
 	Convey("parameters passed in should be in the header", t, func() {
 		So(err, ShouldBeNil)
 		So(header.Time == now, ShouldBeTrue)
-		So(header.Type, ShouldEqual, "myData")
+		So(header.Type, ShouldEqual, "entryTypeFoo")
 		So(header.HeaderLink.IsNullHash(), ShouldBeTrue)
 	})
 	Convey("the entry hash is correct", t, func() {
@@ -247,7 +247,7 @@ func TestNewEntry(t *testing.T) {
 
 	Convey("it should store the header and entry to the data store", t, func() {
 		s1 := fmt.Sprintf("%v", *header)
-		d1 := fmt.Sprintf("%v", myData)
+		d1 := fmt.Sprintf("%v", entryTypeFoo)
 
 		h2, err := h.chain.Get(headerHash)
 		So(err, ShouldBeNil)
@@ -266,7 +266,7 @@ func TestNewEntry(t *testing.T) {
 		var d2t string
 		d2, d2t, err = h.chain.GetEntry(h2.EntryLink)
 		So(err, ShouldBeNil)
-		So(d2t, ShouldEqual, "myData")
+		So(d2t, ShouldEqual, "entryTypeFoo")
 
 		So(d2, ShouldNotBeNil)
 		So(d2.(Entry).Content(), ShouldEqual, d1)
@@ -279,7 +279,7 @@ func TestNewEntry(t *testing.T) {
 	})
 
 	e = GobEntry{C: "more data"}
-	_, header2, err := h.NewEntry(now, "myData", &e)
+	_, header2, err := h.NewEntry(now, "entryTypeFoo", &e)
 
 	Convey("a second entry should have prev link correctly set", t, func() {
 		So(err, ShouldBeNil)
@@ -289,7 +289,7 @@ func TestNewEntry(t *testing.T) {
 
 func TestHeader(t *testing.T) {
 	var h1, h2 Header
-	h1 = mkTestHeader("myData")
+	h1 = mkTestHeader("entryTypeFoo")
 
 	var buf bytes.Buffer
 	enc := gob.NewEncoder(&buf)
@@ -319,12 +319,12 @@ func TestGenChain(t *testing.T) {
 		var h2 Holochain
 		_, err = toml.DecodeFile(h.DNAPath()+"/"+DNAFileName+".toml", &h2)
 		So(err, ShouldBeNil)
-		So(h2.Zomes["myZome"].CodeHash.String(), ShouldEqual, h.Zomes["myZome"].CodeHash.String())
-		b, _ := readFile(h.DNAPath()+"/myZome", "profile.json")
+		So(h2.Zomes["zySampleZome"].CodeHash.String(), ShouldEqual, h.Zomes["zySampleZome"].CodeHash.String())
+		b, _ := readFile(h.DNAPath()+"/zySampleZome", "profile.json")
 		var sh Hash
 		sh.Sum(h.hashSpec, b)
 
-		So(h2.Zomes["myZome"].Entries["profile"].SchemaHash.String(), ShouldEqual, sh.String())
+		So(h2.Zomes["zySampleZome"].Entries["profile"].SchemaHash.String(), ShouldEqual, sh.String())
 	})
 
 	Convey("before GenChain call DNAHash call should fail", t, func() {
@@ -380,10 +380,10 @@ func TestWalk(t *testing.T) {
 	defer cleanupTestDir(d)
 
 	// add an extra link onto the chain
-	myData := `(message (from "art") (to "eric") (contents "test"))`
+	entryTypeFoo := `(message (from "art") (to "eric") (contents "test"))`
 	now := time.Unix(1, 1) // pick a constant time so the test will always work
-	e := GobEntry{C: myData}
-	_, _, err := h.NewEntry(now, "myData", &e)
+	e := GobEntry{C: entryTypeFoo}
+	_, _, err := h.NewEntry(now, "entryTypeFoo", &e)
 	if err != nil {
 		panic(err)
 	}
@@ -411,10 +411,10 @@ func TestValidate(t *testing.T) {
 	defer cleanupTestDir(d)
 
 	// add an extra link onto the chain
-	myData := `(message (from "art") (to "eric") (contents "test"))`
+	entryTypeFoo := `(message (from "art") (to "eric") (contents "test"))`
 	now := time.Unix(1, 1) // pick a constant time so the test will always work
-	e := GobEntry{C: myData}
-	_, _, err := h.NewEntry(now, "myData", &e)
+	e := GobEntry{C: entryTypeFoo}
+	_, _, err := h.NewEntry(now, "entryTypeFoo", &e)
 	if err != nil {
 		panic(err)
 	}
@@ -434,26 +434,26 @@ func TestValidateEntry(t *testing.T) {
 	p := ValidationProps{}
 	Convey("it should fail if a validator doesn't exist for the entry type", t, func() {
 		hdr := mkTestHeader("bogusType")
-		myData := "2"
-		err = h.ValidateEntry(hdr.Type, &GobEntry{C: myData}, &p)
+		data := "2"
+		err = h.ValidateEntry(hdr.Type, &GobEntry{C: data}, &p)
 		So(err.Error(), ShouldEqual, "no definition for entry type: bogusType")
 	})
 
 	Convey("a nil entry is invalid", t, func() {
-		hdr := mkTestHeader("myData")
+		hdr := mkTestHeader("evenNumbers")
 		err = h.ValidateEntry(hdr.Type, nil, &p)
 		So(err.Error(), ShouldEqual, "nil entry invalid")
 	})
 	Convey("a valid entry validates", t, func() {
-		hdr := mkTestHeader("myData")
-		myData := "2" //`(message (from "art") (to "eric") (contents "test"))`
-		err = h.ValidateEntry(hdr.Type, &GobEntry{C: myData}, &p)
+		hdr := mkTestHeader("evenNumbers")
+		evenNumbers := "2" //`(message (from "art") (to "eric") (contents "test"))`
+		err = h.ValidateEntry(hdr.Type, &GobEntry{C: evenNumbers}, &p)
 		So(err, ShouldBeNil)
 	})
 	Convey("an invalid entry doesn't validate", t, func() {
-		hdr := mkTestHeader("myData")
-		myData := "1" //`(message (from "art") (to "eric") (contents "test"))`
-		err = h.ValidateEntry(hdr.Type, &GobEntry{C: myData}, &p)
+		hdr := mkTestHeader("evenNumbers")
+		evenNumbers := "1" //`(message (from "art") (to "eric") (contents "test"))`
+		err = h.ValidateEntry(hdr.Type, &GobEntry{C: evenNumbers}, &p)
 		So(err.Error(), ShouldEqual, "Invalid entry: 1")
 	})
 	Convey("validate on a schema based entry should check entry against the schema", t, func() {
@@ -478,7 +478,7 @@ func TestMakeNucleus(t *testing.T) {
 
 	})
 	Convey("it should make a nucleus based on the type", t, func() {
-		v, err := h.MakeNucleus("myZome")
+		v, err := h.MakeNucleus("zySampleZome")
 		So(err, ShouldBeNil)
 		z := v.(*ZygoNucleus)
 		_, err = z.env.Run()
@@ -490,17 +490,17 @@ func TestCall(t *testing.T) {
 	d, _, h := prepareTestChain("test")
 	defer cleanupTestDir(d)
 	Convey("it should call the exposed function", t, func() {
-		result, err := h.Call("myZome", "exposedfn", "arg1 arg2")
+		result, err := h.Call("zySampleZome", "exposedfn", "arg1 arg2")
 		So(err, ShouldBeNil)
 		So(result.(string), ShouldEqual, "result: arg1 arg2")
 
-		result, err = h.Call("myZome", "addData", "42")
+		result, err = h.Call("zySampleZome", "addEven", "42")
 		So(err, ShouldBeNil)
 
 		ph := h.chain.Top().EntryLink
 		So(result.(string), ShouldEqual, ph.String())
 
-		//_, err = h.Call("myZome", "addData", "41")
+		//_, err = h.Call("zySampleZome", "addEven", "41")
 		//So(err.Error(), ShouldEqual, "Error calling 'commit': Invalid entry: 41")
 	})
 }
@@ -536,7 +536,7 @@ func TestTest(t *testing.T) {
 	})
 	Convey("it should fail the test on incorrect input types", t, func() {
 		os.Remove(d + "/.holochain/test/test/test_0.json")
-		err := writeFile(d+"/.holochain/test/test", "test_0.json", []byte(`[{"Zome":"myZome","FnName":"addData","Input":2,"Output":"%h%","Err":""}]`))
+		err := writeFile(d+"/.holochain/test/test", "test_0.json", []byte(`[{"Zome":"zySampleZome","FnName":"addEven","Input":2,"Output":"%h%","Err":""}]`))
 		So(err, ShouldBeNil)
 		err = h.Test()[0]
 		So(err, ShouldNotBeNil)
@@ -544,7 +544,7 @@ func TestTest(t *testing.T) {
 	})
 	Convey("it should fail the test on incorrect data", t, func() {
 		os.Remove(d + "/.holochain/test/test/test_0.json")
-		err := writeFile(d+"/.holochain/test/test", "test_0.json", []byte(`[{"Zome":"myZome","FnName":"addData","Input":"2","Output":"","Err":"bogus error"}]`))
+		err := writeFile(d+"/.holochain/test/test", "test_0.json", []byte(`[{"Zome":"zySampleZome","FnName":"addEven","Input":"2","Output":"","Err":"bogus error"}]`))
 		So(err, ShouldBeNil)
 		err = h.Test()[0]
 		So(err, ShouldNotBeNil)

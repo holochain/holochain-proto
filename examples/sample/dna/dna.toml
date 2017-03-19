@@ -12,42 +12,42 @@ RequiresVersion = 3
 [BasedOn]
 
 [Zomes]
-  [Zomes.jsZome]
-    Name = "jsZome"
+  [Zomes.jsSampleZome]
+    Name = "jsSampleZome"
     Description = "this is a javascript test zome"
-    Code = "jsZome.js"
+    Code = "jsSampleZome.js"
     NucleusType = "js"
-    [Zomes.jsZome.CodeHash]
-    [Zomes.jsZome.Entries]
-      [Zomes.jsZome.Entries.myOdds]
-        Name = "myOdds"
+    [Zomes.jsSampleZome.CodeHash]
+    [Zomes.jsSampleZome.Entries]
+      [Zomes.jsSampleZome.Entries.oddNumbers]
+        Name = "oddNumbers"
         DataFormat = "js"
         Schema = ""
-        [Zomes.jsZome.Entries.myOdds.SchemaHash]
-      [Zomes.jsZome.Entries.profile]
+        [Zomes.jsSampleZome.Entries.oddNumbers.SchemaHash]
+      [Zomes.jsSampleZome.Entries.profile]
         Name = "profile"
         DataFormat = "json"
         Schema = "profile.json"
-        [Zomes.jsZome.Entries.profile.SchemaHash]
-  [Zomes.myZome]
-    Name = "myZome"
+        [Zomes.jsSampleZome.Entries.profile.SchemaHash]
+  [Zomes.zySampleZome]
+    Name = "zySampleZome"
     Description = "this is a zygomas test zome"
-    Code = "myZome.zy"
+    Code = "zySampleZome.zy"
     NucleusType = "zygo"
-    [Zomes.myZome.CodeHash]
-    [Zomes.myZome.Entries]
-      [Zomes.myZome.Entries.myData]
-        Name = "myData"
+    [Zomes.zySampleZome.CodeHash]
+    [Zomes.zySampleZome.Entries]
+      [Zomes.zySampleZome.Entries.evenNumbers]
+        Name = "evenNumbers"
         DataFormat = "zygo"
         Schema = ""
-        [Zomes.myZome.Entries.myData.SchemaHash]
-      [Zomes.myZome.Entries.primes]
+        [Zomes.zySampleZome.Entries.evenNumbers.SchemaHash]
+      [Zomes.zySampleZome.Entries.primes]
         Name = "primes"
         DataFormat = "json"
         Schema = ""
-        [Zomes.myZome.Entries.primes.SchemaHash]
-      [Zomes.myZome.Entries.profile]
+        [Zomes.zySampleZome.Entries.primes.SchemaHash]
+      [Zomes.zySampleZome.Entries.profile]
         Name = "profile"
         DataFormat = "json"
         Schema = "profile.json"
-        [Zomes.myZome.Entries.profile.SchemaHash]
+        [Zomes.zySampleZome.Entries.profile.SchemaHash]

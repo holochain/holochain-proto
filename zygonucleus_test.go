@@ -135,7 +135,7 @@ func TestZygoValidateEntry(t *testing.T) {
 	p := ValidationProps{}
 	Convey("should run an entry value against the defined validator for string data", t, func() {
 		v, err := NewZygoNucleus(nil, `(defn validate [name entry meta] (cond (== entry "fish") true false))`)
-		d := EntryDef{Name: "myData", DataFormat: DataFormatString}
+		d := EntryDef{Name: "evenNumbers", DataFormat: DataFormatString}
 		err = v.ValidateEntry(&d, &GobEntry{C: "cow"}, &p)
 		So(err.Error(), ShouldEqual, "Invalid entry: cow")
 		err = v.ValidateEntry(&d, &GobEntry{C: "fish"}, &p)
@@ -143,7 +143,7 @@ func TestZygoValidateEntry(t *testing.T) {
 	})
 	Convey("should run an entry value against the defined validator for zygo data", t, func() {
 		v, err := NewZygoNucleus(nil, `(defn validate [name entry meta] (cond (== entry "fish") true false))`)
-		d := EntryDef{Name: "myData", DataFormat: DataFormatRawZygo}
+		d := EntryDef{Name: "evenNumbers", DataFormat: DataFormatRawZygo}
 		err = v.ValidateEntry(&d, &GobEntry{C: "\"cow\""}, &p)
 		So(err.Error(), ShouldEqual, "Invalid entry: \"cow\"")
 		err = v.ValidateEntry(&d, &GobEntry{C: "\"fish\""}, &p)
@@ -151,7 +151,7 @@ func TestZygoValidateEntry(t *testing.T) {
 	})
 	Convey("should run an entry value against the defined validator for json data", t, func() {
 		v, err := NewZygoNucleus(nil, `(defn validate [name entry meta] (cond (== (hget entry data:) "fish") true false))`)
-		d := EntryDef{Name: "myData", DataFormat: DataFormatJSON}
+		d := EntryDef{Name: "evenNumbers", DataFormat: DataFormatJSON}
 		err = v.ValidateEntry(&d, &GobEntry{C: `{"data":"cow"}`}, &p)
 		So(err.Error(), ShouldEqual, `Invalid entry: {"data":"cow"}`)
 		err = v.ValidateEntry(&d, &GobEntry{C: `{"data":"fish"}`}, &p)
@@ -213,7 +213,7 @@ func TestZygoDHT(t *testing.T) {
 	// add an entry onto the chain
 	now := time.Unix(1, 1) // pick a constant time so the test will always work
 	e := GobEntry{C: data}
-	_, hd, err := h.NewEntry(now, "myData", &e)
+	_, hd, err := h.NewEntry(now, "evenNumbers", &e)
 	if err != nil {
 		panic(err)
 	}

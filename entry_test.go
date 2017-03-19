@@ -9,7 +9,7 @@ import (
 )
 
 func TestGob(t *testing.T) {
-	g := GobEntry{C: mkTestHeader("myData")}
+	g := GobEntry{C: mkTestHeader("evenNumbers")}
 	v, err := g.Marshal()
 	Convey("it should encode", t, func() {
 		So(err, ShouldBeNil)

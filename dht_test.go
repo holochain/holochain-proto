@@ -184,7 +184,7 @@ func TestSend(t *testing.T) {
 
 	now := time.Unix(1, 1) // pick a constant time so the test will always work
 	e := GobEntry{C: "4"}
-	_, hd, err := h.NewEntry(now, "myData", &e)
+	_, hd, err := h.NewEntry(now, "evenNumbers", &e)
 	if err != nil {
 		panic(err)
 	}
@@ -235,7 +235,7 @@ func TestDHTReceiver(t *testing.T) {
 
 	now := time.Unix(1, 1) // pick a constant time so the test will always work
 	e := GobEntry{C: "124"}
-	_, hd, _ := h.NewEntry(now, "myData", &e)
+	_, hd, _ := h.NewEntry(now, "evenNumbers", &e)
 	hash = hd.EntryLink
 
 	Convey("PUT_REQUEST should queue a valid message", t, func() {

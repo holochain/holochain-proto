@@ -17,11 +17,13 @@ const (
   </head>
   <body>
     <select id="zome" name="zome">
-      <option value="myZome">myZome</option>
+      <option value="zySampleZome">zySampleZome</option>
+      <option value="jsSampleZome">jsSampleZome</option>
     </select>
     <select id="fn" name="fn">
-      <option value="addData">addData</option>
+      <option value="addEven">addEven</option>
       <option value="getProperty">getProperty</option>
+      <option value="addPrime">addPrime</option>
     </select>
     <input id="data" name="data">
     <button onclick="send();">Send</button>

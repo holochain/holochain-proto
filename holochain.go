@@ -706,21 +706,21 @@ func (s *Service) GenDev(root string, format string) (hP *Holochain, err error) 
 		}
 
 		zomes := []Zome{
-			{Name: "myZome",
+			{Name: "zySampleZome",
 				Description: "this is a zygomas test zome",
 				NucleusType: ZygoNucleusType,
 				Entries: map[string]EntryDef{
-					"myData":  {Name: "myData", DataFormat: DataFormatRawZygo},
-					"primes":  {Name: "primes", DataFormat: DataFormatJSON},
-					"profile": {Name: "profile", DataFormat: DataFormatJSON, Schema: "profile.json"},
+					"evenNumbers": {Name: "evenNumbers", DataFormat: DataFormatRawZygo},
+					"primes":      {Name: "primes", DataFormat: DataFormatJSON},
+					"profile":     {Name: "profile", DataFormat: DataFormatJSON, Schema: "profile.json"},
 				},
 			},
-			{Name: "jsZome",
+			{Name: "jsSampleZome",
 				Description: "this is a javascript test zome",
 				NucleusType: JSNucleusType,
 				Entries: map[string]EntryDef{
-					"myOdds":  {Name: "myOdds", DataFormat: DataFormatRawJS},
-					"profile": {Name: "profile", DataFormat: DataFormatJSON, Schema: "profile.json"},
+					"oddNumbers": {Name: "oddNumbers", DataFormat: DataFormatRawJS},
+					"profile":    {Name: "profile", DataFormat: DataFormatJSON, Schema: "profile.json"},
 				},
 			},
 		}
@@ -781,37 +781,37 @@ func (s *Service) GenDev(root string, format string) (hP *Holochain, err error) 
 
 		fixtures := [7]TestData{
 			{
-				Zome:   "myZome",
-				FnName: "addData",
+				Zome:   "zySampleZome",
+				FnName: "addEven",
 				Input:  "2",
 				Output: "%h%"},
 			{
-				Zome:   "myZome",
-				FnName: "addData",
+				Zome:   "zySampleZome",
+				FnName: "addEven",
 				Input:  "4",
 				Output: "%h%"},
 			{
-				Zome:   "myZome",
-				FnName: "addData",
+				Zome:   "zySampleZome",
+				FnName: "addEven",
 				Input:  "5",
 				Err:    "Error calling 'commit': Invalid entry: 5"},
 			{
-				Zome:   "myZome",
+				Zome:   "zySampleZome",
 				FnName: "addPrime",
 				Input:  "{\"prime\":7}",
 				Output: "\"%h%\""}, // quoted because return value is json
 			{
-				Zome:   "myZome",
+				Zome:   "zySampleZome",
 				FnName: "addPrime",
 				Input:  "{\"prime\":4}",
 				Err:    `Error calling 'commit': Invalid entry: {"Atype":"hash", "prime":4, "zKeyOrder":["prime"]}`},
 			{
-				Zome:   "jsZome",
+				Zome:   "jsSampleZome",
 				FnName: "addProfile",
 				Input:  `{"firstName":"Art","lastName":"Brock"}`,
 				Output: `"%h%"`},
 			{
-				Zome:   "myZome",
+				Zome:   "zySampleZome",
 				FnName: "getDNA",
 				Input:  "",
 				Output: "%dna%"},
@@ -819,12 +819,12 @@ func (s *Service) GenDev(root string, format string) (hP *Holochain, err error) 
 
 		fixtures2 := [2]TestData{
 			{
-				Zome:   "jsZome",
+				Zome:   "jsSampleZome",
 				FnName: "addOdd",
 				Input:  "7",
 				Output: "%h%"},
 			{
-				Zome:   "jsZome",
+				Zome:   "jsSampleZome",
 				FnName: "addOdd",
 				Input:  "2",
 				Err:    "Invalid entry: 2"},
@@ -837,32 +837,32 @@ func (s *Service) GenDev(root string, format string) (hP *Holochain, err error) 
 		}
 
 		code := make(map[string]string)
-		code["myZome"] = `
+		code["zySampleZome"] = `
 (expose "getDNA" HC_STRING)
 (defn getDNA [x] App_DNA_Hash)
 (expose "exposedfn" HC_STRING)
 (defn exposedfn [x] (concat "result: " x))
-(expose "addData" HC_STRING)
-(defn addData [x] (commit "myData" x))
+(expose "addEven" HC_STRING)
+(defn addEven [x] (commit "evenNumbers" x))
 (expose "addPrime" HC_JSON)
 (defn addPrime [x] (commit "primes" x))
 (defn validate [entryType entry props]
-  (cond (== entryType "myData")  (cond (== (mod entry 2) 0) true false)
+  (cond (== entryType "evenNumbers")  (cond (== (mod entry 2) 0) true false)
         (== entryType "primes")  (isprime (hget entry %prime))
         (== entryType "profile") true
         false)
 )
 (defn genesis [] true)
 `
-		code["jsZome"] = `
+		code["jsSampleZome"] = `
 expose("getProperty",HC.STRING);
 function getProperty(x) {return property(x)};
 expose("addOdd",HC.STRING);
-function addOdd(x) {return commit("myOdds",x);}
+function addOdd(x) {return commit("oddNumbers",x);}
 expose("addProfile",HC.JSON);
 function addProfile(x) {return commit("profile",x);}
 function validate(entry_type,entry,props) {
-if (entry_type=="myOdds") {
+if (entry_type=="oddNumbers") {
   return entry%2 != 0
 }
 if (entry_type=="profile") {

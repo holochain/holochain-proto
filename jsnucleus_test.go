@@ -123,7 +123,7 @@ func TestJSValidateEntry(t *testing.T) {
 	Convey("should run an entry value against the defined validator for string data", t, func() {
 		v, err := NewJSNucleus(nil, `function validate(name,entry,meta) { return (entry=="fish")};`)
 		So(err, ShouldBeNil)
-		d := EntryDef{Name: "myData", DataFormat: DataFormatString}
+		d := EntryDef{Name: "evenNumbers", DataFormat: DataFormatString}
 		err = v.ValidateEntry(&d, &GobEntry{C: "cow"}, &p)
 		So(err.Error(), ShouldEqual, "Invalid entry: cow")
 		err = v.ValidateEntry(&d, &GobEntry{C: "fish"}, &p)
@@ -131,7 +131,7 @@ func TestJSValidateEntry(t *testing.T) {
 	})
 	Convey("should run an entry value against the defined validator for js data", t, func() {
 		v, err := NewJSNucleus(nil, `function validate(name,entry,meta) { return (entry=="fish")};`)
-		d := EntryDef{Name: "myData", DataFormat: DataFormatRawJS}
+		d := EntryDef{Name: "evenNumbers", DataFormat: DataFormatRawJS}
 		err = v.ValidateEntry(&d, &GobEntry{C: "\"cow\""}, &p)
 		So(err.Error(), ShouldEqual, "Invalid entry: \"cow\"")
 		err = v.ValidateEntry(&d, &GobEntry{C: "\"fish\""}, &p)
@@ -139,7 +139,7 @@ func TestJSValidateEntry(t *testing.T) {
 	})
 	Convey("should run an entry value against the defined validator for json data", t, func() {
 		v, err := NewJSNucleus(nil, `function validate(name,entry,meta) { return (entry.data=="fish")};`)
-		d := EntryDef{Name: "myData", DataFormat: DataFormatJSON}
+		d := EntryDef{Name: "evenNumbers", DataFormat: DataFormatJSON}
 		err = v.ValidateEntry(&d, &GobEntry{C: `{"data":"cow"}`}, &p)
 		So(err.Error(), ShouldEqual, `Invalid entry: {"data":"cow"}`)
 		err = v.ValidateEntry(&d, &GobEntry{C: `{"data":"fish"}`}, &p)
@@ -215,7 +215,7 @@ func TestJSDHT(t *testing.T) {
 	// add an entry onto the chain
 	now := time.Unix(1, 1) // pick a constant time so the test will always work
 	e := GobEntry{C: data}
-	_, hd, err := h.NewEntry(now, "myOdds", &e)
+	_, hd, err := h.NewEntry(now, "oddNumbers", &e)
 	if err != nil {
 		panic(err)
 	}

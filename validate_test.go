@@ -25,12 +25,12 @@ func TestValidateReceiver(t *testing.T) {
 	})
 	Convey("VALIDATE_REQUEST should return entry by hash", t, func() {
 		entry := GobEntry{C: "bogus entry data"}
-		_, hd, err := h.NewEntry(time.Now(), "myData", &entry)
+		_, hd, err := h.NewEntry(time.Now(), "evenNumbers", &entry)
 
 		m := h.node.NewMessage(VALIDATE_REQUEST, ValidateQuery{H: hd.EntryLink})
 		r, err := ValidateReceiver(h, m)
 		So(err, ShouldBeNil)
-		So(r.(*ValidateResponse).Type, ShouldEqual, "myData")
+		So(r.(*ValidateResponse).Type, ShouldEqual, "evenNumbers")
 		So(fmt.Sprintf("%v", r.(*ValidateResponse).Entry), ShouldEqual, fmt.Sprintf("%v", &entry))
 	})
 	Convey("VALIDATEMETA_REQUEST should fail if  body isn't a ValidateQuery", t, func() {
@@ -47,7 +47,7 @@ func TestValidateReceiver(t *testing.T) {
 	})
 
 	entry := GobEntry{C: "bogus entry data"}
-	_, hd, _ := h.NewEntry(time.Now(), "myData", &entry)
+	_, hd, _ := h.NewEntry(time.Now(), "evenNumbers", &entry)
 
 	Convey("VALIDATEMETA_REQUEST should return error if hash isn't a meta entry", t, func() {
 		m := h.node.NewMessage(VALIDATEMETA_REQUEST, ValidateQuery{H: hd.EntryLink})
@@ -67,7 +67,7 @@ func TestValidateReceiver(t *testing.T) {
 		So(err, ShouldBeNil)
 		vr := r.(*ValidateMetaResponse)
 		So(vr.Tag, ShouldEqual, "a meta tag")
-		So(vr.Type, ShouldEqual, "myData")
+		So(vr.Type, ShouldEqual, "evenNumbers")
 		So(fmt.Sprintf("%v", vr.Entry), ShouldEqual, fmt.Sprintf("%v", &entry))
 	})
 }

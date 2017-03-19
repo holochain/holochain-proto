@@ -63,7 +63,7 @@ func TestGossipData(t *testing.T) {
 	// simulate a handled put request
 	now := time.Unix(1, 1) // pick a constant time so the test will always work
 	e := GobEntry{C: "124"}
-	_, hd, _ := h.NewEntry(now, "myData", &e)
+	_, hd, _ := h.NewEntry(now, "evenNumbers", &e)
 	hash := hd.EntryLink
 	m1 := h.node.NewMessage(PUT_REQUEST, PutReq{H: hash})
 	DHTReceiver(h, m1)

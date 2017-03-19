@@ -16,7 +16,7 @@ func TestNewHeader(t *testing.T) {
 	Convey("it should make a header and return its hash", t, func() {
 		e := GobEntry{C: "some data"}
 		ph := NullHash()
-		hash, header, err := newHeader(h, now, "myData", &e, key, ph, ph)
+		hash, header, err := newHeader(h, now, "evenNumbers", &e, key, ph, ph)
 
 		So(err, ShouldBeNil)
 		// encode the header and create a hash of it
@@ -31,7 +31,7 @@ func TestMarshalHeader(t *testing.T) {
 	h, key, now := chainTestSetup()
 
 	e := GobEntry{C: "some  data"}
-	hd := testHeader(h, "myData", &e, key, now)
+	hd := testHeader(h, "evenNumbers", &e, key, now)
 
 	Convey("it should round-trip", t, func() {
 		b, err := hd.Marshal()

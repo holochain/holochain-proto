@@ -19,15 +19,21 @@ const (
 	SysFileName          string = "system.conf" // Server & System settings
 	AgentFileName        string = "agent.txt"   // User ID info
 	PrivKeyFileName      string = "priv.key"    // Signing key - private
-	StoreFileName        string = "chain.db"    // Filename for local data store
+	StoreFileName        string = "chain"       // Filename for local data store
+	DNAHashFileName      string = "dna.hash"    // Filename for storing the hash of the holochain
 
-	DefaultPort = 6283
+	DefaultPort            = 6283
+	DefaultBootstrapServer = "bootstrap.holochain.net:10000"
+	//DefaultBootstrapPort				= 10000
+	HC_BOOTSTRAPSERVER = "HC_BOOTSTRAPSERVER"
+	//HC_BOOTSTRAPPORT						= "HC_BOOTSTRAPPORT"
 )
 
 // ServiceConfig holds the service settings
 type ServiceConfig struct {
 	DefaultPeerModeAuthor  bool
 	DefaultPeerModeDHTNode bool
+	DefaultBootstrapServer string
 }
 
 // Holochain service data structure
@@ -37,13 +43,15 @@ type Service struct {
 	Path         string
 }
 
-//IsInitialized checks a path for a correctly set up .holochain directory
+// IsInitialized checks a path for a correctly set up .holochain directory
 func IsInitialized(root string) bool {
 	return dirExists(root) && fileExists(root+"/"+SysFileName) && fileExists(root+"/"+AgentFileName)
 }
 
-//Init initializes service defaults including a signing key pair for an agent
-func Init(root string, agent AgentID) (service *Service, err error) {
+// Init initializes service defaults including a signing key pair for an agent
+// and writes them out to configuration files in the root path (making the
+// directory if necessary)
+func Init(root string, agent AgentName) (service *Service, err error) {
 	err = os.MkdirAll(root, os.ModePerm)
 	if err != nil {
 		return
@@ -52,9 +60,16 @@ func Init(root string, agent AgentID) (service *Service, err error) {
 		Settings: ServiceConfig{
 			DefaultPeerModeDHTNode: true,
 			DefaultPeerModeAuthor:  true,
+			DefaultBootstrapServer: DefaultBootstrapServer,
 		},
 		Path: root,
 	}
+
+	if os.Getenv(HC_BOOTSTRAPSERVER) != "" {
+		s.Settings.DefaultBootstrapServer = os.Getenv(HC_BOOTSTRAPSERVER)
+	}
+
+	Infof("Configured to connect to bootstrap server at: %s\n", s.Settings.DefaultBootstrapServer)
 
 	err = writeToml(root, SysFileName, s.Settings, false)
 	if err != nil {
@@ -76,6 +91,7 @@ func Init(root string, agent AgentID) (service *Service, err error) {
 	return
 }
 
+// LoadService creates a service object from a configuration file
 func LoadService(path string) (service *Service, err error) {
 	agent, err := LoadAgent(path)
 	if err != nil {

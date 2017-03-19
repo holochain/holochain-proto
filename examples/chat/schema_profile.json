@@ -1,0 +1,25 @@
+{
+	"title": "Profile Schema",
+	"type": "object",
+	"properties": {
+		"agent_id": {
+			"type": "string"
+		},
+		"username": {
+			"type": "string"
+		},
+		"firstName": {
+			"type": "string"
+		},
+		"lastName": {
+			"type": "string"
+		},
+		"email": {
+			"type": "string"
+		},
+		"avatar": {
+			"type": "string"
+		}
+	},
+    "required": ["agent_id", "username", "firstName", "lastName", "email"]
+}

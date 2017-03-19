@@ -13,7 +13,7 @@ import (
 )
 
 // Unique user identifier in context of this holochain
-type AgentID string
+type AgentName string
 
 type KeytypeType int
 
@@ -22,7 +22,7 @@ const (
 )
 
 type Agent interface {
-	ID() AgentID
+	Name() AgentName
 	KeyType() KeytypeType
 	GenKeys() error
 	PrivKey() ic.PrivKey
@@ -30,12 +30,12 @@ type Agent interface {
 }
 
 type IPFSAgent struct {
-	Id   AgentID
-	Priv ic.PrivKey
+	name AgentName
+	priv ic.PrivKey
 }
 
-func (a *IPFSAgent) ID() AgentID {
-	return a.Id
+func (a *IPFSAgent) Name() AgentName {
+	return a.name
 }
 
 func (a *IPFSAgent) KeyType() KeytypeType {
@@ -43,11 +43,11 @@ func (a *IPFSAgent) KeyType() KeytypeType {
 }
 
 func (a *IPFSAgent) PrivKey() ic.PrivKey {
-	return a.Priv
+	return a.priv
 }
 
 func (a *IPFSAgent) PubKey() ic.PubKey {
-	return a.Priv.GetPublic()
+	return a.priv.GetPublic()
 }
 
 func (a *IPFSAgent) GenKeys() (err error) {
@@ -56,15 +56,17 @@ func (a *IPFSAgent) GenKeys() (err error) {
 	if err != nil {
 		return
 	}
-	a.Priv = priv
+	a.priv = priv
 	return
 }
 
-func NewAgent(keyType KeytypeType, id AgentID) (agent Agent, err error) {
+// NewAgent creates an agent structure of the given type
+// Note: currently only IPFS agents are implemented
+func NewAgent(keyType KeytypeType, name AgentName) (agent Agent, err error) {
 	switch keyType {
 	case IPFS:
 		a := IPFSAgent{
-			Id: id,
+			name: name,
 		}
 		err = a.GenKeys()
 		if err != nil {
@@ -77,9 +79,9 @@ func NewAgent(keyType KeytypeType, id AgentID) (agent Agent, err error) {
 	return
 }
 
-// SaveAgent generates saves out the keys and agent id to the given directory
+// SaveAgent saves out the keys and agent name to the given directory
 func SaveAgent(path string, agent Agent) (err error) {
-	writeFile(path, AgentFileName, []byte(agent.ID()))
+	writeFile(path, AgentFileName, []byte(agent.Name()))
 	if err != nil {
 		return
 	}
@@ -97,18 +99,18 @@ func SaveAgent(path string, agent Agent) (err error) {
 
 // LoadAgent gets the agent and signing key from the specified directory
 func LoadAgent(path string) (agent Agent, err error) {
-	id, err := readFile(path, AgentFileName)
+	name, err := readFile(path, AgentFileName)
 	if err != nil {
 		return
 	}
 	a := IPFSAgent{
-		Id: AgentID(id),
+		name: AgentName(name),
 	}
 	k, err := readFile(path, PrivKeyFileName)
 	if err != nil {
 		return nil, err
 	}
-	a.Priv, err = ic.UnmarshalPrivateKey(k)
+	a.priv, err = ic.UnmarshalPrivateKey(k)
 	if err != nil {
 		return
 	}

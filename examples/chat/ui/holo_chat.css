@@ -1,0 +1,23 @@
+.rooms {
+  width: 300px;
+  cursor: pointer;
+}
+#room-name-input, #room-name-button {
+  width: 100%;
+}
+
+.rooms ul {
+
+}
+
+#messages {
+  width: 100%;
+  height: 300px;
+  border: 1px solid grey;
+  border-radius: 2px;
+}
+
+.selected-room {
+  border: 1px solid grey;
+  border-radius: 4px;
+}

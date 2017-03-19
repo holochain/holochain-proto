@@ -1,0 +1,21 @@
+#!/bin/bash
+
+echo "ls /root/.holochain"
+ls /root/.holochain
+echo
+hc init $HOSTNAME
+
+echo "ls /clutter"
+ls /clutter
+echo
+echo "ls /root/.holochain"
+ls /root/.holochain/clutter
+echo
+echo "hc clone /clutter clutter"
+hc clone /clutter clutter
+echo "hc gen chain clutter"
+hc gen chain clutter
+echo
+echo "hc reset clutter"
+hc reset clutter
+echo

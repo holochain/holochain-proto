@@ -6,6 +6,7 @@ import (
 	"fmt"
 	ic "github.com/libp2p/go-libp2p-crypto"
 	net "github.com/libp2p/go-libp2p-net"
+	peer "github.com/libp2p/go-libp2p-peer"
 	pstore "github.com/libp2p/go-libp2p-peerstore"
 	. "github.com/smartystreets/goconvey/convey"
 	"io/ioutil"
@@ -78,6 +79,8 @@ func TestNewMessage(t *testing.T) {
 }
 
 func TestNodeSend(t *testing.T) {
+	d := setupTestDir()
+	defer cleanupTestDir(d)
 
 	node1, err := makeNode(1234, "node1")
 	if err != nil {
@@ -92,6 +95,7 @@ func TestNodeSend(t *testing.T) {
 	defer node2.Close()
 
 	var h Holochain
+	h.path = d
 	h.node = node1
 	h.dht = NewDHT(&h)
 	Convey("It should start the DHT protocol", t, func() {
@@ -127,7 +131,7 @@ func TestNodeSend(t *testing.T) {
 	Convey("It should respond with queued on valid PUT_REQUESTS", t, func() {
 		hash, _ := NewHash("QmY8Mzg9F69e5P9AoQPYat6x5HEhc1TVGs11tmfNSzkqh2")
 
-		m := node2.NewMessage(PUT_REQUEST, hash)
+		m := node2.NewMessage(PUT_REQUEST, PutReq{H: hash})
 		r, err := node2.Send(DHTProtocol, node1.HashAddr, m)
 		So(err, ShouldBeNil)
 		So(r.Type, ShouldEqual, OK_RESPONSE)
@@ -176,22 +180,51 @@ func TestSrcReceiver(t *testing.T) {
 		So(err, ShouldNotBeNil)
 		So(err.Error(), ShouldEqual, "hash not found")
 	})
-	Convey("SRC_VALIDATE should return contents of hash", t, func() {
-		hhash, _ := NewHash("QmY8Mzg9F69e5P9AoQPYat655HEhc1TVGs11tmfNSzkqh2")
-		header := []byte("bogus header")
-		ehash, _ := NewHash("QmY8Mzg9F69e5P9AoQPYat655HEhc1TVGs11tmfNSzkqh3")
+	Convey("SRC_VALIDATE should return header or entry by hash", t, func() {
 		entry := GobEntry{C: "bogus entry data"}
-		e, err := entry.Marshal()
-		if err != nil {
-			panic(err)
-		}
-		err = h.store.Put("myData", hhash, header, ehash, e)
-		m := h.node.NewMessage(SRC_VALIDATE, ehash)
+		h2, hd, err := h.NewEntry(time.Now(), "myData", &entry)
+		m := h.node.NewMessage(SRC_VALIDATE, h2)
 		r, err := SrcReceiver(h, m)
 		So(err, ShouldBeNil)
-		So(r, ShouldEqual, "bogus entry data")
+		So(fmt.Sprintf("%v", r), ShouldEqual, fmt.Sprintf("%v", hd))
+
+		m = h.node.NewMessage(SRC_VALIDATE, hd.EntryLink)
+		r, err = SrcReceiver(h, m)
+		So(err, ShouldBeNil)
+		So(r.(*ValidateResponse).Type, ShouldEqual, "myData")
+		So(fmt.Sprintf("%v", r.(*ValidateResponse).Entry), ShouldEqual, fmt.Sprintf("%v", &entry))
+
 	})
 }
+
+/*
+func TestFindPeer(t *testing.T) {
+	node1, err := makeNode(1234, "node1")
+	if err != nil {
+		panic(err)
+	}
+	defer node1.Close()
+
+	// generate a new unknown peerID
+	r := strings.NewReader("1234567890123456789012345678901234567890x")
+	key, _, err := ic.GenerateEd25519Key(r)
+	if err != nil {
+		panic(err)
+	}
+	pid, err := peer.IDFromPrivateKey(key)
+	if err != nil {
+		panic(err)
+	}
+
+	Convey("sending to an unknown peer should fail with no route to peer", t, func() {
+		m := Message{Type: PUT_REQUEST, Body: "fish"}
+		_, err := node1.Send(DHTProtocol, pid, &m)
+		//So(r, ShouldBeNil)
+		So(err, ShouldEqual, "fish")
+	})
+
+}
+*/
 
 func makeNode(port int, id string) (*Node, error) {
 	listenaddr := fmt.Sprintf("/ip4/127.0.0.1/tcp/%d", port)
@@ -201,5 +234,7 @@ func makeNode(port int, id string) (*Node, error) {
 	if err != nil {
 		panic(err)
 	}
-	return NewNode(listenaddr, key)
+	pid, _ := peer.IDFromPrivateKey(key)
+
+	return NewNode(listenaddr, pid, key)
 }

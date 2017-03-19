@@ -5,11 +5,8 @@ language: go
 
 install: true
 
-before_install:
-  - make testdeps
-
 script:
-  - go test ./... -v
+  - make test
 
 cache:
     directories:

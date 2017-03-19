@@ -1,6 +1,7 @@
 package holochain
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	. "github.com/smartystreets/goconvey/convey"
@@ -83,5 +84,20 @@ func TestJSONSchemaValidator(t *testing.T) {
 		err = ed.validator.Validate(input)
 		So(err, ShouldNotBeNil)
 		So(err.Error(), ShouldEqual, "validator schema_profile.json failed: object property 'lastName' is required")
+	})
+}
+
+func TestMarshalEntry(t *testing.T) {
+
+	e := GobEntry{C: "some  data"}
+
+	Convey("it should round-trip", t, func() {
+		var b bytes.Buffer
+		err := MarshalEntry(&b, &e)
+		So(err, ShouldBeNil)
+		var ne Entry
+		ne, err = UnmarshalEntry(&b)
+		So(err, ShouldBeNil)
+		So(fmt.Sprintf("%v", ne), ShouldEqual, fmt.Sprintf("%v", &e))
 	})
 }

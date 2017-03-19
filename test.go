@@ -1,10 +1,20 @@
 package holochain
 
 import (
+	"bytes"
+	. "github.com/smartystreets/goconvey/convey"
 	"os"
 	"strconv"
 	"time"
 )
+
+var Crash bool
+
+func Panix(on string) {
+	if Crash {
+		panic(on)
+	}
+}
 
 func mkTestDirName() string {
 	t := time.Now()
@@ -14,8 +24,9 @@ func mkTestDirName() string {
 
 func setupTestService() (d string, s *Service) {
 	d = mkTestDirName()
-	agent := AgentID("Herbert <h@bert.com>")
+	agent := AgentName("Herbert <h@bert.com>")
 	s, err := Init(d+"/"+DefaultDirectoryName, agent)
+	s.Settings.DefaultBootstrapServer = "localhost:3142"
 	if err != nil {
 		panic(err)
 	}
@@ -38,6 +49,10 @@ func prepareTestChain(n string) (d string, s *Service, h *Holochain) {
 	if err != nil {
 		panic(err)
 	}
+	err = h.Activate()
+	if err != nil {
+		panic(err)
+	}
 	return
 }
 
@@ -55,4 +70,16 @@ func cleanupTestDir(path string) {
 	if err != nil {
 		panic(err)
 	}
+}
+
+func ShouldLog(log *Logger, message string, fn func()) {
+	var buf bytes.Buffer
+	w := log.w
+	log.w = &buf
+	e := log.Enabled
+	log.Enabled = true
+	fn()
+	So(buf.String(), ShouldEqual, message)
+	log.Enabled = e
+	log.w = w
 }

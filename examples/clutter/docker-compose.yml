@@ -1,0 +1,22 @@
+version: '3'
+
+services:
+  service.chain:
+    build:
+      context: .
+      dockerfile: Dockerfile.service
+    volumes:
+      - ~/.holochain:/root/.holochain
+      - ./Scripts:/Scripts
+    command: /Scripts/service.chain.genReset
+  hc:
+    build:
+      context: .
+    ports:
+      - "3141"
+    volumes:
+      - ~/.holochain/clutter:/clutter
+      - ./Scripts:/Scripts
+    command: /Scripts/chain.joinAndServe
+    depends_on: [service.chain]
+

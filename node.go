@@ -19,6 +19,7 @@ import (
 	protocol "github.com/libp2p/go-libp2p-protocol"
 	swarm "github.com/libp2p/go-libp2p-swarm"
 	bhost "github.com/libp2p/go-libp2p/p2p/host/basic"
+	rhost "github.com/libp2p/go-libp2p/p2p/host/routed"
 	ma "github.com/multiformats/go-multiaddr"
 	"io"
 	"time"
@@ -38,6 +39,10 @@ const (
 
 	PUT_REQUEST
 	GET_REQUEST
+	PUTMETA_REQUEST
+	GETMETA_REQUEST
+	GOSSIP_REQUEST
+	GOSSIP
 
 	// Source Messages
 
@@ -56,7 +61,7 @@ type Message struct {
 type Node struct {
 	HashAddr peer.ID
 	NetAddr  ma.Multiaddr
-	Host     *bhost.BasicHost
+	Host     *rhost.RoutedHost
 }
 
 const (
@@ -64,8 +69,17 @@ const (
 	SourceProtocol = protocol.ID("/holochain-src/0.0.0")
 )
 
+type HolochainRouter struct {
+	dummy int
+}
+
+func (r *HolochainRouter) FindPeer(context.Context, peer.ID) (peer pstore.PeerInfo, err error) {
+	err = errors.New("routing not implemented")
+	return
+}
+
 // NewNode creates a new ipfs basichost node with given identity
-func NewNode(listenAddr string, priv ic.PrivKey) (node *Node, err error) {
+func NewNode(listenAddr string, id peer.ID, priv ic.PrivKey) (node *Node, err error) {
 	var n Node
 	n.NetAddr, err = ma.NewMultiaddr(listenAddr)
 	if err != nil {
@@ -77,27 +91,38 @@ func NewNode(listenAddr string, priv ic.PrivKey) (node *Node, err error) {
 	if err != nil {
 		return
 	}
+
+	if pid.String() != id.String() {
+		err = errors.New("NewNode: Id doesn't match key")
+		return
+	}
+
 	n.HashAddr = pid
 	ps.AddPrivKey(pid, priv)
 	ps.AddPubKey(pid, priv.GetPublic())
 
 	ctx := context.Background()
 
-	// create a new swar m to be used by the service host
+	// create a new swarm to be used by the service host
 	netw, err := swarm.NewNetwork(ctx, []ma.Multiaddr{n.NetAddr}, pid, ps, nil)
 	if err != nil {
 		return nil, err
 	}
 
-	n.Host, err = bhost.New(netw), nil
+	var bh *bhost.BasicHost
+	bh, err = bhost.New(netw), nil
 	if err != nil {
 		return
 	}
+	hr := HolochainRouter{}
+	n.Host = rhost.Wrap(bh, &hr)
+
 	node = &n
 	return
 }
 
-// Encode codes a message to gob format @TODO generalize
+// Encode codes a message to gob format
+// @TODO generalize for other message encoding formats
 func (m *Message) Encode() (data []byte, err error) {
 	data, err = ByteEncoder(m)
 	if err != nil {
@@ -106,7 +131,8 @@ func (m *Message) Encode() (data []byte, err error) {
 	return
 }
 
-// Decode converts a message from gob format @TODO generalize
+// Decode converts a message from gob format
+// @TODO generalize for other message encoding formats
 func (m *Message) Decode(r io.Reader) (err error) {
 	dec := gob.NewDecoder(r)
 	err = dec.Decode(m)
@@ -151,13 +177,26 @@ func (node *Node) StartProtocol(h *Holochain, proto protocol.ID, receiver Receiv
 	return
 }
 
+type ValidateResponse struct {
+	Entry Entry
+	Type  string
+}
+
 // SrcReceiver handles messages on the Source protocol
 func SrcReceiver(h *Holochain, m *Message) (response interface{}, err error) {
 	switch m.Type {
 	case SRC_VALIDATE:
 		switch t := m.Body.(type) {
 		case Hash:
-			response, err = h.store.GetEntry(t)
+			//@TODO should we really be making this distinction!!!
+			// try to get the hash from the headers
+			var r ValidateResponse
+			response, err = h.chain.Get(t)
+			if err == ErrHashNotFound {
+				// if that fails get it from the entries
+				r.Entry, r.Type, err = h.chain.GetEntry(t)
+				response = &r
+			}
 		default:
 			err = errors.New("expected hash")
 		}

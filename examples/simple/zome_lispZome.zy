@@ -1,0 +1,14 @@
+(expose "addEven" STRING)
+(defn addEven [x] (commit "evens" x))
+(expose listEvens [] (getmeta (property "_id") "even"))
+(expose "addPrime" STRING)
+(defn addPrime [x] (commit "primes" x))
+(expose listPrimes [] (getmeta (property "_id") "primes"))
+
+(defn validate [entryType entry props]
+  (cond (== entryType "evens")  (cond (== (mod entry 2) 0) true false)
+        (== entryType "primes")  (isprime (hget entry %prime))
+        (== entryType "profiles") true
+        false)
+)
+(defn init [] true)

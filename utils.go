@@ -6,8 +6,11 @@
 package holochain
 
 import (
+	"bytes"
+	"encoding/gob"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"github.com/BurntSushi/toml"
 	"github.com/ghodss/yaml"
 	"io"
@@ -95,7 +98,7 @@ func CopyDir(source string, dest string) (err error) {
 
 	_, err = os.Open(dest)
 	if !os.IsNotExist(err) {
-		return errors.New("Destination already exists")
+		return fmt.Errorf("Destination (%s) already exists", dest)
 	}
 
 	// create dest dir
@@ -203,5 +206,25 @@ func Decode(reader io.Reader, format string, data interface{}) (err error) {
 	default:
 		err = errors.New("unknown encoding format: " + format)
 	}
+	return
+}
+
+// ByteEncoder encodes anything using gob
+func ByteEncoder(data interface{}) (b []byte, err error) {
+	var buf bytes.Buffer
+	enc := gob.NewEncoder(&buf)
+	err = enc.Encode(data)
+	if err != nil {
+		return
+	}
+	b = buf.Bytes()
+	return
+}
+
+// ByteEncoder decodes data encoded by ByteEncoder
+func ByteDecoder(b []byte, to interface{}) (err error) {
+	buf := bytes.NewBuffer(b)
+	dec := gob.NewDecoder(buf)
+	err = dec.Decode(to)
 	return
 }

@@ -1,0 +1,44 @@
+[
+  {
+    "Zome":"rooms",
+    "FnName":"newRoom",
+    "Input":"{\"name\":\"asdf\"}",
+    "Output":"{\"message\":\"validator schema_room.json failed: object property 'purpose' is required\",\"name\":\"HolochainError\"}",
+    "Err":""
+  },
+  {
+    "Zome":"rooms",
+    "FnName":"listRooms",
+    "Input":"",
+    "Output":"[]",
+    "Err":""
+  },
+  {
+    "Zome":"rooms",
+    "FnName":"newRoom",
+    "Input":"{\"name\":\"general\", \"purpose\":\"everything goes in here\"}",
+    "Output":"{\"message\":\"Invalid entry: {\\\"name\\\":\\\"general\\\",\\\"purpose\\\":\\\"everything goes in here\\\"}\",\"name\":\"HolochainError\"}",
+    "Err":""
+  },
+  {
+    "Zome":"profiles",
+    "FnName":"register",
+    "Input":"{\"username\":\"cnorris\", \"firstName\":\"Chuck\", \"lastName\":\"Norris\", \"email\":\"chuck@norris.com\"}",
+    "Output":"\"%h%\"",
+    "Err":""
+  },
+  {
+    "Zome":"rooms",
+    "FnName":"newRoom",
+    "Input":"{\"name\":\"general\", \"purpose\":\"everything goes in here\"}",
+    "Output":"\"%h%\"",
+    "Err":""
+  },
+  {
+    "Zome":"rooms",
+    "FnName":"listRooms",
+    "Input":"",
+    "Output":"[{\"name\":\"general\",\"purpose\":\"everything goes in here\"}]",
+    "Err":""
+  }
+]

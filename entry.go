@@ -7,17 +7,25 @@
 package holochain
 
 import (
-	"bytes"
-	"encoding/gob"
+	"encoding/binary"
 	"encoding/json"
 	"github.com/lestrrat/go-jsschema"
 	"github.com/lestrrat/go-jsval"
 	"github.com/lestrrat/go-jsval/builder"
+	"io"
 )
 
 const (
-	DNAEntryType = "_dna"
-	KeyEntryType = "_key"
+	DNAEntryType   = "%dna"
+	AgentEntryType = "%agent"
+	KeyEntryType   = "%%key" // virtual entry type, not actually on the chain
+)
+
+const (
+	DataFormatJSON    = "json"
+	DataFormatString  = "string"
+	DataFormatRawJS   = "js"
+	DataFormatRawZygo = "zygo"
 )
 
 // EntryDef struct holds an entry definition
@@ -34,6 +42,7 @@ type Entry interface {
 	Marshal() ([]byte, error)
 	Unmarshal([]byte) error
 	Content() interface{}
+	Sum(s HashSpec) (hash Hash, err error)
 }
 
 // SchemaValidator interface for schema validation
@@ -51,23 +60,36 @@ type JSONEntry struct {
 	C interface{}
 }
 
-// ByteEncoder encodes anything using gob
-func ByteEncoder(data interface{}) (b []byte, err error) {
-	var buf bytes.Buffer
-	enc := gob.NewEncoder(&buf)
-	err = enc.Encode(data)
+// MarshalEntry serializes an entry to a writer
+func MarshalEntry(writer io.Writer, e Entry) (err error) {
+	var b []byte
+	b, err = e.Marshal()
+	l := uint64(len(b))
+	err = binary.Write(writer, binary.LittleEndian, l)
 	if err != nil {
 		return
 	}
-	b = buf.Bytes()
+	err = binary.Write(writer, binary.LittleEndian, b)
 	return
 }
 
-// ByteEncoder decodes data encoded by ByteEncoder
-func ByteDecoder(b []byte, to interface{}) (err error) {
-	buf := bytes.NewBuffer(b)
-	dec := gob.NewDecoder(buf)
-	err = dec.Decode(to)
+// UnmarshalEntry unserializes an entry from a reader
+func UnmarshalEntry(reader io.Reader) (e Entry, err error) {
+	var l uint64
+	err = binary.Read(reader, binary.LittleEndian, &l)
+	if err != nil {
+		return
+	}
+	var b = make([]byte, l)
+	err = binary.Read(reader, binary.LittleEndian, b)
+	if err != nil {
+		return
+	}
+
+	var g GobEntry
+	err = g.Unmarshal(b)
+
+	e = &g
 	return
 }
 
@@ -81,7 +103,24 @@ func (e *GobEntry) Unmarshal(b []byte) (err error) {
 	err = ByteDecoder(b, &e.C)
 	return
 }
+
 func (e *GobEntry) Content() interface{} { return e.C }
+
+func (e *GobEntry) Sum(s HashSpec) (h Hash, err error) {
+	// encode the entry into bytes
+	m, err := e.Marshal()
+	if err != nil {
+		return
+	}
+
+	// calculate the entry's hash and store it in the header
+	err = h.Sum(s, m)
+	if err != nil {
+		return
+	}
+
+	return
+}
 
 // implementation of Entry interface with JSON
 

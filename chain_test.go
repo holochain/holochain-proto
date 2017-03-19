@@ -16,53 +16,81 @@ func TestNewChain(t *testing.T) {
 		So(len(c.Headers), ShouldEqual, 0)
 		So(len(c.Entries), ShouldEqual, 0)
 	})
+
 }
 
-func TestNewHeader(t *testing.T) {
+func TestNewChainFromFile(t *testing.T) {
+	d := setupTestDir()
+	defer cleanupTestDir(d)
 	h, key, now := chainTestSetup()
 
-	Convey("it should make a header and return its hash", t, func() {
-		e := GobEntry{C: "some data"}
-		ph := NullHash()
-		hash, header, err := newHeader(h, now, "myData", &e, key, ph, ph)
+	var c *Chain
+	var err error
+	path := d + "/chain.dat"
+	Convey("it should make an empty chain with encoder", t, func() {
+		c, err = NewChainFromFile(h, path)
 		So(err, ShouldBeNil)
-		// encode the header and create a hash of it
-		b, _ := ByteEncoder(header)
-		var h2 Hash
-		h2.Sum(h, b)
-		So(h2.String(), ShouldEqual, hash.String())
+		So(c.s, ShouldNotBeNil)
+		So(fileExists(path), ShouldBeTrue)
+	})
+
+	e := GobEntry{C: "some data1"}
+	c.AddEntry(h, now, "myData1", &e, key)
+	e = GobEntry{C: "some other data2"}
+	c.AddEntry(h, now, "myData2", &e, key)
+	dump := c.String()
+	c.s.Close()
+	c, err = NewChainFromFile(h, path)
+	Convey("it should load chain data if availble", t, func() {
+		So(err, ShouldBeNil)
+		So(c.String(), ShouldEqual, dump)
+	})
+
+	e = GobEntry{C: "yet other data"}
+	c.AddEntry(h, now, "yourData", &e, key)
+	dump = c.String()
+	c.s.Close()
+
+	c, err = NewChainFromFile(h, path)
+	Convey("should continue to append data after reload", t, func() {
+		So(err, ShouldBeNil)
+		So(c.String(), ShouldEqual, dump)
 	})
 }
 
 func TestTop(t *testing.T) {
 	c := NewChain()
+	var hash *Hash
+	var hd *Header
 	Convey("it should return an nil for an empty chain", t, func() {
-		hd := c.Top()
+		hd = c.Top()
 		So(hd, ShouldBeNil)
-		hd = c.TopType("myData")
+		hash, hd = c.TopType("myData")
 		So(hd, ShouldBeNil)
+		So(hash, ShouldBeNil)
 	})
 	h, key, now := chainTestSetup()
 	e := GobEntry{C: "some data"}
 	c.AddEntry(h, now, "myData", &e, key)
 
 	Convey("Top it should return the top header", t, func() {
-		hd := c.Top()
+		hd = c.Top()
 		So(hd, ShouldEqual, c.Headers[0])
 	})
 	Convey("TopType should return nil for non existent type", t, func() {
-		hd := c.TopType("otherData")
+		hash, hd = c.TopType("otherData")
 		So(hd, ShouldBeNil)
+		So(hash, ShouldEqual, nil)
 	})
 	Convey("TopType should return header for correct type", t, func() {
-		hd := c.TopType("myData")
+		hash, hd = c.TopType("myData")
 		So(hd, ShouldEqual, c.Headers[0])
 	})
 	c.AddEntry(h, now, "otherData", &e, key)
 	Convey("TopType should return headers for both types", t, func() {
-		hd := c.TopType("myData")
+		hash, hd = c.TopType("myData")
 		So(hd, ShouldEqual, c.Headers[0])
-		hd = c.TopType("otherData")
+		hash, hd = c.TopType("otherData")
 		So(hd, ShouldEqual, c.Headers[1])
 	})
 }
@@ -70,8 +98,9 @@ func TestTop(t *testing.T) {
 func TestTopType(t *testing.T) {
 	c := NewChain()
 	Convey("it should return nil for an empty chain", t, func() {
-		hd := c.TopType("myData")
+		hash, hd := c.TopType("myData")
 		So(hd, ShouldBeNil)
+		So(hash, ShouldEqual, nil)
 	})
 	Convey("it should return nil for an chain with no entries of the type", t, func() {
 	})
@@ -89,7 +118,7 @@ func TestAddEntry(t *testing.T) {
 		So(len(c.Headers), ShouldEqual, 1)
 		So(len(c.Entries), ShouldEqual, 1)
 		So(c.TypeTops["myData"], ShouldEqual, 0)
-		So(hash.String(), ShouldEqual, c.Hashes[0].String())
+		So(hash.Equal(&c.Hashes[0]), ShouldBeTrue)
 	})
 }
 
@@ -97,22 +126,46 @@ func TestGet(t *testing.T) {
 	c := NewChain()
 	h, key, now := chainTestSetup()
 
-	e := GobEntry{C: "some data"}
-	h1, _ := c.AddEntry(h, now, "myData", &e, key)
+	e1 := GobEntry{C: "some data"}
+	h1, _ := c.AddEntry(h, now, "myData", &e1, key)
+	hd1, err1 := c.Get(h1)
 
-	e = GobEntry{C: "some other data"}
-	h2, _ := c.AddEntry(h, now, "myData", &e, key)
+	e2 := GobEntry{C: "some other data"}
+	h2, _ := c.AddEntry(h, now, "myData", &e2, key)
+	hd2, err2 := c.Get(h2)
 
-	Convey("it should get data by hash", t, func() {
-		hd := c.Get(h1)
-		So(hd, ShouldEqual, c.Headers[0])
-		hd = c.Get(h2)
-		So(hd, ShouldEqual, c.Headers[1])
+	Convey("it should get header by hash or by Entry hash", t, func() {
+		So(hd1, ShouldEqual, c.Headers[0])
+		So(err1, ShouldBeNil)
+
+		ehd, err := c.GetEntryHeader(hd1.EntryLink)
+		So(ehd, ShouldEqual, c.Headers[0])
+		So(err, ShouldBeNil)
+
+		So(hd2, ShouldEqual, c.Headers[1])
+		So(err2, ShouldBeNil)
+
+		ehd, err = c.GetEntryHeader(hd2.EntryLink)
+		So(ehd, ShouldEqual, c.Headers[1])
+		So(err, ShouldBeNil)
+	})
+
+	Convey("it should get entry by hash", t, func() {
+		ed, et, err := c.GetEntry(hd1.EntryLink)
+		So(err, ShouldBeNil)
+		So(et, ShouldEqual, "myData")
+		So(fmt.Sprintf("%v", &e1), ShouldEqual, fmt.Sprintf("%v", ed))
+		ed, et, err = c.GetEntry(hd2.EntryLink)
+		So(err, ShouldBeNil)
+		So(et, ShouldEqual, "myData")
+		So(fmt.Sprintf("%v", &e2), ShouldEqual, fmt.Sprintf("%v", ed))
 	})
 
 	Convey("it should return nil for non existent hash", t, func() {
 		hash, _ := NewHash("QmNiCwBNA8MWDADTFVq1BonUEJbS2SvjAoNkZZrhEwcuUi")
-		So(c.Get(hash), ShouldBeNil)
+		hd, err := c.Get(hash)
+		So(hd, ShouldBeNil)
+		So(err, ShouldEqual, ErrHashNotFound)
 	})
 }
 
@@ -198,11 +251,42 @@ func TestValidateChain(t *testing.T) {
 	})
 }
 
-func chainTestSetup() (hP *Holochain, key ic.PrivKey, now time.Time) {
+/*
+func TestPersistingChain(t *testing.T) {
+	c := NewChain()
+	var b bytes.Buffer
+	c.encoder = gob.NewEncoder(&b)
+
+	h, key, now := chainTestSetup()
+	e := GobEntry{C: "some data"}
+	c.AddEntry(h, now, "myData1", &e, key)
+
+	e = GobEntry{C: "some other data"}
+	c.AddEntry(h, now, "myData1", &e, key)
+
+	e = GobEntry{C: "and more data"}
+	c.AddEntry(h, now, "myData1", &e, key)
+
+	dec := gob.NewDecoder(&b)
+
+	var header *Header
+	var entry Entry
+	header, entry, err := readPair(dec)
+
+	Convey("it should have added items to the writer", t, func() {
+		So(err, ShouldBeNil)
+		So(fmt.Sprintf("%v", header), ShouldEqual, fmt.Sprintf("%v", c.Headers[0]))
+		So(fmt.Sprintf("%v", entry), ShouldEqual, fmt.Sprintf("%v", c.Entries[0]))
+	})
+}
+*/
+
+func chainTestSetup() (hs HashSpec, key ic.PrivKey, now time.Time) {
 	a, _ := NewAgent(IPFS, "agent id")
 	key = a.PrivKey()
-	h := Holochain{HashType: "sha2-256"}
-	hP = &h
+	hc := Holochain{HashType: "sha2-256"}
+	hP := &hc
 	hP.PrepareHashType()
+	hs = hP.hashSpec
 	return
 }

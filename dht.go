@@ -9,75 +9,437 @@ package holochain
 import (
 	"errors"
 	"fmt"
-	q "github.com/golang-collections/go-datastructures/queue"
 	peer "github.com/libp2p/go-libp2p-peer"
+	"github.com/tidwall/buntdb"
+	"math/rand"
+	"strconv"
+	"strings"
+	"time"
 )
+
+var ErrDHTExpectedGetReqInBody error = errors.New("expected get request")
+var ErrDHTExpectedPutReqInBody error = errors.New("expected put request")
+var ErrDHTExpectedMetaReqInBody error = errors.New("expected meta request")
+var ErrDHTExpectedMetaQueryInBody error = errors.New("expected meta query")
+var ErrDHTExpectedGossipReqInBody error = errors.New("expected gossip request")
+var ErrDHTErrNoGossipersAvailable error = errors.New("no gossipers available")
 
 // DHT struct holds the data necessary to run the distributed hash table
 type DHT struct {
-	store     map[string][]byte // the store used to persist data this node is responsible for
-	metastore map[string][]Meta // the store used to persist putMetas
-	h         *Holochain        // pointer to the holochain this DHT is part of
-	Queue     q.Queue           // a queue for incoming puts
+	h         *Holochain // pointer to the holochain this DHT is part of
+	db        *buntdb.DB
+	puts      chan *Message
+	gossiping bool
+	glog      Logger // the gossip logger
+	dlog      Logger // the dht logger
 }
 
 // Meta holds data that can be associated with a hash
+// @todo, we should also be storing the meta-data source
 type Meta struct {
+	H Hash   // hash of meta-data associated
+	T string // meta-data type identifier
+	V []byte // meta-data
+}
+
+const (
+	PutNew = iota
+	PutUpdate
+	PutDelete
+	PutUndelete
+)
+
+const (
+	LIVE = iota
+	REJECTED
+	DELETED
+	UPDATED
+)
+
+// PutReq holds the data of a put request
+type PutReq struct {
+	H Hash
+	S int
+	D interface{}
+}
+
+// GetReq holds the data of a put request
+type GetReq struct {
+	H Hash
+}
+
+// MetaReq holds a putMeta request
+type MetaReq struct {
+	O Hash   // original data on which to put the meta
+	M Hash   // hash of the meta-data
+	T string // type of the meta-data
+}
+
+// MetaQuery holds a getMeta query
+type MetaQuery struct {
 	H Hash
 	T string
-	V []byte
+	// order
+	// filter, etc
+}
+
+// MetaEntry holds associated entries
+type MetaEntry struct {
+	E Entry
+	H string
+}
+
+// MetaQueryResp holds response to getMeta query
+type MetaQueryResp struct {
+	Entries []MetaEntry
+}
+
+// Put holds a put or putmeta for gossiping
+type Put struct {
+	M Message
+}
+
+// Gossip holds a gossip message
+type Gossip struct {
+	Puts []Put
+}
+
+// GossipReq holds a gossip request
+type GossipReq struct {
+	MyIdx   int
+	YourIdx int
+}
+
+// Gossiper holds data about a gossiper
+type Gossiper struct {
+	Id       peer.ID
+	Idx      int
+	LastSeen time.Time
 }
 
 // NewDHT creates a new DHT structure
 func NewDHT(h *Holochain) *DHT {
 	dht := DHT{
-		store:     make(map[string][]byte),
-		metastore: make(map[string][]Meta),
-		h:         h,
+		h: h,
 	}
+	db, err := buntdb.Open(h.path + "/dht.db")
+	if err != nil {
+		panic(err)
+	}
+	db.CreateIndex("meta", "meta:*", buntdb.IndexString)
+	db.CreateIndex("idx", "idx:*", buntdb.IndexInt)
+	db.CreateIndex("peer", "peer:*", buntdb.IndexString)
+
+	dht.db = db
+	dht.puts = make(chan *Message, 10)
+
+	dht.glog = h.config.Loggers.Gossip
+	dht.dlog = h.config.Loggers.DHT
+
 	return &dht
+}
+
+// SetupDHT prepares a DHT for use by adding the holochain's ID
+func (dht *DHT) SetupDHT() (err error) {
+	x := ""
+	// put the holochain id so it always exists for putmeta
+	err = dht.put(nil, DNAEntryType, dht.h.DNAHash(), dht.h.id, []byte(x), LIVE)
+	if err != nil {
+		return
+	}
+	// put the AgentEntry so it always exists for putmeta
+	a := dht.h.Agenthash()
+	var e Entry
+	var t string
+	e, t, err = dht.h.chain.GetEntry(a)
+	if err != nil {
+		return err
+	}
+	// sanity check
+	if t != AgentEntryType {
+		panic("bad type!!")
+	}
+
+	var b []byte
+	b, err = e.Marshal()
+	if err != nil {
+		return
+	}
+	if err = dht.put(nil, AgentEntryType, a, dht.h.id, b, LIVE); err != nil {
+		return
+	}
+
+	// put the KeyEntry so it always exists for putmeta
+	kh, err := NewHash(peer.IDB58Encode(dht.h.id))
+	if err != nil {
+		return
+	}
+	if err = dht.put(nil, KeyEntryType, kh, dht.h.id, []byte(dht.h.id), LIVE); err != nil {
+		return
+	}
+
+	return
+}
+
+// incIdx adds a new index record to dht for gossiping later
+func incIdx(tx *buntdb.Tx, m *Message) (err error) {
+	var idx int
+	idx, err = getIntVal("_idx", tx)
+	if err != nil {
+		return
+	}
+	idx++
+	idxs := fmt.Sprintf("%d", idx)
+	_, _, err = tx.Set("_idx", idxs, nil)
+	if err != nil {
+		return err
+	}
+
+	var msg string
+
+	if m != nil {
+		var b []byte
+		b, err = ByteEncoder(m)
+		if err != nil {
+			return err
+		}
+		msg = string(b)
+	}
+	_, _, err = tx.Set("idx:"+idxs, msg, nil)
+	if err != nil {
+		return err
+	}
+	return
+}
+
+// getIntVal returns an integer value at a given key, and assumes the value 0 if the key doesn't exist
+func getIntVal(key string, tx *buntdb.Tx) (idx int, err error) {
+	var val string
+	val, err = tx.Get(key)
+	if err == buntdb.ErrNotFound {
+		err = nil
+	} else if err != nil {
+		return
+	} else {
+		idx, err = strconv.Atoi(val)
+		if err != nil {
+			return
+		}
+	}
+	return
+}
+
+// GetIdx returns the current put index for gossip
+func (dht *DHT) GetIdx() (idx int, err error) {
+	err = dht.db.View(func(tx *buntdb.Tx) error {
+		var e error
+		idx, e = getIntVal("_idx", tx)
+		if e != nil {
+			return e
+		}
+		return nil
+	})
+	return
+}
+
+// GetPuts returns a list of puts after the given index
+func (dht *DHT) GetPuts(since int) (puts []Put, err error) {
+	puts = make([]Put, 0)
+	err = dht.db.View(func(tx *buntdb.Tx) error {
+		err = tx.AscendGreaterOrEqual("idx", string(since), func(key, value string) bool {
+			x := strings.Split(key, ":")
+			idx, _ := strconv.Atoi(x[1])
+			if idx >= since {
+				var p Put
+				if value != "" {
+					err := ByteDecoder([]byte(value), &p.M)
+					if err != nil {
+						return false
+					}
+				}
+				puts = append(puts, p)
+			}
+			return true
+		})
+		return err
+	})
+	return
+}
+
+// GetGossiper picks a random DHT node to gossip with
+func (dht *DHT) GetGossiper(id peer.ID) (idx int, err error) {
+	key := "peer:" + peer.IDB58Encode(id)
+	err = dht.db.View(func(tx *buntdb.Tx) error {
+		var e error
+		idx, e = getIntVal(key, tx)
+		if e != nil {
+			return e
+		}
+		return nil
+	})
+	return
+}
+
+// FindGossiper picks a random DHT node to gossip with
+func (dht *DHT) FindGossiper() (g *Gossiper, err error) {
+	glist := make([]Gossiper, 0)
+
+	err = dht.db.View(func(tx *buntdb.Tx) error {
+		err = tx.Ascend("peer", func(key, value string) bool {
+			x := strings.Split(key, ":")
+			id, e := peer.IDB58Decode(x[1])
+			if e != nil {
+				return false
+			}
+			idx, e := strconv.Atoi(value)
+			g := Gossiper{Id: id, Idx: idx}
+			glist = append(glist, g)
+			return true
+		})
+		return nil
+	})
+
+	if len(glist) == 0 {
+		err = ErrDHTErrNoGossipersAvailable
+	} else {
+		g = &glist[rand.Intn(len(glist))]
+	}
+	return
+}
+
+// UpdateGossiper updates a gossiper
+func (dht *DHT) UpdateGossiper(id peer.ID, count int) (err error) {
+	dht.glog.Logf("updaing %v with %d", id, count)
+	err = dht.db.Update(func(tx *buntdb.Tx) error {
+		key := "peer:" + peer.IDB58Encode(id)
+		idx, e := getIntVal(key, tx)
+		if e != nil {
+			return e
+		}
+		sidx := fmt.Sprintf("%d", idx+count)
+		_, _, err = tx.Set(key, sidx, nil)
+		if err != nil {
+			return err
+		}
+		return nil
+	})
+	return
 }
 
 // put stores a value to the DHT store
 // N.B. This call assumes that the value has already been validated
-func (dht *DHT) put(key Hash, value []byte) (err error) {
-	dht.store[key.String()] = value
+func (dht *DHT) put(m *Message, entryType string, key Hash, src peer.ID, value []byte, status int) (err error) {
+	k := key.String()
+	dht.dlog.Logf("put %v=>%s", key, string(value))
+	err = dht.db.Update(func(tx *buntdb.Tx) error {
+		err := incIdx(tx, m)
+		if err != nil {
+			return err
+		}
+		_, _, err = tx.Set("entry:"+k, string(value), nil)
+		if err != nil {
+			return err
+		}
+		_, _, err = tx.Set("type:"+k, entryType, nil)
+		if err != nil {
+			return err
+		}
+		_, _, err = tx.Set("src:"+k, peer.IDB58Encode(src), nil)
+		if err != nil {
+			return err
+		}
+		_, _, err = tx.Set("status:"+k, fmt.Sprintf("%d", status), nil)
+		if err != nil {
+			return err
+		}
+		return err
+	})
 	return
 }
 
 // exists checks for the existence of the hash in the store
 func (dht *DHT) exists(key Hash) (err error) {
-	_, ok := dht.store[key.String()]
-	if !ok {
-		err = errors.New("No key: " + key.String())
-	}
+	err = dht.db.View(func(tx *buntdb.Tx) error {
+		_, err := tx.Get("entry:" + key.String())
+		if err == buntdb.ErrNotFound {
+			err = ErrHashNotFound
+		}
+		return err
+	})
+	return
+}
+
+// returns the source of a given hash
+func (dht *DHT) source(key Hash) (id peer.ID, err error) {
+	err = dht.db.View(func(tx *buntdb.Tx) error {
+		val, err := tx.Get("src:" + key.String())
+		if err == buntdb.ErrNotFound {
+			err = ErrHashNotFound
+		}
+		if err == nil {
+			id, err = peer.IDB58Decode(val)
+		}
+		return err
+	})
 	return
 }
 
 // get retrieves a value from the DHT store
-func (dht *DHT) get(key Hash) (data []byte, err error) {
-	err = dht.exists(key)
-	if err == nil {
-		data, _ = dht.store[key.String()]
-	}
+func (dht *DHT) get(key Hash) (data []byte, entryType string, status int, err error) {
+	err = dht.db.View(func(tx *buntdb.Tx) error {
+		k := key.String()
+		val, err := tx.Get("entry:" + k)
+		if err != nil {
+			if err == buntdb.ErrNotFound {
+				err = ErrHashNotFound
+			}
+			return err
+		}
+		entryType, err = tx.Get("type:" + k)
+		if err != nil {
+			return err
+		}
+		if err == nil {
+			data = []byte(val)
+			val, err = tx.Get("status:" + k)
+			status, err = strconv.Atoi(val)
+		}
+		return err
+	})
 	return
 }
 
 // putMeta associates a value with a stored hash
 // N.B. this function assumes that the data associated has been properly retrieved
 // and validated from the cource chain
-func (dht *DHT) putMeta(key Hash, metaKey Hash, metaType string, value []byte) (err error) {
-	err = dht.exists(key)
-	if err == nil {
-		m := Meta{H: metaKey, T: metaType, V: value}
-		ks := key.String()
-		v, ok := dht.metastore[ks]
-		if !ok {
-			dht.metastore[ks] = []Meta{m}
-		} else {
-			dht.metastore[ks] = append(v, m)
+func (dht *DHT) putMeta(m *Message, key Hash, metaKey Hash, metaTag string, entry Entry) (err error) {
+	dht.dlog.Logf("putmeta on %v %v=>%v as %s", key, metaKey, entry, metaTag)
+	k := key.String()
+	err = dht.db.Update(func(tx *buntdb.Tx) error {
+		_, err := tx.Get("entry:" + k)
+		if err == buntdb.ErrNotFound {
+			return ErrHashNotFound
 		}
-	}
+		mk := metaKey.String()
+		var b []byte
+		b, err = entry.Marshal()
+		if err != nil {
+			return err
+		}
+
+		x := "meta:" + k + ":" + mk + ":" + metaTag
+		_, _, err = tx.Set(x, string(b), nil)
+		if err != nil {
+			return err
+		}
+
+		err = incIdx(tx, m)
+		if err != nil {
+			return err
+		}
+
+		return nil
+	})
 	return
 }
 
@@ -91,18 +453,32 @@ func filter(ss []Meta, test func(*Meta) bool) (ret []Meta) {
 }
 
 // getMeta retrieves values associated with hashes
-func (dht *DHT) getMeta(key Hash, metaType string) (results []Meta, err error) {
-	err = dht.exists(key)
-	if err == nil {
-		ks := key.String()
-		v, ok := dht.metastore[ks]
-		if ok {
-			results = filter(v, func(m *Meta) bool { return m.T == metaType })
+func (dht *DHT) getMeta(key Hash, metaTag string) (results []MetaEntry, err error) {
+	k := key.String()
+	err = dht.db.View(func(tx *buntdb.Tx) error {
+		_, err := tx.Get("entry:" + k)
+		if err == buntdb.ErrNotFound {
+			return ErrHashNotFound
 		}
-		if !ok || len(results) == 0 {
-			err = fmt.Errorf("No values for %s", metaType)
+		results = make([]MetaEntry, 0)
+		err = tx.Ascend("meta", func(key, value string) bool {
+			x := strings.Split(key, ":")
+			if string(x[1]) == k && string(x[3]) == metaTag {
+				var entry GobEntry
+				err := entry.Unmarshal([]byte(value))
+				if err != nil {
+					return false
+				}
+				metaEntry := MetaEntry{E: &entry, H: x[2]}
+				results = append(results, metaEntry)
+			}
+			return true
+		})
+		if len(results) == 0 {
+			err = fmt.Errorf("No values for %s", metaTag)
 		}
-	}
+		return err
+	})
 	return
 }
 
@@ -114,12 +490,44 @@ func (dht *DHT) SendPut(key Hash) (err error) {
 	if err != nil {
 		return
 	}
-	_, err = dht.Send(n.HashAddr, PUT_REQUEST, key)
+	_, err = dht.send(n.HashAddr, PUT_REQUEST, PutReq{H: key})
+	return
+}
+
+// SendGet initiates retrieving a value from the DHT
+func (dht *DHT) SendGet(key Hash) (response interface{}, err error) {
+	n, err := dht.FindNodeForHash(key)
+	if err != nil {
+		return
+	}
+	response, err = dht.send(n.HashAddr, GET_REQUEST, GetReq{H: key})
+	return
+}
+
+// SendPutMeta initiates associating Meta data with particular Hash on the DHT.
+// This command assumes that the data has been committed to your local chain, and the hash of that
+// data is what get's sent in the MetaReq
+func (dht *DHT) SendPutMeta(req MetaReq) (err error) {
+	n, err := dht.FindNodeForHash(req.O)
+	if err != nil {
+		return
+	}
+	_, err = dht.send(n.HashAddr, PUTMETA_REQUEST, req)
+	return
+}
+
+// SendGetMeta initiates retrieving meta data from the DHT
+func (dht *DHT) SendGetMeta(query MetaQuery) (response interface{}, err error) {
+	n, err := dht.FindNodeForHash(query.H)
+	if err != nil {
+		return
+	}
+	response, err = dht.send(n.HashAddr, GETMETA_REQUEST, query)
 	return
 }
 
 // Send sends a message to the node
-func (dht *DHT) Send(to peer.ID, t MsgType, body interface{}) (response interface{}, err error) {
+func (dht *DHT) send(to peer.ID, t MsgType, body interface{}) (response interface{}, err error) {
 	return dht.h.Send(DHTProtocol, to, t, body, DHTReceiver)
 }
 
@@ -139,21 +547,158 @@ func (dht *DHT) FindNodeForHash(key Hash) (n *Node, err error) {
 	return
 }
 
+// HandlePutReqs waits on a chanel for messages to handle
+func (dht *DHT) HandlePutReqs() (err error) {
+	for {
+		dht.dlog.Log("HandlePutReq: waiting for put request")
+		m, ok := <-dht.puts
+		if !ok {
+			break
+		}
+		err = dht.handlePutReq(m)
+		if err != nil {
+			dht.dlog.Logf("HandlePutReq: got err: %v", err)
+		}
+	}
+	return nil
+}
+
+func (dht *DHT) handlePutReq(m *Message) (err error) {
+	from := m.From
+	switch t := m.Body.(type) {
+	case PutReq:
+		dht.dlog.Logf("handling put: %v", m)
+		var r interface{}
+		r, err = dht.h.Send(SourceProtocol, from, SRC_VALIDATE, t.H, SrcReceiver)
+		if err != nil {
+			return
+		}
+		resp := r.(*ValidateResponse)
+		p := ValidationProps{
+			Sources: []string{peer.IDB58Encode(from)},
+			Hash:    t.H.String(),
+		}
+		err = dht.h.ValidateEntry(resp.Type, resp.Entry, &p)
+		if err != nil {
+			//@todo store as INVALID
+		} else {
+			entry := resp.Entry
+			b, err := entry.Marshal()
+			if err == nil {
+				err = dht.put(m, resp.Type, t.H, from, b, LIVE)
+			}
+		}
+	case MetaReq:
+		dht.dlog.Logf("handling putmeta: %v", m)
+		var r interface{}
+		r, err = dht.h.Send(SourceProtocol, from, SRC_VALIDATE, t.M, SrcReceiver)
+		if err != nil {
+			return
+		}
+		resp := r.(*ValidateResponse)
+		p := ValidationProps{
+			MetaTag:  t.T,
+			Sources:  []string{peer.IDB58Encode(from)},
+			MetaHash: t.M.String(),
+		}
+		err = dht.h.ValidateEntry(resp.Type, resp.Entry, &p)
+		if err != nil {
+			//@todo store as INVALID
+		} else {
+			err = dht.putMeta(m, t.O, t.M, t.T, resp.Entry)
+		}
+	default:
+		err = errors.New("unexpected body type in handlePutReq")
+	}
+	return
+}
+
 // DHTReceiver handles messages on the dht protocol
 func DHTReceiver(h *Holochain, m *Message) (response interface{}, err error) {
+	dht := h.dht
 	switch m.Type {
 	case PUT_REQUEST:
+		dht.dlog.Logf("DHTRecevier got PUT_REQUEST: %v", m)
 		switch m.Body.(type) {
-		case Hash:
-			err = h.dht.Queue.Put(m)
-			if err == nil {
-				response = "queued"
-			}
+		case PutReq:
+			h.dht.puts <- m
+			response = "queued"
 		default:
-			err = errors.New("expected hash")
+			err = ErrDHTExpectedPutReqInBody
 		}
 		return
 	case GET_REQUEST:
+		dht.dlog.Logf("DHTRecevier got GET_REQUEST: %v", m)
+		switch t := m.Body.(type) {
+		case GetReq:
+			var b []byte
+			b, _, _, err = h.dht.get(t.H)
+			if err == nil {
+				var e GobEntry
+				err = e.Unmarshal(b)
+				if err == nil {
+					response = &e
+				}
+			}
+
+		default:
+			err = ErrDHTExpectedGetReqInBody
+		}
+		return
+	case PUTMETA_REQUEST:
+		dht.dlog.Logf("DHTRecevier got PUTMETA_REQUEST: %v", m)
+		switch t := m.Body.(type) {
+		case MetaReq:
+			err = h.dht.exists(t.O)
+			if err == nil {
+				h.dht.puts <- m
+				response = "queued"
+			} else {
+				dht.dlog.Logf("DHTRecevier key %v doesn't exist, ignoring", t.O)
+			}
+
+		default:
+			err = ErrDHTExpectedMetaReqInBody
+		}
+	case GETMETA_REQUEST:
+		dht.dlog.Logf("DHTRecevier got GETMETA_REQUEST: %v", m)
+		switch t := m.Body.(type) {
+		case MetaQuery:
+			var r MetaQueryResp
+			r.Entries, err = h.dht.getMeta(t.H, t.T)
+			response = r
+		default:
+			err = ErrDHTExpectedMetaQueryInBody
+		}
+	case GOSSIP_REQUEST:
+		dht.glog.Logf("DHTRecevier got GOSSIP_REQUEST: %v", m)
+		switch t := m.Body.(type) {
+		case GossipReq:
+			dht.glog.Logf("%v wants my puts since %d and is at %d", m.From, t.YourIdx, t.MyIdx)
+
+			// give the gossiper what they want
+			var puts []Put
+			puts, err = h.dht.GetPuts(t.YourIdx)
+			g := Gossip{Puts: puts}
+			response = g
+
+			// check to see what we know they said, and if our record is less
+			// that where they are currently at, gossip back
+			idx, e := h.dht.GetGossiper(m.From)
+			if e == nil && idx < t.MyIdx {
+				dht.glog.Logf("we only have %d from %v so gossiping back", idx, m.From)
+				go func() {
+					e := h.dht.gossipWith(m.From, idx)
+					if e != nil {
+						dht.glog.Logf("gossip back returned error: %v", e)
+					}
+				}()
+			}
+
+		default:
+			err = ErrDHTExpectedGossipReqInBody
+		}
+
 	default:
 		err = fmt.Errorf("message type %d not in holochain-dht protocol", int(m.Type))
 	}
@@ -162,5 +707,63 @@ func DHTReceiver(h *Holochain, m *Message) (response interface{}, err error) {
 
 // StartDHT initiates listening for DHT protocol messages on the node
 func (dht *DHT) StartDHT() (err error) {
-	return dht.h.node.StartProtocol(dht.h, DHTProtocol, DHTReceiver)
+	err = dht.h.node.StartProtocol(dht.h, DHTProtocol, DHTReceiver)
+	return
+}
+
+// gossipWith gossips with an peer asking for everything after since
+func (dht *DHT) gossipWith(id peer.ID, after int) (err error) {
+	dht.glog.Logf("with %v", id)
+
+	var myIdx int
+	myIdx, err = dht.GetIdx()
+	if err != nil {
+		return
+	}
+
+	var r interface{}
+	r, err = dht.send(id, GOSSIP_REQUEST, GossipReq{MyIdx: myIdx, YourIdx: after + 1})
+	if err != nil {
+		return
+	}
+
+	gossip := r.(Gossip)
+	puts := gossip.Puts
+	dht.glog.Logf("received puts: %v", puts)
+
+	// gossiper has more stuff that we new about before so update the gossipers status
+	// and also run their puts
+	if len(puts) > 0 {
+		err = dht.UpdateGossiper(id, len(puts))
+		for _, p := range puts {
+			dht.glog.Log("running puts")
+			DHTReceiver(dht.h, &p.M)
+		}
+	}
+	return
+}
+
+// gossip picks a random node in my neighborhood and sends gossips with it
+func (dht *DHT) gossip() (err error) {
+
+	var g *Gossiper
+	g, err = dht.FindGossiper()
+	if err != nil {
+		return
+	}
+
+	err = dht.gossipWith(g.Id, g.Idx)
+	return
+}
+
+// Gossip gossips every interval
+func (dht *DHT) Gossip(interval time.Duration) {
+	dht.gossiping = true
+	for dht.gossiping {
+		err := dht.gossip()
+		if err != nil {
+			dht.glog.Logf("error: %v", err)
+		}
+		time.Sleep(interval)
+	}
 }

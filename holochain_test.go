@@ -18,10 +18,10 @@ func TestNew(t *testing.T) {
 
 	Convey("New should fill Holochain struct with provided values and new UUID", t, func() {
 
-		h := New(a, "some/path", "json")
+		h := NewHolochain(a, "some/path", "json")
 		nID := string(uuid.NodeID())
 		So(nID, ShouldEqual, string(h.Id.NodeID()))
-		So(h.agent.ID(), ShouldEqual, "Joe")
+		So(h.agent.Name(), ShouldEqual, "Joe")
 		So(h.agent.PrivKey(), ShouldEqual, a.PrivKey())
 		So(h.path, ShouldEqual, "some/path")
 		So(h.encodingFormat, ShouldEqual, "json")
@@ -31,12 +31,12 @@ func TestNew(t *testing.T) {
 			Description: "zome desc",
 			Code:        "zome_myZome.zy",
 			Entries: map[string]EntryDef{
-				"myData1": EntryDef{Name: "myData1", DataFormat: "string"},
-				"myData2": EntryDef{Name: "myData2", DataFormat: "zygo"},
+				"myData1": {Name: "myData1", DataFormat: DataFormatString},
+				"myData2": {Name: "myData2", DataFormat: DataFormatRawZygo},
 			},
 		}
 
-		h := New(a, "some/path", "yaml", z)
+		h := NewHolochain(a, "some/path", "yaml", z)
 		nz := h.Zomes["myZome"]
 		So(nz.Description, ShouldEqual, "zome desc")
 		So(nz.Code, ShouldEqual, "zome_myZome.zy")
@@ -58,14 +58,14 @@ func TestPrepareHashType(t *testing.T) {
 		err := h.PrepareHashType()
 		So(err, ShouldBeNil)
 		var hash Hash
-		err = hash.Sum(&h, []byte("test data"))
+		err = hash.Sum(h.hashSpec, []byte("test data"))
 		So(err, ShouldBeNil)
 		So(hash.String(), ShouldEqual, "5duC28CW416wX42vses7TeTeRYwku9")
 
 		h.HashType = "blake2b-256"
 		err = h.PrepareHashType()
 		So(err, ShouldBeNil)
-		err = hash.Sum(&h, []byte("test data"))
+		err = hash.Sum(h.hashSpec, []byte("test data"))
 		So(err, ShouldBeNil)
 		So(hash.String(), ShouldEqual, "2DrjgbL49zKmX4P7UgdopSCC7MhfVUySNbRHBQzdDuXgaJSNEg")
 	})
@@ -89,7 +89,7 @@ func TestGenDev(t *testing.T) {
 	Convey("when generating a dev holochain", t, func() {
 		h, err := s.GenDev(root, "json")
 		So(err, ShouldBeNil)
-		h.store.Close()
+		//		h.store.Close()
 
 		f, err := s.IsConfigured(name)
 		So(err, ShouldBeNil)
@@ -97,18 +97,20 @@ func TestGenDev(t *testing.T) {
 
 		h, err = s.Load(name)
 		So(err, ShouldBeNil)
-		h.store.Close()
+		//		h.store.Close()
 
 		lh, err := s.load(name, "json")
 		So(err, ShouldBeNil)
-		So(lh.ID, ShouldEqual, h.ID)
+		So(lh.id, ShouldEqual, h.id)
 		So(lh.config.Port, ShouldEqual, DefaultPort)
 		So(h.config.PeerModeDHTNode, ShouldEqual, s.Settings.DefaultPeerModeDHTNode)
 		So(h.config.PeerModeAuthor, ShouldEqual, s.Settings.DefaultPeerModeAuthor)
-		lh.store.Close()
+		So(h.config.BootstrapServer, ShouldEqual, s.Settings.DefaultBootstrapServer)
+		//		lh.store.Close()
 
 		So(fileExists(h.path+"/schema_profile.json"), ShouldBeTrue)
 		So(fileExists(h.path+"/ui/index.html"), ShouldBeTrue)
+		So(fileExists(h.path+"/ui/hc.js"), ShouldBeTrue)
 		So(fileExists(h.path+"/"+ConfigFileName+".json"), ShouldBeTrue)
 
 		Convey("we should not be able re generate it", func() {
@@ -118,21 +120,51 @@ func TestGenDev(t *testing.T) {
 	})
 }
 
-func TestGenFrom(t *testing.T) {
-	d, s := setupTestService()
+func TestCloneNew(t *testing.T) {
+	d, s, h0 := setupTestChain("test")
 	defer cleanupTestDir(d)
-	name := "test"
+
+	name := "test2"
 	root := s.Path + "/" + name
 
+	orig := s.Path + "/test"
 	Convey("it should create a chain from the examples directory", t, func() {
-		h, err := s.GenFrom("examples/simple", root)
+		h, err := s.Clone(orig, root, true)
 		So(err, ShouldBeNil)
-		So(h.Name, ShouldEqual, "test")
+		So(h.Name, ShouldEqual, "test2")
+		So(h.Id, ShouldNotEqual, h0.Id)
 		agent, err := LoadAgent(s.Path)
 		So(err, ShouldBeNil)
-		So(h.agent.ID(), ShouldEqual, agent.ID())
+		So(h.agent.Name(), ShouldEqual, agent.Name())
 		So(ic.KeyEqual(h.agent.PrivKey(), agent.PrivKey()), ShouldBeTrue)
-		src, _ := readFile("examples/simple", "zome_myZome.zy")
+		src, _ := readFile(orig, "zome_myZome.zy")
+		dst, _ := readFile(root, "zome_myZome.zy")
+		So(string(src), ShouldEqual, string(dst))
+		So(fileExists(h.path+"/ui/index.html"), ShouldBeTrue)
+		So(fileExists(h.path+"/schema_profile.json"), ShouldBeTrue)
+		So(fileExists(h.path+"/schema_properties.json"), ShouldBeTrue)
+		So(fileExists(h.path+"/"+ConfigFileName+".toml"), ShouldBeTrue)
+	})
+}
+
+func TestCloneJoin(t *testing.T) {
+	d, s, h0 := setupTestChain("test")
+	defer cleanupTestDir(d)
+
+	name := "test2"
+	root := s.Path + "/" + name
+
+	orig := s.Path + "/test"
+	Convey("it should create a chain from the examples directory", t, func() {
+		h, err := s.Clone(orig, root, false)
+		So(err, ShouldBeNil)
+		So(h.Name, ShouldEqual, "test")
+		So(h.Id, ShouldEqual, h0.Id)
+		agent, err := LoadAgent(s.Path)
+		So(err, ShouldBeNil)
+		So(h.agent.Name(), ShouldEqual, agent.Name())
+		So(ic.KeyEqual(h.agent.PrivKey(), agent.PrivKey()), ShouldBeTrue)
+		src, _ := readFile(orig, "zome_myZome.zy")
 		dst, _ := readFile(root, "zome_myZome.zy")
 		So(string(src), ShouldEqual, string(dst))
 		So(fileExists(h.path+"/ui/index.html"), ShouldBeTrue)
@@ -172,16 +204,12 @@ func TestNewEntry(t *testing.T) {
 	// can't check against a fixed hash because signature created each time test runs is
 	// different (though valid) so the header will hash to a different value
 	Convey("the returned header hash is the SHA256 of the byte encoded header", t, func() {
-		b, _ := ByteEncoder(&header)
+		b, _ := header.Marshal()
 		var hh Hash
-		err = hh.Sum(h, b)
+		err = hh.Sum(h.hashSpec, b)
 		So(err, ShouldBeNil)
 		So(headerHash.String(), ShouldEqual, hh.String())
 	})
-
-	//	if a != "EdkgsdwazMZc9vJJgGXgbGwZFvy2Wa1hLCjngmkw3PbF" {
-	//	t.Error("expected EdkgsdwazMZc9vJJgGXgbGwZFvy2Wa1hLCjngmkw3PbF got:",a)
-	//}
 
 	Convey("it should have signed the entry with my key", t, func() {
 		sig := header.Sig
@@ -195,35 +223,41 @@ func TestNewEntry(t *testing.T) {
 		s1 := fmt.Sprintf("%v", *header)
 		d1 := fmt.Sprintf("%v", myData)
 
-		h2, e, err := h.store.Get(headerHash, false)
+		h2, err := h.chain.Get(headerHash)
 		So(err, ShouldBeNil)
-		So(e, ShouldBeNil)
-		s2 := fmt.Sprintf("%v", h2)
+		s2 := fmt.Sprintf("%v", *h2)
 		So(s2, ShouldEqual, s1)
 
 		Convey("and the returned header should hash to the same value", func() {
-			b, _ := ByteEncoder(&h2)
+			b, _ := (h2).Marshal()
 			var hh Hash
-			err = hh.Sum(h, b)
+			err = hh.Sum(h.hashSpec, b)
 			So(err, ShouldBeNil)
 			So(headerHash.String(), ShouldEqual, hh.String())
 		})
 
 		var d2 interface{}
-		h2, d2, err = h.store.Get(headerHash, true)
+		var d2t string
+		d2, d2t, err = h.chain.GetEntry(h2.EntryLink)
 		So(err, ShouldBeNil)
+		So(d2t, ShouldEqual, "myData")
+
 		So(d2, ShouldNotBeNil)
-		s2 = fmt.Sprintf("%v", d2)
-		So(s2, ShouldEqual, d1)
+		So(d2.(Entry).Content(), ShouldEqual, d1)
 	})
 
-	Convey("it should modify store's TOP key to point to the added Entry header", t, func() {
+	Convey("Top should still work", t, func() {
 		hash, err := h.Top()
 		So(err, ShouldBeNil)
-		So(hash.String(), ShouldEqual, headerHash.String())
-		hash, err = h.TopType("myData")
+		So(hash.Equal(&headerHash), ShouldBeTrue)
+	})
+
+	e = GobEntry{C: "more data"}
+	_, header2, err := h.NewEntry(now, "myData", &e)
+
+	Convey("a second entry should have prev link correctly set", t, func() {
 		So(err, ShouldBeNil)
-		So(hash.String(), ShouldEqual, headerHash.String())
+		So(header2.HeaderLink.String(), ShouldEqual, headerHash.String())
 	})
 }
 
@@ -262,14 +296,14 @@ func TestGenChain(t *testing.T) {
 		So(h2.Zomes["myZome"].CodeHash.String(), ShouldEqual, h.Zomes["myZome"].CodeHash.String())
 		b, _ := readFile(h.path, "schema_profile.json")
 		var sh Hash
-		sh.Sum(h, b)
+		sh.Sum(h.hashSpec, b)
 
 		So(h2.Zomes["myZome"].Entries["profile"].SchemaHash.String(), ShouldEqual, sh.String())
 	})
 
-	Convey("before GenChain call ID call should fail", t, func() {
-		_, err := h.ID()
-		So(err.Error(), ShouldEqual, "holochain: Meta key 'id' uninitialized")
+	Convey("before GenChain call DNAHash call should fail", t, func() {
+		h := h.DNAHash()
+		So(h.String(), ShouldEqual, "")
 	})
 
 	var headerHash Hash
@@ -280,28 +314,33 @@ func TestGenChain(t *testing.T) {
 
 	var header Header
 	Convey("top link should be Key entry", t, func() {
-		hdr, entry, err := h.store.Get(headerHash, true)
+		hdr, err := h.chain.Get(headerHash)
 		So(err, ShouldBeNil)
-		header = hdr
-		var k KeyEntry = entry.(KeyEntry)
-		So(k.ID, ShouldEqual, h.agent.ID())
+		entry, _, err := h.chain.GetEntry(hdr.EntryLink)
+		So(err, ShouldBeNil)
+		header = *hdr
+		var a AgentEntry = entry.Content().(AgentEntry)
+		So(a.Name, ShouldEqual, h.agent.Name())
 		//So(k.Key,ShouldEqual,"something?") // test that key got correctly retrieved
 	})
 
 	var dnaHash Hash
 	Convey("next link should be the dna entry", t, func() {
-		hd, entry, err := h.store.Get(header.HeaderLink, true)
+		hdr, err := h.chain.Get(header.HeaderLink)
 		So(err, ShouldBeNil)
+		entry, et, err := h.chain.GetEntry(hdr.EntryLink)
+		So(err, ShouldBeNil)
+		So(et, ShouldEqual, DNAEntryType)
 
 		var buf bytes.Buffer
 		err = h.EncodeDNA(&buf)
 		So(err, ShouldBeNil)
-		So(string(entry.([]byte)), ShouldEqual, string(buf.Bytes()))
-		dnaHash = hd.EntryLink
+		So(string(entry.Content().([]byte)), ShouldEqual, buf.String())
+		dnaHash = hdr.EntryLink
 	})
 
 	Convey("holochain id and top should have now been set", t, func() {
-		id, err := h.ID()
+		id := h.DNAHash()
 		So(err, ShouldBeNil)
 		So(id.String(), ShouldEqual, dnaHash.String())
 		top, err := h.Top()
@@ -328,15 +367,14 @@ func TestWalk(t *testing.T) {
 		c := make(map[int]string, 0)
 		//	c := make([]string,0)
 		idx := 0
-		err := h.Walk(func(key *Hash, header *Header, entry interface{}) (err error) {
+		err := h.Walk(func(key *Hash, header *Header, entry Entry) (err error) {
 			c[idx] = header.EntryLink.String()
 			idx++
 			//	c = append(c, header.HeaderLink.String())
 			return nil
 		}, false)
 		So(err, ShouldBeNil)
-		id, err := h.ID()
-		So(err, ShouldBeNil)
+		id := h.DNAHash()
 		So(c[2], ShouldEqual, id.String())
 		//	So(c,ShouldEqual,"fish")
 	})
@@ -367,38 +405,39 @@ func TestValidateEntry(t *testing.T) {
 	defer cleanupTestDir(d)
 	var err error
 
+	p := ValidationProps{}
 	Convey("it should fail if a validator doesn't exist for the entry type", t, func() {
 		hdr := mkTestHeader("bogusType")
 		myData := "2"
-		err = h.ValidateEntry(hdr.Type, myData)
+		err = h.ValidateEntry(hdr.Type, &GobEntry{C: myData}, &p)
 		So(err.Error(), ShouldEqual, "no definition for entry type: bogusType")
 	})
 
 	Convey("a nil entry is invalid", t, func() {
 		hdr := mkTestHeader("myData")
-		err = h.ValidateEntry(hdr.Type, nil)
+		err = h.ValidateEntry(hdr.Type, nil, &p)
 		So(err.Error(), ShouldEqual, "nil entry invalid")
 	})
 	Convey("a valid entry validates", t, func() {
 		hdr := mkTestHeader("myData")
 		myData := "2" //`(message (from "art") (to "eric") (contents "test"))`
-		err = h.ValidateEntry(hdr.Type, myData)
+		err = h.ValidateEntry(hdr.Type, &GobEntry{C: myData}, &p)
 		So(err, ShouldBeNil)
 	})
 	Convey("an invalid entry doesn't validate", t, func() {
 		hdr := mkTestHeader("myData")
 		myData := "1" //`(message (from "art") (to "eric") (contents "test"))`
-		err = h.ValidateEntry(hdr.Type, myData)
+		err = h.ValidateEntry(hdr.Type, &GobEntry{C: myData}, &p)
 		So(err.Error(), ShouldEqual, "Invalid entry: 1")
 	})
 	Convey("validate on a schema based entry should check entry against the schema", t, func() {
 		hdr := mkTestHeader("profile")
 		profile := `{"firstName":"Eric","lastName":"H-B"}`
-		err = h.ValidateEntry(hdr.Type, profile)
+		err = h.ValidateEntry(hdr.Type, &GobEntry{C: profile}, &p)
 		So(err, ShouldBeNil)
 		h.Prepare()
 		profile = `{"firstName":"Eric"}` // missing required lastName
-		err = h.ValidateEntry(hdr.Type, profile)
+		err = h.ValidateEntry(hdr.Type, &GobEntry{C: profile}, &p)
 		So(err, ShouldNotBeNil)
 		So(err.Error(), ShouldEqual, "validator schema_profile.json failed: object property 'lastName' is required")
 	})
@@ -422,7 +461,7 @@ func TestMakeNucleus(t *testing.T) {
 }
 
 func TestCall(t *testing.T) {
-	d, _, h := setupTestChain("test")
+	d, _, h := prepareTestChain("test")
 	defer cleanupTestDir(d)
 	Convey("it should call the exposed function", t, func() {
 		result, err := h.Call("myZome", "exposedfn", "arg1 arg2")
@@ -432,29 +471,35 @@ func TestCall(t *testing.T) {
 		result, err = h.Call("myZome", "addData", "42")
 		So(err, ShouldBeNil)
 
-		ph, err := h.Top()
-		if err != nil {
-			panic(err)
-		}
-
+		ph := h.chain.Top().EntryLink
 		So(result.(string), ShouldEqual, ph.String())
 
-		_, err = h.Call("myZome", "addData", "41")
-		So(err.Error(), ShouldEqual, "Error calling 'commit': Invalid entry: 41")
+		//_, err = h.Call("myZome", "addData", "41")
+		//So(err.Error(), ShouldEqual, "Error calling 'commit': Invalid entry: 41")
 	})
 }
 
 func TestTest(t *testing.T) {
 	d, _, h := setupTestChain("test")
 	cleanupTestDir(d + "/.holochain/test/test/") // delete the test data created by gen dev
+	if os.Getenv("DEBUG") != "1" {
+		h.config.Loggers.TestPassed.Enabled = false
+		h.config.Loggers.TestFailed.Enabled = false
+		h.config.Loggers.TestInfo.Enabled = false
+	}
 	Convey("it should fail if there's no test data", t, func() {
 		err := h.Test()
-		So(err.Error(), ShouldEqual, "open "+h.path+"/test: no such file or directory")
+		So(err[0].Error(), ShouldEqual, "open "+h.path+"/test: no such file or directory")
 	})
 	cleanupTestDir(d)
 
 	d, _, h = setupTestChain("test")
 	defer cleanupTestDir(d)
+	if os.Getenv("DEBUG") != "1" {
+		h.config.Loggers.TestPassed.Enabled = false
+		h.config.Loggers.TestFailed.Enabled = false
+		h.config.Loggers.TestInfo.Enabled = false
+	}
 	Convey("it should validate on test data", t, func() {
 		err := h.Test()
 		So(err, ShouldBeNil)
@@ -464,26 +509,13 @@ func TestTest(t *testing.T) {
 		So(err, ShouldBeNil)
 	})
 	Convey("it should fail the test on incorrect data", t, func() {
-		os.Remove(d + "/.holochain/test/test/0.zy")
-		err := writeFile(d+"/.holochain/test/test", "0.zy", []byte(`{"Zome":"myZome","FnName":"addData","Input":"2","Output":"","Err":"bogus error"}`))
+		os.Remove(d + "/.holochain/test/test/test_0.json")
+		err := writeFile(d+"/.holochain/test/test", "test_0.json", []byte(`[{"Zome":"myZome","FnName":"addData","Input":"2","Output":"","Err":"bogus error"}]`))
 		So(err, ShouldBeNil)
-		err = h.Test()
+		err = h.Test()[0]
 		So(err, ShouldNotBeNil)
-		So(err.Error(), ShouldEqual, "Test: 1\n  Expected Error: bogus error\n  Got: nil\n")
+		//So(err.Error(), ShouldEqual, "Test: test_0:0\n  Expected Error: bogus error\n  Got: nil\n")
+		So(err.Error(), ShouldEqual, "bogus error")
 	})
 
-}
-
-//----- test util functions
-
-func mkTestHeader(t string) Header {
-	hl, _ := NewHash("1vemK25pc5ewYtztPGYAdX39uXuyV13xdouCnZUr8RMA")
-	el, _ := NewHash("2vemK25pc5ewYtztPGYAdX39uXuyV13xdouCnZUr8RMA")
-	now := time.Unix(1, 1) // pick a constant time so the test will always work
-	h1 := Header{Time: now, Type: t, Meta: "dog",
-		HeaderLink: hl,
-		EntryLink:  el,
-	}
-	//h1.Sig.S.321)
-	return h1
 }

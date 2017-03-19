@@ -16,20 +16,20 @@ func TestInit(t *testing.T) {
 
 	agent := "Fred Flintstone <fred@flintstone.com>"
 
-	s, err := Init(d+"/"+DefaultDirectoryName, AgentID(agent))
+	s, err := Init(d+"/"+DefaultDirectoryName, AgentName(agent))
 	Convey("when initializing service in a directory", t, func() {
 		So(err, ShouldEqual, nil)
 
 		Convey("it should return a service with default values", func() {
-			So(s.DefaultAgent.ID(), ShouldEqual, AgentID(agent))
-			So(fmt.Sprintf("%v", s.Settings), ShouldEqual, "{true true}")
+			So(s.DefaultAgent.Name(), ShouldEqual, AgentName(agent))
+			So(fmt.Sprintf("%v", s.Settings), ShouldEqual, "{true true bootstrap.holochain.net:10000}")
 		})
 
 		p := d + "/" + DefaultDirectoryName
 		Convey("it should create agent files", func() {
 			a, err := LoadAgent(p)
 			So(err, ShouldEqual, nil)
-			So(a.ID(), ShouldEqual, AgentID(agent))
+			So(a.Name(), ShouldEqual, AgentName(agent))
 		})
 
 		Convey("we can detect that it was initialized", func() {
@@ -54,7 +54,7 @@ func TestLoadService(t *testing.T) {
 		So(s.Path, ShouldEqual, root)
 		So(s.Settings.DefaultPeerModeDHTNode, ShouldEqual, true)
 		So(s.Settings.DefaultPeerModeAuthor, ShouldEqual, true)
-		So(s.DefaultAgent.ID(), ShouldEqual, AgentID("Herbert <h@bert.com>"))
+		So(s.DefaultAgent.Name(), ShouldEqual, AgentName("Herbert <h@bert.com>"))
 	})
 
 }
@@ -63,7 +63,7 @@ func TestConfiguredChains(t *testing.T) {
 	d, s, h := setupTestChain("test")
 	defer cleanupTestDir(d)
 	// close the bolt instance so to call in ConfiguredChains doesn't timeout.
-	h.store.Close()
+	//h.store.Close()
 
 	Convey("Configured chains should return a hash of all the chains in the Service", t, func() {
 		chains, err := s.ConfiguredChains()

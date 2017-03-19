@@ -1,0 +1,51 @@
+{
+    "Version": 0,
+    "Id": "9eced046-0169-11e7-a9f8-0090f5e8c3f9",
+    "Name": "wat",
+    "Properties": {
+        "description": "distributed micro-blogging",
+        "language": "en"
+    },
+    "PropertiesSchema": "schema_properties.json",
+    "HashType": "sha2-256",
+    "BasedOn": {
+        "H": null
+    },
+    "Zomes": {
+        "clutter": {
+            "Name": "clutter",
+            "Description": "zome that implements micro-blogging",
+            "Code": "zome_clutter.js",
+            "CodeHash": {
+                "H": null
+            },
+            "Entries": {
+                "post": {
+                    "Name": "post",
+                    "DataFormat": "json",
+                    "Schema": "schema_post.json",
+                    "SchemaHash": {
+                        "H": null
+                    }
+                },
+                "follow": {
+                    "Name": "follow",
+                    "DataFormat": "json",
+                    "Schema": "schema_follow.json",
+                    "SchemaHash": {
+                        "H": null
+                    }
+                },
+                "profile": {
+                    "Name": "profile",
+                    "DataFormat": "json",
+                    "Schema": "schema_profile.json",
+                    "SchemaHash": {
+                        "H": null
+                    }
+                }
+            },
+            "NucleusType": "js"
+        }
+    }
+}

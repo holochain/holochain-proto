@@ -11,9 +11,21 @@ HashType = "sha2-256"
 [BasedOn]
 
 [Zomes]
+  [Zomes.jsZome]
+    Name = "jsZome"
+    Description = "this is a javascript test zome"
+    Code = "zome_jsZome.js"
+    NucleusType = "js"
+    [Zomes.jsZome.CodeHash]
+    [Zomes.jsZome.Entries]
+      [Zomes.jsZome.Entries.myOdds]
+        Name = "myOdds"
+        DataFormat = "js"
+        Schema = ""
+        [Zomes.jsZome.Entries.myOdds.SchemaHash]
   [Zomes.myZome]
     Name = "myZome"
-    Description = "zome desc"
+    Description = "this is a zygomas test zome"
     Code = "zome_myZome.zy"
     NucleusType = "zygo"
     [Zomes.myZome.CodeHash]
@@ -25,11 +37,11 @@ HashType = "sha2-256"
         [Zomes.myZome.Entries.myData.SchemaHash]
       [Zomes.myZome.Entries.primes]
         Name = "primes"
-        DataFormat = "JSON"
+        DataFormat = "json"
         Schema = ""
         [Zomes.myZome.Entries.primes.SchemaHash]
       [Zomes.myZome.Entries.profile]
         Name = "profile"
-        DataFormat = "JSON"
+        DataFormat = "json"
         Schema = "schema_profile.json"
         [Zomes.myZome.Entries.profile.SchemaHash]

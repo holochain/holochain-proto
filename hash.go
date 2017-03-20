@@ -65,11 +65,11 @@ func (h *Hash) Clone() (hash Hash) {
 }
 
 // Equal checks to see if two hashes have the same value
-func (h1 *Hash) Equal(h2 *Hash) bool {
-	if h1.IsNullHash() && h2.IsNullHash() {
+func (h *Hash) Equal(h2 *Hash) bool {
+	if h.IsNullHash() && h2.IsNullHash() {
 		return true
 	}
-	return bytes.Equal(h1.H, h2.H)
+	return bytes.Equal(h.H, h2.H)
 }
 
 // MarshalHash writes a hash to a binary stream

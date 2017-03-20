@@ -30,6 +30,7 @@ const (
 	DefaultPort            = 6283
 	DefaultBootstrapServer = "bootstrap.holochain.net:10000"
 	//DefaultBootstrapPort				= 10000
+
 	HC_BOOTSTRAPSERVER = "HC_BOOTSTRAPSERVER"
 	//HC_BOOTSTRAPPORT						= "HC_BOOTSTRAPPORT"
 )
@@ -41,7 +42,7 @@ type ServiceConfig struct {
 	DefaultBootstrapServer string
 }
 
-// Holochain service data structure
+// A Service is a Holochain service data structure
 type Service struct {
 	Settings     ServiceConfig
 	DefaultAgent Agent

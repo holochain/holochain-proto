@@ -345,7 +345,7 @@ func TestGenChain(t *testing.T) {
 		entry, _, err := h.chain.GetEntry(hdr.EntryLink)
 		So(err, ShouldBeNil)
 		header = *hdr
-		var a AgentEntry = entry.Content().(AgentEntry)
+		var a = entry.Content().(AgentEntry)
 		So(a.Name, ShouldEqual, h.agent.Name())
 		//So(k.Key,ShouldEqual,"something?") // test that key got correctly retrieved
 	})

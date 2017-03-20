@@ -12,7 +12,7 @@ import (
 	ic "github.com/libp2p/go-libp2p-crypto"
 )
 
-// Unique user identifier in context of this holochain
+// AgentName is the user's unique identifier in context of this holochain.
 type AgentName string
 
 type KeytypeType int

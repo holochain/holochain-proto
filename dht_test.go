@@ -70,7 +70,7 @@ func TestPutGet(t *testing.T) {
 	defer cleanupTestDir(d)
 
 	dht := h.dht
-	var id peer.ID = h.id
+	var id = h.id
 	Convey("It should store and retrieve", t, func() {
 		hash, _ := NewHash("QmY8Mzg9F69e5P9AoQPYat655HEhc1TVGs11tmfNSzkqh2")
 		err := dht.put(nil, "someType", hash, id, []byte("some value"), LIVE)
@@ -326,7 +326,7 @@ func TestGossiper(t *testing.T) {
 		g, err := dht.FindGossiper()
 		So(err, ShouldBeNil)
 		So(g.Idx, ShouldEqual, 3)
-		So(g.Id, ShouldEqual, h.node.HashAddr)
+		So(g.ID, ShouldEqual, h.node.HashAddr)
 	})
 
 }

@@ -20,7 +20,7 @@ import (
 // WalkerFn a function type for call Walk
 type WalkerFn func(key *Hash, header *Header, entry Entry) error
 
-var ErrHashNotFound error = errors.New("hash not found")
+var ErrHashNotFound = errors.New("hash not found")
 
 // Chain structure for providing in-memory access to chain data, entries headers and hashes
 type Chain struct {
@@ -50,8 +50,8 @@ func NewChain() (chain *Chain) {
 	return
 }
 
-// Creates a chain from a file, loading any data there, and setting it to be persisted to
-// if no file exists it will be created
+// NewChainFromFile creates a chain from a file, loading any data there,
+// and setting it to be persisted to. If no file exists it will be created.
 func NewChainFromFile(h HashSpec, path string) (c *Chain, err error) {
 	defer func() {
 		if err != nil {
@@ -134,7 +134,7 @@ func (c *Chain) TopType(entryType string) (hash *Hash, header *Header) {
 	i, ok := c.TypeTops[entryType]
 	if ok {
 		header = c.Headers[i]
-		var hs Hash = c.Hashes[i].Clone()
+		var hs = c.Hashes[i].Clone()
 		hash = &hs
 	}
 	return

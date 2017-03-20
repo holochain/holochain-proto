@@ -92,7 +92,7 @@ func CreateNucleus(h *Holochain, nucleusType string, code string) (Nucleus, erro
 	if !ok {
 		// Factory has not been registered.
 		// Make a list of all available nucleus factories for error.
-		available := make([]string, 0)
+		var available []string
 		for k := range nucleusFactories {
 			available = append(available, k)
 		}

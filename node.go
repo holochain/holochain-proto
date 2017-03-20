@@ -69,11 +69,11 @@ const (
 	SourceProtocol = protocol.ID("/holochain-src/0.0.0")
 )
 
-type HolochainRouter struct {
+type Router struct {
 	dummy int
 }
 
-func (r *HolochainRouter) FindPeer(context.Context, peer.ID) (peer pstore.PeerInfo, err error) {
+func (r *Router) FindPeer(context.Context, peer.ID) (peer pstore.PeerInfo, err error) {
 	err = errors.New("routing not implemented")
 	return
 }
@@ -114,7 +114,7 @@ func NewNode(listenAddr string, id peer.ID, priv ic.PrivKey) (node *Node, err er
 	if err != nil {
 		return
 	}
-	hr := HolochainRouter{}
+	hr := Router{}
 	n.Host = rhost.Wrap(bh, &hr)
 
 	node = &n

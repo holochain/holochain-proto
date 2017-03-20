@@ -28,7 +28,7 @@ type ZygoNucleus struct {
 	library    string
 }
 
-// Name returns the string value under which this nucleus is registered
+// Type returns the string value under which this nucleus is registered
 func (z *ZygoNucleus) Type() string { return ZygoNucleusType }
 
 // ChainGenesis runs the application genesis function
@@ -178,7 +178,7 @@ func (z *ZygoNucleus) Call(iface string, params interface{}) (result interface{}
 			case *zygo.SexpRaw:
 				result = t.Val
 			default:
-				err = errors.New("expected SexpRaw return type!")
+				err = errors.New("expected SexpRaw return type")
 			}
 		}
 

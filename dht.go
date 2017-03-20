@@ -17,12 +17,12 @@ import (
 	"time"
 )
 
-var ErrDHTExpectedGetReqInBody error = errors.New("expected get request")
-var ErrDHTExpectedPutReqInBody error = errors.New("expected put request")
-var ErrDHTExpectedMetaReqInBody error = errors.New("expected meta request")
-var ErrDHTExpectedMetaQueryInBody error = errors.New("expected meta query")
-var ErrDHTExpectedGossipReqInBody error = errors.New("expected gossip request")
-var ErrDHTErrNoGossipersAvailable error = errors.New("no gossipers available")
+var ErrDHTExpectedGetReqInBody = errors.New("expected get request")
+var ErrDHTExpectedPutReqInBody = errors.New("expected put request")
+var ErrDHTExpectedMetaReqInBody = errors.New("expected meta request")
+var ErrDHTExpectedMetaQueryInBody = errors.New("expected meta query")
+var ErrDHTExpectedGossipReqInBody = errors.New("expected gossip request")
+var ErrDHTErrNoGossipersAvailable = errors.New("no gossipers available")
 
 // DHT struct holds the data necessary to run the distributed hash table
 type DHT struct {
@@ -112,7 +112,7 @@ type GossipReq struct {
 
 // Gossiper holds data about a gossiper
 type Gossiper struct {
-	Id       peer.ID
+	ID       peer.ID
 	Idx      int
 	LastSeen time.Time
 }
@@ -148,7 +148,7 @@ func (dht *DHT) SetupDHT() (err error) {
 		return
 	}
 	// put the AgentEntry so it always exists for putmeta
-	a := dht.h.Agenthash()
+	a := dht.h.AgentHash()
 	var e Entry
 	var t string
 	e, t, err = dht.h.chain.GetEntry(a)
@@ -282,7 +282,7 @@ func (dht *DHT) GetGossiper(id peer.ID) (idx int, err error) {
 
 // FindGossiper picks a random DHT node to gossip with
 func (dht *DHT) FindGossiper() (g *Gossiper, err error) {
-	glist := make([]Gossiper, 0)
+	var glist []Gossiper
 
 	err = dht.db.View(func(tx *buntdb.Tx) error {
 		err = tx.Ascend("peer", func(key, value string) bool {
@@ -292,7 +292,7 @@ func (dht *DHT) FindGossiper() (g *Gossiper, err error) {
 				return false
 			}
 			idx, e := strconv.Atoi(value)
-			g := Gossiper{Id: id, Idx: idx}
+			g := Gossiper{ID: id, Idx: idx}
 			glist = append(glist, g)
 			return true
 		})
@@ -752,7 +752,7 @@ func (dht *DHT) gossip() (err error) {
 		return
 	}
 
-	err = dht.gossipWith(g.Id, g.Idx)
+	err = dht.gossipWith(g.ID, g.Idx)
 	return
 }
 

@@ -11,7 +11,6 @@ import (
 	"fmt"
 	peer "github.com/libp2p/go-libp2p-peer"
 	"github.com/robertkrimen/otto"
-	_ "math"
 	"strings"
 	"time"
 )
@@ -26,7 +25,7 @@ type JSNucleus struct {
 	lastResult *otto.Value
 }
 
-// Name returns the string value under which this nucleus is registered
+// Type returns the string value under which this nucleus is registered
 func (z *JSNucleus) Type() string { return JSNucleusType }
 
 // ChainGenesis runs the application genesis function

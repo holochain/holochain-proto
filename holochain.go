@@ -4,6 +4,7 @@
 
 // Holochains are a distributed data store: DHT tightly bound to signed hash chains
 // for provenance and data integrity.
+
 package holochain
 
 import (
@@ -331,13 +332,12 @@ func (h *Holochain) Agent() Agent {
 // PrepareHashType makes sure the given string is a correct multi-hash and stores
 // the code and length to the Holochain struct
 func (h *Holochain) PrepareHashType() (err error) {
-	if c, ok := mh.Names[h.HashType]; !ok {
+	c, ok := mh.Names[h.HashType]
+	if !ok {
 		return fmt.Errorf("Unknown hash type: %s", h.HashType)
-	} else {
-		h.hashSpec.Code = c
-		h.hashSpec.Length = -1
 	}
-
+	h.hashSpec.Code = c
+	h.hashSpec.Length = -1
 	return
 }
 
@@ -364,13 +364,12 @@ func (h *Holochain) Prepare() (err error) {
 			if sc != "" {
 				if !fileExists(zpath + "/" + sc) {
 					return errors.New("DNA specified schema file missing: " + sc)
-				} else {
-					if strings.HasSuffix(sc, ".json") {
-						if err = e.BuildJSONSchemaValidator(zpath); err != nil {
-							return err
-						}
-						z.Entries[k] = e
+				}
+				if strings.HasSuffix(sc, ".json") {
+					if err = e.BuildJSONSchemaValidator(zpath); err != nil {
+						return err
 					}
+					z.Entries[k] = e
 				}
 			}
 		}
@@ -410,17 +409,17 @@ func (h *Holochain) Activate() (err error) {
 	return
 }
 
-// Path returns a holochain UI path
+// UIPath returns a holochain UI path
 func (h *Holochain) UIPath() string {
 	return h.rootPath + "/" + ChainUIDir
 }
 
-// Path returns a holochain DB path
+// DBPath returns a holochain DB path
 func (h *Holochain) DBPath() string {
 	return h.rootPath + "/" + ChainDataDir
 }
 
-// Path returns a holochain DNA path
+// DNAPath returns a holochain DNA path
 func (h *Holochain) DNAPath() string {
 	return h.rootPath + "/" + ChainDNADir
 }
@@ -431,7 +430,7 @@ func (h *Holochain) DNAHash() (id Hash) {
 }
 
 // AgentHash returns the hash of the Agent entry
-func (h *Holochain) Agenthash() (id Hash) {
+func (h *Holochain) AgentHash() (id Hash) {
 	return h.agentHash.Clone()
 }
 
@@ -1048,7 +1047,9 @@ func (h *Holochain) NewEntry(now time.Time, entryType string, entry Entry) (hash
 	return
 }
 
-//func(key *Hash, h *Header, entry interface{}) error
+// Walk takes the argument fn which must be WalkerFn
+// Every WalkerFn is of the form:
+// func(key *Hash, h *Header, entry interface{}) error
 func (h *Holochain) Walk(fn WalkerFn, entriesToo bool) (err error) {
 	err = h.chain.Walk(fn)
 	return

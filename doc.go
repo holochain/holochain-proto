@@ -5,10 +5,10 @@
 // for provenance and data integrity.
 
 /*
-Holographic storage for distributed applications. A holochain is a monotonic
-distributed hash table (DHT) where every node enforces validation rules on
-data before publishing that data against the signed chains where the data
-originated.
+Package holochain provides holographic storage for distributed applications.
+A holochain is a monotonic distributed hash table (DHT) where every node
+enforces validation rules on data before publishing that data against
+the signed chains where the data originated.
 
 In other words, a holochain functions very much like a blockchain without
 bottlenecks when it comes to enforcing validation rules, but is designed

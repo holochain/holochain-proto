@@ -221,7 +221,7 @@ func ByteEncoder(data interface{}) (b []byte, err error) {
 	return
 }
 
-// ByteEncoder decodes data encoded by ByteEncoder
+// ByteDecoder decodes data encoded by ByteEncoder
 func ByteDecoder(b []byte, to interface{}) (err error) {
 	buf := bytes.NewBuffer(b)
 	dec := gob.NewDecoder(buf)

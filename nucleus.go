@@ -30,25 +30,20 @@ const (
 	AGENT_NAME_PROPERTY = "_agent_name"
 )
 
+var ValidationFailedErr = errors.New("Validation Failed")
+
 // Interface holds the name and schema of an DNA exposed function
 type Interface struct {
 	Name   string
 	Schema InterfaceSchemaType
 }
 
-// ValidationProps holds the properties passed to the application validation routine
-// This includes the Headers and Sources
-type ValidationProps struct {
-	Sources  []string // B58 encoded peer
-	Hash     string
-	MetaTag  string // if validating a putMeta this will have the meta type set
-	MetaHash string
-}
-
 // Nucleus type abstracts the functions of code execution environments
 type Nucleus interface {
 	Type() string
-	ValidateEntry(def *EntryDef, entry Entry, props *ValidationProps) error
+	ValidateCommit(def *EntryDef, entry Entry, header *Header, sources []string) error
+	ValidatePut(def *EntryDef, entry Entry, header *Header, sources []string) error
+	ValidatePutMeta(baseType string, baseHash string, ptrType string, ptrHash string, tag string, sources []string) error
 	ChainGenesis() error
 	expose(iface Interface) error
 	Interfaces() (i []Interface)

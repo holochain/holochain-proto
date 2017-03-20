@@ -32,6 +32,7 @@ func TestValidateReceiver(t *testing.T) {
 		So(err, ShouldBeNil)
 		So(r.(*ValidateResponse).Type, ShouldEqual, "evenNumbers")
 		So(fmt.Sprintf("%v", r.(*ValidateResponse).Entry), ShouldEqual, fmt.Sprintf("%v", &entry))
+		So(fmt.Sprintf("%v", r.(*ValidateResponse).Header), ShouldEqual, fmt.Sprintf("%v", *hd))
 	})
 	Convey("VALIDATEMETA_REQUEST should fail if  body isn't a ValidateQuery", t, func() {
 		m := h.node.NewMessage(VALIDATEMETA_REQUEST, "fish")

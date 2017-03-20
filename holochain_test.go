@@ -7,7 +7,9 @@ import (
 	toml "github.com/BurntSushi/toml"
 	"github.com/google/uuid"
 	ic "github.com/libp2p/go-libp2p-crypto"
+	peer "github.com/libp2p/go-libp2p-peer"
 	. "github.com/smartystreets/goconvey/convey"
+
 	"os"
 	"testing"
 	"time"
@@ -426,46 +428,60 @@ func TestValidate(t *testing.T) {
 	})
 }
 
-func TestValidateEntry(t *testing.T) {
+func TestValidatePrepare(t *testing.T) {
+	d, _, h := prepareTestChain("test")
+	defer cleanupTestDir(d)
+
+	Convey("it should fail if a validator doesn't exist for the entry type", t, func() {
+		hdr := mkTestHeader("bogusType")
+		d, _, n, err := h.ValidatePrepare(hdr.Type, &GobEntry{C: "foo"}, []peer.ID{h.id})
+		So(err.Error(), ShouldEqual, "no definition for entry type: bogusType")
+		So(d, ShouldBeNil)
+		So(n, ShouldBeNil)
+	})
+	Convey("a nil entry is invalid", t, func() {
+		hdr := mkTestHeader("evenNumbers")
+		_, _, _, err := h.ValidatePrepare(hdr.Type, nil, []peer.ID{h.id})
+		So(err.Error(), ShouldEqual, "nil entry invalid")
+	})
+
+	profile := `{"firstName":"Eric","lastName":"H-B"}`
+	hdr := mkTestHeader("profile")
+	h.Prepare()
+	Convey("successful prepare should convert sources and return a nucleus", t, func() {
+		_, srcs, _, err := h.ValidatePrepare(hdr.Type, &GobEntry{C: profile}, []peer.ID{h.id})
+		So(err, ShouldBeNil)
+		So(fmt.Sprintf("%v", srcs), ShouldEqual, "["+peer.IDB58Encode(h.id)+"]")
+	})
+
+	Convey("validate on a schema based entry should check entry against the schema", t, func() {
+		profile = `{"firstName":"Eric"}` // missing required lastName
+		_, _, _, err := h.ValidatePrepare(hdr.Type, &GobEntry{C: profile}, []peer.ID{h.id})
+		So(err, ShouldNotBeNil)
+		So(err.Error(), ShouldEqual, "validator profile.json failed: object property 'lastName' is required")
+	})
+}
+
+func TestValidateCommit(t *testing.T) {
 	d, _, h := prepareTestChain("test")
 	defer cleanupTestDir(d)
 	var err error
 
-	p := ValidationProps{}
 	Convey("it should fail if a validator doesn't exist for the entry type", t, func() {
 		hdr := mkTestHeader("bogusType")
-		data := "2"
-		err = h.ValidateEntry(hdr.Type, &GobEntry{C: data}, &p)
+		err = h.ValidateCommit(hdr.Type, &GobEntry{C: "foo"}, &hdr, []peer.ID{h.id})
 		So(err.Error(), ShouldEqual, "no definition for entry type: bogusType")
 	})
 
-	Convey("a nil entry is invalid", t, func() {
-		hdr := mkTestHeader("evenNumbers")
-		err = h.ValidateEntry(hdr.Type, nil, &p)
-		So(err.Error(), ShouldEqual, "nil entry invalid")
-	})
 	Convey("a valid entry validates", t, func() {
 		hdr := mkTestHeader("evenNumbers")
-		evenNumbers := "2" //`(message (from "art") (to "eric") (contents "test"))`
-		err = h.ValidateEntry(hdr.Type, &GobEntry{C: evenNumbers}, &p)
+		err = h.ValidateCommit(hdr.Type, &GobEntry{C: "2"}, &hdr, []peer.ID{h.id})
 		So(err, ShouldBeNil)
 	})
 	Convey("an invalid entry doesn't validate", t, func() {
 		hdr := mkTestHeader("evenNumbers")
-		evenNumbers := "1" //`(message (from "art") (to "eric") (contents "test"))`
-		err = h.ValidateEntry(hdr.Type, &GobEntry{C: evenNumbers}, &p)
+		err = h.ValidateCommit(hdr.Type, &GobEntry{C: "1"}, &hdr, []peer.ID{h.id})
 		So(err.Error(), ShouldEqual, "Invalid entry: 1")
-	})
-	Convey("validate on a schema based entry should check entry against the schema", t, func() {
-		hdr := mkTestHeader("profile")
-		profile := `{"firstName":"Eric","lastName":"H-B"}`
-		err = h.ValidateEntry(hdr.Type, &GobEntry{C: profile}, &p)
-		So(err, ShouldBeNil)
-		h.Prepare()
-		profile = `{"firstName":"Eric"}` // missing required lastName
-		err = h.ValidateEntry(hdr.Type, &GobEntry{C: profile}, &p)
-		So(err, ShouldNotBeNil)
-		So(err.Error(), ShouldEqual, "validator profile.json failed: object property 'lastName' is required")
 	})
 }
 

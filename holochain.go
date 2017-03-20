@@ -846,12 +846,17 @@ func (s *Service) GenDev(root string, format string) (hP *Holochain, err error) 
 (defn addEven [x] (commit "evenNumbers" x))
 (expose "addPrime" HC_JSON)
 (defn addPrime [x] (commit "primes" x))
-(defn validate [entryType entry props]
+(defn validateCommit [entryType entry header sources]
+  (validate entryType entry header sources))
+(defn validatePut [entryType entry header sources]
+  (validate entryType entry header sources))
+(defn validate [entryType entry header sources]
   (cond (== entryType "evenNumbers")  (cond (== (mod entry 2) 0) true false)
         (== entryType "primes")  (isprime (hget entry %prime))
         (== entryType "profile") true
         false)
 )
+(defn validatePutMeta [baseType baseHash entryType entryHash tag sources] true)
 (defn genesis [] true)
 `
 		code["jsSampleZome"] = `
@@ -861,7 +866,13 @@ expose("addOdd",HC.STRING);
 function addOdd(x) {return commit("oddNumbers",x);}
 expose("addProfile",HC.JSON);
 function addProfile(x) {return commit("profile",x);}
-function validate(entry_type,entry,props) {
+function validatePut(entry_type,entry,header,sources) {
+  return validate(entry_type,entry,header,sources);
+}
+function validateCommit(entry_type,entry,header,sources) {
+  return validate(entry_type,entry,header,sources);
+}
+function validate(entry_type,entry,header,sources) {
 if (entry_type=="oddNumbers") {
   return entry%2 != 0
 }
@@ -870,6 +881,7 @@ if (entry_type=="profile") {
 }
 return false
 }
+function validatePutMeta(baseType,baseHash,ptrType,ptrHash,tag,sources){return true}
 function genesis() {return true}
 `
 
@@ -1090,6 +1102,7 @@ func (h *Holochain) Validate(entriesToo bool) (valid bool, err error) {
 }
 
 // GetEntryDef returns an EntryDef of the given name
+// @TODO this makes the incorrect assumption that entry type strings are unique across zomes
 func (h *Holochain) GetEntryDef(t string) (zome *Zome, d *EntryDef, err error) {
 	for _, z := range h.Zomes {
 		e, ok := z.Entries[t]
@@ -1105,15 +1118,16 @@ func (h *Holochain) GetEntryDef(t string) (zome *Zome, d *EntryDef, err error) {
 	return
 }
 
-// ValidateEntry passes an entry data to the chain's validation routine
-// If the entry is valid err will be nil, otherwise it will contain some information about why the validation failed (or, possibly, some other system error)
-func (h *Holochain) ValidateEntry(entryType string, entry Entry, props *ValidationProps) (err error) {
-
+// ValidatePrepare does system level validation and structure creation before app validation
+// It checks that entry is not nil, and that it conforms to the entry schema in the definition
+// It returns the entry definition and a nucleus vm object on which to call the app validation
+func (h *Holochain) ValidatePrepare(entryType string, entry Entry, sources []peer.ID) (d *EntryDef, srcs []string, n Nucleus, err error) {
 	if entry == nil {
-		return errors.New("nil entry invalid")
+		err = errors.New("nil entry invalid")
+		return
 	}
-
-	z, d, err := h.GetEntryDef(entryType)
+	var z *Zome
+	z, d, err = h.GetEntryDef(entryType)
 	if err != nil {
 		return
 	}
@@ -1133,13 +1147,67 @@ func (h *Holochain) ValidateEntry(entryType string, entry Entry, props *Validati
 			return
 		}
 	}
-
+	srcs = make([]string, 0)
+	for _, s := range sources {
+		srcs = append(srcs, peer.IDB58Encode(s))
+	}
 	// then run the nucleus (ie. "app" specific) validation rules
-	n, err := h.makeNucleus(z)
+	n, err = h.makeNucleus(z)
 	if err != nil {
 		return
 	}
-	err = n.ValidateEntry(d, entry, props)
+
+	return
+}
+
+// ValidateCommit passes entry data to the chain's commit validation routine
+// If the entry is valid err will be nil, otherwise it will contain some information about why the validation failed (or, possibly, some other system error)
+func (h *Holochain) ValidateCommit(entryType string, entry Entry, header *Header, sources []peer.ID) (err error) {
+	var d *EntryDef
+	var srcs []string
+	var n Nucleus
+	d, srcs, n, err = h.ValidatePrepare(entryType, entry, sources)
+	if err != nil {
+		return
+	}
+	err = n.ValidateCommit(d, entry, header, srcs)
+	return
+}
+
+// ValidatePut passes entry data to the chain's put validation routine
+// If the entry is valid err will be nil, otherwise it will contain some information about why the validation failed (or, possibly, some other system error)
+func (h *Holochain) ValidatePut(entryType string, entry Entry, header *Header, sources []peer.ID) (err error) {
+	var d *EntryDef
+	var srcs []string
+	var n Nucleus
+	d, srcs, n, err = h.ValidatePrepare(entryType, entry, sources)
+	if err != nil {
+		return
+	}
+	err = n.ValidatePut(d, entry, header, srcs)
+	return
+}
+
+// ValidatePutMeta passes putmeta data to the chain's putmeta validation routine
+// If the putmeta is valid err will be nil, otherwise it will contain some information about why the validation failed (or, possibly, some other system error)
+func (h *Holochain) ValidatePutMeta(baseType string, baseHash Hash, ptrType string, ptrHash Hash, tag string, sources []peer.ID) (err error) {
+
+	var z *Zome
+	z, _, err = h.GetEntryDef(baseType)
+	if err != nil {
+		return
+	}
+	srcs := make([]string, 0)
+	for _, s := range sources {
+		srcs = append(srcs, peer.IDB58Encode(s))
+	}
+	// then run the nucleus (ie. "app" specific) validation rules
+	var n Nucleus
+	n, err = h.makeNucleus(z)
+	if err != nil {
+		return
+	}
+	err = n.ValidatePutMeta(baseType, baseHash.String(), ptrType, ptrHash.String(), tag, srcs)
 	return
 }
 

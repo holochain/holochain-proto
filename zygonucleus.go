@@ -59,11 +59,43 @@ func (z *ZygoNucleus) ChainGenesis() (err error) {
 
 }
 
-// ValidateEntry checks the contents of an entry against the validation rules
-func (z *ZygoNucleus) ValidateEntry(d *EntryDef, entry Entry, props *ValidationProps) (err error) {
+// ValidateCommit checks the contents of an entry against the validation rules at commit time
+func (z *ZygoNucleus) ValidateCommit(d *EntryDef, entry Entry, header *Header, sources []string) (err error) {
+	err = z.validateEntry("validateCommit", d, entry, header, sources)
+	return
+}
+
+// ValidatePut checks the contents of an entry against the validation rules at DHT put time
+func (z *ZygoNucleus) ValidatePut(d *EntryDef, entry Entry, header *Header, sources []string) (err error) {
+	err = z.validateEntry("validatePut", d, entry, header, sources)
+	return
+}
+
+// ValidatePutMeta checks the putmeta data against the validation rules at putmeta
+func (z *ZygoNucleus) ValidatePutMeta(baseType string, baseHash string, ptrType, ptrHash string, tag string, sources []string) (err error) {
+
+	srcs := mkSources(sources)
+	code := fmt.Sprintf(`(validatePutMeta "%s" "%s" "%s" "%s" "%s" %s)`, baseType, baseHash, ptrType, ptrHash, tag, srcs)
+	Debugf("validatePutMeta: %s", code)
+
+	err = z.runValidate("validatePutMeta", code)
+	return
+}
+
+func mkSources(sources []string) (srcs string) {
+	var err error
+	var b []byte
+	b, err = json.Marshal(sources)
+	if err != nil {
+		return
+	}
+	srcs = fmt.Sprintf(`(unjson (raw "%s"))`, sanitizeString(string(b)))
+	return
+}
+
+func (z *ZygoNucleus) prepareValidateArgs(d *EntryDef, entry Entry, sources []string) (e string, srcs string, err error) {
 	c := entry.Content().(string)
 	// @todo handle JSON if schema type is different
-	var e string
 	switch d.DataFormat {
 	case DataFormatRawZygo:
 		e = c
@@ -75,34 +107,59 @@ func (z *ZygoNucleus) ValidateEntry(d *EntryDef, entry Entry, props *ValidationP
 		err = errors.New("data format not implemented: " + d.DataFormat)
 		return
 	}
-	// @TODO this is a quick way to build an object from the props structure, but it's
-	// expensive, we should just build the Javascript directly and not make the VM parse it
-	var b []byte
-	b, err = json.Marshal(props)
-	if err != nil {
-		return
-	}
-	s := sanitizeString(string(b))
-	err = z.env.LoadString(fmt.Sprintf(`(validate "%s" %s (unjson (raw "%s")))`, d.Name, e, s))
+	srcs = mkSources(sources)
+	return
+}
+
+func (z *ZygoNucleus) runValidate(fnName string, code string) (err error) {
+	err = z.env.LoadString(code)
 	if err != nil {
 		return
 	}
 	result, err := z.env.Run()
 	if err != nil {
-		err = fmt.Errorf("Error executing validate: %v", err)
+		err = fmt.Errorf("Error executing %s: %v", fnName, err)
 		return
 	}
 	switch result.(type) {
 	case *zygo.SexpBool:
 		r := result.(*zygo.SexpBool).Val
 		if !r {
-			err = fmt.Errorf("Invalid entry: %v", entry.Content())
+			err = ValidationFailedErr
 		}
 	case *zygo.SexpSentinel:
-		err = errors.New("validate should return boolean, got nil")
+		err = fmt.Errorf("%s should return boolean, got nil", fnName)
 
 	default:
-		err = errors.New("validate should return boolean, got: " + fmt.Sprintf("%v", result))
+		err = fmt.Errorf("%s should return boolean, got: %v", fnName, result)
+	}
+	return
+}
+
+func (z *ZygoNucleus) validateEntry(fnName string, d *EntryDef, entry Entry, header *Header, sources []string) (err error) {
+	e, srcs, err := z.prepareValidateArgs(d, entry, sources)
+	if err != nil {
+		return
+	}
+
+	var hdr string
+	if header != nil {
+		hdr = fmt.Sprintf(
+			`(hash EntryLink:"%s" Type:"%s" Time:"%s")`,
+			header.EntryLink.String(),
+			header.Type,
+			header.Time.UTC().Format(time.RFC3339),
+		)
+	} else {
+		hdr = `""`
+	}
+
+	code := fmt.Sprintf(`(%s "%s" %s %s %s)`, fnName, d.Name, e, hdr, srcs)
+	Debugf("%s: %s", fnName, code)
+
+	err = z.runValidate(fnName, code)
+	if err != nil && err == ValidationFailedErr {
+		err = fmt.Errorf("Invalid entry: %v", entry.Content())
 	}
 	return
 }
@@ -314,9 +371,15 @@ func NewZygoNucleus(h *Holochain, code string) (n Nucleus, err error) {
 			switch t := args[0].(type) {
 			case *zygo.SexpStr:
 				msg = t.S
+			case *zygo.SexpInt:
+				msg = fmt.Sprintf("%d", t.Val)
+			case *zygo.SexpHash:
+				msg = zygo.SexpToJson(t)
+			case *zygo.SexpArray:
+				msg = zygo.SexpToJson(t)
 			default:
 				return zygo.SexpNull,
-					errors.New("argument of debug should be string")
+					fmt.Errorf("can't convert arugment type %T", t)
 			}
 
 			h.config.Loggers.App.p(msg)
@@ -411,12 +474,7 @@ func NewZygoNucleus(h *Holochain, code string) (n Nucleus, err error) {
 				return zygo.SexpNull, err
 			}
 
-			p := ValidationProps{
-				Sources: []string{peer.IDB58Encode(h.id)},
-				Hash:    hash.String(),
-			}
-
-			err = h.ValidateEntry(entryType, &e, &p)
+			err = h.ValidateCommit(entryType, &e, header, []peer.ID{h.id})
 
 			if err == nil {
 				err = h.chain.addEntry(l, hash, header, &e)

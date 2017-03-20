@@ -19,8 +19,9 @@ type ValidateQuery struct {
 
 // ValidateResponse holds the response to a ValidateQuery
 type ValidateResponse struct {
-	Entry Entry
-	Type  string
+	Entry  Entry
+	Header Header
+	Type   string
 }
 
 // ValidateMetaResponse holds the response to a ValidateQuery
@@ -39,6 +40,15 @@ func ValidateReceiver(h *Holochain, m *Message) (response interface{}, err error
 		case ValidateQuery:
 			var r ValidateResponse
 			r.Entry, r.Type, err = h.chain.GetEntry(t.H)
+			if err != nil {
+				return
+			}
+			var hd *Header
+			hd, err = h.chain.GetEntryHeader(t.H)
+			if err != nil {
+				return
+			}
+			r.Header = *hd
 			response = &r
 			h.dht.dlog.Logf("responding with: %v (err=%v)", r, err)
 		default:

@@ -6,7 +6,6 @@
 package holochain
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	peer "github.com/libp2p/go-libp2p-peer"
@@ -52,11 +51,35 @@ func (z *JSNucleus) ChainGenesis() (err error) {
 	return
 }
 
-// ValidateEntry checks the contents of an entry against the validation rules
-// this is the zgo implementation
-func (z *JSNucleus) ValidateEntry(d *EntryDef, entry Entry, props *ValidationProps) (err error) {
+// ValidateCommit checks the contents of an entry against the validation rules at commit time
+func (z *JSNucleus) ValidateCommit(d *EntryDef, entry Entry, header *Header, sources []string) (err error) {
+	err = z.validateEntry("validateCommit", d, entry, header, sources)
+	return
+}
+
+// ValidatePut checks the contents of an entry against the validation rules at DHT put time
+func (z *JSNucleus) ValidatePut(d *EntryDef, entry Entry, header *Header, sources []string) (err error) {
+	err = z.validateEntry("validatePut", d, entry, header, sources)
+	return
+}
+
+// ValidatePutMeta checks the putmeta data against the validation rules at putmeta
+func (z *JSNucleus) ValidatePutMeta(baseType string, baseHash string, ptrType, ptrHash string, tag string, sources []string) (err error) {
+	srcs := mkJSSources(sources)
+	code := fmt.Sprintf(`validatePutMeta("%s","%s","%s","%s","%s",%s)`, baseType, baseHash, ptrType, ptrHash, tag, srcs)
+	Debugf("validatePutMeta: %s", code)
+
+	err = z.runValidate("validatePutMeta", code)
+	return
+}
+
+func mkJSSources(sources []string) (srcs string) {
+	srcs = `["` + strings.Join(sources, `","`) + `"]`
+	return
+}
+
+func (z *JSNucleus) prepareValidateArgs(d *EntryDef, entry Entry, sources []string) (e string, srcs string, err error) {
 	c := entry.Content().(string)
-	var e string
 	switch d.DataFormat {
 	case DataFormatRawJS:
 		e = c
@@ -68,18 +91,15 @@ func (z *JSNucleus) ValidateEntry(d *EntryDef, entry Entry, props *ValidationPro
 		err = errors.New("data format not implemented: " + d.DataFormat)
 		return
 	}
+	srcs = mkJSSources(sources)
+	return
+}
 
-	// @TODO this is a quick way to build an object from the props structure, but it's
-	// expensive, we should just build the Javascript directly and not make the VM parse it
-	var b []byte
-	b, err = json.Marshal(props)
+func (z *JSNucleus) runValidate(fnName string, code string) (err error) {
+	var v otto.Value
+	v, err = z.vm.Run(code)
 	if err != nil {
-		return
-	}
-	code := fmt.Sprintf(`validate("%s",%s,JSON.parse("%s"))`, d.Name, e, jsSanitizeString(string(b)))
-	v, err := z.vm.Run(code)
-	if err != nil {
-		err = fmt.Errorf("Error executing validate: %v", err)
+		err = fmt.Errorf("Error executing %s: %v", fnName, err)
 		return
 	}
 	if v.IsBoolean() {
@@ -90,12 +110,36 @@ func (z *JSNucleus) ValidateEntry(d *EntryDef, entry Entry, props *ValidationPro
 				return
 			}
 			if !b {
-				err = fmt.Errorf("Invalid entry: %v", entry.Content())
+				err = ValidationFailedErr
 			}
 		}
 	} else {
-		err = fmt.Errorf("validate should return boolean, got: %v", v)
+		err = fmt.Errorf("%s should return boolean, got: %v", fnName, v)
 	}
+	return
+}
+
+func (z *JSNucleus) validateEntry(fnName string, d *EntryDef, entry Entry, header *Header, sources []string) (err error) {
+
+	e, srcs, err := z.prepareValidateArgs(d, entry, sources)
+	if err != nil {
+		return
+	}
+
+	hdr := fmt.Sprintf(
+		`{"EntryLink":"%s","Type":"%s","Time":"%s"}`,
+		header.EntryLink.String(),
+		header.Type,
+		header.Time.UTC().Format(time.RFC3339),
+	)
+
+	code := fmt.Sprintf(`%s("%s",%s,%s,%s)`, fnName, d.Name, e, hdr, srcs)
+	Debugf("%s: %s", fnName, code)
+	err = z.runValidate(fnName, code)
+	if err != nil && err == ValidationFailedErr {
+		err = fmt.Errorf("Invalid entry: %v", entry.Content())
+	}
+
 	return
 }
 
@@ -240,12 +284,7 @@ func NewJSNucleus(h *Holochain, code string) (n Nucleus, err error) {
 			return z.vm.MakeCustomError("HolochainError", err.Error())
 		}
 
-		p := ValidationProps{
-			Sources: []string{peer.IDB58Encode(h.id)},
-			Hash:    hash.String(),
-		}
-
-		err = h.ValidateEntry(entryType, &e, &p)
+		err = h.ValidateCommit(entryType, &e, header, []peer.ID{h.id})
 
 		if err == nil {
 			err = h.chain.addEntry(l, hash, header, &e)

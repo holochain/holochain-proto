@@ -131,31 +131,69 @@ func TestZygoGenesis(t *testing.T) {
 	})
 }
 
-func TestZygoValidateEntry(t *testing.T) {
-	p := ValidationProps{}
-	Convey("should run an entry value against the defined validator for string data", t, func() {
-		v, err := NewZygoNucleus(nil, `(defn validate [name entry meta] (cond (== entry "fish") true false))`)
+func TestZygoValidateCommit(t *testing.T) {
+	a, _ := NewAgent(IPFS, "Joe")
+	h := NewHolochain(a, "some/path", "yaml", Zome{})
+	h.config.Loggers.App.New(nil)
+	hdr := mkTestHeader("evenNumbers")
+
+	Convey("it should be passing in the correct values", t, func() {
+		v, err := NewZygoNucleus(&h, `(defn validateCommit [name entry header sources] (debug name) (debug entry) (debug header) (debug sources) true)`)
+		So(err, ShouldBeNil)
 		d := EntryDef{Name: "evenNumbers", DataFormat: DataFormatString}
-		err = v.ValidateEntry(&d, &GobEntry{C: "cow"}, &p)
+		ShouldLog(&h.config.Loggers.App, `evenNumbers
+foo
+{"Atype":"hash", "EntryLink":"QmNiCwBNA8MWDADTFVq1BonUEJbS2SvjAoNkZZrhEwcuU2", "Type":"evenNumbers", "Time":"1970-01-01T00:00:01Z", "zKeyOrder":["EntryLink", "Type", "Time"]}
+["fakehashvalue"]
+`, func() {
+			err = v.ValidateCommit(&d, &GobEntry{C: "foo"}, &hdr, []string{"fakehashvalue"})
+			So(err, ShouldBeNil)
+		})
+	})
+	Convey("should run an entry value against the defined validator for string data", t, func() {
+		v, err := NewZygoNucleus(nil, `(defn validateCommit [name entry header sources] (cond (== entry "fish") true false))`)
+		d := EntryDef{Name: "evenNumbers", DataFormat: DataFormatString}
+		err = v.ValidateCommit(&d, &GobEntry{C: "cow"}, nil, nil)
 		So(err.Error(), ShouldEqual, "Invalid entry: cow")
-		err = v.ValidateEntry(&d, &GobEntry{C: "fish"}, &p)
+		err = v.ValidateCommit(&d, &GobEntry{C: "fish"}, nil, nil)
 		So(err, ShouldBeNil)
 	})
 	Convey("should run an entry value against the defined validator for zygo data", t, func() {
-		v, err := NewZygoNucleus(nil, `(defn validate [name entry meta] (cond (== entry "fish") true false))`)
+		v, err := NewZygoNucleus(nil, `(defn validateCommit [name entry header sources] (cond (== entry "fish") true false))`)
 		d := EntryDef{Name: "evenNumbers", DataFormat: DataFormatRawZygo}
-		err = v.ValidateEntry(&d, &GobEntry{C: "\"cow\""}, &p)
+		err = v.ValidateCommit(&d, &GobEntry{C: "\"cow\""}, nil, nil)
 		So(err.Error(), ShouldEqual, "Invalid entry: \"cow\"")
-		err = v.ValidateEntry(&d, &GobEntry{C: "\"fish\""}, &p)
+		err = v.ValidateCommit(&d, &GobEntry{C: "\"fish\""}, nil, nil)
 		So(err, ShouldBeNil)
 	})
 	Convey("should run an entry value against the defined validator for json data", t, func() {
-		v, err := NewZygoNucleus(nil, `(defn validate [name entry meta] (cond (== (hget entry data:) "fish") true false))`)
+		v, err := NewZygoNucleus(nil, `(defn validateCommit [name entry header sources] (cond (== (hget entry data:) "fish") true false))`)
 		d := EntryDef{Name: "evenNumbers", DataFormat: DataFormatJSON}
-		err = v.ValidateEntry(&d, &GobEntry{C: `{"data":"cow"}`}, &p)
+		err = v.ValidateCommit(&d, &GobEntry{C: `{"data":"cow"}`}, nil, nil)
 		So(err.Error(), ShouldEqual, `Invalid entry: {"data":"cow"}`)
-		err = v.ValidateEntry(&d, &GobEntry{C: `{"data":"fish"}`}, &p)
+		err = v.ValidateCommit(&d, &GobEntry{C: `{"data":"fish"}`}, nil, nil)
 		So(err, ShouldBeNil)
+	})
+}
+
+func TestZygoValidatePutMeta(t *testing.T) {
+	a, _ := NewAgent(IPFS, "Joe")
+	h := NewHolochain(a, "some/path", "yaml", Zome{})
+	h.config.Loggers.App.New(nil)
+
+	Convey("it should be passing in the correct values", t, func() {
+		v, err := NewZygoNucleus(&h, `(defn validatePutMeta [baseType baseHash ptrType ptrHash tag sources]  (debug baseType) (debug baseHash) (debug ptrType) (debug ptrHash) (debug tag) (debug sources) true)`)
+		So(err, ShouldBeNil)
+		ShouldLog(&h.config.Loggers.App, `profile
+fakeBasehash
+evenNumbers
+fakeEntryHash
+some tag value
+["fakeSrcHashvalue"]
+`, func() {
+			err = v.ValidatePutMeta("profile", "fakeBasehash", "evenNumbers", "fakeEntryHash", "some tag value", []string{"fakeSrcHashvalue"})
+			So(err, ShouldBeNil)
+		})
 	})
 }
 

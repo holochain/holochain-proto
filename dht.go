@@ -393,11 +393,7 @@ func (dht *DHT) handlePutReq(m *Message) (err error) {
 		}
 		switch resp := r.(type) {
 		case *ValidateResponse:
-			p := ValidationProps{
-				Sources: []string{peer.IDB58Encode(from)},
-				Hash:    t.H.String(),
-			}
-			err = dht.h.ValidateEntry(resp.Type, resp.Entry, &p)
+			err = dht.h.ValidatePut(resp.Type, resp.Entry, &resp.Header, []peer.ID{from})
 			if err != nil {
 				//@todo store as INVALID
 			} else {
@@ -413,6 +409,20 @@ func (dht *DHT) handlePutReq(m *Message) (err error) {
 		}
 	case MetaReq:
 		dht.dlog.Logf("handling putmeta: %v", m)
+
+		var baseType string
+		//var baseStatus int
+		_, baseType, _, err = dht.get(t.Base)
+		// @TODO what happens if the baseStatus is not LIVE?
+		if err != nil {
+			if err == ErrHashNotFound {
+				dht.dlog.Logf("don't yet have %s, trying again later", t.Base)
+				panic("RETRY-PUTMETA NOT IMPLEMENTED")
+				// try the put again later
+			}
+			return
+		}
+
 		var r interface{}
 		r, err = dht.h.Send(ValidateProtocol, from, VALIDATEMETA_REQUEST, ValidateQuery{H: t.T})
 		if err != nil {
@@ -420,12 +430,7 @@ func (dht *DHT) handlePutReq(m *Message) (err error) {
 		}
 		switch resp := r.(type) {
 		case *ValidateMetaResponse:
-			p := ValidationProps{
-				MetaTag:  resp.Tag,
-				Sources:  []string{peer.IDB58Encode(from)},
-				MetaHash: t.M.String(),
-			}
-			err = dht.h.ValidateEntry(resp.Type, resp.Entry, &p)
+			err = dht.h.ValidatePutMeta(baseType, t.Base, resp.Type, t.M, resp.Tag, []peer.ID{from})
 			if err != nil {
 				//@todo store as INVALID
 			} else {

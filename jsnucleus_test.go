@@ -118,31 +118,48 @@ func TestJSGenesis(t *testing.T) {
 	})
 }
 
-func TestJSValidateEntry(t *testing.T) {
-	p := ValidationProps{}
-	Convey("should run an entry value against the defined validator for string data", t, func() {
-		v, err := NewJSNucleus(nil, `function validate(name,entry,meta) { return (entry=="fish")};`)
+func TestJSValidateCommit(t *testing.T) {
+	a, _ := NewAgent(IPFS, "Joe")
+	h := NewHolochain(a, "some/path", "yaml", Zome{})
+	h.config.Loggers.App.New(nil)
+	hdr := mkTestHeader("evenNumbers")
+
+	Convey("it should be passing in the correct values", t, func() {
+		v, err := NewJSNucleus(&h, `function validateCommit(name,entry,header,sources) {debug(name);debug(entry);debug(JSON.stringify(header));debug(JSON.stringify(sources));return true};`)
 		So(err, ShouldBeNil)
 		d := EntryDef{Name: "evenNumbers", DataFormat: DataFormatString}
-		err = v.ValidateEntry(&d, &GobEntry{C: "cow"}, &p)
+		ShouldLog(&h.config.Loggers.App, `evenNumbers
+foo
+{"EntryLink":"QmNiCwBNA8MWDADTFVq1BonUEJbS2SvjAoNkZZrhEwcuU2","Time":"1970-01-01T00:00:01Z","Type":"evenNumbers"}
+["fakehashvalue"]
+`, func() {
+			err = v.ValidateCommit(&d, &GobEntry{C: "foo"}, &hdr, []string{"fakehashvalue"})
+			So(err, ShouldBeNil)
+		})
+	})
+	Convey("should run an entry value against the defined validator for string data", t, func() {
+		v, err := NewJSNucleus(nil, `function validateCommit(name,entry,header,sources) { return (entry=="fish")};`)
+		So(err, ShouldBeNil)
+		d := EntryDef{Name: "evenNumbers", DataFormat: DataFormatString}
+		err = v.ValidateCommit(&d, &GobEntry{C: "cow"}, &hdr, nil)
 		So(err.Error(), ShouldEqual, "Invalid entry: cow")
-		err = v.ValidateEntry(&d, &GobEntry{C: "fish"}, &p)
+		err = v.ValidateCommit(&d, &GobEntry{C: "fish"}, &hdr, nil)
 		So(err, ShouldBeNil)
 	})
 	Convey("should run an entry value against the defined validator for js data", t, func() {
-		v, err := NewJSNucleus(nil, `function validate(name,entry,meta) { return (entry=="fish")};`)
+		v, err := NewJSNucleus(nil, `function validateCommit(name,entry,header,sources) { return (entry=="fish")};`)
 		d := EntryDef{Name: "evenNumbers", DataFormat: DataFormatRawJS}
-		err = v.ValidateEntry(&d, &GobEntry{C: "\"cow\""}, &p)
+		err = v.ValidateCommit(&d, &GobEntry{C: "\"cow\""}, &hdr, nil)
 		So(err.Error(), ShouldEqual, "Invalid entry: \"cow\"")
-		err = v.ValidateEntry(&d, &GobEntry{C: "\"fish\""}, &p)
+		err = v.ValidateCommit(&d, &GobEntry{C: "\"fish\""}, &hdr, nil)
 		So(err, ShouldBeNil)
 	})
 	Convey("should run an entry value against the defined validator for json data", t, func() {
-		v, err := NewJSNucleus(nil, `function validate(name,entry,meta) { return (entry.data=="fish")};`)
+		v, err := NewJSNucleus(nil, `function validateCommit(name,entry,header,sources) { return (entry.data=="fish")};`)
 		d := EntryDef{Name: "evenNumbers", DataFormat: DataFormatJSON}
-		err = v.ValidateEntry(&d, &GobEntry{C: `{"data":"cow"}`}, &p)
+		err = v.ValidateCommit(&d, &GobEntry{C: `{"data":"cow"}`}, &hdr, nil)
 		So(err.Error(), ShouldEqual, `Invalid entry: {"data":"cow"}`)
-		err = v.ValidateEntry(&d, &GobEntry{C: `{"data":"fish"}`}, &p)
+		err = v.ValidateCommit(&d, &GobEntry{C: `{"data":"fish"}`}, &hdr, nil)
 		So(err, ShouldBeNil)
 	})
 }

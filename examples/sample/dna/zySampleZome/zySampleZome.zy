@@ -7,10 +7,15 @@
 (defn addEven [x] (commit "evenNumbers" x))
 (expose "addPrime" HC_JSON)
 (defn addPrime [x] (commit "primes" x))
-(defn validate [entryType entry props]
+(defn validateCommit [entryType entry header sources]
+  (validate entryType entry header sources))
+(defn validatePut [entryType entry header sources]
+  (validate entryType entry header sources))
+(defn validate [entryType entry header sources]
   (cond (== entryType "evenNumbers")  (cond (== (mod entry 2) 0) true false)
         (== entryType "primes")  (isprime (hget entry %prime))
         (== entryType "profile") true
         false)
 )
+(defn validatePutMeta [baseType baseHash entryType entryHash tag sources] true)
 (defn genesis [] true)

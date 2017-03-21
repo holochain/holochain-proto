@@ -1,30 +1,31 @@
-FROM ubuntu
+FROM golang:1.7.5-alpine
 MAINTAINER Duke Dorje && DayZee
 
-RUN apt-get update
-RUN apt-get install -y build-essential software-properties-common python curl wget git-core 
+RUN apk add --update \
+      ca-certificates \
+      curl wget \
+      curl-dev \
+      procps \
+      openrc \
+      git \ 
+      make \
+    && rm -rf /var/cache/apk/* \
+    && addgroup holochain -g 868 \
+    && adduser -G holochain -u 868 -D holochain \
+    && mv /etc/profile.d/color_prompt /etc/profile.d/color_prompt.sh
 
-RUN wget -q https://storage.googleapis.com/golang/go1.8.linux-amd64.tar.gz -O golang.tar.gz
-RUN tar -zxvf golang.tar.gz -C /usr/local/
-RUN mkdir /golang
-ENV GOPATH /golang
-ENV PATH $GOPATH/bin:/usr/local/go/bin:$PATH
+ENV GOPATH=/app/golang
+ENV PATH=$GOPATH/bin:$PATH
 
-RUN go get -v -u github.com/whyrusleeping/gx
-RUN rm $GOPATH/src/github.com/ethereum/go-ethereum/tests -rf
+RUN go get -v -d github.com/metacurrency/holochain \
+    && cd /app/golang/src/github.com/metacurrency/holochain \
+    && make deps \
+    && chown -R holochain /app
 
-RUN  go get -v -d github.com/metacurrency/holochain
+WORKDIR /app/golang/src/github.com/metacurrency/holochain
 
-WORKDIR $GOPATH/src/github.com/metacurrency/holochain
-RUN make deps
+USER holochain
 
-ADD .  $GOPATH/src/github.com/metacurrency/holochain
-WORKDIR $GOPATH/src/github.com/metacurrency/holochain
+COPY . /app/golang/src/github.com/metacurrency/holochain
 
-RUN make
-RUN make bs
-
-RUN make test
-
-
-#CMD ["/usr/bin/node", "/var/www/app.js"]
+CMD ["make", "test" ]

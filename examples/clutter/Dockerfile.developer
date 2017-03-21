@@ -42,6 +42,9 @@ WORKDIR /work
 
 # note that on xhyve (MacOs and Windows), volume access can be slow
 VOLUME /home
+# If you do have it on a volume, but not one exported from xhyve, you can bind mount and
+# backup data from a container's volume like this:
+#sudo docker run --rm --volumes-from my_container -v ~/container_backups/:/backup busybox tar cvzf /backup/contentservices_back.tgz home/webapp
 
 # run tests in a container:
 # docker run -t holochain:developer su - developer -c "source /etc/developer.env_vars; cd ~developer/holochain; time go get -t; time go test -v ./... || exit 1"
@@ -49,4 +52,3 @@ VOLUME /home
 ##CMD ["/usr/bin/node", "/var/www/app.js"]
 #
 CMD ["/bin/sh"]
-

@@ -1,0 +1,5 @@
+docker run  -e LOCAL_USER_ID=`id -u $USER` -i devcore > test.runAsHostUserUID.test.output
+grep -q "Starting with UID : 1002" test.runAsHostUserUID.test.output || exit 1
+grep -q "Usage: su-exec user-spec command \[args\]" test.runAsHostUserUID.test.output || exit 1
+rm test.runAsHostUserUID.test.output
+echo "passed test unix user with UID `id -u $USER` created inside container"

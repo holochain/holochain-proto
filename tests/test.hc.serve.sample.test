@@ -1,6 +1,4 @@
-hc init devcore
-hc clone examples/sample sample
-hc gen chain sample 
-hc serve sample &
-sleep 3
-{ wget -q localhost:3141 && echo "serve sample passed"; } || { echo "serve sample failed" && exit 1; }
+docker run  -e LOCAL_USER_ID=`id -u $USER` -i devcore /bin/sh -c tests/test.hc.serve.sample.test.inContainer | tee test.hc.serve.sample.test.output
+grep -q "Starting with UID : 1002" test.hc.serve.sample.test.output || exit 1
+rm test.hc.serve.sample.test.output
+echo "passed test served hc as as user with matching user id"

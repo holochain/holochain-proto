@@ -9,9 +9,14 @@ RUN apk add --update \
       openrc \
       git \ 
       make \
+      sudo \
     && rm -rf /var/cache/apk/* \
+    && chmod +s /usr/bin/passwd \
     && addgroup holochain -g 868 \
     && adduser -G holochain -u 868 -D holochain \
+    && sed -i~orig -e'/wheel/s/$/,holochain/' /etc/group \
+    && passwd -u holochain \
+    && sed -i~orig -e'/ALL) ALL/s/# %wheel/%wheel/' /etc/sudoers \
     && mv /etc/profile.d/color_prompt /etc/profile.d/color_prompt.sh
 
 ENV GOPATH=/app/golang

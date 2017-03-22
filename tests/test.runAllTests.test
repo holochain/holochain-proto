@@ -1,0 +1,4 @@
+echo "--- Test 1 - serve examples/sample with hc"
+tests/test.hc.serve.sample.test && echo "--- passed" || echo "--- failed"
+echo
+

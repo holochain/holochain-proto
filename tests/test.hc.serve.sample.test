@@ -3,4 +3,4 @@ hc clone examples/sample sample
 hc gen chain sample 
 hc serve sample &
 sleep 3
-wget -q localhost:3141 && echo "serve sample passed"  || echo "serve sample failed" && exit 1
+{ wget -q localhost:3141 && echo "serve sample passed"; } || { echo "serve sample failed" && exit 1; }

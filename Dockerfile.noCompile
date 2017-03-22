@@ -1,0 +1,4 @@
+FROM devcore
+
+ADD . .
+

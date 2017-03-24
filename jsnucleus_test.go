@@ -31,9 +31,14 @@ func TestNewJSNucleus(t *testing.T) {
 		So(err, ShouldBeNil)
 		z := v.(*JSNucleus)
 
-		_, err = z.Run("App.DNA.Hash")
+		_, err = z.Run("App.Name")
 		So(err, ShouldBeNil)
 		s, _ := z.lastResult.ToString()
+		So(s, ShouldEqual, h.Name)
+
+		_, err = z.Run("App.DNA.Hash")
+		So(err, ShouldBeNil)
+		s, _ = z.lastResult.ToString()
 		So(s, ShouldEqual, h.dnaHash.String())
 
 		_, err = z.Run("App.Agent.Hash")

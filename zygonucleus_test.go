@@ -30,9 +30,13 @@ func TestNewZygoNucleus(t *testing.T) {
 		So(err, ShouldBeNil)
 		z := v.(*ZygoNucleus)
 
-		_, err = z.Run("App_DNA_Hash")
+		_, err = z.Run("App_Name")
 		So(err, ShouldBeNil)
 		s := z.lastResult.(*zygo.SexpStr).S
+		So(s, ShouldEqual, h.Name)
+		_, err = z.Run("App_DNA_Hash")
+		So(err, ShouldBeNil)
+		s = z.lastResult.(*zygo.SexpStr).S
 		So(s, ShouldEqual, h.dnaHash.String())
 		_, err = z.Run("App_Agent_Hash")
 		So(err, ShouldBeNil)

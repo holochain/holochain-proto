@@ -105,7 +105,7 @@ Docker installation of the holochain core is suitable for holochain users, holoc
   ```bash
   $ Scripts/docker.build
   ```
-* to run holochain in your new environment, suitable for [continue to usage](#usage)
+* to run holochain in your new environment, suitable to continue this walkthrough [usage](#usage)
   * to exit the holochain environment, press `Ctrl-D` or type `exit`
 
   ```bash

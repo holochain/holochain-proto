@@ -38,15 +38,15 @@ const (
 
 	PUT_REQUEST
 	GET_REQUEST
-	PUTMETA_REQUEST
-	GETMETA_REQUEST
+	LINK_REQUEST
+	GETLINK_REQUEST
 	GOSSIP_REQUEST
 	GOSSIP
 
 	// Validate Messages
 
 	VALIDATE_REQUEST
-	VALIDATEMETA_REQUEST
+	VALIDATELINK_REQUEST
 )
 
 // Message represents data that can be sent to node in the network

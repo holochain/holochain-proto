@@ -34,14 +34,14 @@ func TestValidateReceiver(t *testing.T) {
 		So(fmt.Sprintf("%v", r.(*ValidateResponse).Entry), ShouldEqual, fmt.Sprintf("%v", &entry))
 		So(fmt.Sprintf("%v", r.(*ValidateResponse).Header), ShouldEqual, fmt.Sprintf("%v", *hd))
 	})
-	Convey("VALIDATEMETA_REQUEST should fail if  body isn't a ValidateQuery", t, func() {
-		m := h.node.NewMessage(VALIDATEMETA_REQUEST, "fish")
+	Convey("VALIDATELINK_REQUEST should fail if  body isn't a ValidateQuery", t, func() {
+		m := h.node.NewMessage(VALIDATELINK_REQUEST, "fish")
 		_, err := ValidateReceiver(h, m)
 		So(err.Error(), ShouldEqual, "expected ValidateQuery")
 	})
-	Convey("VALIDATEMETA_REQUEST should fail if hash doesn't exist", t, func() {
+	Convey("VALIDATELINK_REQUEST should fail if hash doesn't exist", t, func() {
 		hash, _ := NewHash("QmY8Mzg9F69e5P9AoQPYat6x5HEhc1TVGs11tmfNSzkqh2")
-		m := h.node.NewMessage(VALIDATEMETA_REQUEST, ValidateQuery{H: hash})
+		m := h.node.NewMessage(VALIDATELINK_REQUEST, ValidateQuery{H: hash})
 		_, err := ValidateReceiver(h, m)
 		So(err, ShouldNotBeNil)
 		So(err.Error(), ShouldEqual, "hash not found")
@@ -49,26 +49,28 @@ func TestValidateReceiver(t *testing.T) {
 
 	entry := GobEntry{C: "bogus entry data"}
 	_, hd, _ := h.NewEntry(time.Now(), "evenNumbers", &entry)
+	hash := hd.EntryLink
 
-	Convey("VALIDATEMETA_REQUEST should return error if hash isn't a meta entry", t, func() {
-		m := h.node.NewMessage(VALIDATEMETA_REQUEST, ValidateQuery{H: hd.EntryLink})
+	Convey("VALIDATELINK_REQUEST should return error if hash isn't a linking entry", t, func() {
+		m := h.node.NewMessage(VALIDATELINK_REQUEST, ValidateQuery{H: hash})
 		_, err := ValidateReceiver(h, m)
-		So(err.Error(), ShouldEqual, "hash not of meta entry")
+		So(err.Error(), ShouldEqual, "hash not of a linking entry")
 	})
 
-	Convey("VALIDATEMETA_REQUEST should return entry by meta hash", t, func() {
-		me := MetaEntry{M: hd.EntryLink, Tag: "a meta tag"}
-		e := GobEntry{C: me}
-		_, mehd, err := h.NewEntry(time.Now(), MetaEntryType, &e)
-		if err != nil {
-			panic(err)
-		}
-		m := h.node.NewMessage(VALIDATEMETA_REQUEST, ValidateQuery{H: mehd.EntryLink})
+	Convey("VALIDATELINK_REQUEST should return entry by linking entry hash", t, func() {
+		someData := `{"firstName":"Zippy","lastName":"Pinhead"}`
+		e := GobEntry{C: someData}
+		_, phd, _ := h.NewEntry(time.Now(), "profile", &e)
+		profileHash := phd.EntryLink
+		e = GobEntry{C: fmt.Sprintf(`{"Links":[{"Base":"%s","Link":"%s","Tag":"4stars"}]}`, hash.String(), profileHash.String())}
+		_, le, _ := h.NewEntry(time.Now(), "rating", &e)
+
+		m := h.node.NewMessage(VALIDATELINK_REQUEST, ValidateQuery{H: le.EntryLink})
 		r, err := ValidateReceiver(h, m)
 		So(err, ShouldBeNil)
-		vr := r.(*ValidateMetaResponse)
-		So(vr.Tag, ShouldEqual, "a meta tag")
-		So(vr.Type, ShouldEqual, "evenNumbers")
-		So(fmt.Sprintf("%v", vr.Entry), ShouldEqual, fmt.Sprintf("%v", &entry))
+		vr := r.(*ValidateLinkResponse)
+		//	So(vr.Tag, ShouldEqual, "a meta tag")
+		//	So(vr.Type, ShouldEqual, "evenNumbers")
+		So(fmt.Sprintf("%v", vr), ShouldEqual, "&{rating [{QmdykVTmyPfSaqx4WJQoRHhg7GM7ree8W961pS7uCmhYuJ QmYeinX5vhuA91D3v24YbgyLofw9QAxY6PoATrBHnRwbtt 4stars}]}")
 	})
 }

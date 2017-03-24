@@ -63,13 +63,13 @@ func (z *JSNucleus) ValidatePut(d *EntryDef, entry Entry, header *Header, source
 	return
 }
 
-// ValidatePutMeta checks the putmeta data against the validation rules at putmeta
-func (z *JSNucleus) ValidatePutMeta(baseType string, baseHash string, ptrType, ptrHash string, tag string, sources []string) (err error) {
+// ValidateLink checks the linking data against the validation rules
+func (z *JSNucleus) ValidateLink(linkingEntryType string, baseHash string, linkHash string, tag string, sources []string) (err error) {
 	srcs := mkJSSources(sources)
-	code := fmt.Sprintf(`validatePutMeta("%s","%s","%s","%s","%s",%s)`, baseType, baseHash, ptrType, ptrHash, tag, srcs)
-	Debugf("validatePutMeta: %s", code)
+	code := fmt.Sprintf(`validateLink("%s","%s","%s","%s",%s)`, linkingEntryType, baseHash, linkHash, tag, srcs)
+	Debug(code)
 
-	err = z.runValidate("validatePutMeta", code)
+	err = z.runValidate("validateLink", code)
 	return
 }
 
@@ -83,6 +83,8 @@ func (z *JSNucleus) prepareValidateArgs(d *EntryDef, entry Entry, sources []stri
 	switch d.DataFormat {
 	case DataFormatRawJS:
 		e = c
+	case DataFormatLinks:
+		fallthrough
 	case DataFormatString:
 		e = "\"" + jsSanitizeString(c) + "\""
 	case DataFormatJSON:
@@ -274,26 +276,13 @@ func NewJSNucleus(h *Holochain, code string) (n Nucleus, err error) {
 		} else {
 			return z.vm.MakeCustomError("HolochainError", "commit expected string as second argument")
 		}
-
-		e := GobEntry{C: entry}
-		var l int
-		var hash Hash
-		var header *Header
-		l, hash, header, err = h.chain.PrepareHeader(h.hashSpec, time.Now(), entryType, &e, h.agent.PrivKey())
+		var entryHash Hash
+		entryHash, err = h.Commit(entryType, entry)
 		if err != nil {
 			return z.vm.MakeCustomError("HolochainError", err.Error())
 		}
 
-		err = h.ValidateCommit(entryType, &e, header, []peer.ID{h.id})
-
-		if err == nil {
-			err = h.chain.addEntry(l, hash, header, &e)
-		}
-		if err != nil {
-			return z.vm.MakeCustomError("HolochainError", err.Error())
-		}
-
-		result, _ := z.vm.ToValue(header.EntryLink.String())
+		result, _ := z.vm.ToValue(entryHash.String())
 		return result
 	})
 	if err != nil {
@@ -364,28 +353,12 @@ func NewJSNucleus(h *Holochain, code string) (n Nucleus, err error) {
 		return nil, err
 	}
 
-	err = z.vm.Set("putmeta", func(call otto.FunctionCall) otto.Value {
-		base, _ := call.Argument(0).ToString()
-		metaHash, _ := call.Argument(1).ToString()
-		tag, _ := call.Argument(2).ToString()
-
-		err = h.PutMeta(base, metaHash, tag)
-		if err != nil {
-			return z.vm.MakeCustomError("HolochainError", err.Error())
-		}
-
-		return otto.UndefinedValue()
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	err = z.vm.Set("getmeta", func(call otto.FunctionCall) (result otto.Value) {
+	err = z.vm.Set("getlink", func(call otto.FunctionCall) (result otto.Value) {
 		base, _ := call.Argument(0).ToString()
 		tag, _ := call.Argument(1).ToString()
 
 		var response interface{}
-		response, err = h.GetMeta(base, tag)
+		response, err = h.GetLink(base, tag)
 		if err == nil {
 			result, err = z.vm.ToValue(response)
 		} else {

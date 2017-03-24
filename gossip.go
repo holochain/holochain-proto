@@ -17,7 +17,7 @@ import (
 	"time"
 )
 
-// Put holds a put or putmeta for gossiping
+// Put holds a put or link for gossiping
 type Put struct {
 	M Message
 }

@@ -71,14 +71,14 @@ func (z *ZygoNucleus) ValidatePut(d *EntryDef, entry Entry, header *Header, sour
 	return
 }
 
-// ValidatePutMeta checks the putmeta data against the validation rules at putmeta
-func (z *ZygoNucleus) ValidatePutMeta(baseType string, baseHash string, ptrType, ptrHash string, tag string, sources []string) (err error) {
+// ValidateLink checks the link data against the validation rules
+func (z *ZygoNucleus) ValidateLink(linkingEntryType string, baseHash string, linkHash string, tag string, sources []string) (err error) {
 
 	srcs := mkSources(sources)
-	code := fmt.Sprintf(`(validatePutMeta "%s" "%s" "%s" "%s" "%s" %s)`, baseType, baseHash, ptrType, ptrHash, tag, srcs)
-	Debugf("validatePutMeta: %s", code)
+	code := fmt.Sprintf(`(validateLink "%s" "%s" "%s" "%s" %s)`, linkingEntryType, baseHash, linkHash, tag, srcs)
+	Debugf("validateLink: %s", code)
 
-	err = z.runValidate("validatePutMeta", code)
+	err = z.runValidate("validateLink", code)
 	return
 }
 
@@ -101,6 +101,8 @@ func (z *ZygoNucleus) prepareValidateArgs(d *EntryDef, entry Entry, sources []st
 		e = c
 	case DataFormatString:
 		e = "\"" + sanitizeString(c) + "\""
+	case DataFormatLinks:
+		fallthrough
 	case DataFormatJSON:
 		e = fmt.Sprintf(`(unjson (raw "%s"))`, sanitizeString(c))
 	default:
@@ -274,22 +276,6 @@ func (z *ZygoNucleus) put(env *zygo.Glisp, h *Holochain, hash string) (result *z
 	return result, err
 }
 
-// putmeta exposes DHTPutMeta to zygo
-func (z *ZygoNucleus) putmeta(env *zygo.Glisp, h *Holochain, base string, metaHash string, tag string) (result *zygo.SexpHash, err error) {
-	result, err = zygo.MakeHash(nil, "hash", env)
-	if err != nil {
-		return nil, err
-	}
-
-	err = h.PutMeta(base, metaHash, tag)
-	if err != nil {
-		err = result.HashSet(env.MakeSymbol("error"), &zygo.SexpStr{S: err.Error()})
-	} else {
-		err = result.HashSet(env.MakeSymbol("result"), &zygo.SexpStr{S: "ok"})
-	}
-	return result, err
-}
-
 // get exposes DHTGet to zygo
 func (z *ZygoNucleus) get(env *zygo.Glisp, h *Holochain, hash string) (result *zygo.SexpHash, err error) {
 	result, err = zygo.MakeHash(nil, "hash", env)
@@ -321,25 +307,25 @@ func (z *ZygoNucleus) get(env *zygo.Glisp, h *Holochain, hash string) (result *z
 	return result, err
 }
 
-// getmeta exposes GetMeta to zygo
-func (z *ZygoNucleus) getmeta(env *zygo.Glisp, h *Holochain, base string, tag string) (result *zygo.SexpHash, err error) {
+// getlink exposes GetLink to zygo
+func (z *ZygoNucleus) getlink(env *zygo.Glisp, h *Holochain, base string, tag string) (result *zygo.SexpHash, err error) {
 	result, err = zygo.MakeHash(nil, "hash", env)
 	if err != nil {
 		return nil, err
 	}
 
-	response, err := h.GetMeta(base, tag)
+	response, err := h.GetLink(base, tag)
 
 	if err == nil {
 		switch t := response.(type) {
-		case MetaQueryResp:
+		case LinkQueryResp:
 			// @TODO figure out encoding by entry type.
 			j, err := json.Marshal(t.Hashes)
 			if err == nil {
 				err = result.HashSet(env.MakeSymbol("result"), &zygo.SexpStr{S: string(j)})
 			}
 		default:
-			err = fmt.Errorf("unexpected response type from SendGetMeta: %v", t)
+			err = fmt.Errorf("unexpected response type from SendGetLink: %v", t)
 		}
 	} else {
 		err = result.HashSet(env.MakeSymbol("error"), &zygo.SexpStr{S: err.Error()})
@@ -465,25 +451,13 @@ func NewZygoNucleus(h *Holochain, code string) (n Nucleus, err error) {
 					errors.New("2nd argument of commit should be string or hash")
 			}
 
-			e := GobEntry{C: entry}
-			var l int
-			var hash Hash
-			var header *Header
-			l, hash, header, err = h.chain.PrepareHeader(h.hashSpec, time.Now(), entryType, &e, h.agent.PrivKey())
-			if err != nil {
-				return zygo.SexpNull, err
-			}
-
-			err = h.ValidateCommit(entryType, &e, header, []peer.ID{h.id})
-
-			if err == nil {
-				err = h.chain.addEntry(l, hash, header, &e)
-			}
+			var entryHash Hash
+			entryHash, err = h.Commit(entryType, entry)
 
 			if err != nil {
 				return zygo.SexpNull, err
 			}
-			var result = zygo.SexpStr{S: header.EntryLink.String()}
+			var result = zygo.SexpStr{S: entryHash.String()}
 			return &result, nil
 		})
 
@@ -523,41 +497,7 @@ func NewZygoNucleus(h *Holochain, code string) (n Nucleus, err error) {
 			return result, err
 		})
 
-	z.env.AddFunction("putmeta",
-		func(env *zygo.Glisp, name string, args []zygo.Sexp) (zygo.Sexp, error) {
-			if len(args) != 3 {
-				return zygo.SexpNull, zygo.WrongNargs
-			}
-
-			var basestr string
-			switch t := args[0].(type) {
-			case *zygo.SexpStr:
-				basestr = t.S
-			default:
-				return zygo.SexpNull,
-					errors.New("1st argument of putmeta should be string")
-			}
-			var metahashstr string
-			switch t := args[1].(type) {
-			case *zygo.SexpStr:
-				metahashstr = t.S
-			default:
-				return zygo.SexpNull,
-					errors.New("2nd argument of putmeta should be string")
-			}
-			var typestr string
-			switch t := args[2].(type) {
-			case *zygo.SexpStr:
-				typestr = t.S
-			default:
-				return zygo.SexpNull,
-					errors.New("3rd argument of putmeta should be string")
-			}
-			result, err := z.putmeta(env, h, basestr, metahashstr, typestr)
-			return result, err
-		})
-
-	z.env.AddFunction("getmeta",
+	z.env.AddFunction("getlink",
 		func(env *zygo.Glisp, name string, args []zygo.Sexp) (zygo.Sexp, error) {
 			if len(args) != 2 {
 				return zygo.SexpNull, zygo.WrongNargs
@@ -569,7 +509,7 @@ func NewZygoNucleus(h *Holochain, code string) (n Nucleus, err error) {
 				hashstr = t.S
 			default:
 				return zygo.SexpNull,
-					errors.New("1st argument of gettmeta should be string")
+					errors.New("1st argument of getlink should be string")
 			}
 
 			var typestr string
@@ -578,9 +518,9 @@ func NewZygoNucleus(h *Holochain, code string) (n Nucleus, err error) {
 				typestr = t.S
 			default:
 				return zygo.SexpNull,
-					errors.New("2nd argument of getmeta should be string")
+					errors.New("2nd argument of getlink should be string")
 			}
-			result, err := z.getmeta(env, h, hashstr, typestr)
+			result, err := z.getlink(env, h, hashstr, typestr)
 			return result, err
 		})
 

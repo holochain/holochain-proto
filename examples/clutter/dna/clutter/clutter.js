@@ -16,13 +16,13 @@ function get(i) {
         return App.Agent.String;
     }
     else if (i.what == "posts") {
-        return getmeta(id,"_post_by_"+i.whom);
+        return getlink(id,"_post_by_"+i.whom);
     }
     else if (i.what == "follows") {
-        return getmeta(id,"_follows_by_"+i.whom);
+        return getlink(id,"_follows_by_"+i.whom);
     }
     else if (i.what == "users") {
-        return getmeta(id,"users");
+        return getlink(id,"users");
     }
     return {};
 }

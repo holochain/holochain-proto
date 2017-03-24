@@ -17,5 +17,5 @@
         (== entryType "profile") true
         false)
 )
-(defn validatePutMeta [baseType baseHash entryType entryHash tag sources] true)
+(defn validateLink [linkEntryType baseHash linkHash tag sources] true)
 (defn genesis [] true)

@@ -45,8 +45,8 @@ func TestNewHolochain(t *testing.T) {
 		nz := h.Zomes["zySampleZome"]
 		So(nz.Description, ShouldEqual, "zome desc")
 		So(nz.Code, ShouldEqual, "zome_zySampleZome.zy")
-		So(fmt.Sprintf("%v", nz.Entries["entryTypeFoo"]), ShouldEqual, "{entryTypeFoo string   <nil>}")
-		So(fmt.Sprintf("%v", nz.Entries["entryTypeBar"]), ShouldEqual, "{entryTypeBar zygo   <nil>}")
+		So(fmt.Sprintf("%v", nz.Entries["entryTypeFoo"]), ShouldEqual, "{entryTypeFoo string    <nil>}")
+		So(fmt.Sprintf("%v", nz.Entries["entryTypeBar"]), ShouldEqual, "{entryTypeBar zygo    <nil>}")
 	})
 
 }
@@ -469,18 +469,20 @@ func TestValidateCommit(t *testing.T) {
 
 	Convey("it should fail if a validator doesn't exist for the entry type", t, func() {
 		hdr := mkTestHeader("bogusType")
-		err = h.ValidateCommit(hdr.Type, &GobEntry{C: "foo"}, &hdr, []peer.ID{h.id})
+		_, err = h.ValidateCommit(hdr.Type, &GobEntry{C: "foo"}, &hdr, []peer.ID{h.id})
 		So(err.Error(), ShouldEqual, "no definition for entry type: bogusType")
 	})
 
 	Convey("a valid entry validates", t, func() {
 		hdr := mkTestHeader("evenNumbers")
-		err = h.ValidateCommit(hdr.Type, &GobEntry{C: "2"}, &hdr, []peer.ID{h.id})
+		var d *EntryDef
+		d, err = h.ValidateCommit(hdr.Type, &GobEntry{C: "2"}, &hdr, []peer.ID{h.id})
 		So(err, ShouldBeNil)
+		So(fmt.Sprintf("%v", d), ShouldEqual, "&{evenNumbers zygo   public <nil>}")
 	})
 	Convey("an invalid entry doesn't validate", t, func() {
 		hdr := mkTestHeader("evenNumbers")
-		err = h.ValidateCommit(hdr.Type, &GobEntry{C: "1"}, &hdr, []peer.ID{h.id})
+		_, err = h.ValidateCommit(hdr.Type, &GobEntry{C: "1"}, &hdr, []peer.ID{h.id})
 		So(err.Error(), ShouldEqual, "Invalid entry: 1")
 	})
 }

@@ -91,58 +91,64 @@ func TestPutGet(t *testing.T) {
 
 }
 
-func TestPutGetMeta(t *testing.T) {
+func TestLinking(t *testing.T) {
 	d := setupTestDir()
 	defer cleanupTestDir(d)
 	var h Holochain
 	h.rootPath = d
 	os.MkdirAll(h.DBPath(), os.ModePerm)
 	dht := NewDHT(&h)
-	base, _ := NewHash("QmY8Mzg9F69e5P9AoQPYat655HEhc1TVGs11tmfNSzkqh0")
-	metaHash1, _ := NewHash("QmY8Mzg9F69e5P9AoQPYat655HEhc1TVGs11tmfNSzkqh1")
-	metaHash2, _ := NewHash("QmY8Mzg9F69e5P9AoQPYat655HEhc1TVGs11tmfNSzkqh2")
+	baseStr := "QmZcUPvPhD1Xvk6mwijYF8AfR3mG31S1YsEfHG4khrFPRr"
+	base, err := NewHash(baseStr)
+	if err != nil {
+		panic(err)
+	}
+	linkHash1Str := "QmY8Mzg9F69e5P9AoQPYat655HEhc1TVGs11tmfNSzkqh1"
+	// linkHash1, _ := NewHash(linkHash1Str)
+	linkHash2Str := "QmY8Mzg9F69e5P9AoQPYat655HEhc1TVGs11tmfNSzkqh2"
+	//	linkHash2, _ := NewHash(linkHash2Str)
 	Convey("It should fail if hash doesn't exist", t, func() {
-		err := dht.putMeta(nil, base, metaHash1, "someType")
+		err := dht.putLink(nil, baseStr, linkHash1Str, "tag foo")
 		So(err, ShouldEqual, ErrHashNotFound)
 
-		v, err := dht.getMeta(base, "someType")
+		v, err := dht.getLink(base, "tag foo")
 		So(v, ShouldBeNil)
 		So(err, ShouldEqual, ErrHashNotFound)
 	})
 
 	var id peer.ID
-	err := dht.put(nil, "someType", base, id, []byte("some value"), LIVE)
+	err = dht.put(nil, "someType", base, id, []byte("some value"), LIVE)
 	if err != nil {
 		panic(err)
 	}
 
-	Convey("It should store and retrieve meta values on a hash", t, func() {
-		data, err := dht.getMeta(base, "someType")
+	Convey("It should store and retrieve links values on a base", t, func() {
+		data, err := dht.getLink(base, "tag foo")
 		So(err, ShouldNotBeNil)
-		So(err.Error(), ShouldEqual, "No values for someType")
+		So(err.Error(), ShouldEqual, "No values for tag foo")
 
-		err = dht.putMeta(nil, base, metaHash1, "someType")
+		err = dht.putLink(nil, baseStr, linkHash1Str, "tag foo")
 		So(err, ShouldBeNil)
 
-		err = dht.putMeta(nil, base, metaHash2, "someType")
+		err = dht.putLink(nil, baseStr, linkHash2Str, "tag foo")
 		So(err, ShouldBeNil)
 
-		err = dht.putMeta(nil, base, metaHash1, "otherType")
+		err = dht.putLink(nil, baseStr, linkHash1Str, "tag bar")
 		So(err, ShouldBeNil)
 
-		data, err = dht.getMeta(base, "someType")
+		data, err = dht.getLink(base, "tag foo")
 		So(err, ShouldBeNil)
 		So(len(data), ShouldEqual, 2)
 		m := data[0]
 
-		So(m.H, ShouldEqual, metaHash1.String())
+		So(m.H, ShouldEqual, linkHash1Str)
 		m = data[1]
-		So(m.H, ShouldEqual, metaHash2.String())
+		So(m.H, ShouldEqual, linkHash2Str)
 
-		data, err = dht.getMeta(base, "otherType")
+		data, err = dht.getLink(base, "tag bar")
 		So(err, ShouldBeNil)
 		So(len(data), ShouldEqual, 1)
-		So(data[0].H, ShouldEqual, metaHash1.String())
+		So(data[0].H, ShouldEqual, linkHash1Str)
 	})
 }
 
@@ -213,22 +219,22 @@ func TestDHTReceiver(t *testing.T) {
 	defer cleanupTestDir(d)
 
 	Convey("PUT_REQUEST should fail if body isn't a hash", t, func() {
-		m := h.node.NewMessage(PUT_REQUEST, "fish")
+		m := h.node.NewMessage(PUT_REQUEST, "foo")
 		_, err := DHTReceiver(h, m)
 		So(err.Error(), ShouldEqual, ErrDHTExpectedPutReqInBody.Error())
 	})
 
-	Convey("PUTMETA_REQUEST should fail if body not a good put meta request", t, func() {
-		m := h.node.NewMessage(PUTMETA_REQUEST, "fish")
+	Convey("LINK_REQUEST should fail if body not a good linking request", t, func() {
+		m := h.node.NewMessage(LINK_REQUEST, "foo")
 		_, err := DHTReceiver(h, m)
-		So(err.Error(), ShouldEqual, ErrDHTExpectedMetaReqInBody.Error())
+		So(err.Error(), ShouldEqual, ErrDHTExpectedLinkReqInBody.Error())
 	})
 
 	hash, _ := NewHash("QmY8Mzg9F69e5P9AoQPYat655HEhc1TVGs11tmfNSzkqh2")
 
-	Convey("PUTMETA_REQUEST should fail if hash doesn't exist", t, func() {
-		me := MetaReq{Base: hash, M: hash, T: hash}
-		m := h.node.NewMessage(PUTMETA_REQUEST, me)
+	Convey("LINK_REQUEST should fail if hash doesn't exist", t, func() {
+		me := LinkReq{Base: hash, Links: hash}
+		m := h.node.NewMessage(LINK_REQUEST, me)
 		_, err := DHTReceiver(h, m)
 		So(err.Error(), ShouldEqual, "hash not found")
 	})
@@ -258,14 +264,14 @@ func TestDHTReceiver(t *testing.T) {
 	someData := `{"firstName":"Zippy","lastName":"Pinhead"}`
 	e = GobEntry{C: someData}
 	_, hd, _ = h.NewEntry(now, "profile", &e)
+	profileHash := hd.EntryLink
 
-	me := MetaEntry{M: hd.EntryLink, Tag: "myMetaTag"}
-	ee := GobEntry{C: me}
-	_, mehd, _ := h.NewEntry(time.Now(), MetaEntryType, &ee)
+	ee := GobEntry{C: fmt.Sprintf(`{"Links":[{"Base":"%s","Link":"%s","Tag":"4stars"}]}`, hash.String(), profileHash.String())}
+	_, le, _ := h.NewEntry(time.Now(), "rating", &ee)
 
-	Convey("PUTMETA_REQUEST should store meta values", t, func() {
-		me := MetaReq{Base: hash, M: hd.EntryLink, T: mehd.EntryLink}
-		m := h.node.NewMessage(PUTMETA_REQUEST, me)
+	Convey("LINK_REQUEST should store links", t, func() {
+		lr := LinkReq{Base: hash, Links: le.EntryLink}
+		m := h.node.NewMessage(LINK_REQUEST, lr)
 		r, err := DHTReceiver(h, m)
 		So(err, ShouldBeNil)
 		So(r, ShouldEqual, "queued")
@@ -275,17 +281,17 @@ func TestDHTReceiver(t *testing.T) {
 		So(err, ShouldBeNil)
 
 		// check that it got put
-		meta, err := h.dht.getMeta(hash, "myMetaTag")
+		meta, err := h.dht.getLink(hash, "4stars")
 		So(err, ShouldBeNil)
 		So(meta[0].H, ShouldEqual, hd.EntryLink.String())
 	})
 
-	Convey("GETMETA_REQUEST should retrieve meta values", t, func() {
-		mq := MetaQuery{Base: hash, T: "myMetaTag"}
-		m := h.node.NewMessage(GETMETA_REQUEST, mq)
+	Convey("GETLINK_REQUEST should retrieve link values", t, func() {
+		mq := LinkQuery{Base: hash, T: "4stars"}
+		m := h.node.NewMessage(GETLINK_REQUEST, mq)
 		r, err := DHTReceiver(h, m)
 		So(err, ShouldBeNil)
-		results := r.(MetaQueryResp)
+		results := r.(LinkQueryResp)
 		So(results.Hashes[0].H, ShouldEqual, hd.EntryLink.String())
 	})
 

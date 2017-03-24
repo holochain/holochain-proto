@@ -1,7 +1,7 @@
 // Get list of posts in a Space
 expose("listMessages", HC.JSON);
 function listMessages(room) {
-  var messages = getmeta(room, "message");
+  var messages = getlink(room, "message");
   if( messages instanceof Error ) {
     return []
   } else {
@@ -39,7 +39,7 @@ function modMessage(x, old_message) {
 
 function isAllowed(author) {
   debug("Checking if "+author+" is a registered user...")
-  var registered_users = getmeta(App.DNAHash, "registered_users");
+  var registered_users = getlink(App.DNAHash, "registered_users");
   if( registered_users instanceof Error ) return false;
   registered_users = registered_users.Entries
   for(var i=0; i < registered_users.length; i++) {
@@ -51,7 +51,7 @@ function isAllowed(author) {
 }
 
 function isValidRoom(room) {
-  var rooms = getmeta(App.DNAHash, "room");
+  var rooms = getlink(App.DNA.Hash, "room");
   if( rooms instanceof Error ){
       return false
   } else {
@@ -67,20 +67,24 @@ function genesis() {
   return true;
 }
 
-// Local validate an entry before committing ???
-function validate(entry_type, entry, validation_props) {
-  if( validation_props.MetaTag ) { //validating a putmeta
-    return true;
-  } else { //validating a commit or put
-    if( !isValidRoom(entry.room) ) {
-      debug("message not valid because room "+entry.room+" does not exist")
-      return false
-    }
-    if( isAllowed(validation_props.Sources[0]) ) {
-      debug("message \""+entry.content+"\" valid and added to room "+entry.room)
-      return true
-    } else {
-      return false
-    }
-  }
+
+function validatePut(entry_type,entry,header,sources) {
+    return validate(entry_type,entry,header,sources);
 }
+function validateCommit(entry_type,entry,header,sources) {
+    return validate(entry_type,entry,header,sources);
+}
+// Local validate an entry before committing ???
+function validate(entry_type,entry,header,sources) {
+    if( !isValidRoom(entry.room) ) {
+        debug("message not valid because room "+entry.room+" does not exist");
+        return false;
+    }
+    if( isAllowed(sources[0]) ) {
+        debug("message \""+entry.content+"\" valid and added to room "+entry.room);
+        return true;
+    } else {
+        return false;
+    }
+}
+function validateLink(linkingEntryType,baseHash,linkHash,tag,sources){return true}

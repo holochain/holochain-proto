@@ -176,22 +176,21 @@ foo
 	})
 }
 
-func TestZygoValidatePutMeta(t *testing.T) {
+func TestZygoValidateLink(t *testing.T) {
 	a, _ := NewAgent(IPFS, "Joe")
 	h := NewHolochain(a, "some/path", "yaml", Zome{})
 	h.config.Loggers.App.New(nil)
 
 	Convey("it should be passing in the correct values", t, func() {
-		v, err := NewZygoNucleus(&h, `(defn validatePutMeta [baseType baseHash ptrType ptrHash tag sources]  (debug baseType) (debug baseHash) (debug ptrType) (debug ptrHash) (debug tag) (debug sources) true)`)
+		v, err := NewZygoNucleus(&h, `(defn validateLink [linkingEntryType baseHash linkHash tag sources]  (debug linkingEntryType) (debug baseHash) (debug linkHash) (debug tag) (debug sources) true)`)
 		So(err, ShouldBeNil)
-		ShouldLog(&h.config.Loggers.App, `profile
+		ShouldLog(&h.config.Loggers.App, `rating
 fakeBasehash
-evenNumbers
-fakeEntryHash
+fakeLinkHash
 some tag value
 ["fakeSrcHashvalue"]
 `, func() {
-			err = v.ValidatePutMeta("profile", "fakeBasehash", "evenNumbers", "fakeEntryHash", "some tag value", []string{"fakeSrcHashvalue"})
+			err = v.ValidateLink("rating", "fakeBasehash", "fakeLinkHash", "some tag value", []string{"fakeSrcHashvalue"})
 			So(err, ShouldBeNil)
 		})
 	})
@@ -286,27 +285,20 @@ func TestZygoDHT(t *testing.T) {
 	})
 
 	e = GobEntry{C: `{"firstName":"Zippy","lastName":"Pinhead"}`}
-	_, mhd, _ := h.NewEntry(now, "profile", &e)
-	metaHash := mhd.EntryLink
-	//b, _ := e.Marshal()
+	_, phd, _ := h.NewEntry(now, "profile", &e)
+	profileHash := phd.EntryLink
 
-	Convey("it should have a putmeta function", t, func() {
-		v, err := NewZygoNucleus(h, fmt.Sprintf(`(putmeta "%s" "%s" "myMetaTag")`, hash.String(), metaHash.String()))
+	Convey("it should attach links after commit of Links entry", t, func() {
+		_, err := h.Commit("rating", fmt.Sprintf(`{"Links":[{"Base":"%s","Link":"%s","Tag":"4stars"}]}`, hash.String(), profileHash.String()))
 		So(err, ShouldBeNil)
-		z := v.(*ZygoNucleus)
-
-		sh := z.lastResult.(*zygo.SexpHash)
-		r, err := sh.HashGet(z.env, z.env.MakeSymbol("result"))
-		So(err, ShouldBeNil)
-		So(r.(*zygo.SexpStr).S, ShouldEqual, "ok")
 	})
 
 	if err := h.dht.simHandlePutReqs(); err != nil {
 		panic(err)
 	}
 
-	Convey("it should have a getmeta function", t, func() {
-		v, err := NewZygoNucleus(h, fmt.Sprintf(`(getmeta "%s" "myMetaTag")`, hash.String()))
+	Convey("it should have a getlink function", t, func() {
+		v, err := NewZygoNucleus(h, fmt.Sprintf(`(getlink "%s" "4stars")`, hash.String()))
 		So(err, ShouldBeNil)
 		z := v.(*ZygoNucleus)
 		sh := z.lastResult.(*zygo.SexpHash)

@@ -23,12 +23,20 @@ RequiresVersion = 3
         Name = "oddNumbers"
         DataFormat = "js"
         Schema = ""
+        Sharing = "public"
         [Zomes.jsSampleZome.Entries.oddNumbers.SchemaHash]
       [Zomes.jsSampleZome.Entries.profile]
         Name = "profile"
         DataFormat = "json"
         Schema = "profile.json"
+        Sharing = ""
         [Zomes.jsSampleZome.Entries.profile.SchemaHash]
+      [Zomes.jsSampleZome.Entries.rating]
+        Name = "rating"
+        DataFormat = "links"
+        Schema = ""
+        Sharing = ""
+        [Zomes.jsSampleZome.Entries.rating.SchemaHash]
   [Zomes.zySampleZome]
     Name = "zySampleZome"
     Description = "this is a zygomas test zome"
@@ -40,14 +48,17 @@ RequiresVersion = 3
         Name = "evenNumbers"
         DataFormat = "zygo"
         Schema = ""
+        Sharing = "public"
         [Zomes.zySampleZome.Entries.evenNumbers.SchemaHash]
       [Zomes.zySampleZome.Entries.primes]
         Name = "primes"
         DataFormat = "json"
         Schema = ""
+        Sharing = "public"
         [Zomes.zySampleZome.Entries.primes.SchemaHash]
       [Zomes.zySampleZome.Entries.profile]
         Name = "profile"
         DataFormat = "json"
         Schema = "profile.json"
+        Sharing = ""
         [Zomes.zySampleZome.Entries.profile.SchemaHash]

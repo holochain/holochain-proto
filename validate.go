@@ -3,11 +3,12 @@
 //----------------------------------------------------------------------------------------
 
 // Chain validation protocol.  This protocol allows DHT nodes to request data so they can
-// run validation on the puts and putmetas they are asked to perform
+// run validation on the puts and linkings they are asked to perform
 
 package holochain
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 )
@@ -24,11 +25,10 @@ type ValidateResponse struct {
 	Type   string
 }
 
-// ValidateMetaResponse holds the response to a ValidateQuery
-type ValidateMetaResponse struct {
-	Entry Entry
-	Type  string
-	Tag   string
+// ValidateLinkResponse holds the response to a ValidateLinkuery
+type ValidateLinkResponse struct {
+	LinkingType string
+	Links       []Link
 }
 
 // ValidateReceiver handles messages on the Validate protocol
@@ -54,21 +54,28 @@ func ValidateReceiver(h *Holochain, m *Message) (response interface{}, err error
 		default:
 			err = errors.New("expected ValidateQuery")
 		}
-	case VALIDATEMETA_REQUEST:
-		h.dht.dlog.Logf("got validatemeta: %v", m)
+	case VALIDATELINK_REQUEST:
+		h.dht.dlog.Logf("got validatelink: %v", m)
 		switch t := m.Body.(type) {
 		case ValidateQuery:
-			var r ValidateMetaResponse
+			var r ValidateLinkResponse
 			var e Entry
 			var et string
 			e, et, err = h.chain.GetEntry(t.H)
 			if err == nil {
-				if et != MetaEntryType {
-					err = errors.New("hash not of meta entry")
-				} else {
-					me := e.Content().(MetaEntry)
-					r.Tag = me.Tag
-					r.Entry, r.Type, err = h.chain.GetEntry(me.M)
+				var d *EntryDef
+				_, d, err = h.GetEntryDef(et)
+				if err == nil {
+					if d.DataFormat != DataFormatLinks {
+						err = errors.New("hash not of a linking entry")
+					} else {
+						var le LinksEntry
+						if err = json.Unmarshal([]byte(e.Content().(string)), &le); err == nil {
+
+							r.LinkingType = et
+							r.Links = le.Links
+						}
+					}
 				}
 			}
 			response = &r

@@ -18,15 +18,20 @@ import (
 const (
 	DNAEntryType   = "%dna"
 	AgentEntryType = "%agent"
-	MetaEntryType  = "%meta" // result from putmeta statements
 	KeyEntryType   = "%%key" // virtual entry type, not actually on the chain
 )
 
 const (
+	DataFormatLinks   = "links"
 	DataFormatJSON    = "json"
 	DataFormatString  = "string"
 	DataFormatRawJS   = "js"
 	DataFormatRawZygo = "zygo"
+)
+
+const (
+	Public  = "public"
+	Partial = "partial"
 )
 
 // AgentEntry structure for building KeyEntryType entries
@@ -36,11 +41,16 @@ type AgentEntry struct {
 	Key     []byte // marshaled public key
 }
 
-// MetaEntry structure for holding meta tagging of putmeta
-type MetaEntry struct {
-	Base Hash   // original entry (perhaps elsewhere) which we are putting meta
-	M    Hash   // hash of the meta-data (must be in our chain)
-	Tag  string // meta tag
+// LinksEntry holds one or more links
+type LinksEntry struct {
+	Links []Link
+}
+
+// Link structure for holding meta tagging of linking entry
+type Link struct {
+	Base string // hash of entry (perhaps elsewhere) tow which we are attaching the link
+	Link string // hash of entry being linked to
+	Tag  string // tag
 }
 
 // EntryDef struct holds an entry definition
@@ -49,6 +59,7 @@ type EntryDef struct {
 	DataFormat string
 	Schema     string // file name of schema or language schema directive
 	SchemaHash Hash
+	Sharing    string
 	validator  SchemaValidator
 }
 

@@ -69,13 +69,16 @@ func TestGossipData(t *testing.T) {
 	DHTReceiver(h, m1)
 	dht.simHandlePutReqs()
 
-	me := MetaEntry{Base: hash, M: hash, Tag: "myMetaTag"}
-	ee := GobEntry{C: me}
-	_, mehd, _ := h.NewEntry(time.Now(), MetaEntryType, &ee)
+	someData := `{"firstName":"Zippy","lastName":"Pinhead"}`
+	e = GobEntry{C: someData}
+	_, hd, _ = h.NewEntry(now, "profile", &e)
+	profileHash := hd.EntryLink
 
-	// simulate a handled putmeta request
-	mr := MetaReq{Base: hash, M: hd.EntryLink, T: mehd.EntryLink}
-	m2 := h.node.NewMessage(PUTMETA_REQUEST, mr)
+	ee := GobEntry{C: fmt.Sprintf(`{"Links":[{"Base":"%s"},{"Link":"%s"},{"Tag":"4stars"}]}`, hash.String(), profileHash.String())}
+	_, le, _ := h.NewEntry(time.Now(), "rating", &ee)
+	lr := LinkReq{Base: hash, Links: le.EntryLink}
+
+	m2 := h.node.NewMessage(LINK_REQUEST, lr)
 	DHTReceiver(h, m2)
 	h.dht.simHandlePutReqs()
 

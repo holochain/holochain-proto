@@ -17,8 +17,8 @@ import (
 
 var ErrDHTExpectedGetReqInBody = errors.New("expected get request")
 var ErrDHTExpectedPutReqInBody = errors.New("expected put request")
-var ErrDHTExpectedMetaReqInBody = errors.New("expected meta request")
-var ErrDHTExpectedMetaQueryInBody = errors.New("expected meta query")
+var ErrDHTExpectedLinkReqInBody = errors.New("expected link request")
+var ErrDHTExpectedLinkQueryInBody = errors.New("expected link query")
 
 // DHT struct holds the data necessary to run the distributed hash table
 type DHT struct {
@@ -33,7 +33,7 @@ type DHT struct {
 // Meta holds data that can be associated with a hash
 // @todo, we should also be storing the meta-data source
 type Meta struct {
-	H Hash   // hash of meta-data associated
+	H Hash   // hash of link-data associated
 	T string // meta-data type identifier
 	V []byte // meta-data
 }
@@ -46,7 +46,7 @@ const (
 	PutUndelete
 )
 
-// constants for the state of the meta data
+// constants for the state of the  data
 const (
 	LIVE = iota
 	REJECTED
@@ -66,28 +66,27 @@ type GetReq struct {
 	H Hash
 }
 
-// MetaReq holds a putMeta request
-type MetaReq struct {
-	Base Hash // original data on which to put the meta
-	M    Hash // hash of the meta-data
-	T    Hash // hash of the tag entry
+// LinkReq holds a link request
+type LinkReq struct {
+	Base  Hash // data on which to attach the links
+	Links Hash // hash of the links entry
 }
 
-// MetaQuery holds a getMeta query
-type MetaQuery struct {
+// LinkQuery holds a getLink query
+type LinkQuery struct {
 	Base Hash
 	T    string
 	// order
 	// filter, etc
 }
 
-// TaggedHash holds associated entries for the MetaQueryResponse
+// TaggedHash holds associated entries for the LinkQueryResponse
 type TaggedHash struct {
 	H string
 }
 
-// MetaQueryResp holds response to getMeta query
-type MetaQueryResp struct {
+// LinkQueryResp holds response to getLink query
+type LinkQueryResp struct {
 	Hashes []TaggedHash
 }
 
@@ -100,7 +99,7 @@ func NewDHT(h *Holochain) *DHT {
 	if err != nil {
 		panic(err)
 	}
-	db.CreateIndex("meta", "meta:*", buntdb.IndexString)
+	db.CreateIndex("link", "link:*", buntdb.IndexString)
 	db.CreateIndex("idx", "idx:*", buntdb.IndexInt)
 	db.CreateIndex("peer", "peer:*", buntdb.IndexString)
 
@@ -116,12 +115,12 @@ func NewDHT(h *Holochain) *DHT {
 // SetupDHT prepares a DHT for use by adding the holochain's ID
 func (dht *DHT) SetupDHT() (err error) {
 	x := ""
-	// put the holochain id so it always exists for putmeta
+	// put the holochain id so it always exists for linking
 	err = dht.put(nil, DNAEntryType, dht.h.DNAHash(), dht.h.id, []byte(x), LIVE)
 	if err != nil {
 		return
 	}
-	// put the AgentEntry so it always exists for putmeta
+	// put the AgentEntry so it always exists for linking
 	a := dht.h.AgentHash()
 	var e Entry
 	var t string
@@ -143,7 +142,7 @@ func (dht *DHT) SetupDHT() (err error) {
 		return
 	}
 
-	// put the KeyEntry so it always exists for putmeta
+	// put the KeyEntry so it always exists for linking
 	kh, err := NewHash(peer.IDB58Encode(dht.h.id))
 	if err != nil {
 		return
@@ -238,14 +237,13 @@ func (dht *DHT) get(key Hash) (data []byte, entryType string, status int, err er
 	return
 }
 
-// putMeta associates a value with a stored hash
+// putLink associates a link with a stored hash
 // N.B. this function assumes that the data associated has been properly retrieved
 // and validated from the cource chain
-func (dht *DHT) putMeta(m *Message, base Hash, metaKey Hash, tag string) (err error) {
-	dht.dlog.Logf("putmeta on %v %v as %s", base, metaKey, tag)
-	b := base.String()
+func (dht *DHT) putLink(m *Message, base string, link string, tag string) (err error) {
+	dht.dlog.Logf("putLink on %v link %v as %s", base, link, tag)
 	err = dht.db.Update(func(tx *buntdb.Tx) error {
-		_, err := tx.Get("entry:" + b)
+		_, err := tx.Get("entry:" + base)
 		if err == buntdb.ErrNotFound {
 			return ErrHashNotFound
 		}
@@ -255,7 +253,7 @@ func (dht *DHT) putMeta(m *Message, base Hash, metaKey Hash, tag string) (err er
 			return err
 		}
 
-		x := "meta:" + index + ":" + b + ":" + metaKey.String()
+		x := "link:" + index + ":" + base + ":" + link
 		_, _, err = tx.Set(x, tag, nil)
 		if err != nil {
 			return err
@@ -275,8 +273,9 @@ func filter(ss []Meta, test func(*Meta) bool) (ret []Meta) {
 	return
 }
 
-// getMeta retrieves meta value associated with a base
-func (dht *DHT) getMeta(base Hash, tag string) (results []TaggedHash, err error) {
+// getLink retrieves meta value associated with a base
+func (dht *DHT) getLink(base Hash, tag string) (results []TaggedHash, err error) {
+	dht.dlog.Logf("getLink on %v of %s", base, tag)
 	b := base.String()
 	err = dht.db.View(func(tx *buntdb.Tx) error {
 		_, err := tx.Get("entry:" + b)
@@ -284,7 +283,7 @@ func (dht *DHT) getMeta(base Hash, tag string) (results []TaggedHash, err error)
 			return ErrHashNotFound
 		}
 		results = make([]TaggedHash, 0)
-		err = tx.Ascend("meta", func(key, value string) bool {
+		err = tx.Ascend("link", func(key, value string) bool {
 			x := strings.Split(key, ":")
 
 			if string(x[2]) == b && value == tag {
@@ -322,25 +321,23 @@ func (dht *DHT) SendGet(key Hash) (response interface{}, err error) {
 	return
 }
 
-// SendPutMeta initiates associating Meta data with particular Hash on the DHT.
-// This command assumes that the data has been committed to your local chain, and the hash of that
-// data is what get's sent in the MetaReq
-func (dht *DHT) SendPutMeta(req MetaReq) (err error) {
+// SendLink initiates associating Meta data with particular Hash on the DHT.
+func (dht *DHT) SendLink(req LinkReq) (err error) {
 	n, err := dht.FindNodeForHash(req.Base)
 	if err != nil {
 		return
 	}
-	_, err = dht.send(n.HashAddr, PUTMETA_REQUEST, req)
+	_, err = dht.send(n.HashAddr, LINK_REQUEST, req)
 	return
 }
 
-// SendGetMeta initiates retrieving meta data from the DHT
-func (dht *DHT) SendGetMeta(query MetaQuery) (response interface{}, err error) {
+// SendGetLink initiates retrieving meta data from the DHT
+func (dht *DHT) SendGetLink(query LinkQuery) (response interface{}, err error) {
 	n, err := dht.FindNodeForHash(query.Base)
 	if err != nil {
 		return
 	}
-	response, err = dht.send(n.HashAddr, GETMETA_REQUEST, query)
+	response, err = dht.send(n.HashAddr, GETLINK_REQUEST, query)
 	return
 }
 
@@ -407,37 +404,42 @@ func (dht *DHT) handlePutReq(m *Message) (err error) {
 			err = errors.New("expected ValidateResponse from validator")
 
 		}
-	case MetaReq:
-		dht.dlog.Logf("handling putmeta: %v", m)
+	case LinkReq:
+		dht.dlog.Logf("handling link: %v", m)
 
-		var baseType string
+		//var baseType string
 		//var baseStatus int
-		_, baseType, _, err = dht.get(t.Base)
+		_, _, _, err = dht.get(t.Base)
 		// @TODO what happens if the baseStatus is not LIVE?
 		if err != nil {
 			if err == ErrHashNotFound {
 				dht.dlog.Logf("don't yet have %s, trying again later", t.Base)
-				panic("RETRY-PUTMETA NOT IMPLEMENTED")
+				panic("RETRY-LINK NOT IMPLEMENTED")
 				// try the put again later
 			}
 			return
 		}
 
 		var r interface{}
-		r, err = dht.h.Send(ValidateProtocol, from, VALIDATEMETA_REQUEST, ValidateQuery{H: t.T})
+		r, err = dht.h.Send(ValidateProtocol, from, VALIDATELINK_REQUEST, ValidateQuery{H: t.Links})
 		if err != nil {
 			return
 		}
 		switch resp := r.(type) {
-		case *ValidateMetaResponse:
-			err = dht.h.ValidatePutMeta(baseType, t.Base, resp.Type, t.M, resp.Tag, []peer.ID{from})
-			if err != nil {
-				//@todo store as INVALID
-			} else {
-				err = dht.putMeta(m, t.Base, t.M, resp.Tag)
+		case *ValidateLinkResponse:
+			base := t.Base.String()
+			for _, l := range resp.Links {
+				if base == l.Base {
+					err = dht.h.ValidateLink(resp.LinkingType, base, l.Link, l.Tag, []peer.ID{from})
+					if err != nil {
+						//@todo store as INVALID
+					} else {
+						err = dht.putLink(m, base, l.Link, l.Tag)
+					}
+				}
 			}
 		default:
-			err = errors.New("expected ValidateMetaResponse from validator")
+			err = errors.New("expected ValidateLinkResponse from validator")
 		}
 	default:
 		err = errors.New("unexpected body type in handlePutReq")
@@ -477,10 +479,10 @@ func DHTReceiver(h *Holochain, m *Message) (response interface{}, err error) {
 			err = ErrDHTExpectedGetReqInBody
 		}
 		return
-	case PUTMETA_REQUEST:
-		dht.dlog.Logf("DHTReceiver got PUTMETA_REQUEST: %v", m)
+	case LINK_REQUEST:
+		dht.dlog.Logf("DHTReceiver got LINKS_REQUEST: %v", m)
 		switch t := m.Body.(type) {
-		case MetaReq:
+		case LinkReq:
 			err = h.dht.exists(t.Base)
 			if err == nil {
 				h.dht.puts <- m
@@ -490,17 +492,18 @@ func DHTReceiver(h *Holochain, m *Message) (response interface{}, err error) {
 			}
 
 		default:
-			err = ErrDHTExpectedMetaReqInBody
+			err = ErrDHTExpectedLinkReqInBody
 		}
-	case GETMETA_REQUEST:
-		dht.dlog.Logf("DHTReceiver got GETMETA_REQUEST: %v", m)
+
+	case GETLINK_REQUEST:
+		dht.dlog.Logf("DHTReceiver got GETLINK_REQUEST: %v", m)
 		switch t := m.Body.(type) {
-		case MetaQuery:
-			var r MetaQueryResp
-			r.Hashes, err = h.dht.getMeta(t.Base, t.T)
+		case LinkQuery:
+			var r LinkQueryResp
+			r.Hashes, err = h.dht.getLink(t.Base, t.T)
 			response = r
 		default:
-			err = ErrDHTExpectedMetaQueryInBody
+			err = ErrDHTExpectedLinkQueryInBody
 		}
 
 	default:

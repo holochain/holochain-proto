@@ -108,18 +108,17 @@ func Infof(m string, args ...interface{}) {
 func Initialize() {
 	gob.Register(Header{})
 	gob.Register(AgentEntry{})
-	gob.Register(MetaEntry{})
 	gob.Register(Hash{})
 	gob.Register(PutReq{})
 	gob.Register(GetReq{})
-	gob.Register(MetaReq{})
-	gob.Register(MetaQuery{})
+	gob.Register(LinkReq{})
+	gob.Register(LinkQuery{})
 	gob.Register(GossipReq{})
 	gob.Register(Gossip{})
 	gob.Register(ValidateResponse{})
 	gob.Register(Put{})
 	gob.Register(GobEntry{})
-	gob.Register(MetaQueryResp{})
+	gob.Register(LinkQueryResp{})
 	gob.Register(TaggedHash{})
 
 	RegisterBultinNucleii()
@@ -710,8 +709,8 @@ func (s *Service) GenDev(root string, format string) (hP *Holochain, err error) 
 				Description: "this is a zygomas test zome",
 				NucleusType: ZygoNucleusType,
 				Entries: map[string]EntryDef{
-					"evenNumbers": {Name: "evenNumbers", DataFormat: DataFormatRawZygo},
-					"primes":      {Name: "primes", DataFormat: DataFormatJSON},
+					"evenNumbers": {Name: "evenNumbers", DataFormat: DataFormatRawZygo, Sharing: Public},
+					"primes":      {Name: "primes", DataFormat: DataFormatJSON, Sharing: Public},
 					"profile":     {Name: "profile", DataFormat: DataFormatJSON, Schema: "profile.json"},
 				},
 			},
@@ -719,8 +718,9 @@ func (s *Service) GenDev(root string, format string) (hP *Holochain, err error) 
 				Description: "this is a javascript test zome",
 				NucleusType: JSNucleusType,
 				Entries: map[string]EntryDef{
-					"oddNumbers": {Name: "oddNumbers", DataFormat: DataFormatRawJS},
+					"oddNumbers": {Name: "oddNumbers", DataFormat: DataFormatRawJS, Sharing: Public},
 					"profile":    {Name: "profile", DataFormat: DataFormatJSON, Schema: "profile.json"},
+					"rating":     {Name: "rating", DataFormat: DataFormatLinks},
 				},
 			},
 		}
@@ -856,7 +856,7 @@ func (s *Service) GenDev(root string, format string) (hP *Holochain, err error) 
         (== entryType "profile") true
         false)
 )
-(defn validatePutMeta [baseType baseHash entryType entryHash tag sources] true)
+(defn validateLink [linkEntryType baseHash linkHash tag sources] true)
 (defn genesis [] true)
 `
 		code["jsSampleZome"] = `
@@ -870,6 +870,7 @@ function validatePut(entry_type,entry,header,sources) {
   return validate(entry_type,entry,header,sources);
 }
 function validateCommit(entry_type,entry,header,sources) {
+  if (entry_type == "rating") {return true}
   return validate(entry_type,entry,header,sources);
 }
 function validate(entry_type,entry,header,sources) {
@@ -881,7 +882,7 @@ if (entry_type=="profile") {
 }
 return false
 }
-function validatePutMeta(baseType,baseHash,ptrType,ptrHash,tag,sources){return true}
+function validateLink(linkEntryType,baseHash,linkHash,tag,sources){return true}
 function genesis() {return true}
 `
 
@@ -1055,7 +1056,11 @@ func (h *Holochain) NewEntry(now time.Time, entryType string, entry Entry) (hash
 	}
 
 	if err == nil {
-		Debugf("NewEntry of %s added as: %s (entry: %v)", entryType, header.EntryLink, entry)
+		var e interface{} = entry
+		if entryType == DNAEntryType {
+			e = "<DNA>"
+		}
+		Debugf("NewEntry of %s added as: %s (entry: %v)", entryType, header.EntryLink, e)
 	} else {
 		Debugf("NewEntry of %s failed with: %s (entry: %v)", entryType, err, entry)
 	}
@@ -1162,8 +1167,7 @@ func (h *Holochain) ValidatePrepare(entryType string, entry Entry, sources []pee
 
 // ValidateCommit passes entry data to the chain's commit validation routine
 // If the entry is valid err will be nil, otherwise it will contain some information about why the validation failed (or, possibly, some other system error)
-func (h *Holochain) ValidateCommit(entryType string, entry Entry, header *Header, sources []peer.ID) (err error) {
-	var d *EntryDef
+func (h *Holochain) ValidateCommit(entryType string, entry Entry, header *Header, sources []peer.ID) (d *EntryDef, err error) {
 	var srcs []string
 	var n Nucleus
 	d, srcs, n, err = h.ValidatePrepare(entryType, entry, sources)
@@ -1188,12 +1192,12 @@ func (h *Holochain) ValidatePut(entryType string, entry Entry, header *Header, s
 	return
 }
 
-// ValidatePutMeta passes putmeta data to the chain's putmeta validation routine
-// If the putmeta is valid err will be nil, otherwise it will contain some information about why the validation failed (or, possibly, some other system error)
-func (h *Holochain) ValidatePutMeta(baseType string, baseHash Hash, ptrType string, ptrHash Hash, tag string, sources []peer.ID) (err error) {
+// ValidateLink passes link data to the chain's link validation routine
+// If the link is valid err will be nil, otherwise it will contain some information about why the validation failed (or, possibly, some other system error)
+func (h *Holochain) ValidateLink(linkingEntryType string, base string, link string, tag string, sources []peer.ID) (err error) {
 
 	var z *Zome
-	z, _, err = h.GetEntryDef(baseType)
+	z, _, err = h.GetEntryDef(linkingEntryType)
 	if err != nil {
 		return
 	}
@@ -1207,7 +1211,7 @@ func (h *Holochain) ValidatePutMeta(baseType string, baseHash Hash, ptrType stri
 	if err != nil {
 		return
 	}
-	err = n.ValidatePutMeta(baseType, baseHash.String(), ptrType, ptrHash.String(), tag, srcs)
+	err = n.ValidateLink(linkingEntryType, base, link, tag, srcs)
 	return
 }
 
@@ -1495,6 +1499,7 @@ func (h *Holochain) Send(proto Protocol, to peer.ID, t MsgType, body interface{}
 	if err != nil {
 		return
 	}
+	Debugf("Sending message:%v", message)
 	// if we are sending to ourselves we should bypass the network mechanics and call
 	// the receiver directly
 	if to == h.node.HashAddr {
@@ -1514,34 +1519,58 @@ func (h *Holochain) Send(proto Protocol, to peer.ID, t MsgType, body interface{}
 	return
 }
 
-// ---- These functions implement the required functions called by nuclei
+// ---------------------------------------------------------------------------------
+// ---- These functions implement the required functions called by specific nuclei implementations
 
-// PutMeta services nucleus putmeta routines
-// it both creates a meta entry and sends the putmeta request to the dht
-func (h *Holochain) PutMeta(base string, metaHash string, tag string) (err error) {
-	var baseHash Hash
-	baseHash, err = NewHash(base)
-	if err == nil {
-		var metakey Hash
-		metakey, err = NewHash(metaHash)
-		if err == nil {
-			me := MetaEntry{Base: baseHash, M: metakey, Tag: tag}
-			e := GobEntry{C: me}
-			_, mehd, err := h.NewEntry(time.Now(), MetaEntryType, &e)
-			if err == nil {
-				err = h.dht.SendPutMeta(MetaReq{Base: baseHash, M: metakey, T: mehd.EntryLink})
+// Commit services nucleus commit routines
+// it check validity and adds a new entry to the chain, and also does any special actions,
+// like put or link if these are shared entries
+func (h *Holochain) Commit(entryType, entry string) (entryHash Hash, err error) {
+	e := GobEntry{C: entry}
+	var l int
+	var hash Hash
+	var header *Header
+	l, hash, header, err = h.chain.PrepareHeader(h.hashSpec, time.Now(), entryType, &e, h.agent.PrivKey())
+	if err != nil {
+		return
+	}
+	var d *EntryDef
+	d, err = h.ValidateCommit(entryType, &e, header, []peer.ID{h.id})
+	if err != nil {
+		return
+	}
+
+	err = h.chain.addEntry(l, hash, header, &e)
+	if err != nil {
+		return
+	}
+	entryHash = header.EntryLink
+	if d.DataFormat == DataFormatLinks {
+		var le LinksEntry
+		err = json.Unmarshal([]byte(entry), &le)
+		if err != nil {
+			return
+		}
+
+		bases := make(map[string]bool)
+		for _, l := range le.Links {
+			_, exists := bases[l.Base]
+			if !exists {
+				b, _ := NewHash(l.Base)
+				h.dht.SendLink(LinkReq{Base: b, Links: entryHash})
+				bases[l.Base] = true
 			}
 		}
 	}
 	return
 }
 
-// GetMeta services nucleus getmata routines
-func (h *Holochain) GetMeta(basestr string, tag string) (response interface{}, err error) {
+// GetLink services nucleus getlink routines
+func (h *Holochain) GetLink(basestr string, tag string) (response interface{}, err error) {
 	var base Hash
 	base, err = NewHash(basestr)
 	if err == nil {
-		response, err = h.dht.SendGetMeta(MetaQuery{Base: base, T: tag})
+		response, err = h.dht.SendGetLink(LinkQuery{Base: base, T: tag})
 	}
 	return
 }

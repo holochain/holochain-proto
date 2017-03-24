@@ -10,7 +10,7 @@ echo "Starting with UID : $USER_ID"
 adduser -s /bin/sh -h /home/user -u $USER_ID -D user
 export HOME=/home/user
 addgroup user holochain
-addgroup user sudoers
+addgroup user wheel
 su -c  "chown user:holochain /home/user -R"
 
 exec su-exec user "$@"

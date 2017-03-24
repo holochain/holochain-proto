@@ -1,5 +1,5 @@
 FROM golang:1.7.5-alpine
-MAINTAINER Duke Dorje && DayZee
+MAINTAINER Gerry Gleason && Christopher Reay
 
 RUN apk add --update \
       ca-certificates \
@@ -7,30 +7,55 @@ RUN apk add --update \
       curl-dev \
       procps \
       openrc \
-      git \ 
+      git \
       make \
       sudo \
+      su-exec \
     && rm -rf /var/cache/apk/* \
-    && chmod +s /usr/bin/passwd \
-    && addgroup holochain -g 868 \
+    \
+    && chmod +s /usr/bin/passwd
+RUN addgroup holochain -g 868 \
     && adduser -G holochain -u 868 -D holochain \
     && sed -i~orig -e'/wheel/s/$/,holochain/' /etc/group \
     && passwd -u holochain \
     && sed -i~orig -e'/ALL) ALL/s/# %wheel/%wheel/' /etc/sudoers \
     && mv /etc/profile.d/color_prompt /etc/profile.d/color_prompt.sh
 
-ENV GOPATH=/app/golang
-ENV PATH=$GOPATH/bin:$PATH
+# Install gx and holochain and all their dependencies and hold them in a docker image
+## Using Docker env tools, because we are installing everything as root
+  ENV GOPATH=/work/golang \
+      GOBIN=/home/holochain/bin
+  ENV PATH=$GOPATH/bin:/usr/local/go/bin:$GOBIN:$PATH
 
-RUN go get -v -d github.com/metacurrency/holochain \
-    && cd /app/golang/src/github.com/metacurrency/holochain \
-    && make deps \
-    && chown -R holochain /app
+  RUN go get -v -u github.com/whyrusleeping/gx
+  RUN go get -v -d github.com/metacurrency/holochain
 
-WORKDIR /app/golang/src/github.com/metacurrency/holochain
+  WORKDIR /work/golang/src/github.com/metacurrency/holochain
+  RUN make deps
 
-USER holochain
+WORKDIR /work/golang/src/github.com/metacurrency/holochain
 
-COPY . /app/golang/src/github.com/metacurrency/holochain
+# make our development files available to hc, on top of the cached image "so far" from above
+  ADD . /work/holochain 
 
-CMD ["make", "test" ]
+  # this rm line works well because it stops weird artifacts coming over from github.com/metacurrency/holochain::master
+  RUN rm -rf /work/golang/src/github.com/metacurrency/holochain/* \
+      && cp -pr /work/holochain/* /work/golang/src/github.com/metacurrency/holochain/ \
+      && chown -R root:holochain /work \
+      && chmod 775 -R /work 
+
+# compile and test our development files
+  RUN make; make bs
+  RUN make test
+
+# sort out dynamic user login
+  COPY        entrypoint.sh.addHostUserToContainer /usr/local/bin/entrypoint.sh.addHostUserToContainer
+  RUN         chmod +x /usr/local/bin/entrypoint.sh.addHostUserToContainer
+  ENTRYPOINT  ["/usr/local/bin/entrypoint.sh.addHostUserToContainer"]
+
+
+#CMD ["su", "holochain", "-c", "source /etc/holochain.env_vars; make test" ]
+#CMD ["/bin/sh"]
+
+
+

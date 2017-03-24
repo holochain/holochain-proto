@@ -47,7 +47,7 @@ In other words, a holochain functions very much **like a blockchain without bott
 <!-- /TOC -->
 
 ## Installation
-Once you have a working environment (see OS specific instructions) you can install the Holochain command line interface with:
+Either use docker installation, or once you have a working environment (see OS specific instructions) you can install the Holochain command line interface with:
 ```bash
 $ go get -d github.com/metacurrency/holochain
 $ cd $GOPATH/src/github.com/metacurrency/holochain
@@ -87,33 +87,41 @@ Next, in your Control Panel go to *System>Advanced system settings>Environment V
     - `C:\Program Files (x86)\GnuWin32\bin` (Or wherever you installed GnuWin32 make to+`\bin`).
 
 ## Docker Installation
-This section describes how to use Docker for the development of Holochain or Holochain apps.
+Docker installation of the holochain core is suitable for holochain users, holochain developers and core developers
 
-First, you'll need to install the *latest* version of Docker. See [Docker Getting Started](https://docs.docker.com/engine/getstarted/step_one/)
+* Install the latest version of Docker for your OS.
+  * See [Docker Getting Started](https://docs.docker.com/engine/getstarted/step_one/)
 
-Next, to clone the Holochain repo as well as build the Docker image, do the following:
-```bash
-$ git clone https://github.com/metacurrency/holochain.git
-$ cd holochain
-$ # build a docker image with the tag 'metacurrency/holochain'
-$ docker build -t metacurrency/holochain .
-```
+* get our holochain repository from github:
+  ```bash
+  $ git clone https://github.com/metacurrency/holochain.git holochain
+  $ cd holochain
+  ```
 
-Now that you've set up your image, whenever you want to make a new container from the image, do the following:
-```bash
-$ # run the docker container tagged 'metacurrency/holochain'
-$ # with ~/.holochain mounted as /root/.holochain
-$ # that has all ports exposed (-P) and is being run interactively (-i)
-$ docker run -v ~/.holochain:/root/.holochain -Pi -t metacurrency/holochain
-```
+* build the holochain core with all dependencies
+  ```bash
+  $ Scripts/docker.build
+  ```
+* to run holochain in your new environment, suitable to continue this walkthrough [usage](#usage)
+  ```bash
+  $ Scripts/docker.run
+  ```
+* to exit the holochain environment, press `Ctrl-D` or type `exit`
 
-It is perfectly possible to keep a container around for a long time. To disconnect from one and leaving it running in the background, use <kbd>Ctrl</kbd>+<kbd>P</kbd> then <kbd>Ctrl</kbd>+<kbd>Q</kbd>. However, containers are designed to be ephemeral, or rather, a Dockerfile should be designed such that destroying and creating containers is the "best practice". To exit the container, use <kbd>Ctrl</kbd>+<kbd>D</kbd>. This will stop the container, such that it can be found listed in `docker ps -a`.
+### moving foward with holodock
+#### holodock for users
+continue to the [usage](#usage) section
 
-By default, docker keeps *absolutely everything you ever do* in images on your machine. Because docker's filesystem is so *[very very clever](https://docs.docker.com/engine/userguide/storagedriver/aufs-driver/#image-layering-and-sharing-with-aufs)*, this is done in an extremely efficient way. It is quite possible to have hundreds or thousands of container states on your machine and never notice. This is a *good thing* in principal. But, in practice, unless you work very hard to bury some work inside a container, you will never need to use this feature.
+#### holodock for core development
+* fork our github repository [https://github.com/metacurrency/holochain](https://github.com/metacurrency/holochain)
+* use Scripts/docker.build to compile and test your latest source
+* docker builds will overwrite the local docker metacurrency/holochain image
+  * TODO setup development build tags to share through development. Only few cases
 
-All of our dockerfiles, scripts and best practice processes allow you to destroy *all* the containers and images on your system *at any time*. This is how you should work with docker. If you lose work done inside a container and have no idea where it is, say so on the #docker channel in Freenode IRC. This should never happen.
+#### holodock for holochain development
+* fork our holochain skeleton github repository [https://github.com/metacurrency/holoSkel](https://github.com/metacurrency/holoSkel)
+* build and test scripts will use your local metacurrency/holochain image
 
-In general, you will be running containers in daemonized mode. When using docker you rarely (if ever?) need to use `hc`, but to get a feel for it, see [Usage](#usage).
 
 ## Usage
 Once you've gotten everything working as described [above](#installation) you may want to use the `hc` command.

@@ -1,0 +1,1 @@
+docker run -Pit metacurrency/holochain /bin/sh

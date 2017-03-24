@@ -109,6 +109,7 @@ Docker installation of the holochain core is suitable for holochain users, holoc
   ```
 * to exit the holochain environment, press `Ctrl-D` or type `exit`
 
+### moving foward with holodock
 #### holodock for users
 continue to the [usage](#usage) section
 

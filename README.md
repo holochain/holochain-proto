@@ -93,7 +93,7 @@ First, you'll need to install the *latest* version of Docker. See [Docker Gettin
 
 Next, to clone the Holochain repo as well as build the Docker image, do the following:
 ```bash
-$ git clone https://github.com/metacurrency/holochain.git .
+$ git clone https://github.com/metacurrency/holochain.git
 $ cd holochain
 $ # build a docker image with the tag 'metacurrency/holochain'
 $ docker build -t metacurrency/holochain .

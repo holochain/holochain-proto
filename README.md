@@ -112,7 +112,14 @@ Docker installation of the holochain core is suitable for holochain users, holoc
   $ Scripts/docker.run
   ```
 
-####
+#### docker for core development
+* fork our github repository [https://github.com/metacurrency/holochain](https://github.com/metacurrency/holochain)
+* use Scripts/docker.build to compile and test your latest source
+* docker builds will overwrite the local docker metacurrency/holochain image
+
+#### docker for holochain development
+* checkout the holochain skeleton github repository [https://github.com/metacurrency/holoSkel](https://github.com/metacurrency/holoSkel)
+* build and test scripts will use your local metacurrency/holochain image
 
 ## Usage
 Once you've gotten everything working as described [above](#installation) you may want to use the `hc` command.

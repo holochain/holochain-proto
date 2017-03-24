@@ -47,7 +47,7 @@ In other words, a holochain functions very much **like a blockchain without bott
 <!-- /TOC -->
 
 ## Installation
-Once you have a working environment (see OS specific instructions) you can install the Holochain command line interface with:
+Eiher use docker installation, or once you have a working environment (see OS specific instructions) you can install the Holochain command line interface with:
 ```bash
 $ go get -d github.com/metacurrency/holochain
 $ cd $GOPATH/src/github.com/metacurrency/holochain
@@ -95,8 +95,6 @@ Docker installation of the holochain core is suitable for holochain users, holoc
 
 * get our holochain repository from github:
   ```bash
-  $ #navigate to where you want to be
-  $ mkdir holochain
   $ git clone https://github.com/metacurrency/holochain.git holochain
   $ cd holochain
   ```

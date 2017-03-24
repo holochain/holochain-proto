@@ -104,11 +104,10 @@ Docker installation of the holochain core is suitable for holochain users, holoc
   $ Scripts/docker.build
   ```
 * to run holochain in your new environment, suitable to continue this walkthrough [usage](#usage)
-  * to exit the holochain environment, press `Ctrl-D` or type `exit`
-
   ```bash
   $ Scripts/docker.run
   ```
+* to exit the holochain environment, press `Ctrl-D` or type `exit`
 
 #### docker for core development
 * fork our github repository [https://github.com/metacurrency/holochain](https://github.com/metacurrency/holochain)

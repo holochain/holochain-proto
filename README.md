@@ -91,10 +91,9 @@ Next, in your Control Panel go to *System>Advanced system settings>Environment V
 Docker installation of the holochain core is suitable for holochain users, holochain developers and core developers
 
 * Install the latest version of Docker for your OS. 
- * See [Docker Getting Started](https://docs.docker.com/engine/getstarted/step_one/)
+  * See [Docker Getting Started](https://docs.docker.com/engine/getstarted/step_one/)
 
 * get our holochain repository from github:
-
   ```bash
   $ #navigate to where you want to be
   $ mkdir holochain
@@ -103,12 +102,11 @@ Docker installation of the holochain core is suitable for holochain users, holoc
   ```
 
 * build the holochain core with all dependencies
-
   ```bash
   $ Scripts/docker.build
   ```
 * to run holochain in your new environment, suitable for [continue to usage](#usage)
- * to exit the holochain environment, press `Ctrl-D` or type `exit`
+  * to exit the holochain environment, press `Ctrl-D` or type `exit`
 
   ```bash
   $ Scripts/docker.run

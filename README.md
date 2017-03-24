@@ -116,9 +116,10 @@ continue to the [usage](#usage) section
 * fork our github repository [https://github.com/metacurrency/holochain](https://github.com/metacurrency/holochain)
 * use Scripts/docker.build to compile and test your latest source
 * docker builds will overwrite the local docker metacurrency/holochain image
+  * TODO setup development build tags to share through development. Only few cases
 
 #### holodock for holochain development
-* checkout the holochain skeleton github repository [https://github.com/metacurrency/holoSkel](https://github.com/metacurrency/holoSkel)
+* fork our holochain skeleton github repository [https://github.com/metacurrency/holoSkel](https://github.com/metacurrency/holoSkel)
 * build and test scripts will use your local metacurrency/holochain image
 
 ## Usage

@@ -87,33 +87,34 @@ Next, in your Control Panel go to *System>Advanced system settings>Environment V
     - `C:\Program Files (x86)\GnuWin32\bin` (Or wherever you installed GnuWin32 make to+`\bin`).
 
 ## Docker Installation
-This section describes how to use Docker for the development of Holochain or Holochain apps.
 
-First, you'll need to install the *latest* version of Docker. See [Docker Getting Started](https://docs.docker.com/engine/getstarted/step_one/)
+Docker installation of the holochain core is suitable for holochain users, holochain developers and core developers
 
-Next, to clone the Holochain repo as well as build the Docker image, do the following:
-```bash
-$ git clone https://github.com/metacurrency/holochain.git .
-$ cd holochain
-$ # build a docker image with the tag 'metacurrency/holochain'
-$ docker build -t metacurrency/holochain .
-```
+* Install the latest version of Docker for your OS. 
+ * See [Docker Getting Started](https://docs.docker.com/engine/getstarted/step_one/)
 
-Now that you've set up your image, whenever you want to make a new container from the image, do the following:
-```bash
-$ # run the docker container tagged 'metacurrency/holochain'
-$ # with ~/.holochain mounted as /root/.holochain
-$ # that has all ports exposed (-P) and is being run interactively (-i)
-$ docker run -v ~/.holochain:/root/.holochain -Pi -t metacurrency/holochain
-```
+* get our holochain repository from github:
 
-It is perfectly possible to keep a container around for a long time. To disconnect from one and leaving it running in the background, use <kbd>Ctrl</kbd>+<kbd>P</kbd> then <kbd>Ctrl</kbd>+<kbd>Q</kbd>. However, containers are designed to be ephemeral, or rather, a Dockerfile should be designed such that destroying and creating containers is the "best practice". To exit the container, use <kbd>Ctrl</kbd>+<kbd>D</kbd>. This will stop the container, such that it can be found listed in `docker ps -a`.
+  ```bash
+  $ #navigate to where you want to be
+  $ mkdir holochain
+  $ git clone https://github.com/metacurrency/holochain.git holochain
+  $ cd holochain
+  ```
 
-By default, docker keeps *absolutely everything you ever do* in images on your machine. Because docker's filesystem is so *[very very clever](https://docs.docker.com/engine/userguide/storagedriver/aufs-driver/#image-layering-and-sharing-with-aufs)*, this is done in an extremely efficient way. It is quite possible to have hundreds or thousands of container states on your machine and never notice. This is a *good thing* in principal. But, in practice, unless you work very hard to bury some work inside a container, you will never need to use this feature.
+* build the holochain core with all dependencies
 
-All of our dockerfiles, scripts and best practice processes allow you to destroy *all* the containers and images on your system *at any time*. This is how you should work with docker. If you lose work done inside a container and have no idea where it is, say so on the #docker channel in Freenode IRC. This should never happen.
+  ```bash
+  $ Scripts/docker.build
+  ```
+* to run holochain in your new environment, suitable for [continue to usage](#usage)
+ * to exit the holochain environment, press `Ctrl-D` or type `exit`
 
-In general, you will be running containers in daemonized mode. When using docker you rarely (if ever?) need to use `hc`, but to get a feel for it, see [Usage](#usage).
+  ```bash
+  $ Scripts/docker.run
+  ```
+
+####
 
 ## Usage
 Once you've gotten everything working as described [above](#installation) you may want to use the `hc` command.

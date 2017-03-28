@@ -3,10 +3,8 @@ package holochain
 import (
 	"fmt"
 	peer "github.com/libp2p/go-libp2p-peer"
-	"github.com/robertkrimen/otto"
 	. "github.com/smartystreets/goconvey/convey"
 	"testing"
-	"time"
 )
 
 func TestNewJSNucleus(t *testing.T) {
@@ -227,24 +225,11 @@ func TestJSDHT(t *testing.T) {
 	d, _, h := prepareTestChain("test")
 	defer cleanupTestDir(d)
 
-	data := "7"
-
 	// add an entry onto the chain
-	now := time.Unix(1, 1) // pick a constant time so the test will always work
-	e := GobEntry{C: data}
-	_, hd, err := h.NewEntry(now, "oddNumbers", &e)
+	hash, err := h.Commit("oddNumbers", "7")
 	if err != nil {
 		panic(err)
 	}
-	hash := hd.EntryLink
-
-	Convey("it should have a put function", t, func() {
-		v, err := NewJSNucleus(h, fmt.Sprintf(`put("%s");`, hash.String()))
-		So(err, ShouldBeNil)
-		z := v.(*JSNucleus)
-		So(err, ShouldBeNil)
-		So(z.lastResult.String(), ShouldEqual, otto.UndefinedValue().String())
-	})
 
 	Convey("it should have a get function", t, func() {
 		v, err := NewJSNucleus(h, fmt.Sprintf(`get ("%s");`, hash.String()))
@@ -269,10 +254,10 @@ func TestJSDHT(t *testing.T) {
 		panic(err)
 	}
 
-	Convey("it should attach links after commit of Links entry", t, func() {
-		_, err := h.Commit("rating", fmt.Sprintf(`{"Links":[{"Base":"%s","Link":"%s","Tag":"4stars"}]}`, hash.String(), profileHash.String()))
-		So(err, ShouldBeNil)
-	})
+	_, err = h.Commit("rating", fmt.Sprintf(`{"Links":[{"Base":"%s","Link":"%s","Tag":"4stars"}]}`, hash.String(), profileHash.String()))
+	if err != nil {
+		panic(err)
+	}
 
 	if err := h.dht.simHandlePutReqs(); err != nil {
 		panic(err)

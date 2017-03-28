@@ -256,26 +256,6 @@ func (z *ZygoNucleus) expose(iface Interface) (err error) {
 	return
 }
 
-// put exposes DHTPut to zygo
-func (z *ZygoNucleus) put(env *zygo.Glisp, h *Holochain, hash string) (result *zygo.SexpHash, err error) {
-	result, err = zygo.MakeHash(nil, "hash", env)
-	if err != nil {
-		return nil, err
-	}
-	var key Hash
-	key, err = NewHash(hash)
-	if err != nil {
-		return
-	}
-	err = h.dht.SendPut(key)
-	if err != nil {
-		err = result.HashSet(env.MakeSymbol("error"), &zygo.SexpStr{S: err.Error()})
-	} else {
-		err = result.HashSet(env.MakeSymbol("result"), &zygo.SexpStr{S: "ok"})
-	}
-	return result, err
-}
-
 // get exposes DHTGet to zygo
 func (z *ZygoNucleus) get(env *zygo.Glisp, h *Holochain, hash string) (result *zygo.SexpHash, err error) {
 	result, err = zygo.MakeHash(nil, "hash", env)
@@ -461,24 +441,6 @@ func NewZygoNucleus(h *Holochain, code string) (n Nucleus, err error) {
 			return &result, nil
 		})
 
-	z.env.AddFunction("put",
-		func(env *zygo.Glisp, name string, args []zygo.Sexp) (zygo.Sexp, error) {
-			if len(args) != 1 {
-				return zygo.SexpNull, zygo.WrongNargs
-			}
-
-			var hashstr string
-			switch t := args[0].(type) {
-			case *zygo.SexpStr:
-				hashstr = t.S
-			default:
-				return zygo.SexpNull,
-					errors.New("argument of put should be string")
-			}
-			result, err := z.put(env, h, hashstr)
-			return result, err
-		})
-
 	z.env.AddFunction("get",
 		func(env *zygo.Glisp, name string, args []zygo.Sexp) (zygo.Sexp, error) {
 			if len(args) != 1 {
@@ -491,7 +453,7 @@ func NewZygoNucleus(h *Holochain, code string) (n Nucleus, err error) {
 				hashstr = t.S
 			default:
 				return zygo.SexpNull,
-					errors.New("argument of put should be string")
+					errors.New("argument of get should be string")
 			}
 			result, err := z.get(env, h, hashstr)
 			return result, err

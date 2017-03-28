@@ -289,32 +289,6 @@ func NewJSNucleus(h *Holochain, code string) (n Nucleus, err error) {
 		return nil, err
 	}
 
-	err = z.vm.Set("put", func(call otto.FunctionCall) otto.Value {
-		v := call.Argument(0)
-		var hashstr string
-
-		if v.IsString() {
-			hashstr, _ = v.ToString()
-		} else {
-			return z.vm.MakeCustomError("HolochainError", "put expected string as argument")
-		}
-
-		var key Hash
-		key, err = NewHash(hashstr)
-		if err == nil {
-			err = h.dht.SendPut(key)
-		}
-
-		if err != nil {
-			return z.vm.MakeCustomError("HolochainError", err.Error())
-		}
-
-		return otto.UndefinedValue()
-	})
-	if err != nil {
-		return nil, err
-	}
-
 	err = z.vm.Set("get", func(call otto.FunctionCall) (result otto.Value) {
 		v := call.Argument(0)
 		var hashstr string

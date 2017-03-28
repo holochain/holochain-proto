@@ -571,3 +571,38 @@ func TestTest(t *testing.T) {
 	})
 
 }
+
+func TestCommit(t *testing.T) {
+	d, _, h := prepareTestChain("test")
+	defer cleanupTestDir(d)
+
+	// add an entry onto the chain
+	hash, err := h.Commit("oddNumbers", "7")
+	if err != nil {
+		panic(err)
+	}
+	if err := h.dht.simHandlePutReqs(); err != nil {
+		panic(err)
+	}
+
+	Convey("publicly shared entries should generate a put", t, func() {
+		err := h.dht.exists(hash)
+		So(err, ShouldBeNil)
+	})
+
+	profileHash, err := h.Commit("profile", `{"firstName":"Zippy","lastName":"Pinhead"}`)
+	if err != nil {
+		panic(err)
+	}
+
+	Convey("it should attach links after commit of Links entry", t, func() {
+		_, err := h.Commit("rating", fmt.Sprintf(`{"Links":[{"Base":"%s","Link":"%s","Tag":"4stars"}]}`, hash.String(), profileHash.String()))
+		So(err, ShouldBeNil)
+		if err := h.dht.simHandlePutReqs(); err != nil {
+			panic(err)
+		}
+		results, err := h.dht.getLink(hash, "4stars")
+		So(err, ShouldBeNil)
+		So(fmt.Sprintf("%v", results), ShouldEqual, "[{QmYeinX5vhuA91D3v24YbgyLofw9QAxY6PoATrBHnRwbtt}]")
+	})
+}

@@ -1347,6 +1347,10 @@ func (h *Holochain) Test() []error {
 		if err != nil {
 			panic("gen err " + err.Error())
 		}
+		err = h.Activate()
+		if err != nil {
+			panic("activate err " + err.Error())
+		}
 		go h.dht.HandlePutReqs()
 		for i, t := range ts {
 			Debugf("------------------------------")
@@ -1479,6 +1483,9 @@ func (h *Holochain) Reset() (err error) {
 		panic(err)
 	}
 	h.chain = NewChain()
+	if h.dht != nil {
+		close(h.dht.puts)
+	}
 	h.dht = NewDHT(h)
 	return
 }
@@ -1545,7 +1552,9 @@ func (h *Holochain) Commit(entryType, entry string) (entryHash Hash, err error) 
 		return
 	}
 	entryHash = header.EntryLink
+
 	if d.DataFormat == DataFormatLinks {
+		// if this is a Link entry we have to send the DHT Link message
 		var le LinksEntry
 		err = json.Unmarshal([]byte(entry), &le)
 		if err != nil {
@@ -1561,6 +1570,9 @@ func (h *Holochain) Commit(entryType, entry string) (entryHash Hash, err error) 
 				bases[l.Base] = true
 			}
 		}
+	} else if d.Sharing == Public {
+		// otherwise we check to see if it's a public entry and if so send the DHT put message
+		err = h.dht.SendPut(entryHash)
 	}
 	return
 }

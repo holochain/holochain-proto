@@ -6,7 +6,6 @@ import (
 	peer "github.com/libp2p/go-libp2p-peer"
 	. "github.com/smartystreets/goconvey/convey"
 	"testing"
-	"time"
 )
 
 func TestNewZygoNucleus(t *testing.T) {
@@ -245,25 +244,11 @@ func TestZygoDHT(t *testing.T) {
 	d, _, h := prepareTestChain("test")
 	defer cleanupTestDir(d)
 
-	data := "2"
-
 	// add an entry onto the chain
-	now := time.Unix(1, 1) // pick a constant time so the test will always work
-	e := GobEntry{C: data}
-	_, hd, err := h.NewEntry(now, "evenNumbers", &e)
+	hash, err := h.Commit("evenNumbers", "2")
 	if err != nil {
 		panic(err)
 	}
-
-	hash := hd.EntryLink
-	Convey("it should have a put function", t, func() {
-		v, err := NewZygoNucleus(h, fmt.Sprintf(`(put "%s")`, hash.String()))
-		So(err, ShouldBeNil)
-		z := v.(*ZygoNucleus)
-		r, err := z.lastResult.(*zygo.SexpHash).HashGet(z.env, z.env.MakeSymbol("result"))
-		So(err, ShouldBeNil)
-		So(r.(*zygo.SexpStr).S, ShouldEqual, "ok")
-	})
 
 	Convey("it should have a get function", t, func() {
 		v, err := NewZygoNucleus(h, fmt.Sprintf(`(get "%s")`, hash.String()))
@@ -284,14 +269,15 @@ func TestZygoDHT(t *testing.T) {
 		So(r.(*zygo.SexpStr).S, ShouldEqual, `"2"`)
 	})
 
-	e = GobEntry{C: `{"firstName":"Zippy","lastName":"Pinhead"}`}
-	_, phd, _ := h.NewEntry(now, "profile", &e)
-	profileHash := phd.EntryLink
+	profileHash, err := h.Commit("profile", `{"firstName":"Zippy","lastName":"Pinhead"}`)
+	if err != nil {
+		panic(err)
+	}
 
-	Convey("it should attach links after commit of Links entry", t, func() {
-		_, err := h.Commit("rating", fmt.Sprintf(`{"Links":[{"Base":"%s","Link":"%s","Tag":"4stars"}]}`, hash.String(), profileHash.String()))
-		So(err, ShouldBeNil)
-	})
+	_, err = h.Commit("rating", fmt.Sprintf(`{"Links":[{"Base":"%s","Link":"%s","Tag":"4stars"}]}`, hash.String(), profileHash.String()))
+	if err != nil {
+		panic(err)
+	}
 
 	if err := h.dht.simHandlePutReqs(); err != nil {
 		panic(err)

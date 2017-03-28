@@ -23,10 +23,15 @@
                 "post": {
                     "Name": "post",
                     "DataFormat": "json",
+                    "Sharing": "public",
                     "Schema": "post.json",
                     "SchemaHash": {
                         "H": null
                     }
+                },
+                "relation": {
+                    "Name": "relation",
+                    "DataFormat": "links"
                 },
                 "follow": {
                     "Name": "follow",
@@ -39,6 +44,7 @@
                 "profile": {
                     "Name": "profile",
                     "DataFormat": "json",
+                    "Sharing": "public",
                     "Schema": "profile.json",
                     "SchemaHash": {
                         "H": null

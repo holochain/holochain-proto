@@ -14,7 +14,7 @@ function send(fn,data,resultFn) {
 };
 
 function getProfile() {
-    send("get",{what:"nick"},function(data) {
+    send("getData",{what:"nick"},function(data) {
         Clutter.nick = data;
         $("#nick").html(data);
         getPosts(data);
@@ -54,9 +54,9 @@ function makeUserHTML(user) {
 
 }
 function getPosts(by) {
-    send("get",{what:"posts",whom:by},function(arr) {
+    send("getData",{what:"posts",whom:by},function(arr) {
         for (var i = 0, len = arr.length; i < len; i++) {
-            var post = JSON.parse(arr[i].C);
+            var post = JSON.parse(arr[i]);
             post.nick = by;
             var id = cachePost(post);
             displayPosts();
@@ -66,9 +66,9 @@ function getPosts(by) {
 }
 
 function getUsers() {
-    send("get",{what:"users"},function(arr) {
+    send("getData",{what:"users"},function(arr) {
         for (var i = 0, len = arr.length; i < len; i++) {
-            var user = JSON.parse(arr[i].C);
+            var user = JSON.parse(arr[i]);
             // don't cache yourself!
             if (user.nick != Clutter.nick) {
                 cacheUser(user);
@@ -78,9 +78,9 @@ function getUsers() {
 }
 
 function getFollows(w) {
-    send("get",{what:"follows",whom:w},function(arr) {
+    send("getData",{what:"follows",whom:w},function(arr) {
         for (var i = 0, len = arr.length; i < len; i++) {
-            var follow = JSON.parse(arr[i].C);
+            var follow = JSON.parse(arr[i]);
             cacheFollow(follow);
         }
     });

@@ -232,7 +232,7 @@ func TestJSDHT(t *testing.T) {
 	}
 
 	Convey("it should have a get function", t, func() {
-		v, err := NewJSNucleus(h, fmt.Sprintf(`get ("%s");`, hash.String()))
+		v, err := NewJSNucleus(h, fmt.Sprintf(`get("%s");`, hash.String()))
 		So(err, ShouldBeNil)
 		z := v.(*JSNucleus)
 		So(z.lastResult.String(), ShouldEqual, "HolochainError: hash not found")
@@ -241,7 +241,7 @@ func TestJSDHT(t *testing.T) {
 			panic(err)
 		}
 
-		v, err = NewJSNucleus(h, fmt.Sprintf(`get ("%s");`, hash.String()))
+		v, err = NewJSNucleus(h, fmt.Sprintf(`get("%s");`, hash.String()))
 		So(err, ShouldBeNil)
 		z = v.(*JSNucleus)
 		x, err := z.lastResult.Export()

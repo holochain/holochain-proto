@@ -8,6 +8,7 @@ import (
 	"github.com/urfave/cli"
 	"os"
 	"os/user"
+	"sort"
 	"strings"
 	"time"
 )
@@ -26,7 +27,7 @@ func setupApp() (app *cli.App) {
 	app = cli.NewApp()
 	app.Name = "hc"
 	app.Usage = "holochain peer command line interface"
-	app.Version = "0.0.2"
+	app.Version = fmt.Sprintf("0.0.3 (holochain %s)", holo.VersionStr)
 
 	var force bool
 	var root string
@@ -425,7 +426,7 @@ func setupApp() (app *cli.App) {
 		}
 		holo.Initialize()
 		if verbose {
-			fmt.Printf("app version: %s; Holochain lib version %s\n", app.Version, holo.Version)
+			fmt.Printf("hc version %s \n", app.Version)
 		}
 		var err error
 		if root == "" {
@@ -494,9 +495,17 @@ func checkForName(c *cli.Context, cmd string) (name string, err error) {
 
 func listChains(s *holo.Service) {
 	chains, _ := s.ConfiguredChains()
-	if len(chains) > 0 {
-		fmt.Println("installed holochains: ")
+	l := len(chains)
+	if l > 0 {
+		keys := make([]string, l)
+		i := 0
 		for k := range chains {
+			keys[i] = k
+			i++
+		}
+		sort.Strings(keys)
+		fmt.Println("installed holochains: ")
+		for _, k := range keys {
 			id := chains[k].DNAHash()
 			var sid = "<not-started>"
 			if id.String() != "" {

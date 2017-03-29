@@ -28,8 +28,8 @@ import (
 	"time"
 )
 
-const Version int = 3
-const VersionStr string = "3"
+const Version int = 4
+const VersionStr string = "4"
 
 // Zome struct encapsulates logically related code, from "chromosome"
 type Zome struct {

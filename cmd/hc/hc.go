@@ -137,7 +137,16 @@ func setupApp() (app *cli.App) {
 				if err != nil {
 					return err
 				}
-				var errs = h.Test()
+
+				var path string
+				args := c.Args()
+				if len(args) == 3 {
+					path = h.TestPath() + "/" + args[1] + "/" + args[2]
+				} else if len(args) != 1 {
+					return errors.New("test: expected 0 args or 2 (scenario and role)")
+				}
+
+				var errs = h.Test(path)
 				var s string
 				for _, e := range errs {
 					s += e.Error()

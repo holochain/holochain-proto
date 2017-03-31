@@ -532,7 +532,7 @@ func TestTest(t *testing.T) {
 		h.config.Loggers.TestInfo.Enabled = false
 	}
 	Convey("it should fail if there's no test data", t, func() {
-		err := h.Test()
+		err := h.Test("")
 		So(err[0].Error(), ShouldEqual, "open "+h.rootPath+"/"+ChainTestDir+": no such file or directory")
 	})
 	cleanupTestDir(d)
@@ -545,18 +545,18 @@ func TestTest(t *testing.T) {
 		h.config.Loggers.TestInfo.Enabled = false
 	}
 	Convey("it should validate on test data", t, func() {
-		err := h.Test()
+		err := h.Test("")
 		So(err, ShouldBeNil)
 	})
 	Convey("it should reset the database state and thus run correctly twice", t, func() {
-		err := h.Test()
+		err := h.Test("")
 		So(err, ShouldBeNil)
 	})
 	Convey("it should fail the test on incorrect input types", t, func() {
 		os.Remove(d + "/.holochain/test/test/test_0.json")
 		err := writeFile(d+"/.holochain/test/test", "test_0.json", []byte(`[{"Zome":"zySampleZome","FnName":"addEven","Input":2,"Output":"%h%","Err":""}]`))
 		So(err, ShouldBeNil)
-		err = h.Test()[0]
+		err = h.Test("")[0]
 		So(err, ShouldNotBeNil)
 		So(err.Error(), ShouldEqual, "Input was not an expected type: float64")
 	})
@@ -564,12 +564,17 @@ func TestTest(t *testing.T) {
 		os.Remove(d + "/.holochain/test/test/test_0.json")
 		err := writeFile(d+"/.holochain/test/test", "test_0.json", []byte(`[{"Zome":"zySampleZome","FnName":"addEven","Input":"2","Output":"","Err":"bogus error"}]`))
 		So(err, ShouldBeNil)
-		err = h.Test()[0]
+		err = h.Test("")[0]
 		So(err, ShouldNotBeNil)
 		//So(err.Error(), ShouldEqual, "Test: test_0:0\n  Expected Error: bogus error\n  Got: nil\n")
 		So(err.Error(), ShouldEqual, "bogus error")
 	})
+	Convey("it should also work when specifying the path explicitly", t, func() {
+		err := h.Test("/foodir")
+		So(err, ShouldNotBeNil)
+		So(err[0].Error(), ShouldEqual, "open /foodir: no such file or directory")
 
+	})
 }
 
 func TestCommit(t *testing.T) {

@@ -422,6 +422,11 @@ func (h *Holochain) DNAPath() string {
 	return h.rootPath + "/" + ChainDNADir
 }
 
+// TestPath returns the path to a holochain's test directory
+func (h *Holochain) TestPath() string {
+	return h.rootPath + "/" + ChainTestDir
+}
+
 // DNAHash returns the hash of the DNA entry which is also the holochain ID
 func (h *Holochain) DNAHash() (id Hash) {
 	return h.dnaHash.Clone()
@@ -1315,10 +1320,10 @@ func (h *Holochain) TestStringReplacements(input, r1, r2, r3 string) string {
 	return output
 }
 
-// Test loops through each of the test files calling the functions specified
+// Test loops through each of the test files in path calling the functions specified
 // This function is useful only in the context of developing a holochain and will return
 // an error if the chain has already been started (i.e. has genesis entries)
-func (h *Holochain) Test() []error {
+func (h *Holochain) Test(path string) []error {
 	info := h.config.Loggers.TestInfo
 	passed := h.config.Loggers.TestPassed
 	failed := h.config.Loggers.TestFailed
@@ -1330,8 +1335,11 @@ func (h *Holochain) Test() []error {
 		return []error{err}
 	}
 
+	if path == "" {
+		path = h.rootPath + "/" + ChainTestDir
+	}
 	// load up the test files into the tests array
-	var tests, errorLoad = LoadTestData(h.rootPath + "/" + ChainTestDir)
+	var tests, errorLoad = LoadTestData(path)
 	if errorLoad != nil {
 		return []error{errorLoad}
 	}

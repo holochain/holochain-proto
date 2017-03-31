@@ -36,26 +36,25 @@ RUN addgroup holochain -g 868 \
 WORKDIR /work/golang/src/github.com/metacurrency/holochain
 
 # make our development files available to hc, on top of the cached image "so far" from above
-  ADD . /work/holochain 
+  ADD . /work/holochain
 
   # this rm line works well because it stops weird artifacts coming over from github.com/metacurrency/holochain::master
   RUN rm -rf /work/golang/src/github.com/metacurrency/holochain/* \
       && cp -pr /work/holochain/* /work/golang/src/github.com/metacurrency/holochain/ \
       && chown -R root:holochain /work \
-      && chmod 775 -R /work 
+      && chmod 775 -R /work
 
 # compile and test our development files
   RUN make; make bs
   RUN make test
 
+EXPOSE 3141
+
 # sort out dynamic user login
-  COPY        entrypoint.sh.addHostUserToContainer /usr/local/bin/entrypoint.sh.addHostUserToContainer
+  COPY        docker/entrypoint.sh.addHostUserToContainer /usr/local/bin/entrypoint.sh.addHostUserToContainer
   RUN         chmod +x /usr/local/bin/entrypoint.sh.addHostUserToContainer
   ENTRYPOINT  ["/usr/local/bin/entrypoint.sh.addHostUserToContainer"]
 
 
 #CMD ["su", "holochain", "-c", "source /etc/holochain.env_vars; make test" ]
 #CMD ["/bin/sh"]
-
-
-

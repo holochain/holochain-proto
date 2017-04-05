@@ -1254,14 +1254,27 @@ func (h *Holochain) makeNucleus(z *Zome) (n Nucleus, err error) {
 	return
 }
 
-func LoadTestData(path string) (map[string][]TestData, error) {
-	files, err := ioutil.ReadDir(path)
+// LoadTestFile unmarshals test json data
+func LoadTestFile(dir string, file string) (tests []TestData, err error) {
+	var v []byte
+	v, err = readFile(dir, file)
 	if err != nil {
 		return nil, err
 	}
 
-	if len(files) == 0 {
-		return nil, errors.New("no test data found in: " + path + "/test")
+	err = json.Unmarshal(v, &tests)
+
+	if err != nil {
+		return nil, err
+	}
+	return
+}
+
+// LoadTestFiles searches a path for .json test files and loads them into an array
+func LoadTestFiles(path string) (map[string][]TestData, error) {
+	files, err := ioutil.ReadDir(path)
+	if err != nil {
+		return nil, err
 	}
 
 	re := regexp.MustCompile(`(.*)\.json`)
@@ -1272,22 +1285,18 @@ func LoadTestData(path string) (map[string][]TestData, error) {
 			if len(x) > 0 {
 				name := x[1]
 
-				var v []byte
-				v, err = readFile(path, x[0])
+				tests[name], err = LoadTestFile(path, x[0])
 				if err != nil {
 					return nil, err
 				}
-				var t []TestData
-
-				err = json.Unmarshal(v, &t)
-
-				if err != nil {
-					return nil, err
-				}
-				tests[name] = t
 			}
 		}
 	}
+
+	if len(tests) == 0 {
+		return nil, errors.New("no test files found in: " + path)
+	}
+
 	return tests, err
 }
 
@@ -1322,13 +1331,106 @@ func (h *Holochain) TestStringReplacements(input, r1, r2, r3 string) string {
 	return output
 }
 
-// Test loops through each of the test files in path calling the functions specified
-// This function is useful only in the context of developing a holochain and will return
-// an error if the chain has already been started (i.e. has genesis entries)
-func (h *Holochain) Test(path string) []error {
+func (h *Holochain) DoTests(name string, tests []TestData) (errs []error) {
 	info := h.config.Loggers.TestInfo
 	passed := h.config.Loggers.TestPassed
 	failed := h.config.Loggers.TestFailed
+	var lastResults [3]interface{}
+	var err error
+	for i, t := range tests {
+		Debugf("------------------------------")
+		info.pf("Test '%s' line %d: %s", name, i, t)
+		time.Sleep(time.Millisecond * 10)
+		if err == nil {
+			testID := fmt.Sprintf("%s:%d", name, i)
+
+			var input string
+			switch inputType := t.Input.(type) {
+			case string:
+				input = t.Input.(string)
+			case map[string]interface{}:
+				inputByteArray, err := json.Marshal(t.Input)
+				if err == nil {
+					input = string(inputByteArray)
+				}
+			default:
+				err = fmt.Errorf("Input was not an expected type: %T", inputType)
+			}
+			if err == nil {
+				Debugf("Input before replacement: %s", input)
+				r1 := strings.Trim(fmt.Sprintf("%v", lastResults[0]), "\"")
+				r2 := strings.Trim(fmt.Sprintf("%v", lastResults[1]), "\"")
+				r3 := strings.Trim(fmt.Sprintf("%v", lastResults[2]), "\"")
+				input = h.TestStringReplacements(input, r1, r2, r3)
+				Debugf("Input after replacement: %s", input)
+				//====================
+				var actualResult, actualError = h.Call(t.Zome, t.FnName, input)
+				var expectedResult, expectedError = t.Output, t.Err
+				var expectedResultRegexp = t.Regexp
+				//====================
+				lastResults[2] = lastResults[1]
+				lastResults[1] = lastResults[0]
+				lastResults[0] = actualResult
+				if expectedError != "" {
+					comparisonString := fmt.Sprintf("\nTest: %s\n\tExpected error:\t%v\n\tGot error:\t\t%v", testID, expectedError, actualError)
+					if actualError == nil || (actualError.Error() != expectedError) {
+						failed.pf("\n=====================\n%s\n\tfailed! m(\n=====================", comparisonString)
+						err = fmt.Errorf(expectedError)
+					} else {
+						// all fine
+						Debugf("%s\n\tpassed :D", comparisonString)
+						err = nil
+					}
+				} else {
+					if actualError != nil {
+						errorString := fmt.Sprintf("\nTest: %s\n\tExpected:\t%s\n\tGot Error:\t\t%s\n", testID, expectedResult, actualError)
+						err = fmt.Errorf(errorString)
+						failed.pf(fmt.Sprintf("\n=====================\n%s\n\tfailed! m(\n=====================", errorString))
+					} else {
+						var resultString = ToString(actualResult)
+						var match bool
+						var comparisonString string
+						if expectedResultRegexp != "" {
+							Debugf("Test %s matching against regexp...", testID)
+							expectedResultRegexp = h.TestStringReplacements(expectedResultRegexp, r1, r2, r3)
+							comparisonString = fmt.Sprintf("\nTest: %s\n\tExpected regexp:\t%v\n\tGot:\t\t%v", testID, expectedResultRegexp, resultString)
+							var matchError error
+							match, matchError = regexp.MatchString(expectedResultRegexp, resultString)
+							//match, matchError = regexp.MatchString("[0-9]", "7")
+							if matchError != nil {
+								Infof(err.Error())
+							}
+						} else {
+							Debugf("Test %s matching against string...", testID)
+							expectedResult = h.TestStringReplacements(expectedResult, r1, r2, r3)
+							comparisonString = fmt.Sprintf("\nTest: %s\n\tExpected:\t%v\n\tGot:\t\t%v", testID, expectedResult, resultString)
+							match = (resultString == expectedResult)
+						}
+
+						if match {
+							Debugf("%s\n\tpassed! :D", comparisonString)
+							passed.p("passed! ✔")
+						} else {
+							err = fmt.Errorf(comparisonString)
+							failed.pf(fmt.Sprintf("\n=====================\n%s\n\tfailed! m(\n=====================", comparisonString))
+						}
+					}
+				}
+			}
+		}
+
+		if err != nil {
+			errs = append(errs, err)
+			err = nil
+		}
+	}
+	return
+}
+
+// Test loops through each of the test files in path calling the functions specified
+// This function is useful only in the context of developing a holochain and will return
+// an error if the chain has already been started (i.e. has genesis entries)
+func (h *Holochain) Test() []error {
 
 	var err error
 	var errs []error
@@ -1337,22 +1439,27 @@ func (h *Holochain) Test(path string) []error {
 		return []error{err}
 	}
 
-	if path == "" {
-		path = h.rootPath + "/" + ChainTestDir
-	}
+	path := h.rootPath + "/" + ChainTestDir
+
 	// load up the test files into the tests array
-	var tests, errorLoad = LoadTestData(path)
+	var tests, errorLoad = LoadTestFiles(path)
 	if errorLoad != nil {
 		return []error{errorLoad}
 	}
+	info := h.config.Loggers.TestInfo
+	passed := h.config.Loggers.TestPassed
+	failed := h.config.Loggers.TestFailed
 
-	var lastResults [3]interface{}
 	for name, ts := range tests {
+
 		info.p("========================================")
 		info.pf("Test: '%s' starting...", name)
 		info.p("========================================")
 		// setup the genesis entries
 		err = h.Reset()
+		if err != nil {
+			panic("reset err")
+		}
 		_, err = h.GenChain()
 		if err != nil {
 			panic("gen err " + err.Error())
@@ -1362,93 +1469,10 @@ func (h *Holochain) Test(path string) []error {
 			panic("activate err " + err.Error())
 		}
 		go h.dht.HandlePutReqs()
-		for i, t := range ts {
-			Debugf("------------------------------")
-			info.pf("Test '%s' line %d: %s", name, i, t)
-			time.Sleep(time.Millisecond * 10)
-			if err == nil {
-				testID := fmt.Sprintf("%s:%d", name, i)
+		ers := h.DoTests(name, ts)
 
-				var input string
-				switch inputType := t.Input.(type) {
-				case string:
-					input = t.Input.(string)
-				case map[string]interface{}:
-					inputByteArray, err := json.Marshal(t.Input)
-					if err == nil {
-						input = string(inputByteArray)
-					}
-				default:
-					err = fmt.Errorf("Input was not an expected type: %T", inputType)
-				}
-				if err == nil {
-					Debugf("Input before replacement: %s", input)
-					r1 := strings.Trim(fmt.Sprintf("%v", lastResults[0]), "\"")
-					r2 := strings.Trim(fmt.Sprintf("%v", lastResults[1]), "\"")
-					r3 := strings.Trim(fmt.Sprintf("%v", lastResults[2]), "\"")
-					input = h.TestStringReplacements(input, r1, r2, r3)
-					Debugf("Input after replacement: %s", input)
-					//====================
-					var actualResult, actualError = h.Call(t.Zome, t.FnName, input)
-					var expectedResult, expectedError = t.Output, t.Err
-					var expectedResultRegexp = t.Regexp
-					//====================
-					lastResults[2] = lastResults[1]
-					lastResults[1] = lastResults[0]
-					lastResults[0] = actualResult
-					if expectedError != "" {
-						comparisonString := fmt.Sprintf("\nTest: %s\n\tExpected error:\t%v\n\tGot error:\t\t%v", testID, expectedError, actualError)
-						if actualError == nil || (actualError.Error() != expectedError) {
-							failed.pf("\n=====================\n%s\n\tfailed! m(\n=====================", comparisonString)
-							err = fmt.Errorf(expectedError)
-						} else {
-							// all fine
-							Debugf("%s\n\tpassed :D", comparisonString)
-							err = nil
-						}
-					} else {
-						if actualError != nil {
-							errorString := fmt.Sprintf("\nTest: %s\n\tExpected:\t%s\n\tGot Error:\t\t%s\n", testID, expectedResult, actualError)
-							err = fmt.Errorf(errorString)
-							failed.pf(fmt.Sprintf("\n=====================\n%s\n\tfailed! m(\n=====================", errorString))
-						} else {
-							var resultString = ToString(actualResult)
-							var match bool
-							var comparisonString string
-							if expectedResultRegexp != "" {
-								Debugf("Test %s matching against regexp...", testID)
-								expectedResultRegexp = h.TestStringReplacements(expectedResultRegexp, r1, r2, r3)
-								comparisonString = fmt.Sprintf("\nTest: %s\n\tExpected regexp:\t%v\n\tGot:\t\t%v", testID, expectedResultRegexp, resultString)
-								var matchError error
-								match, matchError = regexp.MatchString(expectedResultRegexp, resultString)
-								//match, matchError = regexp.MatchString("[0-9]", "7")
-								if matchError != nil {
-									Infof(err.Error())
-								}
-							} else {
-								Debugf("Test %s matching against string...", testID)
-								expectedResult = h.TestStringReplacements(expectedResult, r1, r2, r3)
-								comparisonString = fmt.Sprintf("\nTest: %s\n\tExpected:\t%v\n\tGot:\t\t%v", testID, expectedResult, resultString)
-								match = (resultString == expectedResult)
-							}
+		errs = append(errs, ers...)
 
-							if match {
-								Debugf("%s\n\tpassed! :D", comparisonString)
-								passed.p("passed! ✔")
-							} else {
-								err = fmt.Errorf(comparisonString)
-								failed.pf(fmt.Sprintf("\n=====================\n%s\n\tfailed! m(\n=====================", comparisonString))
-							}
-						}
-					}
-				}
-			}
-
-			if err != nil {
-				errs = append(errs, err)
-				err = nil
-			}
-		}
 		// restore the state for the next test file
 		e := h.Reset()
 		if e != nil {

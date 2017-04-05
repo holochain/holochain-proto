@@ -138,15 +138,23 @@ func setupApp() (app *cli.App) {
 					return err
 				}
 
-				var path string
 				args := c.Args()
+				var errs []error
+
 				if len(args) == 3 {
-					path = h.TestPath() + "/" + args[1] + "/" + args[2]
+					dir := h.TestPath() + "/" + args[1]
+					role := args[2]
+					tests, err := holo.LoadTestFile(dir, role+".json")
+					if err != nil {
+						return err
+					}
+					errs = h.DoTests(role, tests)
 				} else if len(args) != 1 {
 					return errors.New("test: expected 0 args or 2 (scenario and role)")
+				} else {
+					errs = h.Test()
 				}
 
-				var errs = h.Test(path)
 				var s string
 				for _, e := range errs {
 					s += e.Error()

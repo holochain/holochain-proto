@@ -20,7 +20,7 @@ type ValidateQuery struct {
 
 // ValidateResponse holds the response to a ValidateQuery
 type ValidateResponse struct {
-	Entry  Entry
+	Entry  GobEntry
 	Header Header
 	Type   string
 }
@@ -39,20 +39,22 @@ func ValidateReceiver(h *Holochain, m *Message) (response interface{}, err error
 		switch t := m.Body.(type) {
 		case ValidateQuery:
 			var r ValidateResponse
-			r.Entry, r.Type, err = h.chain.GetEntry(t.H)
+			var entry Entry
+			entry, r.Type, err = h.chain.GetEntry(t.H)
 			if err != nil {
 				return
 			}
+			r.Entry = *(entry.(*GobEntry))
 			var hd *Header
 			hd, err = h.chain.GetEntryHeader(t.H)
 			if err != nil {
 				return
 			}
 			r.Header = *hd
-			response = &r
+			response = r
 			h.dht.dlog.Logf("responding with: %v (err=%v)", r, err)
 		default:
-			err = errors.New("expected ValidateQuery")
+			err = fmt.Errorf("expected ValidateQuery got %T", t)
 		}
 	case VALIDATELINK_REQUEST:
 		h.dht.dlog.Logf("got validatelink: %v", m)
@@ -78,11 +80,11 @@ func ValidateReceiver(h *Holochain, m *Message) (response interface{}, err error
 					}
 				}
 			}
-			response = &r
+			response = r
 			h.dht.dlog.Logf("responding with: %v (err=%v)", r, err)
 
 		default:
-			err = errors.New("expected ValidateQuery")
+			err = fmt.Errorf("expected ValidateQuery got %T", t)
 		}
 	default:
 		err = fmt.Errorf("message type %d not in holochain-validate protocol", int(m.Type))

@@ -115,7 +115,9 @@ func Initialize() {
 	gob.Register(LinkQuery{})
 	gob.Register(GossipReq{})
 	gob.Register(Gossip{})
+	gob.Register(ValidateQuery{})
 	gob.Register(ValidateResponse{})
+	gob.Register(ValidateLinkResponse{})
 	gob.Register(Put{})
 	gob.Register(GobEntry{})
 	gob.Register(LinkQueryResp{})
@@ -1514,14 +1516,17 @@ func (h *Holochain) Send(proto Protocol, to peer.ID, t MsgType, body interface{}
 	if err != nil {
 		return
 	}
-	Debugf("Sending message:%v", message)
 	// if we are sending to ourselves we should bypass the network mechanics and call
 	// the receiver directly
 	if to == h.node.HashAddr {
+		Debugf("Sending message local:%v", message)
 		response, err = proto.Receiver(h, message)
 	} else {
+		Debugf("Sending message net:%v", message)
 		var r Message
 		r, err = h.node.Send(proto, to, message)
+		Debugf("send result: %v error:%v", r, err)
+
 		if err != nil {
 			return
 		}

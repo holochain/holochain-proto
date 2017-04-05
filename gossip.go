@@ -71,6 +71,16 @@ func incIdx(tx *buntdb.Tx, m *Message) (index string, err error) {
 	if err != nil {
 		return
 	}
+
+	f, err := m.Fingerprint()
+	if err != nil {
+		return
+	}
+	_, _, err = tx.Set("f:"+f.String(), "", nil)
+	if err != nil {
+		return
+	}
+
 	return
 }
 
@@ -99,6 +109,23 @@ func (dht *DHT) GetIdx() (idx int, err error) {
 		if e != nil {
 			return e
 		}
+		return nil
+	})
+	return
+}
+
+//HaveFingerprint return true if we have seen the given fingerprint
+func (dht *DHT) HaveFingerprint(f Hash) (result bool, err error) {
+	err = dht.db.View(func(tx *buntdb.Tx) error {
+		var e error
+		_, e = tx.Get("f:" + f.String())
+		if e == buntdb.ErrNotFound {
+			return nil
+		}
+		if e != nil {
+			return e
+		}
+		result = true
 		return nil
 	})
 	return
@@ -207,7 +234,7 @@ func GossipReceiver(h *Holochain, m *Message) (response interface{}, err error) 
 			// that where they are currently at, gossip back
 			idx, e := h.dht.GetGossiper(m.From)
 			if e == nil && idx < t.MyIdx {
-				dht.glog.Logf("we only have %d from %v so gossiping back", idx, m.From)
+				dht.glog.Logf("we only have %d of %d from %v so gossiping back", idx, t.MyIdx, m.From)
 				go func() {
 					e := h.dht.gossipWith(m.From, idx)
 					if e != nil {
@@ -245,11 +272,19 @@ func (dht *DHT) gossipWith(id peer.ID, after int) (err error) {
 
 	// gossiper has more stuff that we new about before so update the gossipers status
 	// and also run their puts
-	if len(puts) > 0 {
-		err = dht.UpdateGossiper(id, len(puts))
+	count := len(puts)
+	if count > 0 {
+		err = dht.UpdateGossiper(id, count)
+		dht.glog.Logf("running %d puts", count)
 		for _, p := range puts {
-			dht.glog.Log("running puts")
-			DHTReceiver(dht.h, &p.M)
+			f, e := p.M.Fingerprint()
+			if e == nil {
+				exists, e := dht.HaveFingerprint(f)
+				if !exists && e == nil {
+					r, e := DHTReceiver(dht.h, &p.M)
+					dht.glog.Logf("DHTReceiver for fingerprint %v returned %v with err %v", f, r, e)
+				}
+			}
 		}
 	}
 	return

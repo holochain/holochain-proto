@@ -317,7 +317,7 @@ func TestHandlePutReqs(t *testing.T) {
 	}
 
 	m := h.node.NewMessage(PUT_REQUEST, PutReq{H: hd.EntryLink})
-	h.dht.puts <- m
+	h.dht.puts <- *m
 
 	Convey("handle put request should pull data from source and verify it", t, func() {
 		err := h.dht.simHandlePutReqs()
@@ -333,6 +333,6 @@ func TestHandlePutReqs(t *testing.T) {
 
 func (dht *DHT) simHandlePutReqs() (err error) {
 	m := <-dht.puts
-	err = dht.handlePutReq(m)
+	err = dht.handlePutReq(&m)
 	return
 }

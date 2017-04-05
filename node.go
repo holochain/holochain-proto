@@ -11,6 +11,7 @@ import (
 	//	host "github.com/libp2p/go-libp2p-host"
 	"encoding/gob"
 	"errors"
+	"fmt"
 	ic "github.com/libp2p/go-libp2p-crypto"
 	net "github.com/libp2p/go-libp2p-net"
 	peer "github.com/libp2p/go-libp2p-peer"
@@ -20,6 +21,7 @@ import (
 	bhost "github.com/libp2p/go-libp2p/p2p/host/basic"
 	rhost "github.com/libp2p/go-libp2p/p2p/host/routed"
 	ma "github.com/multiformats/go-multiaddr"
+	mh "github.com/multiformats/go-multihash"
 	"io"
 	"time"
 )
@@ -139,6 +141,22 @@ func (m *Message) Encode() (data []byte, err error) {
 func (m *Message) Decode(r io.Reader) (err error) {
 	dec := gob.NewDecoder(r)
 	err = dec.Decode(m)
+	return
+}
+
+// Fingerprint creates a hash of a message
+func (m *Message) Fingerprint() (f Hash, err error) {
+	var data []byte
+	if m != nil {
+		// @todo, this probably won't work for every message.
+		// also we can't really use Encode either because it seems to not
+		// produce the same binary for every message.
+		data = []byte(fmt.Sprintf("%v", m))
+		f.H, err = mh.Sum(data, mh.SHA2_256, -1)
+	} else {
+		f = NullHash()
+	}
+
 	return
 }
 

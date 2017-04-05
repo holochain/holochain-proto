@@ -150,7 +150,7 @@ func TestMessageCoding(t *testing.T) {
 	}
 	defer node.Close()
 
-	m := node.NewMessage(PUT_REQUEST, "fish")
+	m := node.NewMessage(PUT_REQUEST, "foo")
 	var d []byte
 	Convey("It should encode and decode messages", t, func() {
 		d, err = m.Encode()
@@ -162,7 +162,34 @@ func TestMessageCoding(t *testing.T) {
 		So(err, ShouldBeNil)
 
 		So(fmt.Sprintf("%v", m), ShouldEqual, fmt.Sprintf("%v", &m2))
+	})
+}
 
+func TestFingerprintMessage(t *testing.T) {
+	Convey("it should create a unique fingerprint for messages", t, func() {
+		var id peer.ID
+		var mp *Message
+		f, err := mp.Fingerprint()
+		So(err, ShouldBeNil)
+		So(f.String(), ShouldEqual, NullHash().String())
+		now := time.Unix(1, 1) // pick a constant time so the test will always work
+		m := Message{Type: PUT_REQUEST, Time: now, Body: "foo", From: id}
+		f, err = m.Fingerprint()
+		So(err, ShouldBeNil)
+		So(f.String(), ShouldEqual, "QmTYJLuyd4hKfdmPDzfnKpRdUcpNDHkMZSoqrAfQHeS1DJ")
+		m = Message{Type: PUT_REQUEST, Time: now, Body: "foo1", From: id}
+		f, err = m.Fingerprint()
+		So(err, ShouldBeNil)
+		So(f.String(), ShouldEqual, "QmTkQyUV73MpgkLAQkdsjSfZxHpWDv6K2aeegpYSrKco82")
+		now = time.Unix(1, 2) // pick a constant time so the test will always work
+		m = Message{Type: PUT_REQUEST, Time: now, Body: "foo", From: id}
+		f, err = m.Fingerprint()
+		So(err, ShouldBeNil)
+		So(f.String(), ShouldEqual, "QmXJuwiHzRR86cC84QWoeCXnrvi15A2Ts9WnPQJyhKCt7N")
+		m = Message{Type: GET_REQUEST, Time: now, Body: "foo", From: id}
+		f, err = m.Fingerprint()
+		So(err, ShouldBeNil)
+		So(f.String(), ShouldEqual, "QmT2fro64o3RB9G7mLf65f4N69awwTd68W7Z1wowBksPXD")
 	})
 }
 

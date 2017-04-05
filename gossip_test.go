@@ -66,6 +66,12 @@ func TestGossipData(t *testing.T) {
 	_, hd, _ := h.NewEntry(now, "evenNumbers", &e)
 	hash := hd.EntryLink
 	m1 := h.node.NewMessage(PUT_REQUEST, PutReq{H: hash})
+
+	Convey("fingerprints for messages should not exist", t, func() {
+		f, _ := m1.Fingerprint()
+		r, _ := dht.HaveFingerprint(f)
+		So(r, ShouldBeFalse)
+	})
 	DHTReceiver(h, m1)
 	dht.simHandlePutReqs()
 
@@ -81,6 +87,15 @@ func TestGossipData(t *testing.T) {
 	m2 := h.node.NewMessage(LINK_REQUEST, lr)
 	DHTReceiver(h, m2)
 	h.dht.simHandlePutReqs()
+
+	Convey("fingerprints for messages should exist", t, func() {
+		f, _ := m1.Fingerprint()
+		r, _ := dht.HaveFingerprint(f)
+		So(r, ShouldBeTrue)
+		f, _ = m1.Fingerprint()
+		r, _ = dht.HaveFingerprint(f)
+		So(r, ShouldBeTrue)
+	})
 
 	Convey("Idx should be 5 after puts", t, func() {
 		var idx int

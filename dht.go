@@ -24,7 +24,7 @@ var ErrDHTExpectedLinkQueryInBody = errors.New("expected link query")
 type DHT struct {
 	h         *Holochain // pointer to the holochain this DHT is part of
 	db        *buntdb.DB
-	puts      chan *Message
+	puts      chan Message
 	gossiping bool
 	glog      Logger // the gossip logger
 	dlog      Logger // the dht logger
@@ -104,7 +104,7 @@ func NewDHT(h *Holochain) *DHT {
 	db.CreateIndex("peer", "peer:*", buntdb.IndexString)
 
 	dht.db = db
-	dht.puts = make(chan *Message, 10)
+	dht.puts = make(chan Message, 10)
 
 	dht.glog = h.config.Loggers.Gossip
 	dht.dlog = h.config.Loggers.DHT
@@ -368,9 +368,11 @@ func (dht *DHT) HandlePutReqs() (err error) {
 		dht.dlog.Log("HandlePutReq: waiting for put request")
 		m, ok := <-dht.puts
 		if !ok {
+			dht.dlog.Log("HandlePutReq: channel closed, breaking")
 			break
 		}
-		err = dht.handlePutReq(m)
+
+		err = dht.handlePutReq(&m)
 		if err != nil {
 			dht.dlog.Logf("HandlePutReq: got err: %v", err)
 		}
@@ -389,8 +391,8 @@ func (dht *DHT) handlePutReq(m *Message) (err error) {
 			return
 		}
 		switch resp := r.(type) {
-		case *ValidateResponse:
-			err = dht.h.ValidatePut(resp.Type, resp.Entry, &resp.Header, []peer.ID{from})
+		case ValidateResponse:
+			err = dht.h.ValidatePut(resp.Type, &resp.Entry, &resp.Header, []peer.ID{from})
 			if err != nil {
 				//@todo store as INVALID
 			} else {
@@ -401,8 +403,7 @@ func (dht *DHT) handlePutReq(m *Message) (err error) {
 				}
 			}
 		default:
-			err = errors.New("expected ValidateResponse from validator")
-
+			err = fmt.Errorf("expected ValidateResponse from validator got %T", r)
 		}
 	case LinkReq:
 		dht.dlog.Logf("handling link: %v", m)
@@ -426,7 +427,7 @@ func (dht *DHT) handlePutReq(m *Message) (err error) {
 			return
 		}
 		switch resp := r.(type) {
-		case *ValidateLinkResponse:
+		case ValidateLinkResponse:
 			base := t.Base.String()
 			for _, l := range resp.Links {
 				if base == l.Base {
@@ -439,7 +440,7 @@ func (dht *DHT) handlePutReq(m *Message) (err error) {
 				}
 			}
 		default:
-			err = errors.New("expected ValidateLinkResponse from validator")
+			err = fmt.Errorf("expected ValidateLinkResponse from validator got %T", r)
 		}
 	default:
 		err = errors.New("unexpected body type in handlePutReq")
@@ -455,7 +456,7 @@ func DHTReceiver(h *Holochain, m *Message) (response interface{}, err error) {
 		dht.dlog.Logf("DHTReceiver got PUT_REQUEST: %v", m)
 		switch m.Body.(type) {
 		case PutReq:
-			h.dht.puts <- m
+			h.dht.puts <- *m
 			response = "queued"
 		default:
 			err = ErrDHTExpectedPutReqInBody
@@ -485,7 +486,7 @@ func DHTReceiver(h *Holochain, m *Message) (response interface{}, err error) {
 		case LinkReq:
 			err = h.dht.exists(t.Base)
 			if err == nil {
-				h.dht.puts <- m
+				h.dht.puts <- *m
 				response = "queued"
 			} else {
 				dht.dlog.Logf("DHTReceiver key %v doesn't exist, ignoring", t.Base)

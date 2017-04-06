@@ -13,8 +13,8 @@
     "BasedOn": {
         "H": null
     },
-    "Zomes": {
-        "chat": {
+    "Zomes": [
+        {
           "Name": "chat",
           "Description": "chat code",
           "NucleusType": "js",
@@ -23,7 +23,7 @@
               "H": null
           }
         },
-        "rooms": {
+        {
           "Name": "rooms",
           "Description": "Rooms controller",
           "NucleusType": "js",
@@ -31,8 +31,8 @@
           "CodeHash": {
               "H": null
           },
-          "Entries": {
-            "room": {
+          "Entries": [
+             {
               "Name": "room",
               "DataFormat": "json",
               "Schema": "room.json",
@@ -40,9 +40,9 @@
                   "H": null
               }
             }
-          }
+          ]
         },
-        "messages": {
+        {
           "Name": "messages",
           "Description": "Messages controller",
           "NucleusType": "js",
@@ -50,8 +50,8 @@
           "CodeHash": {
               "H": null
           },
-          "Entries": {
-            "message": {
+          "Entries": [
+            {
               "Name": "message",
               "DataFormat": "json",
               "Schema": "message.json",
@@ -59,9 +59,9 @@
                   "H": null
               }
             }
-          }
+          ]
         },
-        "profiles": {
+        {
           "Name": "profiles",
           "Description": "Profiles controller",
           "NucleusType": "js",
@@ -69,8 +69,8 @@
           "CodeHash": {
               "H": null
           },
-          "Entries": {
-            "profile": {
+          "Entries": [
+             {
               "Name": "profile",
               "DataFormat": "json",
               "Schema": "profile.json",
@@ -78,7 +78,7 @@
                   "H": null
               }
             }
-          }
+          ]
         }
-    }
+    ]
 }

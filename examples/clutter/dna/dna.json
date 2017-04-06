@@ -12,16 +12,16 @@
     "BasedOn": {
         "H": null
     },
-    "Zomes": {
-        "clutter": {
+    "Zomes": [
+        {
             "Name": "clutter",
             "Description": "zome that implements micro-blogging",
             "Code": "clutter.js",
             "CodeHash": {
                 "H": null
             },
-            "Entries": {
-                "post": {
+            "Entries": [
+                {
                     "Name": "post",
                     "DataFormat": "json",
                     "Sharing": "public",
@@ -30,11 +30,11 @@
                         "H": null
                     }
                 },
-                "relation": {
+                {
                     "Name": "relation",
                     "DataFormat": "links"
                 },
-                "follow": {
+                 {
                     "Name": "follow",
                     "DataFormat": "json",
                     "Schema": "follow.json",
@@ -42,7 +42,7 @@
                         "H": null
                     }
                 },
-                "profile": {
+                 {
                     "Name": "profile",
                     "DataFormat": "json",
                     "Sharing": "public",
@@ -51,7 +51,7 @@
                         "H": null
                     }
                 }
-            },
+            ],
             "Functions": [
                 {
                     "Name": "addPost",
@@ -68,5 +68,5 @@
             ],
             "NucleusType": "js"
         }
-    }
+    ]
 }

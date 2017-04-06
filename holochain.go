@@ -37,7 +37,7 @@ type Zome struct {
 	Description string
 	Code        string // file name of DNA code
 	CodeHash    Hash
-	Entries     map[string]EntryDef
+	Entries     []EntryDef
 	NucleusType string
 	Functions   []FunctionDef
 
@@ -73,7 +73,7 @@ type Holochain struct {
 	PropertiesSchema string
 	HashType         string
 	BasedOn          Hash // holochain hash for base schemas and code
-	Zomes            map[string]*Zome
+	Zomes            []Zome
 	RequiresVersion  int
 	//---- private values not serialized; initialized on Load
 	id             peer.ID // this is hash of the id, also used in the node
@@ -226,11 +226,7 @@ func NewHolochain(agent Agent, root string, format string, zomes ...Zome) Holoch
 	}
 
 	h.PrepareHashType()
-	h.Zomes = make(map[string]*Zome)
-	for i := range zomes {
-		z := zomes[i]
-		h.Zomes[z.Name] = &z
-	}
+	h.Zomes = zomes
 
 	return h
 }
@@ -358,12 +354,12 @@ func (h *Holochain) Prepare() (err error) {
 		return
 	}
 	for _, z := range h.Zomes {
-		zpath := h.ZomePath(z)
+		zpath := h.ZomePath(&z)
 		if !fileExists(zpath + "/" + z.Code) {
+			fmt.Printf("%v", z)
 			return errors.New("DNA specified code file missing: " + z.Code)
 		}
-		for k := range z.Entries {
-			e := z.Entries[k]
+		for i, e := range z.Entries {
 			sc := e.Schema
 			if sc != "" {
 				if !fileExists(zpath + "/" + sc) {
@@ -373,7 +369,7 @@ func (h *Holochain) Prepare() (err error) {
 					if err = e.BuildJSONSchemaValidator(zpath); err != nil {
 						return err
 					}
-					z.Entries[k] = e
+					z.Entries[i] = e
 				}
 			}
 		}
@@ -518,13 +514,13 @@ func (h *Holochain) GenChain() (headerHash Hash, err error) {
 	}
 
 	// run the init functions of each zome
-	for zomeName, z := range h.Zomes {
+	for _, z := range h.Zomes {
 		var n Nucleus
-		n, err = h.makeNucleus(z)
+		n, err = h.makeNucleus(&z)
 		if err == nil {
 			err = n.ChainGenesis()
 			if err != nil {
-				err = fmt.Errorf("In '%s' zome: %s", zomeName, err.Error())
+				err = fmt.Errorf("In '%s' zome: %s", z.Name, err.Error())
 				return
 			}
 		}
@@ -619,15 +615,14 @@ func (s *Service) Clone(srcPath string, root string, new bool) (hP *Holochain, e
 			if err != nil {
 				return
 			}
-			zpath := h.ZomePath(z)
+			zpath := h.ZomePath(&z)
 			if err = os.MkdirAll(zpath, os.ModePerm); err != nil {
 				return nil, err
 			}
 			if err = writeFile(zpath, z.Code, bs); err != nil {
 				return
 			}
-			for k := range z.Entries {
-				e := z.Entries[k]
+			for _, e := range z.Entries {
 				sc := e.Schema
 				if sc != "" {
 					if err = CopyFile(srczpath+"/"+sc, zpath+"/"+sc); err != nil {
@@ -716,13 +711,15 @@ func (s *Service) GenDev(root string, format string) (hP *Holochain, err error) 
 		}
 
 		zomes := []Zome{
-			{Name: "zySampleZome",
+			{
+				Name:        "zySampleZome",
+				Code:        "zySampleZome.zy",
 				Description: "this is a zygomas test zome",
 				NucleusType: ZygoNucleusType,
-				Entries: map[string]EntryDef{
-					"evenNumbers": {Name: "evenNumbers", DataFormat: DataFormatRawZygo, Sharing: Public},
-					"primes":      {Name: "primes", DataFormat: DataFormatJSON, Sharing: Public},
-					"profile":     {Name: "profile", DataFormat: DataFormatJSON, Schema: "profile.json"},
+				Entries: []EntryDef{
+					{Name: "evenNumbers", DataFormat: DataFormatRawZygo, Sharing: Public},
+					{Name: "primes", DataFormat: DataFormatJSON, Sharing: Public},
+					{Name: "profile", DataFormat: DataFormatJSON, Schema: "profile.json"},
 				},
 				Functions: []FunctionDef{
 					{Name: "getDNA", CallingType: STRING_CALLING},
@@ -734,13 +731,15 @@ func (s *Service) GenDev(root string, format string) (hP *Holochain, err error) 
 					{Name: "testJsonFn2", CallingType: JSON_CALLING},
 				},
 			},
-			{Name: "jsSampleZome",
+			{
+				Name:        "jsSampleZome",
+				Code:        "jsSampleZome.js",
 				Description: "this is a javascript test zome",
 				NucleusType: JSNucleusType,
-				Entries: map[string]EntryDef{
-					"oddNumbers": {Name: "oddNumbers", DataFormat: DataFormatRawJS, Sharing: Public},
-					"profile":    {Name: "profile", DataFormat: DataFormatJSON, Schema: "profile.json"},
-					"rating":     {Name: "rating", DataFormat: DataFormatLinks},
+				Entries: []EntryDef{
+					{Name: "oddNumbers", DataFormat: DataFormatRawJS, Sharing: Public},
+					{Name: "profile", DataFormat: DataFormatJSON, Schema: "profile.json"},
+					{Name: "rating", DataFormat: DataFormatLinks},
 				},
 				Functions: []FunctionDef{
 					{Name: "getProperty", CallingType: STRING_CALLING},
@@ -919,23 +918,12 @@ function genesis() {return true}
 			return nil, err
 		}
 
-		for n := range h.Zomes {
-			z, _ := h.Zomes[n]
+		for _, z := range h.Zomes {
 
-			zpath := h.ZomePath(z)
+			zpath := h.ZomePath(&z)
 
 			if err = os.MkdirAll(zpath, os.ModePerm); err != nil {
 				return nil, err
-			}
-
-			switch z.NucleusType {
-			case JSNucleusType:
-				z.Code = fmt.Sprintf("%s.js", z.Name)
-			case ZygoNucleusType:
-				z.Code = fmt.Sprintf("%s.zy", z.Name)
-			default:
-				err = fmt.Errorf("unknown nucleus type:%s", z.NucleusType)
-				return
 			}
 
 			c, _ := code[z.Name]
@@ -1046,7 +1034,7 @@ func (h *Holochain) GenDNAHashes() (err error) {
 	var b []byte
 	for _, z := range h.Zomes {
 		code := z.Code
-		zpath := h.ZomePath(z)
+		zpath := h.ZomePath(&z)
 		b, err = readFile(zpath, code)
 		if err != nil {
 			return
@@ -1138,15 +1126,11 @@ func (h *Holochain) Validate(entriesToo bool) (valid bool, err error) {
 // @TODO this makes the incorrect assumption that entry type strings are unique across zomes
 func (h *Holochain) GetEntryDef(t string) (zome *Zome, d *EntryDef, err error) {
 	for _, z := range h.Zomes {
-		e, ok := z.Entries[t]
-		if ok {
-			zome = z
-			d = &e
-			break
+		d, err = z.GetEntryDef(t)
+		if err == nil {
+			zome = &z
+			return
 		}
-	}
-	if d == nil {
-		err = errors.New("no definition for entry type: " + t)
 	}
 	return
 }
@@ -1527,11 +1511,30 @@ func (h *Holochain) GetProperty(prop string) (property string, err error) {
 }
 
 // GetZome returns a zome structure given its name
-func (h *Holochain) GetZome(zome string) (z *Zome, err error) {
-	z, ok := h.Zomes[zome]
-	if !ok {
-		err = errors.New("unknown zome: " + zome)
+func (h *Holochain) GetZome(zName string) (z *Zome, err error) {
+	for _, zome := range h.Zomes {
+		if zome.Name == zName {
+			z = &zome
+			break
+		}
+	}
+	if z == nil {
+		err = errors.New("unknown zome: " + zName)
 		return
+	}
+	return
+}
+
+// GetEntryDef returns the entry def structure
+func (z *Zome) GetEntryDef(entryName string) (e *EntryDef, err error) {
+	for _, def := range z.Entries {
+		if def.Name == entryName {
+			e = &def
+			break
+		}
+	}
+	if e == nil {
+		err = errors.New("no definition for entry type: " + entryName)
 	}
 	return
 }

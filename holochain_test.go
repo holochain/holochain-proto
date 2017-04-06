@@ -35,18 +35,18 @@ func TestNewHolochain(t *testing.T) {
 		z := Zome{Name: "zySampleZome",
 			Description: "zome desc",
 			Code:        "zome_zySampleZome.zy",
-			Entries: map[string]EntryDef{
-				"entryTypeFoo": {Name: "entryTypeFoo", DataFormat: DataFormatString},
-				"entryTypeBar": {Name: "entryTypeBar", DataFormat: DataFormatRawZygo},
+			Entries: []EntryDef{
+				{Name: "entryTypeFoo", DataFormat: DataFormatString},
+				{Name: "entryTypeBar", DataFormat: DataFormatRawZygo},
 			},
 		}
 
 		h := NewHolochain(a, "some/path", "yaml", z)
-		nz := h.Zomes["zySampleZome"]
+		nz, _ := h.GetZome("zySampleZome")
 		So(nz.Description, ShouldEqual, "zome desc")
 		So(nz.Code, ShouldEqual, "zome_zySampleZome.zy")
-		So(fmt.Sprintf("%v", nz.Entries["entryTypeFoo"]), ShouldEqual, "{entryTypeFoo string    <nil>}")
-		So(fmt.Sprintf("%v", nz.Entries["entryTypeBar"]), ShouldEqual, "{entryTypeBar zygo    <nil>}")
+		So(fmt.Sprintf("%v", nz.Entries[0]), ShouldEqual, "{entryTypeFoo string    <nil>}")
+		So(fmt.Sprintf("%v", nz.Entries[1]), ShouldEqual, "{entryTypeBar zygo    <nil>}")
 	})
 
 }
@@ -321,12 +321,14 @@ func TestGenChain(t *testing.T) {
 		var h2 Holochain
 		_, err = toml.DecodeFile(h.DNAPath()+"/"+DNAFileName+".toml", &h2)
 		So(err, ShouldBeNil)
-		So(h2.Zomes["zySampleZome"].CodeHash.String(), ShouldEqual, h.Zomes["zySampleZome"].CodeHash.String())
+		z2, _ := h2.GetZome("zySampleZome")
+		z1, _ := h.GetZome("zySampleZome")
+		So(z2.CodeHash.String(), ShouldEqual, z1.CodeHash.String())
 		b, _ := readFile(h.DNAPath()+"/zySampleZome", "profile.json")
 		var sh Hash
 		sh.Sum(h.hashSpec, b)
 
-		So(h2.Zomes["zySampleZome"].Entries["profile"].SchemaHash.String(), ShouldEqual, sh.String())
+		So(z2.Entries[2].SchemaHash.String(), ShouldEqual, sh.String())
 	})
 
 	Convey("before GenChain call DNAHash call should fail", t, func() {

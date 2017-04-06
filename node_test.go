@@ -176,20 +176,20 @@ func TestFingerprintMessage(t *testing.T) {
 		m := Message{Type: PUT_REQUEST, Time: now, Body: "foo", From: id}
 		f, err = m.Fingerprint()
 		So(err, ShouldBeNil)
-		So(f.String(), ShouldEqual, "QmTYJLuyd4hKfdmPDzfnKpRdUcpNDHkMZSoqrAfQHeS1DJ")
+		So(f.String(), ShouldEqual, "QmW1HNdziy7tjrRMFRR4gn3fbuTn2xjT2NSodrjM79N9Zb")
 		m = Message{Type: PUT_REQUEST, Time: now, Body: "foo1", From: id}
 		f, err = m.Fingerprint()
 		So(err, ShouldBeNil)
-		So(f.String(), ShouldEqual, "QmTkQyUV73MpgkLAQkdsjSfZxHpWDv6K2aeegpYSrKco82")
+		So(f.String(), ShouldEqual, "QmVkfTSy6qub9GszXvA1du9UK2idq69pq2Qx6SdAKdxVpD")
 		now = time.Unix(1, 2) // pick a constant time so the test will always work
 		m = Message{Type: PUT_REQUEST, Time: now, Body: "foo", From: id}
 		f, err = m.Fingerprint()
 		So(err, ShouldBeNil)
-		So(f.String(), ShouldEqual, "QmXJuwiHzRR86cC84QWoeCXnrvi15A2Ts9WnPQJyhKCt7N")
+		So(f.String(), ShouldEqual, "QmT9GLXQ5FS9LHwN4e6khUdNJDNUUHnJgadrtp5oPoTkvp")
 		m = Message{Type: GET_REQUEST, Time: now, Body: "foo", From: id}
 		f, err = m.Fingerprint()
 		So(err, ShouldBeNil)
-		So(f.String(), ShouldEqual, "QmT2fro64o3RB9G7mLf65f4N69awwTd68W7Z1wowBksPXD")
+		So(f.String(), ShouldEqual, "QmVfZL92q4q7Micnfh96dDe3QY8Dis2JyrX3wEDreqcZPF")
 	})
 }
 

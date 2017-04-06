@@ -10,8 +10,8 @@ import (
 	"context"
 	//	host "github.com/libp2p/go-libp2p-host"
 	"encoding/gob"
+	"encoding/json"
 	"errors"
-	"fmt"
 	ic "github.com/libp2p/go-libp2p-crypto"
 	net "github.com/libp2p/go-libp2p-net"
 	peer "github.com/libp2p/go-libp2p-peer"
@@ -148,10 +148,10 @@ func (m *Message) Decode(r io.Reader) (err error) {
 func (m *Message) Fingerprint() (f Hash, err error) {
 	var data []byte
 	if m != nil {
-		// @todo, this probably won't work for every message.
-		// also we can't really use Encode either because it seems to not
-		// produce the same binary for every message.
-		data = []byte(fmt.Sprintf("%v", m))
+		data, err = json.Marshal(m)
+		if err != nil {
+			return
+		}
 		f.H, err = mh.Sum(data, mh.SHA2_256, -1)
 	} else {
 		f = NullHash()

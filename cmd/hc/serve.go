@@ -126,19 +126,12 @@ func serve(h *holo.Holochain, port string) {
 }
 
 func call(w http.ResponseWriter, h *holo.Holochain, zome string, function string, args string) (result interface{}, err error) {
-	var n holo.Nucleus
-	n, err = h.MakeNucleus(zome)
-	if err == nil {
-		i := n.Interfaces()
 
-		for _, f := range i {
-			if f.Name == function {
-				log.Logf("calling %s:%s(%s)\n", zome, function, args)
-				result, err = h.Call(zome, function, args)
-				return
-			}
-		}
-		_, err = mkErr("unknown function: "+function, 400)
+	log.Logf("calling %s:%s(%s)\n", zome, function, args)
+	result, err = h.Call(zome, function, args)
+
+	if err != nil {
+		_, err = mkErr(err.Error(), 400)
 	}
 	return
 }

@@ -20,7 +20,6 @@ const (
 
 type JSNucleus struct {
 	vm         *otto.Otto
-	interfaces []Interface
 	lastResult *otto.Value
 }
 
@@ -145,35 +144,8 @@ func (z *JSNucleus) validateEntry(fnName string, d *EntryDef, entry Entry, heade
 	return
 }
 
-// GetInterface returns an Interface of the given name
-func (z *JSNucleus) GetInterface(iface string) (i *Interface, err error) {
-	for _, x := range z.interfaces {
-		if x.Name == iface {
-			i = &x
-			break
-		}
-	}
-	if i == nil {
-		err = errors.New("couldn't find exposed function: " + iface)
-	}
-	return
-}
-
-// Interfaces returns the list of application exposed functions the nucleus
-func (z *JSNucleus) Interfaces() (i []Interface) {
-	i = z.interfaces
-	return
-}
-
-// expose registers an interfaces defined in the DNA for calling by external clients
-// (you should probably never need to call this function as it is called by the DNA's expose functions)
-func (z *JSNucleus) expose(iface Interface) (err error) {
-	z.interfaces = append(z.interfaces, iface)
-	return
-}
-
 const (
-	JSLibrary = `var HC={STRING:0,JSON:1,Version:` + `"` + VersionStr + `"};`
+	JSLibrary = `var HC={Version:` + `"` + VersionStr + `"};`
 )
 
 // jsSanatizeString makes sure all quotes are quoted and returns are removed
@@ -185,22 +157,17 @@ func jsSanitizeString(s string) string {
 }
 
 // Call calls the zygo function that was registered with expose
-func (z *JSNucleus) Call(iface string, params interface{}) (result interface{}, err error) {
-	var i *Interface
-	i, err = z.GetInterface(iface)
-	if err != nil {
-		return
-	}
+func (z *JSNucleus) Call(fn *FunctionDef, params interface{}) (result interface{}, err error) {
 	var code string
-	switch i.Schema {
-	case STRING:
-		code = fmt.Sprintf(`%s("%s");`, iface, jsSanitizeString(params.(string)))
-	case JSON:
+	switch fn.CallingType {
+	case STRING_CALLING:
+		code = fmt.Sprintf(`%s("%s");`, fn.Name, jsSanitizeString(params.(string)))
+	case JSON_CALLING:
 		if params.(string) == "" {
-			code = fmt.Sprintf(`JSON.stringify(%s());`, iface)
+			code = fmt.Sprintf(`JSON.stringify(%s());`, fn.Name)
 		} else {
 			p := jsSanitizeString(params.(string))
-			code = fmt.Sprintf(`JSON.stringify(%s(JSON.parse("%s")));`, iface, p)
+			code = fmt.Sprintf(`JSON.stringify(%s(JSON.parse("%s")));`, fn.Name, p)
 		}
 	default:
 		err = errors.New("params type not implemented")
@@ -248,20 +215,6 @@ func NewJSNucleus(h *Holochain, code string) (n Nucleus, err error) {
 		h.config.Loggers.App.p(msg)
 		return otto.UndefinedValue()
 	})
-
-	err = z.vm.Set("expose", func(call otto.FunctionCall) otto.Value {
-		fnName, _ := call.Argument(0).ToString()
-		schema, _ := call.Argument(1).ToInteger()
-		i := Interface{Name: fnName, Schema: InterfaceSchemaType(schema)}
-		err = z.expose(i)
-		if err != nil {
-			return z.vm.MakeCustomError("HolochainError", err.Error())
-		}
-		return otto.UndefinedValue()
-	})
-	if err != nil {
-		return nil, err
-	}
 
 	err = z.vm.Set("commit", func(call otto.FunctionCall) otto.Value {
 		entryType, _ := call.Argument(0).ToString()

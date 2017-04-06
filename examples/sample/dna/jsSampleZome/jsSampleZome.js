@@ -1,9 +1,11 @@
 
-expose("getProperty",HC.STRING);
+function testStrFn1(x) {return "result: "+x};
+function testStrFn2(x){ return parseInt(x)+2};
+function testJsonFn1(x){ x.output = x.input*2; return x;};
+function testJsonFn2(x){ return [{a:'b'}] };
+
 function getProperty(x) {return property(x)};
-expose("addOdd",HC.STRING);
 function addOdd(x) {return commit("oddNumbers",x);}
-expose("addProfile",HC.JSON);
 function addProfile(x) {return commit("profile",x);}
 function validatePut(entry_type,entry,header,sources) {
   return validate(entry_type,entry,header,sources);

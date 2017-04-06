@@ -3,7 +3,6 @@ function relate(base,link,tag) {
     return commit("relation",JSON.stringify(rel));
 }
 
-expose("addPost",HC.JSON);
 function addPost(x) {
     var id = App.DNA.Hash;
     var nick = App.Agent.String;
@@ -12,7 +11,6 @@ function addPost(x) {
     return k;
 }
 
-expose("getData",HC.JSON);
 function getData(i) {
     debug("getData "+i.what);
     var id = App.DNA.Hash;
@@ -45,7 +43,6 @@ function getData(i) {
     return result;
 }
 
-expose("follow",HC.JSON);
 function follow(x) {
     var id = App.DNA.Hash;
     var nick = App.Agent.String;

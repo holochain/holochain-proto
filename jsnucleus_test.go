@@ -18,7 +18,7 @@ func TestNewJSNucleus(t *testing.T) {
 	Convey("new fail to create nucleus when code is bad", t, func() {
 		v, err := NewJSNucleus(nil, "1+ )")
 		So(v, ShouldBeNil)
-		So(err.Error(), ShouldEqual, "JS exec error: (anonymous): Line 1:41 Unexpected token )")
+		So(err.Error(), ShouldEqual, "JS exec error: (anonymous): Line 1:25 Unexpected token )")
 	})
 
 	Convey("it should have an App structure:", t, func() {
@@ -68,16 +68,6 @@ func TestNewJSNucleus(t *testing.T) {
 		So(err, ShouldBeNil)
 		s, _ := z.lastResult.ToString()
 		So(s, ShouldEqual, VersionStr)
-
-		_, err = z.Run("HC.JSON")
-		So(err, ShouldBeNil)
-		i, _ := z.lastResult.ToInteger()
-		So(i, ShouldEqual, JSON)
-
-		_, err = z.Run("HC.STRING")
-		So(err, ShouldBeNil)
-		i, _ = z.lastResult.ToInteger()
-		So(i, ShouldEqual, STRING)
 	})
 
 	Convey("should have the built in functions:", t, func() {
@@ -170,52 +160,47 @@ func TestJSSanitize(t *testing.T) {
 }
 
 func TestJSExposeCall(t *testing.T) {
-	var z *JSNucleus
-	Convey("should run", t, func() {
-		v, err := NewJSNucleus(nil, `
-expose("cater",HC.STRING);
-function cater(x) {return "result: "+x};
-expose("adder",HC.STRING);
-function adder(x){ return parseInt(x)+2};
-expose("jtest",HC.JSON);
-function jtest(x){ x.output = x.input*2; return x;};
-expose("emptyParametersJson",HC.JSON);
-function emptyParametersJson(x){ return [{a:'b'}] };
-`)
-		So(err, ShouldBeNil)
-		z = v.(*JSNucleus)
-	})
+	d, _, h := prepareTestChain("test")
+	defer cleanupTestDir(d)
 
-	Convey("should build up interfaces list", t, func() {
-		i := z.Interfaces()
-		So(fmt.Sprintf("%v", i), ShouldEqual, "[{cater 0} {adder 0} {jtest 1} {emptyParametersJson 1}]")
-	})
+	zome, _ := h.GetZome("jsSampleZome")
+	v, err := h.makeNucleus(zome)
+	if err != nil {
+		panic(err)
+	}
+	z := v.(*JSNucleus)
 	Convey("should allow calling exposed STRING based functions", t, func() {
-		result, err := z.Call("cater", "fish \"zippy\"")
+		cater, _ := h.GetFunctionDef(zome, "testStrFn1")
+		result, err := z.Call(cater, "fish \"zippy\"")
 		So(err, ShouldBeNil)
 		So(result.(string), ShouldEqual, "result: fish \"zippy\"")
 
-		result, err = z.Call("adder", "10")
+		adder, _ := h.GetFunctionDef(zome, "testStrFn2")
+		result, err = z.Call(adder, "10")
 		So(err, ShouldBeNil)
 		So(result.(string), ShouldEqual, "12")
 	})
 	Convey("should allow calling exposed JSON based functions", t, func() {
-		result, err := z.Call("jtest", `{"input": 2}`)
+		times2, _ := h.GetFunctionDef(zome, "testJsonFn1")
+		result, err := z.Call(times2, `{"input": 2}`)
 		So(err, ShouldBeNil)
 		So(result.(string), ShouldEqual, `{"input":2,"output":4}`)
 	})
 	Convey("should sanitize against bad strings", t, func() {
-		result, err := z.Call("cater", "fish \"\nzippy\"")
+		cater, _ := h.GetFunctionDef(zome, "testStrFn1")
+		result, err := z.Call(cater, "fish \"\nzippy\"")
 		So(err, ShouldBeNil)
 		So(result.(string), ShouldEqual, "result: fish \"zippy\"")
 	})
 	Convey("should sanitize against bad JSON", t, func() {
-		result, err := z.Call("jtest", "{\"input\n\": 2}")
+		times2, _ := h.GetFunctionDef(zome, "testJsonFn1")
+		result, err := z.Call(times2, "{\"input\n\": 2}")
 		So(err, ShouldBeNil)
 		So(result.(string), ShouldEqual, `{"input":2,"output":4}`)
 	})
 	Convey("should allow a function declared with JSON parameter to be called with no parameter", t, func() {
-		result, err := z.Call("emptyParametersJson", "")
+		emptyParametersJson, _ := h.GetFunctionDef(zome, "testJsonFn2")
+		result, err := z.Call(emptyParametersJson, "")
 		So(err, ShouldBeNil)
 		So(result, ShouldEqual, "[{\"a\":\"b\"}]")
 	})

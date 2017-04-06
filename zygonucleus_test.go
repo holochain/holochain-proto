@@ -65,17 +65,6 @@ func TestNewZygoNucleus(t *testing.T) {
 		So(err, ShouldBeNil)
 		s := z.lastResult.(*zygo.SexpStr).S
 		So(s, ShouldEqual, VersionStr)
-
-		_, err = z.Run("HC_JSON")
-		So(err, ShouldBeNil)
-		i := z.lastResult.(*zygo.SexpInt).Val
-		So(i, ShouldEqual, JSON)
-
-		_, err = z.Run("HC_STRING")
-		So(err, ShouldBeNil)
-		i = z.lastResult.(*zygo.SexpInt).Val
-		So(i, ShouldEqual, STRING)
-
 	})
 
 	Convey("should have the built in functions:", t, func() {
@@ -196,45 +185,36 @@ some tag value
 }
 
 func TestZygoExposeCall(t *testing.T) {
-	var z *ZygoNucleus
-	Convey("should run", t, func() {
-		v, err := NewZygoNucleus(nil, `
-(expose "cater" HC_STRING)
-(defn cater [x] (concat "result: " x))
-(expose "adder" HC_STRING)
-(defn adder [x] (+ (atoi x) 2))
-(expose "jtest" HC_JSON)
-(defn jtest [x] (begin (hset x output: (* (-> x input:) 2)) x))
-(expose "emptyParametersJson" HC_JSON)
-(defn emptyParametersJson [x] (unjson (raw "[{\"a\":\"b\"}]")))
-`)
+	d, _, h := prepareTestChain("test")
+	defer cleanupTestDir(d)
 
-		So(err, ShouldBeNil)
-		z = v.(*ZygoNucleus)
-		_, err = z.env.Run()
-		So(err, ShouldBeNil)
-	})
+	zome, _ := h.GetZome("zySampleZome")
+	v, err := h.makeNucleus(zome)
+	if err != nil {
+		panic(err)
+	}
+	z := v.(*ZygoNucleus)
 
-	Convey("should build up interfaces list", t, func() {
-		i := z.Interfaces()
-		So(fmt.Sprintf("%v", i), ShouldEqual, "[{cater 0} {adder 0} {jtest 1} {emptyParametersJson 1}]")
-	})
 	Convey("should allow calling exposed STRING based functions", t, func() {
-		result, err := z.Call("cater", "fish \"zippy\"")
+		cater, _ := h.GetFunctionDef(zome, "testStrFn1")
+		result, err := z.Call(cater, "fish \"zippy\"")
 		So(err, ShouldBeNil)
 		So(result.(string), ShouldEqual, "result: fish \"zippy\"")
 
-		result, err = z.Call("adder", "10")
+		adder, _ := h.GetFunctionDef(zome, "testStrFn2")
+		result, err = z.Call(adder, "10")
 		So(err, ShouldBeNil)
 		So(result.(string), ShouldEqual, "12")
 	})
 	Convey("should allow calling exposed JSON based functions", t, func() {
-		result, err := z.Call("jtest", `{"input": 2}`)
+		times2, _ := h.GetFunctionDef(zome, "testJsonFn1")
+		result, err := z.Call(times2, `{"input": 2}`)
 		So(err, ShouldBeNil)
 		So(string(result.([]byte)), ShouldEqual, `{"Atype":"hash", "input":2, "output":4, "zKeyOrder":["input", "output"]}`)
 	})
 	Convey("should allow a function declared with JSON parameter to be called with no parameter", t, func() {
-		result, err := z.Call("emptyParametersJson", "")
+		emptyParametersJson, _ := h.GetFunctionDef(zome, "testJsonFn2")
+		result, err := z.Call(emptyParametersJson, "")
 		So(err, ShouldBeNil)
 		So(string(result.([]byte)), ShouldEqual, "[{\"Atype\":\"hash\", \"a\":\"b\", \"zKeyOrder\":[\"a\"]}]")
 	})

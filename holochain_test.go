@@ -487,17 +487,47 @@ func TestValidateCommit(t *testing.T) {
 	})
 }
 
+func TestGetZome(t *testing.T) {
+	d, _, h := setupTestChain("test")
+	defer cleanupTestDir(d)
+	Convey("it should fail if the zome isn't defined in the DNA", t, func() {
+		_, err := h.GetZome("bogusZome")
+		So(err.Error(), ShouldEqual, "unknown zome: bogusZome")
+	})
+	Convey("it should return the Zome structure of a defined zome", t, func() {
+		z, err := h.GetZome("zySampleZome")
+		So(err, ShouldBeNil)
+		So(z.Name, ShouldEqual, "zySampleZome")
+	})
+}
+
+func TestGetFunctionDef(t *testing.T) {
+	d, _, h := setupTestChain("test")
+	defer cleanupTestDir(d)
+	z, _ := h.GetZome("zySampleZome")
+
+	Convey("it should fail if the fn isn't defined in the DNA", t, func() {
+		_, err := h.GetFunctionDef(z, "foo")
+		So(err.Error(), ShouldEqual, "unknown exposed function: foo")
+	})
+	Convey("it should return the Fn structure of a defined fn", t, func() {
+		fn, err := h.GetFunctionDef(z, "getDNA")
+		So(err, ShouldBeNil)
+		So(fn.Name, ShouldEqual, "getDNA")
+	})
+}
+
 func TestMakeNucleus(t *testing.T) {
 	d, _, h := setupTestChain("test")
 	defer cleanupTestDir(d)
-	Convey("it should fail if the type isn't defined in the DNA", t, func() {
-		_, err := h.MakeNucleus("bogusType")
-		So(err.Error(), ShouldEqual, "unknown zome: bogusType")
-
+	Convey("it should fail if the zome isn't defined in the DNA", t, func() {
+		_, _, err := h.MakeNucleus("bogusZome")
+		So(err.Error(), ShouldEqual, "unknown zome: bogusZome")
 	})
-	Convey("it should make a nucleus based on the type", t, func() {
-		v, err := h.MakeNucleus("zySampleZome")
+	Convey("it should make a nucleus based on the type and return the zome def", t, func() {
+		v, zome, err := h.MakeNucleus("zySampleZome")
 		So(err, ShouldBeNil)
+		So(zome.Name, ShouldEqual, "zySampleZome")
 		z := v.(*ZygoNucleus)
 		_, err = z.env.Run()
 		So(err, ShouldBeNil)
@@ -508,7 +538,7 @@ func TestCall(t *testing.T) {
 	d, _, h := prepareTestChain("test")
 	defer cleanupTestDir(d)
 	Convey("it should call the exposed function", t, func() {
-		result, err := h.Call("zySampleZome", "exposedfn", "arg1 arg2")
+		result, err := h.Call("zySampleZome", "testStrFn1", "arg1 arg2")
 		So(err, ShouldBeNil)
 		So(result.(string), ShouldEqual, "result: arg1 arg2")
 

@@ -23,7 +23,6 @@ const (
 
 type ZygoNucleus struct {
 	env        *zygo.Glisp
-	interfaces []Interface
 	lastResult zygo.Sexp
 	library    string
 }
@@ -166,26 +165,6 @@ func (z *ZygoNucleus) validateEntry(fnName string, d *EntryDef, entry Entry, hea
 	return
 }
 
-// GetInterface returns an Interface of the given name
-func (z *ZygoNucleus) GetInterface(iface string) (i *Interface, err error) {
-	for _, x := range z.interfaces {
-		if x.Name == iface {
-			i = &x
-			break
-		}
-	}
-	if i == nil {
-		err = errors.New("couldn't find exposed function: " + iface)
-	}
-	return
-}
-
-// Interfaces returns the list of application exposed functions the nucleus
-func (z *ZygoNucleus) Interfaces() (i []Interface) {
-	i = z.interfaces
-	return
-}
-
 // sanatizeString makes sure all quotes are quoted
 func sanitizeString(s string) string {
 	s = strings.Replace(s, "\"", "\\\"", -1)
@@ -193,20 +172,16 @@ func sanitizeString(s string) string {
 }
 
 // Call calls the zygo function that was registered with expose
-func (z *ZygoNucleus) Call(iface string, params interface{}) (result interface{}, err error) {
-	i, err := z.GetInterface(iface)
-	if err != nil {
-		return
-	}
+func (z *ZygoNucleus) Call(fn *FunctionDef, params interface{}) (result interface{}, err error) {
 	var code string
-	switch i.Schema {
-	case STRING:
-		code = fmt.Sprintf(`(%s "%s")`, iface, sanitizeString(params.(string)))
-	case JSON:
+	switch fn.CallingType {
+	case STRING_CALLING:
+		code = fmt.Sprintf(`(%s "%s")`, fn.Name, sanitizeString(params.(string)))
+	case JSON_CALLING:
 		if params.(string) == "" {
-			code = fmt.Sprintf(`(json (%s (raw "%s")))`, iface, sanitizeString(params.(string)))
+			code = fmt.Sprintf(`(json (%s (raw "%s")))`, fn.Name, sanitizeString(params.(string)))
 		} else {
-			code = fmt.Sprintf(`(json (%s (unjson (raw "%s"))))`, iface, sanitizeString(params.(string)))
+			code = fmt.Sprintf(`(json (%s (unjson (raw "%s"))))`, fn.Name, sanitizeString(params.(string)))
 		}
 	default:
 		err = errors.New("params type not implemented")
@@ -219,8 +194,8 @@ func (z *ZygoNucleus) Call(iface string, params interface{}) (result interface{}
 	}
 	result, err = z.env.Run()
 	if err == nil {
-		switch i.Schema {
-		case STRING:
+		switch fn.CallingType {
+		case STRING_CALLING:
 			switch t := result.(type) {
 			case *zygo.SexpStr:
 				result = t.S
@@ -231,7 +206,7 @@ func (z *ZygoNucleus) Call(iface string, params interface{}) (result interface{}
 			default:
 				result = fmt.Sprintf("%v", result)
 			}
-		case JSON:
+		case JSON_CALLING:
 			// type should always be SexpRaw
 			switch t := result.(type) {
 			case *zygo.SexpRaw:
@@ -247,14 +222,7 @@ func (z *ZygoNucleus) Call(iface string, params interface{}) (result interface{}
 
 // These are the zygo implementations of the library functions that must available in
 // all Nucleii implementations.
-var ZygoLibrary = `(def HC_STRING 0) (def HC_JSON 1) (def HC_Version "` + VersionStr + `")`
-
-// expose registers an interfaces defined in the DNA for calling by external clients
-// (you should probably never need to call this function as it is called by the DNA's expose functions)
-func (z *ZygoNucleus) expose(iface Interface) (err error) {
-	z.interfaces = append(z.interfaces, iface)
-	return
-}
+var ZygoLibrary = `(def HC_Version "` + VersionStr + `")`
 
 // get exposes DHTGet to zygo
 func (z *ZygoNucleus) get(env *zygo.Glisp, h *Holochain, hash string) (result *zygo.SexpHash, err error) {
@@ -349,34 +317,6 @@ func NewZygoNucleus(h *Holochain, code string) (n Nucleus, err error) {
 			}
 
 			h.config.Loggers.App.p(msg)
-			return zygo.SexpNull, err
-		})
-
-	z.env.AddFunction("expose",
-		func(env *zygo.Glisp, name string, args []zygo.Sexp) (zygo.Sexp, error) {
-			if len(args) != 2 {
-				return zygo.SexpNull, zygo.WrongNargs
-			}
-
-			var i Interface
-
-			switch t := args[0].(type) {
-			case *zygo.SexpStr:
-				i.Name = t.S
-			default:
-				return zygo.SexpNull,
-					errors.New("1st argument of expose should be string")
-			}
-
-			switch t := args[1].(type) {
-			case *zygo.SexpInt:
-				i.Schema = InterfaceSchemaType(t.Val)
-			default:
-				return zygo.SexpNull,
-					errors.New("2nd argument of expose should be integer")
-			}
-
-			err := z.expose(i)
 			return zygo.SexpNull, err
 		})
 

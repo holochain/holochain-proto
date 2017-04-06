@@ -37,6 +37,34 @@ RequiresVersion = 4
         Schema = ""
         Sharing = ""
         [Zomes.jsSampleZome.Entries.rating.SchemaHash]
+
+    [[Zomes.jsSampleZome.Functions]]
+      Name = "getProperty"
+      CallingType = "string"
+
+    [[Zomes.jsSampleZome.Functions]]
+      Name = "addOdd"
+      CallingType = "string"
+
+    [[Zomes.jsSampleZome.Functions]]
+      Name = "addProfile"
+      CallingType = "json"
+
+    [[Zomes.jsSampleZome.Functions]]
+      Name = "testStrFn1"
+      CallingType = "string"
+
+    [[Zomes.jsSampleZome.Functions]]
+      Name = "testStrFn2"
+      CallingType = "string"
+
+    [[Zomes.jsSampleZome.Functions]]
+      Name = "testJsonFn1"
+      CallingType = "json"
+
+    [[Zomes.jsSampleZome.Functions]]
+      Name = "testJsonFn2"
+      CallingType = "json"
   [Zomes.zySampleZome]
     Name = "zySampleZome"
     Description = "this is a zygomas test zome"
@@ -62,3 +90,31 @@ RequiresVersion = 4
         Schema = "profile.json"
         Sharing = ""
         [Zomes.zySampleZome.Entries.profile.SchemaHash]
+
+    [[Zomes.zySampleZome.Functions]]
+      Name = "getDNA"
+      CallingType = "string"
+
+    [[Zomes.zySampleZome.Functions]]
+      Name = "addEven"
+      CallingType = "string"
+
+    [[Zomes.zySampleZome.Functions]]
+      Name = "addPrime"
+      CallingType = "json"
+
+    [[Zomes.zySampleZome.Functions]]
+      Name = "testStrFn1"
+      CallingType = "string"
+
+    [[Zomes.zySampleZome.Functions]]
+      Name = "testStrFn2"
+      CallingType = "string"
+
+    [[Zomes.zySampleZome.Functions]]
+      Name = "testJsonFn1"
+      CallingType = "json"
+
+    [[Zomes.zySampleZome.Functions]]
+      Name = "testJsonFn2"
+      CallingType = "json"

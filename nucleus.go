@@ -15,11 +15,10 @@ import (
 
 type NucleusFactory func(h *Holochain, code string) (Nucleus, error)
 
-type InterfaceSchemaType int
-
+// calling types
 const (
-	STRING InterfaceSchemaType = iota
-	JSON
+	STRING_CALLING = "string"
+	JSON_CALLING   = "json"
 )
 
 // these constants are for a removed feature, see ChangeAppProperty
@@ -32,10 +31,10 @@ const (
 
 var ValidationFailedErr = errors.New("Validation Failed")
 
-// Interface holds the name and schema of an DNA exposed function
-type Interface struct {
-	Name   string
-	Schema InterfaceSchemaType
+// FunctionDef holds the name and calling type of an DNA exposed function
+type FunctionDef struct {
+	Name        string
+	CallingType string
 }
 
 // Nucleus type abstracts the functions of code execution environments
@@ -45,23 +44,10 @@ type Nucleus interface {
 	ValidatePut(def *EntryDef, entry Entry, header *Header, sources []string) error
 	ValidateLink(linkingEntryType string, baseHash string, linkHash string, tag string, sources []string) error
 	ChainGenesis() error
-	expose(iface Interface) error
-	Interfaces() (i []Interface)
-	Call(iface string, params interface{}) (interface{}, error)
+	Call(fn *FunctionDef, params interface{}) (interface{}, error)
 }
 
 var nucleusFactories = make(map[string]NucleusFactory)
-
-// InterfaceSchema returns a functions schema type
-func InterfaceSchema(n Nucleus, name string) (InterfaceSchemaType, error) {
-	i := n.Interfaces()
-	for _, f := range i {
-		if f.Name == name {
-			return f.Schema, nil
-		}
-	}
-	return -1, errors.New("function not found: " + name)
-}
 
 // RegisterNucleus sets up a Nucleus to be used by the CreateNucleus function
 func RegisterNucleus(name string, factory NucleusFactory) {

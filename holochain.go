@@ -39,6 +39,10 @@ type Zome struct {
 	CodeHash    Hash
 	Entries     map[string]EntryDef
 	NucleusType string
+	Functions   []FunctionDef
+
+	// cache for code
+	code string
 }
 
 // Loggers holds the logging structures for the different parts of the system
@@ -720,6 +724,15 @@ func (s *Service) GenDev(root string, format string) (hP *Holochain, err error) 
 					"primes":      {Name: "primes", DataFormat: DataFormatJSON, Sharing: Public},
 					"profile":     {Name: "profile", DataFormat: DataFormatJSON, Schema: "profile.json"},
 				},
+				Functions: []FunctionDef{
+					{Name: "getDNA", CallingType: STRING_CALLING},
+					{Name: "addEven", CallingType: STRING_CALLING},
+					{Name: "addPrime", CallingType: JSON_CALLING},
+					{Name: "testStrFn1", CallingType: STRING_CALLING},
+					{Name: "testStrFn2", CallingType: STRING_CALLING},
+					{Name: "testJsonFn1", CallingType: JSON_CALLING},
+					{Name: "testJsonFn2", CallingType: JSON_CALLING},
+				},
 			},
 			{Name: "jsSampleZome",
 				Description: "this is a javascript test zome",
@@ -729,7 +742,15 @@ func (s *Service) GenDev(root string, format string) (hP *Holochain, err error) 
 					"profile":    {Name: "profile", DataFormat: DataFormatJSON, Schema: "profile.json"},
 					"rating":     {Name: "rating", DataFormat: DataFormatLinks},
 				},
-			},
+				Functions: []FunctionDef{
+					{Name: "getProperty", CallingType: STRING_CALLING},
+					{Name: "addOdd", CallingType: STRING_CALLING},
+					{Name: "addProfile", CallingType: JSON_CALLING},
+					{Name: "testStrFn1", CallingType: STRING_CALLING},
+					{Name: "testStrFn2", CallingType: STRING_CALLING},
+					{Name: "testJsonFn1", CallingType: JSON_CALLING},
+					{Name: "testJsonFn2", CallingType: JSON_CALLING},
+				}},
 		}
 
 		h := NewHolochain(agent, root, format, zomes...)
@@ -845,13 +866,11 @@ func (s *Service) GenDev(root string, format string) (hP *Holochain, err error) 
 
 		code := make(map[string]string)
 		code["zySampleZome"] = `
-(expose "getDNA" HC_STRING)
-(defn getDNA [x] App_DNA_Hash)
-(expose "exposedfn" HC_STRING)
-(defn exposedfn [x] (concat "result: " x))
-(expose "addEven" HC_STRING)
+(defn testStrFn1 [x] (concat "result: " x))
+(defn testStrFn2 [x] (+ (atoi x) 2))
+(defn testJsonFn1 [x] (begin (hset x output: (* (-> x input:) 2)) x))
+(defn testJsonFn2 [x] (unjson (raw "[{\"a\":\"b\"}]"))) (defn getDNA [x] App_DNA_Hash)
 (defn addEven [x] (commit "evenNumbers" x))
-(expose "addPrime" HC_JSON)
 (defn addPrime [x] (commit "primes" x))
 (defn validateCommit [entryType entry header sources]
   (validate entryType entry header sources))
@@ -867,11 +886,13 @@ func (s *Service) GenDev(root string, format string) (hP *Holochain, err error) 
 (defn genesis [] true)
 `
 		code["jsSampleZome"] = `
-expose("getProperty",HC.STRING);
+function testStrFn1(x) {return "result: "+x};
+function testStrFn2(x){ return parseInt(x)+2};
+function testJsonFn1(x){ x.output = x.input*2; return x;};
+function testJsonFn2(x){ return [{a:'b'}] };
+
 function getProperty(x) {return property(x)};
-expose("addOdd",HC.STRING);
 function addOdd(x) {return commit("oddNumbers",x);}
-expose("addProfile",HC.JSON);
 function addProfile(x) {return commit("profile",x);}
 function validatePut(entry_type,entry,header,sources) {
   return validate(entry_type,entry,header,sources);
@@ -1224,19 +1245,22 @@ func (h *Holochain) ValidateLink(linkingEntryType string, base string, link stri
 
 // Call executes an exposed function
 func (h *Holochain) Call(zomeType string, function string, arguments interface{}) (result interface{}, err error) {
-	n, err := h.MakeNucleus(zomeType)
+	n, z, err := h.MakeNucleus(zomeType)
 	if err != nil {
 		return
 	}
-	result, err = n.Call(function, arguments)
+	fn, err := h.GetFunctionDef(z, function)
+	if err != nil {
+		return
+	}
+	result, err = n.Call(fn, arguments)
 	return
 }
 
 // MakeNucleus creates a Nucleus object based on the zome type
-func (h *Holochain) MakeNucleus(t string) (n Nucleus, err error) {
-	z, ok := h.Zomes[t]
-	if !ok {
-		err = errors.New("unknown zome: " + t)
+func (h *Holochain) MakeNucleus(t string) (n Nucleus, z *Zome, err error) {
+	z, err = h.GetZome(t)
+	if err != nil {
 		return
 	}
 	n, err = h.makeNucleus(z)
@@ -1244,13 +1268,18 @@ func (h *Holochain) MakeNucleus(t string) (n Nucleus, err error) {
 }
 
 func (h *Holochain) makeNucleus(z *Zome) (n Nucleus, err error) {
-	var code []byte
-	zpath := h.ZomePath(z)
-	code, err = readFile(zpath, z.Code)
-	if err != nil {
-		return
+	//check to see if we have a cached version of the code, otherwise read from disk
+	if z.code == "" {
+		zpath := h.ZomePath(z)
+		var code []byte
+
+		code, err = readFile(zpath, z.Code)
+		if err != nil {
+			return
+		}
+		z.code = string(code)
 	}
-	n, err = CreateNucleus(h, z.NucleusType, string(code))
+	n, err = CreateNucleus(h, z.NucleusType, z.code)
 	return
 }
 
@@ -1493,6 +1522,30 @@ func (h *Holochain) GetProperty(prop string) (property string, err error) {
 		ChangeAppProperty.Log()
 	} else {
 		property = h.Properties[prop]
+	}
+	return
+}
+
+// GetZome returns a zome structure given its name
+func (h *Holochain) GetZome(zome string) (z *Zome, err error) {
+	z, ok := h.Zomes[zome]
+	if !ok {
+		err = errors.New("unknown zome: " + zome)
+		return
+	}
+	return
+}
+
+// GetFunctionDef returns the exposed function spec for the given zome and function
+func (h *Holochain) GetFunctionDef(zome *Zome, fnName string) (fn *FunctionDef, err error) {
+	for _, f := range zome.Functions {
+		if f.Name == fnName {
+			fn = &f
+			break
+		}
+	}
+	if fn == nil {
+		err = errors.New("unknown exposed function: " + fnName)
 	}
 	return
 }

@@ -52,6 +52,20 @@
                     }
                 }
             },
+            "Functions": [
+                {
+                    "Name": "addPost",
+                    "CallingType": "json"
+                },
+                {
+                    "Name": "getData",
+                    "CallingType": "json"
+                },
+                {
+                    "Name": "follow",
+                    "CallingType": "json"
+                }
+            ],
             "NucleusType": "js"
         }
     }

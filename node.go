@@ -10,7 +10,6 @@ import (
 	"context"
 	//	host "github.com/libp2p/go-libp2p-host"
 	"encoding/gob"
-	"encoding/json"
 	"errors"
 	ic "github.com/libp2p/go-libp2p-crypto"
 	net "github.com/libp2p/go-libp2p-net"
@@ -22,6 +21,7 @@ import (
 	rhost "github.com/libp2p/go-libp2p/p2p/host/routed"
 	ma "github.com/multiformats/go-multiaddr"
 	mh "github.com/multiformats/go-multihash"
+	"gopkg.in/mgo.v2/bson"
 	"io"
 	"time"
 )
@@ -148,7 +148,8 @@ func (m *Message) Decode(r io.Reader) (err error) {
 func (m *Message) Fingerprint() (f Hash, err error) {
 	var data []byte
 	if m != nil {
-		data, err = json.Marshal(m)
+		data, err = bson.Marshal(m)
+
 		if err != nil {
 			return
 		}

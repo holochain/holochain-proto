@@ -305,6 +305,7 @@ func TestDHTReceiver(t *testing.T) {
 	})
 }
 
+/*
 func TestHandlePutReqs(t *testing.T) {
 	d, _, h := prepareTestChain("test")
 	defer cleanupTestDir(d)
@@ -330,9 +331,10 @@ func TestHandlePutReqs(t *testing.T) {
 	})
 
 }
+*/
 
 func (dht *DHT) simHandlePutReqs() (err error) {
-	m := <-dht.puts
-	err = dht.handlePutReq(&m)
+	//	m := <-dht.puts
+	//	err = dht.handlePutReq(&m)
 	return
 }

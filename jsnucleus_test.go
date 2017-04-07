@@ -210,25 +210,27 @@ func TestJSDHT(t *testing.T) {
 	d, _, h := prepareTestChain("test")
 	defer cleanupTestDir(d)
 
+	hash, _ := NewHash("QmY8Mzg9F69e5P9AoQPYat6x5HEhc1TVGs11tmfNSzkqh2")
+	Convey("get should return hash not found if it doesn't exist", t, func() {
+		v, err := NewJSNucleus(h, fmt.Sprintf(`get("%s");`, hash.String()))
+		So(err, ShouldBeNil)
+		z := v.(*JSNucleus)
+		So(z.lastResult.String(), ShouldEqual, "HolochainError: hash not found")
+	})
+
 	// add an entry onto the chain
 	hash, err := h.Commit("oddNumbers", "7")
 	if err != nil {
 		panic(err)
 	}
+	if err := h.dht.simHandlePutReqs(); err != nil {
+		panic(err)
+	}
 
-	Convey("it should have a get function", t, func() {
+	Convey("get should return entry", t, func() {
 		v, err := NewJSNucleus(h, fmt.Sprintf(`get("%s");`, hash.String()))
 		So(err, ShouldBeNil)
 		z := v.(*JSNucleus)
-		So(z.lastResult.String(), ShouldEqual, "HolochainError: hash not found")
-
-		if err := h.dht.simHandlePutReqs(); err != nil {
-			panic(err)
-		}
-
-		v, err = NewJSNucleus(h, fmt.Sprintf(`get("%s");`, hash.String()))
-		So(err, ShouldBeNil)
-		z = v.(*JSNucleus)
 		x, err := z.lastResult.Export()
 		So(err, ShouldBeNil)
 		So(fmt.Sprintf("%v", x.(Entry).Content()), ShouldEqual, `7`)

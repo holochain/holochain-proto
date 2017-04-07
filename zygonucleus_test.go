@@ -224,27 +224,29 @@ func TestZygoDHT(t *testing.T) {
 	d, _, h := prepareTestChain("test")
 	defer cleanupTestDir(d)
 
-	// add an entry onto the chain
-	hash, err := h.Commit("evenNumbers", "2")
-	if err != nil {
-		panic(err)
-	}
-
-	Convey("it should have a get function", t, func() {
+	hash, _ := NewHash("QmY8Mzg9F69e5P9AoQPYat6x5HEhc1TVGs11tmfNSzkqh2")
+	Convey("get should return hash not found if it doesn't exist", t, func() {
 		v, err := NewZygoNucleus(h, fmt.Sprintf(`(get "%s")`, hash.String()))
 		So(err, ShouldBeNil)
 		z := v.(*ZygoNucleus)
 		r, err := z.lastResult.(*zygo.SexpHash).HashGet(z.env, z.env.MakeSymbol("error"))
 		So(err, ShouldBeNil)
 		So(r.(*zygo.SexpStr).S, ShouldEqual, "hash not found")
+	})
+	// add an entry onto the chain
+	hash, err := h.Commit("evenNumbers", "2")
+	if err != nil {
+		panic(err)
+	}
+	if err := h.dht.simHandlePutReqs(); err != nil {
+		panic(err)
+	}
 
-		if err := h.dht.simHandlePutReqs(); err != nil {
-			panic(err)
-		}
-		v, err = NewZygoNucleus(h, fmt.Sprintf(`(get "%s")`, hash.String()))
+	Convey("get should return entry", t, func() {
+		v, err := NewZygoNucleus(h, fmt.Sprintf(`(get "%s")`, hash.String()))
 		So(err, ShouldBeNil)
-		z = v.(*ZygoNucleus)
-		r, err = z.lastResult.(*zygo.SexpHash).HashGet(z.env, z.env.MakeSymbol("result"))
+		z := v.(*ZygoNucleus)
+		r, err := z.lastResult.(*zygo.SexpHash).HashGet(z.env, z.env.MakeSymbol("result"))
 		So(err, ShouldBeNil)
 		So(r.(*zygo.SexpStr).S, ShouldEqual, `"2"`)
 	})

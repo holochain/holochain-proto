@@ -456,7 +456,8 @@ func DHTReceiver(h *Holochain, m *Message) (response interface{}, err error) {
 		dht.dlog.Logf("DHTReceiver got PUT_REQUEST: %v", m)
 		switch m.Body.(type) {
 		case PutReq:
-			h.dht.puts <- *m
+			dht.handlePutReq(m)
+			//h.dht.puts <- *m
 			response = "queued"
 		default:
 			err = ErrDHTExpectedPutReqInBody
@@ -486,7 +487,8 @@ func DHTReceiver(h *Holochain, m *Message) (response interface{}, err error) {
 		case LinkReq:
 			err = h.dht.exists(t.Base)
 			if err == nil {
-				h.dht.puts <- *m
+				dht.handlePutReq(m)
+				//				h.dht.puts <- *m
 				response = "queued"
 			} else {
 				dht.dlog.Logf("DHTReceiver key %v doesn't exist, ignoring", t.Base)

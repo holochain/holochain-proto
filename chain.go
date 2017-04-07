@@ -122,9 +122,14 @@ func NewChainFromFile(h HashSpec, path string) (c *Chain, err error) {
 
 // Top returns the latest header
 func (c *Chain) Top() (header *Header) {
+	return c.Nth(0)
+}
+
+// Nth returns the nth latest header
+func (c *Chain) Nth(n int) (header *Header) {
 	l := len(c.Headers)
-	if l > 0 {
-		header = c.Headers[l-1]
+	if l-n > 0 {
+		header = c.Headers[l-n-1]
 	}
 	return
 }

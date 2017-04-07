@@ -1329,11 +1329,13 @@ func ToString(input interface{}) string {
 }
 
 func (h *Holochain) TestStringReplacements(input, r1, r2, r3 string) string {
-	// get the top hash for substituting for %h% in the test expectation
+	// get the top 2 hashes for substituting for %h% and %h1% in the test expectation
 	top := h.chain.Top().EntryLink
+	top1 := h.chain.Nth(1).EntryLink
 
 	var output string
 	output = strings.Replace(input, "%h%", top.String(), -1)
+	output = strings.Replace(output, "%h1%", top1.String(), -1)
 	output = strings.Replace(output, "%r1%", r1, -1)
 	output = strings.Replace(output, "%r2%", r2, -1)
 	output = strings.Replace(output, "%r3%", r3, -1)

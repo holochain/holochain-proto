@@ -93,6 +93,12 @@ func TestTop(t *testing.T) {
 		hash, hd = c.TopType("otherData")
 		So(hd, ShouldEqual, c.Headers[1])
 	})
+
+	Convey("Nth should return the nth header", t, func() {
+		hd = c.Nth(1)
+		So(hd, ShouldEqual, c.Headers[0])
+	})
+
 }
 
 func TestTopType(t *testing.T) {

@@ -640,12 +640,13 @@ func (s *Service) Clone(srcPath string, root string, new bool) (hP *Holochain, e
 
 // TestData holds a test entry for a chain
 type TestData struct {
-	Zome   string
-	FnName string
-	Input  interface{}
-	Output string
-	Err    string
-	Regexp string
+	Convey string      // a human readable description of the tests intent
+	Zome   string      // the zome in which to find the function
+	FnName string      // the function to call
+	Input  interface{} // the function's input
+	Output string      // the expected output to match against (full match)
+	Err    string      // the expected error to match against
+	Regexp string      // the expected out to match again (regular expression)
 }
 
 func (h *Holochain) setupConfig() (err error) {
@@ -1402,7 +1403,11 @@ func (h *Holochain) DoTests(name string, tests []TestData) (errs []error) {
 	var err error
 	for i, t := range tests {
 		Debugf("------------------------------")
-		info.pf("Test '%s' line %d: %s", name, i, t)
+		description := t.Convey
+		if description == "" {
+			description = fmt.Sprintf("%v", t)
+		}
+		info.pf("Test '%s.%d': %s", name, i, description)
 		time.Sleep(time.Millisecond * 10)
 		if err == nil {
 			testID := fmt.Sprintf("%s:%d", name, i)

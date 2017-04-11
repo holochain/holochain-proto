@@ -1,5 +1,6 @@
 [
   {
+    "Convey":"newRoom should fail when room schema not fulfilled",
     "Zome":"rooms",
     "FnName":"newRoom",
     "Input":"{\"name\":\"asdf\"}",
@@ -7,6 +8,7 @@
     "Err":""
   },
   {
+    "Convey":"listRooms should return an empty list of rooms when there are none",
     "Zome":"rooms",
     "FnName":"listRooms",
     "Input":"",
@@ -14,6 +16,7 @@
     "Err":""
   },
   {
+    "Convey":"newRoom should fail when not created by a registered user",
     "Zome":"rooms",
     "FnName":"newRoom",
     "Input":"{\"name\":\"general\", \"purpose\":\"everything goes in here\"}",
@@ -28,6 +31,7 @@
     "Err":""
   },
   {
+    "Convey":"newRoom should return the room's hash",
     "Zome":"rooms",
     "FnName":"newRoom",
     "Input":"{\"name\":\"general\", \"purpose\":\"everything goes in here\"}",
@@ -35,6 +39,7 @@
     "Err":""
   },
   {
+    "Convey":"listRooms should return a list of rooms",
     "Zome":"rooms",
     "FnName":"listRooms",
     "Input":"",

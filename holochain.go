@@ -1163,6 +1163,45 @@ func (h *Holochain) ValidatePrepare(entryType string, entry Entry, sources []pee
 		if err = d.validator.Validate(input); err != nil {
 			return
 		}
+	} else if d.DataFormat == DataFormatLinks {
+		// Perform base validation on links entries, i.e. that all items exist and are of the right types
+		// so first unmarshall the json, and then check that the hashes are real.
+		var l struct{ Links []map[string]string }
+		err = json.Unmarshal([]byte(entry.Content().(string)), &l)
+		if err != nil {
+			err = fmt.Errorf("invalid links entry, invalid json: %v", err)
+			return
+		}
+		if len(l.Links) == 0 {
+			err = errors.New("invalid links entry: you must specify at least one link")
+			return
+		}
+		for _, link := range l.Links {
+			h, ok := link["Base"]
+			if !ok {
+				err = errors.New("invalid links entry: missing Base")
+				return
+			}
+			if _, err = NewHash(h); err != nil {
+				err = fmt.Errorf("invalid links entry: Base %v", err)
+				return
+			}
+			h, ok = link["Link"]
+			if !ok {
+				err = errors.New("invalid links entry: missing Link")
+				return
+			}
+			if _, err = NewHash(h); err != nil {
+				err = fmt.Errorf("invalid links entry: Link %v", err)
+				return
+			}
+			h, ok = link["Tag"]
+			if !ok {
+				err = errors.New("invalid links entry: missing Tag")
+				return
+			}
+		}
+
 	}
 	srcs = make([]string, 0)
 	for _, s := range sources {
@@ -1574,20 +1613,29 @@ func (h *Holochain) Reset() (err error) {
 		h.chain.s.Close()
 	}
 
-	err = os.RemoveAll(h.DBPath() + "/" + ChainDataDir)
+	err = os.RemoveAll(h.DBPath())
 	if err != nil {
-		panic(err)
+		return
+	} else {
+		if err = os.MkdirAll(h.DBPath(), os.ModePerm); err != nil {
+			return
+		}
+		h.chain, err = NewChainFromFile(h.hashSpec, h.DBPath()+"/"+StoreFileName+".dat")
+		if err != nil {
+			return
+		}
+
 	}
 
 	err = os.RemoveAll(h.rootPath + "/" + DNAHashFileName)
 	if err != nil {
 		panic(err)
 	}
-	h.chain = NewChain()
 	if h.dht != nil {
 		close(h.dht.puts)
 	}
 	h.dht = NewDHT(h)
+
 	return
 }
 

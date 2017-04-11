@@ -82,10 +82,10 @@ func (z *JSNucleus) prepareValidateArgs(d *EntryDef, entry Entry, sources []stri
 	switch d.DataFormat {
 	case DataFormatRawJS:
 		e = c
-	case DataFormatLinks:
-		fallthrough
 	case DataFormatString:
 		e = "\"" + jsSanitizeString(c) + "\""
+	case DataFormatLinks:
+		fallthrough
 	case DataFormatJSON:
 		e = fmt.Sprintf(`JSON.parse("%s")`, jsSanitizeString(c))
 	default:

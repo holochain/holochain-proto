@@ -462,6 +462,32 @@ func TestValidatePrepare(t *testing.T) {
 		So(err, ShouldNotBeNil)
 		So(err.Error(), ShouldEqual, "validator profile.json failed: object property 'lastName' is required")
 	})
+
+	hdr = mkTestHeader("rating")
+	Convey("validate on a links entry should fail if not formatted correctly", t, func() {
+		_, _, _, err := h.ValidatePrepare(hdr.Type, &GobEntry{C: "badjson"}, []peer.ID{h.id})
+		So(err, ShouldNotBeNil)
+		So(err.Error(), ShouldEqual, "invalid links entry, invalid json: invalid character 'b' looking for beginning of value")
+
+		_, _, _, err = h.ValidatePrepare(hdr.Type, &GobEntry{C: `{}`}, []peer.ID{h.id})
+		So(err, ShouldNotBeNil)
+		So(err.Error(), ShouldEqual, "invalid links entry: you must specify at least one link")
+
+		_, _, _, err = h.ValidatePrepare(hdr.Type, &GobEntry{C: `{"Links":[{}]}`}, []peer.ID{h.id})
+		So(err, ShouldNotBeNil)
+		So(err.Error(), ShouldEqual, "invalid links entry: missing Base")
+
+		_, _, _, err = h.ValidatePrepare(hdr.Type, &GobEntry{C: `{"Links":[{"Base":"x","Link":"x","Tag":"sometag"}]}`}, []peer.ID{h.id})
+		So(err, ShouldNotBeNil)
+		So(err.Error(), ShouldEqual, "invalid links entry: Base multihash too short. must be > 3 bytes")
+		_, _, _, err = h.ValidatePrepare(hdr.Type, &GobEntry{C: `{"Links":[{"Base":"QmdRXz53TVT9qBYfbXctHyy2GpTNa6YrpAy6ZcDGG8Xhc5","Link":"x","Tag":"sometag"}]}`}, []peer.ID{h.id})
+		So(err, ShouldNotBeNil)
+		So(err.Error(), ShouldEqual, "invalid links entry: Link multihash too short. must be > 3 bytes")
+
+		_, _, _, err = h.ValidatePrepare(hdr.Type, &GobEntry{C: `{"Links":[{"Base":"QmdRXz53TVT9qBYfbXctHyy2GpTNa6YrpAy6ZcDGG8Xhc5","Link":"QmdRXz53TVT9qBYfbXctHyy2GpTNa6YrpAy6ZcDGG8Xhc5"}]}`}, []peer.ID{h.id})
+		So(err, ShouldNotBeNil)
+		So(err.Error(), ShouldEqual, "invalid links entry: missing Tag")
+	})
 }
 
 func TestValidateCommit(t *testing.T) {

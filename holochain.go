@@ -296,7 +296,7 @@ func (s *Service) load(name string, format string) (hP *Holochain, err error) {
 		return
 	}
 
-	h.chain, err = NewChainFromFile(h.hashSpec, h.DBPath()+"/"+StoreFileName+".dat")
+	h.chain, err = NewChainFromFile(h.hashSpec, h.DBPath()+"/"+StoreFileName)
 	if err != nil {
 		return
 	}
@@ -995,7 +995,7 @@ func gen(root string, makeH func(root string) (hP *Holochain, err error)) (h *Ho
 		return nil, err
 	}
 
-	h.chain, err = NewChainFromFile(h.hashSpec, h.DBPath()+"/"+StoreFileName+".dat")
+	h.chain, err = NewChainFromFile(h.hashSpec, h.DBPath()+"/"+StoreFileName)
 	if err != nil {
 		return nil, err
 	}
@@ -1625,7 +1625,7 @@ func (h *Holochain) Reset() (err error) {
 		if err = os.MkdirAll(h.DBPath(), os.ModePerm); err != nil {
 			return
 		}
-		h.chain, err = NewChainFromFile(h.hashSpec, h.DBPath()+"/"+StoreFileName+".dat")
+		h.chain, err = NewChainFromFile(h.hashSpec, h.DBPath()+"/"+StoreFileName)
 		if err != nil {
 			return
 		}

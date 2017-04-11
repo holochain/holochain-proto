@@ -291,8 +291,8 @@ func TestDHTReceiver(t *testing.T) {
 		m := h.node.NewMessage(GETLINK_REQUEST, mq)
 		r, err := DHTReceiver(h, m)
 		So(err, ShouldBeNil)
-		results := r.(LinkQueryResp)
-		So(results.Hashes[0].H, ShouldEqual, hd.EntryLink.String())
+		results := r.(*LinkQueryResp)
+		So(results.Links[0].H, ShouldEqual, hd.EntryLink.String())
 	})
 
 	Convey("GOSSIP_REQUEST should request and advertise data by idx", t, func() {

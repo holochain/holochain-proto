@@ -265,7 +265,7 @@ func TestZygoDHT(t *testing.T) {
 		panic(err)
 	}
 
-	Convey("it should have a getlink function", t, func() {
+	Convey("getlink function should return the Links", t, func() {
 		v, err := NewZygoNucleus(h, fmt.Sprintf(`(getlink "%s" "4stars")`, hash.String()))
 		So(err, ShouldBeNil)
 		z := v.(*ZygoNucleus)
@@ -273,6 +273,16 @@ func TestZygoDHT(t *testing.T) {
 
 		r, err := sh.HashGet(z.env, z.env.MakeSymbol("result"))
 		So(err, ShouldBeNil)
-		So(r.(*zygo.SexpStr).S, ShouldEqual, `[{"H":"QmYeinX5vhuA91D3v24YbgyLofw9QAxY6PoATrBHnRwbtt"}]`)
+		So(r.(*zygo.SexpStr).S, ShouldEqual, `[{"H":"QmYeinX5vhuA91D3v24YbgyLofw9QAxY6PoATrBHnRwbtt","E":""}]`)
+	})
+	Convey("getlink function with load option should return the Links and entries", t, func() {
+		v, err := NewZygoNucleus(h, fmt.Sprintf(`(getlink "%s" "4stars" (hash Load:true))`, hash.String()))
+		So(err, ShouldBeNil)
+		z := v.(*ZygoNucleus)
+		sh := z.lastResult.(*zygo.SexpHash)
+
+		r, err := sh.HashGet(z.env, z.env.MakeSymbol("result"))
+		So(err, ShouldBeNil)
+		So(r.(*zygo.SexpStr).S, ShouldEqual, `[{"H":"QmYeinX5vhuA91D3v24YbgyLofw9QAxY6PoATrBHnRwbtt","E":"{\"firstName\":\"Zippy\",\"lastName\":\"Pinhead\"}"}]`)
 	})
 }

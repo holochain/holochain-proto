@@ -654,6 +654,6 @@ func TestCommit(t *testing.T) {
 		}
 		results, err := h.dht.getLink(hash, "4stars")
 		So(err, ShouldBeNil)
-		So(fmt.Sprintf("%v", results), ShouldEqual, "[{QmYeinX5vhuA91D3v24YbgyLofw9QAxY6PoATrBHnRwbtt}]")
+		So(fmt.Sprintf("%v", results), ShouldEqual, "[{QmYeinX5vhuA91D3v24YbgyLofw9QAxY6PoATrBHnRwbtt }]")
 	})
 }

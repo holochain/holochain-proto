@@ -231,23 +231,13 @@ func (z *ZygoNucleus) get(env *zygo.Glisp, h *Holochain, hash string) (result *z
 		return nil, err
 	}
 
-	var key Hash
-	key, err = NewHash(hash)
-	if err != nil {
-		return
-	}
-	response, err := h.dht.SendGet(key)
+	entry, err := h.Get(hash)
 	if err == nil {
-		switch t := response.(type) {
-		case *GobEntry:
-			// @TODO figure out encoding by entry type.
-			j, err := json.Marshal(t.C)
-			if err == nil {
-				err = result.HashSet(env.MakeSymbol("result"), &zygo.SexpStr{S: string(j)})
-			}
-		// @TODO what about if the hash was of a header??
-		default:
-			err = fmt.Errorf("unexpected response type from SendGet: %v", t)
+		t := entry.(*GobEntry)
+		// @TODO figure out encoding by entry type.
+		j, err := json.Marshal(t.C)
+		if err == nil {
+			err = result.HashSet(env.MakeSymbol("result"), &zygo.SexpStr{S: string(j)})
 		}
 	} else {
 		err = result.HashSet(env.MakeSymbol("error"), &zygo.SexpStr{S: err.Error()})
@@ -256,24 +246,18 @@ func (z *ZygoNucleus) get(env *zygo.Glisp, h *Holochain, hash string) (result *z
 }
 
 // getlink exposes GetLink to zygo
-func (z *ZygoNucleus) getlink(env *zygo.Glisp, h *Holochain, base string, tag string) (result *zygo.SexpHash, err error) {
+func (z *ZygoNucleus) getlink(env *zygo.Glisp, h *Holochain, base string, tag string, options GetLinkOptions) (result *zygo.SexpHash, err error) {
 	result, err = zygo.MakeHash(nil, "hash", env)
 	if err != nil {
 		return nil, err
 	}
 
-	response, err := h.GetLink(base, tag)
+	response, err := h.GetLink(base, tag, options)
 
 	if err == nil {
-		switch t := response.(type) {
-		case LinkQueryResp:
-			// @TODO figure out encoding by entry type.
-			j, err := json.Marshal(t.Hashes)
-			if err == nil {
-				err = result.HashSet(env.MakeSymbol("result"), &zygo.SexpStr{S: string(j)})
-			}
-		default:
-			err = fmt.Errorf("unexpected response type from SendGetLink: %v", t)
+		j, err := json.Marshal(response.Links)
+		if err == nil {
+			err = result.HashSet(env.MakeSymbol("result"), &zygo.SexpStr{S: string(j)})
 		}
 	} else {
 		err = result.HashSet(env.MakeSymbol("error"), &zygo.SexpStr{S: err.Error()})
@@ -401,7 +385,8 @@ func NewZygoNucleus(h *Holochain, code string) (n Nucleus, err error) {
 
 	z.env.AddFunction("getlink",
 		func(env *zygo.Glisp, name string, args []zygo.Sexp) (zygo.Sexp, error) {
-			if len(args) != 2 {
+			l := len(args)
+			if l < 2 || l > 3 {
 				return zygo.SexpNull, zygo.WrongNargs
 			}
 
@@ -422,7 +407,28 @@ func NewZygoNucleus(h *Holochain, code string) (n Nucleus, err error) {
 				return zygo.SexpNull,
 					errors.New("2nd argument of getlink should be string")
 			}
-			result, err := z.getlink(env, h, hashstr, typestr)
+
+			options := GetLinkOptions{Load: false}
+			if l == 3 {
+				switch t := args[2].(type) {
+				case *zygo.SexpHash:
+					r, err := t.HashGet(z.env, z.env.MakeSymbol("Load"))
+					if err == nil {
+						switch t := r.(type) {
+						case *zygo.SexpBool:
+							options.Load = t.Val
+						default:
+							return zygo.SexpNull,
+								errors.New("Load must be a boolean")
+						}
+					}
+				default:
+					return zygo.SexpNull,
+						errors.New("3rd argument of getlink should be hash")
+				}
+
+			}
+			result, err := z.getlink(env, h, hashstr, typestr, options)
 			return result, err
 		})
 

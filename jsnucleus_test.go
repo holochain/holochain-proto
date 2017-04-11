@@ -250,15 +250,27 @@ func TestJSDHT(t *testing.T) {
 		panic(err)
 	}
 
-	Convey("it should have a getlink function", t, func() {
+	Convey("getlink function should return the Links", t, func() {
 		v, err := NewJSNucleus(h, fmt.Sprintf(`getlink("%s","4stars");`, hash.String()))
+		So(err, ShouldBeNil)
+		z := v.(*JSNucleus)
+
+		So(z.lastResult.Class(), ShouldEqual, "Object")
+		x, err := z.lastResult.Export()
+		lqr := x.(*LinkQueryResp)
+		So(err, ShouldBeNil)
+		So(fmt.Sprintf("%v", lqr.Links[0].H), ShouldEqual, profileHash.String())
+	})
+
+	Convey("getlink function with load option should return the Links and entries", t, func() {
+		v, err := NewJSNucleus(h, fmt.Sprintf(`getlink("%s","4stars",{Load:true});`, hash.String()))
 		So(err, ShouldBeNil)
 		z := v.(*JSNucleus)
 		So(z.lastResult.Class(), ShouldEqual, "Object")
 		x, err := z.lastResult.Export()
-		lqr := x.(LinkQueryResp)
+		lqr := x.(*LinkQueryResp)
 		So(err, ShouldBeNil)
-		So(fmt.Sprintf("%v", lqr.Hashes[0].H), ShouldEqual, profileHash.String())
+		So(fmt.Sprintf("%v", lqr.Links[0].H), ShouldEqual, profileHash.String())
+		So(fmt.Sprintf("%v", lqr.Links[0].E), ShouldEqual, `{"firstName":"Zippy","lastName":"Pinhead"}`)
 	})
-
 }

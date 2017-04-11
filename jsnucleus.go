@@ -227,7 +227,7 @@ func NewJSNucleus(h *Holochain, code string) (n Nucleus, err error) {
 			v, _ = z.vm.Call("JSON.stringify", nil, v)
 			entry, _ = v.ToString()
 		} else {
-			return z.vm.MakeCustomError("HolochainError", "commit expected string as second argument")
+			return z.vm.MakeCustomError("HolochainError", "commit expected entry to be string or object (second argument)")
 		}
 		var entryHash Hash
 		entryHash, err = h.Commit(entryType, entry)
@@ -252,22 +252,11 @@ func NewJSNucleus(h *Holochain, code string) (n Nucleus, err error) {
 			return z.vm.MakeCustomError("HolochainError", "get expected string as argument")
 		}
 
-		var key Hash
-		key, err = NewHash(hashstr)
+		entry, err := h.Get(hashstr)
 		if err == nil {
-			var response interface{}
-			response, err = h.dht.SendGet(key)
-			if err == nil {
-				switch t := response.(type) {
-				case *GobEntry:
-					result, err = z.vm.ToValue(t)
-					return
-					// @TODO what about if the hash was of a header??
-				default:
-					err = fmt.Errorf("unexpected response type from SendGet: %v", t)
-				}
-
-			}
+			t := entry.(*GobEntry)
+			result, err = z.vm.ToValue(t)
+			return
 		}
 
 		if err != nil {
@@ -281,11 +270,28 @@ func NewJSNucleus(h *Holochain, code string) (n Nucleus, err error) {
 	}
 
 	err = z.vm.Set("getlink", func(call otto.FunctionCall) (result otto.Value) {
+		l := len(call.ArgumentList)
+		if l < 2 || l > 3 {
+			return z.vm.MakeCustomError("HolochainError", "expected 2 or 3 arguments to getlink")
+		}
 		base, _ := call.Argument(0).ToString()
 		tag, _ := call.Argument(1).ToString()
+		options := GetLinkOptions{Load: false}
+		if l == 3 {
+			v := call.Argument(2)
+			if v.IsObject() {
+				loadv, _ := v.Object().Get("Load")
+				if loadv.IsBoolean() {
+					load, _ := loadv.ToBoolean()
+					options.Load = load
+				}
+			} else {
+				return z.vm.MakeCustomError("HolochainError", "getlink expected options to be object (third argument)")
+			}
+		}
 
 		var response interface{}
-		response, err = h.GetLink(base, tag)
+		response, err = h.GetLink(base, tag, options)
 		if err == nil {
 			result, err = z.vm.ToValue(response)
 		} else {

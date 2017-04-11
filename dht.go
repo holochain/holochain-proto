@@ -80,14 +80,20 @@ type LinkQuery struct {
 	// filter, etc
 }
 
+// GetLinkOptions options to holochain level GetLink functions
+type GetLinkOptions struct {
+	Load bool // indicates whether GetLink should retrieve the entries of all links
+}
+
 // TaggedHash holds associated entries for the LinkQueryResponse
 type TaggedHash struct {
-	H string
+	H string // the hash of the link; gets filled by dht base node when answering get link request
+	E string // the value of link, get's filled by caller if getlink function set Load to true
 }
 
 // LinkQueryResp holds response to getLink query
 type LinkQueryResp struct {
-	Hashes []TaggedHash
+	Links []TaggedHash
 }
 
 // NewDHT creates a new DHT structure
@@ -321,7 +327,7 @@ func (dht *DHT) SendGet(key Hash) (response interface{}, err error) {
 	return
 }
 
-// SendLink initiates associating Meta data with particular Hash on the DHT.
+// SendLink initiates associating links with particular Hash on the DHT.
 func (dht *DHT) SendLink(req LinkReq) (err error) {
 	n, err := dht.FindNodeForHash(req.Base)
 	if err != nil {
@@ -331,7 +337,7 @@ func (dht *DHT) SendLink(req LinkReq) (err error) {
 	return
 }
 
-// SendGetLink initiates retrieving meta data from the DHT
+// SendGetLink initiates retrieving links from the DHT
 func (dht *DHT) SendGetLink(query LinkQuery) (response interface{}, err error) {
 	n, err := dht.FindNodeForHash(query.Base)
 	if err != nil {
@@ -503,8 +509,8 @@ func DHTReceiver(h *Holochain, m *Message) (response interface{}, err error) {
 		switch t := m.Body.(type) {
 		case LinkQuery:
 			var r LinkQueryResp
-			r.Hashes, err = h.dht.getLink(t.Base, t.T)
-			response = r
+			r.Links, err = h.dht.getLink(t.Base, t.T)
+			response = &r
 		default:
 			err = ErrDHTExpectedLinkQueryInBody
 		}

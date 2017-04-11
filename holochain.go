@@ -719,7 +719,7 @@ func (s *Service) GenDev(root string, format string) (hP *Holochain, err error) 
 				Entries: []EntryDef{
 					{Name: "evenNumbers", DataFormat: DataFormatRawZygo, Sharing: Public},
 					{Name: "primes", DataFormat: DataFormatJSON, Sharing: Public},
-					{Name: "profile", DataFormat: DataFormatJSON, Schema: "profile.json"},
+					{Name: "profile", DataFormat: DataFormatJSON, Schema: "profile.json", Sharing: Public},
 				},
 				Functions: []FunctionDef{
 					{Name: "getDNA", CallingType: STRING_CALLING},
@@ -738,7 +738,7 @@ func (s *Service) GenDev(root string, format string) (hP *Holochain, err error) 
 				NucleusType: JSNucleusType,
 				Entries: []EntryDef{
 					{Name: "oddNumbers", DataFormat: DataFormatRawJS, Sharing: Public},
-					{Name: "profile", DataFormat: DataFormatJSON, Schema: "profile.json"},
+					{Name: "profile", DataFormat: DataFormatJSON, Schema: "profile.json", Sharing: Public},
 					{Name: "rating", DataFormat: DataFormatLinks},
 				},
 				Functions: []FunctionDef{
@@ -901,13 +901,13 @@ function validateCommit(entry_type,entry,header,sources) {
   return validate(entry_type,entry,header,sources);
 }
 function validate(entry_type,entry,header,sources) {
-if (entry_type=="oddNumbers") {
-  return entry%2 != 0
-}
-if (entry_type=="profile") {
-  return true
-}
-return false
+  if (entry_type=="oddNumbers") {
+    return entry%2 != 0
+  }
+  if (entry_type=="profile") {
+    return true
+  }
+  return false
 }
 function validateLink(linkEntryType,baseHash,linkHash,tag,sources){return true}
 function genesis() {return true}
@@ -1187,6 +1187,9 @@ func (h *Holochain) ValidateCommit(entryType string, entry Entry, header *Header
 		return
 	}
 	err = n.ValidateCommit(d, entry, header, srcs)
+	if err != nil {
+		Debugf("ValidateCommit err:%v\n", err)
+	}
 	return
 }
 
@@ -1201,6 +1204,9 @@ func (h *Holochain) ValidatePut(entryType string, entry Entry, header *Header, s
 		return
 	}
 	err = n.ValidatePut(d, entry, header, srcs)
+	if err != nil {
+		Debugf("ValidatePut err:%v\n", err)
+	}
 	return
 }
 
@@ -1224,6 +1230,9 @@ func (h *Holochain) ValidateLink(linkingEntryType string, base string, link stri
 		return
 	}
 	err = n.ValidateLink(linkingEntryType, base, link, tag, srcs)
+	if err != nil {
+		Debugf("ValidateLink err:%v\n", err)
+	}
 	return
 }
 
@@ -1624,6 +1633,27 @@ func (h *Holochain) Send(proto Protocol, to peer.ID, t MsgType, body interface{}
 // ---------------------------------------------------------------------------------
 // ---- These functions implement the required functions called by specific nuclei implementations
 
+// Get services nucleus get routines
+func (h *Holochain) Get(hash string) (entry Entry, err error) {
+
+	var key Hash
+	key, err = NewHash(hash)
+	if err != nil {
+		return
+	}
+	response, err := h.dht.SendGet(key)
+	if err != nil {
+		return
+	}
+	switch t := response.(type) {
+	case *GobEntry:
+		entry = t
+	default:
+		err = fmt.Errorf("unexpected response type from SendGet: %T", t)
+	}
+	return
+}
+
 // Commit services nucleus commit routines
 // it check validity and adds a new entry to the chain, and also does any special actions,
 // like put or link if these are shared entries
@@ -1673,11 +1703,28 @@ func (h *Holochain) Commit(entryType, entry string) (entryHash Hash, err error) 
 }
 
 // GetLink services nucleus getlink routines
-func (h *Holochain) GetLink(basestr string, tag string) (response interface{}, err error) {
+func (h *Holochain) GetLink(basestr string, tag string, options GetLinkOptions) (response *LinkQueryResp, err error) {
 	var base Hash
 	base, err = NewHash(basestr)
 	if err == nil {
-		response, err = h.dht.SendGetLink(LinkQuery{Base: base, T: tag})
+		var r interface{}
+		r, err = h.dht.SendGetLink(LinkQuery{Base: base, T: tag})
+		if err == nil {
+			switch t := r.(type) {
+			case *LinkQueryResp:
+				response = t
+				if options.Load {
+					for i, _ := range response.Links {
+						entry, err := h.Get(response.Links[i].H)
+						if err == nil {
+							response.Links[i].E = entry.(*GobEntry).C.(string)
+						}
+					}
+				}
+			default:
+				err = fmt.Errorf("unexpected response type from SendGetLink: %T", t)
+			}
+		}
 	}
 	return
 }

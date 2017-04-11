@@ -1,14 +1,13 @@
 // Get list of posts in a Space
-expose("listMessages", HC.JSON);
 function listMessages(room) {
-  var messages = getlink(room, "message");
+    var messages = getlink(room, "message",{Load:true});
   if( messages instanceof Error ) {
     return []
   } else {
-    messages = messages.Entries
+    messages = messages.Links
     var return_messages = new Array(messages.length);
     for( i=0; i<messages.length; i++) {
-      return_messages[i] = JSON.parse(messages[i]["E"]["C"])
+      return_messages[i] = JSON.parse(messages[i]["E"])
       return_messages[i].id = messages[i]["H"]
     }
     return return_messages
@@ -18,44 +17,45 @@ function listMessages(room) {
 
 
 // Create a new post in a Space / Channel
-expose("newMessage", HC.JSON); // receives content, room, [inReplyTo]
+// receives content, room, [inReplyTo]
 function newMessage(x) {
-  x.timestamp = new Date();
-  var key = commit("message", x);
-  put(key)
-  putmeta(x.room, key, "message")
-  return key
+    x.timestamp = new Date();
+    var key = commit("message", x);
+    commit("my_messages",{Links:[{Base:x.room,Link:key,Tag:"message"}]})
+    return key
 }
 
 
 // Edit a post (create new one which "replaces" the old)
-expose("modMessage", HC.JSON); // receives message like in newMessage and old_message's hash
+// receives message like in newMessage and old_message's hash
 function modMessage(x, old_message) {
-  var key = commit("message", x);
-  put(key)
-  putmeta(old_post, key, "replacedBy")
-  return key
+    var key = commit("message", x);
+    commit("my_messages",{Links:[{Base:old_post,Link:key,Tag:"replacedBy"}]})
+    return key
 }
 
 function isAllowed(author) {
-  debug("Checking if "+author+" is a registered user...")
-  var registered_users = getlink(App.DNAHash, "registered_users");
-  if( registered_users instanceof Error ) return false;
-  registered_users = registered_users.Entries
-  for(var i=0; i < registered_users.length; i++) {
-    var profile = JSON.parse(registered_users[i]["E"]["C"])
-    //debug("Registered user "+i+" is " + profile.username)
-    if( profile.agent_id == author) return true;
-  }
-  return false;
+    debug("Checking if "+author+" is a registered user...")
+    var registered_users = getlink(App.DNA.Hash, "registered_users",{Load:true});
+    debug("Registered users are: "+JSON.stringify(registered_users));
+    if( registered_users instanceof Error ) return false;
+    registered_users = registered_users.Links
+    for(var i=0; i < registered_users.length; i++) {
+        var profile = JSON.parse(registered_users[i]["E"])
+        debug("Registered user "+i+" is " + profile.username)
+        if( profile.agent_id == author) return true;
+    }
+    return false;
 }
 
 function isValidRoom(room) {
-  var rooms = getlink(App.DNA.Hash, "room");
+    debug("Checking if "+room+" is a valid...")
+    var rooms = getlink(App.DNA.Hash, "room",{Load:true});
+    debug("Rooms: " + JSON.stringify(rooms))
   if( rooms instanceof Error ){
       return false
   } else {
-    rooms = rooms.Entries
+    rooms = rooms.Links
     for( i=0; i<rooms.length; i++) {
       if( rooms[i]["H"] == room) return true
     }
@@ -72,6 +72,10 @@ function validatePut(entry_type,entry,header,sources) {
     return validate(entry_type,entry,header,sources);
 }
 function validateCommit(entry_type,entry,header,sources) {
+    if (entry_type == "my_messages") {
+        //TODO proper source validation here...
+        return true;
+    }
     return validate(entry_type,entry,header,sources);
 }
 // Local validate an entry before committing ???
@@ -87,4 +91,7 @@ function validate(entry_type,entry,header,sources) {
         return false;
     }
 }
-function validateLink(linkingEntryType,baseHash,linkHash,tag,sources){return true}
+
+function validateLink(linkingEntryType,baseHash,linkHash,tag,sources){
+    return true;
+}

@@ -24,14 +24,14 @@
     "Zome":"profiles",
     "FnName":"register",
     "Input":"{\"username\":\"cnorris\", \"firstName\":\"Chuck\", \"lastName\":\"Norris\", \"email\":\"chuck@norris.com\"}",
-    "Output":"\"%h%\"",
+    "Output":"\"%h1%\"",
     "Err":""
   },
   {
     "Zome":"rooms",
     "FnName":"newRoom",
     "Input":"{\"name\":\"general\", \"purpose\":\"everything goes in here\"}",
-    "Output":"\"%h%\"",
+    "Output":"\"%h1%\"",
     "Err":""
   },
   {

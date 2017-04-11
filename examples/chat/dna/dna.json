@@ -15,70 +15,151 @@
     },
     "Zomes": [
         {
-          "Name": "chat",
-          "Description": "chat code",
-          "NucleusType": "js",
-          "Code": "chat.js",
-          "CodeHash": {
-              "H": null
-          }
+            "Name": "chat",
+            "Description": "chat code",
+            "NucleusType": "js",
+            "Code": "chat.js",
+            "CodeHash": {
+                "H": null
+            },
+            "Entries": [
+                {
+                    "Name": "membership",
+                    "DataFormat": "links"
+                }
+            ],
+            "Functions":[
+                {
+                    "Name":"listMembers",
+                    "CallingType":"json"
+                },
+                {
+                    "Name":"listAdmins",
+                    "CallingType":"json"
+                },
+                {
+                    "Name":"addMember",
+                    "CallingType":"json"
+                }
+            ]
         },
         {
-          "Name": "rooms",
-          "Description": "Rooms controller",
-          "NucleusType": "js",
-          "Code": "rooms.js",
-          "CodeHash": {
-              "H": null
-          },
-          "Entries": [
-             {
-              "Name": "room",
-              "DataFormat": "json",
-              "Schema": "room.json",
-              "SchemaHash": {
-                  "H": null
-              }
-            }
-          ]
+            "Name": "rooms",
+            "Description": "Rooms controller",
+            "NucleusType": "js",
+            "Code": "rooms.js",
+            "CodeHash": {
+                "H": null
+            },
+            "Entries": [
+                {
+                    "Name": "room",
+                    "DataFormat": "json",
+                    "Schema": "room.json",
+                    "Sharing": "public",
+                    "SchemaHash": {
+                        "H": null
+                    }
+                },
+                {
+                    "Name": "room_links",
+                    "DataFormat": "links"
+                }
+            ],
+            "Functions":[
+                {
+                    "Name":"listRooms",
+                    "CallingType":"json"
+                },
+                {
+                    "Name":"newRoom",
+                    "CallingType":"json"
+                }
+            ]
         },
         {
-          "Name": "messages",
-          "Description": "Messages controller",
-          "NucleusType": "js",
-          "Code": "messages.js",
-          "CodeHash": {
-              "H": null
-          },
-          "Entries": [
-            {
-              "Name": "message",
-              "DataFormat": "json",
-              "Schema": "message.json",
-              "SchemaHash": {
-                  "H": null
-              }
-            }
-          ]
+            "Name": "messages",
+            "Description": "Messages controller",
+            "NucleusType": "js",
+            "Code": "messages.js",
+            "CodeHash": {
+                "H": null
+            },
+            "Entries": [
+                {
+                    "Name": "my_messages",
+                    "DataFormat": "links"
+                },
+                {
+                    "Name": "message",
+                    "DataFormat": "json",
+                    "Schema": "message.json",
+                    "Sharing": "public",
+                    "SchemaHash": {
+                        "H": null
+                    }
+                }
+            ],
+            "Functions":[
+                {
+                    "Name":"listMessages",
+                    "CallingType":"json"
+                },
+                {
+                    "Name":"newMessage",
+                    "CallingType":"json"
+                },
+                {
+                    "Name":"modMessage",
+                    "CallingType":"json"
+                }
+            ]
         },
         {
-          "Name": "profiles",
-          "Description": "Profiles controller",
-          "NucleusType": "js",
-          "Code": "profiles.js",
-          "CodeHash": {
-              "H": null
-          },
-          "Entries": [
-             {
-              "Name": "profile",
-              "DataFormat": "json",
-              "Schema": "profile.json",
-              "SchemaHash": {
-                  "H": null
-              }
-            }
-          ]
+            "Name": "profiles",
+            "Description": "Profiles controller",
+            "NucleusType": "js",
+            "Code": "profiles.js",
+            "CodeHash": {
+                "H": null
+            },
+            "Entries": [
+                {
+                    "Name": "registrations",
+                    "DataFormat": "links"
+                },
+                {
+                    "Name": "profile",
+                    "DataFormat": "json",
+                    "Schema": "profile.json",
+                    "Sharing": "public",
+                    "SchemaHash": {
+                        "H": null
+                    }
+                }
+            ],
+            "Functions":[
+                {
+                    "Name":"register",
+                    "CallingType":"json"
+                },
+                {
+                    "Name":"isRegistered",
+                    "CallingType":"json"
+                },
+                {
+                    "Name":"getProfile",
+                    "CallingType":"json"
+                },
+                {
+                    "Name":"myProfile",
+                    "CallingType":"json"
+                },
+                {
+                    "Name":"modProfile",
+                    "CallingType":"json"
+                }
+            ]
         }
     ]
 }

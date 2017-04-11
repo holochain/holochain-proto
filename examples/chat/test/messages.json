@@ -28,31 +28,30 @@
     "Err":""
   },
   {
-    "Zome":"rooms",
-    "FnName":"newRoom",
-    "Input":"{\"name\":\"general\", \"purpose\":\"everything goes in here\"}",
-    "Output":"{\"message\":\"Invalid entry: {\\\"name\\\":\\\"general\\\",\\\"purpose\\\":\\\"everything goes in here\\\"}\",\"name\":\"HolochainError\"}",
+    "Zome":"profiles",
+    "FnName":"register",
+    "Input":"{\"username\":\"cnorris\", \"firstName\":\"Chuck\", \"lastName\":\"Norris\", \"email\":\"chuck@norris.com\"}",
+    "Output":"\"%h1%\"",
     "Err":""
   },
   {
     "Zome":"profiles",
-    "FnName":"register",
-    "Input":"{\"username\":\"cnorris\", \"firstName\":\"Chuck\", \"lastName\":\"Norris\", \"email\":\"chuck@norris.com\"}",
-    "Output":"\"%h%\"",
+    "FnName":"myProfile",
+    "Input":"",
+    "Output":"{\"agent_id\":\"QmXksx1cnsNcWtWzn2yPHPeM23y7ejTUgSsiuq1m48uY3d\",\"email\":\"chuck@norris.com\",\"firstName\":\"Chuck\",\"lastName\":\"Norris\",\"username\":\"cnorris\"}",
     "Err":""
-  },
-  {
+  },  {
     "Zome":"rooms",
     "FnName":"newRoom",
     "Input":"{\"name\":\"general\", \"purpose\":\"everything goes in here\"}",
-    "Output":"\"%h%\"",
+    "Output":"\"%h1%\"",
     "Err":""
   },
   {
     "Zome":"messages",
     "FnName":"newMessage",
     "Input":"{\"content\":\"bla\", \"room\":\"%r1%\"}",
-    "Output":"\"%h%\"",
+    "Output":"\"%h1%\"",
     "Err":""
   },
   {

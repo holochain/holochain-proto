@@ -1,6 +1,6 @@
 function relate(base,link,tag) {
     var rel = {Links:[{Base:base,Link:link,Tag:tag}]};
-    return commit("relation",JSON.stringify(rel));
+    return commit("relation",rel);
 }
 
 function addPost(x) {
@@ -32,7 +32,7 @@ function getData(i) {
         return [];
     }
     var i;
-    var l = links.Hashes;
+    var l = links.Links;
     var len = l.length;
     var result = [];
     for (i = 0; i < len; i++) {

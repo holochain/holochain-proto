@@ -3,7 +3,7 @@ Id = "00000000-0000-0000-0000-000000000000"
 Name = "sample"
 PropertiesSchema = "properties_schema.json"
 HashType = "sha2-256"
-RequiresVersion = 5
+RequiresVersion = 6
 
 [Properties]
   description = "a bogus test holochain"
@@ -36,7 +36,7 @@ RequiresVersion = 5
     Name = "profile"
     DataFormat = "json"
     Schema = "profile.json"
-    Sharing = ""
+    Sharing = "public"
     [Zomes.Entries.SchemaHash]
 
   [[Zomes.Functions]]
@@ -85,7 +85,7 @@ RequiresVersion = 5
     Name = "profile"
     DataFormat = "json"
     Schema = "profile.json"
-    Sharing = ""
+    Sharing = "public"
     [Zomes.Entries.SchemaHash]
 
   [[Zomes.Entries]]

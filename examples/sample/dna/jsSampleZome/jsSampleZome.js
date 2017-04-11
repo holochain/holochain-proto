@@ -15,13 +15,13 @@ function validateCommit(entry_type,entry,header,sources) {
   return validate(entry_type,entry,header,sources);
 }
 function validate(entry_type,entry,header,sources) {
-if (entry_type=="oddNumbers") {
-  return entry%2 != 0
-}
-if (entry_type=="profile") {
-  return true
-}
-return false
+  if (entry_type=="oddNumbers") {
+    return entry%2 != 0
+  }
+  if (entry_type=="profile") {
+    return true
+  }
+  return false
 }
 function validateLink(linkEntryType,baseHash,linkHash,tag,sources){return true}
 function genesis() {return true}

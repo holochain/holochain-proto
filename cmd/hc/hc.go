@@ -27,7 +27,7 @@ func setupApp() (app *cli.App) {
 	app = cli.NewApp()
 	app.Name = "hc"
 	app.Usage = "holochain peer command line interface"
-	app.Version = fmt.Sprintf("0.0.3 (holochain %s)", holo.VersionStr)
+	app.Version = fmt.Sprintf("0.0.4 (holochain %s)", holo.VersionStr)
 
 	var force bool
 	var root string
@@ -148,6 +148,13 @@ func setupApp() (app *cli.App) {
 					if err != nil {
 						return err
 					}
+					err = h.Activate()
+					if err != nil {
+						return err
+					}
+					go h.DHT().HandlePutReqs()
+					go h.DHT().Gossip(2 * time.Second)
+
 					errs = h.DoTests(role, tests)
 				} else if len(args) != 1 {
 					return errors.New("test: expected 0 args or 2 (scenario and role)")

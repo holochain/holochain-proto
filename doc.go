@@ -6,6 +6,7 @@
 
 /*
 OVERVIEW
+
 Holographic storage for distributed applications. 
 A holochain is a validating distributed hash table (DHT) where every node 
 enforces validation rules on data against the signed chains where the data 
@@ -19,6 +20,7 @@ it feasible to run blockchain-like applications on devices as lightweight
 as mobile phones
 
 SHARED DATA INTEGRITY
+
 Historically, data integrity has been ensured by restricting access to 
 data. If we wanted to prevent anybody from tampering with data, we locked 
 it behind firewalls, or set strict permissions on databases and file 
@@ -42,6 +44,7 @@ from power imbalances involved with selective parties controlling data,
 information, and protocols.
 
 BEYOND BLOCKCHAIN BOTTLENECKS
+
 We believe Holochains are one of these breakthroughs, because they take a 
 different approach to ensuring the integrity of shared data. Instead of 
 being built on top of cryptographic tokens they are organized around 
@@ -66,6 +69,7 @@ or restrictions they need to, since different applications have different
 demands for strictness.
 
 SUMMARY OF HOLOCHAIN ARCHITECTURE
+
 You can think of a holochain as a shared DHT in which each piece of data is 
 rooted in the signed hash chain of one or more parties. It is a validating 
 DHT so data cannot propagate without first being validated by shared 
@@ -73,12 +77,17 @@ validation rules held by every node -- like every cell in your body has a
 copy of the same DNA.
 
 Each holochain has THREE MAIN SUB-SYSTEMS.
+
 NUCLEUS APPLICATION ENGINE
+
 SOURCE CHAIN
+
 SHARED STORAGE (VALIDATING DHT)
+
 see http://ceptr.org/images/Holochain_Subsystems.png
 
 APPLICATION
+
 The application is the glue that holds all the parts together into a unified 
 whole. You connect to it with a web browser for a user interface. This 
 application can read and write on your own local signed hash chain, and it 
@@ -91,6 +100,7 @@ counterfeited, or lost. As of March 2017, you can write applications in
 JavaScript or Lisp.
 
 LOCAL SOURCE CHAIN
+
 Instead a shared global ledger like blockchains, every person has their own 
 local chain that they sign things to before publishing them to the shared DHT. 
 Interactions involving multiple parties (such as a currency transfer between 
@@ -112,6 +122,7 @@ propagate over the shared DHT, where nodes can confirm we did this according to
 shared rules or expectations.
 
 SHARED STORAGE ON VALIDATING DHT
+
 Distributed Hash Tables (DHTs) are already used for file sharing (bittorrent) 
 and other widespread applications. In these systems, the data is content 
 addressable by cryptographic hash, so you can confirm you receive unaltered data 
@@ -135,11 +146,13 @@ see http://ceptr.org/images/Holochain_DHT.png
 More details see https://github.com/metacurrency/holochain/wiki/Architecture
 
 WHY CEPTR? WHERE DOES THIS COME FROM?
+
 Holochain is a part of a much larger vision for distributed computing to enable 
 quantum leaps in our collective intelligence and abilities for groups to organize 
 themselves on all scales. You can find out more about Ceptr at http://ceptr.org
 
-## A Note to End Users
+A NOTE TO END USERS
+
 Coming soon there will be applications built to make it easy to use holochains as 
 your distributed database for all your daily needs. Hopefully, these applications 
 will be as easy to find, install, and use as any other software you can think of. 

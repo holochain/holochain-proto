@@ -85,11 +85,12 @@ Each holochain has THREE MAIN SUB-SYSTEMS
 -Source Chain
 
 -Shared Storage (Validating DHT)
+
 see http://ceptr.org/images/Holochain_Subsystems.png
 
-NUCLEUS APPLICATION ENGINE (APPLICATION)
+NUCLEUS APPLICATION ENGINE
 
-The application is the glue that holds all the parts together into a unified 
+The Nucleus Application Enging (application) is the glue that holds all the parts together into a unified 
 whole. You connect to it with a web browser for a user interface. This 
 application can read and write on your own local signed hash chain, and it 
 can also get data from the Shared DHT, and put data you author out on that 

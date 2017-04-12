@@ -647,6 +647,7 @@ type TestData struct {
 	Output string      // the expected output to match against (full match)
 	Err    string      // the expected error to match against
 	Regexp string      // the expected out to match again (regular expression)
+	Time   int         // offset in milliseconds from the start of the test at which to run this test.
 }
 
 func (h *Holochain) setupConfig() (err error) {
@@ -1396,100 +1397,141 @@ func (h *Holochain) TestStringReplacements(input, r1, r2, r3 string) string {
 }
 
 func (h *Holochain) DoTests(name string, tests []TestData) (errs []error) {
-	info := h.config.Loggers.TestInfo
-	passed := h.config.Loggers.TestPassed
-	failed := h.config.Loggers.TestFailed
 	var lastResults [3]interface{}
-	var err error
+	done := make(chan bool, len(tests))
+	startTime := time.Now()
+
+	var count int
+	// queue up any timed tests into go routines
 	for i, t := range tests {
-		Debugf("------------------------------")
-		description := t.Convey
-		if description == "" {
-			description = fmt.Sprintf("%v", t)
+		if t.Time == 0 {
+			continue
 		}
-		info.pf("Test '%s.%d': %s", name, i, description)
-		time.Sleep(time.Millisecond * 10)
-		if err == nil {
-			testID := fmt.Sprintf("%s:%d", name, i)
-
-			var input string
-			switch inputType := t.Input.(type) {
-			case string:
-				input = t.Input.(string)
-			case map[string]interface{}:
-				inputByteArray, err := json.Marshal(t.Input)
-				if err == nil {
-					input = string(inputByteArray)
-				}
-			default:
-				err = fmt.Errorf("Input was not an expected type: %T", inputType)
+		count++
+		go func() {
+			elapsed := time.Now().Sub(startTime)
+			toWait := time.Duration(t.Time)*time.Millisecond - elapsed
+			if toWait > 0 {
+				time.Sleep(toWait)
 			}
-			if err == nil {
-				Debugf("Input before replacement: %s", input)
-				r1 := strings.Trim(fmt.Sprintf("%v", lastResults[0]), "\"")
-				r2 := strings.Trim(fmt.Sprintf("%v", lastResults[1]), "\"")
-				r3 := strings.Trim(fmt.Sprintf("%v", lastResults[2]), "\"")
-				input = h.TestStringReplacements(input, r1, r2, r3)
-				Debugf("Input after replacement: %s", input)
-				//====================
-				var actualResult, actualError = h.Call(t.Zome, t.FnName, input)
-				var expectedResult, expectedError = t.Output, t.Err
-				var expectedResultRegexp = t.Regexp
-				//====================
-				lastResults[2] = lastResults[1]
-				lastResults[1] = lastResults[0]
-				lastResults[0] = actualResult
-				if expectedError != "" {
-					comparisonString := fmt.Sprintf("\nTest: %s\n\tExpected error:\t%v\n\tGot error:\t\t%v", testID, expectedError, actualError)
-					if actualError == nil || (actualError.Error() != expectedError) {
-						failed.pf("\n=====================\n%s\n\tfailed! m(\n=====================", comparisonString)
-						err = fmt.Errorf(expectedError)
-					} else {
-						// all fine
-						Debugf("%s\n\tpassed :D", comparisonString)
-						err = nil
-					}
-				} else {
-					if actualError != nil {
-						errorString := fmt.Sprintf("\nTest: %s\n\tExpected:\t%s\n\tGot Error:\t\t%s\n", testID, expectedResult, actualError)
-						err = fmt.Errorf(errorString)
-						failed.pf(fmt.Sprintf("\n=====================\n%s\n\tfailed! m(\n=====================", errorString))
-					} else {
-						var resultString = ToString(actualResult)
-						var match bool
-						var comparisonString string
-						if expectedResultRegexp != "" {
-							Debugf("Test %s matching against regexp...", testID)
-							expectedResultRegexp = h.TestStringReplacements(expectedResultRegexp, r1, r2, r3)
-							comparisonString = fmt.Sprintf("\nTest: %s\n\tExpected regexp:\t%v\n\tGot:\t\t%v", testID, expectedResultRegexp, resultString)
-							var matchError error
-							match, matchError = regexp.MatchString(expectedResultRegexp, resultString)
-							//match, matchError = regexp.MatchString("[0-9]", "7")
-							if matchError != nil {
-								Infof(err.Error())
-							}
-						} else {
-							Debugf("Test %s matching against string...", testID)
-							expectedResult = h.TestStringReplacements(expectedResult, r1, r2, r3)
-							comparisonString = fmt.Sprintf("\nTest: %s\n\tExpected:\t%v\n\tGot:\t\t%v", testID, expectedResult, resultString)
-							match = (resultString == expectedResult)
-						}
-
-						if match {
-							Debugf("%s\n\tpassed! :D", comparisonString)
-							passed.p("passed! ✔")
-						} else {
-							err = fmt.Errorf(comparisonString)
-							failed.pf(fmt.Sprintf("\n=====================\n%s\n\tfailed! m(\n=====================", comparisonString))
-						}
-					}
-				}
+			err := h.doTest(name, i, t, startTime, &lastResults)
+			if err != nil {
+				errs = append(errs, err)
+				err = nil
 			}
+			done <- true
+		}()
+	}
+
+	// run all the non timed tests.
+	for i, t := range tests {
+		if t.Time > 0 {
+			continue
 		}
 
+		err := h.doTest(name, i, t, startTime, &lastResults)
 		if err != nil {
 			errs = append(errs, err)
 			err = nil
+		}
+
+	}
+
+	// wait for all the timed tests to complete
+	for i := 0; i < count; i++ {
+		<-done
+	}
+	return
+}
+
+func (h *Holochain) doTest(name string, i int, t TestData, startTime time.Time, lastResults *[3]interface{}) (err error) {
+	info := h.config.Loggers.TestInfo
+	passed := h.config.Loggers.TestPassed
+	failed := h.config.Loggers.TestFailed
+
+	Debugf("------------------------------")
+	description := t.Convey
+	if description == "" {
+		description = fmt.Sprintf("%v", t)
+	}
+	elapsed := time.Now().Sub(startTime) / time.Millisecond
+	info.pf("Test '%s.%d' t+%dms: %s", name, i, elapsed, description)
+	//		time.Sleep(time.Millisecond * 10)
+	if err == nil {
+		testID := fmt.Sprintf("%s:%d", name, i)
+
+		var input string
+		switch inputType := t.Input.(type) {
+		case string:
+			input = t.Input.(string)
+		case map[string]interface{}:
+			inputByteArray, err := json.Marshal(t.Input)
+			if err == nil {
+				input = string(inputByteArray)
+			}
+		default:
+			err = fmt.Errorf("Input was not an expected type: %T", inputType)
+		}
+		if err == nil {
+			Debugf("Input before replacement: %s", input)
+			r1 := strings.Trim(fmt.Sprintf("%v", lastResults[0]), "\"")
+			r2 := strings.Trim(fmt.Sprintf("%v", lastResults[1]), "\"")
+			r3 := strings.Trim(fmt.Sprintf("%v", lastResults[2]), "\"")
+			input = h.TestStringReplacements(input, r1, r2, r3)
+			Debugf("Input after replacement: %s", input)
+			//====================
+			var actualResult, actualError = h.Call(t.Zome, t.FnName, input)
+			var expectedResult, expectedError = t.Output, t.Err
+			var expectedResultRegexp = t.Regexp
+			//====================
+			lastResults[2] = lastResults[1]
+			lastResults[1] = lastResults[0]
+			lastResults[0] = actualResult
+			if expectedError != "" {
+				comparisonString := fmt.Sprintf("\nTest: %s\n\tExpected error:\t%v\n\tGot error:\t\t%v", testID, expectedError, actualError)
+				if actualError == nil || (actualError.Error() != expectedError) {
+					failed.pf("\n=====================\n%s\n\tfailed! m(\n=====================", comparisonString)
+					err = fmt.Errorf(expectedError)
+				} else {
+					// all fine
+					Debugf("%s\n\tpassed :D", comparisonString)
+					err = nil
+				}
+			} else {
+				if actualError != nil {
+					errorString := fmt.Sprintf("\nTest: %s\n\tExpected:\t%s\n\tGot Error:\t\t%s\n", testID, expectedResult, actualError)
+					err = fmt.Errorf(errorString)
+					failed.pf(fmt.Sprintf("\n=====================\n%s\n\tfailed! m(\n=====================", errorString))
+				} else {
+					var resultString = ToString(actualResult)
+					var match bool
+					var comparisonString string
+					if expectedResultRegexp != "" {
+						Debugf("Test %s matching against regexp...", testID)
+						expectedResultRegexp = h.TestStringReplacements(expectedResultRegexp, r1, r2, r3)
+						comparisonString = fmt.Sprintf("\nTest: %s\n\tExpected regexp:\t%v\n\tGot:\t\t%v", testID, expectedResultRegexp, resultString)
+						var matchError error
+						match, matchError = regexp.MatchString(expectedResultRegexp, resultString)
+						//match, matchError = regexp.MatchString("[0-9]", "7")
+						if matchError != nil {
+							Infof(err.Error())
+						}
+					} else {
+						Debugf("Test %s matching against string...", testID)
+						expectedResult = h.TestStringReplacements(expectedResult, r1, r2, r3)
+						comparisonString = fmt.Sprintf("\nTest: %s\n\tExpected:\t%v\n\tGot:\t\t%v", testID, expectedResult, resultString)
+						match = (resultString == expectedResult)
+					}
+
+					if match {
+						Debugf("%s\n\tpassed! :D", comparisonString)
+						passed.p("passed! ✔")
+					} else {
+						err = fmt.Errorf(comparisonString)
+						failed.pf(fmt.Sprintf("\n=====================\n%s\n\tfailed! m(\n=====================", comparisonString))
+					}
+				}
+			}
 		}
 	}
 	return

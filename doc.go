@@ -147,6 +147,7 @@ see http://ceptr.org/images/Holochain_DHT.png
 
 More details see https://github.com/metacurrency/holochain/wiki/Architecture
 
+
 WHY CEPTR? WHERE DOES THIS COME FROM?
 
 Holochain is a part of a much larger vision for distributed computing to enable 

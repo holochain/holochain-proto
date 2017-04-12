@@ -6,6 +6,7 @@
 
 /*
 
+
 OVERVIEW
 
 Holographic storage for distributed applications. 
@@ -79,15 +80,15 @@ copy of the same DNA.
 
 Each holochain has THREE MAIN SUB-SYSTEMS
 
--NUCLEUS APPLICATION ENGINE
+-Nucleus Application Engine
 
--SOURCE CHAIN
+-Source Chain
 
--SHARED STORAGE (VALIDATING DHT)
+-Shared Storage (Validating DHT)
 
 see http://ceptr.org/images/Holochain_Subsystems.png
 
-APPLICATION
+NUCLEUS APPLICATION ENGINE (APPLICATION)
 
 The application is the glue that holds all the parts together into a unified 
 whole. You connect to it with a web browser for a user interface. This 
@@ -95,26 +96,26 @@ application can read and write on your own local signed hash chain, and it
 can also get data from the Shared DHT, and put data you author out on that 
 shared DHT.
 
-Most importantly, it provides the validation rules which everyone runs to 
-make sure the data being held in the shared DHT can't be tampered with, 
-counterfeited, or lost. As of March 2017, you can write applications in 
-JavaScript or Lisp.
+Most importantly, it provides the VALIDATION RULES which everyone on that 
+Holochain runs to make sure the data being held in the shared DHT can't be 
+tampered with, counterfeited, or lost. As of March 2017, you can write 
+applications in JavaScript or Lisp.
 
 LOCAL SOURCE CHAIN
 
-Instead a shared global ledger like blockchains, every person has their own 
+Instead of a shared global ledger like blockchains, every person has their own 
 local chain that they sign things to before publishing them to the shared DHT. 
 Interactions involving multiple parties (such as a currency transfer between 
 two people) are signed by EACH party and committed to their own chains, and 
-then shared to DHT by each party.
+then shared to the DHT by each party.
 see http://ceptr.org/images/Holochain_Source.png
 
 Many of the applications people dream of running in shared decentralized 
 manner (like a distributed Facebook, Twitter, Slack, Uber, or AirBnB) 
 shouldn't need any kind of consensus from a large group of people. Why should 
 I need consensus for a tweet or a social network update? Why should we need 
-consensus for me to reserve your spare room? What do these things have to do 
-with anybody else's agreement?
+consensus from everyone in the community for me to reserve your spare room? 
+What do these things have to do with anybody else's agreement?
 
 Thankfully, if an app like this runs on a holochain, I can just write my tweet 
 to my own chain, then share it. Or we can both sign the B&B reservation to each 
@@ -129,7 +130,7 @@ and other widespread applications. In these systems, the data is content
 addressable by cryptographic hash, so you can confirm you receive unaltered data 
 by hashing it yourself.
 
-In our validating DHT, we confirm the provenance of every piece of data, 
+In our validating DHT, we confirm the PROVENANCE of every piece of data, 
 validating the signature of its author, and that it has been committed to their 
 local chain. Multi-party transactions create a "crossing" of chains which also 
 assure that even if you try to alter your own chain, your transaction is 
@@ -161,4 +162,6 @@ However, at the moment, these apps don't exist and holochain is largely for
 developers trying to build these things for you. Check back in Q2 of 2017 for some 
 cool applications.
 */
+
+
 package holochain

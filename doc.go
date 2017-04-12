@@ -5,6 +5,7 @@
 // for provenance and data integrity.
 
 /*
+
 OVERVIEW
 
 Holographic storage for distributed applications. 
@@ -76,13 +77,13 @@ DHT so data cannot propagate without first being validated by shared
 validation rules held by every node -- like every cell in your body has a 
 copy of the same DNA.
 
-Each holochain has THREE MAIN SUB-SYSTEMS.
+Each holochain has THREE MAIN SUB-SYSTEMS
 
-NUCLEUS APPLICATION ENGINE
+-NUCLEUS APPLICATION ENGINE
 
-SOURCE CHAIN
+-SOURCE CHAIN
 
-SHARED STORAGE (VALIDATING DHT)
+-SHARED STORAGE (VALIDATING DHT)
 
 see http://ceptr.org/images/Holochain_Subsystems.png
 

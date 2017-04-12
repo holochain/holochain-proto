@@ -144,6 +144,7 @@ behave differently, even if they colluded with others, the rest of the nodes on
 the DHT would not validate their altered behavior and they will have essentially 
 just forked themselves out of being able to participate on that holochain.
 see http://ceptr.org/images/Holochain_DHT.png
+
 More details see https://github.com/metacurrency/holochain/wiki/Architecture
 
 WHY CEPTR? WHERE DOES THIS COME FROM?
@@ -161,5 +162,4 @@ However, at the moment, these apps don't exist and holochain is largely for
 developers trying to build these things for you. Check back in Q2 of 2017 for some 
 cool applications.
 */
-
 package holochain

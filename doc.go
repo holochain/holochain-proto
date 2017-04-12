@@ -162,6 +162,4 @@ However, at the moment, these apps don't exist and holochain is largely for
 developers trying to build these things for you. Check back in Q2 of 2017 for some 
 cool applications.
 */
-
-
 package holochain

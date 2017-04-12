@@ -147,9 +147,9 @@ see http://ceptr.org/images/Holochain_DHT.png
 
 More details see https://github.com/metacurrency/holochain/wiki/Architecture
 
-WHY CEPTR? WHERE DOES THIS COME FROM?
+WHERE DOES THIS COME FROM?
 
-Holochain is a part of a much larger vision for distributed computing to enable 
+Holochain is a part of Ceptr, a much larger vision for distributed computing to enable 
 quantum leaps in our collective intelligence and abilities for groups to organize 
 themselves on all scales. You can find out more about Ceptr at http://ceptr.org
 

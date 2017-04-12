@@ -1,0 +1,28 @@
+[
+    {
+        "Convey":"register person 2",
+        "Zome":"profiles",
+        "FnName":"register",
+        "Input":"{\"username\":\"person2\", \"firstName\":\"Jane\", \"lastName\":\"Person2\", \"email\":\"jane@example.com\"}",
+        "Output":"\"%h1%\"",
+        "Err":""
+    },
+    {
+        "Convey":"room created by person 1 should be visible at 50ms",
+        "Zome":"rooms",
+        "FnName":"listRooms",
+        "Input":"",
+        "Regexp":"^\\[\\{\"id\":\"(.*)\",\"name\":\"general\",\"purpose\":\"everything goes in here\"\\}\\]$",
+        "Err":"",
+        "Time":50
+    },
+    {
+        "Convey":"message created by person 1 should be visible at 50ms",
+        "Zome":"messages",
+        "FnName":"listMessages",
+        "Input":"\"%m1.1%\"",
+        "Regexp":"^\\[\\{\"content\":\"bla\",\"id\":\"(.*)\",\"room\":\".*\",\"timestamp\":\"[^\"]*\"\\}\\]$",
+        "Err":"",
+        "Time":55
+    }
+]

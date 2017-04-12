@@ -9,8 +9,6 @@ import (
 	ic "github.com/libp2p/go-libp2p-crypto"
 	peer "github.com/libp2p/go-libp2p-peer"
 	. "github.com/smartystreets/goconvey/convey"
-
-	"os"
 	"testing"
 	"time"
 )
@@ -598,55 +596,6 @@ func TestLoadTestFiles(t *testing.T) {
 		So(len(tests), ShouldEqual, 8)
 	})
 
-}
-
-func TestTest(t *testing.T) {
-	d, _, h := setupTestChain("test")
-	cleanupTestDir(d + "/.holochain/test/test/") // delete the test data created by gen dev
-	if os.Getenv("DEBUG") != "1" {
-		h.config.Loggers.TestPassed.Enabled = false
-		h.config.Loggers.TestFailed.Enabled = false
-		h.config.Loggers.TestInfo.Enabled = false
-	}
-	Convey("it should fail if there's no test data", t, func() {
-		err := h.Test()
-		So(err[0].Error(), ShouldEqual, "open "+h.rootPath+"/"+ChainTestDir+": no such file or directory")
-	})
-	cleanupTestDir(d)
-
-	d, _, h = setupTestChain("test")
-	defer cleanupTestDir(d)
-	if os.Getenv("DEBUG") != "1" {
-		h.config.Loggers.TestPassed.Enabled = false
-		h.config.Loggers.TestFailed.Enabled = false
-		h.config.Loggers.TestInfo.Enabled = false
-	}
-	Convey("it should validate on test data", t, func() {
-		err := h.Test()
-		So(err, ShouldBeNil)
-	})
-	Convey("it should reset the database state and thus run correctly twice", t, func() {
-		err := h.Test()
-		So(err, ShouldBeNil)
-	})
-
-	Convey("it should fail the test on incorrect input types", t, func() {
-		os.Remove(d + "/.holochain/test/test/test_0.json")
-		err := writeFile(d+"/.holochain/test/test", "test_0.json", []byte(`[{"Zome":"zySampleZome","FnName":"addEven","Input":2,"Output":"%h%","Err":""}]`))
-		So(err, ShouldBeNil)
-		err = h.Test()[0]
-		So(err, ShouldNotBeNil)
-		So(err.Error(), ShouldEqual, "Input was not an expected type: float64")
-	})
-	Convey("it should fail the test on incorrect data", t, func() {
-		os.Remove(d + "/.holochain/test/test/test_0.json")
-		err := writeFile(d+"/.holochain/test/test", "test_0.json", []byte(`[{"Zome":"zySampleZome","FnName":"addEven","Input":"2","Output":"","Err":"bogus error"}]`))
-		So(err, ShouldBeNil)
-		err = h.Test()[0]
-		So(err, ShouldNotBeNil)
-		//So(err.Error(), ShouldEqual, "Test: test_0:0\n  Expected Error: bogus error\n  Got: nil\n")
-		So(err.Error(), ShouldEqual, "bogus error")
-	})
 }
 
 func TestCommit(t *testing.T) {

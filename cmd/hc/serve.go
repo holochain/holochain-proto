@@ -53,7 +53,7 @@ func serve(h *holo.Holochain, port string) {
 			}
 			zome := v["zome"]
 			function := v["fn"]
-			result, err := call(w, h, zome, function, v["arg"])
+			result, err := call(h, zome, function, v["arg"])
 			switch t := result.(type) {
 			case string:
 				err = conn.WriteMessage(websocket.TextMessage, []byte(t))
@@ -100,7 +100,7 @@ func serve(h *holo.Holochain, port string) {
 		zome := path[2]
 		function := path[3]
 		args := string(body)
-		result, err := call(w, h, zome, function, args)
+		result, err := call(h, zome, function, args)
 		if err != nil {
 			log.Logf("HC Serve: call of %s:%s resulted in error: %v\n", zome, function, err)
 			http.Error(w, err.Error(), 500)
@@ -125,7 +125,7 @@ func serve(h *holo.Holochain, port string) {
 	}
 }
 
-func call(w http.ResponseWriter, h *holo.Holochain, zome string, function string, args string) (result interface{}, err error) {
+func call(h *holo.Holochain, zome string, function string, args string) (result interface{}, err error) {
 
 	log.Logf("calling %s:%s(%s)\n", zome, function, args)
 	result, err = h.Call(zome, function, args)

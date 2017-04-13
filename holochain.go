@@ -380,7 +380,7 @@ func (h *Holochain) Prepare() (err error) {
 
 // Activate fires up the holochain node
 func (h *Holochain) Activate() (err error) {
-	listenaddr := fmt.Sprintf("/ip4/127.0.0.1/tcp/%d", h.config.Port)
+	listenaddr := fmt.Sprintf("/ip4/0.0.0.0/tcp/%d", h.config.Port)
 	h.node, err = NewNode(listenaddr, h.id, h.Agent().PrivKey())
 	if err != nil {
 		return

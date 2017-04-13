@@ -78,8 +78,10 @@ func (h *Holochain) BSget() (err error) {
 					if err == nil {
 						//@TODO figure when to use Remote or r.NodeAddr
 						x := strings.Split(r.Remote, ":")
+						y := strings.Split(r.Req.NodeAddr, "/")
+						port := y[len(y)-1]
 
-						addr, err = ma.NewMultiaddr("/ip4/" + x[0] + "/tcp/" + x[1])
+						addr, err = ma.NewMultiaddr("/ip4/" + x[0] + "/tcp/" + port)
 						if err == nil {
 							if myNodeID != r.Req.NodeID {
 								h.dht.dlog.Logf("discovered peer: %s (%v)", r.Req.NodeID, addr)

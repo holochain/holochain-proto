@@ -16,6 +16,7 @@ import (
 	ma "github.com/multiformats/go-multiaddr"
 	"io/ioutil"
 	"net/http"
+	"strings"
 )
 
 type BSReq struct {
@@ -69,14 +70,19 @@ func (h *Holochain) BSget() (err error) {
 			if err == nil {
 				myNodeID := peer.IDB58Encode(h.id)
 				for _, r := range nodes {
+					h.dht.dlog.Logf("checking returned node: %v", r)
+
 					var id peer.ID
 					var addr ma.Multiaddr
 					id, err = peer.IDB58Decode(r.Req.NodeID)
 					if err == nil {
-						addr, err = ma.NewMultiaddr(r.Req.NodeAddr)
+						//@TODO figure when to use Remote or r.NodeAddr
+						x := strings.Split(r.Remote, ":")
+
+						addr, err = ma.NewMultiaddr("/ip4/" + x[0] + "/tcp/" + x[1])
 						if err == nil {
 							if myNodeID != r.Req.NodeID {
-								h.dht.dlog.Logf("discovered peer: %s", r.Req.NodeID)
+								h.dht.dlog.Logf("discovered peer: %s (%v)", r.Req.NodeID, addr)
 								h.node.Host.Peerstore().AddAddr(id, addr, pstore.PermanentAddrTTL)
 								err = h.dht.UpdateGossiper(id, 0)
 

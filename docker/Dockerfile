@@ -11,12 +11,6 @@ RUN apk update && apk add --update -t .build-deps \
     su-exec \
 # Clear the apk cache to reduce image size
 && rm -rf /var/cache/apk/*
-RUN addgroup holochain -g 868 \
-&& adduser -G holochain -u 868 -D holochain \
-&& addgroup holochain wheel \
-&& passwd -u holochain \
-&& sed -i~orig -e'/ALL) ALL/s/# %wheel/%wheel/' /etc/sudoers
-
 # Copy the host's holochain repo into the container
 COPY . /go/src/github.com/metacurrency/holochain
 
@@ -32,6 +26,13 @@ RUN make -C /go/src/github.com/metacurrency/holochain hc \
 && rm -rf /go/bin/gx && rm -rf /go/bin/gx-go
 
 EXPOSE 3141
+
+# Add the holochain group
+RUN addgroup holochain -g 868 \
+# Add the holochain user
+&& adduser -G holochain -u 868 -D holochain && passwd -u holochain \
+# Give it access to sudo
+&& addgroup holochain wheel && sed -i~orig -e'/ALL) ALL/s/# %wheel/%wheel/' /etc/sudoers
 
 # sort out dynamic user login
 COPY docker/entrypoint.sh.addHostUserToContainer /usr/local/bin/entrypoint.sh.addHostUserToContainer

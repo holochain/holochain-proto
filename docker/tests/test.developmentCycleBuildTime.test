@@ -14,6 +14,8 @@ echo "simulating change of source code, and rebuilding docker image"
 touch simulatingSourceCodeEdit
 echo "biggerBolderChange" > ../../obviousSourceCodeEdit
 ./build.tests
+echo " docker run metacurrency/holochain/tests. ls should output a list including the filename obviousSourceCodeEdit"
+docker run  -e LOCAL_USER_ID=`id -u $USER` -i metacurrency/holochain/tests /bin/sh -c ls
 echo "  rebuild required: $SECONDS seconds"
 echo
 

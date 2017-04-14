@@ -10,14 +10,12 @@ RUN apk update && apk add --update -t .build-deps \
     sudo \
     su-exec \
 # Clear the apk cache to reduce image size
-&& rm -rf /var/cache/apk/* \
-&& chmod +s /usr/bin/passwd
+&& rm -rf /var/cache/apk/*
 RUN addgroup holochain -g 868 \
 && adduser -G holochain -u 868 -D holochain \
 && addgroup holochain wheel \
 && passwd -u holochain \
-&& sed -i~orig -e'/ALL) ALL/s/# %wheel/%wheel/' /etc/sudoers \
-&& mv /etc/profile.d/color_prompt /etc/profile.d/color_prompt.sh
+&& sed -i~orig -e'/ALL) ALL/s/# %wheel/%wheel/' /etc/sudoers
 
 # Copy the host's holochain repo into the container
 COPY . /go/src/github.com/metacurrency/holochain

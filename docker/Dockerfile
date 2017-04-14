@@ -2,11 +2,6 @@ FROM golang:1.7.5-alpine
 MAINTAINER Gerry Gleason && Christopher Reay
 
 RUN apk update && apk add --update \
-    ca-certificates \
-    curl wget \
-    curl-dev \
-    procps \
-    openrc \
     git \
     make \
     sudo \

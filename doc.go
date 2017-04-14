@@ -1,16 +1,13 @@
 // Copyright (C) 2013-2017, The MetaCurrency Project (Eric Harris-Braun, Arthur Brock, et. al.)
 // Use of this source code is governed by GPLv3 found in the LICENSE file
 
-// Holochains are a distributed data store: DHT tightly bound to signed hash chains
-// for provenance and data integrity.
-
 /*
-Holographic storage for distributed applications -- a validating monotonic 
+Data integrity engine for distributed applications -- a validating monotonic 
 DHT "backed" by authoritative hashchains for data provenance.
 
 OVERVIEW
 
-Holographic storage for distributed applications. 
+Holographic storage for distributed applications --  
 A holochain is a validating distributed hash table (DHT) where every node 
 enforces validation rules on data against the signed chains where the data 
 originated.

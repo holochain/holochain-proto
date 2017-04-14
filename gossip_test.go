@@ -18,7 +18,7 @@ func TestGossipReceiver(t *testing.T) {
 
 }*/
 
-func TestGossiper(t *testing.T) {
+func TestGetFindGossiper(t *testing.T) {
 	d, _, h := prepareTestChain("test")
 	defer cleanupTestDir(d)
 	dht := h.dht
@@ -28,23 +28,38 @@ func TestGossiper(t *testing.T) {
 
 	})
 
+	fooAddr, _ := makePeer("peer_foo")
+
 	Convey("UpdateGossiper should add a gossiper", t, func() {
-		idx, _ := dht.GetIdx()
-		err := dht.UpdateGossiper(h.node.HashAddr, idx)
+		err := dht.UpdateGossiper(fooAddr, 92)
 		So(err, ShouldBeNil)
 	})
 
 	Convey("GetGossiper should return the gossiper idx", t, func() {
-		idx, err := dht.GetGossiper(h.node.HashAddr)
+		idx, err := dht.GetGossiper(fooAddr)
 		So(err, ShouldBeNil)
-		So(idx, ShouldEqual, 3)
+		So(idx, ShouldEqual, 92)
 	})
 
 	Convey("FindGossiper should return the gossiper", t, func() {
 		g, err := dht.FindGossiper()
 		So(err, ShouldBeNil)
-		So(g.Idx, ShouldEqual, 3)
-		So(g.Id, ShouldEqual, h.node.HashAddr)
+		So(g.Idx, ShouldEqual, 92)
+		So(g.Id, ShouldEqual, fooAddr)
+	})
+
+	Convey("GetIdx for self should be 3 to start with", t, func() {
+		idx, err := dht.GetIdx()
+		So(err, ShouldBeNil)
+		So(idx, ShouldEqual, 3)
+	})
+
+	barAddr, _ := makePeer("peer_bar")
+
+	Convey("GetGossiper should return 0 for unknown gossiper", t, func() {
+		idx, err := dht.GetGossiper(barAddr)
+		So(err, ShouldBeNil)
+		So(idx, ShouldEqual, 0)
 	})
 
 }

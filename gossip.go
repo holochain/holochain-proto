@@ -155,7 +155,7 @@ func (dht *DHT) GetPuts(since int) (puts []Put, err error) {
 	return
 }
 
-// GetGossiper picks a random DHT node to gossip with
+// GetGossiper loads returns last known index of the gossiper, and adds them if not didn't exist before
 func (dht *DHT) GetGossiper(id peer.ID) (idx int, err error) {
 	key := "peer:" + peer.IDB58Encode(id)
 	err = dht.db.View(func(tx *buntdb.Tx) error {

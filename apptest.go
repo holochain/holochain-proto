@@ -17,6 +17,28 @@ import (
 	"time"
 )
 
+const (
+	TestConfigFileName string = "_config.json"
+)
+
+// TestData holds a test entry for a chain
+type TestData struct {
+	Convey string        // a human readable description of the tests intent
+	Zome   string        // the zome in which to find the function
+	FnName string        // the function to call
+	Input  interface{}   // the function's input
+	Output string        // the expected output to match against (full match)
+	Err    string        // the expected error to match against
+	Regexp string        // the expected out to match again (regular expression)
+	Time   time.Duration // offset in milliseconds from the start of the test at which to run this test.
+}
+
+// TestConfig holds the configuration options for a test
+type TestConfig struct {
+	GossipInterval time.Duration // interval in milliseconds between gossips
+	Duration       int           // if non-zero number of seconds to keep all nodes alive
+}
+
 // LoadTestFile unmarshals test json data
 func LoadTestFile(dir string, file string) (tests []TestData, err error) {
 	var v []byte
@@ -26,6 +48,27 @@ func LoadTestFile(dir string, file string) (tests []TestData, err error) {
 	}
 
 	err = json.Unmarshal(v, &tests)
+
+	if err != nil {
+		return nil, err
+	}
+	return
+}
+
+// LoadTestConfig unmarshals test json data
+func LoadTestConfig(dir string) (config *TestConfig, err error) {
+	c := TestConfig{GossipInterval: 2 * time.Second, Duration: 0}
+	config = &c
+	// if no config file return default values
+	if !fileExists(dir + "/" + TestConfigFileName) {
+		return
+	}
+	var v []byte
+	v, err = readFile(dir, TestConfigFileName)
+	if err != nil {
+		return nil, err
+	}
+	err = json.Unmarshal(v, &c)
 
 	if err != nil {
 		return nil, err
@@ -121,11 +164,46 @@ func (h *Holochain) TestStringReplacements(input, r1, r2, r3 string, lastMatches
 	return output
 }
 
+// TestScenario runs the tests of a single role in a scenario
+func (h *Holochain) TestScenario(dir string, role string) (err error, testErrs []error) {
+	var config *TestConfig
+	config, err = LoadTestConfig(dir)
+	if err != nil {
+		return
+	}
+	var tests []TestData
+	tests, err = LoadTestFile(dir, role+".json")
+	if err != nil {
+		return
+	}
+	err = h.Activate()
+	if err != nil {
+		return
+	}
+
+	if config.GossipInterval > 0 {
+		go h.DHT().HandlePutReqs()
+		go h.DHT().Gossip(config.GossipInterval * time.Millisecond)
+	}
+
+	testErrs = h.DoTests(role, tests, time.Duration(config.Duration)*time.Second)
+
+	return
+}
+
+func waitTill(start time.Time, till time.Duration) {
+	elapsed := time.Now().Sub(start)
+	toWait := till - elapsed
+	if toWait > 0 {
+		time.Sleep(toWait)
+	}
+}
+
 // DoTests runs through all the tests in a TestData array and returns any errors encountered
 // TODO: this code can cause crazy race conditions because lastResults and lastMatches get
 // passed into go routines that run asynchronously.  We should probably reimplement this with
 // channels or some other thread-safe queues.
-func (h *Holochain) DoTests(name string, tests []TestData) (errs []error) {
+func (h *Holochain) DoTests(name string, tests []TestData, minTime time.Duration) (errs []error) {
 	var lastResults [3]interface{}
 	var lastMatches [3][]string
 	done := make(chan bool, len(tests))
@@ -138,20 +216,15 @@ func (h *Holochain) DoTests(name string, tests []TestData) (errs []error) {
 			continue
 		}
 		count++
-		var test TestData = t
-		go func() {
-			elapsed := time.Now().Sub(startTime)
-			toWait := time.Duration(t.Time)*time.Millisecond - elapsed
-			if toWait > 0 {
-				time.Sleep(toWait)
-			}
-			err := h.DoTest(name, i, test, startTime, &lastResults, &lastMatches)
+		go func(index int, test TestData) {
+			waitTill(startTime, test.Time*time.Millisecond)
+			err := h.DoTest(name, index, test, startTime, &lastResults, &lastMatches)
 			if err != nil {
 				errs = append(errs, err)
 				err = nil
 			}
 			done <- true
-		}()
+		}(i, t)
 	}
 
 	// run all the non timed tests.
@@ -172,6 +245,12 @@ func (h *Holochain) DoTests(name string, tests []TestData) (errs []error) {
 	for i := 0; i < count; i++ {
 		<-done
 	}
+
+	// check to see if we still need to stay alive more
+	if minTime > 0 {
+		waitTill(startTime, minTime)
+	}
+
 	return
 }
 
@@ -318,7 +397,7 @@ func (h *Holochain) Test() []error {
 			panic("activate err " + err.Error())
 		}
 		go h.dht.HandlePutReqs()
-		ers := h.DoTests(name, ts)
+		ers := h.DoTests(name, ts, 0)
 
 		errs = append(errs, ers...)
 

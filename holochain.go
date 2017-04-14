@@ -636,18 +636,6 @@ func (s *Service) Clone(srcPath string, root string, new bool) (hP *Holochain, e
 	return
 }
 
-// TestData holds a test entry for a chain
-type TestData struct {
-	Convey string      // a human readable description of the tests intent
-	Zome   string      // the zome in which to find the function
-	FnName string      // the function to call
-	Input  interface{} // the function's input
-	Output string      // the expected output to match against (full match)
-	Err    string      // the expected error to match against
-	Regexp string      // the expected out to match again (regular expression)
-	Time   int         // offset in milliseconds from the start of the test at which to run this test.
-}
-
 func (h *Holochain) setupConfig() (err error) {
 	if err = h.config.Loggers.App.New(nil); err != nil {
 		return

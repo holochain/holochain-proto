@@ -48,6 +48,40 @@ func (h *Holochain) BSpost() (err error) {
 	return
 }
 
+func (h *Holochain) checkBSResponses(nodes []BSResp) (err error) {
+	myNodeID := peer.IDB58Encode(h.id)
+	for _, r := range nodes {
+		h.dht.dlog.Logf("checking returned node: %v", r)
+
+		var id peer.ID
+		var addr ma.Multiaddr
+		id, err = peer.IDB58Decode(r.Req.NodeID)
+		if err == nil {
+			//@TODO figure when to use Remote or r.NodeAddr
+			x := strings.Split(r.Remote, ":")
+			y := strings.Split(r.Req.NodeAddr, "/")
+			port := y[len(y)-1]
+
+			// assume the multi-address is the ip address as the bootstrap server saw it
+			// with port number advertised by the node in it's multi-address
+
+			addr, err = ma.NewMultiaddr("/ip4/" + x[0] + "/tcp/" + port)
+			if err == nil {
+				// don't "discover" ourselves
+				if r.Req.NodeID != myNodeID {
+					h.dht.dlog.Logf("discovered peer: %s (%v)", r.Req.NodeID, addr)
+					h.node.Host.Peerstore().AddAddr(id, addr, pstore.PermanentAddrTTL)
+					err = h.dht.UpdateGossiper(id, 0)
+
+				}
+
+			}
+		}
+
+	}
+	return
+}
+
 func (h *Holochain) BSget() (err error) {
 	if h.node == nil {
 		return errors.New("Node hasn't been initialized yet.")
@@ -68,32 +102,8 @@ func (h *Holochain) BSget() (err error) {
 			var nodes []BSResp
 			err = json.Unmarshal(b, &nodes)
 			if err == nil {
-				myNodeID := peer.IDB58Encode(h.id)
-				for _, r := range nodes {
-					h.dht.dlog.Logf("checking returned node: %v", r)
+				err = h.checkBSResponses(nodes)
 
-					var id peer.ID
-					var addr ma.Multiaddr
-					id, err = peer.IDB58Decode(r.Req.NodeID)
-					if err == nil {
-						//@TODO figure when to use Remote or r.NodeAddr
-						x := strings.Split(r.Remote, ":")
-						y := strings.Split(r.Req.NodeAddr, "/")
-						port := y[len(y)-1]
-
-						addr, err = ma.NewMultiaddr("/ip4/" + x[0] + "/tcp/" + port)
-						if err == nil {
-							if myNodeID != r.Req.NodeID {
-								h.dht.dlog.Logf("discovered peer: %s (%v)", r.Req.NodeID, addr)
-								h.node.Host.Peerstore().AddAddr(id, addr, pstore.PermanentAddrTTL)
-								err = h.dht.UpdateGossiper(id, 0)
-
-							}
-
-						}
-					}
-
-				}
 			}
 		}
 	}

@@ -224,15 +224,20 @@ func TestFindPeer(t *testing.T) {
 }
 */
 
-func makeNode(port int, id string) (*Node, error) {
-	listenaddr := fmt.Sprintf("/ip4/127.0.0.1/tcp/%d", port)
+func makePeer(id string) (pid peer.ID, key ic.PrivKey) {
 	// use a constant reader so the key will be the same each time for the test...
 	r := strings.NewReader(id + "1234567890123456789012345678901234567890")
-	key, _, err := ic.GenerateEd25519Key(r)
+	var err error
+	key, _, err = ic.GenerateEd25519Key(r)
 	if err != nil {
 		panic(err)
 	}
-	pid, _ := peer.IDFromPrivateKey(key)
+	pid, _ = peer.IDFromPrivateKey(key)
+	return
+}
 
+func makeNode(port int, id string) (*Node, error) {
+	listenaddr := fmt.Sprintf("/ip4/127.0.0.1/tcp/%d", port)
+	pid, key := makePeer(id)
 	return NewNode(listenaddr, pid, key)
 }

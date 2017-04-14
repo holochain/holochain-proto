@@ -144,18 +144,11 @@ func setupApp() (app *cli.App) {
 				if len(args) == 3 {
 					dir := h.TestPath() + "/" + args[1]
 					role := args[2]
-					tests, err := holo.LoadTestFile(dir, role+".json")
-					if err != nil {
-						return err
-					}
-					err = h.Activate()
-					if err != nil {
-						return err
-					}
-					go h.DHT().HandlePutReqs()
-					go h.DHT().Gossip(2 * time.Second)
 
-					errs = h.DoTests(role, tests)
+					err, errs = h.TestScenario(dir, role)
+					if err != nil {
+						return err
+					}
 				} else if len(args) != 1 {
 					return errors.New("test: expected 0 args or 2 (scenario and role)")
 				} else {

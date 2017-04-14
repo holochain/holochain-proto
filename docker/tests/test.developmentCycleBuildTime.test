@@ -7,11 +7,12 @@ SECONDS=0
 
 echo "simulating change of source code, and rebuilding docker image"
 touch simulatingSourceCodeEdit
+echo "biggerBolderChange" > ../../obviousSourceCodeEdit
 ./build.tests
 echo "  rebuild required: $SECONDS seconds"
 echo
 
-rm simulatingSourceCodeEdit
+rm simulatingSourceCodeEdit ../../obviousSourceCodeEdit
 echo "(this test always passes)"
 echo "passed"
 echo

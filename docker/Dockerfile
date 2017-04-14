@@ -31,8 +31,8 @@ EXPOSE 3141
 RUN addgroup holochain -g 868 \
 # Add the holochain user
 && adduser -G holochain -u 868 -D holochain && passwd -u holochain \
-# Give it access to sudo
-&& addgroup holochain wheel && sed -i~orig -e'/ALL) ALL/s/# %wheel/%wheel/' /etc/sudoers
+# Give it access to sudo (Add it to wheel and uncomment the line which gives those in wheel sudo)
+&& addgroup holochain wheel && sed -i~orig -e'/%wheel ALL=(ALL) NOPASSWD/s/^# //' /etc/sudoers
 
 # sort out dynamic user login
 COPY docker/entrypoint.sh.addHostUserToContainer /usr/local/bin/entrypoint.sh.addHostUserToContainer

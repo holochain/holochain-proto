@@ -2,8 +2,8 @@
 // Use of this source code is governed by GPLv3 found in the LICENSE file
 //---------------------------------------------------------------------------------------
 
-// Holochains are a distributed data store: DHT tightly bound to signed hash chains
-// for provenance and data integrity.
+// Data integrity engine for distributed applications -- a validating monotonic
+// DHT "backed" by authoritative hashchains for data provenance.
 
 package holochain
 

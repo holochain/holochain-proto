@@ -8,3 +8,12 @@ echo
 echo "--- Test 2 - serve examples/sample with hc"
 ./test.hc.serve.sample.test && echo "--- passed" || echo "--- failed"
 echo
+echo "--- Test 3 - determine development cycle time of Dockerfile"
+./test.developmentCycleBuildTime.test && echo "--- passed" || echo "--- failed" 
+echo
+echo "--- Test 4 - determine development cycle time of Dockerfile.timo"
+./test.developmentCycleBuildTime.test .timo && echo "--- passed" || echo "--- failed"
+echo
+echo "--- Test 5 - determine development cycle time of Dockerfile.timo2"
+./test.developmentCycleBuildTime.test .timo2 && echo "--- passed" || echo "--- failed"
+echo

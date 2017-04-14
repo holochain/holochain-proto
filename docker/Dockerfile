@@ -19,25 +19,14 @@ RUN addgroup holochain -g 868 \
 && passwd -u holochain \
 && sed -i~orig -e'/ALL) ALL/s/# %wheel/%wheel/' /etc/sudoers \
 && mv /etc/profile.d/color_prompt /etc/profile.d/color_prompt.sh
-# Install gx and holochain and all their dependencies and hold them in a docker image
-## Using Docker env tools, because we are installing everything as root
-ENV GOPATH=/work/golang \
-    GOBIN=/home/holochain/bin
-ENV PATH=$GOPATH/bin:/usr/local/go/bin:$GOBIN:$PATH
 
-WORKDIR /work/golang/src/github.com/metacurrency/holochain
+# Copy the host's holochain repo into the container
+COPY . /go/src/github.com/metacurrency/holochain
 
-# make our development files available to hc, on top of the cached image "so far" from above
-ADD . /work/holochain
-
-# this rm line works well because it stops weird artifacts coming over from github.com/metacurrency/holochain::master
-RUN cp -pr /work/holochain /work/golang/src/github.com/metacurrency/ \
-&& chown -R root:holochain /work \
-&& chmod 775 -R /work
-
-# compile and test our development files
-RUN make; make bs
-RUN make test
+# Install the hc command
+RUN make -C /go/src/github.com/metacurrency/holochain hc \
+# Install the bs command
+&& make -C /go/src/github.com/metacurrency/holochain bs
 
 EXPOSE 3141
 

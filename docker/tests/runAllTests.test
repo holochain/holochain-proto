@@ -15,5 +15,5 @@ echo "--- Test 4 - determine development cycle time of Dockerfile.timo"
 ./test.developmentCycleBuildTime.test .timo && echo "--- passed" || echo "--- failed"
 echo
 echo "--- Test 5 - determine development cycle time of Dockerfile.timo2"
-./test.developmentCycleBuildTime.test .timo2 && echo "--- passed" || echo "--- failed"
+./test.developmentCycleBuildTime.test .timo.2 && echo "--- passed" || echo "--- failed"
 echo

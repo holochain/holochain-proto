@@ -1,4 +1,7 @@
 cd docker/tests
+
+./build.tests
+
 echo "--- Test 1 - serve start as user"
 ./test.runAsHostUserUID.test && echo "--- passed" || echo "--- failed"
 echo

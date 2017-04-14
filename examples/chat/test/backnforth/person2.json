@@ -14,7 +14,7 @@
         "Input":"",
         "Regexp":"^\\[\\{\"id\":\"(.*)\",\"name\":\"general\",\"purpose\":\"everything goes in here\"\\}\\]$",
         "Err":"",
-        "Time":50
+        "Time":2900
     },
     {
         "Convey":"message created by person 1 should be visible at 50ms",
@@ -23,6 +23,6 @@
         "Input":"\"%m1.1%\"",
         "Regexp":"^\\[\\{\"content\":\"bla\",\"id\":\"(.*)\",\"room\":\".*\",\"timestamp\":\"[^\"]*\"\\}\\]$",
         "Err":"",
-        "Time":55
+        "Time":2905
     }
 ]

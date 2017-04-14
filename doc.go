@@ -5,7 +5,8 @@
 // for provenance and data integrity.
 
 /*
-Holochain GoDoc
+A holochain is a data integrity engine for a distributed 
+application.
 
 OVERVIEW
 

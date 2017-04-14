@@ -59,6 +59,23 @@ func TestLoadService(t *testing.T) {
 
 }
 
+func TestValidateServiceConfig(t *testing.T) {
+	c := ServiceConfig{}
+
+	Convey("it should fail without one peer mode set to true", t, func() {
+		err := c.Validate()
+		So(err.Error(), ShouldEqual, SysFileName+": At least one peer mode must be set to true.")
+	})
+
+	c.DefaultPeerModeAuthor = true
+
+	Convey("it should validate", t, func() {
+		err := c.Validate()
+		So(err, ShouldBeNil)
+	})
+
+}
+
 func TestConfiguredChains(t *testing.T) {
 	d, s, h := setupTestChain("test")
 	defer cleanupTestDir(d)

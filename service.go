@@ -6,6 +6,7 @@
 package holochain
 
 import (
+	"errors"
 	"github.com/BurntSushi/toml"
 	"io/ioutil"
 	"os"
@@ -113,7 +114,20 @@ func LoadService(path string) (service *Service, err error) {
 		return
 	}
 
+	if err = s.Settings.Validate(); err != nil {
+		return
+	}
+
 	service = &s
+	return
+}
+
+// Validate validates settings values
+func (c *ServiceConfig) Validate() (err error) {
+	if !(c.DefaultPeerModeAuthor || c.DefaultPeerModeDHTNode) {
+		err = errors.New(SysFileName + ": At least one peer mode must be set to true.")
+		return
+	}
 	return
 }
 

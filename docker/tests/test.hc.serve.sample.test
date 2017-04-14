@@ -1,4 +1,4 @@
-docker run  -e LOCAL_USER_ID=`id -u $USER` -i devcore /bin/sh -c tests/test.hc.serve.sample.test.inContainer | tee test.hc.serve.sample.test.output
+docker run  -e LOCAL_USER_ID=`id -u $USER` -i metacurrency/holochain/tests /bin/sh -c tests/test.hc.serve.sample.test.inContainer | tee test.hc.serve.sample.test.output
 grep -q "Starting with UID : 1002" test.hc.serve.sample.test.output || exit 1
 rm test.hc.serve.sample.test.output
 echo "passed test served hc as as user with matching user id"

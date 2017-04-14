@@ -1,7 +1,7 @@
 FROM golang:1.7.5-alpine
 MAINTAINER Gerry Gleason && Christopher Reay
 
-RUN apk add --update \
+RUN apk update && apk add --update \
       ca-certificates \
       curl wget \
       curl-dev \
@@ -16,7 +16,7 @@ RUN apk add --update \
     && chmod +s /usr/bin/passwd
 RUN addgroup holochain -g 868 \
     && adduser -G holochain -u 868 -D holochain \
-    && sed -i~orig -e'/wheel/s/$/,holochain/' /etc/group \
+    && addgroup holochain wheel \
     && passwd -u holochain \
     && sed -i~orig -e'/ALL) ALL/s/# %wheel/%wheel/' /etc/sudoers \
     && mv /etc/profile.d/color_prompt /etc/profile.d/color_prompt.sh
@@ -27,20 +27,13 @@ RUN addgroup holochain -g 868 \
       GOBIN=/home/holochain/bin
   ENV PATH=$GOPATH/bin:/usr/local/go/bin:$GOBIN:$PATH
 
-  RUN go get -v -u github.com/whyrusleeping/gx
-  RUN go get -v -d github.com/metacurrency/holochain
-
-  WORKDIR /work/golang/src/github.com/metacurrency/holochain
-  RUN make deps
-
 WORKDIR /work/golang/src/github.com/metacurrency/holochain
 
 # make our development files available to hc, on top of the cached image "so far" from above
   ADD . /work/holochain
 
   # this rm line works well because it stops weird artifacts coming over from github.com/metacurrency/holochain::master
-  RUN rm -rf /work/golang/src/github.com/metacurrency/holochain/* \
-      && cp -pr /work/holochain/* /work/golang/src/github.com/metacurrency/holochain/ \
+  RUN cp -pr /work/holochain /work/golang/src/github.com/metacurrency/ \
       && chown -R root:holochain /work \
       && chmod 775 -R /work
 
@@ -52,7 +45,6 @@ EXPOSE 3141
 
 # sort out dynamic user login
   COPY        docker/entrypoint.sh.addHostUserToContainer /usr/local/bin/entrypoint.sh.addHostUserToContainer
-  RUN         chmod +x /usr/local/bin/entrypoint.sh.addHostUserToContainer
   ENTRYPOINT  ["/usr/local/bin/entrypoint.sh.addHostUserToContainer"]
 
 

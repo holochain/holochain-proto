@@ -1,2 +1,8 @@
-.git
-#examples
+*
+!cmd
+!cmd/*
+!cmd/*/*
+!*.go
+!Makefile
+!package.json
+!docker/entrypoint.sh.addHostUserToContainer

@@ -1,1 +1,1 @@
-docker build -f ../Dockerfile -t metacurrency/holochain/tests ../..
+docker build -f ../Dockerfile$1 -t metacurrency/holochain/tests ../..

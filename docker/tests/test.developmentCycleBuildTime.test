@@ -7,7 +7,7 @@ SECONDS=0
 
 echo "simulating change of source code, and rebuilding docker image"
 touch simulatingSourceCodeEdit
-./build.tests > /dev/null
+./build.tests
 echo "  rebuild required: $SECONDS seconds"
 echo
 

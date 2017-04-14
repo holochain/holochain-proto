@@ -1,10 +1,13 @@
 echo "performing initial build to create docker image metacurrency/holochain/tests"
-./build.tests > /dev/null
+./build.tests
 echo "  docker run metacurrency/holochain/tests into container to force read of host filesystem"
-docker run  -e LOCAL_USER_ID=`id -u $USER` -i metacurrency/holochain/tests > /dev/null
+docker run  -e LOCAL_USER_ID=`id -u $USER` -i metacurrency/holochain/tests /bin/sh -c ls
 echo "  completed initial build"
+echo
 
-
+echo "sleeping for five seconds"
+echo
+sleep 5
 SECONDS=0
 
 echo "simulating change of source code, and rebuilding docker image"

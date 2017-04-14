@@ -5,8 +5,8 @@
 // for provenance and data integrity.
 
 /*
-A holochain is a data integrity engine for a distributed 
-application.
+Holographic storage for distributed applications -- a validating monotonic 
+DHT "backed" by authoritative hashchains for data provenance.
 
 OVERVIEW
 

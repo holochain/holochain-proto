@@ -42,6 +42,7 @@ type Nucleus interface {
 	Type() string
 	ValidateCommit(def *EntryDef, entry Entry, header *Header, sources []string) error
 	ValidatePut(def *EntryDef, entry Entry, header *Header, sources []string) error
+	ValidateDel(entryType string,hash string, sources []string) error
 	ValidateLink(linkingEntryType string, baseHash string, linkHash string, tag string, sources []string) error
 	ChainGenesis() error
 	Call(fn *FunctionDef, params interface{}) (interface{}, error)

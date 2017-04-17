@@ -241,7 +241,7 @@ func setupApp() (app *cli.App) {
 				if err != nil {
 					return err
 				}
-				go h.DHT().HandlePutReqs()
+				go h.DHT().HandleChangeReqs()
 				go h.DHT().Gossip(2 * time.Second)
 				serve(h, port)
 				return err
@@ -557,7 +557,7 @@ func genChain(service *holo.Service, name string) error {
 	if err != nil {
 		return err
 	}
-	go h.DHT().HandlePutReqs()
+	go h.DHT().HandleChangeReqs()
 
 	if verbose {
 		fmt.Printf("Genesis entries added and DNA hashed for new holochain with ID: %s\n", h.DNAHash().String())

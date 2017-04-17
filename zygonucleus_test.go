@@ -238,7 +238,7 @@ func TestZygoDHT(t *testing.T) {
 	if err != nil {
 		panic(err)
 	}
-	if err := h.dht.simHandlePutReqs(); err != nil {
+	if err := h.dht.simHandleChangeReqs(); err != nil {
 		panic(err)
 	}
 
@@ -261,7 +261,7 @@ func TestZygoDHT(t *testing.T) {
 		panic(err)
 	}
 
-	if err := h.dht.simHandlePutReqs(); err != nil {
+	if err := h.dht.simHandleChangeReqs(); err != nil {
 		panic(err)
 	}
 

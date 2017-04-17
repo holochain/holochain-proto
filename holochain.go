@@ -113,6 +113,7 @@ func Initialize() {
 	gob.Register(Hash{})
 	gob.Register(PutReq{})
 	gob.Register(GetReq{})
+	gob.Register(DelReq{})
 	gob.Register(LinkReq{})
 	gob.Register(LinkQuery{})
 	gob.Register(GossipReq{})
@@ -120,6 +121,7 @@ func Initialize() {
 	gob.Register(ValidateQuery{})
 	gob.Register(ValidateResponse{})
 	gob.Register(ValidateLinkResponse{})
+	gob.Register(ValidateDelResponse{})
 	gob.Register(Put{})
 	gob.Register(GobEntry{})
 	gob.Register(LinkQueryResp{})
@@ -863,6 +865,7 @@ func (s *Service) GenDev(root string, format string) (hP *Holochain, err error) 
   (validate entryType entry header sources))
 (defn validatePut [entryType entry header sources]
   (validate entryType entry header sources))
+(defn validateDel [entryType hash sources] true)
 (defn validate [entryType entry header sources]
   (cond (== entryType "evenNumbers")  (cond (== (mod entry 2) 0) true false)
         (== entryType "primes")  (isprime (hget entry %prime))
@@ -883,6 +886,9 @@ function addOdd(x) {return commit("oddNumbers",x);}
 function addProfile(x) {return commit("profile",x);}
 function validatePut(entry_type,entry,header,sources) {
   return validate(entry_type,entry,header,sources);
+}
+function validateDel(entry_type,hash,sources) {
+  return true;
 }
 function validateCommit(entry_type,entry,header,sources) {
   if (entry_type == "rating") {return true}
@@ -1123,6 +1129,14 @@ func (h *Holochain) GetEntryDef(t string) (zome *Zome, d *EntryDef, err error) {
 	return
 }
 
+func prepareSources(sources []peer.ID) (srcs []string) {
+	srcs = make([]string, 0)
+	for _, s := range sources {
+		srcs = append(srcs, peer.IDB58Encode(s))
+	}
+	return
+}
+
 // ValidatePrepare does system level validation and structure creation before app validation
 // It checks that entry is not nil, and that it conforms to the entry schema in the definition
 // It returns the entry definition and a nucleus vm object on which to call the app validation
@@ -1191,10 +1205,8 @@ func (h *Holochain) ValidatePrepare(entryType string, entry Entry, sources []pee
 		}
 
 	}
-	srcs = make([]string, 0)
-	for _, s := range sources {
-		srcs = append(srcs, peer.IDB58Encode(s))
-	}
+	srcs = prepareSources(sources)
+
 	// then run the nucleus (ie. "app" specific) validation rules
 	n, err = h.makeNucleus(z)
 	if err != nil {
@@ -1237,6 +1249,30 @@ func (h *Holochain) ValidatePut(entryType string, entry Entry, header *Header, s
 	return
 }
 
+// ValidateDel passes entry data to the chain's put validation routine
+// If the entry is valid err will be nil, otherwise it will contain some information about why the validation failed (or, possibly, some other system error)
+func (h *Holochain) ValidateDel(entryType string, hash string, sources []peer.ID) (err error) {
+	var z *Zome
+	z, _, err = h.GetEntryDef(entryType)
+	if err != nil {
+		return
+	}
+
+	// run the nucleus' validation rules
+	var n Nucleus
+	n, err = h.makeNucleus(z)
+	if err != nil {
+		return
+	}
+	srcs := prepareSources(sources)
+	err = n.ValidateDel(entryType, hash, srcs)
+
+	if err != nil {
+		Debugf("ValidateDel err:%v\n", err)
+	}
+	return
+}
+
 // ValidateLink passes link data to the chain's link validation routine
 // If the link is valid err will be nil, otherwise it will contain some information about why the validation failed (or, possibly, some other system error)
 func (h *Holochain) ValidateLink(linkingEntryType string, base string, link string, tag string, sources []peer.ID) (err error) {
@@ -1246,16 +1282,14 @@ func (h *Holochain) ValidateLink(linkingEntryType string, base string, link stri
 	if err != nil {
 		return
 	}
-	srcs := make([]string, 0)
-	for _, s := range sources {
-		srcs = append(srcs, peer.IDB58Encode(s))
-	}
-	// then run the nucleus (ie. "app" specific) validation rules
+
+	// run the nucleus (ie. "app" specific) validation rules
 	var n Nucleus
 	n, err = h.makeNucleus(z)
 	if err != nil {
 		return
 	}
+	srcs := prepareSources(sources)
 	err = n.ValidateLink(linkingEntryType, base, link, tag, srcs)
 	if err != nil {
 		Debugf("ValidateLink err:%v\n", err)
@@ -1527,5 +1561,20 @@ func (h *Holochain) GetLink(basestr string, tag string, options GetLinkOptions) 
 			}
 		}
 	}
+	return
+}
+
+// Del services nucleus del routines
+func (h *Holochain) Del(hash string) (err error) {
+	var key Hash
+	key, err = NewHash(hash)
+	if err != nil {
+		return
+	}
+	err = h.dht.SendDel(key)
+	if err != nil {
+		return
+	}
+
 	return
 }

@@ -152,6 +152,36 @@ func TestLinking(t *testing.T) {
 	})
 }
 
+func TestDel(t *testing.T) {
+	d, _, h := prepareTestChain("test")
+	defer cleanupTestDir(d)
+
+	dht := h.dht
+	var id = h.id
+
+	hash, _ := NewHash("QmY8Mzg9F69e5P9AoQPYat655HEhc1TVGs11tmfNSzkqh2")
+	dht.put(nil, "someType", hash, id, []byte("some value"), LIVE)
+
+	idx, _ := dht.GetIdx()
+	Convey("It move the hash to the deleted status", t, func() {
+		m := h.node.NewMessage(DEL_REQUEST, hash)
+
+		err := dht.del(m, hash)
+		So(err, ShouldBeNil)
+
+		data, entryType, status, err := dht.get(hash)
+		So(err, ShouldBeNil)
+		So(string(data), ShouldEqual, "some value")
+		So(entryType, ShouldEqual, "someType")
+		So(status, ShouldEqual, DELETED)
+
+		afterIdx, _ := dht.GetIdx()
+
+		So(afterIdx-idx, ShouldEqual, 1)
+	})
+
+}
+
 func TestFindNodeForHash(t *testing.T) {
 	d, _, h := prepareTestChain("test")
 	defer cleanupTestDir(d)
@@ -202,7 +232,7 @@ func TestSend(t *testing.T) {
 		r, err := h.dht.send(node.HashAddr, PUT_REQUEST, PutReq{H: hash})
 		So(err, ShouldBeNil)
 		So(r, ShouldEqual, "queued")
-		h.dht.simHandlePutReqs()
+		h.dht.simHandleChangeReqs()
 		hd, _ := h.chain.GetEntryHeader(hash)
 		So(hd.EntryLink.Equal(&hash), ShouldBeTrue)
 	})
@@ -251,7 +281,7 @@ func TestDHTReceiver(t *testing.T) {
 		So(r, ShouldEqual, "queued")
 	})
 
-	if err := h.dht.simHandlePutReqs(); err != nil {
+	if err := h.dht.simHandleChangeReqs(); err != nil {
 		panic(err)
 	}
 	Convey("GET_REQUEST should return the value of the has", t, func() {
@@ -276,8 +306,8 @@ func TestDHTReceiver(t *testing.T) {
 		So(err, ShouldBeNil)
 		So(r, ShouldEqual, "queued")
 
-		// fake the handleputreqs
-		err = h.dht.simHandlePutReqs()
+		// fake the handling of change requests
+		err = h.dht.simHandleChangeReqs()
 		So(err, ShouldBeNil)
 
 		// check that it got put
@@ -303,10 +333,29 @@ func TestDHTReceiver(t *testing.T) {
 		gr := r.(Gossip)
 		So(len(gr.Puts), ShouldEqual, 4)
 	})
+
+	Convey("DELETE_REQUEST should set status of hash to deleted", t, func() {
+		m := h.node.NewMessage(DEL_REQUEST, DelReq{H: hash})
+		r, err := DHTReceiver(h, m)
+		So(err, ShouldBeNil)
+		So(r, ShouldEqual, "queued")
+
+		// fake the handling of change requests
+		err = h.dht.simHandleChangeReqs()
+		So(err, ShouldBeNil)
+
+		data, entryType, status, err := h.dht.get(hash)
+		var e GobEntry
+		e.Unmarshal(data)
+		So(e.C, ShouldEqual, "124")
+		So(entryType, ShouldEqual, "evenNumbers")
+		So(status, ShouldEqual, DELETED)
+	})
+
 }
 
 /*
-func TestHandlePutReqs(t *testing.T) {
+func TestHandleChangeReqs(t *testing.T) {
 	d, _, h := prepareTestChain("test")
 	defer cleanupTestDir(d)
 
@@ -321,7 +370,7 @@ func TestHandlePutReqs(t *testing.T) {
 	h.dht.puts <- *m
 
 	Convey("handle put request should pull data from source and verify it", t, func() {
-		err := h.dht.simHandlePutReqs()
+		err := h.dht.simHandleChangeReqs()
 		So(err, ShouldBeNil)
 		data, et, _, err := h.dht.get(hd.EntryLink)
 		So(err, ShouldBeNil)
@@ -333,8 +382,8 @@ func TestHandlePutReqs(t *testing.T) {
 }
 */
 
-func (dht *DHT) simHandlePutReqs() (err error) {
+func (dht *DHT) simHandleChangeReqs() (err error) {
 	//	m := <-dht.puts
-	//	err = dht.handlePutReq(&m)
+	//	err = dht.handleChangeReq(&m)
 	return
 }

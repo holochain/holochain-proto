@@ -10,6 +10,9 @@ function addProfile(x) {return commit("profile",x);}
 function validatePut(entry_type,entry,header,sources) {
   return validate(entry_type,entry,header,sources);
 }
+function validateDel(entry_type,hash,sources) {
+  return true;
+}
 function validateCommit(entry_type,entry,header,sources) {
   if (entry_type == "rating") {return true}
   return validate(entry_type,entry,header,sources);

@@ -18,24 +18,29 @@ type ValidateQuery struct {
 	H Hash
 }
 
-// ValidateResponse holds the response to a ValidateQuery
+// ValidateResponse holds the response to a VALIDATE_PUT_REQUEST
 type ValidateResponse struct {
 	Entry  GobEntry
 	Header Header
 	Type   string
 }
 
-// ValidateLinkResponse holds the response to a ValidateLinkuery
+// ValidateLinkResponse holds the response to a VALIDATE_LINK_REQUEST
 type ValidateLinkResponse struct {
 	LinkingType string
 	Links       []Link
 }
 
+// ValidateDelResponse holds the response to a VALIDATE_DEL_REQUEST
+type ValidateDelResponse struct {
+	Type   string
+}
+
 // ValidateReceiver handles messages on the Validate protocol
 func ValidateReceiver(h *Holochain, m *Message) (response interface{}, err error) {
 	switch m.Type {
-	case VALIDATE_REQUEST:
-		h.dht.dlog.Logf("got validate: %v", m)
+	case VALIDATE_PUT_REQUEST:
+		h.dht.dlog.Logf("got validate put: %v", m)
 		switch t := m.Body.(type) {
 		case ValidateQuery:
 			var r ValidateResponse
@@ -56,7 +61,21 @@ func ValidateReceiver(h *Holochain, m *Message) (response interface{}, err error
 		default:
 			err = fmt.Errorf("expected ValidateQuery got %T", t)
 		}
-	case VALIDATELINK_REQUEST:
+	case VALIDATE_DEL_REQUEST:
+		h.dht.dlog.Logf("got validate del: %v", m)
+		switch t := m.Body.(type) {
+		case ValidateQuery:
+			var r ValidateDelResponse
+			_,r.Type, err = h.chain.GetEntry(t.H)
+			if err != nil {
+				return
+			}
+			response = r
+			h.dht.dlog.Logf("responding with: %v (err=%v)", r, err)
+		default:
+			err = fmt.Errorf("expected ValidateQuery got %T", t)
+		}
+	case VALIDATE_LINK_REQUEST:
 		h.dht.dlog.Logf("got validatelink: %v", m)
 		switch t := m.Body.(type) {
 		case ValidateQuery:

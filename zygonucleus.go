@@ -70,12 +70,21 @@ func (z *ZygoNucleus) ValidatePut(d *EntryDef, entry Entry, header *Header, sour
 	return
 }
 
+// ValidateDel checks that marking an entry as deleted is valid
+func (z *ZygoNucleus) ValidateDel(entryType string, hash string, sources []string) (err error) {
+	srcs := mkSources(sources)
+	code := fmt.Sprintf(`(validateDel "%s" "%s" %s)`, entryType, hash, srcs)
+	Debug(code)
+	err = z.runValidate("validateDel", code)
+	return
+}
+
 // ValidateLink checks the link data against the validation rules
 func (z *ZygoNucleus) ValidateLink(linkingEntryType string, baseHash string, linkHash string, tag string, sources []string) (err error) {
 
 	srcs := mkSources(sources)
 	code := fmt.Sprintf(`(validateLink "%s" "%s" "%s" "%s" %s)`, linkingEntryType, baseHash, linkHash, tag, srcs)
-	Debugf("validateLink: %s", code)
+	Debug(code)
 
 	err = z.runValidate("validateLink", code)
 	return

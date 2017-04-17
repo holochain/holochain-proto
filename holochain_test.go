@@ -607,7 +607,7 @@ func TestCommit(t *testing.T) {
 	if err != nil {
 		panic(err)
 	}
-	if err := h.dht.simHandlePutReqs(); err != nil {
+	if err := h.dht.simHandleChangeReqs(); err != nil {
 		panic(err)
 	}
 
@@ -624,7 +624,7 @@ func TestCommit(t *testing.T) {
 	Convey("it should attach links after commit of Links entry", t, func() {
 		_, err := h.Commit("rating", fmt.Sprintf(`{"Links":[{"Base":"%s","Link":"%s","Tag":"4stars"}]}`, hash.String(), profileHash.String()))
 		So(err, ShouldBeNil)
-		if err := h.dht.simHandlePutReqs(); err != nil {
+		if err := h.dht.simHandleChangeReqs(); err != nil {
 			panic(err)
 		}
 		results, err := h.dht.getLink(hash, "4stars")

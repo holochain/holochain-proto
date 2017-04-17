@@ -17,6 +17,7 @@ import (
 
 var ErrDHTExpectedGetReqInBody = errors.New("expected get request")
 var ErrDHTExpectedPutReqInBody = errors.New("expected put request")
+var ErrDHTExpectedDelReqInBody = errors.New("expected del request")
 var ErrDHTExpectedLinkReqInBody = errors.New("expected link request")
 var ErrDHTExpectedLinkQueryInBody = errors.New("expected link query")
 
@@ -61,8 +62,13 @@ type PutReq struct {
 	D interface{}
 }
 
-// GetReq holds the data of a put request
+// GetReq holds the data of a get request
 type GetReq struct {
+	H Hash
+}
+
+// DelReq holds the data of a del request
+type DelReq struct {
 	H Hash
 }
 
@@ -164,7 +170,7 @@ func (dht *DHT) SetupDHT() (err error) {
 // N.B. This call assumes that the value has already been validated
 func (dht *DHT) put(m *Message, entryType string, key Hash, src peer.ID, value []byte, status int) (err error) {
 	k := key.String()
-	dht.dlog.Logf("put %v=>%s", key, string(value))
+	dht.dlog.Logf("put %s=>%s", k, string(value))
 	err = dht.db.Update(func(tx *buntdb.Tx) error {
 		_, err := incIdx(tx, m)
 		if err != nil {
@@ -191,13 +197,48 @@ func (dht *DHT) put(m *Message, entryType string, key Hash, src peer.ID, value [
 	return
 }
 
+// del moves the given hash to the DELETED status
+// N.B. this functions assumes that the validity of this action has been confirmed
+func (dht *DHT) del(m *Message, key Hash) (err error) {
+	k := key.String()
+	dht.dlog.Logf("delete %s", k)
+	err = dht.db.Update(func(tx *buntdb.Tx) error {
+
+		_, err := tx.Get("entry:" + k)
+		if err != nil {
+			if err == buntdb.ErrNotFound {
+				err = ErrHashNotFound
+			}
+			return err
+		}
+
+		_, err = incIdx(tx, m)
+		if err != nil {
+			return err
+		}
+
+		_, _, err = tx.Set("status:"+k, fmt.Sprintf("%d", DELETED), nil)
+		if err != nil {
+			return err
+		}
+		return err
+	})
+
+	return
+}
+
+func _get(tx *buntdb.Tx, k string) (string, error) {
+	val, err := tx.Get("entry:" + k)
+	if err == buntdb.ErrNotFound {
+		err = ErrHashNotFound
+	}
+	return val, err
+}
+
 // exists checks for the existence of the hash in the store
 func (dht *DHT) exists(key Hash) (err error) {
 	err = dht.db.View(func(tx *buntdb.Tx) error {
-		_, err := tx.Get("entry:" + key.String())
-		if err == buntdb.ErrNotFound {
-			err = ErrHashNotFound
-		}
+		_, err := _get(tx, key.String())
 		return err
 	})
 	return
@@ -222,11 +263,8 @@ func (dht *DHT) source(key Hash) (id peer.ID, err error) {
 func (dht *DHT) get(key Hash) (data []byte, entryType string, status int, err error) {
 	err = dht.db.View(func(tx *buntdb.Tx) error {
 		k := key.String()
-		val, err := tx.Get("entry:" + k)
+		val, err := _get(tx, k)
 		if err != nil {
-			if err == buntdb.ErrNotFound {
-				err = ErrHashNotFound
-			}
 			return err
 		}
 		entryType, err = tx.Get("type:" + k)
@@ -249,10 +287,11 @@ func (dht *DHT) get(key Hash) (data []byte, entryType string, status int, err er
 func (dht *DHT) putLink(m *Message, base string, link string, tag string) (err error) {
 	dht.dlog.Logf("putLink on %v link %v as %s", base, link, tag)
 	err = dht.db.Update(func(tx *buntdb.Tx) error {
-		_, err := tx.Get("entry:" + base)
-		if err == buntdb.ErrNotFound {
-			return ErrHashNotFound
+		_, err := _get(tx, base)
+		if err != nil {
+			return err
 		}
+
 		var index string
 		index, err = incIdx(tx, m)
 		if err != nil {
@@ -284,10 +323,11 @@ func (dht *DHT) getLink(base Hash, tag string) (results []TaggedHash, err error)
 	dht.dlog.Logf("getLink on %v of %s", base, tag)
 	b := base.String()
 	err = dht.db.View(func(tx *buntdb.Tx) error {
-		_, err := tx.Get("entry:" + b)
-		if err == buntdb.ErrNotFound {
-			return ErrHashNotFound
+		_, err := _get(tx, b)
+		if err != nil {
+			return err
 		}
+
 		results = make([]TaggedHash, 0)
 		err = tx.Ascend("link", func(key, value string) bool {
 			x := strings.Split(key, ":")
@@ -347,6 +387,16 @@ func (dht *DHT) SendGetLink(query LinkQuery) (response interface{}, err error) {
 	return
 }
 
+// SendDel initiates setting a hash's status on the DHT
+func (dht *DHT) SendDel(key Hash) (err error) {
+	n, err := dht.FindNodeForHash(key)
+	if err != nil {
+		return
+	}
+	_, err = dht.send(n.HashAddr, DEL_REQUEST, DelReq{H: key})
+	return
+}
+
 // Send sends a message to the node
 func (dht *DHT) send(to peer.ID, t MsgType, body interface{}) (response interface{}, err error) {
 	return dht.h.Send(DHTProtocol, to, t, body)
@@ -368,51 +418,97 @@ func (dht *DHT) FindNodeForHash(key Hash) (n *Node, err error) {
 	return
 }
 
-// HandlePutReqs waits on a chanel for messages to handle
-func (dht *DHT) HandlePutReqs() (err error) {
+// HandleChangeReqs waits on a chanel for messages to handle
+func (dht *DHT) HandleChangeReqs() (err error) {
 	for {
-		dht.dlog.Log("HandlePutReq: waiting for put request")
+		dht.dlog.Log("HandleChangeReq: waiting for request")
 		m, ok := <-dht.puts
 		if !ok {
-			dht.dlog.Log("HandlePutReq: channel closed, breaking")
+			dht.dlog.Log("HandleChangeReq: channel closed, breaking")
 			break
 		}
 
-		err = dht.handlePutReq(&m)
+		err = dht.handleChangeReq(&m)
 		if err != nil {
-			dht.dlog.Logf("HandlePutReq: got err: %v", err)
+			dht.dlog.Logf("HandleChangeReq: got err: %v", err)
 		}
 	}
 	return nil
 }
 
-func (dht *DHT) handlePutReq(m *Message) (err error) {
+func (dht *DHT) handleChangeReq(m *Message) (err error) {
+	switch t := m.Body.(type) {
+	default:
+		dht.dlog.Logf("handling %T: %v", t, m)
+
+	}
 	from := m.From
 	switch t := m.Body.(type) {
 	case PutReq:
-		dht.dlog.Logf("handling put: %v", m)
 		var r interface{}
-		r, err = dht.h.Send(ValidateProtocol, from, VALIDATE_REQUEST, ValidateQuery{H: t.H})
+		r, err = dht.h.Send(ValidateProtocol, from, VALIDATE_PUT_REQUEST, ValidateQuery{H: t.H})
 		if err != nil {
 			return
 		}
 		switch resp := r.(type) {
 		case ValidateResponse:
 			err = dht.h.ValidatePut(resp.Type, &resp.Entry, &resp.Header, []peer.ID{from})
+			var status int
 			if err != nil {
-				//@todo store as INVALID
+				status = REJECTED
 			} else {
-				entry := resp.Entry
-				b, err := entry.Marshal()
-				if err == nil {
-					err = dht.put(m, resp.Type, t.H, from, b, LIVE)
-				}
+				status = LIVE
 			}
+			entry := resp.Entry
+			b, err := entry.Marshal()
+			if err == nil {
+				err = dht.put(m, resp.Type, t.H, from, b, status)
+			}
+
 		default:
 			err = fmt.Errorf("expected ValidateResponse from validator got %T", r)
 		}
+	case DelReq:
+		//var hashType string
+		var hashStatus int
+		_, _, hashStatus, err = dht.get(t.H)
+		if err != nil {
+			if err == ErrHashNotFound {
+				dht.dlog.Logf("don't yet have %s, trying again later", t.H)
+				panic("RETRY-DELETE NOT IMPLEMENTED")
+				// try the del again later
+			}
+			return
+		}
+
+		if hashStatus == LIVE {
+			var r interface{}
+			r, err = dht.h.Send(ValidateProtocol, from, VALIDATE_DEL_REQUEST, ValidateQuery{H: t.H})
+			if err != nil {
+				return
+			}
+
+			switch resp := r.(type) {
+			case ValidateDelResponse:
+				//@TODO what comes back from Validate Del
+				err = dht.h.ValidateDel(resp.Type, t.H.String(), []peer.ID{from})
+				if err != nil {
+					// how do we record an invalid DEL?
+					//@TODO store as REJECTED
+				} else {
+					err = dht.del(m, t.H)
+				}
+
+			default:
+				err = fmt.Errorf("expected ValidateDelResponse from validator got %T", resp)
+			}
+
+		} else {
+			dht.dlog.Logf("%s isn't LIVE, can't DEL", t.H)
+			// @TODO what happens if the hashStatus is not LIVE?
+		}
+
 	case LinkReq:
-		dht.dlog.Logf("handling link: %v", m)
 
 		//var baseType string
 		//var baseStatus int
@@ -428,7 +524,7 @@ func (dht *DHT) handlePutReq(m *Message) (err error) {
 		}
 
 		var r interface{}
-		r, err = dht.h.Send(ValidateProtocol, from, VALIDATELINK_REQUEST, ValidateQuery{H: t.Links})
+		r, err = dht.h.Send(ValidateProtocol, from, VALIDATE_LINK_REQUEST, ValidateQuery{H: t.Links})
 		if err != nil {
 			return
 		}
@@ -439,7 +535,8 @@ func (dht *DHT) handlePutReq(m *Message) (err error) {
 				if base == l.Base {
 					err = dht.h.ValidateLink(resp.LinkingType, base, l.Link, l.Tag, []peer.ID{from})
 					if err != nil {
-						//@todo store as INVALID
+						// how do we record an invalid link?
+						//@TODO store as REJECTED
 					} else {
 						err = dht.putLink(m, base, l.Link, l.Tag)
 					}
@@ -449,7 +546,7 @@ func (dht *DHT) handlePutReq(m *Message) (err error) {
 			err = fmt.Errorf("expected ValidateLinkResponse from validator got %T", r)
 		}
 	default:
-		err = errors.New("unexpected body type in handlePutReq")
+		err = fmt.Errorf("unexpected body type %T in handleChangeReq", t)
 	}
 	return
 }
@@ -462,8 +559,9 @@ func DHTReceiver(h *Holochain, m *Message) (response interface{}, err error) {
 		dht.dlog.Logf("DHTReceiver got PUT_REQUEST: %v", m)
 		switch m.Body.(type) {
 		case PutReq:
-			dht.handlePutReq(m)
-			//h.dht.puts <- *m
+			//h.dht.puts <- *m  TODO add back in queueing
+			dht.handleChangeReq(m)
+
 			response = "queued"
 		default:
 			err = ErrDHTExpectedPutReqInBody
@@ -487,14 +585,27 @@ func DHTReceiver(h *Holochain, m *Message) (response interface{}, err error) {
 			err = ErrDHTExpectedGetReqInBody
 		}
 		return
+	case DEL_REQUEST:
+		dht.dlog.Logf("DHTReceiver got DEL_REQUEST: %v", m)
+		switch m.Body.(type) {
+		case DelReq:
+			//h.dht.puts <- *m  TODO add back in queueing
+			dht.handleChangeReq(m)
+
+			response = "queued"
+		default:
+			err = ErrDHTExpectedDelReqInBody
+		}
+		return
 	case LINK_REQUEST:
 		dht.dlog.Logf("DHTReceiver got LINKS_REQUEST: %v", m)
 		switch t := m.Body.(type) {
 		case LinkReq:
 			err = h.dht.exists(t.Base)
 			if err == nil {
-				dht.handlePutReq(m)
-				//				h.dht.puts <- *m
+				//h.dht.puts <- *m  TODO add back in queueing
+				dht.handleChangeReq(m)
+
 				response = "queued"
 			} else {
 				dht.dlog.Logf("DHTReceiver key %v doesn't exist, ignoring", t.Base)

@@ -191,7 +191,7 @@ func TestFingerprintMessage(t *testing.T) {
 		m = Message{Type: GET_REQUEST, Time: now, Body: "foo", From: id}
 		f, err = m.Fingerprint()
 		So(err, ShouldBeNil)
-		So(f.String(), ShouldEqual, "QmTFnFfP5jkvyQkPPv4H8yoWqmiU82JT9dcHZAR4Hba6uy")
+		So(f.String(), ShouldEqual, "Qmd7v7bxE7xRCj3Amhx8kyj7DbUGJdbKzuiUUahx3ARPec")
 	})
 }
 

@@ -9,6 +9,7 @@
   (validate entryType entry header sources))
 (defn validatePut [entryType entry header sources]
   (validate entryType entry header sources))
+(defn validateDel [entryType hash sources] true)
 (defn validate [entryType entry header sources]
   (cond (== entryType "evenNumbers")  (cond (== (mod entry 2) 0) true false)
         (== entryType "primes")  (isprime (hget entry %prime))

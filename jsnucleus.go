@@ -62,6 +62,17 @@ func (z *JSNucleus) ValidatePut(d *EntryDef, entry Entry, header *Header, source
 	return
 }
 
+// ValidateDel checks that marking an entry as deleted is valid
+func (z *JSNucleus) ValidateDel(entryType string, hash string, sources []string) (err error) {
+	srcs := mkJSSources(sources)
+	code := fmt.Sprintf(`validateDel("%s","%s",%s)`, entryType, hash, srcs)
+	Debug(code)
+
+	err = z.runValidate("validateDel", code)
+
+	return
+}
+
 // ValidateLink checks the linking data against the validation rules
 func (z *JSNucleus) ValidateLink(linkingEntryType string, baseHash string, linkHash string, tag string, sources []string) (err error) {
 	srcs := mkJSSources(sources)
@@ -77,7 +88,7 @@ func mkJSSources(sources []string) (srcs string) {
 	return
 }
 
-func (z *JSNucleus) prepareValidateArgs(d *EntryDef, entry Entry, sources []string) (e string, srcs string, err error) {
+func (z *JSNucleus) prepareValidateEntryArgs(d *EntryDef, entry Entry, sources []string) (e string, srcs string, err error) {
 	c := entry.Content().(string)
 	switch d.DataFormat {
 	case DataFormatRawJS:
@@ -122,7 +133,7 @@ func (z *JSNucleus) runValidate(fnName string, code string) (err error) {
 
 func (z *JSNucleus) validateEntry(fnName string, d *EntryDef, entry Entry, header *Header, sources []string) (err error) {
 
-	e, srcs, err := z.prepareValidateArgs(d, entry, sources)
+	e, srcs, err := z.prepareValidateEntryArgs(d, entry, sources)
 	if err != nil {
 		return
 	}

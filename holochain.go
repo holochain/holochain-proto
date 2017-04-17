@@ -1303,6 +1303,45 @@ func (h *Holochain) makeNucleus(z *Zome) (n Nucleus, err error) {
 	return
 }
 
+// GetProperty returns the value of a DNA property
+func (h *Holochain) GetProperty(prop string) (property string, err error) {
+	if prop == ID_PROPERTY || prop == AGENT_ID_PROPERTY || prop == AGENT_NAME_PROPERTY {
+		ChangeAppProperty.Log()
+	} else {
+		property = h.Properties[prop]
+	}
+	return
+}
+
+// GetZome returns a zome structure given its name
+func (h *Holochain) GetZome(zName string) (z *Zome, err error) {
+	for _, zome := range h.Zomes {
+		if zome.Name == zName {
+			z = &zome
+			break
+		}
+	}
+	if z == nil {
+		err = errors.New("unknown zome: " + zName)
+		return
+	}
+	return
+}
+
+// GetEntryDef returns the entry def structure
+func (z *Zome) GetEntryDef(entryName string) (e *EntryDef, err error) {
+	for _, def := range z.Entries {
+		if def.Name == entryName {
+			e = &def
+			break
+		}
+	}
+	if e == nil {
+		err = errors.New("no definition for entry type: " + entryName)
+	}
+	return
+}
+
 // GetFunctionDef returns the exposed function spec for the given zome and function
 func (h *Holochain) GetFunctionDef(zome *Zome, fnName string) (fn *FunctionDef, err error) {
 	for _, f := range zome.Functions {

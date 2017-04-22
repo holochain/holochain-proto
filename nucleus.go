@@ -15,15 +15,17 @@ import (
 
 type NucleusFactory func(h *Holochain, code string) (Nucleus, error)
 
-// calling types
 const (
+	// calling types
 	STRING_CALLING = "string"
 	JSON_CALLING   = "json"
-)
 
-// these constants are for a removed feature, see ChangeAppProperty
-// @TODO figure out how to remove code over time that becomes obsolete, i.e. for long-dead changes
-const (
+	// types of "exposure"
+	PUBLIC_EXPOSURE  = "public"
+	PRIVATE_EXPOSURE = "private"
+
+	// these constants are for a removed feature, see ChangeAppProperty
+	// @TODO figure out how to remove code over time that becomes obsolete, i.e. for long-dead changes
 	ID_PROPERTY         = "_id"
 	AGENT_ID_PROPERTY   = "_agent_id"
 	AGENT_NAME_PROPERTY = "_agent_name"
@@ -35,6 +37,7 @@ var ValidationFailedErr = errors.New("Validation Failed")
 type FunctionDef struct {
 	Name        string
 	CallingType string
+	ExposedTo   string
 }
 
 // Nucleus type abstracts the functions of code execution environments
@@ -42,7 +45,7 @@ type Nucleus interface {
 	Type() string
 	ValidateCommit(def *EntryDef, entry Entry, header *Header, sources []string) error
 	ValidatePut(def *EntryDef, entry Entry, header *Header, sources []string) error
-	ValidateDel(entryType string,hash string, sources []string) error
+	ValidateDel(entryType string, hash string, sources []string) error
 	ValidateLink(linkingEntryType string, baseHash string, linkHash string, tag string, sources []string) error
 	ChainGenesis() error
 	Call(fn *FunctionDef, params interface{}) (interface{}, error)

@@ -170,6 +170,9 @@ func jsSanitizeString(s string) string {
 // Call calls the zygo function that was registered with expose
 func (z *JSNucleus) Call(fn *FunctionDef, params interface{}) (result interface{}, err error) {
 	var code string
+
+	//if fn.ExposedTo != PUBLIC_EXPOSURE // reject
+
 	switch fn.CallingType {
 	case STRING_CALLING:
 		code = fmt.Sprintf(`%s("%s");`, fn.Name, jsSanitizeString(params.(string)))

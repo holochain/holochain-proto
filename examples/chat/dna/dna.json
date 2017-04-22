@@ -31,15 +31,18 @@
             "Functions":[
                 {
                     "Name":"listMembers",
-                    "CallingType":"json"
+                    "CallingType":"json",
+                    "ExposedTo":"public"
                 },
                 {
                     "Name":"listAdmins",
-                    "CallingType":"json"
+                    "CallingType":"json",
+                    "ExposedTo":"public"
                 },
                 {
                     "Name":"addMember",
-                    "CallingType":"json"
+                    "CallingType":"json",
+                    "ExposedTo":"public"
                 }
             ]
         },
@@ -69,11 +72,13 @@
             "Functions":[
                 {
                     "Name":"listRooms",
-                    "CallingType":"json"
+                    "CallingType":"json",
+                    "ExposedTo":"public"
                 },
                 {
                     "Name":"newRoom",
-                    "CallingType":"json"
+                    "CallingType":"json",
+                    "ExposedTo":"public"
                 }
             ]
         },
@@ -103,15 +108,18 @@
             "Functions":[
                 {
                     "Name":"listMessages",
-                    "CallingType":"json"
+                    "CallingType":"json",
+                    "ExposedTo":"public"
                 },
                 {
                     "Name":"newMessage",
-                    "CallingType":"json"
+                    "CallingType":"json",
+                    "ExposedTo":"public"
                 },
                 {
                     "Name":"modMessage",
-                    "CallingType":"json"
+                    "CallingType":"json",
+                    "ExposedTo":"public"
                 }
             ]
         },
@@ -141,23 +149,28 @@
             "Functions":[
                 {
                     "Name":"register",
-                    "CallingType":"json"
+                    "CallingType":"json",
+                    "ExposedTo":"public"
                 },
                 {
                     "Name":"isRegistered",
-                    "CallingType":"json"
+                    "CallingType":"json",
+                    "ExposedTo":"public"
                 },
                 {
                     "Name":"getProfile",
-                    "CallingType":"json"
+                    "CallingType":"json",
+                    "ExposedTo":"public"
                 },
                 {
                     "Name":"myProfile",
-                    "CallingType":"json"
+                    "CallingType":"json",
+                    "ExposedTo":"public"
                 },
                 {
                     "Name":"modProfile",
-                    "CallingType":"json"
+                    "CallingType":"json",
+                    "ExposedTo":"public"
                 }
             ]
         }

@@ -55,15 +55,18 @@
             "Functions": [
                 {
                     "Name": "addPost",
-                    "CallingType": "json"
+                    "CallingType": "json",
+                    "ExposedTo":"public"
                 },
                 {
                     "Name": "getData",
-                    "CallingType": "json"
+                    "CallingType": "json",
+                    "ExposedTo":"public"
                 },
                 {
                     "Name": "follow",
-                    "CallingType": "json"
+                    "CallingType": "json",
+                    "ExposedTo":"public"
                 }
             ],
             "NucleusType": "js"

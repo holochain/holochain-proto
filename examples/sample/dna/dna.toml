@@ -42,30 +42,37 @@ RequiresVersion = 7
   [[Zomes.Functions]]
     Name = "getDNA"
     CallingType = "string"
+    ExposedTo   = "public"
 
   [[Zomes.Functions]]
     Name = "addEven"
     CallingType = "string"
+    ExposedTo   = "public"
 
   [[Zomes.Functions]]
     Name = "addPrime"
     CallingType = "json"
+    ExposedTo   = "public"
 
   [[Zomes.Functions]]
     Name = "testStrFn1"
     CallingType = "string"
+    ExposedTo   = "public"
 
   [[Zomes.Functions]]
     Name = "testStrFn2"
     CallingType = "string"
+    ExposedTo   = "public"
 
   [[Zomes.Functions]]
     Name = "testJsonFn1"
     CallingType = "json"
+    ExposedTo   = "public"
 
   [[Zomes.Functions]]
     Name = "testJsonFn2"
     CallingType = "json"
+    ExposedTo   = "public"
 
 [[Zomes]]
   Name = "jsSampleZome"
@@ -98,27 +105,34 @@ RequiresVersion = 7
   [[Zomes.Functions]]
     Name = "getProperty"
     CallingType = "string"
+    ExposedTo   = "public"
 
   [[Zomes.Functions]]
     Name = "addOdd"
     CallingType = "string"
+    ExposedTo   = "public"
 
   [[Zomes.Functions]]
     Name = "addProfile"
     CallingType = "json"
+    ExposedTo   = "public"
 
   [[Zomes.Functions]]
     Name = "testStrFn1"
     CallingType = "string"
+    ExposedTo   = "public"
 
   [[Zomes.Functions]]
     Name = "testStrFn2"
     CallingType = "string"
+    ExposedTo   = "public"
 
   [[Zomes.Functions]]
     Name = "testJsonFn1"
     CallingType = "json"
+    ExposedTo   = "public"
 
   [[Zomes.Functions]]
     Name = "testJsonFn2"
     CallingType = "json"
+    ExposedTo   = "public"

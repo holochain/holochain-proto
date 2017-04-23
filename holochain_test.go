@@ -9,9 +9,15 @@ import (
 	ic "github.com/libp2p/go-libp2p-crypto"
 	peer "github.com/libp2p/go-libp2p-peer"
 	. "github.com/smartystreets/goconvey/convey"
+	"os"
 	"testing"
 	"time"
 )
+
+func TestMain(m *testing.M) {
+	Initialize()
+	os.Exit(m.Run())
+}
 
 func TestNewHolochain(t *testing.T) {
 	a, _ := NewAgent(IPFS, "Joe")

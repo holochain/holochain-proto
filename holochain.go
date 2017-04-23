@@ -1253,7 +1253,8 @@ func (h *Holochain) ValidatePut(entryType string, entry Entry, header *Header, s
 // If the entry is valid err will be nil, otherwise it will contain some information about why the validation failed (or, possibly, some other system error)
 func (h *Holochain) ValidateDel(entryType string, hash string, sources []peer.ID) (err error) {
 	var z *Zome
-	z, _, err = h.GetEntryDef(entryType)
+	var d *EntryDef
+	z, d, err = h.GetEntryDef(entryType)
 	if err != nil {
 		return
 	}
@@ -1265,7 +1266,7 @@ func (h *Holochain) ValidateDel(entryType string, hash string, sources []peer.ID
 		return
 	}
 	srcs := prepareSources(sources)
-	err = n.ValidateDel(entryType, hash, srcs)
+	err = n.ValidateDel(d, hash, srcs)
 
 	if err != nil {
 		Debugf("ValidateDel err:%v\n", err)
@@ -1278,7 +1279,8 @@ func (h *Holochain) ValidateDel(entryType string, hash string, sources []peer.ID
 func (h *Holochain) ValidateLink(linkingEntryType string, base string, link string, tag string, sources []peer.ID) (err error) {
 
 	var z *Zome
-	z, _, err = h.GetEntryDef(linkingEntryType)
+	var d *EntryDef
+	z, d, err = h.GetEntryDef(linkingEntryType)
 	if err != nil {
 		return
 	}
@@ -1290,7 +1292,7 @@ func (h *Holochain) ValidateLink(linkingEntryType string, base string, link stri
 		return
 	}
 	srcs := prepareSources(sources)
-	err = n.ValidateLink(linkingEntryType, base, link, tag, srcs)
+	err = n.ValidateLink(d, base, link, tag, srcs)
 	if err != nil {
 		Debugf("ValidateLink err:%v\n", err)
 	}

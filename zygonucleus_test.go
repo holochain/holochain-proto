@@ -178,7 +178,8 @@ fakeLinkHash
 some tag value
 ["fakeSrcHashvalue"]
 `, func() {
-			err = v.ValidateLink("rating", "fakeBasehash", "fakeLinkHash", "some tag value", []string{"fakeSrcHashvalue"})
+			d := EntryDef{Name: "rating"}
+			err = v.ValidateLink(&d, "fakeBasehash", "fakeLinkHash", "some tag value", []string{"fakeSrcHashvalue"})
 			So(err, ShouldBeNil)
 		})
 	})

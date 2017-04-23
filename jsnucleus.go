@@ -51,21 +51,21 @@ func (z *JSNucleus) ChainGenesis() (err error) {
 }
 
 // ValidateCommit checks the contents of an entry against the validation rules at commit time
-func (z *JSNucleus) ValidateCommit(d *EntryDef, entry Entry, header *Header, sources []string) (err error) {
-	err = z.validateEntry("validateCommit", d, entry, header, sources)
+func (z *JSNucleus) ValidateCommit(def *EntryDef, entry Entry, header *Header, sources []string) (err error) {
+	err = z.validateEntry("validateCommit", def, entry, header, sources)
 	return
 }
 
 // ValidatePut checks the contents of an entry against the validation rules at DHT put time
-func (z *JSNucleus) ValidatePut(d *EntryDef, entry Entry, header *Header, sources []string) (err error) {
-	err = z.validateEntry("validatePut", d, entry, header, sources)
+func (z *JSNucleus) ValidatePut(def *EntryDef, entry Entry, header *Header, sources []string) (err error) {
+	err = z.validateEntry("validatePut", def, entry, header, sources)
 	return
 }
 
 // ValidateDel checks that marking an entry as deleted is valid
-func (z *JSNucleus) ValidateDel(entryType string, hash string, sources []string) (err error) {
+func (z *JSNucleus) ValidateDel(def *EntryDef, hash string, sources []string) (err error) {
 	srcs := mkJSSources(sources)
-	code := fmt.Sprintf(`validateDel("%s","%s",%s)`, entryType, hash, srcs)
+	code := fmt.Sprintf(`validateDel("%s","%s",%s)`, def.Name, hash, srcs)
 	Debug(code)
 
 	err = z.runValidate("validateDel", code)
@@ -74,9 +74,9 @@ func (z *JSNucleus) ValidateDel(entryType string, hash string, sources []string)
 }
 
 // ValidateLink checks the linking data against the validation rules
-func (z *JSNucleus) ValidateLink(linkingEntryType string, baseHash string, linkHash string, tag string, sources []string) (err error) {
+func (z *JSNucleus) ValidateLink(def *EntryDef, baseHash string, linkHash string, tag string, sources []string) (err error) {
 	srcs := mkJSSources(sources)
-	code := fmt.Sprintf(`validateLink("%s","%s","%s","%s",%s)`, linkingEntryType, baseHash, linkHash, tag, srcs)
+	code := fmt.Sprintf(`validateLink("%s","%s","%s","%s",%s)`, def.Name, baseHash, linkHash, tag, srcs)
 	Debug(code)
 
 	err = z.runValidate("validateLink", code)
@@ -88,9 +88,9 @@ func mkJSSources(sources []string) (srcs string) {
 	return
 }
 
-func (z *JSNucleus) prepareValidateEntryArgs(d *EntryDef, entry Entry, sources []string) (e string, srcs string, err error) {
+func (z *JSNucleus) prepareValidateEntryArgs(def *EntryDef, entry Entry, sources []string) (e string, srcs string, err error) {
 	c := entry.Content().(string)
-	switch d.DataFormat {
+	switch def.DataFormat {
 	case DataFormatRawJS:
 		e = c
 	case DataFormatString:
@@ -100,7 +100,7 @@ func (z *JSNucleus) prepareValidateEntryArgs(d *EntryDef, entry Entry, sources [
 	case DataFormatJSON:
 		e = fmt.Sprintf(`JSON.parse("%s")`, jsSanitizeString(c))
 	default:
-		err = errors.New("data format not implemented: " + d.DataFormat)
+		err = errors.New("data format not implemented: " + def.DataFormat)
 		return
 	}
 	srcs = mkJSSources(sources)
@@ -131,9 +131,9 @@ func (z *JSNucleus) runValidate(fnName string, code string) (err error) {
 	return
 }
 
-func (z *JSNucleus) validateEntry(fnName string, d *EntryDef, entry Entry, header *Header, sources []string) (err error) {
+func (z *JSNucleus) validateEntry(fnName string, def *EntryDef, entry Entry, header *Header, sources []string) (err error) {
 
-	e, srcs, err := z.prepareValidateEntryArgs(d, entry, sources)
+	e, srcs, err := z.prepareValidateEntryArgs(def, entry, sources)
 	if err != nil {
 		return
 	}
@@ -145,7 +145,7 @@ func (z *JSNucleus) validateEntry(fnName string, d *EntryDef, entry Entry, heade
 		header.Time.UTC().Format(time.RFC3339),
 	)
 
-	code := fmt.Sprintf(`%s("%s",%s,%s,%s)`, fnName, d.Name, e, hdr, srcs)
+	code := fmt.Sprintf(`%s("%s",%s,%s,%s)`, fnName, def.Name, e, hdr, srcs)
 	Debugf("%s: %s", fnName, code)
 	err = z.runValidate(fnName, code)
 	if err != nil && err == ValidationFailedErr {

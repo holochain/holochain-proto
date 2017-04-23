@@ -59,31 +59,31 @@ func (z *ZygoNucleus) ChainGenesis() (err error) {
 }
 
 // ValidateCommit checks the contents of an entry against the validation rules at commit time
-func (z *ZygoNucleus) ValidateCommit(d *EntryDef, entry Entry, header *Header, sources []string) (err error) {
-	err = z.validateEntry("validateCommit", d, entry, header, sources)
+func (z *ZygoNucleus) ValidateCommit(def *EntryDef, entry Entry, header *Header, sources []string) (err error) {
+	err = z.validateEntry("validateCommit", def, entry, header, sources)
 	return
 }
 
 // ValidatePut checks the contents of an entry against the validation rules at DHT put time
-func (z *ZygoNucleus) ValidatePut(d *EntryDef, entry Entry, header *Header, sources []string) (err error) {
-	err = z.validateEntry("validatePut", d, entry, header, sources)
+func (z *ZygoNucleus) ValidatePut(def *EntryDef, entry Entry, header *Header, sources []string) (err error) {
+	err = z.validateEntry("validatePut", def, entry, header, sources)
 	return
 }
 
 // ValidateDel checks that marking an entry as deleted is valid
-func (z *ZygoNucleus) ValidateDel(entryType string, hash string, sources []string) (err error) {
+func (z *ZygoNucleus) ValidateDel(def *EntryDef, hash string, sources []string) (err error) {
 	srcs := mkSources(sources)
-	code := fmt.Sprintf(`(validateDel "%s" "%s" %s)`, entryType, hash, srcs)
+	code := fmt.Sprintf(`(validateDel "%s" "%s" %s)`, def.Name, hash, srcs)
 	Debug(code)
 	err = z.runValidate("validateDel", code)
 	return
 }
 
 // ValidateLink checks the link data against the validation rules
-func (z *ZygoNucleus) ValidateLink(linkingEntryType string, baseHash string, linkHash string, tag string, sources []string) (err error) {
+func (z *ZygoNucleus) ValidateLink(def *EntryDef, baseHash string, linkHash string, tag string, sources []string) (err error) {
 
 	srcs := mkSources(sources)
-	code := fmt.Sprintf(`(validateLink "%s" "%s" "%s" "%s" %s)`, linkingEntryType, baseHash, linkHash, tag, srcs)
+	code := fmt.Sprintf(`(validateLink "%s" "%s" "%s" "%s" %s)`, def.Name, baseHash, linkHash, tag, srcs)
 	Debug(code)
 
 	err = z.runValidate("validateLink", code)
@@ -101,10 +101,10 @@ func mkSources(sources []string) (srcs string) {
 	return
 }
 
-func (z *ZygoNucleus) prepareValidateArgs(d *EntryDef, entry Entry, sources []string) (e string, srcs string, err error) {
+func (z *ZygoNucleus) prepareValidateArgs(def *EntryDef, entry Entry, sources []string) (e string, srcs string, err error) {
 	c := entry.Content().(string)
 	// @todo handle JSON if schema type is different
-	switch d.DataFormat {
+	switch def.DataFormat {
 	case DataFormatRawZygo:
 		e = c
 	case DataFormatString:
@@ -114,7 +114,7 @@ func (z *ZygoNucleus) prepareValidateArgs(d *EntryDef, entry Entry, sources []st
 	case DataFormatJSON:
 		e = fmt.Sprintf(`(unjson (raw "%s"))`, sanitizeString(c))
 	default:
-		err = errors.New("data format not implemented: " + d.DataFormat)
+		err = errors.New("data format not implemented: " + def.DataFormat)
 		return
 	}
 	srcs = mkSources(sources)
@@ -146,8 +146,8 @@ func (z *ZygoNucleus) runValidate(fnName string, code string) (err error) {
 	return
 }
 
-func (z *ZygoNucleus) validateEntry(fnName string, d *EntryDef, entry Entry, header *Header, sources []string) (err error) {
-	e, srcs, err := z.prepareValidateArgs(d, entry, sources)
+func (z *ZygoNucleus) validateEntry(fnName string, def *EntryDef, entry Entry, header *Header, sources []string) (err error) {
+	e, srcs, err := z.prepareValidateArgs(def, entry, sources)
 	if err != nil {
 		return
 	}
@@ -164,7 +164,7 @@ func (z *ZygoNucleus) validateEntry(fnName string, d *EntryDef, entry Entry, hea
 		hdr = `""`
 	}
 
-	code := fmt.Sprintf(`(%s "%s" %s %s %s)`, fnName, d.Name, e, hdr, srcs)
+	code := fmt.Sprintf(`(%s "%s" %s %s %s)`, fnName, def.Name, e, hdr, srcs)
 	Debugf("%s: %s", fnName, code)
 
 	err = z.runValidate(fnName, code)

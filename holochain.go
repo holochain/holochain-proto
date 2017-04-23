@@ -26,7 +26,10 @@ import (
 	"time"
 )
 
+// Version is the numeric version number of the holochain library
 const Version int = 7
+
+// VersionStr is the textual version number of the holochain library
 const VersionStr string = "7"
 
 // Zome struct encapsulates logically related code, from "chromosome"
@@ -65,7 +68,7 @@ type Config struct {
 // Holochain struct holds the full "DNA" of the holochain
 type Holochain struct {
 	Version          int
-	Id               uuid.UUID
+	ID               uuid.UUID
 	Name             string
 	Properties       map[string]string
 	PropertiesSchema string
@@ -90,18 +93,22 @@ type Holochain struct {
 var debugLog Logger
 var infoLog Logger
 
+// Debug sends a string to the standard debug log
 func Debug(m string) {
 	debugLog.Log(m)
 }
 
+// Debugf sends a formatted string to the standard debug log
 func Debugf(m string, args ...interface{}) {
 	debugLog.Logf(m, args...)
 }
 
+// Info sends a string to the standard info log
 func Info(m string) {
 	infoLog.Log(m)
 }
 
+// Infof sends a formatted string to the standard info log
 func Infof(m string, args ...interface{}) {
 	infoLog.Logf(m, args...)
 }
@@ -211,7 +218,7 @@ func NewHolochain(agent Agent, root string, format string, zomes ...Zome) Holoch
 		panic(err)
 	}
 	h := Holochain{
-		Id:              u,
+		ID:              u,
 		HashType:        "sha2-256",
 		RequiresVersion: Version,
 		agent:           agent,
@@ -574,16 +581,16 @@ func (s *Service) Clone(srcPath string, root string, new bool) (hP *Holochain, e
 			if err != nil {
 				return
 			}
-			h.Id = u
+			h.ID = u
 
 			// use the path as the name
 			h.Name = filepath.Base(root)
 		}
 
 		// copy any UI files
-		srcUiPath := srcPath + "/" + ChainUIDir
-		if dirExists(srcUiPath) {
-			if err = CopyDir(srcUiPath, h.UIPath()); err != nil {
+		srcUIPath := srcPath + "/" + ChainUIDir
+		if dirExists(srcUIPath) {
+			if err = CopyDir(srcUIPath, h.UIPath()); err != nil {
 				return
 			}
 		}
@@ -1405,15 +1412,14 @@ func (h *Holochain) Reset() (err error) {
 	err = os.RemoveAll(h.DBPath())
 	if err != nil {
 		return
-	} else {
-		if err = os.MkdirAll(h.DBPath(), os.ModePerm); err != nil {
-			return
-		}
-		h.chain, err = NewChainFromFile(h.hashSpec, h.DBPath()+"/"+StoreFileName)
-		if err != nil {
-			return
-		}
+	}
 
+	if err = os.MkdirAll(h.DBPath(), os.ModePerm); err != nil {
+		return
+	}
+	h.chain, err = NewChainFromFile(h.hashSpec, h.DBPath()+"/"+StoreFileName)
+	if err != nil {
+		return
 	}
 
 	err = os.RemoveAll(h.rootPath + "/" + DNAHashFileName)
@@ -1551,7 +1557,7 @@ func (h *Holochain) GetLink(basestr string, tag string, options GetLinkOptions) 
 			case *LinkQueryResp:
 				response = t
 				if options.Load {
-					for i, _ := range response.Links {
+					for i := range response.Links {
 						entry, err := h.Get(response.Links[i].H)
 						if err == nil {
 							response.Links[i].E = entry.(*GobEntry).C.(string)

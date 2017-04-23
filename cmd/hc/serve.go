@@ -74,7 +74,7 @@ func serve(h *holo.Holochain, port string) {
 	http.HandleFunc("/fn/", func(w http.ResponseWriter, r *http.Request) {
 
 		var err error
-		var errCode int = 400
+		var errCode = 400
 		defer func() {
 			if err != nil {
 				log.Logf("ERROR:%s,code:%d", err.Error(), errCode)
@@ -106,16 +106,15 @@ func serve(h *holo.Holochain, port string) {
 			http.Error(w, err.Error(), 500)
 
 			return
-		} else {
-			log.Logf(" result: %v\n", result)
-			switch t := result.(type) {
-			case string:
-				fmt.Fprintf(w, t)
-			case []byte:
-				fmt.Fprintf(w, string(t))
-			default:
-				err = fmt.Errorf("Unknown type from Call of %s:%s", zome, function)
-			}
+		}
+		log.Logf(" result: %v\n", result)
+		switch t := result.(type) {
+		case string:
+			fmt.Fprintf(w, t)
+		case []byte:
+			fmt.Fprintf(w, string(t))
+		default:
+			err = fmt.Errorf("Unknown type from Call of %s:%s", zome, function)
 		}
 	}) // set router
 	fmt.Printf("starting server on localhost:%s\n", port)

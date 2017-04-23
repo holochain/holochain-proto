@@ -83,6 +83,6 @@ func TestConfiguredChains(t *testing.T) {
 	Convey("Configured chains should return a hash of all the chains in the Service", t, func() {
 		chains, err := s.ConfiguredChains()
 		So(err, ShouldBeNil)
-		So(chains["test"].Id, ShouldEqual, h.Id)
+		So(chains["test"].ID, ShouldEqual, h.ID)
 	})
 }

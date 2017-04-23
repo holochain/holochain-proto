@@ -105,7 +105,7 @@ func setupApp() (app *cli.App) {
 				h, err := service.Clone(srcPath, root+"/"+name, true)
 				if err == nil {
 					if verbose {
-						fmt.Printf("cloned %s from %s with new id: %v\n", name, srcPath, h.Id)
+						fmt.Printf("cloned %s from %s with new id: %v\n", name, srcPath, h.ID)
 					}
 				}
 				return err
@@ -429,7 +429,7 @@ func setupApp() (app *cli.App) {
 				h, err := service.GenDev(root+"/"+name, format)
 				if err == nil {
 					if verbose {
-						fmt.Printf("created %s with new id: %v\n", name, h.Id)
+						fmt.Printf("created %s with new id: %v\n", name, h.ID)
 					}
 				}
 				return err

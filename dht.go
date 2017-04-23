@@ -460,7 +460,8 @@ func (dht *DHT) handleChangeReq(m *Message) (err error) {
 				status = LIVE
 			}
 			entry := resp.Entry
-			b, err := entry.Marshal()
+			var b []byte
+			b, err = entry.Marshal()
 			if err == nil {
 				err = dht.put(m, resp.Type, t.H, from, b, status)
 			}

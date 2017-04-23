@@ -240,7 +240,8 @@ func (z *ZygoNucleus) get(env *zygo.Glisp, h *Holochain, hash string) (result *z
 		return nil, err
 	}
 
-	entry, err := h.Get(hash)
+	var entry interface{}
+	entry, err = h.Get(hash)
 	if err == nil {
 		t := entry.(*GobEntry)
 		// @TODO figure out encoding by entry type.
@@ -261,10 +262,12 @@ func (z *ZygoNucleus) getlink(env *zygo.Glisp, h *Holochain, base string, tag st
 		return nil, err
 	}
 
-	response, err := h.GetLink(base, tag, options)
+	var response *LinkQueryResp
+	response, err = h.GetLink(base, tag, options)
 
 	if err == nil {
-		j, err := json.Marshal(response.Links)
+		var j []byte
+		j, err = json.Marshal(response.Links)
 		if err == nil {
 			err = result.HashSet(env.MakeSymbol("result"), &zygo.SexpStr{S: string(j)})
 		}
@@ -306,7 +309,7 @@ func NewZygoNucleus(h *Holochain, code string) (n Nucleus, err error) {
 				msg = zygo.SexpToJson(t)
 			default:
 				return zygo.SexpNull,
-					fmt.Errorf("can't convert arugment type %T", t)
+					fmt.Errorf("can't convert argument type %T", t)
 			}
 
 			h.config.Loggers.App.p(msg)

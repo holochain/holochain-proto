@@ -1197,7 +1197,7 @@ func (h *Holochain) ValidatePrepare(entryType string, entry Entry, sources []pee
 				err = fmt.Errorf("invalid links entry: Link %v", err)
 				return
 			}
-			h, ok = link["Tag"]
+			_, ok = link["Tag"]
 			if !ok {
 				err = errors.New("invalid links entry: missing Tag")
 				return

@@ -180,7 +180,7 @@ func (dht *DHT) FindGossiper() (g *Gossiper, err error) {
 			if e != nil {
 				return false
 			}
-			idx, e := strconv.Atoi(value)
+			idx, _ := strconv.Atoi(value)
 			g := Gossiper{Id: id, Idx: idx}
 			glist = append(glist, g)
 			return true

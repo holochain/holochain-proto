@@ -344,7 +344,7 @@ func TestDHTReceiver(t *testing.T) {
 		err = h.dht.simHandleChangeReqs()
 		So(err, ShouldBeNil)
 
-		data, entryType, status, err := h.dht.get(hash)
+		data, entryType, status, _ := h.dht.get(hash)
 		var e GobEntry
 		e.Unmarshal(data)
 		So(e.C, ShouldEqual, "124")

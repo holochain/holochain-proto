@@ -221,7 +221,6 @@ func (h *Holochain) DoTests(name string, tests []TestData, minTime time.Duration
 			err := h.DoTest(name, index, test, startTime, &lastResults, &lastMatches)
 			if err != nil {
 				errs = append(errs, err)
-				err = nil
 			}
 			done <- true
 		}(i, t)
@@ -236,7 +235,6 @@ func (h *Holochain) DoTests(name string, tests []TestData, minTime time.Duration
 		err := h.DoTest(name, i, t, startTime, &lastResults, &lastMatches)
 		if err != nil {
 			errs = append(errs, err)
-			err = nil
 		}
 
 	}

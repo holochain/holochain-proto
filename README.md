@@ -226,22 +226,7 @@ Current Throughput graph:
 [![Throughput Graph](http://graphs.waffle.io/metacurrency/holochain/throughput.svg)](https://waffle.io/metacurrency/holochain/metrics)
 
 ### Contribute
-If you're going to contribute to our project we expect you to adhere to the following guidelines:
-
-<!-- * Protocols for Inclusion. -->
-We are committed to foster a vibrant thriving community, including growing a culture that breaks cycles of marginalization and dominance behavior. In support of this, some open source communities adopt [Codes of Conduct](http://contributor-covenant.org/version/1/3/0/).  We are still working on our social protocols, and empower each team to describe its own *Protocols for Inclusion*.  Until our teams have published their guidelines, please use the link above as a general guideline.
-
-We use **test driven development**. When you add a new function or feature, be sure to add the tests that make sure it works.
-
-All Go code should be formatted with [gofmt](https://blog.golang.org/go-fmt-your-code).
-To make this easier consider using a [git-hook](https://gist.github.com/timotree3/d69b0fb90c8affbd705765abeabc489d#file-pre-commit) or configuring your editor with one of these: ([Emacs][], [vim][], [Sublime][], [Eclipse][])
-
-[Emacs]: https://github.com/dominikh/go-mode.el
-[vim]: https://github.com/fatih/vim-go
-[Sublime]: https://github.com/DisposaBoy/GoSublime
-[Eclipse]: https://github.com/GoClipse/goclipse
-
-For Atom, you could try this [package](https://atom.io/packages/save-commands) but it requires some configuration.
+Contributors to this project are expected to follow our [development protocols & practices](https://github.com/metacurrency/holochain/wiki/Development-Protocols).
 
 ### Dependencies
 This project depends on various parts of [libp2p](https://github.com/libp2p/go-libp2p), which uses the [gx](https://github.com/whyrusleeping/gx) package manager. All of which will be automatically installed by make by following the [setup instructions](#installation) above.

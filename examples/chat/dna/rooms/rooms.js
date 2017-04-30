@@ -1,6 +1,6 @@
 // Get list of chat Spaces / Rooms / Channels
 function listRooms() {
-    var rooms = getlink(App.DNA.Hash, "room",{Load:true});
+    var rooms = getLink(App.DNA.Hash, "room",{Load:true});
     debug("Rooms: " + JSON.stringify(rooms))
     if( rooms instanceof Error ){
         return []
@@ -26,7 +26,7 @@ function isAllowed(author) {
     debug("Checking if "+author+" is a registered user...");
     debug(JSON.stringify(App));
 
-    var registered_users = getlink(App.DNA.Hash, "registered_users",{Load:true});
+    var registered_users = getLink(App.DNA.Hash, "registered_users",{Load:true});
     debug("Registered users are: "+JSON.stringify(registered_users));
     if( registered_users instanceof Error ) return false;
     registered_users = registered_users.Links;

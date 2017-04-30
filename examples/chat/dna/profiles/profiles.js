@@ -6,7 +6,7 @@ function register(x) {
 }
 
 function isRegistered() {
-    var registered_users = getlink(App.DNA.Hash, "registered_users",{Load:true})
+    var registered_users = getLink(App.DNA.Hash, "registered_users",{Load:true})
     debug("Registered users are: "+JSON.stringify(registered_users));
     if( registered_users instanceof Error) return false
     registered_users = registered_users.Links
@@ -26,7 +26,7 @@ function getProfile(x) {
 }
 
 function myProfile() {
-    var registered_users = getlink(App.DNA.Hash, "registered_users",{Load:true});
+    var registered_users = getLink(App.DNA.Hash, "registered_users",{Load:true});
     if( registered_users instanceof Error ) return false
     debug("registration entry:"+JSON.stringify(registered_users))
     registered_users = registered_users.Links

@@ -150,6 +150,35 @@ func TestLinking(t *testing.T) {
 		So(len(data), ShouldEqual, 1)
 		So(data[0].H, ShouldEqual, linkHash1Str)
 	})
+
+	Convey("It should fail delete links non existent links bases and tags", t, func() {
+		badHashStr := "QmY8Mzg9F69e5P9AoQPYat655HEhc1TVGs11tmfNSzkqhX"
+
+		err := dht.delLink(nil, badHashStr, linkHash1Str, "tag foo")
+		So(err, ShouldEqual, ErrHashNotFound)
+		err = dht.delLink(nil, baseStr, badHashStr, "tag foo")
+		So(err, ShouldEqual, ErrLinkNotFound)
+		err = dht.delLink(nil, baseStr, linkHash1Str, "tag baz")
+		So(err, ShouldEqual, ErrLinkNotFound)
+	})
+
+	Convey("It should delete links", t, func() {
+		err := dht.delLink(nil, baseStr, linkHash1Str, "tag bar")
+		So(err, ShouldBeNil)
+		data, err := dht.getLink(base, "tag bar")
+		So(err.Error(), ShouldEqual, "No values for tag bar")
+
+		err = dht.delLink(nil, baseStr, linkHash1Str, "tag foo")
+		So(err, ShouldBeNil)
+		data, err = dht.getLink(base, "tag foo")
+		So(err, ShouldBeNil)
+		So(len(data), ShouldEqual, 1)
+
+		err = dht.delLink(nil, baseStr, linkHash2Str, "tag foo")
+		So(err, ShouldBeNil)
+		data, err = dht.getLink(base, "tag foo")
+		So(err.Error(), ShouldEqual, "No values for tag foo")
+	})
 }
 
 func TestDel(t *testing.T) {
@@ -163,7 +192,7 @@ func TestDel(t *testing.T) {
 	dht.put(nil, "someType", hash, id, []byte("some value"), LIVE)
 
 	idx, _ := dht.GetIdx()
-	Convey("It move the hash to the deleted status", t, func() {
+	Convey("It should move the hash to the deleted status", t, func() {
 		m := h.node.NewMessage(DEL_REQUEST, hash)
 
 		err := dht.del(m, hash)
@@ -179,7 +208,6 @@ func TestDel(t *testing.T) {
 
 		So(afterIdx-idx, ShouldEqual, 1)
 	})
-
 }
 
 func TestFindNodeForHash(t *testing.T) {

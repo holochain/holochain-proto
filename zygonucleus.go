@@ -307,8 +307,57 @@ func (z *ZygoNucleus) get(env *zygo.Glisp, h *Holochain, hashstr string) (result
 	return result, err
 }
 
-// getlink exposes GetLink to zygo
-func (z *ZygoNucleus) getlink(env *zygo.Glisp, h *Holochain, basestr string, tag string, options GetLinkOptions) (result *zygo.SexpHash, err error) {
+// get exposes DHTGet to zygo
+func (z *ZygoNucleus) del(env *zygo.Glisp, h *Holochain, hashstr string) (result *zygo.SexpHash, err error) {
+	result, err = zygo.MakeHash(nil, "hash", env)
+	if err != nil {
+		return nil, err
+	}
+
+	var hash Hash
+	hash, err = NewHash(hashstr)
+	if err != nil {
+		return
+	}
+
+	_, err = NewDelAction(hash).Do(h)
+	if err == nil {
+		err = result.HashSet(env.MakeSymbol("result"), zygo.SexpNull)
+
+	} else {
+		err = result.HashSet(env.MakeSymbol("error"), &zygo.SexpStr{S: err.Error()})
+	}
+	return result, err
+}
+
+func (z *ZygoNucleus) delLink(env *zygo.Glisp, h *Holochain, basestr string, linkstr string, tag string) (result *zygo.SexpHash, err error) {
+	result, err = zygo.MakeHash(nil, "hash", env)
+	if err != nil {
+		return nil, err
+	}
+
+	var base, link Hash
+	base, err = NewHash(basestr)
+	if err != nil {
+		return
+	}
+	link, err = NewHash(linkstr)
+	if err != nil {
+		return
+	}
+
+	_, err = NewDelLinkAction(&DelLinkReq{Base: base, Link: link, Tag: tag}).Do(h)
+	if err == nil {
+		err = result.HashSet(env.MakeSymbol("result"), zygo.SexpNull)
+
+	} else {
+		err = result.HashSet(env.MakeSymbol("error"), &zygo.SexpStr{S: err.Error()})
+	}
+	return
+}
+
+// getLink exposes GetLink to zygo
+func (z *ZygoNucleus) getLink(env *zygo.Glisp, h *Holochain, basestr string, tag string, options GetLinkOptions) (result *zygo.SexpHash, err error) {
 	result, err = zygo.MakeHash(nil, "hash", env)
 	if err != nil {
 		return nil, err
@@ -458,7 +507,25 @@ func NewZygoNucleus(h *Holochain, code string) (n Nucleus, err error) {
 			return result, err
 		})
 
-	z.env.AddFunction("getlink",
+	z.env.AddFunction("del",
+		func(env *zygo.Glisp, name string, args []zygo.Sexp) (zygo.Sexp, error) {
+			if len(args) != 1 {
+				return zygo.SexpNull, zygo.WrongNargs
+			}
+
+			var hashstr string
+			switch t := args[0].(type) {
+			case *zygo.SexpStr:
+				hashstr = t.S
+			default:
+				return zygo.SexpNull,
+					errors.New("argument of del should be string")
+			}
+			result, err := z.del(env, h, hashstr)
+			return result, err
+		})
+
+	z.env.AddFunction("getLink",
 		func(env *zygo.Glisp, name string, args []zygo.Sexp) (zygo.Sexp, error) {
 			l := len(args)
 			if l < 2 || l > 3 {
@@ -503,7 +570,45 @@ func NewZygoNucleus(h *Holochain, code string) (n Nucleus, err error) {
 				}
 
 			}
-			result, err := z.getlink(env, h, hashstr, typestr, options)
+			result, err := z.getLink(env, h, hashstr, typestr, options)
+			return result, err
+		})
+
+	z.env.AddFunction("delLink",
+		func(env *zygo.Glisp, name string, args []zygo.Sexp) (zygo.Sexp, error) {
+			l := len(args)
+			if l != 3 {
+				return zygo.SexpNull, zygo.WrongNargs
+			}
+
+			var basestr string
+			switch t := args[0].(type) {
+			case *zygo.SexpStr:
+				basestr = t.S
+			default:
+				return zygo.SexpNull,
+					errors.New("1st argument of delLink should be string")
+			}
+
+			var linkstr string
+			switch t := args[1].(type) {
+			case *zygo.SexpStr:
+				linkstr = t.S
+			default:
+				return zygo.SexpNull,
+					errors.New("2nd argument of delLink should be string")
+			}
+
+			var tag string
+			switch t := args[2].(type) {
+			case *zygo.SexpStr:
+				tag = t.S
+			default:
+				return zygo.SexpNull,
+					errors.New("2nd argument of delLink should be string")
+			}
+
+			result, err := z.delLink(env, h, basestr, linkstr, tag)
 			return result, err
 		})
 

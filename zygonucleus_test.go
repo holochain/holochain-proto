@@ -223,7 +223,7 @@ func TestPrepareZyValidateArgs(t *testing.T) {
 	})
 	Convey("it should prepare args for del", t, func() {
 		hash, _ := NewHash("QmY8Mzg9F69e5P9AoQPYat6x5HEhc1TVGs11tmfNSzkqh2")
-		a := NewDelAction("oddNumbers", hash)
+		a := NewDelAction(hash)
 		args, err := prepareZyValidateArgs(a, &d)
 		So(err, ShouldBeNil)
 		So(args, ShouldEqual, `"QmY8Mzg9F69e5P9AoQPYat6x5HEhc1TVGs11tmfNSzkqh2"`)
@@ -319,8 +319,8 @@ func TestZygoDHT(t *testing.T) {
 		panic(err)
 	}
 
-	Convey("getlink function should return the Links", t, func() {
-		v, err := NewZygoNucleus(h, fmt.Sprintf(`(getlink "%s" "4stars")`, hash.String()))
+	Convey("getLink function should return the Links", t, func() {
+		v, err := NewZygoNucleus(h, fmt.Sprintf(`(getLink "%s" "4stars")`, hash.String()))
 		So(err, ShouldBeNil)
 		z := v.(*ZygoNucleus)
 		sh := z.lastResult.(*zygo.SexpHash)
@@ -329,8 +329,8 @@ func TestZygoDHT(t *testing.T) {
 		So(err, ShouldBeNil)
 		So(r.(*zygo.SexpStr).S, ShouldEqual, `[{"H":"QmYeinX5vhuA91D3v24YbgyLofw9QAxY6PoATrBHnRwbtt","E":""}]`)
 	})
-	Convey("getlink function with load option should return the Links and entries", t, func() {
-		v, err := NewZygoNucleus(h, fmt.Sprintf(`(getlink "%s" "4stars" (hash Load:true))`, hash.String()))
+	Convey("getLink function with load option should return the Links and entries", t, func() {
+		v, err := NewZygoNucleus(h, fmt.Sprintf(`(getLink "%s" "4stars" (hash Load:true))`, hash.String()))
 		So(err, ShouldBeNil)
 		z := v.(*ZygoNucleus)
 		sh := z.lastResult.(*zygo.SexpHash)
@@ -339,4 +339,37 @@ func TestZygoDHT(t *testing.T) {
 		So(err, ShouldBeNil)
 		So(r.(*zygo.SexpStr).S, ShouldEqual, `[{"H":"QmYeinX5vhuA91D3v24YbgyLofw9QAxY6PoATrBHnRwbtt","E":"{\"firstName\":\"Zippy\",\"lastName\":\"Pinhead\"}"}]`)
 	})
+
+	Convey("delLink function should delete link", t, func() {
+		v, err := NewZygoNucleus(h, fmt.Sprintf(`(delLink "%s" "%s" "4stars")`, hash.String(), profileHash.String()))
+		So(err, ShouldBeNil)
+		z := v.(*ZygoNucleus)
+		sh := z.lastResult.(*zygo.SexpHash)
+		r, err := sh.HashGet(z.env, z.env.MakeSymbol("result"))
+		So(fmt.Sprintf("%v", r), ShouldEqual, "&{0}")
+
+		links, _ := h.dht.getLink(hash, "4stars")
+		So(fmt.Sprintf("%v", links), ShouldEqual, "[]")
+
+	})
+
+	Convey("del function should mark item deleted", t, func() {
+		v, err := NewZygoNucleus(h, fmt.Sprintf(`(del "%s")`, hash.String()))
+		So(err, ShouldBeNil)
+
+		z := v.(*ZygoNucleus)
+		sh := z.lastResult.(*zygo.SexpHash)
+		r, err := sh.HashGet(z.env, z.env.MakeSymbol("result"))
+		So(fmt.Sprintf("%v", r), ShouldEqual, "&{0}")
+
+		v, err = NewZygoNucleus(h, fmt.Sprintf(`(get "%s")`, hash.String()))
+		So(err, ShouldBeNil)
+		z = v.(*ZygoNucleus)
+
+		r, err = z.lastResult.(*zygo.SexpHash).HashGet(z.env, z.env.MakeSymbol("error"))
+		So(err, ShouldBeNil)
+		So(r.(*zygo.SexpStr).S, ShouldEqual, "hash not found")
+
+	})
+
 }

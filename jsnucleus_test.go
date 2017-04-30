@@ -210,7 +210,7 @@ func TestPrepareJSValidateArgs(t *testing.T) {
 	})
 	Convey("it should prepare args for del", t, func() {
 		hash, _ := NewHash("QmY8Mzg9F69e5P9AoQPYat6x5HEhc1TVGs11tmfNSzkqh2")
-		a := NewDelAction("evenNumbers", hash)
+		a := NewDelAction(hash)
 		args, err := prepareJSValidateArgs(a, &d)
 		So(err, ShouldBeNil)
 		So(args, ShouldEqual, `"QmY8Mzg9F69e5P9AoQPYat6x5HEhc1TVGs11tmfNSzkqh2"`)
@@ -316,11 +316,10 @@ func TestJSDHT(t *testing.T) {
 		panic(err)
 	}
 
-	Convey("getlink function should return the Links", t, func() {
-		v, err := NewJSNucleus(h, fmt.Sprintf(`getlink("%s","4stars");`, hash.String()))
+	Convey("getLink function should return the Links", t, func() {
+		v, err := NewJSNucleus(h, fmt.Sprintf(`getLink("%s","4stars");`, hash.String()))
 		So(err, ShouldBeNil)
 		z := v.(*JSNucleus)
-
 		So(z.lastResult.Class(), ShouldEqual, "Object")
 		x, err := z.lastResult.Export()
 		lqr := x.(*LinkQueryResp)
@@ -328,8 +327,8 @@ func TestJSDHT(t *testing.T) {
 		So(fmt.Sprintf("%v", lqr.Links[0].H), ShouldEqual, profileHash.String())
 	})
 
-	Convey("getlink function with load option should return the Links and entries", t, func() {
-		v, err := NewJSNucleus(h, fmt.Sprintf(`getlink("%s","4stars",{Load:true});`, hash.String()))
+	Convey("getLink function with load option should return the Links and entries", t, func() {
+		v, err := NewJSNucleus(h, fmt.Sprintf(`getLink("%s","4stars",{Load:true});`, hash.String()))
 		So(err, ShouldBeNil)
 		z := v.(*JSNucleus)
 		So(z.lastResult.Class(), ShouldEqual, "Object")
@@ -338,5 +337,27 @@ func TestJSDHT(t *testing.T) {
 		So(err, ShouldBeNil)
 		So(fmt.Sprintf("%v", lqr.Links[0].H), ShouldEqual, profileHash.String())
 		So(fmt.Sprintf("%v", lqr.Links[0].E), ShouldEqual, `{"firstName":"Zippy","lastName":"Pinhead"}`)
+	})
+
+	Convey("delLink function should delete link", t, func() {
+		v, err := NewJSNucleus(h, fmt.Sprintf(`delLink("%s","%s","4stars");`, hash.String(), profileHash.String()))
+		So(err, ShouldBeNil)
+		z := v.(*JSNucleus)
+		So(z.lastResult.String(), ShouldEqual, "undefined")
+		links, _ := h.dht.getLink(hash, "4stars")
+		So(fmt.Sprintf("%v", links), ShouldEqual, "[]")
+	})
+
+	Convey("del function should mark item deleted", t, func() {
+		v, err := NewJSNucleus(h, fmt.Sprintf(`del("%s");`, hash.String()))
+		So(err, ShouldBeNil)
+		z := v.(*JSNucleus)
+		So(z.lastResult.String(), ShouldEqual, "queued")
+
+		v, err = NewJSNucleus(h, fmt.Sprintf(`get("%s");`, hash.String()))
+		So(err, ShouldBeNil)
+		z = v.(*JSNucleus)
+		So(z.lastResult.String(), ShouldEqual, "HolochainError: hash not found")
+
 	})
 }

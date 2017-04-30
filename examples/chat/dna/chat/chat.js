@@ -1,8 +1,8 @@
 // Get list of chat Users / Members
-function listMembers() {return getlink(App.DNA.Hash, "member",{Load:true});}
+function listMembers() {return getLink(App.DNA.Hash, "member",{Load:true});}
 
 // Get list of chat Admins
-function listAdmins() {return getlink(App.DNA.Hash, "admin",{Load:true});}
+function listAdmins() {return getLink(App.DNA.Hash, "admin",{Load:true});}
 
 // Authorize a new agent_id to participate in this holochain
 // agent_id must match the string they use to "hc init" their holochain, and is currently their email by convention

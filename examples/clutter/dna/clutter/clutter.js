@@ -19,13 +19,13 @@ function getData(i) {
         return App.Agent.String;
     }
     else if (i.what == "posts") {
-        links = getlink(id,"_post_by_"+i.whom);
+        links = getLink(id,"_post_by_"+i.whom);
     }
     else if (i.what == "follows") {
-        links = getlink(id,"_follows_by_"+i.whom);
+        links = getLink(id,"_follows_by_"+i.whom);
     }
     else if (i.what == "users") {
-        links = getlink(id,"users");
+        links = getLink(id,"users");
     }
     debug(JSON.stringify(links));
     if( links instanceof Error ){

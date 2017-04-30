@@ -333,10 +333,39 @@ func NewJSNucleus(h *Holochain, code string) (n Nucleus, err error) {
 		return nil, err
 	}
 
-	err = z.vm.Set("getlink", func(call otto.FunctionCall) (result otto.Value) {
+	err = z.vm.Set("del", func(call otto.FunctionCall) (result otto.Value) {
+		v := call.Argument(0)
+		var hashstr string
+
+		if v.IsString() {
+			hashstr, _ = v.ToString()
+		} else {
+			return z.vm.MakeCustomError("HolochainError", "del expected string as argument")
+		}
+
+		var hash Hash
+		hash, err = NewHash(hashstr)
+		if err != nil {
+			return
+		}
+
+		resp, err := NewDelAction(hash).Do(h)
+		if err == nil {
+			result, err = z.vm.ToValue(resp)
+			return
+		}
+		result = z.vm.MakeCustomError("HolochainError", err.Error())
+		return
+
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	err = z.vm.Set("getLink", func(call otto.FunctionCall) (result otto.Value) {
 		l := len(call.ArgumentList)
 		if l < 2 || l > 3 {
-			return z.vm.MakeCustomError("HolochainError", "expected 2 or 3 arguments to getlink")
+			return z.vm.MakeCustomError("HolochainError", "expected 2 or 3 arguments to getLink")
 		}
 		basestr, _ := call.Argument(0).ToString()
 		tag, _ := call.Argument(1).ToString()
@@ -350,7 +379,7 @@ func NewJSNucleus(h *Holochain, code string) (n Nucleus, err error) {
 					options.Load = load
 				}
 			} else {
-				return z.vm.MakeCustomError("HolochainError", "getlink expected options to be object (third argument)")
+				return z.vm.MakeCustomError("HolochainError", "getLink expected options to be object (third argument)")
 			}
 		}
 
@@ -375,6 +404,38 @@ func NewJSNucleus(h *Holochain, code string) (n Nucleus, err error) {
 	if err != nil {
 		return nil, err
 	}
+
+	err = z.vm.Set("delLink", func(call otto.FunctionCall) (result otto.Value) {
+		l := len(call.ArgumentList)
+		if l != 3 {
+			return z.vm.MakeCustomError("HolochainError", "expected 3 arguments to delLink")
+		}
+		basestr, _ := call.Argument(0).ToString()
+		linkstr, _ := call.Argument(1).ToString()
+		tag, _ := call.Argument(2).ToString()
+
+		var base, link Hash
+		base, err = NewHash(basestr)
+		if err != nil {
+			return
+		}
+		link, err = NewHash(linkstr)
+		if err != nil {
+			return
+		}
+
+		var response interface{}
+		response, err = NewDelLinkAction(&DelLinkReq{Base: base, Link: link, Tag: tag}).Do(h)
+
+		if err == nil {
+			result, err = z.vm.ToValue(response)
+		} else {
+			return z.vm.MakeCustomError("HolochainError", err.Error())
+		}
+
+		return
+	})
+
 	l := JSLibrary
 	if h != nil {
 		l += fmt.Sprintf(`var App = {Name:"%s",DNA:{Hash:"%s"},Agent:{Hash:"%s",String:"%s"},Key:{Hash:"%s"}};`, h.Name, h.dnaHash, h.agentHash, h.Agent().Name(), peer.IDB58Encode(h.id))

@@ -7,6 +7,7 @@
 package holochain
 
 import (
+	"errors"
 	"fmt"
 	peer "github.com/libp2p/go-libp2p-peer"
 	"github.com/tidwall/buntdb"
@@ -71,6 +72,13 @@ type LinkReq struct {
 	Links Hash // hash of the links entry
 }
 
+// DelLinkReq holds a delete link request
+type DelLinkReq struct {
+	Base Hash   // data on which to link was attached
+	Link Hash   // hash of the link entry
+	Tag  string // tag to be deleted
+}
+
 // LinkQuery holds a getLink query
 type LinkQuery struct {
 	Base Hash
@@ -87,13 +95,15 @@ type GetLinkOptions struct {
 // TaggedHash holds associated entries for the LinkQueryResponse
 type TaggedHash struct {
 	H string // the hash of the link; gets filled by dht base node when answering get link request
-	E string // the value of link, get's filled by caller if getlink function set Load to true
+	E string // the value of link, get's filled by caller if getLink function set Load to true
 }
 
 // LinkQueryResp holds response to getLink query
 type LinkQueryResp struct {
 	Links []TaggedHash
 }
+
+var ErrLinkNotFound = errors.New("link not found")
 
 // NewDHT creates a new DHT structure
 func NewDHT(h *Holochain) *DHT {
@@ -285,19 +295,65 @@ func (dht *DHT) putLink(m *Message, base string, link string, tag string) (err e
 			return err
 		}
 
-		var index string
-		index, err = incIdx(tx, m)
-		if err != nil {
-			return err
-		}
+		key := "link:" + base + ":" + link + ":" + tag
+		_, err = tx.Get(key)
+		if err == buntdb.ErrNotFound {
 
-		x := "link:" + index + ":" + base + ":" + link
-		_, _, err = tx.Set(x, tag, nil)
-		if err != nil {
-			return err
-		}
+			//var index string
+			_, err = incIdx(tx, m)
+			if err != nil {
+				return err
+			}
 
+			_, _, err = tx.Set(key, "LIVE", nil)
+			if err != nil {
+				return err
+			}
+		} else {
+			//TODO what do we do if there's already something there?
+			panic("putLink over existing link not implemented")
+		}
 		return nil
+	})
+	return
+}
+
+// delLink removes a link and tag associated with a stored hash
+// N.B. this function assumes that the action has been properly validated
+func (dht *DHT) delLink(m *Message, base string, link string, tag string) (err error) {
+	dht.dlog.Logf("delLink on %v link %v as %s", base, link, tag)
+	err = dht.db.Update(func(tx *buntdb.Tx) error {
+		_, err := _get(tx, base)
+		if err != nil {
+			return err
+		}
+
+		key := "link:" + base + ":" + link + ":" + tag
+		val, err := tx.Get(key)
+		if err == buntdb.ErrNotFound {
+			return ErrLinkNotFound
+		}
+		if err != nil {
+			return err
+		}
+
+		if val == "LIVE" {
+			//var index string
+			_, err = incIdx(tx, m)
+			if err != nil {
+				return err
+			}
+			_, _, err = tx.Set(key, "DELETED", nil)
+			if err != nil {
+				return err
+			}
+
+		} else {
+			// TODO what do we do about deleting deleted things!?
+			// ignore for now.
+		}
+
+		return err
 	})
 	return
 }
@@ -325,8 +381,8 @@ func (dht *DHT) getLink(base Hash, tag string) (results []TaggedHash, err error)
 		err = tx.Ascend("link", func(key, value string) bool {
 			x := strings.Split(key, ":")
 
-			if string(x[2]) == b && value == tag {
-				results = append(results, TaggedHash{H: string(x[3])})
+			if string(x[1]) == b && string(x[3]) == tag && value == "LIVE" {
+				results = append(results, TaggedHash{H: string(x[2])})
 			}
 			return true
 		})
@@ -338,55 +394,12 @@ func (dht *DHT) getLink(base Hash, tag string) (results []TaggedHash, err error)
 	return
 }
 
-// SendPut initiates publishing a particular Hash to the DHT.
-// This command only sends the hash, because the expectation is that DHT nodes will start to
-// communicate back to Source node (the node that makes this call) to get the data for validation
-func (dht *DHT) SendPut(key Hash) (err error) {
+func (dht *DHT) Send(key Hash, msgType MsgType, body interface{}) (response interface{}, err error) {
 	n, err := dht.FindNodeForHash(key)
 	if err != nil {
 		return
 	}
-	_, err = dht.send(n.HashAddr, PUT_REQUEST, PutReq{H: key})
-	return
-}
-
-// SendGet initiates retrieving a value from the DHT
-func (dht *DHT) SendGet(key Hash) (response interface{}, err error) {
-	n, err := dht.FindNodeForHash(key)
-	if err != nil {
-		return
-	}
-	response, err = dht.send(n.HashAddr, GET_REQUEST, GetReq{H: key})
-	return
-}
-
-// SendLink initiates associating links with particular Hash on the DHT.
-func (dht *DHT) SendLink(req LinkReq) (err error) {
-	n, err := dht.FindNodeForHash(req.Base)
-	if err != nil {
-		return
-	}
-	_, err = dht.send(n.HashAddr, LINK_REQUEST, req)
-	return
-}
-
-// SendGetLink initiates retrieving links from the DHT
-func (dht *DHT) SendGetLink(query LinkQuery) (response interface{}, err error) {
-	n, err := dht.FindNodeForHash(query.Base)
-	if err != nil {
-		return
-	}
-	response, err = dht.send(n.HashAddr, GETLINK_REQUEST, query)
-	return
-}
-
-// SendDel initiates setting a hash's status on the DHT
-func (dht *DHT) SendDel(key Hash) (err error) {
-	n, err := dht.FindNodeForHash(key)
-	if err != nil {
-		return
-	}
-	_, err = dht.send(n.HashAddr, DEL_REQUEST, DelReq{H: key})
+	response, err = dht.send(n.HashAddr, msgType, body)
 	return
 }
 
@@ -487,9 +500,9 @@ func (dht *DHT) handleChangeReq(m *Message) (err error) {
 
 			switch resp := r.(type) {
 			case ValidateDelResponse:
-				a := NewDelAction(resp.Type, t.H)
+				a := NewDelAction(t.H)
 				//@TODO what comes back from Validate Del
-				_, err = dht.h.ValidateAction(a, a.entryType, []peer.ID{from})
+				_, err = dht.h.ValidateAction(a, resp.Type, []peer.ID{from})
 				if err != nil {
 					// how do we record an invalid DEL?
 					//@TODO store as REJECTED

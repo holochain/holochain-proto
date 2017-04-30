@@ -83,6 +83,9 @@ func (h *Holochain) GetDHTReqAction(msg *Message) (a Action, err error) {
 	case GETLINK_REQUEST:
 		a = &ActionGetLink{}
 		t = reflect.TypeOf(LinkQuery{})
+	case DELETELINK_REQUEST:
+		a = &ActionDelLink{}
+		t = reflect.TypeOf(DelLinkReq{})
 	default:
 		err = fmt.Errorf("message type %d not in holochain-dht protocol", int(msg.Type))
 	}
@@ -109,7 +112,7 @@ func (a *ActionGet) Name() string {
 }
 
 func (a *ActionGet) Do(h *Holochain) (response interface{}, err error) {
-	rsp, err := h.dht.SendGet(a.hash)
+	rsp, err := h.dht.Send(a.hash, GET_REQUEST, GetReq{H: a.hash})
 	if err != nil {
 		return
 	}
@@ -131,12 +134,18 @@ func (a *ActionGet) SysValidation(h *Holochain, d *EntryDef, sources []peer.ID) 
 
 func (a *ActionGet) DHTReqHandler(dht *DHT, msg *Message) (response interface{}, err error) {
 	var b []byte
-	b, _, _, err = dht.get(msg.Body.(GetReq).H)
+	var status int
+	b, _, status, err = dht.get(msg.Body.(GetReq).H)
 	if err == nil {
-		var e GobEntry
-		err = e.Unmarshal(b)
-		if err == nil {
-			response = &e
+		// TODO, maybe this should happen in the dht.get() call rather than here.
+		if status == DELETED {
+			err = ErrHashNotFound
+		} else {
+			var e GobEntry
+			err = e.Unmarshal(b)
+			if err == nil {
+				response = &e
+			}
 		}
 	}
 	return
@@ -198,13 +207,14 @@ func (a *ActionCommit) Do(h *Holochain) (response interface{}, err error) {
 			_, exists := bases[l.Base]
 			if !exists {
 				b, _ := NewHash(l.Base)
-				h.dht.SendLink(LinkReq{Base: b, Links: entryHash})
+				h.dht.Send(b, LINK_REQUEST, LinkReq{Base: b, Links: entryHash})
+				//TODO errors from the send??
 				bases[l.Base] = true
 			}
 		}
 	} else if d.Sharing == Public {
 		// otherwise we check to see if it's a public entry and if so send the DHT put message
-		err = h.dht.SendPut(entryHash)
+		_, err = h.dht.Send(entryHash, PUT_REQUEST, PutReq{H: entryHash})
 	}
 	response = entryHash
 	return
@@ -324,12 +334,11 @@ func (a *ActionPut) DHTReqHandler(dht *DHT, msg *Message) (response interface{},
 // Del
 
 type ActionDel struct {
-	entryType string
-	hash      Hash
+	hash Hash
 }
 
-func NewDelAction(entryType string, hash Hash) *ActionDel {
-	a := ActionDel{entryType: entryType, hash: hash}
+func NewDelAction(hash Hash) *ActionDel {
+	a := ActionDel{hash: hash}
 	return &a
 }
 
@@ -338,7 +347,7 @@ func (a *ActionDel) Name() string {
 }
 
 func (a *ActionDel) Do(h *Holochain) (response interface{}, err error) {
-	err = NonCallableAction
+	response, err = h.dht.Send(a.hash, DEL_REQUEST, DelReq{H: a.hash})
 	return
 }
 
@@ -409,12 +418,12 @@ func NewGetLinkAction(linkQuery *LinkQuery, options *GetLinkOptions) *ActionGetL
 }
 
 func (a *ActionGetLink) Name() string {
-	return "getlink"
+	return "getLink"
 }
 
 func (a *ActionGetLink) Do(h *Holochain) (response interface{}, err error) {
 	var r interface{}
-	r, err = h.dht.SendGetLink(*a.linkQuery)
+	r, err = h.dht.Send(a.linkQuery.Base, GETLINK_REQUEST, *a.linkQuery)
 	if err == nil {
 		switch t := r.(type) {
 		case *LinkQueryResp:
@@ -428,7 +437,7 @@ func (a *ActionGetLink) Do(h *Holochain) (response interface{}, err error) {
 					}
 					entry, err := NewGetAction(hash).Do(h)
 					if err == nil {
-						t.Links[i].E = entry.(*GobEntry).C.(string)
+						t.Links[i].E = entry.(Entry).Content().(string)
 					}
 					//TODO better error handling here, i.e break out of the loop and return if error?
 				}
@@ -451,5 +460,37 @@ func (a *ActionGetLink) DHTReqHandler(dht *DHT, msg *Message) (response interfac
 	r.Links, err = dht.getLink(lq.Base, lq.T)
 	response = &r
 
+	return
+}
+
+//------------------------------------------------------------
+// DelLink
+
+type ActionDelLink struct {
+	link *DelLinkReq
+}
+
+func NewDelLinkAction(link *DelLinkReq) *ActionDelLink {
+	a := ActionDelLink{link: link}
+	return &a
+}
+
+func (a *ActionDelLink) Name() string {
+	return "delLink"
+}
+
+func (a *ActionDelLink) Do(h *Holochain) (response interface{}, err error) {
+	response, err = h.dht.Send(a.link.Base, DELETELINK_REQUEST, *a.link)
+	return
+}
+
+func (a *ActionDelLink) SysValidation(h *Holochain, d *EntryDef, sources []peer.ID) (err error) {
+	//@TODO what sys level delLinks validation?  That they are all valid hash format for the DNA?
+	return
+}
+
+func (a *ActionDelLink) DHTReqHandler(dht *DHT, msg *Message) (response interface{}, err error) {
+	req := msg.Body.(DelLinkReq)
+	err = dht.delLink(msg, req.Base.String(), req.Link.String(), req.Tag)
 	return
 }

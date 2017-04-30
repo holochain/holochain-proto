@@ -123,6 +123,7 @@ func Initialize() {
 	gob.Register(DelReq{})
 	gob.Register(LinkReq{})
 	gob.Register(LinkQuery{})
+	gob.Register(DelLinkReq{})
 	gob.Register(GossipReq{})
 	gob.Register(Gossip{})
 	gob.Register(ValidateQuery{})

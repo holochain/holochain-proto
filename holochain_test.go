@@ -7,7 +7,6 @@ import (
 	toml "github.com/BurntSushi/toml"
 	"github.com/google/uuid"
 	ic "github.com/libp2p/go-libp2p-crypto"
-	peer "github.com/libp2p/go-libp2p-peer"
 	. "github.com/smartystreets/goconvey/convey"
 	"os"
 	"testing"
@@ -434,91 +433,6 @@ func TestValidate(t *testing.T) {
 	})
 }
 
-func TestValidatePrepare(t *testing.T) {
-	d, _, h := prepareTestChain("test")
-	defer cleanupTestDir(d)
-
-	Convey("it should fail if a validator doesn't exist for the entry type", t, func() {
-		hdr := mkTestHeader("bogusType")
-		d, _, n, err := h.ValidatePrepare(hdr.Type, &GobEntry{C: "foo"}, []peer.ID{h.id})
-		So(err.Error(), ShouldEqual, "no definition for entry type: bogusType")
-		So(d, ShouldBeNil)
-		So(n, ShouldBeNil)
-	})
-	Convey("a nil entry is invalid", t, func() {
-		hdr := mkTestHeader("evenNumbers")
-		_, _, _, err := h.ValidatePrepare(hdr.Type, nil, []peer.ID{h.id})
-		So(err.Error(), ShouldEqual, "nil entry invalid")
-	})
-
-	profile := `{"firstName":"Eric","lastName":"H-B"}`
-	hdr := mkTestHeader("profile")
-	h.Prepare()
-	Convey("successful prepare should convert sources and return a nucleus", t, func() {
-		_, srcs, _, err := h.ValidatePrepare(hdr.Type, &GobEntry{C: profile}, []peer.ID{h.id})
-		So(err, ShouldBeNil)
-		So(fmt.Sprintf("%v", srcs), ShouldEqual, "["+peer.IDB58Encode(h.id)+"]")
-	})
-
-	Convey("validate on a schema based entry should check entry against the schema", t, func() {
-		profile = `{"firstName":"Eric"}` // missing required lastName
-		_, _, _, err := h.ValidatePrepare(hdr.Type, &GobEntry{C: profile}, []peer.ID{h.id})
-		So(err, ShouldNotBeNil)
-		So(err.Error(), ShouldEqual, "validator profile.json failed: object property 'lastName' is required")
-	})
-
-	hdr = mkTestHeader("rating")
-	Convey("validate on a links entry should fail if not formatted correctly", t, func() {
-		_, _, _, err := h.ValidatePrepare(hdr.Type, &GobEntry{C: "badjson"}, []peer.ID{h.id})
-		So(err, ShouldNotBeNil)
-		So(err.Error(), ShouldEqual, "invalid links entry, invalid json: invalid character 'b' looking for beginning of value")
-
-		_, _, _, err = h.ValidatePrepare(hdr.Type, &GobEntry{C: `{}`}, []peer.ID{h.id})
-		So(err, ShouldNotBeNil)
-		So(err.Error(), ShouldEqual, "invalid links entry: you must specify at least one link")
-
-		_, _, _, err = h.ValidatePrepare(hdr.Type, &GobEntry{C: `{"Links":[{}]}`}, []peer.ID{h.id})
-		So(err, ShouldNotBeNil)
-		So(err.Error(), ShouldEqual, "invalid links entry: missing Base")
-
-		_, _, _, err = h.ValidatePrepare(hdr.Type, &GobEntry{C: `{"Links":[{"Base":"x","Link":"x","Tag":"sometag"}]}`}, []peer.ID{h.id})
-		So(err, ShouldNotBeNil)
-		So(err.Error(), ShouldEqual, "invalid links entry: Base multihash too short. must be > 3 bytes")
-		_, _, _, err = h.ValidatePrepare(hdr.Type, &GobEntry{C: `{"Links":[{"Base":"QmdRXz53TVT9qBYfbXctHyy2GpTNa6YrpAy6ZcDGG8Xhc5","Link":"x","Tag":"sometag"}]}`}, []peer.ID{h.id})
-		So(err, ShouldNotBeNil)
-		So(err.Error(), ShouldEqual, "invalid links entry: Link multihash too short. must be > 3 bytes")
-
-		_, _, _, err = h.ValidatePrepare(hdr.Type, &GobEntry{C: `{"Links":[{"Base":"QmdRXz53TVT9qBYfbXctHyy2GpTNa6YrpAy6ZcDGG8Xhc5","Link":"QmdRXz53TVT9qBYfbXctHyy2GpTNa6YrpAy6ZcDGG8Xhc5"}]}`}, []peer.ID{h.id})
-		So(err, ShouldNotBeNil)
-		So(err.Error(), ShouldEqual, "invalid links entry: missing Tag")
-	})
-}
-
-func TestValidateCommit(t *testing.T) {
-	d, _, h := prepareTestChain("test")
-	defer cleanupTestDir(d)
-	var err error
-
-	Convey("it should fail if a validator doesn't exist for the entry type", t, func() {
-		hdr := mkTestHeader("bogusType")
-		_, err = h.ValidateCommit(hdr.Type, &GobEntry{C: "foo"}, &hdr, []peer.ID{h.id})
-		So(err.Error(), ShouldEqual, "no definition for entry type: bogusType")
-	})
-
-	Convey("a valid entry validates", t, func() {
-		hdr := mkTestHeader("evenNumbers")
-		var d *EntryDef
-		d, err = h.ValidateCommit(hdr.Type, &GobEntry{C: "2"}, &hdr, []peer.ID{h.id})
-		So(err, ShouldBeNil)
-		So(fmt.Sprintf("%v", d), ShouldEqual, "&{evenNumbers zygo   public <nil>}")
-	})
-	Convey("an invalid entry doesn't validate", t, func() {
-		hdr := mkTestHeader("evenNumbers")
-		_, err = h.ValidateCommit(hdr.Type, &GobEntry{C: "1"}, &hdr, []peer.ID{h.id})
-		So(err.Error(), ShouldEqual, "Invalid entry: 1")
-	})
-}
-
 func TestGetZome(t *testing.T) {
 	d, _, h := setupTestChain("test")
 	defer cleanupTestDir(d)
@@ -609,10 +523,8 @@ func TestCommit(t *testing.T) {
 	defer cleanupTestDir(d)
 
 	// add an entry onto the chain
-	hash, err := h.Commit("oddNumbers", "7")
-	if err != nil {
-		panic(err)
-	}
+	hash := commit(h, "oddNumbers", "7")
+
 	if err := h.dht.simHandleChangeReqs(); err != nil {
 		panic(err)
 	}
@@ -622,14 +534,11 @@ func TestCommit(t *testing.T) {
 		So(err, ShouldBeNil)
 	})
 
-	profileHash, err := h.Commit("profile", `{"firstName":"Zippy","lastName":"Pinhead"}`)
-	if err != nil {
-		panic(err)
-	}
+	profileHash := commit(h, "profile", `{"firstName":"Zippy","lastName":"Pinhead"}`)
 
 	Convey("it should attach links after commit of Links entry", t, func() {
-		_, err := h.Commit("rating", fmt.Sprintf(`{"Links":[{"Base":"%s","Link":"%s","Tag":"4stars"}]}`, hash.String(), profileHash.String()))
-		So(err, ShouldBeNil)
+		commit(h, "rating", fmt.Sprintf(`{"Links":[{"Base":"%s","Link":"%s","Tag":"4stars"}]}`, hash.String(), profileHash.String()))
+
 		if err := h.dht.simHandleChangeReqs(); err != nil {
 			panic(err)
 		}
@@ -637,4 +546,20 @@ func TestCommit(t *testing.T) {
 		So(err, ShouldBeNil)
 		So(fmt.Sprintf("%v", results), ShouldEqual, "[{QmYeinX5vhuA91D3v24YbgyLofw9QAxY6PoATrBHnRwbtt }]")
 	})
+}
+
+func commit(h *Holochain, entryType, entryStr string) (entryHash Hash) {
+	entry := GobEntry{C: entryStr}
+
+	r, err := NewCommitAction(entryType, &entry).Do(h)
+	if err != nil {
+		return
+	}
+	if r != nil {
+		entryHash = r.(Hash)
+	}
+	if err != nil {
+		panic(err)
+	}
+	return
 }

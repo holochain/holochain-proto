@@ -119,7 +119,22 @@ func TestZygoGenesis(t *testing.T) {
 	})
 }
 
-func TestZygoValidateCommit(t *testing.T) {
+func TestZybuildValidate(t *testing.T) {
+	e := GobEntry{C: "3"}
+	a := NewCommitAction("oddNumbers", &e)
+	var header Header
+	a.header = &header
+
+	d := EntryDef{Name: "oddNumbers", DataFormat: DataFormatString}
+
+	Convey("it should build commit", t, func() {
+		code, err := buildZyValidateAction(a, &d, []string{"fake_src_hash"})
+		So(err, ShouldBeNil)
+		So(code, ShouldEqual, `(validateCommit "oddNumbers" "3" (hash EntryLink:"" Type:"" Time:"0001-01-01T00:00:00Z") (unjson (raw "[\"fake_src_hash\"]")))`)
+	})
+}
+
+func TestZyValidateCommit(t *testing.T) {
 	a, _ := NewAgent(IPFS, "Joe")
 	h := NewHolochain(a, "some/path", "yaml", Zome{})
 	h.config.Loggers.App.New(nil)
@@ -134,54 +149,100 @@ foo
 {"Atype":"hash", "EntryLink":"QmNiCwBNA8MWDADTFVq1BonUEJbS2SvjAoNkZZrhEwcuU2", "Type":"evenNumbers", "Time":"1970-01-01T00:00:01Z", "zKeyOrder":["EntryLink", "Type", "Time"]}
 ["fakehashvalue"]
 `, func() {
-			err = v.ValidateCommit(&d, &GobEntry{C: "foo"}, &hdr, []string{"fakehashvalue"})
+			a := NewCommitAction("oddNumbers", &GobEntry{C: "foo"})
+			a.header = &hdr
+			err = v.ValidateAction(a, &d, []string{"fakehashvalue"})
 			So(err, ShouldBeNil)
 		})
 	})
 	Convey("should run an entry value against the defined validator for string data", t, func() {
 		v, err := NewZygoNucleus(nil, `(defn validateCommit [name entry header sources] (cond (== entry "fish") true false))`)
-		d := EntryDef{Name: "evenNumbers", DataFormat: DataFormatString}
-		err = v.ValidateCommit(&d, &GobEntry{C: "cow"}, nil, nil)
-		So(err.Error(), ShouldEqual, "Invalid entry: cow")
-		err = v.ValidateCommit(&d, &GobEntry{C: "fish"}, nil, nil)
+		So(err, ShouldBeNil)
+		d := EntryDef{Name: "oddNumbers", DataFormat: DataFormatString}
+
+		a := NewCommitAction("oddNumbers", &GobEntry{C: "cow"})
+		a.header = &hdr
+		err = v.ValidateAction(a, &d, nil)
+		So(err, ShouldEqual, ValidationFailedErr)
+
+		a = NewCommitAction("oddNumbers", &GobEntry{C: "fish"})
+		a.header = &hdr
+		err = v.ValidateAction(a, &d, nil)
 		So(err, ShouldBeNil)
 	})
 	Convey("should run an entry value against the defined validator for zygo data", t, func() {
 		v, err := NewZygoNucleus(nil, `(defn validateCommit [name entry header sources] (cond (== entry "fish") true false))`)
 		d := EntryDef{Name: "evenNumbers", DataFormat: DataFormatRawZygo}
-		err = v.ValidateCommit(&d, &GobEntry{C: "\"cow\""}, nil, nil)
-		So(err.Error(), ShouldEqual, "Invalid entry: \"cow\"")
-		err = v.ValidateCommit(&d, &GobEntry{C: "\"fish\""}, nil, nil)
+
+		a := NewCommitAction("oddNumbers", &GobEntry{C: "\"cow\""})
+		a.header = &hdr
+		err = v.ValidateAction(a, &d, nil)
+		So(err, ShouldEqual, ValidationFailedErr)
+
+		a = NewCommitAction("oddNumbers", &GobEntry{C: "\"fish\""})
+		a.header = &hdr
+		err = v.ValidateAction(a, &d, nil)
 		So(err, ShouldBeNil)
 	})
 	Convey("should run an entry value against the defined validator for json data", t, func() {
 		v, err := NewZygoNucleus(nil, `(defn validateCommit [name entry header sources] (cond (== (hget entry data:) "fish") true false))`)
 		d := EntryDef{Name: "evenNumbers", DataFormat: DataFormatJSON}
-		err = v.ValidateCommit(&d, &GobEntry{C: `{"data":"cow"}`}, nil, nil)
-		So(err.Error(), ShouldEqual, `Invalid entry: {"data":"cow"}`)
-		err = v.ValidateCommit(&d, &GobEntry{C: `{"data":"fish"}`}, nil, nil)
+
+		a := NewCommitAction("evenNumbers", &GobEntry{C: `{"data":"cow"}`})
+		a.header = &hdr
+		err = v.ValidateAction(a, &d, nil)
+		So(err, ShouldEqual, ValidationFailedErr)
+
+		a = NewCommitAction("evenNumbers", &GobEntry{C: `{"data":"fish"}`})
+		a.header = &hdr
+		err = v.ValidateAction(a, &d, nil)
 		So(err, ShouldBeNil)
 	})
 }
 
-func TestZygoValidateLink(t *testing.T) {
-	a, _ := NewAgent(IPFS, "Joe")
-	h := NewHolochain(a, "some/path", "yaml", Zome{})
-	h.config.Loggers.App.New(nil)
+func TestPrepareZyValidateArgs(t *testing.T) {
+	d := EntryDef{Name: "oddNumbers", DataFormat: DataFormatString}
 
-	Convey("it should be passing in the correct values", t, func() {
-		v, err := NewZygoNucleus(&h, `(defn validateLink [linkingEntryType baseHash linkHash tag sources]  (debug linkingEntryType) (debug baseHash) (debug linkHash) (debug tag) (debug sources) true)`)
+	Convey("it should prepare args for commit", t, func() {
+		e := GobEntry{C: "3"}
+		a := NewCommitAction("oddNumbers", &e)
+		var header Header
+		a.header = &header
+		args, err := prepareZyValidateArgs(a, &d)
 		So(err, ShouldBeNil)
-		ShouldLog(&h.config.Loggers.App, `rating
-fakeBasehash
-fakeLinkHash
-some tag value
-["fakeSrcHashvalue"]
-`, func() {
-			d := EntryDef{Name: "rating"}
-			err = v.ValidateLink(&d, "fakeBasehash", "fakeLinkHash", "some tag value", []string{"fakeSrcHashvalue"})
-			So(err, ShouldBeNil)
-		})
+		So(args, ShouldEqual, `"3" (hash EntryLink:"" Type:"" Time:"0001-01-01T00:00:00Z")`)
+	})
+	Convey("it should prepare args for put", t, func() {
+		e := GobEntry{C: "3"}
+		var header Header
+		a := NewPutAction("oddNumbers", &e, &header)
+
+		args, err := prepareZyValidateArgs(a, &d)
+		So(err, ShouldBeNil)
+		So(args, ShouldEqual, `"3" (hash EntryLink:"" Type:"" Time:"0001-01-01T00:00:00Z")`)
+	})
+	Convey("it should prepare args for del", t, func() {
+		hash, _ := NewHash("QmY8Mzg9F69e5P9AoQPYat6x5HEhc1TVGs11tmfNSzkqh2")
+		a := NewDelAction("oddNumbers", hash)
+		args, err := prepareZyValidateArgs(a, &d)
+		So(err, ShouldBeNil)
+		So(args, ShouldEqual, `"QmY8Mzg9F69e5P9AoQPYat6x5HEhc1TVGs11tmfNSzkqh2"`)
+	})
+
+	Convey("it should prepare args for link", t, func() {
+		hash, _ := NewHash("QmY8Mzg9F69e5P9AoQPYat6x5HEhc1TVGs11tmfNSzkqh2")
+		a := NewLinkAction("oddNumbers", []Link{{Base: "QmdRXz53TVT9qBYfbXctHyy2GpTNa6YrpAy6ZcDGG8Xhc5", Link: "QmdRXz53TVT9qBYfbXctHyy2GpTNa6YrpAy6ZcDGG8Xhc5", Tag: "fish"}})
+		a.validationBase = hash
+		args, err := prepareZyValidateArgs(a, &d)
+		So(err, ShouldBeNil)
+		So(args, ShouldEqual, `"QmY8Mzg9F69e5P9AoQPYat6x5HEhc1TVGs11tmfNSzkqh2" (unjson (raw "[{\"Base\":\"QmdRXz53TVT9qBYfbXctHyy2GpTNa6YrpAy6ZcDGG8Xhc5\",\"Link\":\"QmdRXz53TVT9qBYfbXctHyy2GpTNa6YrpAy6ZcDGG8Xhc5\",\"Tag\":\"fish\"}]"))`)
+	})
+}
+
+func TestZySanitize(t *testing.T) {
+	Convey("should strip quotes", t, func() {
+		So(sanitizeZyString(`"`), ShouldEqual, `\"`)
+		So(sanitizeZyString("\"x\ny"), ShouldEqual, "\\\"x\ny")
 	})
 }
 
@@ -235,10 +296,8 @@ func TestZygoDHT(t *testing.T) {
 		So(r.(*zygo.SexpStr).S, ShouldEqual, "hash not found")
 	})
 	// add an entry onto the chain
-	hash, err := h.Commit("evenNumbers", "2")
-	if err != nil {
-		panic(err)
-	}
+	hash = commit(h, "evenNumbers", "2")
+
 	if err := h.dht.simHandleChangeReqs(); err != nil {
 		panic(err)
 	}
@@ -252,15 +311,9 @@ func TestZygoDHT(t *testing.T) {
 		So(r.(*zygo.SexpStr).S, ShouldEqual, `"2"`)
 	})
 
-	profileHash, err := h.Commit("profile", `{"firstName":"Zippy","lastName":"Pinhead"}`)
-	if err != nil {
-		panic(err)
-	}
+	profileHash := commit(h, "profile", `{"firstName":"Zippy","lastName":"Pinhead"}`)
 
-	_, err = h.Commit("rating", fmt.Sprintf(`{"Links":[{"Base":"%s","Link":"%s","Tag":"4stars"}]}`, hash.String(), profileHash.String()))
-	if err != nil {
-		panic(err)
-	}
+	commit(h, "rating", fmt.Sprintf(`{"Links":[{"Base":"%s","Link":"%s","Tag":"4stars"}]}`, hash.String(), profileHash.String()))
 
 	if err := h.dht.simHandleChangeReqs(); err != nil {
 		panic(err)

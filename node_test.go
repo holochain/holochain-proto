@@ -132,15 +132,24 @@ func TestNodeSend(t *testing.T) {
 		So(r.Body, ShouldEqual, "message type 2 not in holochain-validate protocol")
 	})
 
-	Convey("It should respond with queued on valid PUT_REQUESTS", t, func() {
+	Convey("It should respond with err on bad request on invalid PUT_REQUESTS", t, func() {
 		hash, _ := NewHash("QmY8Mzg9F69e5P9AoQPYat6x5HEhc1TVGs11tmfNSzkqh2")
 
 		m := node2.NewMessage(PUT_REQUEST, PutReq{H: hash})
 		r, err := node2.Send(DHTProtocol, node1.HashAddr, m)
 		So(err, ShouldBeNil)
+		So(r.Type, ShouldEqual, ERROR_RESPONSE)
+		So(r.From, ShouldEqual, node1.HashAddr) // response comes from who we sent to
+		So(r.Body, ShouldEqual, "response error: hash not found")
+	})
+
+	Convey("It should respond with OK if valid request", t, func() {
+		m := node2.NewMessage(GOSSIP_REQUEST, GossipReq{})
+		r, err := node2.Send(GossipProtocol, node1.HashAddr, m)
+		So(err, ShouldBeNil)
 		So(r.Type, ShouldEqual, OK_RESPONSE)
 		So(r.From, ShouldEqual, node1.HashAddr) // response comes from who we sent to
-		So(r.Body, ShouldEqual, "queued")
+		So(fmt.Sprintf("%v", r.Body), ShouldEqual, "{[]}")
 	})
 
 }

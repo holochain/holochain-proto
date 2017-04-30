@@ -7,19 +7,12 @@
 package holochain
 
 import (
-	"errors"
 	"fmt"
 	peer "github.com/libp2p/go-libp2p-peer"
 	"github.com/tidwall/buntdb"
 	"strconv"
 	"strings"
 )
-
-var ErrDHTExpectedGetReqInBody = errors.New("expected get request")
-var ErrDHTExpectedPutReqInBody = errors.New("expected put request")
-var ErrDHTExpectedDelReqInBody = errors.New("expected del request")
-var ErrDHTExpectedLinkReqInBody = errors.New("expected link request")
-var ErrDHTExpectedLinkQueryInBody = errors.New("expected link query")
 
 // DHT struct holds the data necessary to run the distributed hash table
 type DHT struct {
@@ -452,9 +445,12 @@ func (dht *DHT) handleChangeReq(m *Message) (err error) {
 		}
 		switch resp := r.(type) {
 		case ValidateResponse:
-			err = dht.h.ValidatePut(resp.Type, &resp.Entry, &resp.Header, []peer.ID{from})
+			a := NewPutAction(resp.Type, &resp.Entry, &resp.Header)
+			_, err = dht.h.ValidateAction(a, a.entryType, []peer.ID{from})
+
 			var status int
 			if err != nil {
+				dht.dlog.Logf("Put %v rejected: %v", t.H, err)
 				status = REJECTED
 			} else {
 				status = LIVE
@@ -491,8 +487,9 @@ func (dht *DHT) handleChangeReq(m *Message) (err error) {
 
 			switch resp := r.(type) {
 			case ValidateDelResponse:
+				a := NewDelAction(resp.Type, t.H)
 				//@TODO what comes back from Validate Del
-				err = dht.h.ValidateDel(resp.Type, t.H.String(), []peer.ID{from})
+				_, err = dht.h.ValidateAction(a, a.entryType, []peer.ID{from})
 				if err != nil {
 					// how do we record an invalid DEL?
 					//@TODO store as REJECTED
@@ -531,17 +528,24 @@ func (dht *DHT) handleChangeReq(m *Message) (err error) {
 		}
 		switch resp := r.(type) {
 		case ValidateLinkResponse:
-			base := t.Base.String()
-			for _, l := range resp.Links {
-				if base == l.Base {
-					err = dht.h.ValidateLink(resp.LinkingType, base, l.Link, l.Tag, []peer.ID{from})
-					if err != nil {
-						// how do we record an invalid link?
-						//@TODO store as REJECTED
-					} else {
+			a := NewLinkAction(resp.LinkingType, resp.Links)
+			a.validationBase = t.Base
+			_, err = dht.h.ValidateAction(a, a.entryType, []peer.ID{from})
+			//@TODO this is "one bad apple spoils the lot" because the app
+			// has no way to tell us not to link certain of the links.
+			// we need to extend the return value of the app to be able to
+			// have it reject a subset of the links.
+			if err != nil {
+				// how do we record an invalid linking?
+				//@TODO store as REJECTED
+			} else {
+				base := t.Base.String()
+				for _, l := range resp.Links {
+					if base == l.Base {
 						err = dht.putLink(m, base, l.Link, l.Tag)
 					}
 				}
+
 			}
 		default:
 			err = fmt.Errorf("expected ValidateLinkResponse from validator got %T", r)
@@ -553,82 +557,15 @@ func (dht *DHT) handleChangeReq(m *Message) (err error) {
 }
 
 // DHTReceiver handles messages on the dht protocol
-func DHTReceiver(h *Holochain, m *Message) (response interface{}, err error) {
+func DHTReceiver(h *Holochain, msg *Message) (response interface{}, err error) {
 	dht := h.dht
-	switch m.Type {
-	case PUT_REQUEST:
-		dht.dlog.Logf("DHTReceiver got PUT_REQUEST: %v", m)
-		switch m.Body.(type) {
-		case PutReq:
-			//h.dht.puts <- *m  TODO add back in queueing
-			dht.handleChangeReq(m)
-
-			response = "queued"
-		default:
-			err = ErrDHTExpectedPutReqInBody
-		}
-		return
-	case GET_REQUEST:
-		dht.dlog.Logf("DHTReceiver got GET_REQUEST: %v", m)
-		switch t := m.Body.(type) {
-		case GetReq:
-			var b []byte
-			b, _, _, err = h.dht.get(t.H)
-			if err == nil {
-				var e GobEntry
-				err = e.Unmarshal(b)
-				if err == nil {
-					response = &e
-				}
-			}
-
-		default:
-			err = ErrDHTExpectedGetReqInBody
-		}
-		return
-	case DEL_REQUEST:
-		dht.dlog.Logf("DHTReceiver got DEL_REQUEST: %v", m)
-		switch m.Body.(type) {
-		case DelReq:
-			//h.dht.puts <- *m  TODO add back in queueing
-			dht.handleChangeReq(m)
-
-			response = "queued"
-		default:
-			err = ErrDHTExpectedDelReqInBody
-		}
-		return
-	case LINK_REQUEST:
-		dht.dlog.Logf("DHTReceiver got LINKS_REQUEST: %v", m)
-		switch t := m.Body.(type) {
-		case LinkReq:
-			err = h.dht.exists(t.Base)
-			if err == nil {
-				//h.dht.puts <- *m  TODO add back in queueing
-				dht.handleChangeReq(m)
-
-				response = "queued"
-			} else {
-				dht.dlog.Logf("DHTReceiver key %v doesn't exist, ignoring", t.Base)
-			}
-
-		default:
-			err = ErrDHTExpectedLinkReqInBody
-		}
-
-	case GETLINK_REQUEST:
-		dht.dlog.Logf("DHTReceiver got GETLINK_REQUEST: %v", m)
-		switch t := m.Body.(type) {
-		case LinkQuery:
-			var r LinkQueryResp
-			r.Links, err = h.dht.getLink(t.Base, t.T)
-			response = &r
-		default:
-			err = ErrDHTExpectedLinkQueryInBody
-		}
-
-	default:
-		err = fmt.Errorf("message type %d not in holochain-dht protocol", int(m.Type))
+	var a Action
+	a, err = h.GetDHTReqAction(msg)
+	if err == nil {
+		dht.dlog.Logf("DHTReceiver got %s: %v", a.Name(), msg)
+		// N.B. DHTReqHandler calls made to an Action whose values are NOT populated
+		// the handler's understand this and use the values from the message body
+		response, err = a.DHTReqHandler(dht, msg)
 	}
 	return
 }

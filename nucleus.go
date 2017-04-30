@@ -40,10 +40,7 @@ type FunctionDef struct {
 // Nucleus type abstracts the functions of code execution environments
 type Nucleus interface {
 	Type() string
-	ValidateCommit(def *EntryDef, entry Entry, header *Header, sources []string) error
-	ValidatePut(def *EntryDef, entry Entry, header *Header, sources []string) error
-	ValidateDel(def *EntryDef, hash string, sources []string) error
-	ValidateLink(def *EntryDef, baseHash string, linkHash string, tag string, sources []string) error
+	ValidateAction(action Action, def *EntryDef, sources []string) (err error)
 	ChainGenesis() error
 	Call(fn *FunctionDef, params interface{}) (interface{}, error)
 }

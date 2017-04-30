@@ -106,6 +106,21 @@ func TestJSGenesis(t *testing.T) {
 	})
 }
 
+func TestJSbuildValidate(t *testing.T) {
+	e := GobEntry{C: "2"}
+	a := NewCommitAction("evenNumbers", &e)
+	var header Header
+	a.header = &header
+
+	d := EntryDef{Name: "evenNumbers", DataFormat: DataFormatString}
+
+	Convey("it should build commit", t, func() {
+		code, err := buildJSValidateAction(a, &d, []string{"fake_src_hash"})
+		So(err, ShouldBeNil)
+		So(code, ShouldEqual, `validateCommit("evenNumbers","2",{"EntryLink":"","Type":"","Time":"0001-01-01T00:00:00Z"},["fake_src_hash"])`)
+	})
+}
+
 func TestJSValidateCommit(t *testing.T) {
 	a, _ := NewAgent(IPFS, "Joe")
 	h := NewHolochain(a, "some/path", "yaml", Zome{})
@@ -121,34 +136,93 @@ foo
 {"EntryLink":"QmNiCwBNA8MWDADTFVq1BonUEJbS2SvjAoNkZZrhEwcuU2","Time":"1970-01-01T00:00:01Z","Type":"evenNumbers"}
 ["fakehashvalue"]
 `, func() {
-			err = v.ValidateCommit(&d, &GobEntry{C: "foo"}, &hdr, []string{"fakehashvalue"})
+			a := NewCommitAction("oddNumbers", &GobEntry{C: "foo"})
+			a.header = &hdr
+			err = v.ValidateAction(a, &d, []string{"fakehashvalue"})
 			So(err, ShouldBeNil)
 		})
 	})
 	Convey("should run an entry value against the defined validator for string data", t, func() {
 		v, err := NewJSNucleus(nil, `function validateCommit(name,entry,header,sources) { return (entry=="fish")};`)
 		So(err, ShouldBeNil)
-		d := EntryDef{Name: "evenNumbers", DataFormat: DataFormatString}
-		err = v.ValidateCommit(&d, &GobEntry{C: "cow"}, &hdr, nil)
-		So(err.Error(), ShouldEqual, "Invalid entry: cow")
-		err = v.ValidateCommit(&d, &GobEntry{C: "fish"}, &hdr, nil)
+		d := EntryDef{Name: "oddNumbers", DataFormat: DataFormatString}
+
+		a := NewCommitAction("oddNumbers", &GobEntry{C: "cow"})
+		a.header = &hdr
+		err = v.ValidateAction(a, &d, nil)
+		So(err, ShouldEqual, ValidationFailedErr)
+
+		a = NewCommitAction("oddNumbers", &GobEntry{C: "fish"})
+		a.header = &hdr
+		err = v.ValidateAction(a, &d, nil)
 		So(err, ShouldBeNil)
 	})
 	Convey("should run an entry value against the defined validator for js data", t, func() {
 		v, err := NewJSNucleus(nil, `function validateCommit(name,entry,header,sources) { return (entry=="fish")};`)
 		d := EntryDef{Name: "evenNumbers", DataFormat: DataFormatRawJS}
-		err = v.ValidateCommit(&d, &GobEntry{C: "\"cow\""}, &hdr, nil)
-		So(err.Error(), ShouldEqual, "Invalid entry: \"cow\"")
-		err = v.ValidateCommit(&d, &GobEntry{C: "\"fish\""}, &hdr, nil)
+
+		a := NewCommitAction("oddNumbers", &GobEntry{C: "\"cow\""})
+		a.header = &hdr
+		err = v.ValidateAction(a, &d, nil)
+		So(err, ShouldEqual, ValidationFailedErr)
+
+		a = NewCommitAction("oddNumbers", &GobEntry{C: "\"fish\""})
+		a.header = &hdr
+		err = v.ValidateAction(a, &d, nil)
 		So(err, ShouldBeNil)
 	})
 	Convey("should run an entry value against the defined validator for json data", t, func() {
 		v, err := NewJSNucleus(nil, `function validateCommit(name,entry,header,sources) { return (entry.data=="fish")};`)
 		d := EntryDef{Name: "evenNumbers", DataFormat: DataFormatJSON}
-		err = v.ValidateCommit(&d, &GobEntry{C: `{"data":"cow"}`}, &hdr, nil)
-		So(err.Error(), ShouldEqual, `Invalid entry: {"data":"cow"}`)
-		err = v.ValidateCommit(&d, &GobEntry{C: `{"data":"fish"}`}, &hdr, nil)
+
+		a := NewCommitAction("evenNumbers", &GobEntry{C: `{"data":"cow"}`})
+		a.header = &hdr
+		err = v.ValidateAction(a, &d, nil)
+		So(err, ShouldEqual, ValidationFailedErr)
+
+		a = NewCommitAction("evenNumbers", &GobEntry{C: `{"data":"fish"}`})
+		a.header = &hdr
+		err = v.ValidateAction(a, &d, nil)
 		So(err, ShouldBeNil)
+	})
+}
+
+func TestPrepareJSValidateArgs(t *testing.T) {
+	d := EntryDef{Name: "evenNumbers", DataFormat: DataFormatString}
+
+	Convey("it should prepare args for commit", t, func() {
+		e := GobEntry{C: "2"}
+		a := NewCommitAction("evenNumbers", &e)
+		var header Header
+		a.header = &header
+		args, err := prepareJSValidateArgs(a, &d)
+		So(err, ShouldBeNil)
+		So(args, ShouldEqual, `"2",{"EntryLink":"","Type":"","Time":"0001-01-01T00:00:00Z"}`)
+	})
+	Convey("it should prepare args for put", t, func() {
+		e := GobEntry{C: "2"}
+		var header Header
+		a := NewPutAction("evenNumbers", &e, &header)
+
+		args, err := prepareJSValidateArgs(a, &d)
+		So(err, ShouldBeNil)
+		So(args, ShouldEqual, `"2",{"EntryLink":"","Type":"","Time":"0001-01-01T00:00:00Z"}`)
+	})
+	Convey("it should prepare args for del", t, func() {
+		hash, _ := NewHash("QmY8Mzg9F69e5P9AoQPYat6x5HEhc1TVGs11tmfNSzkqh2")
+		a := NewDelAction("evenNumbers", hash)
+		args, err := prepareJSValidateArgs(a, &d)
+		So(err, ShouldBeNil)
+		So(args, ShouldEqual, `"QmY8Mzg9F69e5P9AoQPYat6x5HEhc1TVGs11tmfNSzkqh2"`)
+	})
+
+	Convey("it should prepare args for link", t, func() {
+		hash, _ := NewHash("QmY8Mzg9F69e5P9AoQPYat6x5HEhc1TVGs11tmfNSzkqh2")
+		a := NewLinkAction("evenNumbers", []Link{{Base: "QmdRXz53TVT9qBYfbXctHyy2GpTNa6YrpAy6ZcDGG8Xhc5", Link: "QmdRXz53TVT9qBYfbXctHyy2GpTNa6YrpAy6ZcDGG8Xhc5", Tag: "fish"}})
+		a.validationBase = hash
+		args, err := prepareJSValidateArgs(a, &d)
+		So(err, ShouldBeNil)
+		So(args, ShouldEqual, `"QmY8Mzg9F69e5P9AoQPYat6x5HEhc1TVGs11tmfNSzkqh2",JSON.parse("[{\"Base\":\"QmdRXz53TVT9qBYfbXctHyy2GpTNa6YrpAy6ZcDGG8Xhc5\",\"Link\":\"QmdRXz53TVT9qBYfbXctHyy2GpTNa6YrpAy6ZcDGG8Xhc5\",\"Tag\":\"fish\"}]")`)
 	})
 }
 
@@ -219,10 +293,8 @@ func TestJSDHT(t *testing.T) {
 	})
 
 	// add an entry onto the chain
-	hash, err := h.Commit("oddNumbers", "7")
-	if err != nil {
-		panic(err)
-	}
+	hash = commit(h, "oddNumbers", "7")
+
 	if err := h.dht.simHandleChangeReqs(); err != nil {
 		panic(err)
 	}
@@ -236,15 +308,9 @@ func TestJSDHT(t *testing.T) {
 		So(fmt.Sprintf("%v", x.(Entry).Content()), ShouldEqual, `7`)
 	})
 
-	profileHash, err := h.Commit("profile", `{"firstName":"Zippy","lastName":"Pinhead"}`)
-	if err != nil {
-		panic(err)
-	}
+	profileHash := commit(h, "profile", `{"firstName":"Zippy","lastName":"Pinhead"}`)
 
-	_, err = h.Commit("rating", fmt.Sprintf(`{"Links":[{"Base":"%s","Link":"%s","Tag":"4stars"}]}`, hash.String(), profileHash.String()))
-	if err != nil {
-		panic(err)
-	}
+	commit(h, "rating", fmt.Sprintf(`{"Links":[{"Base":"%s","Link":"%s","Tag":"4stars"}]}`, hash.String(), profileHash.String()))
 
 	if err := h.dht.simHandleChangeReqs(); err != nil {
 		panic(err)

@@ -251,13 +251,13 @@ func TestDHTReceiver(t *testing.T) {
 	Convey("PUT_REQUEST should fail if body isn't a hash", t, func() {
 		m := h.node.NewMessage(PUT_REQUEST, "foo")
 		_, err := DHTReceiver(h, m)
-		So(err.Error(), ShouldEqual, ErrDHTExpectedPutReqInBody.Error())
+		So(err.Error(), ShouldEqual, "Unexpected request body type 'string' in put request")
 	})
 
 	Convey("LINK_REQUEST should fail if body not a good linking request", t, func() {
 		m := h.node.NewMessage(LINK_REQUEST, "foo")
 		_, err := DHTReceiver(h, m)
-		So(err.Error(), ShouldEqual, ErrDHTExpectedLinkReqInBody.Error())
+		So(err.Error(), ShouldEqual, "Unexpected request body type 'string' in link request")
 	})
 
 	hash, _ := NewHash("QmY8Mzg9F69e5P9AoQPYat655HEhc1TVGs11tmfNSzkqh2")

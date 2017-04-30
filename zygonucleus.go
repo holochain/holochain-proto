@@ -58,46 +58,92 @@ func (z *ZygoNucleus) ChainGenesis() (err error) {
 
 }
 
-// ValidateCommit checks the contents of an entry against the validation rules at commit time
-func (z *ZygoNucleus) ValidateCommit(def *EntryDef, entry Entry, header *Header, sources []string) (err error) {
-	err = z.validateEntry("validateCommit", def, entry, header, sources)
+func prepareZyEntryArgs(def *EntryDef, entry Entry, header *Header) (args string, err error) {
+	entryStr := entry.Content().(string)
+	switch def.DataFormat {
+	case DataFormatRawZygo:
+		args = entryStr
+	case DataFormatString:
+		args = "\"" + sanitizeZyString(entryStr) + "\""
+	case DataFormatLinks:
+		fallthrough
+	case DataFormatJSON:
+		args = fmt.Sprintf(`(unjson (raw "%s"))`, sanitizeZyString(entryStr))
+	default:
+		err = errors.New("data format not implemented: " + def.DataFormat)
+		return
+	}
+
+	var hdr string
+	if header != nil {
+		hdr = fmt.Sprintf(
+			`(hash EntryLink:"%s" Type:"%s" Time:"%s")`,
+			header.EntryLink.String(),
+			header.Type,
+			header.Time.UTC().Format(time.RFC3339),
+		)
+	} else {
+		hdr = `""`
+	}
+
+	args += " " + hdr
 	return
 }
 
-// ValidatePut checks the contents of an entry against the validation rules at DHT put time
-func (z *ZygoNucleus) ValidatePut(def *EntryDef, entry Entry, header *Header, sources []string) (err error) {
-	err = z.validateEntry("validatePut", def, entry, header, sources)
+func prepareZyValidateArgs(action Action, def *EntryDef) (args string, err error) {
+	switch t := action.(type) {
+	case *ActionCommit:
+		args, err = prepareZyEntryArgs(def, t.entry, t.header)
+	case *ActionPut:
+		args, err = prepareZyEntryArgs(def, t.entry, t.header)
+	case *ActionDel:
+		args = fmt.Sprintf(`"%s"`, t.hash.String())
+	case *ActionLink:
+		var j []byte
+		j, err = json.Marshal(t.links)
+		if err == nil {
+			args = fmt.Sprintf(`"%s" (unjson (raw "%s"))`, t.validationBase.String(), sanitizeZyString(string(j)))
+		}
+	default:
+		err = fmt.Errorf("can't prepare args for %T: ", t)
+		return
+	}
 	return
 }
 
-// ValidateDel checks that marking an entry as deleted is valid
-func (z *ZygoNucleus) ValidateDel(def *EntryDef, hash string, sources []string) (err error) {
-	srcs := mkSources(sources)
-	code := fmt.Sprintf(`(validateDel "%s" "%s" %s)`, def.Name, hash, srcs)
+func buildZyValidateAction(action Action, def *EntryDef, sources []string) (code string, err error) {
+	fnName := "validate" + strings.Title(action.Name())
+	var args string
+	args, err = prepareZyValidateArgs(action, def)
+	if err != nil {
+		return
+	}
+	srcs := mkZySources(sources)
+	code = fmt.Sprintf(`(%s "%s" %s %s)`, fnName, def.Name, args, srcs)
+
+	return
+}
+
+// ValidateAction builds the correct validation function based on the action an calls it
+func (z *ZygoNucleus) ValidateAction(action Action, def *EntryDef, sources []string) (err error) {
+	var code string
+	code, err = buildZyValidateAction(action, def, sources)
+	if err != nil {
+		return
+	}
 	Debug(code)
-	err = z.runValidate("validateDel", code)
+	err = z.runValidate(action.Name(), code)
 	return
 }
 
-// ValidateLink checks the link data against the validation rules
-func (z *ZygoNucleus) ValidateLink(def *EntryDef, baseHash string, linkHash string, tag string, sources []string) (err error) {
-
-	srcs := mkSources(sources)
-	code := fmt.Sprintf(`(validateLink "%s" "%s" "%s" "%s" %s)`, def.Name, baseHash, linkHash, tag, srcs)
-	Debug(code)
-
-	err = z.runValidate("validateLink", code)
-	return
-}
-
-func mkSources(sources []string) (srcs string) {
+func mkZySources(sources []string) (srcs string) {
 	var err error
 	var b []byte
 	b, err = json.Marshal(sources)
 	if err != nil {
 		return
 	}
-	srcs = fmt.Sprintf(`(unjson (raw "%s"))`, sanitizeString(string(b)))
+	srcs = fmt.Sprintf(`(unjson (raw "%s"))`, sanitizeZyString(string(b)))
 	return
 }
 
@@ -108,16 +154,16 @@ func (z *ZygoNucleus) prepareValidateArgs(def *EntryDef, entry Entry, sources []
 	case DataFormatRawZygo:
 		e = c
 	case DataFormatString:
-		e = "\"" + sanitizeString(c) + "\""
+		e = "\"" + sanitizeZyString(c) + "\""
 	case DataFormatLinks:
 		fallthrough
 	case DataFormatJSON:
-		e = fmt.Sprintf(`(unjson (raw "%s"))`, sanitizeString(c))
+		e = fmt.Sprintf(`(unjson (raw "%s"))`, sanitizeZyString(c))
 	default:
 		err = errors.New("data format not implemented: " + def.DataFormat)
 		return
 	}
-	srcs = mkSources(sources)
+	srcs = mkZySources(sources)
 	return
 }
 
@@ -174,8 +220,8 @@ func (z *ZygoNucleus) validateEntry(fnName string, def *EntryDef, entry Entry, h
 	return
 }
 
-// sanatizeString makes sure all quotes are quoted
-func sanitizeString(s string) string {
+// sanatizeZyString makes sure all quotes are quoted
+func sanitizeZyString(s string) string {
 	s = strings.Replace(s, "\"", "\\\"", -1)
 	return s
 }
@@ -185,12 +231,12 @@ func (z *ZygoNucleus) Call(fn *FunctionDef, params interface{}) (result interfac
 	var code string
 	switch fn.CallingType {
 	case STRING_CALLING:
-		code = fmt.Sprintf(`(%s "%s")`, fn.Name, sanitizeString(params.(string)))
+		code = fmt.Sprintf(`(%s "%s")`, fn.Name, sanitizeZyString(params.(string)))
 	case JSON_CALLING:
 		if params.(string) == "" {
-			code = fmt.Sprintf(`(json (%s (raw "%s")))`, fn.Name, sanitizeString(params.(string)))
+			code = fmt.Sprintf(`(json (%s (raw "%s")))`, fn.Name, sanitizeZyString(params.(string)))
 		} else {
-			code = fmt.Sprintf(`(json (%s (unjson (raw "%s"))))`, fn.Name, sanitizeString(params.(string)))
+			code = fmt.Sprintf(`(json (%s (unjson (raw "%s"))))`, fn.Name, sanitizeZyString(params.(string)))
 		}
 	default:
 		err = errors.New("params type not implemented")
@@ -234,14 +280,20 @@ func (z *ZygoNucleus) Call(fn *FunctionDef, params interface{}) (result interfac
 var ZygoLibrary = `(def HC_Version "` + VersionStr + `")`
 
 // get exposes DHTGet to zygo
-func (z *ZygoNucleus) get(env *zygo.Glisp, h *Holochain, hash string) (result *zygo.SexpHash, err error) {
+func (z *ZygoNucleus) get(env *zygo.Glisp, h *Holochain, hashstr string) (result *zygo.SexpHash, err error) {
 	result, err = zygo.MakeHash(nil, "hash", env)
 	if err != nil {
 		return nil, err
 	}
 
 	var entry interface{}
-	entry, err = h.Get(hash)
+	var hash Hash
+	hash, err = NewHash(hashstr)
+	if err != nil {
+		return
+	}
+
+	entry, err = NewGetAction(hash).Do(h)
 	if err == nil {
 		t := entry.(*GobEntry)
 		// @TODO figure out encoding by entry type.
@@ -256,14 +308,21 @@ func (z *ZygoNucleus) get(env *zygo.Glisp, h *Holochain, hash string) (result *z
 }
 
 // getlink exposes GetLink to zygo
-func (z *ZygoNucleus) getlink(env *zygo.Glisp, h *Holochain, base string, tag string, options GetLinkOptions) (result *zygo.SexpHash, err error) {
+func (z *ZygoNucleus) getlink(env *zygo.Glisp, h *Holochain, basestr string, tag string, options GetLinkOptions) (result *zygo.SexpHash, err error) {
 	result, err = zygo.MakeHash(nil, "hash", env)
 	if err != nil {
 		return nil, err
 	}
 
-	var response *LinkQueryResp
-	response, err = h.GetLink(base, tag, options)
+	var base Hash
+	base, err = NewHash(basestr)
+	if err != nil {
+		return
+	}
+
+	var r interface{}
+	r, err = NewGetLinkAction(&LinkQuery{Base: base, T: tag}, &options).Do(h)
+	response := r.(*LinkQueryResp)
 
 	if err == nil {
 		var j []byte
@@ -367,11 +426,15 @@ func NewZygoNucleus(h *Holochain, code string) (n Nucleus, err error) {
 					errors.New("2nd argument of commit should be string or hash")
 			}
 
-			var entryHash Hash
-			entryHash, err = h.Commit(entryType, entry)
-
+			var r interface{}
+			e := GobEntry{C: entry}
+			r, err = NewCommitAction(entryType, &e).Do(h)
 			if err != nil {
 				return zygo.SexpNull, err
+			}
+			var entryHash Hash
+			if r != nil {
+				entryHash = r.(Hash)
 			}
 			var result = zygo.SexpStr{S: entryHash.String()}
 			return &result, nil

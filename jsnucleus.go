@@ -6,6 +6,7 @@
 package holochain
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	peer "github.com/libp2p/go-libp2p-peer"
@@ -50,36 +51,76 @@ func (z *JSNucleus) ChainGenesis() (err error) {
 	return
 }
 
-// ValidateCommit checks the contents of an entry against the validation rules at commit time
-func (z *JSNucleus) ValidateCommit(def *EntryDef, entry Entry, header *Header, sources []string) (err error) {
-	err = z.validateEntry("validateCommit", def, entry, header, sources)
+func prepareJSEntryArgs(def *EntryDef, entry Entry, header *Header) (args string, err error) {
+	entryStr := entry.Content().(string)
+	switch def.DataFormat {
+	case DataFormatRawJS:
+		args = entryStr
+	case DataFormatString:
+		args = "\"" + jsSanitizeString(entryStr) + "\""
+	case DataFormatLinks:
+		fallthrough
+	case DataFormatJSON:
+		args = fmt.Sprintf(`JSON.parse("%s")`, jsSanitizeString(entryStr))
+	default:
+		err = errors.New("data format not implemented: " + def.DataFormat)
+		return
+	}
+
+	hdr := fmt.Sprintf(
+		`{"EntryLink":"%s","Type":"%s","Time":"%s"}`,
+		header.EntryLink.String(),
+		header.Type,
+		header.Time.UTC().Format(time.RFC3339),
+	)
+	args += "," + hdr
 	return
 }
 
-// ValidatePut checks the contents of an entry against the validation rules at DHT put time
-func (z *JSNucleus) ValidatePut(def *EntryDef, entry Entry, header *Header, sources []string) (err error) {
-	err = z.validateEntry("validatePut", def, entry, header, sources)
+func prepareJSValidateArgs(action Action, def *EntryDef) (args string, err error) {
+	switch t := action.(type) {
+	case *ActionPut:
+		args, err = prepareJSEntryArgs(def, t.entry, t.header)
+	case *ActionCommit:
+		args, err = prepareJSEntryArgs(def, t.entry, t.header)
+	case *ActionDel:
+		args = fmt.Sprintf(`"%s"`, t.hash.String())
+	case *ActionLink:
+		var j []byte
+		j, err = json.Marshal(t.links)
+		if err == nil {
+			args = fmt.Sprintf(`"%s",JSON.parse("%s")`, t.validationBase.String(), jsSanitizeString(string(j)))
+		}
+
+	default:
+		err = fmt.Errorf("can't prepare args for %T: ", t)
+		return
+	}
 	return
 }
 
-// ValidateDel checks that marking an entry as deleted is valid
-func (z *JSNucleus) ValidateDel(def *EntryDef, hash string, sources []string) (err error) {
+func buildJSValidateAction(action Action, def *EntryDef, sources []string) (code string, err error) {
+	fnName := "validate" + strings.Title(action.Name())
+	var args string
+	args, err = prepareJSValidateArgs(action, def)
+	if err != nil {
+		return
+	}
 	srcs := mkJSSources(sources)
-	code := fmt.Sprintf(`validateDel("%s","%s",%s)`, def.Name, hash, srcs)
-	Debug(code)
-
-	err = z.runValidate("validateDel", code)
+	code = fmt.Sprintf(`%s("%s",%s,%s)`, fnName, def.Name, args, srcs)
 
 	return
 }
 
-// ValidateLink checks the linking data against the validation rules
-func (z *JSNucleus) ValidateLink(def *EntryDef, baseHash string, linkHash string, tag string, sources []string) (err error) {
-	srcs := mkJSSources(sources)
-	code := fmt.Sprintf(`validateLink("%s","%s","%s","%s",%s)`, def.Name, baseHash, linkHash, tag, srcs)
+// ValidateAction builds the correct validation function based on the action an calls it
+func (z *JSNucleus) ValidateAction(action Action, def *EntryDef, sources []string) (err error) {
+	var code string
+	code, err = buildJSValidateAction(action, def, sources)
+	if err != nil {
+		return
+	}
 	Debug(code)
-
-	err = z.runValidate("validateLink", code)
+	err = z.runValidate(action.Name(), code)
 	return
 }
 
@@ -88,7 +129,7 @@ func mkJSSources(sources []string) (srcs string) {
 	return
 }
 
-func (z *JSNucleus) prepareValidateEntryArgs(def *EntryDef, entry Entry, sources []string) (e string, srcs string, err error) {
+func (z *JSNucleus) prepareJSValidateEntryArgs(def *EntryDef, entry Entry, sources []string) (e string, srcs string, err error) {
 	c := entry.Content().(string)
 	switch def.DataFormat {
 	case DataFormatRawJS:
@@ -133,7 +174,7 @@ func (z *JSNucleus) runValidate(fnName string, code string) (err error) {
 
 func (z *JSNucleus) validateEntry(fnName string, def *EntryDef, entry Entry, header *Header, sources []string) (err error) {
 
-	e, srcs, err := z.prepareValidateEntryArgs(def, entry, sources)
+	e, srcs, err := z.prepareJSValidateEntryArgs(def, entry, sources)
 	if err != nil {
 		return
 	}
@@ -240,10 +281,16 @@ func NewJSNucleus(h *Holochain, code string) (n Nucleus, err error) {
 		} else {
 			return z.vm.MakeCustomError("HolochainError", "commit expected entry to be string or object (second argument)")
 		}
-		var entryHash Hash
-		entryHash, err = h.Commit(entryType, entry)
+
+		var r interface{}
+		e := GobEntry{C: entry}
+		r, err = NewCommitAction(entryType, &e).Do(h)
 		if err != nil {
 			return z.vm.MakeCustomError("HolochainError", err.Error())
+		}
+		var entryHash Hash
+		if r != nil {
+			entryHash = r.(Hash)
 		}
 
 		result, _ := z.vm.ToValue(entryHash.String())
@@ -263,7 +310,13 @@ func NewJSNucleus(h *Holochain, code string) (n Nucleus, err error) {
 			return z.vm.MakeCustomError("HolochainError", "get expected string as argument")
 		}
 
-		entry, err := h.Get(hashstr)
+		var hash Hash
+		hash, err = NewHash(hashstr)
+		if err != nil {
+			return
+		}
+
+		entry, err := NewGetAction(hash).Do(h)
 		if err == nil {
 			t := entry.(*GobEntry)
 			result, err = z.vm.ToValue(t)
@@ -285,7 +338,7 @@ func NewJSNucleus(h *Holochain, code string) (n Nucleus, err error) {
 		if l < 2 || l > 3 {
 			return z.vm.MakeCustomError("HolochainError", "expected 2 or 3 arguments to getlink")
 		}
-		base, _ := call.Argument(0).ToString()
+		basestr, _ := call.Argument(0).ToString()
 		tag, _ := call.Argument(1).ToString()
 		options := GetLinkOptions{Load: false}
 		if l == 3 {
@@ -302,7 +355,15 @@ func NewJSNucleus(h *Holochain, code string) (n Nucleus, err error) {
 		}
 
 		var response interface{}
-		response, err = h.GetLink(base, tag, options)
+
+		var base Hash
+		base, err = NewHash(basestr)
+		if err != nil {
+			return
+		}
+
+		response, err = NewGetLinkAction(&LinkQuery{Base: base, T: tag}, &options).Do(h)
+
 		if err == nil {
 			result, err = z.vm.ToValue(response)
 		} else {

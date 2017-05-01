@@ -13,6 +13,25 @@ import (
 	"time"
 )
 
+type ArgType int8
+
+const (
+	HashArg = iota
+	StringArg
+	EntryArg
+	IntArg
+	BoolArg
+	MapArg
+)
+
+type Arg struct {
+	Name     string
+	Type     ArgType
+	MapType  reflect.Type
+	Optional bool
+	value    interface{}
+}
+
 // Action provides an abstraction for grouping all the aspects of a nucleus function, i.e.
 // the validation,dht changing, etc
 type Action interface {
@@ -20,6 +39,7 @@ type Action interface {
 	Do(h *Holochain) (response interface{}, err error)
 	SysValidation(h *Holochain, d *EntryDef, sources []peer.ID) (err error)
 	DHTReqHandler(dht *DHT, msg *Message) (response interface{}, err error)
+	Args() []Arg
 }
 
 var NonDHTAction error = errors.New("Not a DHT action")
@@ -95,6 +115,21 @@ func (h *Holochain) GetDHTReqAction(msg *Message) (a Action, err error) {
 	return
 }
 
+var ErrWrongNargs = errors.New("wrong number of arguments")
+
+func checkArgCount(args []Arg, l int) (err error) {
+	var min int
+	for _, a := range args {
+		if !a.Optional {
+			min++
+		}
+	}
+	if l < min || l > len(args) {
+		err = ErrWrongNargs
+	}
+	return
+}
+
 //------------------------------------------------------------
 // Get
 
@@ -109,6 +144,10 @@ func NewGetAction(hash Hash) *ActionGet {
 
 func (a *ActionGet) Name() string {
 	return "get"
+}
+
+func (a *ActionGet) Args() []Arg {
+	return []Arg{{Name: "hash", Type: HashArg}}
 }
 
 func (a *ActionGet) Do(h *Holochain) (response interface{}, err error) {
@@ -167,6 +206,10 @@ func NewCommitAction(entryType string, entry Entry) *ActionCommit {
 
 func (a *ActionCommit) Name() string {
 	return "commit"
+}
+
+func (a *ActionCommit) Args() []Arg {
+	return []Arg{{Name: "entryType", Type: StringArg}, {Name: "entry", Type: EntryArg}}
 }
 
 func (a *ActionCommit) Do(h *Holochain) (response interface{}, err error) {
@@ -313,6 +356,10 @@ func (a *ActionPut) Name() string {
 	return "put"
 }
 
+func (a *ActionPut) Args() []Arg {
+	return nil
+}
+
 func (a *ActionPut) Do(h *Holochain) (response interface{}, err error) {
 	err = NonCallableAction
 	return
@@ -344,6 +391,10 @@ func NewDelAction(hash Hash) *ActionDel {
 
 func (a *ActionDel) Name() string {
 	return "del"
+}
+
+func (a *ActionDel) Args() []Arg {
+	return []Arg{{Name: "hash", Type: HashArg}}
 }
 
 func (a *ActionDel) Do(h *Holochain) (response interface{}, err error) {
@@ -378,6 +429,10 @@ func NewLinkAction(entryType string, links []Link) *ActionLink {
 
 func (a *ActionLink) Name() string {
 	return "link"
+}
+
+func (a *ActionLink) Args() []Arg {
+	return nil
 }
 
 func (a *ActionLink) Do(h *Holochain) (response interface{}, err error) {
@@ -419,6 +474,10 @@ func NewGetLinkAction(linkQuery *LinkQuery, options *GetLinkOptions) *ActionGetL
 
 func (a *ActionGetLink) Name() string {
 	return "getLink"
+}
+
+func (a *ActionGetLink) Args() []Arg {
+	return []Arg{{Name: "base", Type: HashArg}, {Name: "tag", Type: StringArg}, {Name: "options", Type: MapArg, MapType: reflect.TypeOf(GetLinkOptions{}), Optional: true}}
 }
 
 func (a *ActionGetLink) Do(h *Holochain) (response interface{}, err error) {
@@ -477,6 +536,10 @@ func NewDelLinkAction(link *DelLinkReq) *ActionDelLink {
 
 func (a *ActionDelLink) Name() string {
 	return "delLink"
+}
+
+func (a *ActionDelLink) Args() []Arg {
+	return []Arg{{Name: "base", Type: HashArg}, {Name: "link", Type: HashArg}, {Name: "tag", Type: StringArg}}
 }
 
 func (a *ActionDelLink) Do(h *Holochain) (response interface{}, err error) {

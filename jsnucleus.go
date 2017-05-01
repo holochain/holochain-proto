@@ -243,6 +243,81 @@ func (z *JSNucleus) Call(fn *FunctionDef, params interface{}) (result interface{
 	return
 }
 
+func jsProcessArgs(z *JSNucleus, args []Arg, oArgs []otto.Value) (err error) {
+	err = checkArgCount(args, len(oArgs))
+	if err != nil {
+		return err
+	}
+
+	// check arg types
+	for i, a := range oArgs {
+		switch args[i].Type {
+		case StringArg:
+			if a.IsString() {
+				args[i].value, _ = a.ToString()
+			} else {
+				return fmt.Errorf("argument %d of %s should be string", i+1, args[i].Name)
+			}
+		case HashArg:
+			if a.IsString() {
+				str, _ := a.ToString()
+				var hash Hash
+				hash, err = NewHash(str)
+				if err != nil {
+					return
+				}
+				args[i].value = hash
+			} else {
+				return fmt.Errorf("argument %d of %s should be string", i+1, args[i].Name)
+			}
+		case IntArg:
+			if a.IsNumber() {
+				integer, err := a.ToInteger()
+				if err != nil {
+					return err
+				}
+				args[i].value = integer
+			} else {
+				return fmt.Errorf("argument %d of %s should be int", i+1, args[i].Name)
+			}
+		case BoolArg:
+			if a.IsBoolean() {
+				boolean, err := a.ToBoolean()
+				if err != nil {
+					return err
+				}
+				args[i].value = boolean
+			} else {
+				return fmt.Errorf("argument %d of %s should be boolean", i+1, args[i].Name)
+			}
+		case EntryArg:
+			if a.IsString() {
+				str, err := a.ToString()
+				if err != nil {
+					return err
+				}
+				args[i].value = str
+			} else if a.IsObject() {
+				v, err := z.vm.Call("JSON.stringify", nil, a)
+				if err != nil {
+					return err
+				}
+				entry, err := v.ToString()
+				if err != nil {
+					return err
+				}
+				args[i].value = entry
+
+			} else {
+				return fmt.Errorf("argument %d of %s should be string or object", i+1, args[i].Name)
+			}
+
+		}
+	}
+
+	return
+}
+
 // NewJSNucleus builds a javascript execution environment with user specified code
 func NewJSNucleus(h *Holochain, code string) (n Nucleus, err error) {
 	var z JSNucleus
@@ -269,19 +344,15 @@ func NewJSNucleus(h *Holochain, code string) (n Nucleus, err error) {
 	})
 
 	err = z.vm.Set("commit", func(call otto.FunctionCall) otto.Value {
-		entryType, _ := call.Argument(0).ToString()
-		var entry string
-		v := call.Argument(1)
-
-		if v.IsString() {
-			entry, _ = v.ToString()
-		} else if v.IsObject() {
-			v, _ = z.vm.Call("JSON.stringify", nil, v)
-			entry, _ = v.ToString()
-		} else {
-			return z.vm.MakeCustomError("HolochainError", "commit expected entry to be string or object (second argument)")
+		var a Action = &ActionCommit{}
+		args := a.Args()
+		err := jsProcessArgs(&z, args, call.ArgumentList)
+		if err != nil {
+			return z.vm.MakeCustomError("HolochainError", err.Error())
 		}
 
+		entryType := args[0].value.(string)
+		entry := args[1].value.(string)
 		var r interface{}
 		e := GobEntry{C: entry}
 		r, err = NewCommitAction(entryType, &e).Do(h)
@@ -301,20 +372,13 @@ func NewJSNucleus(h *Holochain, code string) (n Nucleus, err error) {
 	}
 
 	err = z.vm.Set("get", func(call otto.FunctionCall) (result otto.Value) {
-		v := call.Argument(0)
-		var hashstr string
-
-		if v.IsString() {
-			hashstr, _ = v.ToString()
-		} else {
-			return z.vm.MakeCustomError("HolochainError", "get expected string as argument")
-		}
-
-		var hash Hash
-		hash, err = NewHash(hashstr)
+		var a Action = &ActionGet{}
+		args := a.Args()
+		err := jsProcessArgs(&z, args, call.ArgumentList)
 		if err != nil {
-			return
+			return z.vm.MakeCustomError("HolochainError", err.Error())
 		}
+		hash := args[0].value.(Hash)
 
 		entry, err := NewGetAction(hash).Do(h)
 		if err == nil {
@@ -334,20 +398,13 @@ func NewJSNucleus(h *Holochain, code string) (n Nucleus, err error) {
 	}
 
 	err = z.vm.Set("del", func(call otto.FunctionCall) (result otto.Value) {
-		v := call.Argument(0)
-		var hashstr string
-
-		if v.IsString() {
-			hashstr, _ = v.ToString()
-		} else {
-			return z.vm.MakeCustomError("HolochainError", "del expected string as argument")
-		}
-
-		var hash Hash
-		hash, err = NewHash(hashstr)
+		var a Action = &ActionDel{}
+		args := a.Args()
+		err := jsProcessArgs(&z, args, call.ArgumentList)
 		if err != nil {
-			return
+			return z.vm.MakeCustomError("HolochainError", err.Error())
 		}
+		hash := args[0].value.(Hash)
 
 		resp, err := NewDelAction(hash).Do(h)
 		if err == nil {
@@ -406,23 +463,15 @@ func NewJSNucleus(h *Holochain, code string) (n Nucleus, err error) {
 	}
 
 	err = z.vm.Set("delLink", func(call otto.FunctionCall) (result otto.Value) {
-		l := len(call.ArgumentList)
-		if l != 3 {
-			return z.vm.MakeCustomError("HolochainError", "expected 3 arguments to delLink")
-		}
-		basestr, _ := call.Argument(0).ToString()
-		linkstr, _ := call.Argument(1).ToString()
-		tag, _ := call.Argument(2).ToString()
-
-		var base, link Hash
-		base, err = NewHash(basestr)
+		var a Action = &ActionDelLink{}
+		args := a.Args()
+		err := jsProcessArgs(&z, args, call.ArgumentList)
 		if err != nil {
-			return
+			return z.vm.MakeCustomError("HolochainError", err.Error())
 		}
-		link, err = NewHash(linkstr)
-		if err != nil {
-			return
-		}
+		base := args[0].value.(Hash)
+		link := args[1].value.(Hash)
+		tag := args[2].value.(string)
 
 		var response interface{}
 		response, err = NewDelLinkAction(&DelLinkReq{Base: base, Link: link, Tag: tag}).Do(h)

@@ -88,3 +88,25 @@ func TestSysValidateEntry(t *testing.T) {
 		So(err.Error(), ShouldEqual, "invalid links entry: missing Tag")
 	})
 }
+
+func TestCheckArgCount(t *testing.T) {
+	Convey("it should check for wrong number of args", t, func() {
+		args := []Arg{{}}
+		err := checkArgCount(args, 2)
+		So(err, ShouldEqual, ErrWrongNargs)
+
+		// test with args that are optional: two that are required and one not
+		args = []Arg{{}, {}, {Optional: true}}
+		err = checkArgCount(args, 1)
+		So(err, ShouldEqual, ErrWrongNargs)
+
+		err = checkArgCount(args, 2)
+		So(err, ShouldBeNil)
+
+		err = checkArgCount(args, 3)
+		So(err, ShouldBeNil)
+
+		err = checkArgCount(args, 4)
+		So(err, ShouldEqual, ErrWrongNargs)
+	})
+}

@@ -3,6 +3,7 @@ package holochain
 import (
 	"fmt"
 	peer "github.com/libp2p/go-libp2p-peer"
+	"github.com/robertkrimen/otto"
 	. "github.com/smartystreets/goconvey/convey"
 	"testing"
 )
@@ -358,6 +359,77 @@ func TestJSDHT(t *testing.T) {
 		So(err, ShouldBeNil)
 		z = v.(*JSNucleus)
 		So(z.lastResult.String(), ShouldEqual, "HolochainError: hash not found")
+
+	})
+}
+
+func TestJSProcessArgs(t *testing.T) {
+	d, _, h := prepareTestChain("test")
+	defer cleanupTestDir(d)
+
+	v, _ := NewJSNucleus(h, "")
+	z := v.(*JSNucleus)
+
+	nilValue := otto.UndefinedValue()
+	Convey("it should check for wrong number of args", t, func() {
+		oArgs := []otto.Value{nilValue, nilValue}
+		args := []Arg{{}}
+		err := jsProcessArgs(z, args, oArgs)
+		So(err, ShouldEqual, ErrWrongNargs)
+
+		// test with args that are optional: two that are required and one not
+		args = []Arg{{}, {}, {Optional: true}}
+		oArgs = []otto.Value{nilValue}
+		err = jsProcessArgs(z, args, oArgs)
+		So(err, ShouldEqual, ErrWrongNargs)
+
+		oArgs = []otto.Value{nilValue, nilValue, nilValue, nilValue}
+		err = jsProcessArgs(z, args, oArgs)
+		So(err, ShouldEqual, ErrWrongNargs)
+
+	})
+	Convey("it should treat StringArg as string", t, func() {
+		args := []Arg{{Name: "foo", Type: StringArg}}
+		err := jsProcessArgs(z, args, []otto.Value{nilValue})
+		So(err.Error(), ShouldEqual, "argument 1 of foo should be string")
+		val, _ := z.vm.ToValue("bar")
+		err = jsProcessArgs(z, args, []otto.Value{val})
+		So(err, ShouldBeNil)
+		So(args[0].value.(string), ShouldEqual, "bar")
+	})
+	Convey("it should convert IntArg to int64", t, func() {
+		args := []Arg{{Name: "foo", Type: IntArg}}
+		err := jsProcessArgs(z, args, []otto.Value{nilValue})
+		So(err.Error(), ShouldEqual, "argument 1 of foo should be int")
+		val, _ := z.vm.ToValue(314)
+		err = jsProcessArgs(z, args, []otto.Value{val})
+		So(err, ShouldBeNil)
+		So(args[0].value.(int64), ShouldEqual, 314)
+	})
+	Convey("it should convert BoolArg to bool", t, func() {
+		args := []Arg{{Name: "foo", Type: BoolArg}}
+		err := jsProcessArgs(z, args, []otto.Value{nilValue})
+		So(err.Error(), ShouldEqual, "argument 1 of foo should be boolean")
+		val, _ := z.vm.ToValue(true)
+		err = jsProcessArgs(z, args, []otto.Value{val})
+		So(err, ShouldBeNil)
+		So(args[0].value.(bool), ShouldEqual, true)
+	})
+
+	Convey("it should convert EntryArg from string or object", t, func() {
+		args := []Arg{{Name: "foo", Type: EntryArg}}
+		err := jsProcessArgs(z, args, []otto.Value{nilValue})
+		So(err.Error(), ShouldEqual, "argument 1 of foo should be string or object")
+		val, _ := z.vm.ToValue("bar")
+		err = jsProcessArgs(z, args, []otto.Value{val})
+		So(err, ShouldBeNil)
+		So(args[0].value.(string), ShouldEqual, "bar")
+
+		// create an otto.object for a test arg
+		val, _ = z.vm.ToValue(TaggedHash{H: "foo", E: "bar"})
+		err = jsProcessArgs(z, args, []otto.Value{val})
+		So(err, ShouldBeNil)
+		So(args[0].value.(string), ShouldEqual, `{"E":"bar","H":"foo"}`)
 
 	})
 }

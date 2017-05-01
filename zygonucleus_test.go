@@ -5,6 +5,7 @@ import (
 	zygo "github.com/glycerine/zygomys/repl"
 	peer "github.com/libp2p/go-libp2p-peer"
 	. "github.com/smartystreets/goconvey/convey"
+	//	"reflect"
 	"testing"
 )
 
@@ -372,4 +373,103 @@ func TestZygoDHT(t *testing.T) {
 
 	})
 
+}
+
+func TestZyProcessArgs(t *testing.T) {
+	Convey("it should check for wrong number of args", t, func() {
+		zyargs := []zygo.Sexp{zygo.SexpNull, zygo.SexpNull}
+		args := []Arg{{}}
+		err := zyProcessArgs(args, zyargs)
+		So(err, ShouldEqual, ErrWrongNargs)
+
+		// test with args that are optional: two that are required and one not
+		args = []Arg{{}, {}, {Optional: true}}
+		zyargs = []zygo.Sexp{zygo.SexpNull}
+		err = zyProcessArgs(args, zyargs)
+		So(err, ShouldEqual, ErrWrongNargs)
+
+		zyargs = []zygo.Sexp{zygo.SexpNull, zygo.SexpNull, zygo.SexpNull, zygo.SexpNull}
+		err = zyProcessArgs(args, zyargs)
+		So(err, ShouldEqual, ErrWrongNargs)
+	})
+	Convey("it should convert HashArg to Hash", t, func() {
+		hashstr := "QmY8Mzg9F69e5P9AoQPYat6x5HEhc1TVGs11tmfNSzkqh2"
+		args := []Arg{{Name: "foo", Type: HashArg}}
+		err := zyProcessArgs(args, []zygo.Sexp{zygo.SexpNull})
+		So(err.Error(), ShouldEqual, "argument 1 of foo should be string")
+		var z zygo.Sexp = &zygo.SexpStr{S: hashstr}
+		err = zyProcessArgs(args, []zygo.Sexp{z})
+		So(err, ShouldBeNil)
+		So(args[0].value.(Hash).String(), ShouldEqual, hashstr)
+	})
+	Convey("it should treat StringArg as string", t, func() {
+		args := []Arg{{Name: "foo", Type: StringArg}}
+		err := zyProcessArgs(args, []zygo.Sexp{zygo.SexpNull})
+		So(err.Error(), ShouldEqual, "argument 1 of foo should be string")
+		var z zygo.Sexp = &zygo.SexpStr{S: "bar"}
+		err = zyProcessArgs(args, []zygo.Sexp{z})
+		So(err, ShouldBeNil)
+		So(args[0].value.(string), ShouldEqual, "bar")
+	})
+	Convey("it should convert IntArg to int64", t, func() {
+		args := []Arg{{Name: "foo", Type: IntArg}}
+		err := zyProcessArgs(args, []zygo.Sexp{zygo.SexpNull})
+		So(err.Error(), ShouldEqual, "argument 1 of foo should be int")
+		var z zygo.Sexp = &zygo.SexpInt{Val: 314}
+		err = zyProcessArgs(args, []zygo.Sexp{z})
+		So(err, ShouldBeNil)
+		So(args[0].value.(int64), ShouldEqual, 314)
+	})
+	Convey("it should convert BoolArg to bool", t, func() {
+		args := []Arg{{Name: "foo", Type: BoolArg}}
+		err := zyProcessArgs(args, []zygo.Sexp{zygo.SexpNull})
+		So(err.Error(), ShouldEqual, "argument 1 of foo should be boolean")
+		var z zygo.Sexp = &zygo.SexpBool{Val: true}
+		err = zyProcessArgs(args, []zygo.Sexp{z})
+		So(err, ShouldBeNil)
+		So(args[0].value.(bool), ShouldEqual, true)
+	})
+
+	d, _, h := prepareTestChain("test")
+	defer cleanupTestDir(d)
+
+	Convey("it should convert EntryArg from string or hash", t, func() {
+		args := []Arg{{Name: "foo", Type: EntryArg}}
+		err := zyProcessArgs(args, []zygo.Sexp{zygo.SexpNull})
+		So(err.Error(), ShouldEqual, "argument 1 of foo should be string or hash")
+		var z zygo.Sexp = &zygo.SexpStr{S: "bar"}
+		err = zyProcessArgs(args, []zygo.Sexp{z})
+		So(err, ShouldBeNil)
+		So(args[0].value.(string), ShouldEqual, "bar")
+
+		// create a zygo hash for a test arg
+
+		v, err := NewZygoNucleus(h, "")
+		env := v.(*ZygoNucleus).env
+		zh, _ := zygo.MakeHash(nil, "hash", env)
+		zh.HashSet(env.MakeSymbol("fname"), &zygo.SexpStr{S: "Jane"})
+		zh.HashSet(env.MakeSymbol("lname"), &zygo.SexpStr{S: "Smith"})
+		err = zyProcessArgs(args, []zygo.Sexp{zh})
+		So(err, ShouldBeNil)
+		So(args[0].value.(string), ShouldEqual, `{"Atype":"hash", "fname":"Jane", "lname":"Smith", "zKeyOrder":["fname", "lname"]}`)
+
+	})
+
+	/*
+		Convey("it should convert MapArg the named map type", t, func() {
+			args := []Arg{{Name: "foo", Type: MapArg, MapType: reflect.TypeOf(GetReq{})}}
+			err := zyProcessArgs(args, []zygo.Sexp{zygo.SexpNull})
+			So(err.Error(), ShouldEqual, "argument 1 of foo should be hash")
+
+			// create a zygo hash as a test arg
+			v, err := NewZygoNucleus(h, "")
+			env := v.(*ZygoNucleus).env
+			var hashstr zygo.Sexp = &zygo.SexpStr{S: "fakehashvalue"}
+			var z zygo.SexpHash
+			z.HashSet(env.MakeSymbol("H"), hashstr)
+
+			err = zyProcessArgs(args, []zygo.Sexp{&z})
+			So(err, ShouldBeNil)
+			So(fmt.Sprintf("%v", args[0].value), ShouldEqual, "xxx")
+		})*/
 }

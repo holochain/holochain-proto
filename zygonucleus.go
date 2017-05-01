@@ -374,7 +374,7 @@ func zyProcessArgs(args []Arg, zyArgs []zygo.Sexp) (err error) {
 				str = t.S
 				args[i].value = str
 			default:
-				return fmt.Errorf("argument %d of %s should be string", i+1, args[i].Name)
+				return argErr("string", i+1, args[i])
 			}
 		case HashArg:
 			switch t := a.(type) {
@@ -386,7 +386,7 @@ func zyProcessArgs(args []Arg, zyArgs []zygo.Sexp) (err error) {
 				}
 				args[i].value = hash
 			default:
-				return fmt.Errorf("argument %d of %s should be string", i+1, args[i].Name)
+				return argErr("string", i+1, args[i])
 			}
 		case IntArg:
 			var integer int64
@@ -395,7 +395,7 @@ func zyProcessArgs(args []Arg, zyArgs []zygo.Sexp) (err error) {
 				integer = t.Val
 				args[i].value = integer
 			default:
-				return fmt.Errorf("argument %d of %s should be int", i+1, args[i].Name)
+				return argErr("int", i+1, args[i])
 			}
 		case BoolArg:
 			var boolean bool
@@ -404,7 +404,7 @@ func zyProcessArgs(args []Arg, zyArgs []zygo.Sexp) (err error) {
 				boolean = t.Val
 				args[i].value = boolean
 			default:
-				return fmt.Errorf("argument %d of %s should be boolean", i+1, args[i].Name)
+				return argErr("boolean", i+1, args[i])
 			}
 		case EntryArg:
 			switch t := a.(type) {
@@ -413,9 +413,45 @@ func zyProcessArgs(args []Arg, zyArgs []zygo.Sexp) (err error) {
 			case *zygo.SexpHash:
 				args[i].value = zygo.SexpToJson(t)
 			default:
-				return fmt.Errorf("argument %d of %s should be string or hash", i+1, args[i].Name)
+				return argErr("string or hash", i+1, args[i])
 			}
+		case MapArg:
+			switch t := a.(type) {
+			case *zygo.SexpHash:
+				j := zygo.SexpToJson(t)
+				m := make(map[string]interface{})
+				var err = json.Unmarshal([]byte(j), &m)
+				if err != nil {
+					return err
+				}
+				delete(m, "zKeyOrder")
+				delete(m, "Atype")
+				args[i].value = m
+			default:
+				return argErr("hash", i+1, args[i])
+			}
+		case ToStrArg:
+			var str string
 
+			switch t := a.(type) {
+			case *zygo.SexpStr:
+				str = t.S
+			case *zygo.SexpInt:
+				str = fmt.Sprintf("%d", t.Val)
+			case *zygo.SexpBool:
+				if t.Val {
+					str = "true"
+				} else {
+					str = "false"
+				}
+			case *zygo.SexpHash:
+				str = zygo.SexpToJson(t)
+			case *zygo.SexpArray:
+				str = zygo.SexpToJson(t)
+			default:
+				return argErr("int, boolean, string, array or hash", i+1, args[i])
+			}
+			args[i].value = str
 		}
 	}
 
@@ -436,52 +472,36 @@ func NewZygoNucleus(h *Holochain, code string) (n Nucleus, err error) {
 	// use a closure so that the registered zygo function can call Expose on the correct ZygoNucleus obj
 
 	z.env.AddFunction("debug",
-		func(env *zygo.Glisp, name string, args []zygo.Sexp) (zygo.Sexp, error) {
-			if len(args) != 1 {
-				return zygo.SexpNull, zygo.WrongNargs
+		func(env *zygo.Glisp, name string, zyargs []zygo.Sexp) (zygo.Sexp, error) {
+			a := &ActionDebug{}
+			args := a.Args()
+			err := zyProcessArgs(args, zyargs)
+			if err != nil {
+				return zygo.SexpNull, err
 			}
-
-			var msg string
-
-			switch t := args[0].(type) {
-			case *zygo.SexpStr:
-				msg = t.S
-			case *zygo.SexpInt:
-				msg = fmt.Sprintf("%d", t.Val)
-			case *zygo.SexpHash:
-				msg = zygo.SexpToJson(t)
-			case *zygo.SexpArray:
-				msg = zygo.SexpToJson(t)
-			default:
-				return zygo.SexpNull,
-					fmt.Errorf("can't convert argument type %T", t)
-			}
-
-			h.config.Loggers.App.p(msg)
+			a.msg = args[0].value.(string)
+			a.Do(h)
 			return zygo.SexpNull, err
 		})
 
 	z.env.AddFunction("property",
-		func(env *zygo.Glisp, name string, args []zygo.Sexp) (zygo.Sexp, error) {
-			if len(args) != 1 {
-				return zygo.SexpNull, zygo.WrongNargs
-			}
-
-			var prop string
-
-			switch t := args[0].(type) {
-			case *zygo.SexpStr:
-				prop = t.S
-			default:
-				return zygo.SexpNull,
-					errors.New("1st argument of expose should be string")
-			}
-
-			p, err := h.GetProperty(prop)
+		func(env *zygo.Glisp, name string, zyargs []zygo.Sexp) (zygo.Sexp, error) {
+			a := &ActionProperty{}
+			args := a.Args()
+			err := zyProcessArgs(args, zyargs)
 			if err != nil {
 				return zygo.SexpNull, err
 			}
-			result := zygo.SexpStr{S: p}
+
+			a.prop = args[0].value.(string)
+
+			var p interface{}
+			p, err = a.Do(h)
+
+			if err != nil {
+				return zygo.SexpNull, err
+			}
+			result := zygo.SexpStr{S: p.(string)}
 			return &result, err
 		})
 
@@ -538,55 +558,30 @@ func NewZygoNucleus(h *Holochain, code string) (n Nucleus, err error) {
 		})
 
 	z.env.AddFunction("getLink",
-		func(env *zygo.Glisp, name string, args []zygo.Sexp) (zygo.Sexp, error) {
-			l := len(args)
-			if l < 2 || l > 3 {
-				return zygo.SexpNull, zygo.WrongNargs
-			}
-
-			var basestr string
-			switch t := args[0].(type) {
-			case *zygo.SexpStr:
-				basestr = t.S
-			default:
-				return zygo.SexpNull,
-					errors.New("1st argument of getlink should be string")
-			}
-
-			var base Hash
-			base, err = NewHash(basestr)
+		func(env *zygo.Glisp, name string, zyargs []zygo.Sexp) (zygo.Sexp, error) {
+			var a Action = &ActionGetLink{}
+			args := a.Args()
+			err := zyProcessArgs(args, zyargs)
 			if err != nil {
 				return zygo.SexpNull, err
 			}
-
-			var tag string
-			switch t := args[1].(type) {
-			case *zygo.SexpStr:
-				tag = t.S
-			default:
-				return zygo.SexpNull,
-					errors.New("2nd argument of getlink should be string")
-			}
+			base := args[0].value.(Hash)
+			tag := args[1].value.(string)
 
 			options := GetLinkOptions{Load: false}
-			if l == 3 {
-				switch t := args[2].(type) {
-				case *zygo.SexpHash:
-					r, err := t.HashGet(z.env, z.env.MakeSymbol("Load"))
-					if err == nil {
-						switch t := r.(type) {
-						case *zygo.SexpBool:
-							options.Load = t.Val
-						default:
-							return zygo.SexpNull,
-								errors.New("Load must be a boolean")
-						}
-					}
-				default:
+			if len(zyargs) == 3 {
+				opts := args[2].value.(map[string]interface{})
+				load, ok := opts["Load"]
+				if !ok {
 					return zygo.SexpNull,
-						errors.New("3rd argument of getlink should be hash")
+						errors.New("expected Load attribute missing")
 				}
-
+				loadval, ok := load.(bool)
+				if !ok {
+					return zygo.SexpNull,
+						fmt.Errorf("expecting boolean Load attribute in object, got %T", load)
+				}
+				options.Load = loadval
 			}
 			result, err := z.getLink(env, h, base, tag, options)
 			return result, err

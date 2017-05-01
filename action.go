@@ -22,13 +22,14 @@ const (
 	IntArg
 	BoolArg
 	MapArg
+	ToStrArg
 )
 
 type Arg struct {
 	Name     string
 	Type     ArgType
-	MapType  reflect.Type
 	Optional bool
+	MapType  reflect.Type
 	value    interface{}
 }
 
@@ -127,6 +128,78 @@ func checkArgCount(args []Arg, l int) (err error) {
 	if l < min || l > len(args) {
 		err = ErrWrongNargs
 	}
+	return
+}
+
+func argErr(typeName string, index int, arg Arg) error {
+	return fmt.Errorf("argument %d (%s) should be %s", index, arg.Name, typeName)
+}
+
+//------------------------------------------------------------
+// Property
+
+type ActionProperty struct {
+	prop string
+}
+
+func NewPropertyAction(prop string) *ActionProperty {
+	a := ActionProperty{prop: prop}
+	return &a
+}
+
+func (a *ActionProperty) Name() string {
+	return "property"
+}
+
+func (a *ActionProperty) Args() []Arg {
+	return []Arg{{Name: "name", Type: StringArg}}
+}
+
+func (a *ActionProperty) Do(h *Holochain) (response interface{}, err error) {
+	response, err = h.GetProperty(a.prop)
+	return
+}
+
+func (a *ActionProperty) SysValidation(h *Holochain, d *EntryDef, sources []peer.ID) (err error) {
+	return
+}
+
+func (a *ActionProperty) DHTReqHandler(dht *DHT, msg *Message) (response interface{}, err error) {
+	err = NonDHTAction
+	return
+}
+
+//------------------------------------------------------------
+// Debug
+
+type ActionDebug struct {
+	msg string
+}
+
+func NewDebugAction(msg string) *ActionDebug {
+	a := ActionDebug{msg: msg}
+	return &a
+}
+
+func (a *ActionDebug) Name() string {
+	return "debug"
+}
+
+func (a *ActionDebug) Args() []Arg {
+	return []Arg{{Name: "value", Type: ToStrArg}}
+}
+
+func (a *ActionDebug) Do(h *Holochain) (response interface{}, err error) {
+	h.config.Loggers.App.p(a.msg)
+	return
+}
+
+func (a *ActionDebug) SysValidation(h *Holochain, d *EntryDef, sources []peer.ID) (err error) {
+	return
+}
+
+func (a *ActionDebug) DHTReqHandler(dht *DHT, msg *Message) (response interface{}, err error) {
+	err = NonDHTAction
 	return
 }
 

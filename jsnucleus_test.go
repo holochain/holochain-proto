@@ -391,7 +391,7 @@ func TestJSProcessArgs(t *testing.T) {
 	Convey("it should treat StringArg as string", t, func() {
 		args := []Arg{{Name: "foo", Type: StringArg}}
 		err := jsProcessArgs(z, args, []otto.Value{nilValue})
-		So(err.Error(), ShouldEqual, "argument 1 of foo should be string")
+		So(err.Error(), ShouldEqual, "argument 1 (foo) should be string")
 		val, _ := z.vm.ToValue("bar")
 		err = jsProcessArgs(z, args, []otto.Value{val})
 		So(err, ShouldBeNil)
@@ -400,7 +400,7 @@ func TestJSProcessArgs(t *testing.T) {
 	Convey("it should convert IntArg to int64", t, func() {
 		args := []Arg{{Name: "foo", Type: IntArg}}
 		err := jsProcessArgs(z, args, []otto.Value{nilValue})
-		So(err.Error(), ShouldEqual, "argument 1 of foo should be int")
+		So(err.Error(), ShouldEqual, "argument 1 (foo) should be int")
 		val, _ := z.vm.ToValue(314)
 		err = jsProcessArgs(z, args, []otto.Value{val})
 		So(err, ShouldBeNil)
@@ -409,7 +409,7 @@ func TestJSProcessArgs(t *testing.T) {
 	Convey("it should convert BoolArg to bool", t, func() {
 		args := []Arg{{Name: "foo", Type: BoolArg}}
 		err := jsProcessArgs(z, args, []otto.Value{nilValue})
-		So(err.Error(), ShouldEqual, "argument 1 of foo should be boolean")
+		So(err.Error(), ShouldEqual, "argument 1 (foo) should be boolean")
 		val, _ := z.vm.ToValue(true)
 		err = jsProcessArgs(z, args, []otto.Value{val})
 		So(err, ShouldBeNil)
@@ -419,7 +419,7 @@ func TestJSProcessArgs(t *testing.T) {
 	Convey("it should convert EntryArg from string or object", t, func() {
 		args := []Arg{{Name: "foo", Type: EntryArg}}
 		err := jsProcessArgs(z, args, []otto.Value{nilValue})
-		So(err.Error(), ShouldEqual, "argument 1 of foo should be string or object")
+		So(err.Error(), ShouldEqual, "argument 1 (foo) should be string or object")
 		val, _ := z.vm.ToValue("bar")
 		err = jsProcessArgs(z, args, []otto.Value{val})
 		So(err, ShouldBeNil)
@@ -430,6 +430,45 @@ func TestJSProcessArgs(t *testing.T) {
 		err = jsProcessArgs(z, args, []otto.Value{val})
 		So(err, ShouldBeNil)
 		So(args[0].value.(string), ShouldEqual, `{"E":"bar","H":"foo"}`)
+	})
+	Convey("it should convert MapArg a map", t, func() {
+		args := []Arg{{Name: "foo", Type: MapArg}}
+		err := jsProcessArgs(z, args, []otto.Value{nilValue})
+		So(err.Error(), ShouldEqual, "argument 1 (foo) should be object")
+
+		// create a js object
+		m := make(map[string]interface{})
+		m["H"] = "fakehashvalue"
+		m["I"] = 314
+		val, _ := z.vm.ToValue(m)
+		err = jsProcessArgs(z, args, []otto.Value{val})
+		So(err, ShouldBeNil)
+		x := args[0].value.(map[string]interface{})
+		So(x["H"].(string), ShouldEqual, "fakehashvalue")
+		So(x["I"].(int), ShouldEqual, 314)
+	})
+
+	Convey("it should convert ToStrArg any type to a string", t, func() {
+		args := []Arg{{Name: "any", Type: ToStrArg}}
+		val, _ := z.vm.ToValue("bar")
+		err := jsProcessArgs(z, args, []otto.Value{val})
+		So(err, ShouldBeNil)
+		So(args[0].value.(string), ShouldEqual, "bar")
+		val, _ = z.vm.ToValue(123)
+		err = jsProcessArgs(z, args, []otto.Value{val})
+		So(err, ShouldBeNil)
+		So(args[0].value.(string), ShouldEqual, "123")
+		val, _ = z.vm.ToValue(true)
+		err = jsProcessArgs(z, args, []otto.Value{val})
+		So(err, ShouldBeNil)
+		So(args[0].value.(string), ShouldEqual, "true")
+		m := make(map[string]interface{})
+		m["H"] = "fakehashvalue"
+		m["I"] = 314
+		val, _ = z.vm.ToValue(m)
+		err = jsProcessArgs(z, args, []otto.Value{val})
+		So(err, ShouldBeNil)
+		So(args[0].value.(string), ShouldEqual, `{"H":"fakehashvalue","I":314}`)
 
 	})
 }

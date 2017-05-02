@@ -207,11 +207,11 @@ func (a *ActionDebug) DHTReqHandler(dht *DHT, msg *Message) (response interface{
 // Get
 
 type ActionGet struct {
-	hash Hash
+	req GetReq
 }
 
-func NewGetAction(hash Hash) *ActionGet {
-	a := ActionGet{hash: hash}
+func NewGetAction(req GetReq) *ActionGet {
+	a := ActionGet{req: req}
 	return &a
 }
 
@@ -220,11 +220,11 @@ func (a *ActionGet) Name() string {
 }
 
 func (a *ActionGet) Args() []Arg {
-	return []Arg{{Name: "hash", Type: HashArg}}
+	return []Arg{{Name: "hash", Type: HashArg}, {Name: "statusMask", Type: IntArg, Optional: true}}
 }
 
 func (a *ActionGet) Do(h *Holochain) (response interface{}, err error) {
-	rsp, err := h.dht.Send(a.hash, GET_REQUEST, GetReq{H: a.hash})
+	rsp, err := h.dht.Send(a.req.H, GET_REQUEST, a.req)
 	if err != nil {
 		return
 	}
@@ -246,19 +246,16 @@ func (a *ActionGet) SysValidation(h *Holochain, d *EntryDef, sources []peer.ID) 
 
 func (a *ActionGet) DHTReqHandler(dht *DHT, msg *Message) (response interface{}, err error) {
 	var b []byte
-	var status int
-	b, _, status, err = dht.get(msg.Body.(GetReq).H)
+	//var status int
+	req := msg.Body.(GetReq)
+	b, _, _, err = dht.get(req.H, req.StatusMask)
 	if err == nil {
-		// TODO, maybe this should happen in the dht.get() call rather than here.
-		if status == DELETED {
-			err = ErrHashNotFound
-		} else {
-			var e GobEntry
-			err = e.Unmarshal(b)
-			if err == nil {
-				response = &e
-			}
+		var e GobEntry
+		err = e.Unmarshal(b)
+		if err == nil {
+			response = &e
 		}
+
 	}
 	return
 }
@@ -520,7 +517,7 @@ func (a *ActionLink) SysValidation(h *Holochain, d *EntryDef, sources []peer.ID)
 
 func (a *ActionLink) DHTReqHandler(dht *DHT, msg *Message) (response interface{}, err error) {
 	base := msg.Body.(LinkReq).Base
-	err = dht.exists(base)
+	err = dht.exists(base, StatusLive)
 	if err == nil {
 		//h.dht.puts <- *m  TODO add back in queueing
 		err = dht.handleChangeReq(msg)
@@ -567,7 +564,8 @@ func (a *ActionGetLink) Do(h *Holochain) (response interface{}, err error) {
 					if err != nil {
 						return
 					}
-					entry, err := NewGetAction(hash).Do(h)
+					req := GetReq{H: hash, StatusMask: StatusLive}
+					entry, err := NewGetAction(req).Do(h)
 					if err == nil {
 						t.Links[i].E = entry.(Entry).Content().(string)
 					}
@@ -589,7 +587,7 @@ func (a *ActionGetLink) SysValidation(h *Holochain, d *EntryDef, sources []peer.
 func (a *ActionGetLink) DHTReqHandler(dht *DHT, msg *Message) (response interface{}, err error) {
 	lq := msg.Body.(LinkQuery)
 	var r LinkQueryResp
-	r.Links, err = dht.getLink(lq.Base, lq.T)
+	r.Links, err = dht.getLink(lq.Base, lq.T, StatusLive)
 	response = &r
 
 	return

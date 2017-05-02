@@ -31,18 +31,18 @@ func TestSetupDHT(t *testing.T) {
 	Convey("it should add the holochain ID to the DHT", t, func() {
 		So(err, ShouldBeNil)
 		ID := h.DNAHash()
-		So(h.dht.exists(ID), ShouldBeNil)
-		_, et, status, err := h.dht.get(h.dnaHash)
+		So(h.dht.exists(ID, StatusLive), ShouldBeNil)
+		_, et, status, err := h.dht.get(h.dnaHash, StatusLive)
 		So(err, ShouldBeNil)
-		So(status, ShouldEqual, LIVE)
+		So(status, ShouldEqual, StatusLive)
 		So(et, ShouldEqual, DNAEntryType)
 
 	})
 
 	Convey("it should push the agent entry to the DHT at genesis time", t, func() {
-		data, et, status, err := h.dht.get(h.agentHash)
+		data, et, status, err := h.dht.get(h.agentHash, StatusLive)
 		So(err, ShouldBeNil)
-		So(status, ShouldEqual, LIVE)
+		So(status, ShouldEqual, StatusLive)
 		So(et, ShouldEqual, AgentEntryType)
 
 		var e Entry
@@ -56,39 +56,38 @@ func TestSetupDHT(t *testing.T) {
 
 	Convey("it should push the key to the DHT at genesis time", t, func() {
 		keyHash, _ := NewHash(peer.IDB58Encode(h.id))
-		data, et, status, err := h.dht.get(keyHash)
+		data, et, status, err := h.dht.get(keyHash, StatusLive)
 		So(err, ShouldBeNil)
-		So(status, ShouldEqual, LIVE)
+		So(status, ShouldEqual, StatusLive)
 		So(et, ShouldEqual, KeyEntryType)
 		So(string(data), ShouldEqual, string([]byte(h.id)))
 
 	})
 }
 
-func TestPutGet(t *testing.T) {
+func TestPutGetDel(t *testing.T) {
 	d, _, h := prepareTestChain("test")
 	defer cleanupTestDir(d)
 
 	dht := h.dht
 	var id = h.id
+	hash, _ := NewHash("QmY8Mzg9F69e5P9AoQPYat655HEhc1TVGs11tmfNSzkqh2")
 	Convey("It should store and retrieve", t, func() {
-		hash, _ := NewHash("QmY8Mzg9F69e5P9AoQPYat655HEhc1TVGs11tmfNSzkqh2")
-		err := dht.put(nil, "someType", hash, id, []byte("some value"), LIVE)
+		err := dht.put(nil, "someType", hash, id, []byte("some value"), StatusLive)
 		So(err, ShouldBeNil)
 
-		data, entryType, status, err := dht.get(hash)
+		data, entryType, status, err := dht.get(hash, StatusLive)
 		So(err, ShouldBeNil)
 		So(string(data), ShouldEqual, "some value")
 		So(entryType, ShouldEqual, "someType")
-		So(status, ShouldEqual, LIVE)
+		So(status, ShouldEqual, StatusLive)
 
 		hash, _ = NewHash("QmY8Mzg9F69e5P9AoQPYat655HEhc1TVGs11tmfNSzkqh3")
-		data, entryType, _, err = dht.get(hash)
+		data, entryType, _, err = dht.get(hash, StatusLive)
 		So(data, ShouldBeNil)
 		So(entryType, ShouldEqual, "")
 		So(err, ShouldEqual, ErrHashNotFound)
 	})
-
 }
 
 func TestLinking(t *testing.T) {
@@ -111,19 +110,19 @@ func TestLinking(t *testing.T) {
 		err := dht.putLink(nil, baseStr, linkHash1Str, "tag foo")
 		So(err, ShouldEqual, ErrHashNotFound)
 
-		v, err := dht.getLink(base, "tag foo")
+		v, err := dht.getLink(base, "tag foo", StatusLive)
 		So(v, ShouldBeNil)
 		So(err, ShouldEqual, ErrHashNotFound)
 	})
 
 	var id peer.ID
-	err = dht.put(nil, "someType", base, id, []byte("some value"), LIVE)
+	err = dht.put(nil, "someType", base, id, []byte("some value"), StatusLive)
 	if err != nil {
 		panic(err)
 	}
 
 	Convey("It should store and retrieve links values on a base", t, func() {
-		data, err := dht.getLink(base, "tag foo")
+		data, err := dht.getLink(base, "tag foo", StatusLive)
 		So(err, ShouldNotBeNil)
 		So(err.Error(), ShouldEqual, "No values for tag foo")
 
@@ -136,7 +135,7 @@ func TestLinking(t *testing.T) {
 		err = dht.putLink(nil, baseStr, linkHash1Str, "tag bar")
 		So(err, ShouldBeNil)
 
-		data, err = dht.getLink(base, "tag foo")
+		data, err = dht.getLink(base, "tag foo", StatusLive)
 		So(err, ShouldBeNil)
 		So(len(data), ShouldEqual, 2)
 		m := data[0]
@@ -145,7 +144,7 @@ func TestLinking(t *testing.T) {
 		m = data[1]
 		So(m.H, ShouldEqual, linkHash2Str)
 
-		data, err = dht.getLink(base, "tag bar")
+		data, err = dht.getLink(base, "tag bar", StatusLive)
 		So(err, ShouldBeNil)
 		So(len(data), ShouldEqual, 1)
 		So(data[0].H, ShouldEqual, linkHash1Str)
@@ -165,18 +164,18 @@ func TestLinking(t *testing.T) {
 	Convey("It should delete links", t, func() {
 		err := dht.delLink(nil, baseStr, linkHash1Str, "tag bar")
 		So(err, ShouldBeNil)
-		data, err := dht.getLink(base, "tag bar")
+		data, err := dht.getLink(base, "tag bar", StatusLive)
 		So(err.Error(), ShouldEqual, "No values for tag bar")
 
 		err = dht.delLink(nil, baseStr, linkHash1Str, "tag foo")
 		So(err, ShouldBeNil)
-		data, err = dht.getLink(base, "tag foo")
+		data, err = dht.getLink(base, "tag foo", StatusLive)
 		So(err, ShouldBeNil)
 		So(len(data), ShouldEqual, 1)
 
 		err = dht.delLink(nil, baseStr, linkHash2Str, "tag foo")
 		So(err, ShouldBeNil)
-		data, err = dht.getLink(base, "tag foo")
+		data, err = dht.getLink(base, "tag foo", StatusLive)
 		So(err.Error(), ShouldEqual, "No values for tag foo")
 	})
 }
@@ -189,7 +188,7 @@ func TestDel(t *testing.T) {
 	var id = h.id
 
 	hash, _ := NewHash("QmY8Mzg9F69e5P9AoQPYat655HEhc1TVGs11tmfNSzkqh2")
-	dht.put(nil, "someType", hash, id, []byte("some value"), LIVE)
+	dht.put(nil, "someType", hash, id, []byte("some value"), StatusLive)
 
 	idx, _ := dht.GetIdx()
 	Convey("It should move the hash to the deleted status", t, func() {
@@ -198,16 +197,20 @@ func TestDel(t *testing.T) {
 		err := dht.del(m, hash)
 		So(err, ShouldBeNil)
 
-		data, entryType, status, err := dht.get(hash)
+		data, entryType, status, err := dht.get(hash, StatusAny)
 		So(err, ShouldBeNil)
 		So(string(data), ShouldEqual, "some value")
 		So(entryType, ShouldEqual, "someType")
-		So(status, ShouldEqual, DELETED)
+		So(status, ShouldEqual, StatusDeleted)
 
 		afterIdx, _ := dht.GetIdx()
 
 		So(afterIdx-idx, ShouldEqual, 1)
+
+		data, entryType, status, err = dht.get(hash, StatusLive)
+		So(err, ShouldEqual, ErrHashNotFound)
 	})
+
 }
 
 func TestFindNodeForHash(t *testing.T) {
@@ -241,7 +244,7 @@ func TestSend(t *testing.T) {
 	hash, _ := NewHash("QmY8Mzg9F69e5P9AoQPYat655HEhc1TVGs11tmfNSzkqh2")
 
 	Convey("send GET_REQUEST message for non existent hash should get error", t, func() {
-		r, err := h.dht.send(node.HashAddr, GET_REQUEST, GetReq{H: hash})
+		r, err := h.dht.send(node.HashAddr, GET_REQUEST, GetReq{H: hash, StatusMask: StatusLive})
 		So(r, ShouldBeNil)
 		So(err, ShouldEqual, ErrHashNotFound)
 	})
@@ -266,7 +269,7 @@ func TestSend(t *testing.T) {
 	})
 
 	Convey("send GET_REQUEST message should return content", t, func() {
-		r, err := h.dht.send(node.HashAddr, GET_REQUEST, GetReq{H: hash})
+		r, err := h.dht.send(node.HashAddr, GET_REQUEST, GetReq{H: hash, StatusMask: StatusLive})
 		So(err, ShouldBeNil)
 		So(fmt.Sprintf("%v", r), ShouldEqual, fmt.Sprintf("%v", &e))
 	})
@@ -313,7 +316,7 @@ func TestDHTReceiver(t *testing.T) {
 		panic(err)
 	}
 	Convey("GET_REQUEST should return the value of the has", t, func() {
-		m := h.node.NewMessage(GET_REQUEST, GetReq{H: hash})
+		m := h.node.NewMessage(GET_REQUEST, GetReq{H: hash, StatusMask: StatusLive})
 		r, err := DHTReceiver(h, m)
 		So(err, ShouldBeNil)
 		So(fmt.Sprintf("%v", r), ShouldEqual, fmt.Sprintf("%v", &e))
@@ -339,7 +342,7 @@ func TestDHTReceiver(t *testing.T) {
 		So(err, ShouldBeNil)
 
 		// check that it got put
-		meta, err := h.dht.getLink(hash, "4stars")
+		meta, err := h.dht.getLink(hash, "4stars", StatusLive)
 		So(err, ShouldBeNil)
 		So(meta[0].H, ShouldEqual, hd.EntryLink.String())
 	})
@@ -372,12 +375,12 @@ func TestDHTReceiver(t *testing.T) {
 		err = h.dht.simHandleChangeReqs()
 		So(err, ShouldBeNil)
 
-		data, entryType, status, _ := h.dht.get(hash)
+		data, entryType, status, _ := h.dht.get(hash, StatusAny)
 		var e GobEntry
 		e.Unmarshal(data)
 		So(e.C, ShouldEqual, "124")
 		So(entryType, ShouldEqual, "evenNumbers")
-		So(status, ShouldEqual, DELETED)
+		So(status, ShouldEqual, StatusDeleted)
 	})
 
 }

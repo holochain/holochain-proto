@@ -41,12 +41,22 @@ const (
 	PutUndelete
 )
 
-// constants for the state of the  data
+// constants for the state of the data, they are bit flags
 const (
-	LIVE = iota
-	REJECTED
-	DELETED
-	UPDATED
+	StatusLive     = 0x01
+	StatusRejected = 0x02
+	StatusDeleted  = 0x04
+	StatusModified = 0x08
+	StatusAny      = 0xFF
+)
+
+// constants for the stored string status values in buntdb
+const (
+	StatusLiveVal     = "1"
+	StatusRejectedVal = "2"
+	StatusDeletedVal  = "4"
+	StatusModifiedVal = "8"
+	StatusAnyVal      = "255"
 )
 
 // PutReq holds the data of a put request
@@ -58,7 +68,8 @@ type PutReq struct {
 
 // GetReq holds the data of a get request
 type GetReq struct {
-	H Hash
+	H          Hash
+	StatusMask int
 }
 
 // DelReq holds the data of a del request
@@ -131,7 +142,7 @@ func NewDHT(h *Holochain) *DHT {
 func (dht *DHT) SetupDHT() (err error) {
 	x := ""
 	// put the holochain id so it always exists for linking
-	err = dht.put(nil, DNAEntryType, dht.h.DNAHash(), dht.h.id, []byte(x), LIVE)
+	err = dht.put(nil, DNAEntryType, dht.h.DNAHash(), dht.h.id, []byte(x), StatusLive)
 	if err != nil {
 		return
 	}
@@ -153,7 +164,7 @@ func (dht *DHT) SetupDHT() (err error) {
 	if err != nil {
 		return
 	}
-	if err = dht.put(nil, AgentEntryType, a, dht.h.id, b, LIVE); err != nil {
+	if err = dht.put(nil, AgentEntryType, a, dht.h.id, b, StatusLive); err != nil {
 		return
 	}
 
@@ -162,7 +173,7 @@ func (dht *DHT) SetupDHT() (err error) {
 	if err != nil {
 		return
 	}
-	if err = dht.put(nil, KeyEntryType, kh, dht.h.id, []byte(dht.h.id), LIVE); err != nil {
+	if err = dht.put(nil, KeyEntryType, kh, dht.h.id, []byte(dht.h.id), StatusLive); err != nil {
 		return
 	}
 
@@ -200,7 +211,7 @@ func (dht *DHT) put(m *Message, entryType string, key Hash, src peer.ID, value [
 	return
 }
 
-// del moves the given hash to the DELETED status
+// del moves the given hash to the StatusDeleted status
 // N.B. this functions assumes that the validity of this action has been confirmed
 func (dht *DHT) del(m *Message, key Hash) (err error) {
 	k := key.String()
@@ -220,7 +231,7 @@ func (dht *DHT) del(m *Message, key Hash) (err error) {
 			return err
 		}
 
-		_, _, err = tx.Set("status:"+k, fmt.Sprintf("%d", DELETED), nil)
+		_, _, err = tx.Set("status:"+k, fmt.Sprintf("%d", StatusDeleted), nil)
 		if err != nil {
 			return err
 		}
@@ -230,18 +241,30 @@ func (dht *DHT) del(m *Message, key Hash) (err error) {
 	return
 }
 
-func _get(tx *buntdb.Tx, k string) (string, error) {
+func _get(tx *buntdb.Tx, k string, statusMask int) (string, error) {
 	val, err := tx.Get("entry:" + k)
 	if err == buntdb.ErrNotFound {
 		err = ErrHashNotFound
+		return val, err
+	}
+	var statusVal string
+	statusVal, err = tx.Get("status:" + k)
+	if err == nil {
+		var status int
+		status, err = strconv.Atoi(statusVal)
+		if err == nil {
+			if (status & statusMask) == 0 {
+				err = ErrHashNotFound
+			}
+		}
 	}
 	return val, err
 }
 
 // exists checks for the existence of the hash in the store
-func (dht *DHT) exists(key Hash) (err error) {
+func (dht *DHT) exists(key Hash, statusMask int) (err error) {
 	err = dht.db.View(func(tx *buntdb.Tx) error {
-		_, err := _get(tx, key.String())
+		_, err := _get(tx, key.String(), statusMask)
 		return err
 	})
 	return
@@ -263,10 +286,10 @@ func (dht *DHT) source(key Hash) (id peer.ID, err error) {
 }
 
 // get retrieves a value from the DHT store
-func (dht *DHT) get(key Hash) (data []byte, entryType string, status int, err error) {
+func (dht *DHT) get(key Hash, statusMask int) (data []byte, entryType string, status int, err error) {
 	err = dht.db.View(func(tx *buntdb.Tx) error {
 		k := key.String()
-		val, err := _get(tx, k)
+		val, err := _get(tx, k, statusMask)
 		if err != nil {
 			return err
 		}
@@ -290,7 +313,7 @@ func (dht *DHT) get(key Hash) (data []byte, entryType string, status int, err er
 func (dht *DHT) putLink(m *Message, base string, link string, tag string) (err error) {
 	dht.dlog.Logf("putLink on %v link %v as %s", base, link, tag)
 	err = dht.db.Update(func(tx *buntdb.Tx) error {
-		_, err := _get(tx, base)
+		_, err := _get(tx, base, StatusLive)
 		if err != nil {
 			return err
 		}
@@ -305,7 +328,7 @@ func (dht *DHT) putLink(m *Message, base string, link string, tag string) (err e
 				return err
 			}
 
-			_, _, err = tx.Set(key, "LIVE", nil)
+			_, _, err = tx.Set(key, StatusLiveVal, nil)
 			if err != nil {
 				return err
 			}
@@ -323,7 +346,7 @@ func (dht *DHT) putLink(m *Message, base string, link string, tag string) (err e
 func (dht *DHT) delLink(m *Message, base string, link string, tag string) (err error) {
 	dht.dlog.Logf("delLink on %v link %v as %s", base, link, tag)
 	err = dht.db.Update(func(tx *buntdb.Tx) error {
-		_, err := _get(tx, base)
+		_, err := _get(tx, base, StatusLive)
 		if err != nil {
 			return err
 		}
@@ -337,19 +360,19 @@ func (dht *DHT) delLink(m *Message, base string, link string, tag string) (err e
 			return err
 		}
 
-		if val == "LIVE" {
+		if val == StatusLiveVal {
 			//var index string
 			_, err = incIdx(tx, m)
 			if err != nil {
 				return err
 			}
-			_, _, err = tx.Set(key, "DELETED", nil)
+			_, _, err = tx.Set(key, StatusDeletedVal, nil)
 			if err != nil {
 				return err
 			}
 
 		} else {
-			// TODO what do we do about deleting deleted things!?
+			// TODO what do we do about deleting deleted links!?
 			// ignore for now.
 		}
 
@@ -368,11 +391,11 @@ func filter(ss []Meta, test func(*Meta) bool) (ret []Meta) {
 }
 
 // getLink retrieves meta value associated with a base
-func (dht *DHT) getLink(base Hash, tag string) (results []TaggedHash, err error) {
+func (dht *DHT) getLink(base Hash, tag string, statusMask int) (results []TaggedHash, err error) {
 	dht.dlog.Logf("getLink on %v of %s", base, tag)
 	b := base.String()
 	err = dht.db.View(func(tx *buntdb.Tx) error {
-		_, err := _get(tx, b)
+		_, err := _get(tx, b, StatusLive) //only get links on live bases
 		if err != nil {
 			return err
 		}
@@ -381,7 +404,7 @@ func (dht *DHT) getLink(base Hash, tag string) (results []TaggedHash, err error)
 		err = tx.Ascend("link", func(key, value string) bool {
 			x := strings.Split(key, ":")
 
-			if string(x[1]) == b && string(x[3]) == tag && value == "LIVE" {
+			if string(x[1]) == b && string(x[3]) == tag && value == StatusLiveVal {
 				results = append(results, TaggedHash{H: string(x[2])})
 			}
 			return true
@@ -464,9 +487,9 @@ func (dht *DHT) handleChangeReq(m *Message) (err error) {
 			var status int
 			if err != nil {
 				dht.dlog.Logf("Put %v rejected: %v", t.H, err)
-				status = REJECTED
+				status = StatusRejected
 			} else {
-				status = LIVE
+				status = StatusLive
 			}
 			entry := resp.Entry
 			var b []byte
@@ -481,7 +504,7 @@ func (dht *DHT) handleChangeReq(m *Message) (err error) {
 	case DelReq:
 		//var hashType string
 		var hashStatus int
-		_, _, hashStatus, err = dht.get(t.H)
+		_, _, hashStatus, err = dht.get(t.H, StatusAny)
 		if err != nil {
 			if err == ErrHashNotFound {
 				dht.dlog.Logf("don't yet have %s, trying again later", t.H)
@@ -491,7 +514,7 @@ func (dht *DHT) handleChangeReq(m *Message) (err error) {
 			return
 		}
 
-		if hashStatus == LIVE {
+		if hashStatus == StatusLive {
 			var r interface{}
 			r, err = dht.h.Send(ValidateProtocol, from, VALIDATE_DEL_REQUEST, ValidateQuery{H: t.H})
 			if err != nil {
@@ -515,16 +538,16 @@ func (dht *DHT) handleChangeReq(m *Message) (err error) {
 			}
 
 		} else {
-			dht.dlog.Logf("%s isn't LIVE, can't DEL", t.H)
-			// @TODO what happens if the hashStatus is not LIVE?
+			dht.dlog.Logf("%s isn't StatusLive, can't DEL", t.H)
+			// @TODO what happens if the hashStatus is not StatusLive?
 		}
 
 	case LinkReq:
 
 		//var baseType string
 		//var baseStatus int
-		_, _, _, err = dht.get(t.Base)
-		// @TODO what happens if the baseStatus is not LIVE?
+		_, _, _, err = dht.get(t.Base, StatusLive)
+		// @TODO what happens if the baseStatus is not StatusLive?
 		if err != nil {
 			if err == ErrHashNotFound {
 				dht.dlog.Logf("don't yet have %s, trying again later", t.Base)

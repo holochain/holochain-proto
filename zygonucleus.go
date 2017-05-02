@@ -280,10 +280,15 @@ func (z *ZygoNucleus) Call(fn *FunctionDef, params interface{}) (result interfac
 
 // These are the zygo implementations of the library functions that must available in
 // all Nucleii implementations.
-var ZygoLibrary = `(def HC_Version "` + VersionStr + `")`
+var ZygoLibrary = `(def HC_Version "` + VersionStr + `")` +
+	`(def HC_StatusLive ` + StatusLiveVal + ")" +
+	`(def HC_StatusRejected ` + StatusRejectedVal + ")" +
+	`(def HC_StatusDeleted ` + StatusDeletedVal + ")" +
+	`(def HC_StatusModified ` + StatusModifiedVal + ")" +
+	`(def HC_StatusAny ` + StatusAnyVal + ")"
 
 // get exposes DHTGet to zygo
-func (z *ZygoNucleus) get(env *zygo.Glisp, h *Holochain, hash Hash) (result *zygo.SexpHash, err error) {
+func (z *ZygoNucleus) get(env *zygo.Glisp, h *Holochain, req GetReq) (result *zygo.SexpHash, err error) {
 	result, err = zygo.MakeHash(nil, "hash", env)
 	if err != nil {
 		return nil, err
@@ -291,7 +296,7 @@ func (z *ZygoNucleus) get(env *zygo.Glisp, h *Holochain, hash Hash) (result *zyg
 
 	var entry interface{}
 
-	entry, err = NewGetAction(hash).Do(h)
+	entry, err = NewGetAction(req).Do(h)
 	if err == nil {
 		t := entry.(*GobEntry)
 		// @TODO figure out encoding by entry type.
@@ -540,9 +545,12 @@ func NewZygoNucleus(h *Holochain, code string) (n Nucleus, err error) {
 			if err != nil {
 				return zygo.SexpNull, err
 			}
-			hash := args[0].value.(Hash)
+			req := GetReq{H: args[0].value.(Hash), StatusMask: StatusLive}
+			if len(zyargs) == 2 {
+				req.StatusMask = int(args[1].value.(int64))
+			}
 
-			result, err := z.get(env, h, hash)
+			result, err := z.get(env, h, req)
 			return result, err
 		})
 

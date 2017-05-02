@@ -199,7 +199,14 @@ func (z *JSNucleus) validateEntry(fnName string, def *EntryDef, entry Entry, hea
 }
 
 const (
-	JSLibrary = `var HC={Version:` + `"` + VersionStr + `"};`
+	JSLibrary = `var HC={Version:` + `"` + VersionStr +
+		`",Status:{Live:` + StatusLiveVal +
+		`,Rejected:` + StatusRejectedVal +
+		`,Deleted:` + StatusDeletedVal +
+		`,Modified:` + StatusModifiedVal +
+		`,Any:` + StatusAnyVal +
+		"}" +
+		`};`
 )
 
 // jsSanatizeString makes sure all quotes are quoted and returns are removed
@@ -422,9 +429,13 @@ func NewJSNucleus(h *Holochain, code string) (n Nucleus, err error) {
 		if err != nil {
 			return mkOttoErr(&z, err.Error())
 		}
-		hash := args[0].value.(Hash)
 
-		entry, err := NewGetAction(hash).Do(h)
+		req := GetReq{H: args[0].value.(Hash), StatusMask: StatusLive}
+		if len(call.ArgumentList) == 2 {
+			req.StatusMask = int(args[1].value.(int64))
+		}
+
+		entry, err := NewGetAction(req).Do(h)
 		if err == nil {
 			t := entry.(*GobEntry)
 			result, err = z.vm.ToValue(t)

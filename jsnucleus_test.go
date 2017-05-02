@@ -19,7 +19,7 @@ func TestNewJSNucleus(t *testing.T) {
 	Convey("new fail to create nucleus when code is bad", t, func() {
 		v, err := NewJSNucleus(nil, "1+ )")
 		So(v, ShouldBeNil)
-		So(err.Error(), ShouldEqual, "JS exec error: (anonymous): Line 1:25 Unexpected token )")
+		So(err.Error(), ShouldEqual, "JS exec error: (anonymous): Line 1:73 Unexpected token )")
 	})
 
 	Convey("it should have an App structure:", t, func() {
@@ -345,7 +345,7 @@ func TestJSDHT(t *testing.T) {
 		So(err, ShouldBeNil)
 		z := v.(*JSNucleus)
 		So(z.lastResult.String(), ShouldEqual, "undefined")
-		links, _ := h.dht.getLink(hash, "4stars")
+		links, _ := h.dht.getLink(hash, "4stars", StatusLive)
 		So(fmt.Sprintf("%v", links), ShouldEqual, "[]")
 	})
 
@@ -359,6 +359,14 @@ func TestJSDHT(t *testing.T) {
 		So(err, ShouldBeNil)
 		z = v.(*JSNucleus)
 		So(z.lastResult.String(), ShouldEqual, "HolochainError: hash not found")
+
+		v, err = NewJSNucleus(h, fmt.Sprintf(`get("%s",HC.Status.Deleted);`, hash.String()))
+		So(err, ShouldBeNil)
+		z = v.(*JSNucleus)
+
+		x, err := z.lastResult.Export()
+		So(err, ShouldBeNil)
+		So(fmt.Sprintf("%v", x.(Entry).Content()), ShouldEqual, `7`)
 
 	})
 }

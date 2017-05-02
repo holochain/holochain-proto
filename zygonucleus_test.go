@@ -348,7 +348,7 @@ func TestZygoDHT(t *testing.T) {
 		r, err := sh.HashGet(z.env, z.env.MakeSymbol("result"))
 		So(fmt.Sprintf("%v", r), ShouldEqual, "&{0}")
 
-		links, _ := h.dht.getLink(hash, "4stars")
+		links, _ := h.dht.getLink(hash, "4stars", StatusLive)
 		So(fmt.Sprintf("%v", links), ShouldEqual, "[]")
 
 	})
@@ -369,6 +369,14 @@ func TestZygoDHT(t *testing.T) {
 		r, err = z.lastResult.(*zygo.SexpHash).HashGet(z.env, z.env.MakeSymbol("error"))
 		So(err, ShouldBeNil)
 		So(r.(*zygo.SexpStr).S, ShouldEqual, "hash not found")
+
+		v, err = NewZygoNucleus(h, fmt.Sprintf(`(get "%s" HC_StatusDeleted)`, hash.String()))
+		So(err, ShouldBeNil)
+		z = v.(*ZygoNucleus)
+
+		r, err = z.lastResult.(*zygo.SexpHash).HashGet(z.env, z.env.MakeSymbol("result"))
+		So(err, ShouldBeNil)
+		So(r.(*zygo.SexpStr).S, ShouldEqual, `"2"`)
 
 	})
 

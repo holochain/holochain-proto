@@ -19,7 +19,7 @@ func TestNewJSNucleus(t *testing.T) {
 	Convey("new fail to create nucleus when code is bad", t, func() {
 		v, err := NewJSNucleus(nil, "1+ )")
 		So(v, ShouldBeNil)
-		So(err.Error(), ShouldEqual, "JS exec error: (anonymous): Line 1:73 Unexpected token )")
+		So(err.Error(), ShouldEqual, "JS exec error: (anonymous): Line 1:81 Unexpected token )")
 	})
 
 	Convey("it should have an App structure:", t, func() {

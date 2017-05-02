@@ -372,10 +372,21 @@ func TestZygoDHT(t *testing.T) {
 		sh := z.lastResult.(*zygo.SexpHash)
 		r, err := sh.HashGet(z.env, z.env.MakeSymbol("result"))
 		So(fmt.Sprintf("%v", r), ShouldEqual, "&{0}")
-
 		links, _ := h.dht.getLink(hash, "4stars", StatusLive)
 		So(fmt.Sprintf("%v", links), ShouldEqual, "[]")
+		links, _ = h.dht.getLink(hash, "4stars", StatusDeleted)
+		So(fmt.Sprintf("%v", links), ShouldEqual, "[{QmYeinX5vhuA91D3v24YbgyLofw9QAxY6PoATrBHnRwbtt }]")
+	})
 
+	Convey("getLink function with StatusMask option should return deleted Links", t, func() {
+		v, err := NewZygoNucleus(h, fmt.Sprintf(`(getLink "%s" "4stars" (hash StatusMask:HC_StatusDeleted))`, hash.String()))
+		So(err, ShouldBeNil)
+		z := v.(*ZygoNucleus)
+
+		sh := z.lastResult.(*zygo.SexpHash)
+		r, err := sh.HashGet(z.env, z.env.MakeSymbol("result"))
+		So(err, ShouldBeNil)
+		So(r.(*zygo.SexpStr).S, ShouldEqual, `[{"H":"QmYeinX5vhuA91D3v24YbgyLofw9QAxY6PoATrBHnRwbtt","E":""}]`)
 	})
 
 	Convey("del function should mark item deleted", t, func() {

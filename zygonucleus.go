@@ -351,7 +351,7 @@ func (z *ZygoNucleus) getLink(env *zygo.Glisp, h *Holochain, base Hash, tag stri
 	}
 
 	var r interface{}
-	r, err = NewGetLinkAction(&LinkQuery{Base: base, T: tag}, &options).Do(h)
+	r, err = NewGetLinkAction(&LinkQuery{Base: base, T: tag, StatusMask: options.StatusMask}, &options).Do(h)
 	response := r.(*LinkQueryResp)
 
 	if err == nil {
@@ -583,16 +583,23 @@ func NewZygoNucleus(h *Holochain, code string) (n Nucleus, err error) {
 			if len(zyargs) == 3 {
 				opts := args[2].value.(map[string]interface{})
 				load, ok := opts["Load"]
-				if !ok {
-					return zygo.SexpNull,
-						errors.New("expected Load attribute missing")
+				if ok {
+					loadval, ok := load.(bool)
+					if !ok {
+						return zygo.SexpNull,
+							fmt.Errorf("expecting boolean Load attribute in object, got %T", load)
+					}
+					options.Load = loadval
 				}
-				loadval, ok := load.(bool)
-				if !ok {
-					return zygo.SexpNull,
-						fmt.Errorf("expecting boolean Load attribute in object, got %T", load)
+				mask, ok := opts["StatusMask"]
+				if ok {
+					maskval, ok := mask.(float64)
+					if !ok {
+						return zygo.SexpNull,
+							fmt.Errorf("expecting int StatusMask attribute in object, got %T", mask)
+					}
+					options.StatusMask = int(maskval)
 				}
-				options.Load = loadval
 			}
 			result, err := z.getLink(env, h, base, tag, options)
 			return result, err

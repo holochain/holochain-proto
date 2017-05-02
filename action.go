@@ -553,6 +553,7 @@ func (a *ActionGetLink) Args() []Arg {
 func (a *ActionGetLink) Do(h *Holochain) (response interface{}, err error) {
 	var r interface{}
 	r, err = h.dht.Send(a.linkQuery.Base, GETLINK_REQUEST, *a.linkQuery)
+
 	if err == nil {
 		switch t := r.(type) {
 		case *LinkQueryResp:
@@ -587,7 +588,7 @@ func (a *ActionGetLink) SysValidation(h *Holochain, d *EntryDef, sources []peer.
 func (a *ActionGetLink) DHTReqHandler(dht *DHT, msg *Message) (response interface{}, err error) {
 	lq := msg.Body.(LinkQuery)
 	var r LinkQueryResp
-	r.Links, err = dht.getLink(lq.Base, lq.T, StatusLive)
+	r.Links, err = dht.getLink(lq.Base, lq.T, lq.StatusMask)
 	response = &r
 
 	return

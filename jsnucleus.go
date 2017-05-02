@@ -484,22 +484,30 @@ func NewJSNucleus(h *Holochain, code string) (n Nucleus, err error) {
 		tag := args[1].value.(string)
 
 		l := len(call.ArgumentList)
-		options := GetLinkOptions{Load: false}
+		options := GetLinkOptions{Load: false, StatusMask: StatusLive}
 		if l == 3 {
 			opts := args[2].value.(map[string]interface{})
 			load, ok := opts["Load"]
-			if !ok {
-				return mkOttoErr(&z, "expected Load attribute missing")
+			if ok {
+				loadval, ok := load.(bool)
+				if !ok {
+					return mkOttoErr(&z, fmt.Sprintf("expecting boolean Load attribute in object, got %T", load))
+				}
+				options.Load = loadval
 			}
-			loadval, ok := load.(bool)
-			if !ok {
-				return mkOttoErr(&z, fmt.Sprintf("expecting boolean Load attribute in object, got %T", load))
+			mask, ok := opts["StatusMask"]
+			if ok {
+				maskval, ok := mask.(int64)
+				if !ok {
+					return mkOttoErr(&z, fmt.Sprintf("expecting int StatusMask attribute in object, got %T", mask))
+				}
+				options.StatusMask = int(maskval)
 			}
-			options.Load = loadval
 		}
 		var response interface{}
 
-		response, err = NewGetLinkAction(&LinkQuery{Base: base, T: tag}, &options).Do(h)
+		response, err = NewGetLinkAction(&LinkQuery{Base: base, T: tag, StatusMask: options.StatusMask}, &options).Do(h)
+		Debugf("RESPONSE:%v\n", response)
 
 		if err == nil {
 			result, err = z.vm.ToValue(response)

@@ -124,7 +124,7 @@ func TestLinking(t *testing.T) {
 	Convey("It should store and retrieve links values on a base", t, func() {
 		data, err := dht.getLink(base, "tag foo", StatusLive)
 		So(err, ShouldNotBeNil)
-		So(err.Error(), ShouldEqual, "No values for tag foo")
+		So(err.Error(), ShouldEqual, "No links for tag foo")
 
 		err = dht.putLink(nil, baseStr, linkHash1Str, "tag foo")
 		So(err, ShouldBeNil)
@@ -165,7 +165,7 @@ func TestLinking(t *testing.T) {
 		err := dht.delLink(nil, baseStr, linkHash1Str, "tag bar")
 		So(err, ShouldBeNil)
 		data, err := dht.getLink(base, "tag bar", StatusLive)
-		So(err.Error(), ShouldEqual, "No values for tag bar")
+		So(err.Error(), ShouldEqual, "No links for tag bar")
 
 		err = dht.delLink(nil, baseStr, linkHash1Str, "tag foo")
 		So(err, ShouldBeNil)
@@ -176,7 +176,7 @@ func TestLinking(t *testing.T) {
 		err = dht.delLink(nil, baseStr, linkHash2Str, "tag foo")
 		So(err, ShouldBeNil)
 		data, err = dht.getLink(base, "tag foo", StatusLive)
-		So(err.Error(), ShouldEqual, "No values for tag foo")
+		So(err.Error(), ShouldEqual, "No links for tag foo")
 	})
 }
 
@@ -363,6 +363,34 @@ func TestDHTReceiver(t *testing.T) {
 		So(err, ShouldBeNil)
 		gr := r.(Gossip)
 		So(len(gr.Puts), ShouldEqual, 4)
+	})
+
+	Convey("DELETELINK_REQUEST should mark a link as deleted", t, func() {
+		mq := DelLinkReq{Base: hash, Link: profileHash, Tag: "4stars"}
+		m := h.node.NewMessage(DELETELINK_REQUEST, mq)
+		_, err := DHTReceiver(h, m)
+		So(err, ShouldBeNil)
+		//		So(r, ShouldEqual, "queued")
+
+		// fake the handling of change requests
+		err = h.dht.simHandleChangeReqs()
+		So(err, ShouldBeNil)
+
+		_, err = h.dht.getLink(hash, "4stars", StatusLive)
+		So(err.Error(), ShouldEqual, "No links for 4stars")
+
+		results, err := h.dht.getLink(hash, "4stars", StatusDeleted)
+		So(err, ShouldBeNil)
+		So(len(results), ShouldEqual, 1)
+	})
+
+	Convey("GETLINK_REQUEST with mask option should retrieve deleted link values", t, func() {
+		mq := LinkQuery{Base: hash, T: "4stars", StatusMask: StatusDeleted}
+		m := h.node.NewMessage(GETLINK_REQUEST, mq)
+		r, err := DHTReceiver(h, m)
+		So(err, ShouldBeNil)
+		results := r.(*LinkQueryResp)
+		So(results.Links[0].H, ShouldEqual, hd.EntryLink.String())
 	})
 
 	Convey("DELETE_REQUEST should set status of hash to deleted", t, func() {

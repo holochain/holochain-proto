@@ -92,15 +92,17 @@ type DelLinkReq struct {
 
 // LinkQuery holds a getLink query
 type LinkQuery struct {
-	Base Hash
-	T    string
+	Base       Hash
+	T          string
+	StatusMask int
 	// order
 	// filter, etc
 }
 
 // GetLinkOptions options to holochain level GetLink functions
 type GetLinkOptions struct {
-	Load bool // indicates whether GetLink should retrieve the entries of all links
+	Load       bool // indicates whether GetLink should retrieve the entries of all links
+	StatusMask int  // mask of which status of links to return
 }
 
 // TaggedHash holds associated entries for the LinkQueryResponse
@@ -250,6 +252,9 @@ func _get(tx *buntdb.Tx, k string, statusMask int) (string, error) {
 	var statusVal string
 	statusVal, err = tx.Get("status:" + k)
 	if err == nil {
+		if statusMask == 0 {
+			statusMask = StatusLive
+		}
 		var status int
 		status, err = strconv.Atoi(statusVal)
 		if err == nil {
@@ -392,7 +397,7 @@ func filter(ss []Meta, test func(*Meta) bool) (ret []Meta) {
 
 // getLink retrieves meta value associated with a base
 func (dht *DHT) getLink(base Hash, tag string, statusMask int) (results []TaggedHash, err error) {
-	dht.dlog.Logf("getLink on %v of %s", base, tag)
+	dht.dlog.Logf("getLink on %v of %s with mask %d", base, tag, statusMask)
 	b := base.String()
 	err = dht.db.View(func(tx *buntdb.Tx) error {
 		_, err := _get(tx, b, StatusLive) //only get links on live bases
@@ -400,17 +405,27 @@ func (dht *DHT) getLink(base Hash, tag string, statusMask int) (results []Tagged
 			return err
 		}
 
+		if statusMask == 0 {
+			statusMask = StatusLive
+		}
+
 		results = make([]TaggedHash, 0)
 		err = tx.Ascend("link", func(key, value string) bool {
 			x := strings.Split(key, ":")
 
-			if string(x[1]) == b && string(x[3]) == tag && value == StatusLiveVal {
-				results = append(results, TaggedHash{H: string(x[2])})
+			if string(x[1]) == b && string(x[3]) == tag {
+				var status int
+				status, err = strconv.Atoi(value)
+				if err == nil && (status&statusMask) > 0 {
+					results = append(results, TaggedHash{H: string(x[2])})
+				}
 			}
+
 			return true
 		})
+
 		if len(results) == 0 {
-			err = fmt.Errorf("No values for %s", tag)
+			err = fmt.Errorf("No links for %s", tag)
 		}
 		return err
 	})

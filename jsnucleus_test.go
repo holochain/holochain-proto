@@ -372,6 +372,20 @@ func TestJSDHT(t *testing.T) {
 		So(z.lastResult.String(), ShouldEqual, "undefined")
 		links, _ := h.dht.getLink(hash, "4stars", StatusLive)
 		So(fmt.Sprintf("%v", links), ShouldEqual, "[]")
+		links, _ = h.dht.getLink(hash, "4stars", StatusDeleted)
+		So(fmt.Sprintf("%v", links), ShouldEqual, "[{QmYeinX5vhuA91D3v24YbgyLofw9QAxY6PoATrBHnRwbtt }]")
+	})
+
+	Convey("getLink function with StatusMask option should return deleted Links", t, func() {
+		v, err := NewJSNucleus(h, fmt.Sprintf(`getLink("%s","4stars",{StatusMask:HC.Status.Deleted});`, hash.String()))
+		So(err, ShouldBeNil)
+		z := v.(*JSNucleus)
+
+		So(z.lastResult.Class(), ShouldEqual, "Object")
+		x, err := z.lastResult.Export()
+		lqr := x.(*LinkQueryResp)
+		So(err, ShouldBeNil)
+		So(fmt.Sprintf("%v", lqr.Links[0].H), ShouldEqual, profileHash.String())
 	})
 
 	Convey("del function should mark item deleted", t, func() {

@@ -53,7 +53,7 @@ func TestNewZygoNucleus(t *testing.T) {
 		So(s, ShouldEqual, peer.IDB58Encode(h.id))
 	})
 
-	Convey("it should have an App structure:", t, func() {
+	Convey("it should have an HC structure:", t, func() {
 		d, _, h := prepareTestChain("test")
 		defer cleanupTestDir(d)
 
@@ -65,6 +65,31 @@ func TestNewZygoNucleus(t *testing.T) {
 		So(err, ShouldBeNil)
 		s := z.lastResult.(*zygo.SexpStr).S
 		So(s, ShouldEqual, VersionStr)
+
+		_, err = z.Run("HC_StatusDeleted")
+		So(err, ShouldBeNil)
+		i := z.lastResult.(*zygo.SexpInt).Val
+		So(i, ShouldEqual, StatusDeleted)
+
+		_, err = z.Run("HC_StatusLive")
+		So(err, ShouldBeNil)
+		i = z.lastResult.(*zygo.SexpInt).Val
+		So(i, ShouldEqual, StatusLive)
+
+		_, err = z.Run("HC_StatusRejected")
+		So(err, ShouldBeNil)
+		i = z.lastResult.(*zygo.SexpInt).Val
+		So(i, ShouldEqual, StatusRejected)
+
+		_, err = z.Run("HC_StatusModified")
+		So(err, ShouldBeNil)
+		i = z.lastResult.(*zygo.SexpInt).Val
+		So(i, ShouldEqual, StatusModified)
+
+		_, err = z.Run("HC_StatusAny")
+		So(err, ShouldBeNil)
+		i = z.lastResult.(*zygo.SexpInt).Val
+		So(i, ShouldEqual, StatusAny)
 	})
 
 	Convey("should have the built in functions:", t, func() {

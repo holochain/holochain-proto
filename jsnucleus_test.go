@@ -69,6 +69,31 @@ func TestNewJSNucleus(t *testing.T) {
 		So(err, ShouldBeNil)
 		s, _ := z.lastResult.ToString()
 		So(s, ShouldEqual, VersionStr)
+
+		_, err = z.Run("HC.Status.Deleted")
+		So(err, ShouldBeNil)
+		i, _ := z.lastResult.ToInteger()
+		So(i, ShouldEqual, StatusDeleted)
+
+		_, err = z.Run("HC.Status.Live")
+		So(err, ShouldBeNil)
+		i, _ = z.lastResult.ToInteger()
+		So(i, ShouldEqual, StatusLive)
+
+		_, err = z.Run("HC.Status.Rejected")
+		So(err, ShouldBeNil)
+		i, _ = z.lastResult.ToInteger()
+		So(i, ShouldEqual, StatusRejected)
+
+		_, err = z.Run("HC.Status.Modified")
+		So(err, ShouldBeNil)
+		i, _ = z.lastResult.ToInteger()
+		So(i, ShouldEqual, StatusModified)
+
+		_, err = z.Run("HC.Status.Any")
+		So(err, ShouldBeNil)
+		i, _ = z.lastResult.ToInteger()
+		So(i, ShouldEqual, StatusAny)
 	})
 
 	Convey("should have the built in functions:", t, func() {

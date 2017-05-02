@@ -19,6 +19,7 @@ const (
 	JSNucleusType = "js"
 )
 
+// JSNucleus holds data needed for the Javascript VM
 type JSNucleus struct {
 	vm         *otto.Otto
 	lastResult *otto.Value
@@ -91,7 +92,8 @@ func prepareJSValidateArgs(action Action, def *EntryDef) (args string, err error
 		if err == nil {
 			args = fmt.Sprintf(`"%s",JSON.parse("%s")`, t.validationBase.String(), jsSanitizeString(string(j)))
 		}
-
+	case *ActionDelLink:
+		args = fmt.Sprintf(`"%s","%s","%s"`, t.link.Base.String(), t.link.Link.String(), t.link.Tag)
 	default:
 		err = fmt.Errorf("can't prepare args for %T: ", t)
 		return

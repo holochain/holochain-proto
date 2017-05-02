@@ -21,6 +21,7 @@ const (
 	ZygoNucleusType = "zygo"
 )
 
+// ZygoNucleus holds data needed for the Zygo VM
 type ZygoNucleus struct {
 	env        *zygo.Glisp
 	lastResult zygo.Sexp
@@ -104,6 +105,8 @@ func prepareZyValidateArgs(action Action, def *EntryDef) (args string, err error
 		if err == nil {
 			args = fmt.Sprintf(`"%s" (unjson (raw "%s"))`, t.validationBase.String(), sanitizeZyString(string(j)))
 		}
+	case *ActionDelLink:
+		args = fmt.Sprintf(`"%s" "%s" "%s"`, t.link.Base.String(), t.link.Link.String(), t.link.Tag)
 	default:
 		err = fmt.Errorf("can't prepare args for %T: ", t)
 		return

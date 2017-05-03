@@ -97,6 +97,8 @@ func prepareZyValidateArgs(action Action, def *EntryDef) (args string, err error
 		args, err = prepareZyEntryArgs(def, t.entry, t.header)
 	case *ActionPut:
 		args, err = prepareZyEntryArgs(def, t.entry, t.header)
+	case *ActionMod:
+		args = fmt.Sprintf(`"%s" "%s"`, t.hash.String(), t.newHash.String())
 	case *ActionDel:
 		args = fmt.Sprintf(`"%s"`, t.hash.String())
 	case *ActionLink:
@@ -310,7 +312,24 @@ func (z *ZygoNucleus) get(env *zygo.Glisp, h *Holochain, req GetReq) (result *zy
 	return result, err
 }
 
-// get exposes DHTGet to zygo
+// get exposes dht.mod to zygo
+func (z *ZygoNucleus) mod(env *zygo.Glisp, h *Holochain, hash Hash, newHash Hash) (result *zygo.SexpHash, err error) {
+	result, err = zygo.MakeHash(nil, "hash", env)
+	if err != nil {
+		return nil, err
+	}
+
+	_, err = NewModAction(hash, newHash).Do(h)
+	if err == nil {
+		err = result.HashSet(env.MakeSymbol("result"), zygo.SexpNull)
+
+	} else {
+		err = result.HashSet(env.MakeSymbol("error"), &zygo.SexpStr{S: err.Error()})
+	}
+	return result, err
+}
+
+// get exposes dht.del to zygo
 func (z *ZygoNucleus) del(env *zygo.Glisp, h *Holochain, hash Hash) (result *zygo.SexpHash, err error) {
 	result, err = zygo.MakeHash(nil, "hash", env)
 	if err != nil {
@@ -545,12 +564,27 @@ func NewZygoNucleus(h *Holochain, code string) (n Nucleus, err error) {
 			if err != nil {
 				return zygo.SexpNull, err
 			}
-			req := GetReq{H: args[0].value.(Hash), StatusMask: StatusLive}
+			req := GetReq{H: args[0].value.(Hash), StatusMask: StatusDefault}
 			if len(zyargs) == 2 {
 				req.StatusMask = int(args[1].value.(int64))
 			}
 
 			result, err := z.get(env, h, req)
+			return result, err
+		})
+
+	z.env.AddFunction("modify",
+		func(env *zygo.Glisp, name string, zyargs []zygo.Sexp) (zygo.Sexp, error) {
+			var a Action = &ActionMod{}
+			args := a.Args()
+			err := zyProcessArgs(args, zyargs)
+			if err != nil {
+				return zygo.SexpNull, err
+			}
+			hash := args[0].value.(Hash)
+			newHash := args[1].value.(Hash)
+
+			result, err := z.mod(env, h, hash, newHash)
 			return result, err
 		})
 

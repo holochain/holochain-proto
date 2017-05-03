@@ -84,6 +84,8 @@ func prepareJSValidateArgs(action Action, def *EntryDef) (args string, err error
 		args, err = prepareJSEntryArgs(def, t.entry, t.header)
 	case *ActionCommit:
 		args, err = prepareJSEntryArgs(def, t.entry, t.header)
+	case *ActionMod:
+		args = fmt.Sprintf(`"%s","%s"`, t.hash.String(), t.newHash.String())
 	case *ActionDel:
 		args = fmt.Sprintf(`"%s"`, t.hash.String())
 	case *ActionLink:
@@ -430,7 +432,7 @@ func NewJSNucleus(h *Holochain, code string) (n Nucleus, err error) {
 			return mkOttoErr(&z, err.Error())
 		}
 
-		req := GetReq{H: args[0].value.(Hash), StatusMask: StatusLive}
+		req := GetReq{H: args[0].value.(Hash), StatusMask: StatusDefault}
 		if len(call.ArgumentList) == 2 {
 			req.StatusMask = int(args[1].value.(int64))
 		}
@@ -446,6 +448,29 @@ func NewJSNucleus(h *Holochain, code string) (n Nucleus, err error) {
 			return mkOttoErr(&z, err.Error())
 		}
 		panic("Shouldn't get here!")
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	err = z.vm.Set("mod", func(call otto.FunctionCall) (result otto.Value) {
+		var a Action = &ActionMod{}
+		args := a.Args()
+		err := jsProcessArgs(&z, args, call.ArgumentList)
+		if err != nil {
+			return mkOttoErr(&z, err.Error())
+		}
+		hash := args[0].value.(Hash)
+		newHash := args[1].value.(Hash)
+
+		resp, err := NewModAction(hash, newHash).Do(h)
+		if err == nil {
+			result, err = z.vm.ToValue(resp)
+			return
+		}
+		result = mkOttoErr(&z, err.Error())
+		return
+
 	})
 	if err != nil {
 		return nil, err

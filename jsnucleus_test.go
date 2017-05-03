@@ -388,6 +388,30 @@ func TestJSDHT(t *testing.T) {
 		So(fmt.Sprintf("%v", lqr.Links[0].H), ShouldEqual, profileHash.String())
 	})
 
+	profile2Str := `{"firstName":"Zippy","lastName":"ThePinhead"}`
+	profileHash2 := commit(h, "profile", profile2Str)
+	if err := h.dht.simHandleChangeReqs(); err != nil {
+		panic(err)
+	}
+	Convey("mod function should mark item modified", t, func() {
+		v, err := NewJSNucleus(h, fmt.Sprintf(`mod("%s","%s")`, profileHash.String(), profileHash2.String()))
+		So(err, ShouldBeNil)
+		z := v.(*JSNucleus)
+		So(z.lastResult.String(), ShouldEqual, "queued")
+
+		// the entry should be marked as Modifed
+		data, _, _, err := h.dht.get(profileHash, StatusDefault)
+		So(err, ShouldEqual, ErrHashModified)
+		So(string(data), ShouldEqual, profileHash2.String())
+
+		// but a regular get, should resolve through
+		v, err = NewJSNucleus(h, fmt.Sprintf(`get("%s");`, profileHash.String()))
+		z = v.(*JSNucleus)
+		x, err := z.lastResult.Export()
+		So(err, ShouldBeNil)
+		So(fmt.Sprintf("%v", x.(Entry).Content()), ShouldEqual, profile2Str)
+	})
+
 	Convey("del function should mark item deleted", t, func() {
 		v, err := NewJSNucleus(h, fmt.Sprintf(`del("%s");`, hash.String()))
 		So(err, ShouldBeNil)
@@ -397,7 +421,7 @@ func TestJSDHT(t *testing.T) {
 		v, err = NewJSNucleus(h, fmt.Sprintf(`get("%s");`, hash.String()))
 		So(err, ShouldBeNil)
 		z = v.(*JSNucleus)
-		So(z.lastResult.String(), ShouldEqual, "HolochainError: hash not found")
+		So(z.lastResult.String(), ShouldEqual, "HolochainError: hash deleted")
 
 		v, err = NewJSNucleus(h, fmt.Sprintf(`get("%s",HC.Status.Deleted);`, hash.String()))
 		So(err, ShouldBeNil)
@@ -406,7 +430,6 @@ func TestJSDHT(t *testing.T) {
 		x, err := z.lastResult.Export()
 		So(err, ShouldBeNil)
 		So(fmt.Sprintf("%v", x.(Entry).Content()), ShouldEqual, `7`)
-
 	})
 }
 

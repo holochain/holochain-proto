@@ -53,6 +53,7 @@ const (
 	VALIDATE_PUT_REQUEST
 	VALIDATE_LINK_REQUEST
 	VALIDATE_DEL_REQUEST
+	VALIDATE_MOD_REQUEST
 )
 
 // Message represents data that can be sent to node in the network
@@ -169,7 +170,9 @@ func (m *Message) Fingerprint() (f Hash, err error) {
 func (node *Node) respondWith(s net.Stream, err error, body interface{}) {
 	var m *Message
 	if err != nil {
-		m = node.NewMessage(ERROR_RESPONSE, err.Error())
+		errResp := NewErrorResponse(err)
+		errResp.Payload = body
+		m = node.NewMessage(ERROR_RESPONSE, errResp)
 	} else {
 		m = node.NewMessage(OK_RESPONSE, body)
 	}
@@ -242,5 +245,58 @@ func (node *Node) Send(proto Protocol, addr peer.ID, m *Message) (response Messa
 func (node *Node) NewMessage(t MsgType, body interface{}) (msg *Message) {
 	m := Message{Type: t, Time: time.Now(), Body: body, From: node.HashAddr}
 	msg = &m
+	return
+}
+
+type ErrorResponse struct {
+	Code    int
+	Message string
+	Payload interface{}
+}
+
+const (
+	ErrUnknownCode = iota
+	ErrHashNotFoundCode
+	ErrHashDeletedCode
+	ErrHashModifiedCode
+	ErrHashRejectedCode
+	ErrLinkNotFoundCode
+)
+
+// NewErrorResponse encodes standard errors for transmitting
+func NewErrorResponse(err error) (errResp ErrorResponse) {
+	switch err {
+	case ErrHashNotFound:
+		errResp.Code = ErrHashNotFoundCode
+	case ErrHashDeleted:
+		errResp.Code = ErrHashDeletedCode
+	case ErrHashModified:
+		errResp.Code = ErrHashModifiedCode
+	case ErrHashRejected:
+		errResp.Code = ErrHashRejectedCode
+	case ErrLinkNotFound:
+		errResp.Code = ErrLinkNotFoundCode
+	default:
+		errResp.Message = err.Error() //Code will be set to ErrUnknown by default cus it's 0
+	}
+	return
+}
+
+// DecodeResponseError creates a go error object from the ErrorResponse data
+func (errResp ErrorResponse) DecodeResponseError() (err error) {
+	switch errResp.Code {
+	case ErrHashNotFoundCode:
+		err = ErrHashNotFound
+	case ErrHashDeletedCode:
+		err = ErrHashDeleted
+	case ErrHashModifiedCode:
+		err = ErrHashModified
+	case ErrHashRejectedCode:
+		err = ErrHashRejected
+	case ErrLinkNotFoundCode:
+		err = ErrLinkNotFound
+	default:
+		err = errors.New(errResp.Message)
+	}
 	return
 }

@@ -3,6 +3,7 @@ package holochain
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	ic "github.com/libp2p/go-libp2p-crypto"
 	net "github.com/libp2p/go-libp2p-net"
@@ -120,7 +121,7 @@ func TestNodeSend(t *testing.T) {
 		So(err, ShouldBeNil)
 		So(r.Type, ShouldEqual, ERROR_RESPONSE)
 		So(r.From, ShouldEqual, node1.HashAddr) // response comes from who we sent to
-		So(r.Body, ShouldEqual, "message must have a source")
+		So(r.Body.(ErrorResponse).Message, ShouldEqual, "message must have a source")
 	})
 
 	Convey("It should fail on incorrect message types", t, func() {
@@ -129,7 +130,7 @@ func TestNodeSend(t *testing.T) {
 		So(err, ShouldBeNil)
 		So(r.Type, ShouldEqual, ERROR_RESPONSE)
 		So(r.From, ShouldEqual, node2.HashAddr) // response comes from who we sent to
-		So(r.Body, ShouldEqual, "message type 2 not in holochain-validate protocol")
+		So(r.Body.(ErrorResponse).Message, ShouldEqual, "message type 2 not in holochain-validate protocol")
 	})
 
 	Convey("It should respond with err on bad request on invalid PUT_REQUESTS", t, func() {
@@ -140,7 +141,7 @@ func TestNodeSend(t *testing.T) {
 		So(err, ShouldBeNil)
 		So(r.Type, ShouldEqual, ERROR_RESPONSE)
 		So(r.From, ShouldEqual, node1.HashAddr) // response comes from who we sent to
-		So(r.Body, ShouldEqual, "response error: hash not found")
+		So(r.Body.(ErrorResponse).Code, ShouldEqual, ErrHashNotFoundCode)
 	})
 
 	Convey("It should respond with OK if valid request", t, func() {
@@ -201,6 +202,25 @@ func TestFingerprintMessage(t *testing.T) {
 		f, err = m.Fingerprint()
 		So(err, ShouldBeNil)
 		So(f.String(), ShouldEqual, "Qmd7v7bxE7xRCj3Amhx8kyj7DbUGJdbKzuiUUahx3ARPec")
+	})
+}
+
+func TestErrorCoding(t *testing.T) {
+	Convey("it should encode and decode errors", t, func() {
+		er := NewErrorResponse(ErrHashNotFound)
+		So(er.DecodeResponseError(), ShouldEqual, ErrHashNotFound)
+		er = NewErrorResponse(ErrHashDeleted)
+		So(er.DecodeResponseError(), ShouldEqual, ErrHashDeleted)
+		er = NewErrorResponse(ErrHashModified)
+		So(er.DecodeResponseError(), ShouldEqual, ErrHashModified)
+		er = NewErrorResponse(ErrHashRejected)
+		So(er.DecodeResponseError(), ShouldEqual, ErrHashRejected)
+		er = NewErrorResponse(ErrLinkNotFound)
+		So(er.DecodeResponseError(), ShouldEqual, ErrLinkNotFound)
+
+		er = NewErrorResponse(errors.New("Some Error"))
+		So(er.Code, ShouldEqual, ErrUnknownCode)
+		So(er.DecodeResponseError().Error(), ShouldEqual, "Some Error")
 	})
 }
 

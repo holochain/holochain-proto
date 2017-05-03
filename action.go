@@ -95,6 +95,9 @@ func (h *Holochain) GetDHTReqAction(msg *Message) (a Action, err error) {
 	case GET_REQUEST:
 		a = &ActionGet{}
 		t = reflect.TypeOf(GetReq{})
+	case MOD_REQUEST:
+		a = &ActionMod{}
+		t = reflect.TypeOf(ModReq{})
 	case DEL_REQUEST:
 		a = &ActionDel{}
 		t = reflect.TypeOf(DelReq{})
@@ -226,6 +229,18 @@ func (a *ActionGet) Args() []Arg {
 func (a *ActionGet) Do(h *Holochain) (response interface{}, err error) {
 	rsp, err := h.dht.Send(a.req.H, GET_REQUEST, a.req)
 	if err != nil {
+		if a.req.StatusMask == StatusDefault && err == ErrHashModified {
+			var hash Hash
+			hash, err = NewHash(rsp.(string))
+			if err != nil {
+				return
+			}
+			req := GetReq{H: hash, StatusMask: StatusDefault}
+			entry, err := NewGetAction(req).Do(h)
+			if err == nil {
+				response = entry
+			}
+		}
 		return
 	}
 	var entry Entry
@@ -255,7 +270,10 @@ func (a *ActionGet) DHTReqHandler(dht *DHT, msg *Message) (response interface{},
 		if err == nil {
 			response = &e
 		}
-
+	} else {
+		if err == ErrHashModified {
+			response = string(b)
+		}
 	}
 	return
 }
@@ -441,6 +459,43 @@ func (a *ActionPut) SysValidation(h *Holochain, d *EntryDef, sources []peer.ID) 
 }
 
 func (a *ActionPut) DHTReqHandler(dht *DHT, msg *Message) (response interface{}, err error) {
+	//dht.puts <- *m  TODO add back in queueing
+	err = dht.handleChangeReq(msg)
+	response = "queued"
+	return
+}
+
+//------------------------------------------------------------
+// Mod
+
+type ActionMod struct {
+	hash    Hash
+	newHash Hash
+}
+
+func NewModAction(hash Hash, newHash Hash) *ActionMod {
+	a := ActionMod{hash: hash, newHash: newHash}
+	return &a
+}
+
+func (a *ActionMod) Name() string {
+	return "mod"
+}
+
+func (a *ActionMod) Args() []Arg {
+	return []Arg{{Name: "hash", Type: HashArg}, {Name: "newHash", Type: HashArg}}
+}
+
+func (a *ActionMod) Do(h *Holochain) (response interface{}, err error) {
+	response, err = h.dht.Send(a.hash, MOD_REQUEST, ModReq{H: a.hash, N: a.newHash})
+	return
+}
+
+func (a *ActionMod) SysValidation(h *Holochain, d *EntryDef, sources []peer.ID) (err error) {
+	return
+}
+
+func (a *ActionMod) DHTReqHandler(dht *DHT, msg *Message) (response interface{}, err error) {
 	//dht.puts <- *m  TODO add back in queueing
 	err = dht.handleChangeReq(msg)
 	response = "queued"

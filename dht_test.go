@@ -65,16 +65,18 @@ func TestSetupDHT(t *testing.T) {
 	})
 }
 
-func TestPutGetDel(t *testing.T) {
+func TestPutGetModDel(t *testing.T) {
 	d, _, h := prepareTestChain("test")
 	defer cleanupTestDir(d)
 
 	dht := h.dht
 	var id = h.id
 	hash, _ := NewHash("QmY8Mzg9F69e5P9AoQPYat655HEhc1TVGs11tmfNSzkqh2")
+	var idx int
 	Convey("It should store and retrieve", t, func() {
 		err := dht.put(nil, "someType", hash, id, []byte("some value"), StatusLive)
 		So(err, ShouldBeNil)
+		idx, _ = dht.GetIdx()
 
 		data, entryType, status, err := dht.get(hash, StatusLive)
 		So(err, ShouldBeNil)
@@ -82,12 +84,68 @@ func TestPutGetDel(t *testing.T) {
 		So(entryType, ShouldEqual, "someType")
 		So(status, ShouldEqual, StatusLive)
 
-		hash, _ = NewHash("QmY8Mzg9F69e5P9AoQPYat655HEhc1TVGs11tmfNSzkqh3")
-		data, entryType, _, err = dht.get(hash, StatusLive)
-		So(data, ShouldBeNil)
+		badhash, _ := NewHash("QmY8Mzg9F69e5P9AoQPYat655HEhc1TVGs11tmfNSzkqh3")
+		data, entryType, _, err = dht.get(badhash, StatusLive)
 		So(entryType, ShouldEqual, "")
 		So(err, ShouldEqual, ErrHashNotFound)
 	})
+
+	Convey("mod should move the hash to the modified status and record replacedBy link", t, func() {
+		m := h.node.NewMessage(MOD_REQUEST, hash)
+
+		newhashStr := "QmY8Mzg9F69e5P9AoQPYat655HEhc1TVGs11tmfNSzkqh4"
+		newhash, _ := NewHash(newhashStr)
+
+		err := dht.mod(m, hash, newhash)
+		So(err, ShouldBeNil)
+		data, entryType, status, err := dht.get(hash, StatusAny)
+		So(err, ShouldBeNil)
+		So(string(data), ShouldEqual, "some value")
+		So(entryType, ShouldEqual, "someType")
+		So(status, ShouldEqual, StatusModified)
+
+		afterIdx, _ := dht.GetIdx()
+
+		So(afterIdx-idx, ShouldEqual, 1)
+
+		data, entryType, status, err = dht.get(hash, StatusLive)
+		So(err, ShouldEqual, ErrHashNotFound)
+
+		data, entryType, status, err = dht.get(hash, StatusDefault)
+		So(err, ShouldEqual, ErrHashModified)
+		// replaced by link gets returned in the data!!
+		So(string(data), ShouldEqual, newhashStr)
+
+		links, err := dht.getLink(hash, SysTagReplacedBy, StatusLive)
+		So(err, ShouldBeNil)
+		So(len(links), ShouldEqual, 1)
+		So(links[0].H, ShouldEqual, newhashStr)
+	})
+
+	Convey("del should move the hash to the deleted status", t, func() {
+		m := h.node.NewMessage(DEL_REQUEST, hash)
+
+		err := dht.del(m, hash)
+		So(err, ShouldBeNil)
+
+		data, entryType, status, err := dht.get(hash, StatusAny)
+		So(err, ShouldBeNil)
+		So(string(data), ShouldEqual, "some value")
+		So(entryType, ShouldEqual, "someType")
+		So(status, ShouldEqual, StatusDeleted)
+
+		afterIdx, _ := dht.GetIdx()
+
+		So(afterIdx-idx, ShouldEqual, 2)
+
+		data, entryType, status, err = dht.get(hash, StatusLive)
+		So(err, ShouldEqual, ErrHashNotFound)
+
+		data, entryType, status, err = dht.get(hash, StatusDefault)
+		So(err, ShouldEqual, ErrHashDeleted)
+
+	})
+
 }
 
 func TestLinking(t *testing.T) {
@@ -178,39 +236,6 @@ func TestLinking(t *testing.T) {
 		data, err = dht.getLink(base, "tag foo", StatusLive)
 		So(err.Error(), ShouldEqual, "No links for tag foo")
 	})
-}
-
-func TestDel(t *testing.T) {
-	d, _, h := prepareTestChain("test")
-	defer cleanupTestDir(d)
-
-	dht := h.dht
-	var id = h.id
-
-	hash, _ := NewHash("QmY8Mzg9F69e5P9AoQPYat655HEhc1TVGs11tmfNSzkqh2")
-	dht.put(nil, "someType", hash, id, []byte("some value"), StatusLive)
-
-	idx, _ := dht.GetIdx()
-	Convey("It should move the hash to the deleted status", t, func() {
-		m := h.node.NewMessage(DEL_REQUEST, hash)
-
-		err := dht.del(m, hash)
-		So(err, ShouldBeNil)
-
-		data, entryType, status, err := dht.get(hash, StatusAny)
-		So(err, ShouldBeNil)
-		So(string(data), ShouldEqual, "some value")
-		So(entryType, ShouldEqual, "someType")
-		So(status, ShouldEqual, StatusDeleted)
-
-		afterIdx, _ := dht.GetIdx()
-
-		So(afterIdx-idx, ShouldEqual, 1)
-
-		data, entryType, status, err = dht.get(hash, StatusLive)
-		So(err, ShouldEqual, ErrHashNotFound)
-	})
-
 }
 
 func TestFindNodeForHash(t *testing.T) {
@@ -393,8 +418,24 @@ func TestDHTReceiver(t *testing.T) {
 		So(results.Links[0].H, ShouldEqual, hd.EntryLink.String())
 	})
 
+	// put a second entry to DHT
+	e2 := GobEntry{C: "321"}
+	_, hd2, _ := h.NewEntry(now, "oddNumbers", &e2)
+	hash2 := hd2.EntryLink
+	m2 := h.node.NewMessage(PUT_REQUEST, PutReq{H: hash2})
+	DHTReceiver(h, m2)
+
+	Convey("MOD_REQUEST should set hash to modified", t, func() {
+		req := ModReq{H: hash, N: hash2}
+		m := h.node.NewMessage(MOD_REQUEST, req)
+		r, err := DHTReceiver(h, m)
+		So(err, ShouldBeNil)
+		results := r.(string)
+		So(results, ShouldEqual, "queued")
+	})
+
 	Convey("DELETE_REQUEST should set status of hash to deleted", t, func() {
-		m := h.node.NewMessage(DEL_REQUEST, DelReq{H: hash})
+		m := h.node.NewMessage(DEL_REQUEST, DelReq{H: hash2})
 		r, err := DHTReceiver(h, m)
 		So(err, ShouldBeNil)
 		So(r, ShouldEqual, "queued")
@@ -403,14 +444,13 @@ func TestDHTReceiver(t *testing.T) {
 		err = h.dht.simHandleChangeReqs()
 		So(err, ShouldBeNil)
 
-		data, entryType, status, _ := h.dht.get(hash, StatusAny)
+		data, entryType, status, _ := h.dht.get(hash2, StatusAny)
 		var e GobEntry
 		e.Unmarshal(data)
-		So(e.C, ShouldEqual, "124")
-		So(entryType, ShouldEqual, "evenNumbers")
+		So(e.C, ShouldEqual, "321")
+		So(entryType, ShouldEqual, "oddNumbers")
 		So(status, ShouldEqual, StatusDeleted)
 	})
-
 }
 
 /*

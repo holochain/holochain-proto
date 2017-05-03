@@ -33,7 +33,12 @@ type ValidateLinkResponse struct {
 
 // ValidateDelResponse holds the response to a VALIDATE_DEL_REQUEST
 type ValidateDelResponse struct {
-	Type   string
+	Type string
+}
+
+// ValidateModResponse holds the response to a VALIDATE_DEL_REQUEST
+type ValidateModResponse struct {
+	Type string
 }
 
 // ValidateReceiver handles messages on the Validate protocol
@@ -61,12 +66,27 @@ func ValidateReceiver(h *Holochain, m *Message) (response interface{}, err error
 		default:
 			err = fmt.Errorf("expected ValidateQuery got %T", t)
 		}
+	case VALIDATE_MOD_REQUEST:
+		h.dht.dlog.Logf("got validate mod: %v", m)
+		switch t := m.Body.(type) {
+		case ValidateQuery:
+			var r ValidateModResponse
+			_, r.Type, err = h.chain.GetEntry(t.H)
+			if err != nil {
+				return
+			}
+			response = r
+			h.dht.dlog.Logf("responding with: %v (err=%v)", r, err)
+		default:
+			err = fmt.Errorf("expected ValidateQuery got %T", t)
+		}
+
 	case VALIDATE_DEL_REQUEST:
 		h.dht.dlog.Logf("got validate del: %v", m)
 		switch t := m.Body.(type) {
 		case ValidateQuery:
 			var r ValidateDelResponse
-			_,r.Type, err = h.chain.GetEntry(t.H)
+			_, r.Type, err = h.chain.GetEntry(t.H)
 			if err != nil {
 				return
 			}

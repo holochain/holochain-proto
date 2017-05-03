@@ -120,6 +120,7 @@ func Initialize() {
 	gob.Register(Hash{})
 	gob.Register(PutReq{})
 	gob.Register(GetReq{})
+	gob.Register(ModReq{})
 	gob.Register(DelReq{})
 	gob.Register(LinkReq{})
 	gob.Register(LinkQuery{})
@@ -134,6 +135,7 @@ func Initialize() {
 	gob.Register(GobEntry{})
 	gob.Register(LinkQueryResp{})
 	gob.Register(TaggedHash{})
+	gob.Register(ErrorResponse{})
 
 	RegisterBultinNucleii()
 
@@ -873,6 +875,7 @@ func (s *Service) GenDev(root string, format string) (hP *Holochain, err error) 
   (validate entryType entry header sources))
 (defn validatePut [entryType entry header sources]
   (validate entryType entry header sources))
+(defn validateMod [entryType hash newHash sources] true)
 (defn validateDel [entryType hash sources] true)
 (defn validate [entryType entry header sources]
   (cond (== entryType "evenNumbers")  (cond (== (mod entry 2) 0) true false)
@@ -894,6 +897,9 @@ function addOdd(x) {return commit("oddNumbers",x);}
 function addProfile(x) {return commit("profile",x);}
 function validatePut(entry_type,entry,header,sources) {
   return validate(entry_type,entry,header,sources);
+}
+function validateMod(entry_type,hash,newHash,sources) {
+  return true;
 }
 function validateDel(entry_type,hash,sources) {
   return true;
@@ -1286,6 +1292,7 @@ func (h *Holochain) Send(proto Protocol, to peer.ID, t MsgType, body interface{}
 	if to == h.node.HashAddr {
 		Debugf("Sending message local:%v", message)
 		response, err = proto.Receiver(h, message)
+		Debugf("local send result: %v error:%v", response, err)
 	} else {
 		Debugf("Sending message net:%v", message)
 		var r Message
@@ -1296,7 +1303,9 @@ func (h *Holochain) Send(proto Protocol, to peer.ID, t MsgType, body interface{}
 			return
 		}
 		if r.Type == ERROR_RESPONSE {
-			err = fmt.Errorf("response error: %v", r.Body)
+			errResp := r.Body.(ErrorResponse)
+			err = errResp.DecodeResponseError()
+			response = errResp.Payload
 		} else {
 			response = r.Body
 		}

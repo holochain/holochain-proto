@@ -337,9 +337,11 @@ func TestZygoDHT(t *testing.T) {
 	})
 
 	profileHash := commit(h, "profile", `{"firstName":"Zippy","lastName":"Pinhead"}`)
+	if err := h.dht.simHandleChangeReqs(); err != nil {
+		panic(err)
+	}
 
 	commit(h, "rating", fmt.Sprintf(`{"Links":[{"Base":"%s","Link":"%s","Tag":"4stars"}]}`, hash.String(), profileHash.String()))
-
 	if err := h.dht.simHandleChangeReqs(); err != nil {
 		panic(err)
 	}
@@ -389,6 +391,35 @@ func TestZygoDHT(t *testing.T) {
 		So(r.(*zygo.SexpStr).S, ShouldEqual, `[{"H":"QmYeinX5vhuA91D3v24YbgyLofw9QAxY6PoATrBHnRwbtt","E":""}]`)
 	})
 
+	profile2Str := `{"firstName":"Zippy","lastName":"ThePinhead"}`
+	profileHash2 := commit(h, "profile", profile2Str)
+	if err := h.dht.simHandleChangeReqs(); err != nil {
+		panic(err)
+	}
+	Convey("mod function should mark item modified", t, func() {
+		v, err := NewZygoNucleus(h, fmt.Sprintf(`(modify "%s" "%s")`, profileHash.String(), profileHash2.String()))
+		So(err, ShouldBeNil)
+		z := v.(*ZygoNucleus)
+
+		sh := z.lastResult.(*zygo.SexpHash)
+		r, err := sh.HashGet(z.env, z.env.MakeSymbol("result"))
+		So(err, ShouldBeNil)
+		So(fmt.Sprintf("%v", r), ShouldEqual, "&{0}")
+
+		// the entry should be marked as Modifed
+		data, _, _, err := h.dht.get(profileHash, StatusDefault)
+		So(err, ShouldEqual, ErrHashModified)
+		So(string(data), ShouldEqual, profileHash2.String())
+
+		// but a regular get, should resolve through
+		v, err = NewZygoNucleus(h, fmt.Sprintf(`(get "%s")`, profileHash.String()))
+		So(err, ShouldBeNil)
+		z = v.(*ZygoNucleus)
+		r, err = z.lastResult.(*zygo.SexpHash).HashGet(z.env, z.env.MakeSymbol("result"))
+		So(err, ShouldBeNil)
+		So(r.(*zygo.SexpStr).S, ShouldEqual, `"{\"firstName\":\"Zippy\",\"lastName\":\"ThePinhead\"}"`)
+	})
+
 	Convey("del function should mark item deleted", t, func() {
 		v, err := NewZygoNucleus(h, fmt.Sprintf(`(del "%s")`, hash.String()))
 		So(err, ShouldBeNil)
@@ -404,7 +435,7 @@ func TestZygoDHT(t *testing.T) {
 
 		r, err = z.lastResult.(*zygo.SexpHash).HashGet(z.env, z.env.MakeSymbol("error"))
 		So(err, ShouldBeNil)
-		So(r.(*zygo.SexpStr).S, ShouldEqual, "hash not found")
+		So(r.(*zygo.SexpStr).S, ShouldEqual, "hash deleted")
 
 		v, err = NewZygoNucleus(h, fmt.Sprintf(`(get "%s" HC_StatusDeleted)`, hash.String()))
 		So(err, ShouldBeNil)
@@ -413,7 +444,6 @@ func TestZygoDHT(t *testing.T) {
 		r, err = z.lastResult.(*zygo.SexpHash).HashGet(z.env, z.env.MakeSymbol("result"))
 		So(err, ShouldBeNil)
 		So(r.(*zygo.SexpStr).S, ShouldEqual, `"2"`)
-
 	})
 
 }

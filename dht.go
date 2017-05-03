@@ -43,6 +43,7 @@ const (
 
 // constants for the state of the data, they are bit flags
 const (
+	StatusDefault  = 0x00
 	StatusLive     = 0x01
 	StatusRejected = 0x02
 	StatusDeleted  = 0x04
@@ -57,6 +58,11 @@ const (
 	StatusDeletedVal  = "4"
 	StatusModifiedVal = "8"
 	StatusAnyVal      = "255"
+)
+
+// constants for system reseved tags (start with 2 underscores)
+const (
+	SysTagReplacedBy = "__replacedBy"
 )
 
 // PutReq holds the data of a put request
@@ -75,6 +81,12 @@ type GetReq struct {
 // DelReq holds the data of a del request
 type DelReq struct {
 	H Hash
+}
+
+// ModReq holds the data of a mod request
+type ModReq struct {
+	H Hash
+	N Hash
 }
 
 // LinkReq holds a link request
@@ -117,6 +129,9 @@ type LinkQueryResp struct {
 }
 
 var ErrLinkNotFound = errors.New("link not found")
+var ErrHashDeleted = errors.New("hash deleted")
+var ErrHashModified = errors.New("hash modified")
+var ErrHashRejected = errors.New("hash rejected")
 
 // NewDHT creates a new DHT structure
 func NewDHT(h *Holochain) *DHT {
@@ -213,33 +228,59 @@ func (dht *DHT) put(m *Message, entryType string, key Hash, src peer.ID, value [
 	return
 }
 
+func _setStatus(tx *buntdb.Tx, m *Message, key string, status int) (err error) {
+
+	_, err = tx.Get("entry:" + key)
+	if err != nil {
+		if err == buntdb.ErrNotFound {
+			err = ErrHashNotFound
+		}
+		return
+	}
+
+	_, err = incIdx(tx, m)
+	if err != nil {
+		return
+	}
+
+	_, _, err = tx.Set("status:"+key, fmt.Sprintf("%d", status), nil)
+	if err != nil {
+		return
+	}
+	return
+}
+
 // del moves the given hash to the StatusDeleted status
 // N.B. this functions assumes that the validity of this action has been confirmed
 func (dht *DHT) del(m *Message, key Hash) (err error) {
 	k := key.String()
-	dht.dlog.Logf("delete %s", k)
+	dht.dlog.Logf("del %s", k)
 	err = dht.db.Update(func(tx *buntdb.Tx) error {
+		err = _setStatus(tx, m, k, StatusDeleted)
+		return err
+	})
+	return
+}
 
-		_, err := tx.Get("entry:" + k)
-		if err != nil {
-			if err == buntdb.ErrNotFound {
-				err = ErrHashNotFound
+// mod moves the given hash to the StatusModified status
+// N.B. this functions assumes that the validity of this action has been confirmed
+func (dht *DHT) mod(m *Message, key Hash, newkey Hash) (err error) {
+	k := key.String()
+	dht.dlog.Logf("mod %s", k)
+	err = dht.db.Update(func(tx *buntdb.Tx) error {
+		err = _setStatus(tx, m, k, StatusModified)
+		if err == nil {
+			link := newkey.String()
+			err = _putLink(tx, k, link, SysTagReplacedBy)
+			if err == nil {
+				_, _, err = tx.Set("replacedBy:"+k, link, nil)
+				if err != nil {
+					return err
+				}
 			}
-			return err
-		}
-
-		_, err = incIdx(tx, m)
-		if err != nil {
-			return err
-		}
-
-		_, _, err = tx.Set("status:"+k, fmt.Sprintf("%d", StatusDeleted), nil)
-		if err != nil {
-			return err
 		}
 		return err
 	})
-
 	return
 }
 
@@ -252,14 +293,33 @@ func _get(tx *buntdb.Tx, k string, statusMask int) (string, error) {
 	var statusVal string
 	statusVal, err = tx.Get("status:" + k)
 	if err == nil {
-		if statusMask == 0 {
-			statusMask = StatusLive
-		}
-		var status int
-		status, err = strconv.Atoi(statusVal)
-		if err == nil {
-			if (status & statusMask) == 0 {
-				err = ErrHashNotFound
+
+		if statusMask == StatusDefault {
+			// if the status mask is not given (i.e. Default) then
+			// we return information about the status is it's other than live
+			switch statusVal {
+			case StatusDeletedVal:
+				err = ErrHashDeleted
+			case StatusModifiedVal:
+				val, err = tx.Get("replacedBy:" + k)
+				if err != nil {
+					panic("missing expected replacedBy record")
+				}
+				err = ErrHashModified
+			case StatusRejectedVal:
+				err = ErrHashRejected
+			case StatusLiveVal:
+			default:
+				panic("unknown status!")
+			}
+		} else {
+			// otherwise we return the value only if the status is in the mask
+			var status int
+			status, err = strconv.Atoi(statusVal)
+			if err == nil {
+				if (status & statusMask) == 0 {
+					err = ErrHashNotFound
+				}
 			}
 		}
 	}
@@ -296,6 +356,7 @@ func (dht *DHT) get(key Hash, statusMask int) (data []byte, entryType string, st
 		k := key.String()
 		val, err := _get(tx, k, statusMask)
 		if err != nil {
+			data = []byte(val) // gotta do this because value is valid if ErrHashModified
 			return err
 		}
 		entryType, err = tx.Get("type:" + k)
@@ -312,6 +373,22 @@ func (dht *DHT) get(key Hash, statusMask int) (data []byte, entryType string, st
 	return
 }
 
+// _putLink is a low level routine to add a link, also used by mod
+func _putLink(tx *buntdb.Tx, base string, link string, tag string) (err error) {
+	key := "link:" + base + ":" + link + ":" + tag
+	_, err = tx.Get(key)
+	if err == buntdb.ErrNotFound {
+		_, _, err = tx.Set(key, StatusLiveVal, nil)
+		if err != nil {
+			return
+		}
+	} else {
+		//TODO what do we do if there's already something there?
+		panic("putLink over existing link not implemented")
+	}
+	return
+}
+
 // putLink associates a link with a stored hash
 // N.B. this function assumes that the data associated has been properly retrieved
 // and validated from the cource chain
@@ -323,23 +400,15 @@ func (dht *DHT) putLink(m *Message, base string, link string, tag string) (err e
 			return err
 		}
 
-		key := "link:" + base + ":" + link + ":" + tag
-		_, err = tx.Get(key)
-		if err == buntdb.ErrNotFound {
+		err = _putLink(tx, base, link, tag)
+		if err != nil {
+			return err
+		}
 
-			//var index string
-			_, err = incIdx(tx, m)
-			if err != nil {
-				return err
-			}
-
-			_, _, err = tx.Set(key, StatusLiveVal, nil)
-			if err != nil {
-				return err
-			}
-		} else {
-			//TODO what do we do if there's already something there?
-			panic("putLink over existing link not implemented")
+		//var index string
+		_, err = incIdx(tx, m)
+		if err != nil {
+			return err
 		}
 		return nil
 	})
@@ -400,12 +469,12 @@ func (dht *DHT) getLink(base Hash, tag string, statusMask int) (results []Tagged
 	dht.dlog.Logf("getLink on %v of %s with mask %d", base, tag, statusMask)
 	b := base.String()
 	err = dht.db.View(func(tx *buntdb.Tx) error {
-		_, err := _get(tx, b, StatusLive) //only get links on live bases
+		_, err := _get(tx, b, StatusLive+StatusModified) //only get links on live and modified bases
 		if err != nil {
 			return err
 		}
 
-		if statusMask == 0 {
+		if statusMask == StatusDefault {
 			statusMask = StatusLive
 		}
 
@@ -516,10 +585,42 @@ func (dht *DHT) handleChangeReq(m *Message) (err error) {
 		default:
 			err = fmt.Errorf("expected ValidateResponse from validator got %T", r)
 		}
+	case ModReq:
+		//var hashStatus int
+		_, _, _, err = dht.get(t.H, StatusDefault)
+		if err != nil {
+			if err == ErrHashNotFound {
+				dht.dlog.Logf("don't yet have %s, trying again later", t.H)
+				panic("RETRY-MOD NOT IMPLEMENTED")
+				// try the del again later
+			}
+			return
+		}
+		var r interface{}
+		r, err = dht.h.Send(ValidateProtocol, from, VALIDATE_MOD_REQUEST, ValidateQuery{H: t.H})
+		if err != nil {
+			return
+		}
+		switch resp := r.(type) {
+		case ValidateModResponse:
+			a := NewModAction(t.H, t.N)
+			//@TODO what comes back from Validate Del
+			_, err = dht.h.ValidateAction(a, resp.Type, []peer.ID{from})
+			if err != nil {
+				// how do we record an invalid Mod?
+				//@TODO store as REJECTED?
+			} else {
+				err = dht.mod(m, t.H, t.N)
+			}
+
+		default:
+			err = fmt.Errorf("expected ValidateModResponse from validator got %T", resp)
+		}
+
 	case DelReq:
 		//var hashType string
-		var hashStatus int
-		_, _, hashStatus, err = dht.get(t.H, StatusAny)
+		//var hashStatus int
+		_, _, _, err = dht.get(t.H, StatusDefault)
 		if err != nil {
 			if err == ErrHashNotFound {
 				dht.dlog.Logf("don't yet have %s, trying again later", t.H)
@@ -529,32 +630,26 @@ func (dht *DHT) handleChangeReq(m *Message) (err error) {
 			return
 		}
 
-		if hashStatus == StatusLive {
-			var r interface{}
-			r, err = dht.h.Send(ValidateProtocol, from, VALIDATE_DEL_REQUEST, ValidateQuery{H: t.H})
+		var r interface{}
+		r, err = dht.h.Send(ValidateProtocol, from, VALIDATE_DEL_REQUEST, ValidateQuery{H: t.H})
+		if err != nil {
+			return
+		}
+
+		switch resp := r.(type) {
+		case ValidateDelResponse:
+			a := NewDelAction(t.H)
+			//@TODO what comes back from Validate Del
+			_, err = dht.h.ValidateAction(a, resp.Type, []peer.ID{from})
 			if err != nil {
-				return
+				// how do we record an invalid DEL?
+				//@TODO store as REJECTED
+			} else {
+				err = dht.del(m, t.H)
 			}
 
-			switch resp := r.(type) {
-			case ValidateDelResponse:
-				a := NewDelAction(t.H)
-				//@TODO what comes back from Validate Del
-				_, err = dht.h.ValidateAction(a, resp.Type, []peer.ID{from})
-				if err != nil {
-					// how do we record an invalid DEL?
-					//@TODO store as REJECTED
-				} else {
-					err = dht.del(m, t.H)
-				}
-
-			default:
-				err = fmt.Errorf("expected ValidateDelResponse from validator got %T", resp)
-			}
-
-		} else {
-			dht.dlog.Logf("%s isn't StatusLive, can't DEL", t.H)
-			// @TODO what happens if the hashStatus is not StatusLive?
+		default:
+			err = fmt.Errorf("expected ValidateDelResponse from validator got %T", resp)
 		}
 
 	case LinkReq:

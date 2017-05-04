@@ -33,12 +33,10 @@ type Meta struct {
 	V []byte // meta-data
 }
 
-// constants for the Put type
 const (
-	PutNew = iota
-	PutUpdate
-	PutDelete
-	PutUndelete
+	AddAction = ""
+	ModAction = "m"
+	DelAction = "d"
 )
 
 // constants for the state of the data, they are bit flags
@@ -603,7 +601,8 @@ func (dht *DHT) handleChangeReq(m *Message) (err error) {
 		}
 		switch resp := r.(type) {
 		case ValidateModResponse:
-			a := NewModAction(t.H, t.N)
+			a := NewModAction(resp.Type, &resp.Entry, t.H)
+			a.header = &resp.Header
 			//@TODO what comes back from Validate Del
 			_, err = dht.h.ValidateAction(a, resp.Type, []peer.ID{from})
 			if err != nil {
@@ -688,7 +687,7 @@ func (dht *DHT) handleChangeReq(m *Message) (err error) {
 				base := t.Base.String()
 				for _, l := range resp.Links {
 					if base == l.Base {
-						if l.LinkType == LinkTypeDel {
+						if l.LinkAction == DelAction {
 							err = dht.delLink(m, base, l.Link, l.Tag)
 						} else {
 							err = dht.putLink(m, base, l.Link, l.Tag)

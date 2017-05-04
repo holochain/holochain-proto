@@ -18,18 +18,22 @@ type Signature struct {
 	S []byte
 }
 
+// StatusChange records change of status of an entry in the header
+type StatusChange struct {
+	Action string // either AddAction, ModAction, or DelAction
+	Hash   Hash
+}
+
 // Header holds chain links, type, timestamp and signature
 type Header struct {
 	Type       string
 	Time       time.Time
-	HeaderLink Hash // link to previous header
+	HeaderLink Hash // link to previous headerq
 	EntryLink  Hash // link to entry
 	TypeLink   Hash // link to header of previous header of this type
 	Sig        Signature
-	//	Meta       interface{}
+	Change     StatusChange
 }
-
-var DEBUG bool
 
 // newHeader makes Header object linked to a previous Header by hash
 func newHeader(h HashSpec, now time.Time, t string, entry Entry, key ic.PrivKey, prev Hash, prevType Hash) (hash Hash, header *Header, err error) {

@@ -67,13 +67,17 @@ func prepareJSEntryArgs(def *EntryDef, entry Entry, header *Header) (args string
 		err = errors.New("data format not implemented: " + def.DataFormat)
 		return
 	}
-
-	hdr := fmt.Sprintf(
-		`{"EntryLink":"%s","Type":"%s","Time":"%s"}`,
-		header.EntryLink.String(),
-		header.Type,
-		header.Time.UTC().Format(time.RFC3339),
-	)
+	var hdr string
+	if header != nil {
+		hdr = fmt.Sprintf(
+			`{"EntryLink":"%s","Type":"%s","Time":"%s"}`,
+			header.EntryLink.String(),
+			header.Type,
+			header.Time.UTC().Format(time.RFC3339),
+		)
+	} else {
+		hdr = `{"EntryLink":"","Type":"","Time":""}`
+	}
 	args += "," + hdr
 	return
 }
@@ -85,7 +89,7 @@ func prepareJSValidateArgs(action Action, def *EntryDef) (args string, err error
 	case *ActionCommit:
 		args, err = prepareJSEntryArgs(def, t.entry, t.header)
 	case *ActionMod:
-		args = fmt.Sprintf(`"%s","%s"`, t.hash.String(), t.newHash.String())
+		args, err = prepareJSEntryArgs(def, t.entry, t.header)
 	case *ActionDel:
 		args = fmt.Sprintf(`"%s"`, t.hash.String())
 	case *ActionLink:
@@ -206,7 +210,7 @@ const (
 		`,Modified:` + StatusModifiedVal +
 		`,Any:` + StatusAnyVal +
 		"}," +
-		`LinkType:{Add:"` + LinkTypeAdd + `",Del:"` + LinkTypeDel + `"}` +
+		`LinkAction:{Add:"` + AddAction + `",Del:"` + DelAction + `"}` +
 		`};`
 )
 
@@ -404,10 +408,10 @@ func NewJSNucleus(h *Holochain, code string) (n Nucleus, err error) {
 		}
 
 		entryType := args[0].value.(string)
-		entry := args[1].value.(string)
+		entryStr := args[1].value.(string)
 		var r interface{}
-		e := GobEntry{C: entry}
-		r, err = NewCommitAction(entryType, &e).Do(h)
+		entry := GobEntry{C: entryStr}
+		r, err = NewCommitAction(entryType, &entry).Do(h)
 		if err != nil {
 			return mkOttoErr(&z, err.Error())
 		}
@@ -459,15 +463,21 @@ func NewJSNucleus(h *Holochain, code string) (n Nucleus, err error) {
 		if err != nil {
 			return mkOttoErr(&z, err.Error())
 		}
-		hash := args[0].value.(Hash)
-		newHash := args[1].value.(Hash)
+		entryType := args[0].value.(string)
+		entryStr := args[1].value.(string)
+		replaces := args[2].value.(Hash)
 
-		resp, err := NewModAction(hash, newHash).Do(h)
-		if err == nil {
-			result, err = z.vm.ToValue(resp)
-			return
+		entry := GobEntry{C: entryStr}
+		resp, err := NewModAction(entryType, &entry, replaces).Do(h)
+		if err != nil {
+			return mkOttoErr(&z, err.Error())
 		}
-		result = mkOttoErr(&z, err.Error())
+		var entryHash Hash
+		if resp != nil {
+			entryHash = resp.(Hash)
+		}
+		result, _ = z.vm.ToValue(entryHash.String())
+
 		return
 
 	})

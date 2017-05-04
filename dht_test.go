@@ -390,7 +390,7 @@ func TestDHTReceiver(t *testing.T) {
 		So(len(gr.Puts), ShouldEqual, 4)
 	})
 
-	le2 := GobEntry{C: fmt.Sprintf(`{"Links":[{"Base":"%s","Link":"%s","Tag":"4stars","LinkType":"%s"}]}`, hash.String(), profileHash.String(), LinkTypeDel)}
+	le2 := GobEntry{C: fmt.Sprintf(`{"Links":[{"Base":"%s","Link":"%s","Tag":"4stars","LinkAction":"%s"}]}`, hash.String(), profileHash.String(), DelAction)}
 	_, lhd2, _ := h.NewEntry(time.Now(), "rating", &le2)
 
 	Convey("LINK_REQUEST with del type should mark a link as deleted", t, func() {

@@ -260,7 +260,7 @@ func TestPrepareZyValidateArgs(t *testing.T) {
 		a.validationBase = hash
 		args, err := prepareZyValidateArgs(a, &d)
 		So(err, ShouldBeNil)
-		So(args, ShouldEqual, `"QmY8Mzg9F69e5P9AoQPYat6x5HEhc1TVGs11tmfNSzkqh2" (unjson (raw "[{\"LinkType\":\"\",\"Base\":\"QmdRXz53TVT9qBYfbXctHyy2GpTNa6YrpAy6ZcDGG8Xhc5\",\"Link\":\"QmdRXz53TVT9qBYfbXctHyy2GpTNa6YrpAy6ZcDGG8Xhc5\",\"Tag\":\"fish\"}]"))`)
+		So(args, ShouldEqual, `"QmY8Mzg9F69e5P9AoQPYat6x5HEhc1TVGs11tmfNSzkqh2" (unjson (raw "[{\"LinkAction\":\"\",\"Base\":\"QmdRXz53TVT9qBYfbXctHyy2GpTNa6YrpAy6ZcDGG8Xhc5\",\"Link\":\"QmdRXz53TVT9qBYfbXctHyy2GpTNa6YrpAy6ZcDGG8Xhc5\",\"Tag\":\"fish\"}]"))`)
 	})
 }
 
@@ -300,8 +300,8 @@ func TestZygoExposeCall(t *testing.T) {
 		So(string(result.([]byte)), ShouldEqual, `{"input":2, "output":4}`)
 	})
 	Convey("should allow a function declared with JSON parameter to be called with no parameter", t, func() {
-		emptyParametersJson, _ := h.GetFunctionDef(zome, "testJsonFn2")
-		result, err := z.Call(emptyParametersJson, "")
+		emptyParametersJSON, _ := h.GetFunctionDef(zome, "testJsonFn2")
+		result, err := z.Call(emptyParametersJSON, "")
 		So(err, ShouldBeNil)
 		So(string(result.([]byte)), ShouldEqual, `[{"a":"b"}]`)
 	})
@@ -368,7 +368,7 @@ func TestZygoDHT(t *testing.T) {
 	})
 
 	Convey("commit with del link should delete link", t, func() {
-		v, err := NewZygoNucleus(h, fmt.Sprintf(`(commit "rating" (hash Links:[(hash LinkType:HC_LinkTypeDel Base:"%s" Link:"%s" Tag:"4stars")]))`, hash.String(), profileHash.String()))
+		v, err := NewZygoNucleus(h, fmt.Sprintf(`(commit "rating" (hash Links:[(hash LinkAction:HC_LinkActionDel Base:"%s" Link:"%s" Tag:"4stars")]))`, hash.String(), profileHash.String()))
 		So(err, ShouldBeNil)
 		z := v.(*ZygoNucleus)
 
@@ -396,33 +396,33 @@ func TestZygoDHT(t *testing.T) {
 		So(r.(*zygo.SexpStr).S, ShouldEqual, `[{"H":"QmYeinX5vhuA91D3v24YbgyLofw9QAxY6PoATrBHnRwbtt","E":""}]`)
 	})
 
-	profile2Str := `{"firstName":"Zippy","lastName":"ThePinhead"}`
-	profileHash2 := commit(h, "profile", profile2Str)
-	if err := h.dht.simHandleChangeReqs(); err != nil {
-		panic(err)
-	}
-	Convey("mod function should mark item modified", t, func() {
-		v, err := NewZygoNucleus(h, fmt.Sprintf(`(modify "%s" "%s")`, profileHash.String(), profileHash2.String()))
+	Convey("mod function should commit a new entry and on DHT mark item modified", t, func() {
+		v, err := NewZygoNucleus(h, fmt.Sprintf(`(modify "profile" (hash firstName:"Zippy" lastName:"ThePinhead") "%s")`, profileHash.String()))
 		So(err, ShouldBeNil)
 		z := v.(*ZygoNucleus)
+		profileHashStr2 := z.lastResult.(*zygo.SexpStr).S
 
-		sh := z.lastResult.(*zygo.SexpHash)
-		r, err := sh.HashGet(z.env, z.env.MakeSymbol("result"))
-		So(err, ShouldBeNil)
-		So(fmt.Sprintf("%v", r), ShouldEqual, "&{0}")
+		header := h.chain.Top()
+		So(header.EntryLink.String(), ShouldEqual, profileHashStr2)
+		So(header.Change.Action, ShouldEqual, ModAction)
+		So(header.Change.Hash.String(), ShouldEqual, profileHash.String())
+
+		if err := h.dht.simHandleChangeReqs(); err != nil {
+			panic(err)
+		}
 
 		// the entry should be marked as Modifed
 		data, _, _, err := h.dht.get(profileHash, StatusDefault)
 		So(err, ShouldEqual, ErrHashModified)
-		So(string(data), ShouldEqual, profileHash2.String())
+		So(string(data), ShouldEqual, profileHashStr2)
 
 		// but a regular get, should resolve through
 		v, err = NewZygoNucleus(h, fmt.Sprintf(`(get "%s")`, profileHash.String()))
 		So(err, ShouldBeNil)
 		z = v.(*ZygoNucleus)
-		r, err = z.lastResult.(*zygo.SexpHash).HashGet(z.env, z.env.MakeSymbol("result"))
+		r, err := z.lastResult.(*zygo.SexpHash).HashGet(z.env, z.env.MakeSymbol("result"))
 		So(err, ShouldBeNil)
-		So(r.(*zygo.SexpStr).S, ShouldEqual, `"{\"firstName\":\"Zippy\",\"lastName\":\"ThePinhead\"}"`)
+		So(r.(*zygo.SexpStr).S, ShouldEqual, `"{\"firstName\":\"Zippy\", \"lastName\":\"ThePinhead\"}"`)
 	})
 
 	Convey("del function should mark item deleted", t, func() {

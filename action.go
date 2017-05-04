@@ -43,6 +43,17 @@ type Action interface {
 	Args() []Arg
 }
 
+// CommittingAction provides an abstraction for grouping actions which call commit
+type CommittingAction interface {
+	Name() string
+	Do(h *Holochain) (response interface{}, err error)
+	SysValidation(h *Holochain, d *EntryDef, sources []peer.ID) (err error)
+	DHTReqHandler(dht *DHT, msg *Message) (response interface{}, err error)
+	Args() []Arg
+	EntryType() string
+	Entry() Entry
+}
+
 var NonDHTAction error = errors.New("Not a DHT action")
 var NonCallableAction error = errors.New("Not a callable action")
 
@@ -289,6 +300,14 @@ func NewCommitAction(entryType string, entry Entry) *ActionCommit {
 	return &a
 }
 
+func (a *ActionCommit) Entry() Entry {
+	return a.entry
+}
+
+func (a *ActionCommit) EntryType() string {
+	return a.entryType
+}
+
 func (a *ActionCommit) Name() string {
 	return "commit"
 }
@@ -297,30 +316,41 @@ func (a *ActionCommit) Args() []Arg {
 	return []Arg{{Name: "entryType", Type: StringArg}, {Name: "entry", Type: EntryArg}}
 }
 
-func (a *ActionCommit) Do(h *Holochain) (response interface{}, err error) {
+// doCommit adds an entry to the local chain after validating the action it's part of
+func (h *Holochain) doCommit(a CommittingAction, change *StatusChange) (d *EntryDef, header *Header, entryHash Hash, err error) {
+
+	entryType := a.EntryType()
+	entry := a.Entry()
 	var l int
 	var hash Hash
-	var header *Header
-	l, hash, header, err = h.chain.PrepareHeader(h.hashSpec, time.Now(), a.entryType, a.entry, h.agent.PrivKey())
+	l, hash, header, err = h.chain.PrepareHeader(h.hashSpec, time.Now(), entryType, entry, h.agent.PrivKey(), change)
 	if err != nil {
 		return
 	}
-	var d *EntryDef
-
-	a.header = header
-	d, err = h.ValidateAction(a, a.entryType, []peer.ID{h.id})
+	//TODO	a.header = header
+	d, err = h.ValidateAction(a, entryType, []peer.ID{h.id})
 	if err != nil {
 		if err == ValidationFailedErr {
-			err = fmt.Errorf("Invalid entry: %v", a.entry.Content())
+			err = fmt.Errorf("Invalid entry: %v", entry.Content())
 		}
 		return
 	}
-	err = h.chain.addEntry(l, hash, header, a.entry)
+	err = h.chain.addEntry(l, hash, header, entry)
 	if err != nil {
 		return
 	}
-	entryHash := header.EntryLink
+	entryHash = header.EntryLink
+	return
+}
 
+func (a *ActionCommit) Do(h *Holochain) (response interface{}, err error) {
+	var d *EntryDef
+	var entryHash Hash
+	//	var header *Header
+	d, _, entryHash, err = h.doCommit(a, nil)
+	if err != nil {
+		return
+	}
 	if d.DataFormat == DataFormatLinks {
 		// if this is a Link entry we have to send the DHT Link message
 		var le LinksEntry
@@ -466,13 +496,23 @@ func (a *ActionPut) DHTReqHandler(dht *DHT, msg *Message) (response interface{},
 // Mod
 
 type ActionMod struct {
-	hash    Hash
-	newHash Hash
+	entryType string
+	entry     Entry
+	header    *Header
+	replaces  Hash
 }
 
-func NewModAction(hash Hash, newHash Hash) *ActionMod {
-	a := ActionMod{hash: hash, newHash: newHash}
+func NewModAction(entryType string, entry Entry, replaces Hash) *ActionMod {
+	a := ActionMod{entryType: entryType, entry: entry, replaces: replaces}
 	return &a
+}
+
+func (a *ActionMod) Entry() Entry {
+	return a.entry
+}
+
+func (a *ActionMod) EntryType() string {
+	return a.entryType
 }
 
 func (a *ActionMod) Name() string {
@@ -480,15 +520,30 @@ func (a *ActionMod) Name() string {
 }
 
 func (a *ActionMod) Args() []Arg {
-	return []Arg{{Name: "hash", Type: HashArg}, {Name: "newHash", Type: HashArg}}
+	return []Arg{{Name: "entryType", Type: StringArg}, {Name: "entry", Type: EntryArg}, {Name: "replaces", Type: HashArg}}
 }
 
 func (a *ActionMod) Do(h *Holochain) (response interface{}, err error) {
-	response, err = h.dht.Send(a.hash, MOD_REQUEST, ModReq{H: a.hash, N: a.newHash})
+	var d *EntryDef
+	var entryHash Hash
+	d, a.header, entryHash, err = h.doCommit(a, &StatusChange{Action: ModAction, Hash: a.replaces})
+	if err != nil {
+		return
+	}
+	if d.Sharing == Public {
+		// if it's a public entry send the DHT MOD & PUT messages
+		// TODO handle errors better!!
+		_, err = h.dht.Send(entryHash, PUT_REQUEST, PutReq{H: entryHash})
+		_, err = h.dht.Send(a.replaces, MOD_REQUEST, ModReq{H: a.replaces, N: entryHash})
+	}
+	response = entryHash
 	return
 }
 
 func (a *ActionMod) SysValidation(h *Holochain, d *EntryDef, sources []peer.ID) (err error) {
+	if d.DataFormat == DataFormatLinks {
+		err = errors.New("Can't mod Links entry")
+	}
 	return
 }
 

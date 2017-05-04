@@ -17,9 +17,9 @@ func TestNewJSNucleus(t *testing.T) {
 		So(i, ShouldEqual, 2)
 	})
 	Convey("new fail to create nucleus when code is bad", t, func() {
-		v, err := NewJSNucleus(nil, "1+ )")
+		v, err := NewJSNucleus(nil, "\n1+ )")
 		So(v, ShouldBeNil)
-		So(err.Error(), ShouldEqual, "JS exec error: (anonymous): Line 1:107 Unexpected token )")
+		So(err.Error(), ShouldEqual, "JS exec error: (anonymous): Line 2:4 Unexpected token )")
 	})
 
 	Convey("it should have an App structure:", t, func() {
@@ -248,7 +248,7 @@ func TestPrepareJSValidateArgs(t *testing.T) {
 		a.validationBase = hash
 		args, err := prepareJSValidateArgs(a, &d)
 		So(err, ShouldBeNil)
-		So(args, ShouldEqual, `"QmY8Mzg9F69e5P9AoQPYat6x5HEhc1TVGs11tmfNSzkqh2",JSON.parse("[{\"LinkType\":\"\",\"Base\":\"QmdRXz53TVT9qBYfbXctHyy2GpTNa6YrpAy6ZcDGG8Xhc5\",\"Link\":\"QmdRXz53TVT9qBYfbXctHyy2GpTNa6YrpAy6ZcDGG8Xhc5\",\"Tag\":\"fish\"}]")`)
+		So(args, ShouldEqual, `"QmY8Mzg9F69e5P9AoQPYat6x5HEhc1TVGs11tmfNSzkqh2",JSON.parse("[{\"LinkAction\":\"\",\"Base\":\"QmdRXz53TVT9qBYfbXctHyy2GpTNa6YrpAy6ZcDGG8Xhc5\",\"Link\":\"QmdRXz53TVT9qBYfbXctHyy2GpTNa6YrpAy6ZcDGG8Xhc5\",\"Tag\":\"fish\"}]")`)
 	})
 }
 
@@ -366,7 +366,7 @@ func TestJSDHT(t *testing.T) {
 	})
 
 	Convey("commit with del link should delete link", t, func() {
-		v, err := NewJSNucleus(h, fmt.Sprintf(`commit("rating",{Links:[{"LinkType":HC.LinkType.Del,Base:"%s",Link:"%s",Tag:"4stars"}]});`, hash.String(), profileHash.String()))
+		v, err := NewJSNucleus(h, fmt.Sprintf(`commit("rating",{Links:[{"LinkAction":HC.LinkAction.Del,Base:"%s",Link:"%s",Tag:"4stars"}]});`, hash.String(), profileHash.String()))
 		So(err, ShouldBeNil)
 		z := v.(*JSNucleus)
 		_, err = NewHash(z.lastResult.String())
@@ -393,28 +393,32 @@ func TestJSDHT(t *testing.T) {
 		So(fmt.Sprintf("%v", lqr.Links[0].H), ShouldEqual, profileHash.String())
 	})
 
-	profile2Str := `{"firstName":"Zippy","lastName":"ThePinhead"}`
-	profileHash2 := commit(h, "profile", profile2Str)
-	if err := h.dht.simHandleChangeReqs(); err != nil {
-		panic(err)
-	}
-	Convey("mod function should mark item modified", t, func() {
-		v, err := NewJSNucleus(h, fmt.Sprintf(`mod("%s","%s")`, profileHash.String(), profileHash2.String()))
+	Convey("mod function should commit a new entry and on DHT mark item modified", t, func() {
+		v, err := NewJSNucleus(h, fmt.Sprintf(`mod("profile",{firstName:"Zippy",lastName:"ThePinhead"},"%s")`, profileHash.String()))
 		So(err, ShouldBeNil)
 		z := v.(*JSNucleus)
-		So(z.lastResult.String(), ShouldEqual, "queued")
+		profileHashStr2 := z.lastResult.String()
+
+		header := h.chain.Top()
+		So(header.EntryLink.String(), ShouldEqual, profileHashStr2)
+		So(header.Change.Action, ShouldEqual, ModAction)
+		So(header.Change.Hash.String(), ShouldEqual, profileHash.String())
+
+		if err := h.dht.simHandleChangeReqs(); err != nil {
+			panic(err)
+		}
 
 		// the entry should be marked as Modifed
 		data, _, _, err := h.dht.get(profileHash, StatusDefault)
 		So(err, ShouldEqual, ErrHashModified)
-		So(string(data), ShouldEqual, profileHash2.String())
+		So(string(data), ShouldEqual, profileHashStr2)
 
 		// but a regular get, should resolve through
 		v, err = NewJSNucleus(h, fmt.Sprintf(`get("%s");`, profileHash.String()))
 		z = v.(*JSNucleus)
 		x, err := z.lastResult.Export()
 		So(err, ShouldBeNil)
-		So(fmt.Sprintf("%v", x.(Entry).Content()), ShouldEqual, profile2Str)
+		So(fmt.Sprintf("%v", x.(Entry).Content()), ShouldEqual, `{"firstName":"Zippy","lastName":"ThePinhead"}`)
 	})
 
 	Convey("del function should mark item deleted", t, func() {

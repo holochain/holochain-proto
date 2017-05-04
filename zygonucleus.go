@@ -99,7 +99,7 @@ func prepareZyValidateArgs(action Action, def *EntryDef) (args string, err error
 	case *ActionPut:
 		args, err = prepareZyEntryArgs(def, t.entry, t.header)
 	case *ActionMod:
-		args = fmt.Sprintf(`"%s" "%s"`, t.hash.String(), t.newHash.String())
+		args, err = prepareZyEntryArgs(def, t.entry, t.header)
 	case *ActionDel:
 		args = fmt.Sprintf(`"%s"`, t.hash.String())
 	case *ActionLink:
@@ -287,85 +287,19 @@ var ZygoLibrary = `(def HC_Version "` + VersionStr + `")` +
 	`(def HC_StatusDeleted ` + StatusDeletedVal + ")" +
 	`(def HC_StatusModified ` + StatusModifiedVal + ")" +
 	`(def HC_StatusAny ` + StatusAnyVal + ")" +
-	`(def HC_LinkTypeAdd "` + LinkTypeAdd + "\")" +
-	`(def HC_LinkTypeDel "` + LinkTypeDel + "\")"
+	`(def HC_LinkActionAdd "` + AddAction + "\")" +
+	`(def HC_LinkActionDel "` + DelAction + "\")"
 
-// get exposes DHTGet to zygo
-func (z *ZygoNucleus) get(env *zygo.Glisp, h *Holochain, req GetReq) (result *zygo.SexpHash, err error) {
-	result, err = zygo.MakeHash(nil, "hash", env)
+func makeResult(env *zygo.Glisp, resultValue zygo.Sexp, resultError error) (zygo.Sexp, error) {
+	result, err := zygo.MakeHash(nil, "hash", env)
 	if err != nil {
 		return nil, err
 	}
-
-	var entry interface{}
-
-	entry, err = NewGetAction(req).Do(h)
-	if err == nil {
-		t := entry.(*GobEntry)
-		// @TODO figure out encoding by entry type.
-		j, err := json.Marshal(t.C)
-		if err == nil {
-			err = result.HashSet(env.MakeSymbol("result"), &zygo.SexpStr{S: string(j)})
-		}
+	if resultError != nil {
+		err = result.HashSet(env.MakeSymbol("error"), &zygo.SexpStr{S: resultError.Error()})
 	} else {
-		err = result.HashSet(env.MakeSymbol("error"), &zygo.SexpStr{S: err.Error()})
-	}
-	return result, err
-}
-
-// get exposes dht.mod to zygo
-func (z *ZygoNucleus) mod(env *zygo.Glisp, h *Holochain, hash Hash, newHash Hash) (result *zygo.SexpHash, err error) {
-	result, err = zygo.MakeHash(nil, "hash", env)
-	if err != nil {
-		return nil, err
-	}
-
-	_, err = NewModAction(hash, newHash).Do(h)
-	if err == nil {
-		err = result.HashSet(env.MakeSymbol("result"), zygo.SexpNull)
-
-	} else {
-		err = result.HashSet(env.MakeSymbol("error"), &zygo.SexpStr{S: err.Error()})
-	}
-	return result, err
-}
-
-// get exposes dht.del to zygo
-func (z *ZygoNucleus) del(env *zygo.Glisp, h *Holochain, hash Hash) (result *zygo.SexpHash, err error) {
-	result, err = zygo.MakeHash(nil, "hash", env)
-	if err != nil {
-		return nil, err
-	}
-
-	_, err = NewDelAction(hash).Do(h)
-	if err == nil {
-		err = result.HashSet(env.MakeSymbol("result"), zygo.SexpNull)
-
-	} else {
-		err = result.HashSet(env.MakeSymbol("error"), &zygo.SexpStr{S: err.Error()})
-	}
-	return result, err
-}
-
-// getLink exposes GetLink to zygo
-func (z *ZygoNucleus) getLink(env *zygo.Glisp, h *Holochain, base Hash, tag string, options GetLinkOptions) (result *zygo.SexpHash, err error) {
-	result, err = zygo.MakeHash(nil, "hash", env)
-	if err != nil {
-		return nil, err
-	}
-
-	var r interface{}
-	r, err = NewGetLinkAction(&LinkQuery{Base: base, T: tag, StatusMask: options.StatusMask}, &options).Do(h)
-	response := r.(*LinkQueryResp)
-
-	if err == nil {
-		var j []byte
-		j, err = json.Marshal(response.Links)
-		if err == nil {
-			err = result.HashSet(env.MakeSymbol("result"), &zygo.SexpStr{S: string(j)})
-		}
-	} else {
-		err = result.HashSet(env.MakeSymbol("error"), &zygo.SexpStr{S: err.Error()})
+		Debugf("FISHY:%v\n", resultValue)
+		err = result.HashSet(env.MakeSymbol("result"), resultValue)
 	}
 	return result, err
 }
@@ -562,8 +496,19 @@ func NewZygoNucleus(h *Holochain, code string) (n Nucleus, err error) {
 				req.StatusMask = int(args[1].value.(int64))
 			}
 
-			result, err := z.get(env, h, req)
-			return result, err
+			var entry interface{}
+			entry, err = NewGetAction(req).Do(h)
+			var resultValue zygo.Sexp
+			resultValue = zygo.SexpNull
+			if err == nil {
+				t := entry.(*GobEntry)
+				j, err := json.Marshal(t.Content())
+				if err == nil {
+					resultValue = &zygo.SexpStr{S: string(j)}
+				}
+			}
+			return makeResult(env, resultValue, err)
+			//			return result, err
 		})
 
 	z.env.AddFunction("modify",
@@ -574,11 +519,21 @@ func NewZygoNucleus(h *Holochain, code string) (n Nucleus, err error) {
 			if err != nil {
 				return zygo.SexpNull, err
 			}
-			hash := args[0].value.(Hash)
-			newHash := args[1].value.(Hash)
+			entryType := args[0].value.(string)
+			entryStr := args[1].value.(string)
+			replaces := args[2].value.(Hash)
 
-			result, err := z.mod(env, h, hash, newHash)
-			return result, err
+			entry := GobEntry{C: entryStr}
+			resp, err := NewModAction(entryType, &entry, replaces).Do(h)
+			if err != nil {
+				return zygo.SexpNull, err
+			}
+			var entryHash Hash
+			if resp != nil {
+				entryHash = resp.(Hash)
+			}
+			var result = zygo.SexpStr{S: entryHash.String()}
+			return &result, nil
 		})
 
 	z.env.AddFunction("del",
@@ -591,8 +546,8 @@ func NewZygoNucleus(h *Holochain, code string) (n Nucleus, err error) {
 			}
 			hash := args[0].value.(Hash)
 
-			result, err := z.del(env, h, hash)
-			return result, err
+			_, err = NewDelAction(hash).Do(h)
+			return makeResult(env, zygo.SexpNull, err)
 		})
 
 	z.env.AddFunction("getLink",
@@ -628,8 +583,21 @@ func NewZygoNucleus(h *Holochain, code string) (n Nucleus, err error) {
 					options.StatusMask = int(maskval)
 				}
 			}
-			result, err := z.getLink(env, h, base, tag, options)
-			return result, err
+
+			var r interface{}
+			r, err = NewGetLinkAction(&LinkQuery{Base: base, T: tag, StatusMask: options.StatusMask}, &options).Do(h)
+			response := r.(*LinkQueryResp)
+			var resultValue zygo.Sexp
+			resultValue = zygo.SexpNull
+			if err == nil {
+				var j []byte
+				j, err = json.Marshal(response.Links)
+				if err == nil {
+					resultValue = &zygo.SexpStr{S: string(j)}
+				}
+			}
+			return makeResult(env, resultValue, err)
+
 		})
 
 	l := ZygoLibrary

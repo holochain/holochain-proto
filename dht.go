@@ -688,7 +688,11 @@ func (dht *DHT) handleChangeReq(m *Message) (err error) {
 				base := t.Base.String()
 				for _, l := range resp.Links {
 					if base == l.Base {
-						err = dht.putLink(m, base, l.Link, l.Tag)
+						if l.LinkType == LinkTypeDel {
+							err = dht.delLink(m, base, l.Link, l.Tag)
+						} else {
+							err = dht.putLink(m, base, l.Link, l.Tag)
+						}
 					}
 				}
 

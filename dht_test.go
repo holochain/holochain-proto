@@ -352,11 +352,11 @@ func TestDHTReceiver(t *testing.T) {
 	_, hd, _ = h.NewEntry(now, "profile", &e)
 	profileHash := hd.EntryLink
 
-	ee := GobEntry{C: fmt.Sprintf(`{"Links":[{"Base":"%s","Link":"%s","Tag":"4stars"}]}`, hash.String(), profileHash.String())}
-	_, le, _ := h.NewEntry(time.Now(), "rating", &ee)
+	le := GobEntry{C: fmt.Sprintf(`{"Links":[{"Base":"%s","Link":"%s","Tag":"4stars"}]}`, hash.String(), profileHash.String())}
+	_, lhd, _ := h.NewEntry(time.Now(), "rating", &le)
 
 	Convey("LINK_REQUEST should store links", t, func() {
-		lr := LinkReq{Base: hash, Links: le.EntryLink}
+		lr := LinkReq{Base: hash, Links: lhd.EntryLink}
 		m := h.node.NewMessage(LINK_REQUEST, lr)
 		r, err := DHTReceiver(h, m)
 		So(err, ShouldBeNil)
@@ -390,12 +390,14 @@ func TestDHTReceiver(t *testing.T) {
 		So(len(gr.Puts), ShouldEqual, 4)
 	})
 
-	Convey("DELETELINK_REQUEST should mark a link as deleted", t, func() {
-		mq := DelLinkReq{Base: hash, Link: profileHash, Tag: "4stars"}
-		m := h.node.NewMessage(DELETELINK_REQUEST, mq)
-		_, err := DHTReceiver(h, m)
-		So(err, ShouldBeNil)
-		//		So(r, ShouldEqual, "queued")
+	le2 := GobEntry{C: fmt.Sprintf(`{"Links":[{"Base":"%s","Link":"%s","Tag":"4stars","LinkType":"%s"}]}`, hash.String(), profileHash.String(), LinkTypeDel)}
+	_, lhd2, _ := h.NewEntry(time.Now(), "rating", &le2)
+
+	Convey("LINK_REQUEST with del type should mark a link as deleted", t, func() {
+		lr := LinkReq{Base: hash, Links: lhd2.EntryLink}
+		m := h.node.NewMessage(LINK_REQUEST, lr)
+		r, err := DHTReceiver(h, m)
+		So(r, ShouldEqual, "queued")
 
 		// fake the handling of change requests
 		err = h.dht.simHandleChangeReqs()

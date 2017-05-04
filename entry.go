@@ -46,11 +46,17 @@ type LinksEntry struct {
 	Links []Link
 }
 
+const (
+	LinkTypeAdd = ""
+	LinkTypeDel = "_"
+)
+
 // Link structure for holding meta tagging of linking entry
 type Link struct {
-	Base string // hash of entry (perhaps elsewhere) tow which we are attaching the link
-	Link string // hash of entry being linked to
-	Tag  string // tag
+	LinkType string // empty string means add link, anything else is a del link
+	Base     string // hash of entry (perhaps elsewhere) tow which we are attaching the link
+	Link     string // hash of entry being linked to
+	Tag      string // tag
 }
 
 // EntryDef struct holds an entry definition

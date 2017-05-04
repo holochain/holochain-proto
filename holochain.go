@@ -124,7 +124,6 @@ func Initialize() {
 	gob.Register(DelReq{})
 	gob.Register(LinkReq{})
 	gob.Register(LinkQuery{})
-	gob.Register(DelLinkReq{})
 	gob.Register(GossipReq{})
 	gob.Register(Gossip{})
 	gob.Register(ValidateQuery{})
@@ -831,7 +830,7 @@ func (s *Service) GenDev(root string, format string) (hP *Holochain, err error) 
 				Zome:   "zySampleZome",
 				FnName: "addPrime",
 				Input:  "{\"prime\":4}",
-				Err:    `Error calling 'commit': Invalid entry: {"Atype":"hash", "prime":4, "zKeyOrder":["prime"]}`},
+				Err:    `Error calling 'commit': Invalid entry: {"prime":4}`},
 			{
 				Zome:   "jsSampleZome",
 				FnName: "addProfile",

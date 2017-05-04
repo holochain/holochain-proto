@@ -107,9 +107,6 @@ func (h *Holochain) GetDHTReqAction(msg *Message) (a Action, err error) {
 	case GETLINK_REQUEST:
 		a = &ActionGetLink{}
 		t = reflect.TypeOf(LinkQuery{})
-	case DELETELINK_REQUEST:
-		a = &ActionDelLink{}
-		t = reflect.TypeOf(DelLinkReq{})
 	default:
 		err = fmt.Errorf("message type %d not in holochain-dht protocol", int(msg.Type))
 	}
@@ -646,41 +643,5 @@ func (a *ActionGetLink) DHTReqHandler(dht *DHT, msg *Message) (response interfac
 	r.Links, err = dht.getLink(lq.Base, lq.T, lq.StatusMask)
 	response = &r
 
-	return
-}
-
-//------------------------------------------------------------
-// DelLink
-
-type ActionDelLink struct {
-	link *DelLinkReq
-}
-
-func NewDelLinkAction(link *DelLinkReq) *ActionDelLink {
-	a := ActionDelLink{link: link}
-	return &a
-}
-
-func (a *ActionDelLink) Name() string {
-	return "delLink"
-}
-
-func (a *ActionDelLink) Args() []Arg {
-	return []Arg{{Name: "base", Type: HashArg}, {Name: "link", Type: HashArg}, {Name: "tag", Type: StringArg}}
-}
-
-func (a *ActionDelLink) Do(h *Holochain) (response interface{}, err error) {
-	response, err = h.dht.Send(a.link.Base, DELETELINK_REQUEST, *a.link)
-	return
-}
-
-func (a *ActionDelLink) SysValidation(h *Holochain, d *EntryDef, sources []peer.ID) (err error) {
-	//@TODO what sys level delLinks validation?  That they are all valid hash format for the DNA?
-	return
-}
-
-func (a *ActionDelLink) DHTReqHandler(dht *DHT, msg *Message) (response interface{}, err error) {
-	req := msg.Body.(DelLinkReq)
-	err = dht.delLink(msg, req.Base.String(), req.Link.String(), req.Tag)
 	return
 }

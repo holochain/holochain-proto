@@ -71,6 +71,6 @@ func TestValidateReceiver(t *testing.T) {
 		vr := r.(ValidateLinkResponse)
 		//	So(vr.Tag, ShouldEqual, "a meta tag")
 		//	So(vr.Type, ShouldEqual, "evenNumbers")
-		So(fmt.Sprintf("%v", vr), ShouldEqual, "{rating [{QmdykVTmyPfSaqx4WJQoRHhg7GM7ree8W961pS7uCmhYuJ QmYeinX5vhuA91D3v24YbgyLofw9QAxY6PoATrBHnRwbtt 4stars}]}")
+		So(fmt.Sprintf("%v", vr), ShouldEqual, "{rating [{ QmdykVTmyPfSaqx4WJQoRHhg7GM7ree8W961pS7uCmhYuJ QmYeinX5vhuA91D3v24YbgyLofw9QAxY6PoATrBHnRwbtt 4stars}]}")
 	})
 }

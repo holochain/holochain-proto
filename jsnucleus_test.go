@@ -19,7 +19,7 @@ func TestNewJSNucleus(t *testing.T) {
 	Convey("new fail to create nucleus when code is bad", t, func() {
 		v, err := NewJSNucleus(nil, "1+ )")
 		So(v, ShouldBeNil)
-		So(err.Error(), ShouldEqual, "JS exec error: (anonymous): Line 1:81 Unexpected token )")
+		So(err.Error(), ShouldEqual, "JS exec error: (anonymous): Line 1:107 Unexpected token )")
 	})
 
 	Convey("it should have an App structure:", t, func() {
@@ -248,7 +248,7 @@ func TestPrepareJSValidateArgs(t *testing.T) {
 		a.validationBase = hash
 		args, err := prepareJSValidateArgs(a, &d)
 		So(err, ShouldBeNil)
-		So(args, ShouldEqual, `"QmY8Mzg9F69e5P9AoQPYat6x5HEhc1TVGs11tmfNSzkqh2",JSON.parse("[{\"Base\":\"QmdRXz53TVT9qBYfbXctHyy2GpTNa6YrpAy6ZcDGG8Xhc5\",\"Link\":\"QmdRXz53TVT9qBYfbXctHyy2GpTNa6YrpAy6ZcDGG8Xhc5\",\"Tag\":\"fish\"}]")`)
+		So(args, ShouldEqual, `"QmY8Mzg9F69e5P9AoQPYat6x5HEhc1TVGs11tmfNSzkqh2",JSON.parse("[{\"LinkType\":\"\",\"Base\":\"QmdRXz53TVT9qBYfbXctHyy2GpTNa6YrpAy6ZcDGG8Xhc5\",\"Link\":\"QmdRXz53TVT9qBYfbXctHyy2GpTNa6YrpAy6ZcDGG8Xhc5\",\"Tag\":\"fish\"}]")`)
 	})
 }
 
@@ -365,11 +365,16 @@ func TestJSDHT(t *testing.T) {
 		So(fmt.Sprintf("%v", lqr.Links[0].E), ShouldEqual, `{"firstName":"Zippy","lastName":"Pinhead"}`)
 	})
 
-	Convey("delLink function should delete link", t, func() {
-		v, err := NewJSNucleus(h, fmt.Sprintf(`delLink("%s","%s","4stars");`, hash.String(), profileHash.String()))
+	Convey("commit with del link should delete link", t, func() {
+		v, err := NewJSNucleus(h, fmt.Sprintf(`commit("rating",{Links:[{"LinkType":HC.LinkType.Del,Base:"%s",Link:"%s",Tag:"4stars"}]});`, hash.String(), profileHash.String()))
 		So(err, ShouldBeNil)
 		z := v.(*JSNucleus)
-		So(z.lastResult.String(), ShouldEqual, "undefined")
+		_, err = NewHash(z.lastResult.String())
+		So(err, ShouldBeNil)
+
+		if err := h.dht.simHandleChangeReqs(); err != nil {
+			panic(err)
+		}
 		links, _ := h.dht.getLink(hash, "4stars", StatusLive)
 		So(fmt.Sprintf("%v", links), ShouldEqual, "[]")
 		links, _ = h.dht.getLink(hash, "4stars", StatusDeleted)

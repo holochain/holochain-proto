@@ -94,8 +94,6 @@ func prepareJSValidateArgs(action Action, def *EntryDef) (args string, err error
 		if err == nil {
 			args = fmt.Sprintf(`"%s",JSON.parse("%s")`, t.validationBase.String(), jsSanitizeString(string(j)))
 		}
-	case *ActionDelLink:
-		args = fmt.Sprintf(`"%s","%s","%s"`, t.link.Base.String(), t.link.Link.String(), t.link.Tag)
 	default:
 		err = fmt.Errorf("can't prepare args for %T: ", t)
 		return
@@ -207,7 +205,8 @@ const (
 		`,Deleted:` + StatusDeletedVal +
 		`,Modified:` + StatusModifiedVal +
 		`,Any:` + StatusAnyVal +
-		"}" +
+		"}," +
+		`LinkType:{Add:"` + LinkTypeAdd + `",Del:"` + LinkTypeDel + `"}` +
 		`};`
 )
 
@@ -545,29 +544,6 @@ func NewJSNucleus(h *Holochain, code string) (n Nucleus, err error) {
 	if err != nil {
 		return nil, err
 	}
-
-	err = z.vm.Set("delLink", func(call otto.FunctionCall) (result otto.Value) {
-		var a Action = &ActionDelLink{}
-		args := a.Args()
-		err := jsProcessArgs(&z, args, call.ArgumentList)
-		if err != nil {
-			result = mkOttoErr(&z, err.Error())
-		}
-		base := args[0].value.(Hash)
-		link := args[1].value.(Hash)
-		tag := args[2].value.(string)
-
-		var response interface{}
-		response, err = NewDelLinkAction(&DelLinkReq{Base: base, Link: link, Tag: tag}).Do(h)
-
-		if err == nil {
-			result, err = z.vm.ToValue(response)
-		} else {
-			result = mkOttoErr(&z, err.Error())
-		}
-
-		return
-	})
 
 	l := JSLibrary
 	if h != nil {

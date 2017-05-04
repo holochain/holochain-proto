@@ -171,7 +171,7 @@ func TestZyValidateCommit(t *testing.T) {
 		d := EntryDef{Name: "evenNumbers", DataFormat: DataFormatString}
 		ShouldLog(&h.config.Loggers.App, `evenNumbers
 foo
-{"Atype":"hash", "EntryLink":"QmNiCwBNA8MWDADTFVq1BonUEJbS2SvjAoNkZZrhEwcuU2", "Type":"evenNumbers", "Time":"1970-01-01T00:00:01Z", "zKeyOrder":["EntryLink", "Type", "Time"]}
+{"EntryLink":"QmNiCwBNA8MWDADTFVq1BonUEJbS2SvjAoNkZZrhEwcuU2", "Type":"evenNumbers", "Time":"1970-01-01T00:00:01Z"}
 ["fakehashvalue"]
 `, func() {
 			a := NewCommitAction("oddNumbers", &GobEntry{C: "foo"})
@@ -260,7 +260,7 @@ func TestPrepareZyValidateArgs(t *testing.T) {
 		a.validationBase = hash
 		args, err := prepareZyValidateArgs(a, &d)
 		So(err, ShouldBeNil)
-		So(args, ShouldEqual, `"QmY8Mzg9F69e5P9AoQPYat6x5HEhc1TVGs11tmfNSzkqh2" (unjson (raw "[{\"Base\":\"QmdRXz53TVT9qBYfbXctHyy2GpTNa6YrpAy6ZcDGG8Xhc5\",\"Link\":\"QmdRXz53TVT9qBYfbXctHyy2GpTNa6YrpAy6ZcDGG8Xhc5\",\"Tag\":\"fish\"}]"))`)
+		So(args, ShouldEqual, `"QmY8Mzg9F69e5P9AoQPYat6x5HEhc1TVGs11tmfNSzkqh2" (unjson (raw "[{\"LinkType\":\"\",\"Base\":\"QmdRXz53TVT9qBYfbXctHyy2GpTNa6YrpAy6ZcDGG8Xhc5\",\"Link\":\"QmdRXz53TVT9qBYfbXctHyy2GpTNa6YrpAy6ZcDGG8Xhc5\",\"Tag\":\"fish\"}]"))`)
 	})
 }
 
@@ -297,13 +297,13 @@ func TestZygoExposeCall(t *testing.T) {
 		times2, _ := h.GetFunctionDef(zome, "testJsonFn1")
 		result, err := z.Call(times2, `{"input": 2}`)
 		So(err, ShouldBeNil)
-		So(string(result.([]byte)), ShouldEqual, `{"Atype":"hash", "input":2, "output":4, "zKeyOrder":["input", "output"]}`)
+		So(string(result.([]byte)), ShouldEqual, `{"input":2, "output":4}`)
 	})
 	Convey("should allow a function declared with JSON parameter to be called with no parameter", t, func() {
 		emptyParametersJson, _ := h.GetFunctionDef(zome, "testJsonFn2")
 		result, err := z.Call(emptyParametersJson, "")
 		So(err, ShouldBeNil)
-		So(string(result.([]byte)), ShouldEqual, "[{\"Atype\":\"hash\", \"a\":\"b\", \"zKeyOrder\":[\"a\"]}]")
+		So(string(result.([]byte)), ShouldEqual, `[{"a":"b"}]`)
 	})
 }
 
@@ -367,13 +367,18 @@ func TestZygoDHT(t *testing.T) {
 		So(r.(*zygo.SexpStr).S, ShouldEqual, `[{"H":"QmYeinX5vhuA91D3v24YbgyLofw9QAxY6PoATrBHnRwbtt","E":"{\"firstName\":\"Zippy\",\"lastName\":\"Pinhead\"}"}]`)
 	})
 
-	Convey("delLink function should delete link", t, func() {
-		v, err := NewZygoNucleus(h, fmt.Sprintf(`(delLink "%s" "%s" "4stars")`, hash.String(), profileHash.String()))
+	Convey("commit with del link should delete link", t, func() {
+		v, err := NewZygoNucleus(h, fmt.Sprintf(`(commit "rating" (hash Links:[(hash LinkType:HC_LinkTypeDel Base:"%s" Link:"%s" Tag:"4stars")]))`, hash.String(), profileHash.String()))
 		So(err, ShouldBeNil)
 		z := v.(*ZygoNucleus)
-		sh := z.lastResult.(*zygo.SexpHash)
-		r, err := sh.HashGet(z.env, z.env.MakeSymbol("result"))
-		So(fmt.Sprintf("%v", r), ShouldEqual, "&{0}")
+
+		_, err = NewHash(z.lastResult.(*zygo.SexpStr).S)
+		So(err, ShouldBeNil)
+
+		if err := h.dht.simHandleChangeReqs(); err != nil {
+			panic(err)
+		}
+
 		links, _ := h.dht.getLink(hash, "4stars", StatusLive)
 		So(fmt.Sprintf("%v", links), ShouldEqual, "[]")
 		links, _ = h.dht.getLink(hash, "4stars", StatusDeleted)
@@ -524,7 +529,7 @@ func TestZyProcessArgs(t *testing.T) {
 		hval.HashSet(env.MakeSymbol("lname"), &zygo.SexpStr{S: "Smith"})
 		err = zyProcessArgs(args, []zygo.Sexp{hval})
 		So(err, ShouldBeNil)
-		So(args[0].value.(string), ShouldEqual, `{"Atype":"hash", "fname":"Jane", "lname":"Smith", "zKeyOrder":["fname", "lname"]}`)
+		So(args[0].value.(string), ShouldEqual, `{"fname":"Jane", "lname":"Smith"}`)
 
 	})
 
@@ -572,7 +577,6 @@ func TestZyProcessArgs(t *testing.T) {
 		hval.HashSet(env.MakeSymbol("I"), &zygo.SexpInt{Val: 314})
 
 		err = zyProcessArgs(args, []zygo.Sexp{hval})
-		So(args[0].value.(string), ShouldEqual, `{"Atype":"hash", "H":"fakehashvalue", "I":314, "zKeyOrder":["H", "I"]}`)
-
+		So(args[0].value.(string), ShouldEqual, `{"H":"fakehashvalue", "I":314}`)
 	})
 }

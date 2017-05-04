@@ -12,6 +12,7 @@ import (
 	zygo "github.com/glycerine/zygomys/repl"
 	peer "github.com/libp2p/go-libp2p-peer"
 	"math"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -107,8 +108,6 @@ func prepareZyValidateArgs(action Action, def *EntryDef) (args string, err error
 		if err == nil {
 			args = fmt.Sprintf(`"%s" (unjson (raw "%s"))`, t.validationBase.String(), sanitizeZyString(string(j)))
 		}
-	case *ActionDelLink:
-		args = fmt.Sprintf(`"%s" "%s" "%s"`, t.link.Base.String(), t.link.Link.String(), t.link.Tag)
 	default:
 		err = fmt.Errorf("can't prepare args for %T: ", t)
 		return
@@ -270,7 +269,7 @@ func (z *ZygoNucleus) Call(fn *FunctionDef, params interface{}) (result interfac
 			// type should always be SexpRaw
 			switch t := result.(type) {
 			case *zygo.SexpRaw:
-				result = t.Val
+				result = []byte(cleanZygoJson(string(t.Val)))
 			default:
 				err = errors.New("expected SexpRaw return type")
 			}
@@ -287,7 +286,9 @@ var ZygoLibrary = `(def HC_Version "` + VersionStr + `")` +
 	`(def HC_StatusRejected ` + StatusRejectedVal + ")" +
 	`(def HC_StatusDeleted ` + StatusDeletedVal + ")" +
 	`(def HC_StatusModified ` + StatusModifiedVal + ")" +
-	`(def HC_StatusAny ` + StatusAnyVal + ")"
+	`(def HC_StatusAny ` + StatusAnyVal + ")" +
+	`(def HC_LinkTypeAdd "` + LinkTypeAdd + "\")" +
+	`(def HC_LinkTypeDel "` + LinkTypeDel + "\")"
 
 // get exposes DHTGet to zygo
 func (z *ZygoNucleus) get(env *zygo.Glisp, h *Holochain, req GetReq) (result *zygo.SexpHash, err error) {
@@ -346,22 +347,6 @@ func (z *ZygoNucleus) del(env *zygo.Glisp, h *Holochain, hash Hash) (result *zyg
 	return result, err
 }
 
-func (z *ZygoNucleus) delLink(env *zygo.Glisp, h *Holochain, base Hash, link Hash, tag string) (result *zygo.SexpHash, err error) {
-	result, err = zygo.MakeHash(nil, "hash", env)
-	if err != nil {
-		return nil, err
-	}
-
-	_, err = NewDelLinkAction(&DelLinkReq{Base: base, Link: link, Tag: tag}).Do(h)
-	if err == nil {
-		err = result.HashSet(env.MakeSymbol("result"), zygo.SexpNull)
-
-	} else {
-		err = result.HashSet(env.MakeSymbol("error"), &zygo.SexpStr{S: err.Error()})
-	}
-	return
-}
-
 // getLink exposes GetLink to zygo
 func (z *ZygoNucleus) getLink(env *zygo.Glisp, h *Holochain, base Hash, tag string, options GetLinkOptions) (result *zygo.SexpHash, err error) {
 	result, err = zygo.MakeHash(nil, "hash", env)
@@ -383,6 +368,14 @@ func (z *ZygoNucleus) getLink(env *zygo.Glisp, h *Holochain, base Hash, tag stri
 		err = result.HashSet(env.MakeSymbol("error"), &zygo.SexpStr{S: err.Error()})
 	}
 	return result, err
+}
+
+// cleanZygoJson removes zygos crazy crap
+func cleanZygoJson(s string) string {
+	s = strings.Replace(s, `"Atype":"hash", `, "", -1)
+	re := regexp.MustCompile(`, "zKeyOrder":\[[^\]]+\]`)
+	s = string(re.ReplaceAll([]byte(s), []byte("")))
+	return s
 }
 
 func zyProcessArgs(args []Arg, zyArgs []zygo.Sexp) (err error) {
@@ -438,14 +431,14 @@ func zyProcessArgs(args []Arg, zyArgs []zygo.Sexp) (err error) {
 			case *zygo.SexpStr:
 				args[i].value = t.S
 			case *zygo.SexpHash:
-				args[i].value = zygo.SexpToJson(t)
+				args[i].value = cleanZygoJson(zygo.SexpToJson(t))
 			default:
 				return argErr("string or hash", i+1, args[i])
 			}
 		case MapArg:
 			switch t := a.(type) {
 			case *zygo.SexpHash:
-				j := zygo.SexpToJson(t)
+				j := cleanZygoJson(zygo.SexpToJson(t))
 				m := make(map[string]interface{})
 				var err = json.Unmarshal([]byte(j), &m)
 				if err != nil {
@@ -472,9 +465,9 @@ func zyProcessArgs(args []Arg, zyArgs []zygo.Sexp) (err error) {
 					str = "false"
 				}
 			case *zygo.SexpHash:
-				str = zygo.SexpToJson(t)
+				str = cleanZygoJson(zygo.SexpToJson(t))
 			case *zygo.SexpArray:
-				str = zygo.SexpToJson(t)
+				str = cleanZygoJson(zygo.SexpToJson(t))
 			default:
 				return argErr("int, boolean, string, array or hash", i+1, args[i])
 			}
@@ -636,22 +629,6 @@ func NewZygoNucleus(h *Holochain, code string) (n Nucleus, err error) {
 				}
 			}
 			result, err := z.getLink(env, h, base, tag, options)
-			return result, err
-		})
-
-	z.env.AddFunction("delLink",
-		func(env *zygo.Glisp, name string, zyargs []zygo.Sexp) (zygo.Sexp, error) {
-			var a Action = &ActionDelLink{}
-			args := a.Args()
-			err := zyProcessArgs(args, zyargs)
-			if err != nil {
-				return zygo.SexpNull, err
-			}
-			base := args[0].value.(Hash)
-			link := args[1].value.(Hash)
-			tag := args[2].value.(string)
-
-			result, err := z.delLink(env, h, base, link, tag)
 			return result, err
 		})
 

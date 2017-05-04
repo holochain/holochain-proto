@@ -3,7 +3,7 @@ ID = "00000000-0000-0000-0000-000000000000"
 Name = "sample"
 PropertiesSchema = "properties_schema.json"
 HashType = "sha2-256"
-RequiresVersion = 7
+RequiresVersion = 8
 
 [Properties]
   description = "a bogus test holochain"

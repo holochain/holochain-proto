@@ -78,7 +78,8 @@ type GetReq struct {
 
 // DelReq holds the data of a del request
 type DelReq struct {
-	H Hash
+	H  Hash // hash to be deleted
+	By Hash // hash of DelEntry on source chain took this action
 }
 
 // ModReq holds the data of a mod request
@@ -630,21 +631,27 @@ func (dht *DHT) handleChangeReq(m *Message) (err error) {
 		}
 
 		var r interface{}
-		r, err = dht.h.Send(ValidateProtocol, from, VALIDATE_DEL_REQUEST, ValidateQuery{H: t.H})
+		r, err = dht.h.Send(ValidateProtocol, from, VALIDATE_DEL_REQUEST, ValidateQuery{H: t.By})
 		if err != nil {
 			return
 		}
 
 		switch resp := r.(type) {
 		case ValidateDelResponse:
-			a := NewDelAction(t.H)
+			var delEntry DelEntry
+			err = ByteDecoder([]byte(resp.Entry.Content().(string)), &delEntry)
+			if err != nil {
+				return
+			}
+
+			a := NewDelAction(resp.Type, delEntry)
 			//@TODO what comes back from Validate Del
 			_, err = dht.h.ValidateAction(a, resp.Type, []peer.ID{from})
 			if err != nil {
 				// how do we record an invalid DEL?
 				//@TODO store as REJECTED
 			} else {
-				err = dht.del(m, t.H)
+				err = dht.del(m, delEntry.Hash)
 			}
 
 		default:

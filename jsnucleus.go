@@ -91,7 +91,7 @@ func prepareJSValidateArgs(action Action, def *EntryDef) (args string, err error
 	case *ActionMod:
 		args, err = prepareJSEntryArgs(def, t.entry, t.header)
 	case *ActionDel:
-		args = fmt.Sprintf(`"%s"`, t.hash.String())
+		args = fmt.Sprintf(`"%s"`, t.entry.Hash.String())
 	case *ActionLink:
 		var j []byte
 		j, err = json.Marshal(t.links)
@@ -492,12 +492,21 @@ func NewJSNucleus(h *Holochain, code string) (n Nucleus, err error) {
 		if err != nil {
 			return mkOttoErr(&z, err.Error())
 		}
-		hash := args[0].value.(Hash)
-
-		resp, err := NewDelAction(hash).Do(h)
+		entry := DelEntry{
+			Hash:    args[0].value.(Hash),
+			Message: args[1].value.(string),
+		}
+		header, err := h.chain.GetEntryHeader(entry.Hash)
 		if err == nil {
-			result, err = z.vm.ToValue(resp)
-			return
+			resp, err := NewDelAction(header.Type, entry).Do(h)
+			if err == nil {
+				var entryHash Hash
+				if resp != nil {
+					entryHash = resp.(Hash)
+				}
+				result, _ = z.vm.ToValue(entryHash.String())
+				return
+			}
 		}
 		result = mkOttoErr(&z, err.Error())
 		return

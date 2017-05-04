@@ -437,7 +437,11 @@ func TestDHTReceiver(t *testing.T) {
 	})
 
 	Convey("DELETE_REQUEST should set status of hash to deleted", t, func() {
-		m := h.node.NewMessage(DEL_REQUEST, DelReq{H: hash2})
+		entry := DelEntry{Hash: hash2, Message: "expired"}
+		a := NewDelAction("profile", entry)
+		_, _, entryHash, err := h.doCommit(a, &StatusChange{Action: DelAction, Hash: hash2})
+
+		m := h.node.NewMessage(DEL_REQUEST, DelReq{H: hash2, By: entryHash})
 		r, err := DHTReceiver(h, m)
 		So(err, ShouldBeNil)
 		So(r, ShouldEqual, "queued")

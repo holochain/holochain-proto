@@ -54,6 +54,12 @@ type Link struct {
 	Tag        string // tag
 }
 
+// DelEntry struct holds the record of an entry's deletion
+type DelEntry struct {
+	Hash    Hash
+	Message string
+}
+
 // EntryDef struct holds an entry definition
 type EntryDef struct {
 	Name       string

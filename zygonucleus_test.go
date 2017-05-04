@@ -248,7 +248,8 @@ func TestPrepareZyValidateArgs(t *testing.T) {
 	})
 	Convey("it should prepare args for del", t, func() {
 		hash, _ := NewHash("QmY8Mzg9F69e5P9AoQPYat6x5HEhc1TVGs11tmfNSzkqh2")
-		a := NewDelAction(hash)
+		entry := DelEntry{Hash: hash, Message: "expired"}
+		a := NewDelAction("profile", entry)
 		args, err := prepareZyValidateArgs(a, &d)
 		So(err, ShouldBeNil)
 		So(args, ShouldEqual, `"QmY8Mzg9F69e5P9AoQPYat6x5HEhc1TVGs11tmfNSzkqh2"`)
@@ -426,19 +427,18 @@ func TestZygoDHT(t *testing.T) {
 	})
 
 	Convey("del function should mark item deleted", t, func() {
-		v, err := NewZygoNucleus(h, fmt.Sprintf(`(del "%s")`, hash.String()))
+		v, err := NewZygoNucleus(h, fmt.Sprintf(`(del "%s" "expired")`, hash.String()))
 		So(err, ShouldBeNil)
 
 		z := v.(*ZygoNucleus)
-		sh := z.lastResult.(*zygo.SexpHash)
-		r, err := sh.HashGet(z.env, z.env.MakeSymbol("result"))
-		So(fmt.Sprintf("%v", r), ShouldEqual, "&{0}")
+		_, err = NewHash(z.lastResult.(*zygo.SexpStr).S)
+		So(err, ShouldBeNil)
 
 		v, err = NewZygoNucleus(h, fmt.Sprintf(`(get "%s")`, hash.String()))
 		So(err, ShouldBeNil)
 		z = v.(*ZygoNucleus)
 
-		r, err = z.lastResult.(*zygo.SexpHash).HashGet(z.env, z.env.MakeSymbol("error"))
+		r, err := z.lastResult.(*zygo.SexpHash).HashGet(z.env, z.env.MakeSymbol("error"))
 		So(err, ShouldBeNil)
 		So(r.(*zygo.SexpStr).S, ShouldEqual, "hash deleted")
 

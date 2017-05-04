@@ -101,7 +101,7 @@ func prepareZyValidateArgs(action Action, def *EntryDef) (args string, err error
 	case *ActionMod:
 		args, err = prepareZyEntryArgs(def, t.entry, t.header)
 	case *ActionDel:
-		args = fmt.Sprintf(`"%s"`, t.hash.String())
+		args = fmt.Sprintf(`"%s"`, t.entry.Hash.String())
 	case *ActionLink:
 		var j []byte
 		j, err = json.Marshal(t.links)
@@ -544,10 +544,23 @@ func NewZygoNucleus(h *Holochain, code string) (n Nucleus, err error) {
 			if err != nil {
 				return zygo.SexpNull, err
 			}
-			hash := args[0].value.(Hash)
-
-			_, err = NewDelAction(hash).Do(h)
-			return makeResult(env, zygo.SexpNull, err)
+			entry := DelEntry{
+				Hash:    args[0].value.(Hash),
+				Message: args[1].value.(string),
+			}
+			header, err := h.chain.GetEntryHeader(entry.Hash)
+			if err == nil {
+				resp, err := NewDelAction(header.Type, entry).Do(h)
+				if err != nil {
+					return zygo.SexpNull, err
+				}
+				var entryHash Hash
+				if resp != nil {
+					entryHash = resp.(Hash)
+				}
+				return &zygo.SexpStr{S: entryHash.String()}, err
+			}
+			return zygo.SexpNull, err
 		})
 
 	z.env.AddFunction("getLink",

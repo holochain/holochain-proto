@@ -135,6 +135,8 @@ func Initialize() {
 	gob.Register(LinkQueryResp{})
 	gob.Register(TaggedHash{})
 	gob.Register(ErrorResponse{})
+	gob.Register(DelEntry{})
+	gob.Register(StatusChange{})
 
 	RegisterBultinNucleii()
 

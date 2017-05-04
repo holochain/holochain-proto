@@ -33,7 +33,9 @@ type ValidateLinkResponse struct {
 
 // ValidateDelResponse holds the response to a VALIDATE_DEL_REQUEST
 type ValidateDelResponse struct {
-	Type string
+	Type   string
+	Entry  GobEntry
+	Header Header
 }
 
 // ValidateModResponse holds the response to a VALIDATE_DEL_REQUEST
@@ -96,10 +98,18 @@ func ValidateReceiver(h *Holochain, m *Message) (response interface{}, err error
 		switch t := m.Body.(type) {
 		case ValidateQuery:
 			var r ValidateDelResponse
-			_, r.Type, err = h.chain.GetEntry(t.H)
+			var entry Entry
+			entry, r.Type, err = h.chain.GetEntry(t.H)
 			if err != nil {
 				return
 			}
+			r.Entry = *(entry.(*GobEntry))
+			var hd *Header
+			hd, err = h.chain.GetEntryHeader(t.H)
+			if err != nil {
+				return
+			}
+			r.Header = *hd
 			response = r
 			h.dht.dlog.Logf("responding with: %v (err=%v)", r, err)
 		default:

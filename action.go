@@ -286,6 +286,33 @@ func (a *ActionGet) DHTReqHandler(dht *DHT, msg *Message) (response interface{},
 	return
 }
 
+// doCommit adds an entry to the local chain after validating the action it's part of
+func (h *Holochain) doCommit(a CommittingAction, change *StatusChange) (d *EntryDef, header *Header, entryHash Hash, err error) {
+
+	entryType := a.EntryType()
+	entry := a.Entry()
+	var l int
+	var hash Hash
+	l, hash, header, err = h.chain.PrepareHeader(h.hashSpec, time.Now(), entryType, entry, h.agent.PrivKey(), change)
+	if err != nil {
+		return
+	}
+	//TODO	a.header = header
+	d, err = h.ValidateAction(a, entryType, []peer.ID{h.id})
+	if err != nil {
+		if err == ValidationFailedErr {
+			err = fmt.Errorf("Invalid entry: %v", entry.Content())
+		}
+		return
+	}
+	err = h.chain.addEntry(l, hash, header, entry)
+	if err != nil {
+		return
+	}
+	entryHash = header.EntryLink
+	return
+}
+
 //------------------------------------------------------------
 // Commit
 
@@ -314,33 +341,6 @@ func (a *ActionCommit) Name() string {
 
 func (a *ActionCommit) Args() []Arg {
 	return []Arg{{Name: "entryType", Type: StringArg}, {Name: "entry", Type: EntryArg}}
-}
-
-// doCommit adds an entry to the local chain after validating the action it's part of
-func (h *Holochain) doCommit(a CommittingAction, change *StatusChange) (d *EntryDef, header *Header, entryHash Hash, err error) {
-
-	entryType := a.EntryType()
-	entry := a.Entry()
-	var l int
-	var hash Hash
-	l, hash, header, err = h.chain.PrepareHeader(h.hashSpec, time.Now(), entryType, entry, h.agent.PrivKey(), change)
-	if err != nil {
-		return
-	}
-	//TODO	a.header = header
-	d, err = h.ValidateAction(a, entryType, []peer.ID{h.id})
-	if err != nil {
-		if err == ValidationFailedErr {
-			err = fmt.Errorf("Invalid entry: %v", entry.Content())
-		}
-		return
-	}
-	err = h.chain.addEntry(l, hash, header, entry)
-	if err != nil {
-		return
-	}
-	entryHash = header.EntryLink
-	return
 }
 
 func (a *ActionCommit) Do(h *Holochain) (response interface{}, err error) {
@@ -558,11 +558,12 @@ func (a *ActionMod) DHTReqHandler(dht *DHT, msg *Message) (response interface{},
 // Del
 
 type ActionDel struct {
-	hash Hash
+	entryType string
+	entry     DelEntry
 }
 
-func NewDelAction(hash Hash) *ActionDel {
-	a := ActionDel{hash: hash}
+func NewDelAction(entryType string, entry DelEntry) *ActionDel {
+	a := ActionDel{entryType: entryType, entry: entry}
 	return &a
 }
 
@@ -570,16 +571,43 @@ func (a *ActionDel) Name() string {
 	return "del"
 }
 
+func (a *ActionDel) Entry() Entry {
+	var buf []byte
+	buf, err := ByteEncoder(a.entry)
+	if err != nil {
+		panic(err)
+	}
+	return &GobEntry{C: string(buf)}
+}
+
+func (a *ActionDel) EntryType() string {
+	return a.entryType
+}
+
 func (a *ActionDel) Args() []Arg {
-	return []Arg{{Name: "hash", Type: HashArg}}
+	return []Arg{{Name: "hash", Type: HashArg}, {Name: "message", Type: StringArg}}
 }
 
 func (a *ActionDel) Do(h *Holochain) (response interface{}, err error) {
-	response, err = h.dht.Send(a.hash, DEL_REQUEST, DelReq{H: a.hash})
+	var d *EntryDef
+	var entryHash Hash
+	d, _, entryHash, err = h.doCommit(a, &StatusChange{Action: DelAction, Hash: a.entry.Hash})
+	if err != nil {
+		return
+	}
+	if d.Sharing == Public {
+		// if it's a public entry send the DHT DEL
+		_, err = h.dht.Send(a.entry.Hash, DEL_REQUEST, DelReq{H: a.entry.Hash, By: entryHash})
+	}
+	response = entryHash
+
 	return
 }
 
 func (a *ActionDel) SysValidation(h *Holochain, d *EntryDef, sources []peer.ID) (err error) {
+	if d.DataFormat == DataFormatLinks {
+		err = errors.New("Can't del Links entry")
+	}
 	return
 }
 

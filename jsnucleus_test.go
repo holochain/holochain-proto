@@ -236,7 +236,8 @@ func TestPrepareJSValidateArgs(t *testing.T) {
 	})
 	Convey("it should prepare args for del", t, func() {
 		hash, _ := NewHash("QmY8Mzg9F69e5P9AoQPYat6x5HEhc1TVGs11tmfNSzkqh2")
-		a := NewDelAction(hash)
+		entry := DelEntry{Hash: hash, Message: "expired"}
+		a := NewDelAction("profile", entry)
 		args, err := prepareJSValidateArgs(a, &d)
 		So(err, ShouldBeNil)
 		So(args, ShouldEqual, `"QmY8Mzg9F69e5P9AoQPYat6x5HEhc1TVGs11tmfNSzkqh2"`)
@@ -422,10 +423,12 @@ func TestJSDHT(t *testing.T) {
 	})
 
 	Convey("del function should mark item deleted", t, func() {
-		v, err := NewJSNucleus(h, fmt.Sprintf(`del("%s");`, hash.String()))
+		v, err := NewJSNucleus(h, fmt.Sprintf(`del("%s","expired");`, hash.String()))
 		So(err, ShouldBeNil)
 		z := v.(*JSNucleus)
-		So(z.lastResult.String(), ShouldEqual, "queued")
+		delhashstr := z.lastResult.String()
+		_, err = NewHash(delhashstr)
+		So(err, ShouldBeNil)
 
 		v, err = NewJSNucleus(h, fmt.Sprintf(`get("%s");`, hash.String()))
 		So(err, ShouldBeNil)

@@ -282,13 +282,13 @@ func (z *ZygoNucleus) Call(fn *FunctionDef, params interface{}) (result interfac
 // These are the zygo implementations of the library functions that must available in
 // all Nucleii implementations.
 var ZygoLibrary = `(def HC_Version "` + VersionStr + `")` +
-	`(def HC_StatusLive ` + StatusLiveVal + ")" +
-	`(def HC_StatusRejected ` + StatusRejectedVal + ")" +
-	`(def HC_StatusDeleted ` + StatusDeletedVal + ")" +
-	`(def HC_StatusModified ` + StatusModifiedVal + ")" +
-	`(def HC_StatusAny ` + StatusAnyVal + ")" +
-	`(def HC_LinkActionAdd "` + AddAction + "\")" +
-	`(def HC_LinkActionDel "` + DelAction + "\")"
+	`(def HC_Status_Live ` + StatusLiveVal + ")" +
+	`(def HC_Status_Rejected ` + StatusRejectedVal + ")" +
+	`(def HC_Status_Deleted ` + StatusDeletedVal + ")" +
+	`(def HC_Status_Modified ` + StatusModifiedVal + ")" +
+	`(def HC_Status_Any ` + StatusAnyVal + ")" +
+	`(def HC_LinkAction_Add "` + AddAction + "\")" +
+	`(def HC_LinkAction_Del "` + DelAction + "\")"
 
 func makeResult(env *zygo.Glisp, resultValue zygo.Sexp, resultError error) (zygo.Sexp, error) {
 	result, err := zygo.MakeHash(nil, "hash", env)
@@ -298,7 +298,6 @@ func makeResult(env *zygo.Glisp, resultValue zygo.Sexp, resultError error) (zygo
 	if resultError != nil {
 		err = result.HashSet(env.MakeSymbol("error"), &zygo.SexpStr{S: resultError.Error()})
 	} else {
-		Debugf("FISHY:%v\n", resultValue)
 		err = result.HashSet(env.MakeSymbol("result"), resultValue)
 	}
 	return result, err

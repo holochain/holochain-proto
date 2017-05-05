@@ -66,27 +66,27 @@ func TestNewZygoNucleus(t *testing.T) {
 		s := z.lastResult.(*zygo.SexpStr).S
 		So(s, ShouldEqual, VersionStr)
 
-		_, err = z.Run("HC_StatusDeleted")
+		_, err = z.Run("HC_Status_Deleted")
 		So(err, ShouldBeNil)
 		i := z.lastResult.(*zygo.SexpInt).Val
 		So(i, ShouldEqual, StatusDeleted)
 
-		_, err = z.Run("HC_StatusLive")
+		_, err = z.Run("HC_Status_Live")
 		So(err, ShouldBeNil)
 		i = z.lastResult.(*zygo.SexpInt).Val
 		So(i, ShouldEqual, StatusLive)
 
-		_, err = z.Run("HC_StatusRejected")
+		_, err = z.Run("HC_Status_Rejected")
 		So(err, ShouldBeNil)
 		i = z.lastResult.(*zygo.SexpInt).Val
 		So(i, ShouldEqual, StatusRejected)
 
-		_, err = z.Run("HC_StatusModified")
+		_, err = z.Run("HC_Status_Modified")
 		So(err, ShouldBeNil)
 		i = z.lastResult.(*zygo.SexpInt).Val
 		So(i, ShouldEqual, StatusModified)
 
-		_, err = z.Run("HC_StatusAny")
+		_, err = z.Run("HC_Status_Any")
 		So(err, ShouldBeNil)
 		i = z.lastResult.(*zygo.SexpInt).Val
 		So(i, ShouldEqual, StatusAny)
@@ -369,7 +369,7 @@ func TestZygoDHT(t *testing.T) {
 	})
 
 	Convey("commit with del link should delete link", t, func() {
-		v, err := NewZygoNucleus(h, fmt.Sprintf(`(commit "rating" (hash Links:[(hash LinkAction:HC_LinkActionDel Base:"%s" Link:"%s" Tag:"4stars")]))`, hash.String(), profileHash.String()))
+		v, err := NewZygoNucleus(h, fmt.Sprintf(`(commit "rating" (hash Links:[(hash LinkAction:HC_LinkAction_Del Base:"%s" Link:"%s" Tag:"4stars")]))`, hash.String(), profileHash.String()))
 		So(err, ShouldBeNil)
 		z := v.(*ZygoNucleus)
 
@@ -387,7 +387,7 @@ func TestZygoDHT(t *testing.T) {
 	})
 
 	Convey("getLink function with StatusMask option should return deleted Links", t, func() {
-		v, err := NewZygoNucleus(h, fmt.Sprintf(`(getLink "%s" "4stars" (hash StatusMask:HC_StatusDeleted))`, hash.String()))
+		v, err := NewZygoNucleus(h, fmt.Sprintf(`(getLink "%s" "4stars" (hash StatusMask:HC_Status_Deleted))`, hash.String()))
 		So(err, ShouldBeNil)
 		z := v.(*ZygoNucleus)
 
@@ -442,7 +442,7 @@ func TestZygoDHT(t *testing.T) {
 		So(err, ShouldBeNil)
 		So(r.(*zygo.SexpStr).S, ShouldEqual, "hash deleted")
 
-		v, err = NewZygoNucleus(h, fmt.Sprintf(`(get "%s" HC_StatusDeleted)`, hash.String()))
+		v, err = NewZygoNucleus(h, fmt.Sprintf(`(get "%s" HC_Status_Deleted)`, hash.String()))
 		So(err, ShouldBeNil)
 		z = v.(*ZygoNucleus)
 

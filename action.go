@@ -540,10 +540,21 @@ func (a *ActionMod) Do(h *Holochain) (response interface{}, err error) {
 	return
 }
 
-func (a *ActionMod) SysValidation(h *Holochain, d *EntryDef, sources []peer.ID) (err error) {
-	if d.DataFormat == DataFormatLinks {
+func (a *ActionMod) SysValidation(h *Holochain, def *EntryDef, sources []peer.ID) (err error) {
+	if def.DataFormat == DataFormatLinks {
 		err = errors.New("Can't mod Links entry")
+		return
 	}
+	var header *Header
+	header, err = h.chain.GetEntryHeader(a.replaces)
+	if err != nil {
+		return
+	}
+	if header.Type != a.entryType {
+		err = ErrEntryTypeMismatch
+		return
+	}
+	err = sysValidateEntry(h, def, a.entry)
 	return
 }
 
@@ -607,6 +618,16 @@ func (a *ActionDel) Do(h *Holochain) (response interface{}, err error) {
 func (a *ActionDel) SysValidation(h *Holochain, d *EntryDef, sources []peer.ID) (err error) {
 	if d.DataFormat == DataFormatLinks {
 		err = errors.New("Can't del Links entry")
+		return
+	}
+	var header *Header
+	header, err = h.chain.GetEntryHeader(a.entry.Hash)
+	if err != nil {
+		return
+	}
+	if header.Type != a.entryType {
+		err = ErrEntryTypeMismatch
+		return
 	}
 	return
 }

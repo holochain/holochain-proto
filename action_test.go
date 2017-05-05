@@ -89,6 +89,52 @@ func TestSysValidateEntry(t *testing.T) {
 	})
 }
 
+func TestSysValidateMod(t *testing.T) {
+	d, _, h := prepareTestChain("test")
+	defer cleanupTestDir(d)
+	hash := commit(h, "evenNumbers", "2")
+	_, def, _ := h.GetEntryDef("evenNumbers")
+
+	Convey("it should check that entry types match on mod", t, func() {
+		a := NewModAction("oddNumbers", &GobEntry{}, hash)
+		err := a.SysValidation(h, def, []peer.ID{h.id})
+		So(err, ShouldEqual, ErrEntryTypeMismatch)
+	})
+
+	Convey("it should check that entry isn't linking ", t, func() {
+		a := NewModAction("rating", &GobEntry{}, hash)
+		_, ratingsDef, _ := h.GetEntryDef("rating")
+		err := a.SysValidation(h, ratingsDef, []peer.ID{h.id})
+		So(err.Error(), ShouldEqual, "Can't mod Links entry")
+	})
+
+	Convey("it should check that entry validates", t, func() {
+		a := NewModAction("evenNumbers", nil, hash)
+		err := a.SysValidation(h, def, []peer.ID{h.id})
+		So(err.Error(), ShouldEqual, "nil entry invalid")
+	})
+}
+
+func TestSysValidateDel(t *testing.T) {
+	d, _, h := prepareTestChain("test")
+	defer cleanupTestDir(d)
+	hash := commit(h, "evenNumbers", "2")
+	_, def, _ := h.GetEntryDef("evenNumbers")
+
+	Convey("it should check that entry types match on del", t, func() {
+		a := NewDelAction("oddNumbers", DelEntry{Hash: hash})
+		err := a.SysValidation(h, def, []peer.ID{h.id})
+		So(err, ShouldEqual, ErrEntryTypeMismatch)
+	})
+
+	Convey("it should check that entry isn't linking ", t, func() {
+		a := NewDelAction("rating", DelEntry{Hash: hash})
+		_, ratingsDef, _ := h.GetEntryDef("rating")
+		err := a.SysValidation(h, ratingsDef, []peer.ID{h.id})
+		So(err.Error(), ShouldEqual, "Can't del Links entry")
+	})
+}
+
 func TestCheckArgCount(t *testing.T) {
 	Convey("it should check for wrong number of args", t, func() {
 		args := []Arg{{}}

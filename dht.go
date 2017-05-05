@@ -132,6 +132,8 @@ var ErrHashDeleted = errors.New("hash deleted")
 var ErrHashModified = errors.New("hash modified")
 var ErrHashRejected = errors.New("hash rejected")
 
+var ErrEntryTypeMismatch = errors.New("entry type mismatch")
+
 // NewDHT creates a new DHT structure
 func NewDHT(h *Holochain) *DHT {
 	dht := DHT{

@@ -261,6 +261,7 @@ const (
 	ErrHashModifiedCode
 	ErrHashRejectedCode
 	ErrLinkNotFoundCode
+	ErrEntryTypeMismatchCode
 )
 
 // NewErrorResponse encodes standard errors for transmitting
@@ -276,6 +277,8 @@ func NewErrorResponse(err error) (errResp ErrorResponse) {
 		errResp.Code = ErrHashRejectedCode
 	case ErrLinkNotFound:
 		errResp.Code = ErrLinkNotFoundCode
+	case ErrEntryTypeMismatch:
+		errResp.Code = ErrEntryTypeMismatchCode
 	default:
 		errResp.Message = err.Error() //Code will be set to ErrUnknown by default cus it's 0
 	}
@@ -295,6 +298,8 @@ func (errResp ErrorResponse) DecodeResponseError() (err error) {
 		err = ErrHashRejected
 	case ErrLinkNotFoundCode:
 		err = ErrLinkNotFound
+	case ErrEntryTypeMismatchCode:
+		err = ErrEntryTypeMismatch
 	default:
 		err = errors.New(errResp.Message)
 	}

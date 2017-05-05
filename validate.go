@@ -8,7 +8,6 @@
 package holochain
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 )
@@ -18,31 +17,33 @@ type ValidateQuery struct {
 	H Hash
 }
 
-// ValidateResponse holds the response to a VALIDATE_PUT_REQUEST
+// ValidateResponse holds the response to committing validates (PUT/MOD/DEL)
 type ValidateResponse struct {
-	Entry  GobEntry
-	Header Header
 	Type   string
+	Header Header
+	Entry  GobEntry
 }
 
-// ValidateLinkResponse holds the response to a VALIDATE_LINK_REQUEST
-type ValidateLinkResponse struct {
-	LinkingType string
-	Links       []Link
-}
-
-// ValidateDelResponse holds the response to a VALIDATE_DEL_REQUEST
-type ValidateDelResponse struct {
-	Type   string
-	Entry  GobEntry
-	Header Header
-}
-
-// ValidateModResponse holds the response to a VALIDATE_DEL_REQUEST
-type ValidateModResponse struct {
-	Entry  GobEntry
-	Header Header
-	Type   string
+func makeValidateResponse(h *Holochain, m *Message) (r ValidateResponse, err error) {
+	switch t := m.Body.(type) {
+	case ValidateQuery:
+		var entry Entry
+		entry, r.Type, err = h.chain.GetEntry(t.H)
+		if err != nil {
+			return
+		}
+		r.Entry = *(entry.(*GobEntry))
+		var hd *Header
+		hd, err = h.chain.GetEntryHeader(t.H)
+		if err != nil {
+			return
+		}
+		r.Header = *hd
+		h.dht.dlog.Logf("responding with: %v (err=%v)", r, err)
+	default:
+		err = fmt.Errorf("expected ValidateQuery got %T", t)
+	}
+	return
 }
 
 // ValidateReceiver handles messages on the Validate protocol
@@ -50,100 +51,24 @@ func ValidateReceiver(h *Holochain, m *Message) (response interface{}, err error
 	switch m.Type {
 	case VALIDATE_PUT_REQUEST:
 		h.dht.dlog.Logf("got validate put: %v", m)
-		switch t := m.Body.(type) {
-		case ValidateQuery:
-			var r ValidateResponse
-			var entry Entry
-			entry, r.Type, err = h.chain.GetEntry(t.H)
-			if err != nil {
-				return
-			}
-			r.Entry = *(entry.(*GobEntry))
-			var hd *Header
-			hd, err = h.chain.GetEntryHeader(t.H)
-			if err != nil {
-				return
-			}
-			r.Header = *hd
-			response = r
-			h.dht.dlog.Logf("responding with: %v (err=%v)", r, err)
-		default:
-			err = fmt.Errorf("expected ValidateQuery got %T", t)
-		}
+		response, err = makeValidateResponse(h, m)
 	case VALIDATE_MOD_REQUEST:
 		h.dht.dlog.Logf("got validate mod: %v", m)
-		switch t := m.Body.(type) {
-		case ValidateQuery:
-			var r ValidateModResponse
-			var entry Entry
-			entry, r.Type, err = h.chain.GetEntry(t.H)
-			if err != nil {
-				return
-			}
-			r.Entry = *(entry.(*GobEntry))
-			var hd *Header
-			hd, err = h.chain.GetEntryHeader(t.H)
-			if err != nil {
-				return
-			}
-			r.Header = *hd
-			response = r
-			h.dht.dlog.Logf("responding with: %v (err=%v)", r, err)
-		default:
-			err = fmt.Errorf("expected ValidateQuery got %T", t)
-		}
-
+		response, err = makeValidateResponse(h, m)
 	case VALIDATE_DEL_REQUEST:
 		h.dht.dlog.Logf("got validate del: %v", m)
-		switch t := m.Body.(type) {
-		case ValidateQuery:
-			var r ValidateDelResponse
-			var entry Entry
-			entry, r.Type, err = h.chain.GetEntry(t.H)
-			if err != nil {
-				return
-			}
-			r.Entry = *(entry.(*GobEntry))
-			var hd *Header
-			hd, err = h.chain.GetEntryHeader(t.H)
-			if err != nil {
-				return
-			}
-			r.Header = *hd
-			response = r
-			h.dht.dlog.Logf("responding with: %v (err=%v)", r, err)
-		default:
-			err = fmt.Errorf("expected ValidateQuery got %T", t)
-		}
+		response, err = makeValidateResponse(h, m)
 	case VALIDATE_LINK_REQUEST:
 		h.dht.dlog.Logf("got validatelink: %v", m)
-		switch t := m.Body.(type) {
-		case ValidateQuery:
-			var r ValidateLinkResponse
-			var e Entry
-			var et string
-			e, et, err = h.chain.GetEntry(t.H)
-			if err == nil {
-				var d *EntryDef
-				_, d, err = h.GetEntryDef(et)
-				if err == nil {
-					if d.DataFormat != DataFormatLinks {
-						err = errors.New("hash not of a linking entry")
-					} else {
-						var le LinksEntry
-						if err = json.Unmarshal([]byte(e.Content().(string)), &le); err == nil {
-
-							r.LinkingType = et
-							r.Links = le.Links
-						}
-					}
-				}
-			}
+		var r ValidateResponse
+		r, err = makeValidateResponse(h, m)
+		if err == nil {
 			response = r
-			h.dht.dlog.Logf("responding with: %v (err=%v)", r, err)
-
-		default:
-			err = fmt.Errorf("expected ValidateQuery got %T", t)
+			var def *EntryDef
+			_, def, err = h.GetEntryDef(r.Type)
+			if err == nil && def.DataFormat != DataFormatLinks {
+				err = errors.New("hash not of a linking entry")
+			}
 		}
 	default:
 		err = fmt.Errorf("message type %d not in holochain-validate protocol", int(m.Type))

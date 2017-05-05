@@ -7,6 +7,7 @@
 package holochain
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	peer "github.com/libp2p/go-libp2p-peer"
@@ -603,7 +604,7 @@ func (dht *DHT) handleChangeReq(m *Message) (err error) {
 			return
 		}
 		switch resp := r.(type) {
-		case ValidateModResponse:
+		case ValidateResponse:
 			a := NewModAction(resp.Type, &resp.Entry, t.H)
 			a.header = &resp.Header
 			//@TODO what comes back from Validate Del
@@ -616,7 +617,7 @@ func (dht *DHT) handleChangeReq(m *Message) (err error) {
 			}
 
 		default:
-			err = fmt.Errorf("expected ValidateModResponse from validator got %T", resp)
+			err = fmt.Errorf("expected ValidateResponse from validator got %T", resp)
 		}
 
 	case DelReq:
@@ -639,7 +640,7 @@ func (dht *DHT) handleChangeReq(m *Message) (err error) {
 		}
 
 		switch resp := r.(type) {
-		case ValidateDelResponse:
+		case ValidateResponse:
 			var delEntry DelEntry
 			err = ByteDecoder([]byte(resp.Entry.Content().(string)), &delEntry)
 			if err != nil {
@@ -657,7 +658,7 @@ func (dht *DHT) handleChangeReq(m *Message) (err error) {
 			}
 
 		default:
-			err = fmt.Errorf("expected ValidateDelResponse from validator got %T", resp)
+			err = fmt.Errorf("expected ValidateResponse from validator got %T", resp)
 		}
 
 	case LinkReq:
@@ -681,8 +682,14 @@ func (dht *DHT) handleChangeReq(m *Message) (err error) {
 			return
 		}
 		switch resp := r.(type) {
-		case ValidateLinkResponse:
-			a := NewLinkAction(resp.LinkingType, resp.Links)
+		case ValidateResponse:
+			var le LinksEntry
+
+			if err = json.Unmarshal([]byte(resp.Entry.Content().(string)), &le); err != nil {
+				return
+			}
+
+			a := NewLinkAction(resp.Type, le.Links)
 			a.validationBase = t.Base
 			_, err = dht.h.ValidateAction(a, a.entryType, []peer.ID{from})
 			//@TODO this is "one bad apple spoils the lot" because the app
@@ -694,7 +701,7 @@ func (dht *DHT) handleChangeReq(m *Message) (err error) {
 				//@TODO store as REJECTED
 			} else {
 				base := t.Base.String()
-				for _, l := range resp.Links {
+				for _, l := range le.Links {
 					if base == l.Base {
 						if l.LinkAction == DelAction {
 							err = dht.delLink(m, base, l.Link, l.Tag)
@@ -706,7 +713,7 @@ func (dht *DHT) handleChangeReq(m *Message) (err error) {
 
 			}
 		default:
-			err = fmt.Errorf("expected ValidateLinkResponse from validator got %T", r)
+			err = fmt.Errorf("expected ValidateResponse from validator got %T", r)
 		}
 	default:
 		err = fmt.Errorf("unexpected body type %T in handleChangeReq", t)

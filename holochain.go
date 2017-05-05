@@ -128,8 +128,6 @@ func Initialize() {
 	gob.Register(Gossip{})
 	gob.Register(ValidateQuery{})
 	gob.Register(ValidateResponse{})
-	gob.Register(ValidateLinkResponse{})
-	gob.Register(ValidateDelResponse{})
 	gob.Register(Put{})
 	gob.Register(GobEntry{})
 	gob.Register(LinkQueryResp{})

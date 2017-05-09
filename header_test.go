@@ -32,7 +32,7 @@ func TestMarshalHeader(t *testing.T) {
 
 	e := GobEntry{C: "some  data"}
 	hd := testHeader(h, "evenNumbers", &e, key, now)
-
+	hd.Change.Action = ModAction
 	Convey("it should round-trip", t, func() {
 		b, err := hd.Marshal()
 		So(err, ShouldBeNil)
@@ -92,6 +92,8 @@ func mkTestHeader(t string) Header {
 		EntryLink:  el,
 		TypeLink:   NullHash(),
 	}
+	h1.Change.Hash = NullHash()
+
 	//h1.Sig.S.321)
 	return h1
 }

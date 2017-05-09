@@ -60,17 +60,17 @@ func TestLoadService(t *testing.T) {
 }
 
 func TestValidateServiceConfig(t *testing.T) {
-	c := ServiceConfig{}
+	svc := ServiceConfig{}
 
 	Convey("it should fail without one peer mode set to true", t, func() {
-		err := c.Validate()
+		err := svc.Validate()
 		So(err.Error(), ShouldEqual, SysFileName+": At least one peer mode must be set to true.")
 	})
 
-	c.DefaultPeerModeAuthor = true
+	svc.DefaultPeerModeAuthor = true
 
 	Convey("it should validate", t, func() {
-		err := c.Validate()
+		err := svc.Validate()
 		So(err, ShouldBeNil)
 	})
 

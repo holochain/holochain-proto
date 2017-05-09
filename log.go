@@ -85,6 +85,7 @@ func (l *Logger) New(w io.Writer) (err error) {
 
 	if l.Format == "" {
 		l.f = `%{message}`
+		l.color = nil
 	} else {
 		l.color, l.f = l.setupColor(l.Format)
 		l.tf, l.f = l.setupTime(l.f)

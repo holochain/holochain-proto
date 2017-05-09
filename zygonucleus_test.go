@@ -145,17 +145,28 @@ func TestZygoGenesis(t *testing.T) {
 }
 
 func TestZybuildValidate(t *testing.T) {
+	d, _, h := prepareTestChain("test")
+	defer cleanupTestDir(d)
+
 	e := GobEntry{C: "3"}
 	a := NewCommitAction("oddNumbers", &e)
 	var header Header
 	a.header = &header
 
-	d := EntryDef{Name: "oddNumbers", DataFormat: DataFormatString}
+	def := EntryDef{Name: "oddNumbers", DataFormat: DataFormatString}
 
 	Convey("it should build commit", t, func() {
-		code, err := buildZyValidateAction(a, &d, []string{"fake_src_hash"})
+		code, err := buildZyValidateAction(a, &def, nil, []string{"fake_src_hash"})
 		So(err, ShouldBeNil)
-		So(code, ShouldEqual, `(validateCommit "oddNumbers" "3" (hash EntryLink:"" Type:"" Time:"0001-01-01T00:00:00Z") (unjson (raw "[\"fake_src_hash\"]")))`)
+		So(code, ShouldEqual, `(validateCommit "oddNumbers" "3" (hash EntryLink:"" Type:"" Time:"0001-01-01T00:00:00Z") (hash) (unjson (raw "[\"fake_src_hash\"]")))`)
+	})
+	Convey("it should build put", t, func() {
+		a := NewPutAction("evenNumbers", &e, &header)
+		pkg, _ := MakePackage(h, PackagingReq{PkgReqChain: int64(PkgReqChainOptFull)})
+		vpkg, _ := MakeValidationPackage(h, &pkg)
+		_, err := buildZyValidateAction(a, &def, vpkg, []string{"fake_src_hash"})
+		So(err, ShouldBeNil)
+		//So(code, ShouldEqual, `validatePut("evenNumbers","2",{"EntryLink":"","Type":"","Time":"0001-01-01T00:00:00Z"},pgk,["fake_src_hash"])`)
 	})
 }
 
@@ -166,61 +177,62 @@ func TestZyValidateCommit(t *testing.T) {
 	hdr := mkTestHeader("evenNumbers")
 
 	Convey("it should be passing in the correct values", t, func() {
-		v, err := NewZygoNucleus(&h, `(defn validateCommit [name entry header sources] (debug name) (debug entry) (debug header) (debug sources) true)`)
+		v, err := NewZygoNucleus(&h, `(defn validateCommit [name entry header pkg sources] (debug name) (debug entry) (debug header) (debug sources) (debug pkg) true)`)
 		So(err, ShouldBeNil)
 		d := EntryDef{Name: "evenNumbers", DataFormat: DataFormatString}
 		ShouldLog(&h.config.Loggers.App, `evenNumbers
 foo
 {"EntryLink":"QmNiCwBNA8MWDADTFVq1BonUEJbS2SvjAoNkZZrhEwcuU2", "Type":"evenNumbers", "Time":"1970-01-01T00:00:01Z"}
 ["fakehashvalue"]
+{"Atype":"hash"}
 `, func() {
 			a := NewCommitAction("oddNumbers", &GobEntry{C: "foo"})
 			a.header = &hdr
-			err = v.ValidateAction(a, &d, []string{"fakehashvalue"})
+			err = v.ValidateAction(a, &d, nil, []string{"fakehashvalue"})
 			So(err, ShouldBeNil)
 		})
 	})
 	Convey("should run an entry value against the defined validator for string data", t, func() {
-		v, err := NewZygoNucleus(nil, `(defn validateCommit [name entry header sources] (cond (== entry "fish") true false))`)
+		v, err := NewZygoNucleus(nil, `(defn validateCommit [name entry header pkg sources] (cond (== entry "fish") true false))`)
 		So(err, ShouldBeNil)
 		d := EntryDef{Name: "oddNumbers", DataFormat: DataFormatString}
 
 		a := NewCommitAction("oddNumbers", &GobEntry{C: "cow"})
 		a.header = &hdr
-		err = v.ValidateAction(a, &d, nil)
+		err = v.ValidateAction(a, &d, nil, nil)
 		So(err, ShouldEqual, ValidationFailedErr)
 
 		a = NewCommitAction("oddNumbers", &GobEntry{C: "fish"})
 		a.header = &hdr
-		err = v.ValidateAction(a, &d, nil)
+		err = v.ValidateAction(a, &d, nil, nil)
 		So(err, ShouldBeNil)
 	})
 	Convey("should run an entry value against the defined validator for zygo data", t, func() {
-		v, err := NewZygoNucleus(nil, `(defn validateCommit [name entry header sources] (cond (== entry "fish") true false))`)
+		v, err := NewZygoNucleus(nil, `(defn validateCommit [name entry header pkg sources] (cond (== entry "fish") true false))`)
 		d := EntryDef{Name: "evenNumbers", DataFormat: DataFormatRawZygo}
 
 		a := NewCommitAction("oddNumbers", &GobEntry{C: "\"cow\""})
 		a.header = &hdr
-		err = v.ValidateAction(a, &d, nil)
+		err = v.ValidateAction(a, &d, nil, nil)
 		So(err, ShouldEqual, ValidationFailedErr)
 
 		a = NewCommitAction("oddNumbers", &GobEntry{C: "\"fish\""})
 		a.header = &hdr
-		err = v.ValidateAction(a, &d, nil)
+		err = v.ValidateAction(a, &d, nil, nil)
 		So(err, ShouldBeNil)
 	})
 	Convey("should run an entry value against the defined validator for json data", t, func() {
-		v, err := NewZygoNucleus(nil, `(defn validateCommit [name entry header sources] (cond (== (hget entry data:) "fish") true false))`)
+		v, err := NewZygoNucleus(nil, `(defn validateCommit [name entry header pkg sources] (cond (== (hget entry data:) "fish") true false))`)
 		d := EntryDef{Name: "evenNumbers", DataFormat: DataFormatJSON}
 
 		a := NewCommitAction("evenNumbers", &GobEntry{C: `{"data":"cow"}`})
 		a.header = &hdr
-		err = v.ValidateAction(a, &d, nil)
+		err = v.ValidateAction(a, &d, nil, nil)
 		So(err, ShouldEqual, ValidationFailedErr)
 
 		a = NewCommitAction("evenNumbers", &GobEntry{C: `{"data":"fish"}`})
 		a.header = &hdr
-		err = v.ValidateAction(a, &d, nil)
+		err = v.ValidateAction(a, &d, nil, nil)
 		So(err, ShouldBeNil)
 	})
 }

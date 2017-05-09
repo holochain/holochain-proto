@@ -38,20 +38,30 @@ type Arg struct {
 type Action interface {
 	Name() string
 	Do(h *Holochain) (response interface{}, err error)
-	SysValidation(h *Holochain, d *EntryDef, sources []peer.ID) (err error)
 	DHTReqHandler(dht *DHT, msg *Message) (response interface{}, err error)
 	Args() []Arg
 }
 
-// CommittingAction provides an abstraction for grouping actions which call commit
+// CommittingAction provides an abstraction for grouping actions which carry Entry data
 type CommittingAction interface {
 	Name() string
 	Do(h *Holochain) (response interface{}, err error)
 	SysValidation(h *Holochain, d *EntryDef, sources []peer.ID) (err error)
 	DHTReqHandler(dht *DHT, msg *Message) (response interface{}, err error)
+	CheckValidationRequest(def *EntryDef) (err error)
 	Args() []Arg
 	EntryType() string
 	Entry() Entry
+}
+
+// ValidatingAction provides an abstraction for grouping all the actions that participate in validation loop
+type ValidatingAction interface {
+	Name() string
+	Do(h *Holochain) (response interface{}, err error)
+	SysValidation(h *Holochain, d *EntryDef, sources []peer.ID) (err error)
+	DHTReqHandler(dht *DHT, msg *Message) (response interface{}, err error)
+	CheckValidationRequest(def *EntryDef) (err error)
+	Args() []Arg
 }
 
 var NonDHTAction error = errors.New("Not a DHT action")
@@ -66,9 +76,15 @@ func prepareSources(sources []peer.ID) (srcs []string) {
 }
 
 // ValidateAction runs the different phases of validating an action
-func (h *Holochain) ValidateAction(a Action, entryType string, sources []peer.ID) (d *EntryDef, err error) {
+func (h *Holochain) ValidateAction(a ValidatingAction, entryType string, pkg *Package, sources []peer.ID) (d *EntryDef, err error) {
 	var z *Zome
 	z, d, err = h.GetEntryDef(entryType)
+	if err != nil {
+		return
+	}
+
+	var vpkg *ValidationPackage
+	vpkg, err = MakeValidationPackage(h, pkg)
 	if err != nil {
 		return
 	}
@@ -87,10 +103,52 @@ func (h *Holochain) ValidateAction(a Action, entryType string, sources []peer.ID
 		return
 	}
 
-	err = n.ValidateAction(a, d, prepareSources(sources))
+	err = n.ValidateAction(a, d, vpkg, prepareSources(sources))
 	if err != nil {
 		Debugf("Nucleus ValidateAction(%T) err:%v\n", a, err)
 	}
+	return
+}
+
+// GetValidationPackage check the validation request and builds the validation package based
+// on the app's requirements
+func (h *Holochain) GetValidationResponse(a ValidatingAction, hash Hash) (resp ValidateResponse, err error) {
+	var entry Entry
+	entry, resp.Type, err = h.chain.GetEntry(hash)
+	if err != nil {
+		return
+	}
+	resp.Entry = *(entry.(*GobEntry))
+	var hd *Header
+	hd, err = h.chain.GetEntryHeader(hash)
+	if err != nil {
+		return
+	}
+	resp.Header = *hd
+	var def *EntryDef
+	var z *Zome
+	z, def, err = h.GetEntryDef(hd.Type)
+	if err != nil {
+		return
+	}
+	err = a.CheckValidationRequest(def)
+	if err != nil {
+		return
+	}
+
+	// get the packaging request from the app
+	var n Nucleus
+	n, err = h.makeNucleus(z)
+	if err != nil {
+		return
+	}
+
+	var req PackagingReq
+	req, err = n.ValidatePackagingRequest(a, def)
+	if err != nil {
+		Debugf("Nucleus GetValidationPackage(%T) err:%v\n", a, err)
+	}
+	resp.Package, err = MakePackage(h, req)
 	return
 }
 
@@ -298,7 +356,7 @@ func (h *Holochain) doCommit(a CommittingAction, change *StatusChange) (d *Entry
 		return
 	}
 	//TODO	a.header = header
-	d, err = h.ValidateAction(a, entryType, []peer.ID{h.id})
+	d, err = h.ValidateAction(a, entryType, nil, []peer.ID{h.id})
 	if err != nil {
 		if err == ValidationFailedErr {
 			err = fmt.Errorf("Invalid entry: %v", entry.Content())
@@ -453,6 +511,10 @@ func (a *ActionCommit) DHTReqHandler(dht *DHT, msg *Message) (response interface
 	return
 }
 
+func (a *ActionCommit) CheckValidationRequest(def *EntryDef) (err error) {
+	return
+}
+
 //------------------------------------------------------------
 // Put
 
@@ -489,6 +551,10 @@ func (a *ActionPut) DHTReqHandler(dht *DHT, msg *Message) (response interface{},
 	//dht.puts <- *m  TODO add back in queueing
 	err = dht.handleChangeReq(msg)
 	response = "queued"
+	return
+}
+
+func (a *ActionPut) CheckValidationRequest(def *EntryDef) (err error) {
 	return
 }
 
@@ -562,6 +628,10 @@ func (a *ActionMod) DHTReqHandler(dht *DHT, msg *Message) (response interface{},
 	//dht.puts <- *m  TODO add back in queueing
 	err = dht.handleChangeReq(msg)
 	response = "queued"
+	return
+}
+
+func (a *ActionMod) CheckValidationRequest(def *EntryDef) (err error) {
 	return
 }
 
@@ -639,6 +709,10 @@ func (a *ActionDel) DHTReqHandler(dht *DHT, msg *Message) (response interface{},
 	return
 }
 
+func (a *ActionDel) CheckValidationRequest(def *EntryDef) (err error) {
+	return
+}
+
 //------------------------------------------------------------
 // Link
 
@@ -681,6 +755,13 @@ func (a *ActionLink) DHTReqHandler(dht *DHT, msg *Message) (response interface{}
 		response = "queued"
 	} else {
 		dht.dlog.Logf("DHTReceiver key %v doesn't exist, ignoring", base)
+	}
+	return
+}
+
+func (a *ActionLink) CheckValidationRequest(def *EntryDef) (err error) {
+	if def.DataFormat != DataFormatLinks {
+		err = errors.New("hash not of a linking entry")
 	}
 	return
 }

@@ -568,7 +568,7 @@ func (dht *DHT) handleChangeReq(m *Message) (err error) {
 		switch resp := r.(type) {
 		case ValidateResponse:
 			a := NewPutAction(resp.Type, &resp.Entry, &resp.Header)
-			_, err = dht.h.ValidateAction(a, a.entryType, []peer.ID{from})
+			_, err = dht.h.ValidateAction(a, a.entryType, &resp.Package, []peer.ID{from})
 
 			var status int
 			if err != nil {
@@ -608,7 +608,7 @@ func (dht *DHT) handleChangeReq(m *Message) (err error) {
 			a := NewModAction(resp.Type, &resp.Entry, t.H)
 			a.header = &resp.Header
 			//@TODO what comes back from Validate Del
-			_, err = dht.h.ValidateAction(a, resp.Type, []peer.ID{from})
+			_, err = dht.h.ValidateAction(a, resp.Type, &resp.Package, []peer.ID{from})
 			if err != nil {
 				// how do we record an invalid Mod?
 				//@TODO store as REJECTED?
@@ -649,7 +649,7 @@ func (dht *DHT) handleChangeReq(m *Message) (err error) {
 
 			a := NewDelAction(resp.Type, delEntry)
 			//@TODO what comes back from Validate Del
-			_, err = dht.h.ValidateAction(a, resp.Type, []peer.ID{from})
+			_, err = dht.h.ValidateAction(a, resp.Type, &resp.Package, []peer.ID{from})
 			if err != nil {
 				// how do we record an invalid DEL?
 				//@TODO store as REJECTED
@@ -691,7 +691,7 @@ func (dht *DHT) handleChangeReq(m *Message) (err error) {
 
 			a := NewLinkAction(resp.Type, le.Links)
 			a.validationBase = t.Base
-			_, err = dht.h.ValidateAction(a, a.entryType, []peer.ID{from})
+			_, err = dht.h.ValidateAction(a, a.entryType, &resp.Package, []peer.ID{from})
 			//@TODO this is "one bad apple spoils the lot" because the app
 			// has no way to tell us not to link certain of the links.
 			// we need to extend the return value of the app to be able to

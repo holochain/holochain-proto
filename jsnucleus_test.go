@@ -133,82 +133,102 @@ func TestJSGenesis(t *testing.T) {
 }
 
 func TestJSbuildValidate(t *testing.T) {
+	d, _, h := prepareTestChain("test")
+	defer cleanupTestDir(d)
+
 	e := GobEntry{C: "2"}
 	a := NewCommitAction("evenNumbers", &e)
 	var header Header
 	a.header = &header
 
-	d := EntryDef{Name: "evenNumbers", DataFormat: DataFormatString}
+	def := EntryDef{Name: "evenNumbers", DataFormat: DataFormatString}
 
 	Convey("it should build commit", t, func() {
-		code, err := buildJSValidateAction(a, &d, []string{"fake_src_hash"})
+		code, err := buildJSValidateAction(a, &def, nil, []string{"fake_src_hash"})
 		So(err, ShouldBeNil)
-		So(code, ShouldEqual, `validateCommit("evenNumbers","2",{"EntryLink":"","Type":"","Time":"0001-01-01T00:00:00Z"},["fake_src_hash"])`)
+		So(code, ShouldEqual, `validateCommit("evenNumbers","2",{"EntryLink":"","Type":"","Time":"0001-01-01T00:00:00Z"},{},["fake_src_hash"])`)
 	})
+
+	Convey("it should build put", t, func() {
+		a := NewPutAction("evenNumbers", &e, &header)
+		pkg, _ := MakePackage(h, PackagingReq{PkgReqChain: int64(PkgReqChainOptFull)})
+		vpkg, _ := MakeValidationPackage(h, &pkg)
+		_, err := buildJSValidateAction(a, &def, vpkg, []string{"fake_src_hash"})
+		So(err, ShouldBeNil)
+		//	So(code, ShouldEqual, `validatePut("evenNumbers","2",{"EntryLink":"","Type":"","Time":"0001-01-01T00:00:00Z"},pgk,["fake_src_hash"])`)
+	})
+
 }
 
 func TestJSValidateCommit(t *testing.T) {
-	a, _ := NewAgent(IPFS, "Joe")
-	h := NewHolochain(a, "some/path", "yaml", Zome{})
+	d, _, h := prepareTestChain("test")
+	defer cleanupTestDir(d)
+	//	a, _ := NewAgent(IPFS, "Joe")
+	//	h := NewHolochain(a, "some/path", "yaml", Zome{})
+	//	a := h.agent
+	h.config.Loggers.App.Format = ""
 	h.config.Loggers.App.New(nil)
 	hdr := mkTestHeader("evenNumbers")
+	pkg, _ := MakePackage(h, PackagingReq{PkgReqChain: int64(PkgReqChainOptFull)})
+	vpkg, _ := MakeValidationPackage(h, &pkg)
 
 	Convey("it should be passing in the correct values", t, func() {
-		v, err := NewJSNucleus(&h, `function validateCommit(name,entry,header,sources) {debug(name);debug(entry);debug(JSON.stringify(header));debug(JSON.stringify(sources));return true};`)
+		v, err := NewJSNucleus(h, `function validateCommit(name,entry,header,pkg,sources) {debug(name);debug(entry);debug(JSON.stringify(header));debug(JSON.stringify(sources));debug(JSON.stringify(pkg));return true};`)
 		So(err, ShouldBeNil)
 		d := EntryDef{Name: "evenNumbers", DataFormat: DataFormatString}
 		ShouldLog(&h.config.Loggers.App, `evenNumbers
 foo
 {"EntryLink":"QmNiCwBNA8MWDADTFVq1BonUEJbS2SvjAoNkZZrhEwcuU2","Time":"1970-01-01T00:00:01Z","Type":"evenNumbers"}
 ["fakehashvalue"]
+{}
 `, func() {
 			a := NewCommitAction("oddNumbers", &GobEntry{C: "foo"})
 			a.header = &hdr
-			err = v.ValidateAction(a, &d, []string{"fakehashvalue"})
+			err = v.ValidateAction(a, &d, nil, []string{"fakehashvalue"})
 			So(err, ShouldBeNil)
 		})
 	})
 	Convey("should run an entry value against the defined validator for string data", t, func() {
-		v, err := NewJSNucleus(nil, `function validateCommit(name,entry,header,sources) { return (entry=="fish")};`)
+		v, err := NewJSNucleus(nil, `function validateCommit(name,entry,header,pkg,sources) { return (entry=="fish")};`)
 		So(err, ShouldBeNil)
 		d := EntryDef{Name: "oddNumbers", DataFormat: DataFormatString}
 
 		a := NewCommitAction("oddNumbers", &GobEntry{C: "cow"})
 		a.header = &hdr
-		err = v.ValidateAction(a, &d, nil)
+		err = v.ValidateAction(a, &d, nil, nil)
 		So(err, ShouldEqual, ValidationFailedErr)
 
 		a = NewCommitAction("oddNumbers", &GobEntry{C: "fish"})
 		a.header = &hdr
-		err = v.ValidateAction(a, &d, nil)
+		err = v.ValidateAction(a, &d, vpkg, nil)
 		So(err, ShouldBeNil)
 	})
 	Convey("should run an entry value against the defined validator for js data", t, func() {
-		v, err := NewJSNucleus(nil, `function validateCommit(name,entry,header,sources) { return (entry=="fish")};`)
+		v, err := NewJSNucleus(nil, `function validateCommit(name,entry,header,pkg,sources) { return (entry=="fish")};`)
 		d := EntryDef{Name: "evenNumbers", DataFormat: DataFormatRawJS}
 
 		a := NewCommitAction("oddNumbers", &GobEntry{C: "\"cow\""})
 		a.header = &hdr
-		err = v.ValidateAction(a, &d, nil)
+		err = v.ValidateAction(a, &d, nil, nil)
 		So(err, ShouldEqual, ValidationFailedErr)
 
 		a = NewCommitAction("oddNumbers", &GobEntry{C: "\"fish\""})
 		a.header = &hdr
-		err = v.ValidateAction(a, &d, nil)
+		err = v.ValidateAction(a, &d, nil, nil)
 		So(err, ShouldBeNil)
 	})
 	Convey("should run an entry value against the defined validator for json data", t, func() {
-		v, err := NewJSNucleus(nil, `function validateCommit(name,entry,header,sources) { return (entry.data=="fish")};`)
+		v, err := NewJSNucleus(nil, `function validateCommit(name,entry,header,pkg,sources) { return (entry.data=="fish")};`)
 		d := EntryDef{Name: "evenNumbers", DataFormat: DataFormatJSON}
 
 		a := NewCommitAction("evenNumbers", &GobEntry{C: `{"data":"cow"}`})
 		a.header = &hdr
-		err = v.ValidateAction(a, &d, nil)
+		err = v.ValidateAction(a, &d, nil, nil)
 		So(err, ShouldEqual, ValidationFailedErr)
 
 		a = NewCommitAction("evenNumbers", &GobEntry{C: `{"data":"fish"}`})
 		a.header = &hdr
-		err = v.ValidateAction(a, &d, nil)
+		err = v.ValidateAction(a, &d, nil, nil)
 		So(err, ShouldBeNil)
 	})
 }

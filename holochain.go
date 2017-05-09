@@ -135,6 +135,7 @@ func Initialize() {
 	gob.Register(ErrorResponse{})
 	gob.Register(DelEntry{})
 	gob.Register(StatusChange{})
+	gob.Register(Package{})
 
 	RegisterBultinNucleii()
 
@@ -870,19 +871,23 @@ func (s *Service) GenDev(root string, format string) (hP *Holochain, err error) 
 (defn testJsonFn2 [x] (unjson (raw "[{\"a\":\"b\"}]"))) (defn getDNA [x] App_DNA_Hash)
 (defn addEven [x] (commit "evenNumbers" x))
 (defn addPrime [x] (commit "primes" x))
-(defn validateCommit [entryType entry header sources]
+(defn validateCommit [entryType entry header pkg sources]
   (validate entryType entry header sources))
-(defn validatePut [entryType entry header sources]
+(defn validatePut [entryType entry header pkg sources]
   (validate entryType entry header sources))
-(defn validateMod [entryType hash newHash sources] true)
-(defn validateDel [entryType hash sources] true)
+(defn validateMod [entryType hash newHash pkg sources] true)
+(defn validateDel [entryType hash pkg sources] true)
 (defn validate [entryType entry header sources]
   (cond (== entryType "evenNumbers")  (cond (== (mod entry 2) 0) true false)
         (== entryType "primes")  (isprime (hget entry %prime))
         (== entryType "profile") true
         false)
 )
-(defn validateLink [linkEntryType baseHash linkHash tag sources] true)
+(defn validateLink [linkEntryType baseHash linkHash tag pkg sources] true)
+(defn validatePutPkg [entryType] nil)
+(defn validateModPkg [entryType] nil)
+(defn validateDelPkg [entryType] nil)
+(defn validateLinkPkg [entryType] nil)
 (defn genesis [] true)
 `
 		code["jsSampleZome"] = `
@@ -894,16 +899,16 @@ function testJsonFn2(x){ return [{a:'b'}] };
 function getProperty(x) {return property(x)};
 function addOdd(x) {return commit("oddNumbers",x);}
 function addProfile(x) {return commit("profile",x);}
-function validatePut(entry_type,entry,header,sources) {
+function validatePut(entry_type,entry,header,pkg,sources) {
   return validate(entry_type,entry,header,sources);
 }
-function validateMod(entry_type,hash,newHash,sources) {
+function validateMod(entry_type,hash,newHash,pkg,sources) {
   return true;
 }
-function validateDel(entry_type,hash,sources) {
+function validateDel(entry_type,hash,pkg,sources) {
   return true;
 }
-function validateCommit(entry_type,entry,header,sources) {
+function validateCommit(entry_type,entry,header,pkg,sources) {
   if (entry_type == "rating") {return true}
   return validate(entry_type,entry,header,sources);
 }
@@ -916,7 +921,16 @@ function validate(entry_type,entry,header,sources) {
   }
   return false
 }
-function validateLink(linkEntryType,baseHash,linkHash,tag,sources){return true}
+function validateLink(linkEntryType,baseHash,linkHash,tag,pkg,sources){return true}
+function validatePutPkg(entry_type) {
+  req = {};
+  req[HC.PkgReq.Chain]=HC.PkgReq.ChainOpt.Full;
+  return req;
+}
+function validateModPkg(entry_type) { return null}
+function validateDelPkg(entry_type) { return null}
+function validateLinkPkg(entry_type) { return null}
+
 function genesis() {return true}
 `
 

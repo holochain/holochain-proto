@@ -52,6 +52,33 @@ func (z *JSNucleus) ChainGenesis() (err error) {
 	return
 }
 
+// ValidatePackagingRequest calls the app for a validation packaging request for an action
+func (z *JSNucleus) ValidatePackagingRequest(action ValidatingAction, def *EntryDef) (req PackagingReq, err error) {
+	var code string
+	fnName := "validate" + strings.Title(action.Name()) + "Pkg"
+	code = fmt.Sprintf(`%s("%s")`, fnName, def.Name)
+	Debug(code)
+	var v otto.Value
+	v, err = z.vm.Run(code)
+	if err != nil {
+		err = fmt.Errorf("Error executing %s: %v", fnName, err)
+		return
+	}
+	if v.IsObject() {
+		var m interface{}
+		m, err = v.Export()
+		if err != nil {
+			return
+		}
+		req = m.(map[string]interface{})
+	} else if v.IsNull() {
+
+	} else {
+		err = fmt.Errorf("%s should return null or object, got: %v", fnName, v)
+	}
+	return
+}
+
 func prepareJSEntryArgs(def *EntryDef, entry Entry, header *Header) (args string, err error) {
 	entryStr := entry.Content().(string)
 	switch def.DataFormat {
@@ -105,7 +132,7 @@ func prepareJSValidateArgs(action Action, def *EntryDef) (args string, err error
 	return
 }
 
-func buildJSValidateAction(action Action, def *EntryDef, sources []string) (code string, err error) {
+func buildJSValidateAction(action Action, def *EntryDef, pkg *ValidationPackage, sources []string) (code string, err error) {
 	fnName := "validate" + strings.Title(action.Name())
 	var args string
 	args, err = prepareJSValidateArgs(action, def)
@@ -113,15 +140,27 @@ func buildJSValidateAction(action Action, def *EntryDef, sources []string) (code
 		return
 	}
 	srcs := mkJSSources(sources)
-	code = fmt.Sprintf(`%s("%s",%s,%s)`, fnName, def.Name, args, srcs)
+
+	var pkgObj string
+	if pkg == nil || pkg.Chain == nil {
+		pkgObj = "{}"
+	} else {
+		var j []byte
+		j, err = json.Marshal(pkg.Chain)
+		if err != nil {
+			return
+		}
+		pkgObj = fmt.Sprintf(`{"Chain":%s}`, j)
+	}
+	code = fmt.Sprintf(`%s("%s",%s,%s,%s)`, fnName, def.Name, args, pkgObj, srcs)
 
 	return
 }
 
 // ValidateAction builds the correct validation function based on the action an calls it
-func (z *JSNucleus) ValidateAction(action Action, def *EntryDef, sources []string) (err error) {
+func (z *JSNucleus) ValidateAction(action Action, def *EntryDef, pkg *ValidationPackage, sources []string) (err error) {
 	var code string
-	code, err = buildJSValidateAction(action, def, sources)
+	code, err = buildJSValidateAction(action, def, pkg, sources)
 	if err != nil {
 		return
 	}
@@ -203,14 +242,21 @@ func (z *JSNucleus) validateEntry(fnName string, def *EntryDef, entry Entry, hea
 }
 
 const (
-	JSLibrary = `var HC={Version:` + `"` + VersionStr +
-		`",Status:{Live:` + StatusLiveVal +
+	JSLibrary = `var HC={Version:` + `"` + VersionStr + "\"" +
+		`,Status:{Live:` + StatusLiveVal +
 		`,Rejected:` + StatusRejectedVal +
 		`,Deleted:` + StatusDeletedVal +
 		`,Modified:` + StatusModifiedVal +
 		`,Any:` + StatusAnyVal +
-		"}," +
-		`LinkAction:{Add:"` + AddAction + `",Del:"` + DelAction + `"}` +
+		"}" +
+		`,LinkAction:{Add:"` + AddAction + `",Del:"` + DelAction + `"}` +
+		`,PkgReq:{Chain:"` + PkgReqChain + `"` +
+		`,ChainOpt:{None:` + PkgReqChainOptNoneStr +
+		`,Headers:` + PkgReqChainOptHeadersStr +
+		`,Entries:` + PkgReqChainOptEntriesStr +
+		`,Full:` + PkgReqChainOptFullStr +
+		"}" +
+		"}" +
 		`};`
 )
 

@@ -40,7 +40,8 @@ type FunctionDef struct {
 // Nucleus type abstracts the functions of code execution environments
 type Nucleus interface {
 	Type() string
-	ValidateAction(action Action, def *EntryDef, sources []string) (err error)
+	ValidateAction(action Action, def *EntryDef, pkg *ValidationPackage, sources []string) (err error)
+	ValidatePackagingRequest(action ValidatingAction, def *EntryDef) (req PackagingReq, err error)
 	ChainGenesis() error
 	Call(fn *FunctionDef, params interface{}) (interface{}, error)
 }

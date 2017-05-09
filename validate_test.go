@@ -1,8 +1,10 @@
 package holochain
 
 import (
+	"bytes"
 	"fmt"
 	. "github.com/smartystreets/goconvey/convey"
+	"strings"
 	"testing"
 	"time"
 )
@@ -73,5 +75,71 @@ func TestValidateReceiver(t *testing.T) {
 		So(vr.Type, ShouldEqual, "rating")
 		So(fmt.Sprintf("%v", vr.Entry), ShouldEqual, fmt.Sprintf("%v", e))
 		So(fmt.Sprintf("%v", vr.Header), ShouldEqual, fmt.Sprintf("%v", *le))
+	})
+}
+
+func TestMakePackage(t *testing.T) {
+	d, _, h := prepareTestChain("test")
+	defer cleanupTestDir(d)
+
+	Convey("it should be able to make a full chain package", t, func() {
+		req := PackagingReq{PkgReqChain: int64(PkgReqChainOptFull)}
+		pkg, err := MakePackage(h, req)
+		So(err, ShouldBeNil)
+
+		var b bytes.Buffer
+		h.chain.MarshalChain(&b, ChainMarshalFlagsOmitDNA)
+		So(string(pkg.Chain), ShouldEqual, string(b.Bytes()))
+	})
+	Convey("it should be able to make a headers only chain package", t, func() {
+		req := PackagingReq{PkgReqChain: int64(PkgReqChainOptHeaders)}
+		pkg, err := MakePackage(h, req)
+		So(err, ShouldBeNil)
+
+		var b bytes.Buffer
+		h.chain.MarshalChain(&b, ChainMarshalFlagsNoEntries+ChainMarshalFlagsOmitDNA)
+		So(string(pkg.Chain), ShouldEqual, string(b.Bytes()))
+	})
+	Convey("it should be able to make an entries only chain package", t, func() {
+		req := PackagingReq{PkgReqChain: int64(PkgReqChainOptEntries)}
+		pkg, err := MakePackage(h, req)
+		So(err, ShouldBeNil)
+
+		var b bytes.Buffer
+		h.chain.MarshalChain(&b, ChainMarshalFlagsNoHeaders+ChainMarshalFlagsOmitDNA)
+		So(string(pkg.Chain), ShouldEqual, string(b.Bytes()))
+	})
+}
+
+func TestMakeValidatePackage(t *testing.T) {
+	d, _, h := prepareTestChain("test")
+	defer cleanupTestDir(d)
+
+	entry := GobEntry{C: `{"firstName":"Zippy","lastName":"Pinhead"}`}
+	h.NewEntry(time.Now(), "evenNumbers", &entry)
+
+	pkg, _ := MakePackage(h, PackagingReq{PkgReqChain: int64(PkgReqChainOptFull)})
+	Convey("it should be able to make a validate package", t, func() {
+		vpkg, err := MakeValidationPackage(h, &pkg)
+		So(err, ShouldBeNil)
+		So(fmt.Sprintf("%v", vpkg.Chain), ShouldEqual, fmt.Sprintf("%v", h.chain))
+	})
+
+	Convey("it should return an error if the package data was tweaked", t, func() {
+		// tweak the agent header
+		pkg.Chain = []byte(strings.Replace(string(pkg.Chain), "%agent", "!agent", -1))
+		vpkg, err := MakeValidationPackage(h, &pkg)
+		So(err, ShouldNotBeNil)
+		So(vpkg, ShouldBeNil)
+
+		// restore
+		pkg.Chain = []byte(strings.Replace(string(pkg.Chain), "!agent", "%agent", -1))
+
+		// tweak
+		pkg.Chain = []byte(strings.Replace(string(pkg.Chain), "Zippy", "Zappy", -1))
+
+		vpkg, err = MakeValidationPackage(h, &pkg)
+		So(err, ShouldNotBeNil)
+
 	})
 }

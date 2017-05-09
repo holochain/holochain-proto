@@ -60,6 +60,40 @@ func (z *ZygoNucleus) ChainGenesis() (err error) {
 
 }
 
+// ValidatePackagingRequest calls the app for a validation packaging request for an action
+func (z *ZygoNucleus) ValidatePackagingRequest(action ValidatingAction, def *EntryDef) (req PackagingReq, err error) {
+	var code string
+	fnName := "validate" + strings.Title(action.Name()) + "Pkg"
+	code = fmt.Sprintf(`(%s "%s")`, fnName, def.Name)
+	Debug(code)
+	err = z.env.LoadString(code)
+	if err != nil {
+		return
+	}
+	result, err := z.env.Run()
+	if err != nil {
+		err = fmt.Errorf("Error executing %s: %v", fnName, err)
+		return
+	}
+	switch v := result.(type) {
+	case *zygo.SexpHash:
+		j := cleanZygoJson(zygo.SexpToJson(v))
+		m := make(PackagingReq)
+		err = json.Unmarshal([]byte(j), &m)
+		if err != nil {
+			return
+		}
+		delete(m, "zKeyOrder")
+		delete(m, "Atype")
+		req = m
+	case *zygo.SexpSentinel:
+	default:
+		err = fmt.Errorf("%s should return nil or hash, got: %v", fnName, v)
+	}
+
+	return
+}
+
 func prepareZyEntryArgs(def *EntryDef, entry Entry, header *Header) (args string, err error) {
 	entryStr := entry.Content().(string)
 	switch def.DataFormat {
@@ -115,7 +149,7 @@ func prepareZyValidateArgs(action Action, def *EntryDef) (args string, err error
 	return
 }
 
-func buildZyValidateAction(action Action, def *EntryDef, sources []string) (code string, err error) {
+func buildZyValidateAction(action Action, def *EntryDef, pkg *ValidationPackage, sources []string) (code string, err error) {
 	fnName := "validate" + strings.Title(action.Name())
 	var args string
 	args, err = prepareZyValidateArgs(action, def)
@@ -123,15 +157,28 @@ func buildZyValidateAction(action Action, def *EntryDef, sources []string) (code
 		return
 	}
 	srcs := mkZySources(sources)
-	code = fmt.Sprintf(`(%s "%s" %s %s)`, fnName, def.Name, args, srcs)
+
+	var pkgObj string
+	if pkg == nil || pkg.Chain == nil {
+		pkgObj = "(hash)"
+	} else {
+		var j []byte
+		j, err = json.Marshal(pkg.Chain)
+		if err != nil {
+			return
+		}
+		pkgObj = fmt.Sprintf(`(unjson (raw "%s"))`, sanitizeZyString(string(j)))
+	}
+
+	code = fmt.Sprintf(`(%s "%s" %s %s %s)`, fnName, def.Name, args, pkgObj, srcs)
 
 	return
 }
 
 // ValidateAction builds the correct validation function based on the action an calls it
-func (z *ZygoNucleus) ValidateAction(action Action, def *EntryDef, sources []string) (err error) {
+func (z *ZygoNucleus) ValidateAction(action Action, def *EntryDef, pkg *ValidationPackage, sources []string) (err error) {
 	var code string
-	code, err = buildZyValidateAction(action, def, sources)
+	code, err = buildZyValidateAction(action, def, pkg, sources)
 	if err != nil {
 		return
 	}
@@ -181,9 +228,9 @@ func (z *ZygoNucleus) runValidate(fnName string, code string) (err error) {
 		err = fmt.Errorf("Error executing %s: %v", fnName, err)
 		return
 	}
-	switch result.(type) {
+	switch v := result.(type) {
 	case *zygo.SexpBool:
-		r := result.(*zygo.SexpBool).Val
+		r := v.Val
 		if !r {
 			err = ValidationFailedErr
 		}
@@ -288,7 +335,12 @@ var ZygoLibrary = `(def HC_Version "` + VersionStr + `")` +
 	`(def HC_Status_Modified ` + StatusModifiedVal + ")" +
 	`(def HC_Status_Any ` + StatusAnyVal + ")" +
 	`(def HC_LinkAction_Add "` + AddAction + "\")" +
-	`(def HC_LinkAction_Del "` + DelAction + "\")"
+	`(def HC_LinkAction_Del "` + DelAction + "\")" +
+	`(def HC_PkgReq_Chain "` + PkgReqChain + "\")" +
+	`(def HC_PkgReq_ChainOpt_None "` + PkgReqChainOptNoneStr + "\")" +
+	`(def HC_PkgReq_ChainOpt_Headers "` + PkgReqChainOptHeadersStr + "\")" +
+	`(def HC_PkgReq_ChainOpt_Entries "` + PkgReqChainOptEntriesStr + "\")" +
+	`(def HC_PkgReq_ChainOpt_Full "` + PkgReqChainOptNoneStr + "\")"
 
 func makeResult(env *zygo.Glisp, resultValue zygo.Sexp, resultError error) (zygo.Sexp, error) {
 	result, err := zygo.MakeHash(nil, "hash", env)
@@ -377,8 +429,6 @@ func zyProcessArgs(args []Arg, zyArgs []zygo.Sexp) (err error) {
 				if err != nil {
 					return err
 				}
-				delete(m, "zKeyOrder")
-				delete(m, "Atype")
 				args[i].value = m
 			default:
 				return argErr("hash", i+1, args[i])

@@ -23,7 +23,7 @@ func TestValidateAction(t *testing.T) {
 	Convey("it should fail if a validator doesn't exist for the entry type", t, func() {
 		entry := &GobEntry{C: "foo"}
 		a := NewCommitAction("bogusType", entry)
-		_, err = h.ValidateAction(a, a.entryType, []peer.ID{h.id})
+		_, err = h.ValidateAction(a, a.entryType, nil, []peer.ID{h.id})
 		So(err.Error(), ShouldEqual, "no definition for entry type: bogusType")
 	})
 
@@ -31,14 +31,14 @@ func TestValidateAction(t *testing.T) {
 		entry := &GobEntry{C: "2"}
 		a := NewCommitAction("evenNumbers", entry)
 		var d *EntryDef
-		d, err = h.ValidateAction(a, a.entryType, []peer.ID{h.id})
+		d, err = h.ValidateAction(a, a.entryType, nil, []peer.ID{h.id})
 		So(err, ShouldBeNil)
 		So(fmt.Sprintf("%v", d), ShouldEqual, "&{evenNumbers zygo   public <nil>}")
 	})
 	Convey("an invalid action returns the ValidationFailedErr", t, func() {
 		entry := &GobEntry{C: "1"}
 		a := NewCommitAction("evenNumbers", entry)
-		_, err = h.ValidateAction(a, a.entryType, []peer.ID{h.id})
+		_, err = h.ValidateAction(a, a.entryType, nil, []peer.ID{h.id})
 		So(err, ShouldEqual, ValidationFailedErr)
 	})
 }

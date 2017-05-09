@@ -27,10 +27,10 @@ import (
 )
 
 // Version is the numeric version number of the holochain library
-const Version int = 8
+const Version int = 9
 
 // VersionStr is the textual version number of the holochain library
-const VersionStr string = "8"
+const VersionStr string = "9"
 
 // Zome struct encapsulates logically related code, from "chromosome"
 type Zome struct {

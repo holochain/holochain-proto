@@ -68,10 +68,10 @@ function genesis() {
 }
 
 
-function validatePut(entry_type,entry,header,sources) {
+function validatePut(entry_type,entry,header,pkg,sources) {
     return validate(entry_type,entry,header,sources);
 }
-function validateCommit(entry_type,entry,header,sources) {
+function validateCommit(entry_type,entry,header,pkg,sources) {
     if (entry_type == "my_messages") {
         //TODO proper source validation here...
         return true;
@@ -92,6 +92,12 @@ function validate(entry_type,entry,header,sources) {
     }
 }
 
-function validateLink(linkingEntryType,baseHash,linkHash,tag,sources){
+function validateLink(linkingEntryType,baseHash,linkHash,tag,pkg,sources){
     return true;
 }
+function validateMod(entry_type,hash,newHash,pkg,sources) {return true;}
+function validateDel(entry_type,hash,pkg,sources) {return true;}
+function validatePutPkg(entry_type) {return null}
+function validateModPkg(entry_type) { return null}
+function validateDelPkg(entry_type) { return null}
+function validateLinkPkg(entry_type) { return null}

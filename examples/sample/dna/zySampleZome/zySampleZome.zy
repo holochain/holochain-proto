@@ -5,17 +5,21 @@
 (defn testJsonFn2 [x] (unjson (raw "[{\"a\":\"b\"}]"))) (defn getDNA [x] App_DNA_Hash)
 (defn addEven [x] (commit "evenNumbers" x))
 (defn addPrime [x] (commit "primes" x))
-(defn validateCommit [entryType entry header sources]
+(defn validateCommit [entryType entry header pkg sources]
   (validate entryType entry header sources))
-(defn validatePut [entryType entry header sources]
+(defn validatePut [entryType entry header pkg sources]
   (validate entryType entry header sources))
-(defn validateMod [entryType hash newHash sources] true)
-(defn validateDel [entryType hash sources] true)
+(defn validateMod [entryType hash newHash pkg sources] true)
+(defn validateDel [entryType hash pkg sources] true)
 (defn validate [entryType entry header sources]
   (cond (== entryType "evenNumbers")  (cond (== (mod entry 2) 0) true false)
         (== entryType "primes")  (isprime (hget entry %prime))
         (== entryType "profile") true
         false)
 )
-(defn validateLink [linkEntryType baseHash linkHash tag sources] true)
+(defn validateLink [linkEntryType baseHash linkHash tag pkg sources] true)
+(defn validatePutPkg [entryType] nil)
+(defn validateModPkg [entryType] nil)
+(defn validateDelPkg [entryType] nil)
+(defn validateLinkPkg [entryType] nil)
 (defn genesis [] true)

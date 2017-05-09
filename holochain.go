@@ -1099,36 +1099,6 @@ func (h *Holochain) Walk(fn WalkerFn, entriesToo bool) (err error) {
 	return
 }
 
-// Validate scans back through a chain to the beginning confirming that the last header points to DNA
-// This is actually kind of bogus on your own chain, because theoretically you put it there!  But
-// if the holochain file was copied from somewhere you can consider this a self-check
-func (h *Holochain) Validate(entriesToo bool) (valid bool, err error) {
-
-	err = h.Walk(func(key *Hash, header *Header, entry Entry) (err error) {
-		// confirm the correctness of the header hash
-
-		var bH Hash
-		bH, _, err = header.Sum(h.hashSpec)
-		if err != nil {
-			return
-		}
-
-		if !bH.Equal(key) {
-			return errors.New("header hash doesn't match")
-		}
-
-		// @TODO check entry hashes Etoo if entriesToo set
-		if entriesToo {
-
-		}
-		return nil
-	}, entriesToo)
-	if err == nil {
-		valid = true
-	}
-	return
-}
-
 // GetEntryDef returns an EntryDef of the given name
 // @TODO this makes the incorrect assumption that entry type strings are unique across zomes
 func (h *Holochain) GetEntryDef(t string) (zome *Zome, d *EntryDef, err error) {

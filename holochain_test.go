@@ -413,26 +413,6 @@ func TestWalk(t *testing.T) {
 	})
 }
 
-func TestValidate(t *testing.T) {
-	d, _, h := prepareTestChain("test")
-	defer cleanupTestDir(d)
-
-	// add an extra link onto the chain
-	entryTypeFoo := `(message (from "art") (to "eric") (contents "test"))`
-	now := time.Unix(1, 1) // pick a constant time so the test will always work
-	e := GobEntry{C: entryTypeFoo}
-	_, _, err := h.NewEntry(now, "entryTypeFoo", &e)
-	if err != nil {
-		panic(err)
-	}
-	Convey("validate should check the hashes of the headers, and optionally of the entries", t, func() {
-		//	Convey("This isn't yet fully implemented", nil)
-		valid, err := h.Validate(false)
-		So(err, ShouldBeNil)
-		So(valid, ShouldEqual, true)
-	})
-}
-
 func TestGetZome(t *testing.T) {
 	d, _, h := setupTestChain("test")
 	defer cleanupTestDir(d)

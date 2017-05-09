@@ -353,43 +353,45 @@ func (c *Chain) Walk(fn WalkerFn) (err error) {
 // Validate traverses chain confirming the hashes
 // @TODO confirm that TypeLinks are also correct
 // @TODO confirm signatures
-func (c *Chain) Validate(h HashSpec) (err error) {
+func (c *Chain) Validate(hashSpec HashSpec, skipEntries bool) (err error) {
 	l := len(c.Headers)
-	for i := l - 1; i >= 0; i-- {
+	for i := 0; i < l; i++ {
 		hd := c.Headers[i]
-		var hash Hash
 
+		var hash, nexth Hash
 		// hash the header
-		hash, _, err = hd.Sum(h)
+		hash, _, err = hd.Sum(hashSpec)
 		if err != nil {
 			return
 		}
-
-		var nexth Hash
-		if i == l-1 {
-			nexth = c.Hashes[i]
-		} else {
+		// we can't compare top hash to next link, because it doesn't exist yet!
+		if i < l-2 {
 			nexth = c.Headers[i+1].HeaderLink
+		} else {
+			// so get it from the Hashes (even though this could be cheated)
+			nexth = c.Hashes[i]
 		}
 
-		if !bytes.Equal(hash.H, nexth.H) {
+		if !hash.Equal(&nexth) {
 			err = fmt.Errorf("header hash mismatch at link %d", i)
 			return
 		}
 
-		var b []byte
-		b, err = c.Entries[i].Marshal()
-		if err != nil {
-			return
-		}
-		err = hash.Sum(h, b)
-		if err != nil {
-			return
-		}
+		if !skipEntries {
+			var b []byte
+			b, err = c.Entries[i].Marshal()
+			if err != nil {
+				return
+			}
+			err = hash.Sum(hashSpec, b)
+			if err != nil {
+				return
+			}
 
-		if !bytes.Equal(hash.H, hd.EntryLink.H) {
-			err = fmt.Errorf("entry hash mismatch at link %d", i)
-			return
+			if !bytes.Equal(hash.H, hd.EntryLink.H) {
+				err = fmt.Errorf("entry hash mismatch at link %d", i)
+				return
+			}
 		}
 	}
 	return

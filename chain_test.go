@@ -234,26 +234,63 @@ func TestWalkChain(t *testing.T) {
 
 func TestValidateChain(t *testing.T) {
 	c := NewChain()
-	h, key, now := chainTestSetup()
+	hashSpec, key, now := chainTestSetup()
 	e := GobEntry{C: "some data"}
-	c.AddEntry(h, now, "entryTypeFoo1", &e, key)
+	c.AddEntry(hashSpec, now, DNAEntryType, &e, key)
 
 	e = GobEntry{C: "some other data"}
-	c.AddEntry(h, now, "entryTypeFoo1", &e, key)
+	c.AddEntry(hashSpec, now, AgentEntryType, &e, key)
 
 	e = GobEntry{C: "and more data"}
-	c.AddEntry(h, now, "entryTypeFoo1", &e, key)
+	c.AddEntry(hashSpec, now, "entryTypeFoo1", &e, key)
 
 	Convey("it should validate", t, func() {
-		So(c.Validate(h), ShouldBeNil)
+		So(c.Validate(hashSpec, false), ShouldBeNil)
 	})
 
 	Convey("it should fail to validate if we diddle some bits", t, func() {
-		c.Entries[0].(*GobEntry).C = "fish"
-		So(c.Validate(h).Error(), ShouldEqual, "entry hash mismatch at link 0")
-		c.Entries[0].(*GobEntry).C = "some data"
-		c.Headers[1].TypeLink = NullHash()
-		So(c.Validate(h).Error(), ShouldEqual, "header hash mismatch at link 1")
+		c.Entries[0].(*GobEntry).C = "fish" // tweak
+		So(c.Validate(hashSpec, false).Error(), ShouldEqual, "entry hash mismatch at link 0")
+		So(c.Validate(hashSpec, true), ShouldBeNil) // test skipping entry validation
+
+		c.Entries[0].(*GobEntry).C = "some data" //restore
+		hash, _ := NewHash("QmY8Mzg9F69e5P9AoQPYat655HEhc1TVGs11tmfNSzkqh2")
+		c.Headers[1].TypeLink = hash // tweak
+		So(c.Validate(hashSpec, false).Error(), ShouldEqual, "header hash mismatch at link 1")
+
+		c.Headers[1].TypeLink = NullHash() //restore
+		c.Headers[0].Type = "entryTypeBar" //tweak
+		err := c.Validate(hashSpec, false)
+		So(err.Error(), ShouldEqual, "header hash mismatch at link 0")
+
+		c.Headers[0].Type = DNAEntryType // restore
+		t := c.Headers[0].Time           // tweak
+		c.Headers[0].Time = time.Now()
+		err = c.Validate(hashSpec, false)
+		So(err.Error(), ShouldEqual, "header hash mismatch at link 0")
+
+		c.Headers[0].Time = t                            // restore
+		c.Headers[0].HeaderLink = c.Headers[0].EntryLink // tweak
+		err = c.Validate(hashSpec, false)
+		So(err.Error(), ShouldEqual, "header hash mismatch at link 0")
+
+		c.Headers[0].HeaderLink = NullHash() // restore
+		val := c.Headers[0].EntryLink.H[2]
+		c.Headers[0].EntryLink.H[2] = 3 // tweak
+		err = c.Validate(hashSpec, false)
+		So(err.Error(), ShouldEqual, "header hash mismatch at link 0")
+
+		c.Headers[0].EntryLink.H[2] = val // restore
+		val = c.Headers[0].Sig.S[0]
+		c.Headers[0].Sig.S[0] = 99 // tweak
+		err = c.Validate(hashSpec, false)
+		So(err.Error(), ShouldEqual, "header hash mismatch at link 0")
+
+		c.Headers[0].Sig.S[0] = val        // restore
+		c.Headers[0].Change.Action = "foo" // tweak
+		err = c.Validate(hashSpec, false)
+		So(err.Error(), ShouldEqual, "header hash mismatch at link 0")
+
 	})
 }
 

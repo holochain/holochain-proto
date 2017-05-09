@@ -175,7 +175,7 @@ func TestGet(t *testing.T) {
 	})
 }
 
-func TestMarshal(t *testing.T) {
+func TestMarshalChain(t *testing.T) {
 	c := NewChain()
 	h, key, now := chainTestSetup()
 
@@ -188,13 +188,14 @@ func TestMarshal(t *testing.T) {
 	e = GobEntry{C: "and more data"}
 	c.AddEntry(h, now, "entryTypeFoo3", &e, key)
 
-	Convey("it should be able to marshal and unmarshal", t, func() {
+	Convey("it should be able to marshal and unmarshal full chain", t, func() {
 		var b bytes.Buffer
 
-		err := c.MarshalChain(&b)
+		err := c.MarshalChain(&b, ChainMarshalFlagsNone)
 		So(err, ShouldBeNil)
-		c1, err := UnmarshalChain(&b)
+		flags, c1, err := UnmarshalChain(&b)
 		So(err, ShouldBeNil)
+		So(flags, ShouldEqual, ChainMarshalFlagsNone)
 		So(c1.String(), ShouldEqual, c.String())
 
 		// confirm that internal structures are properly set up
@@ -204,7 +205,73 @@ func TestMarshal(t *testing.T) {
 		So(reflect.DeepEqual(c.TypeTops, c1.TypeTops), ShouldBeTrue)
 		So(reflect.DeepEqual(c.Hmap, c1.Hmap), ShouldBeTrue)
 		So(reflect.DeepEqual(c.Emap, c1.Emap), ShouldBeTrue)
+		So(reflect.DeepEqual(c.Entries, c1.Entries), ShouldBeTrue)
 	})
+
+	Convey("it should be able to marshal and unmarshal headers only", t, func() {
+		var b bytes.Buffer
+
+		err := c.MarshalChain(&b, ChainMarshalFlagsNoEntries)
+		So(err, ShouldBeNil)
+		flags, c1, err := UnmarshalChain(&b)
+		So(err, ShouldBeNil)
+		So(flags, ShouldEqual, ChainMarshalFlagsNoEntries)
+
+		So(len(c1.Hashes), ShouldEqual, len(c.Hashes))
+		So(len(c1.Entries), ShouldEqual, 0)
+
+		// confirm that internal structures are properly set up
+		for i := 0; i < len(c.Headers); i++ {
+			So(c.Hashes[i].String(), ShouldEqual, c1.Hashes[i].String())
+		}
+
+		So(reflect.DeepEqual(c.TypeTops, c1.TypeTops), ShouldBeTrue)
+		So(reflect.DeepEqual(c.Hmap, c1.Hmap), ShouldBeTrue)
+		So(reflect.DeepEqual(c.Emap, c1.Emap), ShouldBeTrue)
+	})
+
+	Convey("it should be able to marshal and unmarshal entries only", t, func() {
+		var b bytes.Buffer
+
+		err := c.MarshalChain(&b, ChainMarshalFlagsNoHeaders)
+		So(err, ShouldBeNil)
+		flags, c1, err := UnmarshalChain(&b)
+		So(err, ShouldBeNil)
+		So(flags, ShouldEqual, ChainMarshalFlagsNoHeaders)
+
+		So(len(c1.Hashes), ShouldEqual, 0)
+		So(len(c1.Headers), ShouldEqual, 0)
+		So(len(c1.Entries), ShouldEqual, len(c1.Entries))
+		So(len(c1.Emap), ShouldEqual, 0)
+		So(len(c1.TypeTops), ShouldEqual, 0)
+		So(len(c1.Emap), ShouldEqual, 0)
+
+		So(reflect.DeepEqual(c.Entries, c1.Entries), ShouldBeTrue)
+	})
+
+	Convey("it should be able to marshal and unmarshal with omitted DNA", t, func() {
+		var b bytes.Buffer
+
+		err := c.MarshalChain(&b, ChainMarshalFlagsOmitDNA)
+		So(err, ShouldBeNil)
+		flags, c1, err := UnmarshalChain(&b)
+		So(err, ShouldBeNil)
+		So(flags, ShouldEqual, ChainMarshalFlagsOmitDNA)
+		So(c1.Entries[0].Content(), ShouldEqual, "")
+		c1.Entries[0].(*GobEntry).C = c.Entries[0].(*GobEntry).C
+		So(c1.String(), ShouldEqual, c.String())
+
+		// confirm that internal structures are properly set up
+		for i := 0; i < len(c.Headers); i++ {
+			So(c.Hashes[i].String(), ShouldEqual, c1.Hashes[i].String())
+		}
+		So(reflect.DeepEqual(c.TypeTops, c1.TypeTops), ShouldBeTrue)
+		So(reflect.DeepEqual(c.Hmap, c1.Hmap), ShouldBeTrue)
+		So(reflect.DeepEqual(c.Emap, c1.Emap), ShouldBeTrue)
+		So(reflect.DeepEqual(c.Entries, c1.Entries), ShouldBeTrue)
+
+	})
+
 }
 
 func TestWalkChain(t *testing.T) {

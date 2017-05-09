@@ -21,6 +21,14 @@ import (
 type WalkerFn func(key *Hash, header *Header, entry Entry) error
 
 var ErrHashNotFound = errors.New("hash not found")
+var ErrIncompleteChain = errors.New("operation not allowed on incomplete chain")
+
+const (
+	ChainMarshalFlagsNone      = 0x00
+	ChainMarshalFlagsNoHeaders = 0x01
+	ChainMarshalFlagsNoEntries = 0x02
+	ChainMarshalFlagsOmitDNA   = 0x04
+)
 
 // Chain structure for providing in-memory access to chain data, entries headers and hashes
 type Chain struct {
@@ -70,7 +78,7 @@ func NewChainFromFile(h HashSpec, path string) (c *Chain, err error) {
 		for {
 			var header *Header
 			var e Entry
-			header, e, err = readPair(f)
+			header, e, err = readPair(ChainMarshalFlagsNone, f)
 			if err != nil && err.Error() == "EOF" {
 				err = nil
 				break
@@ -194,6 +202,12 @@ func (c *Chain) addEntry(entryIdx int, hash Hash, header *Header, e Entry) (err 
 		err = errors.New("entry indexes don't match can't create new entry")
 		return
 	}
+
+	if l != len(c.Entries) {
+		err = ErrIncompleteChain
+		return
+	}
+
 	var g GobEntry
 	g = *e.(*GobEntry)
 
@@ -246,45 +260,75 @@ func (c *Chain) GetEntryHeader(h Hash) (header *Header, err error) {
 }
 
 func writePair(writer io.Writer, header *Header, entry Entry) (err error) {
-	err = MarshalHeader(writer, header)
-	if err != nil {
-		return
+	if header != nil {
+		err = MarshalHeader(writer, header)
+		if err != nil {
+			return
+		}
 	}
-	err = MarshalEntry(writer, entry)
+	if entry != nil {
+		err = MarshalEntry(writer, entry)
+	}
 	return
 }
 
-func readPair(reader io.Reader) (header *Header, entry Entry, err error) {
-	var hd Header
-	err = UnmarshalHeader(reader, &hd, 34)
-	if err != nil {
-		return
+func readPair(flags int64, reader io.Reader) (header *Header, entry Entry, err error) {
+	if (flags & ChainMarshalFlagsNoHeaders) == 0 {
+		var hd Header
+		err = UnmarshalHeader(reader, &hd, 34)
+		if err != nil {
+			return
+		}
+		header = &hd
 	}
-	header = &hd
-	entry, err = UnmarshalEntry(reader)
+	if (flags & ChainMarshalFlagsNoEntries) == 0 {
+		entry, err = UnmarshalEntry(reader)
+	}
 	return
 }
 
 // MarshalChain serializes a chain data to a writer
-func (c *Chain) MarshalChain(writer io.Writer) (err error) {
+func (c *Chain) MarshalChain(writer io.Writer, flags int64) (err error) {
 
-	var l = uint64(len(c.Headers))
+	if len(c.Headers) != len(c.Entries) {
+		err = ErrIncompleteChain
+		return
+	}
+
+	err = binary.Write(writer, binary.LittleEndian, flags)
+	if err != nil {
+		return err
+	}
+
+	var l = int64(len(c.Headers))
 	err = binary.Write(writer, binary.LittleEndian, l)
 	if err != nil {
 		return err
 	}
 
 	for i, h := range c.Headers {
-		e := c.Entries[i]
+		var e Entry
+		if (flags & ChainMarshalFlagsNoHeaders) != 0 {
+			h = nil
+		}
+		if (flags & ChainMarshalFlagsNoEntries) == 0 {
+			if (i == 0) && ((flags & ChainMarshalFlagsOmitDNA) != 0) {
+				e = &GobEntry{C: ""}
+
+			} else {
+				e = c.Entries[i]
+			}
+		}
 		err = writePair(writer, h, e)
 		if err != nil {
 			return
 		}
 	}
 
-	hash := c.Hashes[l-1]
-	err = hash.MarshalHash(writer)
-
+	if (flags & ChainMarshalFlagsNoHeaders) == 0 {
+		hash := c.Hashes[l-1]
+		err = hash.MarshalHash(writer)
+	}
 	return
 }
 
@@ -293,27 +337,35 @@ func (c *Chain) MarshalChain(writer io.Writer) (err error) {
 // because for each pair (except the 0th) it adds the hash of the previous entry
 // thus it also means that you must add the last Hash after you have finished calling addPair
 func (c *Chain) addPair(header *Header, entry Entry, i int) {
-	if i > 0 {
-		s := header.HeaderLink.String()
-		h, _ := NewHash(s)
-		c.Hashes = append(c.Hashes, h)
-		c.Hmap[s] = i - 1
+	if header != nil {
+		if i > 0 {
+			s := header.HeaderLink.String()
+			h, _ := NewHash(s)
+			c.Hashes = append(c.Hashes, h)
+			c.Hmap[s] = i - 1
+		}
+		c.Headers = append(c.Headers, header)
+		c.TypeTops[header.Type] = i
+		c.Emap[header.EntryLink.String()] = i
 	}
-	c.Headers = append(c.Headers, header)
-	c.Entries = append(c.Entries, entry)
-	c.TypeTops[header.Type] = i
-	c.Emap[header.EntryLink.String()] = i
+	if entry != nil {
+		c.Entries = append(c.Entries, entry)
+	}
 }
 
 // UnmarshalChain unserializes a chain from a reader
-func UnmarshalChain(reader io.Reader) (c *Chain, err error) {
+func UnmarshalChain(reader io.Reader) (flags int64, c *Chain, err error) {
 	defer func() {
 		if err != nil {
 			Debugf("error unmarshaling chain:%s", err.Error())
 		}
 	}()
 	c = NewChain()
-	var l, i uint64
+	err = binary.Read(reader, binary.LittleEndian, &flags)
+	if err != nil {
+		return
+	}
+	var l, i int64
 	err = binary.Read(reader, binary.LittleEndian, &l)
 	if err != nil {
 		return
@@ -321,20 +373,23 @@ func UnmarshalChain(reader io.Reader) (c *Chain, err error) {
 	for i = 0; i < l; i++ {
 		var header *Header
 		var e Entry
-		header, e, err = readPair(reader)
+		header, e, err = readPair(flags, reader)
 		if err != nil {
 			return
 		}
 		c.addPair(header, e, int(i))
 	}
-	// decode final hash
-	var h Hash
-	err = h.UnmarshalHash(reader)
-	if err != nil {
-		return
+
+	if (flags & ChainMarshalFlagsNoHeaders) == 0 {
+		// decode final hash
+		var h Hash
+		err = h.UnmarshalHash(reader)
+		if err != nil {
+			return
+		}
+		c.Hashes = append(c.Hashes, h)
+		c.Hmap[h.String()] = int(i - 1)
 	}
-	c.Hashes = append(c.Hashes, h)
-	c.Hmap[h.String()] = int(i - 1)
 	return
 }
 

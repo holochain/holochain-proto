@@ -1,6 +1,7 @@
 package holochain
 
 import (
+	"bytes"
 	"fmt"
 	mh "github.com/multiformats/go-multihash"
 	. "github.com/smartystreets/goconvey/convey"
@@ -49,6 +50,36 @@ func TestEqual(t *testing.T) {
 	Convey("dissimilar hashes should not", t, func() {
 		So(h1.Equal(&h3), ShouldBeFalse)
 		So(h1.Equal(&nh2), ShouldBeFalse)
+	})
+
+}
+
+func TestMarshalHash(t *testing.T) {
+	Convey("should be able to marshal and unmarshal a hash", t, func() {
+		hash, _ := NewHash("QmY8Mzg9F69e5P9AoQPYat655HEhc1TVGs11tmfNSzkqh2")
+		var b bytes.Buffer
+		err := hash.MarshalHash(&b)
+		So(err, ShouldBeNil)
+		var hash2 Hash
+		err = hash2.UnmarshalHash(&b)
+		So(err, ShouldBeNil)
+		So(hash.Equal(&hash), ShouldBeTrue)
+	})
+	Convey("should be able to marshal and unmarshal a Null Hash", t, func() {
+		hash := NullHash()
+		var b bytes.Buffer
+		err := hash.MarshalHash(&b)
+		So(err, ShouldBeNil)
+		var hash2 Hash
+		err = hash2.UnmarshalHash(&b)
+		So(err, ShouldBeNil)
+		So(hash.Equal(&hash), ShouldBeTrue)
+	})
+	Convey("should not be able to marshal and unmarshal a nil Hash", t, func() {
+		var hash Hash
+		var b bytes.Buffer
+		err := hash.MarshalHash(&b)
+		So(err.Error(), ShouldEqual, "can't marshal nil hash")
 	})
 
 }

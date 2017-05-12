@@ -481,12 +481,21 @@ func NewJSNucleus(h *Holochain, code string) (n Nucleus, err error) {
 			return mkOttoErr(&z, err.Error())
 		}
 
-		req := GetReq{H: args[0].value.(Hash), StatusMask: StatusDefault}
+		options := GetOptions{StatusMask: StatusDefault}
 		if len(call.ArgumentList) == 2 {
-			req.StatusMask = int(args[1].value.(int64))
+			opts := args[1].value.(map[string]interface{})
+			mask, ok := opts["StatusMask"]
+			if ok {
+				maskval, ok := mask.(int64)
+				if !ok {
+					return mkOttoErr(&z, fmt.Sprintf("expecting int StatusMask attribute in object, got %T", mask))
+				}
+				options.StatusMask = int(maskval)
+			}
 		}
+		req := GetReq{H: args[0].value.(Hash), StatusMask: options.StatusMask}
 
-		entry, err := NewGetAction(req).Do(h)
+		entry, err := NewGetAction(req, &options).Do(h)
 		if err == nil {
 			t := entry.(*GobEntry)
 			result, err = z.vm.ToValue(t)

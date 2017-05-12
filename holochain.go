@@ -883,7 +883,7 @@ func (s *Service) GenDev(root string, format string) (hP *Holochain, err error) 
         (== entryType "profile") true
         false)
 )
-(defn validateLink [linkEntryType baseHash linkHash tag pkg sources] true)
+(defn validateLink [linkEntryType baseHash links pkg sources] true)
 (defn validatePutPkg [entryType] nil)
 (defn validateModPkg [entryType] nil)
 (defn validateDelPkg [entryType] nil)

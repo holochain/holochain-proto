@@ -276,11 +276,12 @@ func (a *ActionDebug) DHTReqHandler(dht *DHT, msg *Message) (response interface{
 // Get
 
 type ActionGet struct {
-	req GetReq
+	req     GetReq
+	options *GetOptions
 }
 
-func NewGetAction(req GetReq) *ActionGet {
-	a := ActionGet{req: req}
+func NewGetAction(req GetReq, options *GetOptions) *ActionGet {
+	a := ActionGet{req: req, options: options}
 	return &a
 }
 
@@ -289,12 +290,14 @@ func (a *ActionGet) Name() string {
 }
 
 func (a *ActionGet) Args() []Arg {
-	return []Arg{{Name: "hash", Type: HashArg}, {Name: "statusMask", Type: IntArg, Optional: true}}
+	return []Arg{{Name: "hash", Type: HashArg}, {Name: "options", Type: MapArg, MapType: reflect.TypeOf(GetOptions{}), Optional: true}}
 }
 
 func (a *ActionGet) Do(h *Holochain) (response interface{}, err error) {
 	rsp, err := h.dht.Send(a.req.H, GET_REQUEST, a.req)
 	if err != nil {
+
+		// follow the modified hash
 		if a.req.StatusMask == StatusDefault && err == ErrHashModified {
 			var hash Hash
 			hash, err = NewHash(rsp.(string))
@@ -302,7 +305,7 @@ func (a *ActionGet) Do(h *Holochain) (response interface{}, err error) {
 				return
 			}
 			req := GetReq{H: hash, StatusMask: StatusDefault}
-			entry, err := NewGetAction(req).Do(h)
+			entry, err := NewGetAction(req, a.options).Do(h)
 			if err == nil {
 				response = entry
 			}
@@ -802,8 +805,8 @@ func (a *ActionGetLink) Do(h *Holochain) (response interface{}, err error) {
 					if err != nil {
 						return
 					}
-					req := GetReq{H: hash, StatusMask: StatusLive}
-					entry, err := NewGetAction(req).Do(h)
+					req := GetReq{H: hash, StatusMask: StatusDefault}
+					entry, err := NewGetAction(req, &GetOptions{StatusMask: StatusDefault}).Do(h)
 					if err == nil {
 						t.Links[i].E = entry.(Entry).Content().(string)
 					}

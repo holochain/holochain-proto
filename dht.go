@@ -111,6 +111,11 @@ type LinkQuery struct {
 	// filter, etc
 }
 
+// GetOptions options to holochain level Get functions
+type GetOptions struct {
+	StatusMask int // mask of which status of entries to return
+}
+
 // GetLinkOptions options to holochain level GetLink functions
 type GetLinkOptions struct {
 	Load       bool // indicates whether GetLink should retrieve the entries of all links

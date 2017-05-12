@@ -455,7 +455,7 @@ func TestJSDHT(t *testing.T) {
 		z = v.(*JSNucleus)
 		So(z.lastResult.String(), ShouldEqual, "HolochainError: hash deleted")
 
-		v, err = NewJSNucleus(h, fmt.Sprintf(`get("%s",HC.Status.Deleted);`, hash.String()))
+		v, err = NewJSNucleus(h, fmt.Sprintf(`get("%s",{StatusMask:HC.Status.Deleted});`, hash.String()))
 		So(err, ShouldBeNil)
 		z = v.(*JSNucleus)
 

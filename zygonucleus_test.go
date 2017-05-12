@@ -454,7 +454,7 @@ func TestZygoDHT(t *testing.T) {
 		So(err, ShouldBeNil)
 		So(r.(*zygo.SexpStr).S, ShouldEqual, "hash deleted")
 
-		v, err = NewZygoNucleus(h, fmt.Sprintf(`(get "%s" HC_Status_Deleted)`, hash.String()))
+		v, err = NewZygoNucleus(h, fmt.Sprintf(`(get "%s" (hash StatusMask:HC_Status_Deleted))`, hash.String()))
 		So(err, ShouldBeNil)
 		z = v.(*ZygoNucleus)
 

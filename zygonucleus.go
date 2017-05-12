@@ -540,13 +540,23 @@ func NewZygoNucleus(h *Holochain, code string) (n Nucleus, err error) {
 			if err != nil {
 				return zygo.SexpNull, err
 			}
-			req := GetReq{H: args[0].value.(Hash), StatusMask: StatusDefault}
+			options := GetOptions{StatusMask: StatusDefault}
 			if len(zyargs) == 2 {
-				req.StatusMask = int(args[1].value.(int64))
+				opts := args[1].value.(map[string]interface{})
+				mask, ok := opts["StatusMask"]
+				if ok {
+					maskval, ok := mask.(float64)
+					if !ok {
+						return zygo.SexpNull,
+							fmt.Errorf("expecting int StatusMask attribute in object, got %T", mask)
+					}
+					options.StatusMask = int(maskval)
+				}
 			}
+			req := GetReq{H: args[0].value.(Hash), StatusMask: options.StatusMask}
 
 			var entry interface{}
-			entry, err = NewGetAction(req).Do(h)
+			entry, err = NewGetAction(req, &options).Do(h)
 			var resultValue zygo.Sexp
 			resultValue = zygo.SexpNull
 			if err == nil {
@@ -623,7 +633,7 @@ func NewZygoNucleus(h *Holochain, code string) (n Nucleus, err error) {
 			base := args[0].value.(Hash)
 			tag := args[1].value.(string)
 
-			options := GetLinkOptions{Load: false}
+			options := GetLinkOptions{Load: false, StatusMask: StatusLive}
 			if len(zyargs) == 3 {
 				opts := args[2].value.(map[string]interface{})
 				load, ok := opts["Load"]
@@ -648,10 +658,10 @@ func NewZygoNucleus(h *Holochain, code string) (n Nucleus, err error) {
 
 			var r interface{}
 			r, err = NewGetLinkAction(&LinkQuery{Base: base, T: tag, StatusMask: options.StatusMask}, &options).Do(h)
-			response := r.(*LinkQueryResp)
 			var resultValue zygo.Sexp
-			resultValue = zygo.SexpNull
 			if err == nil {
+				response := r.(*LinkQueryResp)
+				resultValue = zygo.SexpNull
 				var j []byte
 				j, err = json.Marshal(response.Links)
 				if err == nil {
@@ -659,7 +669,6 @@ func NewZygoNucleus(h *Holochain, code string) (n Nucleus, err error) {
 				}
 			}
 			return makeResult(env, resultValue, err)
-
 		})
 
 	l := ZygoLibrary

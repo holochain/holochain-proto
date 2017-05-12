@@ -273,6 +273,45 @@ func (a *ActionDebug) DHTReqHandler(dht *DHT, msg *Message) (response interface{
 }
 
 //------------------------------------------------------------
+// MakeHash
+
+type ActionMakeHash struct {
+	entry Entry
+}
+
+func NewMakeHashAction(entry Entry) *ActionMakeHash {
+	a := ActionMakeHash{entry: entry}
+	return &a
+}
+
+func (a *ActionMakeHash) Name() string {
+	return "makeHash"
+}
+
+func (a *ActionMakeHash) Args() []Arg {
+	return []Arg{{Name: "entry", Type: EntryArg}}
+}
+
+func (a *ActionMakeHash) Do(h *Holochain) (response interface{}, err error) {
+	var hash Hash
+	hash, err = a.entry.Sum(h.hashSpec)
+	if err != nil {
+		return
+	}
+	response = hash
+	return
+}
+
+func (a *ActionMakeHash) SysValidation(h *Holochain, d *EntryDef, sources []peer.ID) (err error) {
+	return
+}
+
+func (a *ActionMakeHash) DHTReqHandler(dht *DHT, msg *Message) (response interface{}, err error) {
+	err = NonDHTAction
+	return
+}
+
+//------------------------------------------------------------
 // Get
 
 type ActionGet struct {

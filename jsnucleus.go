@@ -445,6 +445,28 @@ func NewJSNucleus(h *Holochain, code string) (n Nucleus, err error) {
 		return otto.UndefinedValue()
 	})
 
+	err = z.vm.Set("makeHash", func(call otto.FunctionCall) otto.Value {
+		a := &ActionMakeHash{}
+		args := a.Args()
+		err := jsProcessArgs(&z, args, call.ArgumentList)
+		if err != nil {
+			return mkOttoErr(&z, err.Error())
+		}
+
+		a.entry = &GobEntry{C: args[0].value.(string)}
+		var r interface{}
+		r, err = a.Do(h)
+		if err != nil {
+			return mkOttoErr(&z, err.Error())
+		}
+		var entryHash Hash
+		if r != nil {
+			entryHash = r.(Hash)
+		}
+		result, _ := z.vm.ToValue(entryHash.String())
+		return result
+	})
+
 	err = z.vm.Set("commit", func(call otto.FunctionCall) otto.Value {
 		var a Action = &ActionCommit{}
 		args := a.Args()

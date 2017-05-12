@@ -474,19 +474,6 @@ func NewZygoNucleus(h *Holochain, code string) (n Nucleus, err error) {
 
 	// use a closure so that the registered zygo function can call Expose on the correct ZygoNucleus obj
 
-	z.env.AddFunction("debug",
-		func(env *zygo.Glisp, name string, zyargs []zygo.Sexp) (zygo.Sexp, error) {
-			a := &ActionDebug{}
-			args := a.Args()
-			err := zyProcessArgs(args, zyargs)
-			if err != nil {
-				return zygo.SexpNull, err
-			}
-			a.msg = args[0].value.(string)
-			a.Do(h)
-			return zygo.SexpNull, err
-		})
-
 	z.env.AddFunction("property",
 		func(env *zygo.Glisp, name string, zyargs []zygo.Sexp) (zygo.Sexp, error) {
 			a := &ActionProperty{}
@@ -506,6 +493,41 @@ func NewZygoNucleus(h *Holochain, code string) (n Nucleus, err error) {
 			}
 			result := zygo.SexpStr{S: p.(string)}
 			return &result, err
+		})
+
+	z.env.AddFunction("debug",
+		func(env *zygo.Glisp, name string, zyargs []zygo.Sexp) (zygo.Sexp, error) {
+			a := &ActionDebug{}
+			args := a.Args()
+			err := zyProcessArgs(args, zyargs)
+			if err != nil {
+				return zygo.SexpNull, err
+			}
+			a.msg = args[0].value.(string)
+			a.Do(h)
+			return zygo.SexpNull, err
+		})
+
+	z.env.AddFunction("makeHash",
+		func(env *zygo.Glisp, name string, zyargs []zygo.Sexp) (zygo.Sexp, error) {
+			a := &ActionMakeHash{}
+			args := a.Args()
+			err := zyProcessArgs(args, zyargs)
+			if err != nil {
+				return zygo.SexpNull, err
+			}
+			a.entry = &GobEntry{C: args[0].value.(string)}
+			var r interface{}
+			r, err = a.Do(h)
+			if err != nil {
+				return zygo.SexpNull, err
+			}
+			var entryHash Hash
+			if r != nil {
+				entryHash = r.(Hash)
+			}
+			var result = zygo.SexpStr{S: entryHash.String()}
+			return &result, nil
 		})
 
 	z.env.AddFunction("commit",

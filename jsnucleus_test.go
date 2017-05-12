@@ -116,6 +116,25 @@ func TestNewJSNucleus(t *testing.T) {
 			})
 
 		})
+
+		// add entries onto the chain to get hash values for testing
+		hash := commit(h, "oddNumbers", "3")
+		profileHash := commit(h, "profile", `{"firstName":"Zippy","lastName":"Pinhead"}`)
+
+		Convey("makeHash", func() {
+			_, err = z.Run(`makeHash("3")`)
+			So(err, ShouldBeNil)
+			z := v.(*JSNucleus)
+			hash1, err := NewHash(z.lastResult.String())
+			So(err, ShouldBeNil)
+			So(hash1.String(), ShouldEqual, hash.String())
+
+			_, err = z.Run(`makeHash('{"firstName":"Zippy","lastName":"Pinhead"}')`)
+			So(err, ShouldBeNil)
+			hash1, err = NewHash(z.lastResult.String())
+			So(err, ShouldBeNil)
+			So(hash1.String(), ShouldEqual, profileHash.String())
+		})
 	})
 }
 

@@ -339,27 +339,25 @@ func (a *ActionGet) Do(h *Holochain) (response interface{}, err error) {
 		// follow the modified hash
 		if a.req.StatusMask == StatusDefault && err == ErrHashModified {
 			var hash Hash
-			hash, err = NewHash(rsp.(string))
+			hash, err = NewHash(rsp.(GetResp).FollowHash)
 			if err != nil {
 				return
 			}
 			req := GetReq{H: hash, StatusMask: StatusDefault}
-			entry, err := NewGetAction(req, a.options).Do(h)
+			modResp, err := NewGetAction(req, a.options).Do(h)
 			if err == nil {
-				response = entry
+				response = modResp
 			}
 		}
 		return
 	}
-	var entry Entry
 	switch t := rsp.(type) {
-	case *GobEntry:
-		entry = t
+	case GetResp:
+		response = t
 	default:
-		err = fmt.Errorf("unexpected response type from SendGet: %T", t)
+		err = fmt.Errorf("expected GetResp response from GET_REQUEST, got: %T", t)
 		return
 	}
-	response = entry
 	return
 }
 
@@ -368,21 +366,30 @@ func (a *ActionGet) SysValidation(h *Holochain, d *EntryDef, sources []peer.ID) 
 }
 
 func (a *ActionGet) DHTReqHandler(dht *DHT, msg *Message) (response interface{}, err error) {
-	var b []byte
+	var entryData []byte
 	//var status int
 	req := msg.Body.(GetReq)
-	b, _, _, err = dht.get(req.H, req.StatusMask)
+	mask := req.GetMask
+	if mask == GetMaskDefault {
+		mask = GetMaskEntry
+	}
+	resp := GetResp{}
+	entryData, resp.EntryType, _, err = dht.get(req.H, req.StatusMask)
 	if err == nil {
-		var e GobEntry
-		err = e.Unmarshal(b)
-		if err == nil {
-			response = &e
+		if (mask & GetMaskEntry) != 0 {
+			var e GobEntry
+			err = e.Unmarshal(entryData)
+			if err != nil {
+				return
+			}
+			resp.Entry = &e
 		}
 	} else {
 		if err == ErrHashModified {
-			response = string(b)
+			resp.FollowHash = string(entryData)
 		}
 	}
+	response = resp
 	return
 }
 
@@ -845,9 +852,9 @@ func (a *ActionGetLink) Do(h *Holochain) (response interface{}, err error) {
 						return
 					}
 					req := GetReq{H: hash, StatusMask: StatusDefault}
-					entry, err := NewGetAction(req, &GetOptions{StatusMask: StatusDefault}).Do(h)
+					rsp, err := NewGetAction(req, &GetOptions{StatusMask: StatusDefault}).Do(h)
 					if err == nil {
-						t.Links[i].E = entry.(Entry).Content().(string)
+						t.Links[i].E = rsp.(GetResp).Entry.(Entry).Content().(string)
 					}
 					//TODO better error handling here, i.e break out of the loop and return if error?
 				}

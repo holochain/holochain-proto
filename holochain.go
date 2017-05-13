@@ -120,6 +120,7 @@ func Initialize() {
 	gob.Register(Hash{})
 	gob.Register(PutReq{})
 	gob.Register(GetReq{})
+	gob.Register(GetResp{})
 	gob.Register(ModReq{})
 	gob.Register(DelReq{})
 	gob.Register(LinkReq{})

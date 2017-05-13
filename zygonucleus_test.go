@@ -368,6 +368,27 @@ func TestZygoDHT(t *testing.T) {
 		So(r.(*zygo.SexpStr).S, ShouldEqual, `"2"`)
 	})
 
+	Convey("get should return entry type", t, func() {
+		v, err := NewZygoNucleus(h, fmt.Sprintf(`(get "%s" (hash GetMask:HC_GetMask_EntryType))`, hash.String()))
+		So(err, ShouldBeNil)
+		z := v.(*ZygoNucleus)
+		r, err := z.lastResult.(*zygo.SexpHash).HashGet(z.env, z.env.MakeSymbol("result"))
+		So(err, ShouldBeNil)
+		So(r.(*zygo.SexpStr).S, ShouldEqual, "evenNumbers")
+	})
+
+	Convey("get should return entry type", t, func() {
+		v, err := NewZygoNucleus(h, fmt.Sprintf(`(get "%s" (hash GetMask:(+ HC_GetMask_Entry HC_GetMask_EntryType)))`, hash.String()))
+		So(err, ShouldBeNil)
+		z := v.(*ZygoNucleus)
+		r, err := z.lastResult.(*zygo.SexpHash).HashGet(z.env, z.env.MakeSymbol("result"))
+		So(err, ShouldBeNil)
+		resp := r.(*zygo.SexpHash)
+		e, _ := resp.HashGet(z.env, z.env.MakeSymbol("EntryType"))
+		So(e.(*zygo.SexpStr).S, ShouldEqual, "evenNumbers")
+		e, _ = resp.HashGet(z.env, z.env.MakeSymbol("Entry"))
+		So(e.(*zygo.SexpStr).S, ShouldEqual, `"2"`)
+	})
 	profileHash := commit(h, "profile", `{"firstName":"Zippy","lastName":"Pinhead"}`)
 	if err := h.dht.simHandleChangeReqs(); err != nil {
 		panic(err)

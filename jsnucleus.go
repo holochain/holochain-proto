@@ -249,6 +249,11 @@ const (
 		`,Modified:` + StatusModifiedVal +
 		`,Any:` + StatusAnyVal +
 		"}" +
+		`,GetMask:{Default:` + GetMaskDefaultStr +
+		`,Entry:` + GetMaskEntryStr +
+		`,EntryType:` + GetMaskEntryTypeStr +
+		`,All:` + GetMaskAllStr +
+		"}" +
 		`,LinkAction:{Add:"` + AddAction + `",Del:"` + DelAction + `"}` +
 		`,PkgReq:{Chain:"` + PkgReqChain + `"` +
 		`,ChainOpt:{None:` + PkgReqChainOptNoneStr +
@@ -303,6 +308,7 @@ func (z *JSNucleus) Call(fn *FunctionDef, params interface{}) (result interface{
 	return
 }
 
+// jsProcessArgs processes oArgs according to the args spec filling args[].value with the converted value
 func jsProcessArgs(z *JSNucleus, args []Arg, oArgs []otto.Value) (err error) {
 	err = checkArgCount(args, len(oArgs))
 	if err != nil {
@@ -310,17 +316,17 @@ func jsProcessArgs(z *JSNucleus, args []Arg, oArgs []otto.Value) (err error) {
 	}
 
 	// check arg types
-	for i, a := range oArgs {
+	for i, arg := range oArgs {
 		switch args[i].Type {
 		case StringArg:
-			if a.IsString() {
-				args[i].value, _ = a.ToString()
+			if arg.IsString() {
+				args[i].value, _ = arg.ToString()
 			} else {
 				return argErr("string", i+1, args[i])
 			}
 		case HashArg:
-			if a.IsString() {
-				str, _ := a.ToString()
+			if arg.IsString() {
+				str, _ := arg.ToString()
 				var hash Hash
 				hash, err = NewHash(str)
 				if err != nil {
@@ -331,8 +337,8 @@ func jsProcessArgs(z *JSNucleus, args []Arg, oArgs []otto.Value) (err error) {
 				return argErr("string", i+1, args[i])
 			}
 		case IntArg:
-			if a.IsNumber() {
-				integer, err := a.ToInteger()
+			if arg.IsNumber() {
+				integer, err := arg.ToInteger()
 				if err != nil {
 					return err
 				}
@@ -341,8 +347,8 @@ func jsProcessArgs(z *JSNucleus, args []Arg, oArgs []otto.Value) (err error) {
 				return argErr("int", i+1, args[i])
 			}
 		case BoolArg:
-			if a.IsBoolean() {
-				boolean, err := a.ToBoolean()
+			if arg.IsBoolean() {
+				boolean, err := arg.ToBoolean()
 				if err != nil {
 					return err
 				}
@@ -351,14 +357,14 @@ func jsProcessArgs(z *JSNucleus, args []Arg, oArgs []otto.Value) (err error) {
 				return argErr("boolean", i+1, args[i])
 			}
 		case EntryArg:
-			if a.IsString() {
-				str, err := a.ToString()
+			if arg.IsString() {
+				str, err := arg.ToString()
 				if err != nil {
 					return err
 				}
 				args[i].value = str
-			} else if a.IsObject() {
-				v, err := z.vm.Call("JSON.stringify", nil, a)
+			} else if arg.IsObject() {
+				v, err := z.vm.Call("JSON.stringify", nil, arg)
 				if err != nil {
 					return err
 				}
@@ -372,8 +378,8 @@ func jsProcessArgs(z *JSNucleus, args []Arg, oArgs []otto.Value) (err error) {
 				return argErr("string or object", i+1, args[i])
 			}
 		case MapArg:
-			if a.IsObject() {
-				m, err := a.Export()
+			if arg.IsObject() {
+				m, err := arg.Export()
 				if err != nil {
 					return err
 				}
@@ -383,8 +389,8 @@ func jsProcessArgs(z *JSNucleus, args []Arg, oArgs []otto.Value) (err error) {
 			}
 		case ToStrArg:
 			var str string
-			if a.IsObject() {
-				v, err := z.vm.Call("JSON.stringify", nil, a)
+			if arg.IsObject() {
+				v, err := z.vm.Call("JSON.stringify", nil, arg)
 				if err != nil {
 					return err
 				}
@@ -393,17 +399,31 @@ func jsProcessArgs(z *JSNucleus, args []Arg, oArgs []otto.Value) (err error) {
 					return err
 				}
 			} else {
-				str, _ = a.ToString()
+				str, _ = arg.ToString()
 			}
 			args[i].value = str
 		}
 	}
-
 	return
 }
 
 func mkOttoErr(z *JSNucleus, msg string) otto.Value {
 	return z.vm.MakeCustomError("HolochainError", msg)
+}
+
+func numInterfaceToInt(num interface{}) (val int, ok bool) {
+	ok = true
+	switch t := num.(type) {
+	case int64:
+		val = int(t)
+	case float64:
+		val = int(t)
+	case int:
+		val = t
+	default:
+		ok = false
+	}
+	return
 }
 
 // NewJSNucleus builds a javascript execution environment with user specified code
@@ -494,7 +514,6 @@ func NewJSNucleus(h *Holochain, code string) (n Nucleus, err error) {
 	if err != nil {
 		return nil, err
 	}
-
 	err = z.vm.Set("get", func(call otto.FunctionCall) (result otto.Value) {
 		var a Action = &ActionGet{}
 		args := a.Args()
@@ -508,19 +527,56 @@ func NewJSNucleus(h *Holochain, code string) (n Nucleus, err error) {
 			opts := args[1].value.(map[string]interface{})
 			mask, ok := opts["StatusMask"]
 			if ok {
-				maskval, ok := mask.(int64)
+				// otto returns int64 or float64 depending on whether
+				// the mask was returned by constant or addition so
+				maskval, ok := numInterfaceToInt(mask)
 				if !ok {
-					return mkOttoErr(&z, fmt.Sprintf("expecting int StatusMask attribute in object, got %T", mask))
+					return mkOttoErr(&z, fmt.Sprintf("expecting int StatusMask attribute, got %T", mask))
 				}
 				options.StatusMask = int(maskval)
 			}
-		}
-		req := GetReq{H: args[0].value.(Hash), StatusMask: options.StatusMask}
+			mask, ok = opts["GetMask"]
+			if ok {
+				maskval, ok := numInterfaceToInt(mask)
+				if !ok {
 
-		entry, err := NewGetAction(req, &options).Do(h)
+					return mkOttoErr(&z, fmt.Sprintf("expecting int GetMask attribute, got %T", mask))
+				}
+				options.GetMask = int(maskval)
+			}
+		}
+		req := GetReq{H: args[0].value.(Hash), StatusMask: options.StatusMask, GetMask: options.GetMask}
+		var r interface{}
+		r, err = NewGetAction(req, &options).Do(h)
+		mask := options.GetMask
+		if mask == GetMaskDefault {
+			mask = GetMaskEntry
+		}
 		if err == nil {
-			t := entry.(*GobEntry)
-			result, err = z.vm.ToValue(t)
+			getResp := r.(GetResp)
+			var singleValueReturn bool
+			if mask&GetMaskEntry != 0 {
+				if GetMaskEntry == mask {
+					singleValueReturn = true
+					result, err = z.vm.ToValue(getResp.Entry)
+				}
+			}
+			if mask&GetMaskEntryType != 0 {
+				if GetMaskEntryType == mask {
+					singleValueReturn = true
+					result, err = z.vm.ToValue(getResp.EntryType)
+				}
+			}
+			if err == nil && !singleValueReturn {
+				respObj := make(map[string]interface{})
+				if mask&GetMaskEntry != 0 {
+					respObj["Entry"] = getResp.Entry
+				}
+				if mask&GetMaskEntryType != 0 {
+					respObj["EntryType"] = getResp.EntryType
+				}
+				result, err = z.vm.ToValue(respObj)
+			}
 			return
 		}
 
@@ -617,7 +673,7 @@ func NewJSNucleus(h *Holochain, code string) (n Nucleus, err error) {
 			}
 			mask, ok := opts["StatusMask"]
 			if ok {
-				maskval, ok := mask.(int64)
+				maskval, ok := numInterfaceToInt(mask)
 				if !ok {
 					return mkOttoErr(&z, fmt.Sprintf("expecting int StatusMask attribute in object, got %T", mask))
 				}

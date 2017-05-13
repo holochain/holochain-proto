@@ -35,33 +35,48 @@ type Meta struct {
 }
 
 const (
+	// constants for status action type
+
 	AddAction = ""
 	ModAction = "m"
 	DelAction = "d"
-)
 
-// constants for the state of the data, they are bit flags
-const (
+	// constants for the state of the data, they are bit flags
+
 	StatusDefault  = 0x00
 	StatusLive     = 0x01
 	StatusRejected = 0x02
 	StatusDeleted  = 0x04
 	StatusModified = 0x08
 	StatusAny      = 0xFF
-)
 
-// constants for the stored string status values in buntdb
-const (
+	// constants for the stored string status values in buntdb and for building code
+
 	StatusLiveVal     = "1"
 	StatusRejectedVal = "2"
 	StatusDeletedVal  = "4"
 	StatusModifiedVal = "8"
 	StatusAnyVal      = "255"
-)
 
-// constants for system reseved tags (start with 2 underscores)
-const (
+	// constants for system reseved tags (start with 2 underscores)
+
 	SysTagReplacedBy = "__replacedBy"
+
+	// constants for get request GetMask
+
+	GetMaskDefault   = 0x00
+	GetMaskEntry     = 0x01
+	GetMaskEntryType = 0x02
+	GetMaskSources   = 0x04
+	GetMaskAll       = 0xFF
+
+	// constants for building code for GetMask
+
+	GetMaskDefaultStr   = "0"
+	GetMaskEntryStr     = "1"
+	GetMaskEntryTypeStr = "2"
+	GetMaskSourcesStr   = "4"
+	GetMaskAllStr       = "255"
 )
 
 // PutReq holds the data of a put request
@@ -75,6 +90,15 @@ type PutReq struct {
 type GetReq struct {
 	H          Hash
 	StatusMask int
+	GetMask    int
+}
+
+// GetResp holds the data of a get response
+type GetResp struct {
+	Entry      Entry
+	EntryType  string
+	Sources    []string
+	FollowHash string // hash of new entry if the entry was modified and needs following
 }
 
 // DelReq holds the data of a del request
@@ -114,6 +138,7 @@ type LinkQuery struct {
 // GetOptions options to holochain level Get functions
 type GetOptions struct {
 	StatusMask int // mask of which status of entries to return
+	GetMask    int // mask of what to include in the response
 }
 
 // GetLinkOptions options to holochain level GetLink functions

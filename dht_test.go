@@ -269,8 +269,7 @@ func TestSend(t *testing.T) {
 	hash, _ := NewHash("QmY8Mzg9F69e5P9AoQPYat655HEhc1TVGs11tmfNSzkqh2")
 
 	Convey("send GET_REQUEST message for non existent hash should get error", t, func() {
-		r, err := h.dht.send(node.HashAddr, GET_REQUEST, GetReq{H: hash, StatusMask: StatusLive})
-		So(r, ShouldBeNil)
+		_, err := h.dht.send(node.HashAddr, GET_REQUEST, GetReq{H: hash, StatusMask: StatusLive})
 		So(err, ShouldEqual, ErrHashNotFound)
 	})
 
@@ -296,7 +295,8 @@ func TestSend(t *testing.T) {
 	Convey("send GET_REQUEST message should return content", t, func() {
 		r, err := h.dht.send(node.HashAddr, GET_REQUEST, GetReq{H: hash, StatusMask: StatusLive})
 		So(err, ShouldBeNil)
-		So(fmt.Sprintf("%v", r), ShouldEqual, fmt.Sprintf("%v", &e))
+		resp := r.(GetResp)
+		So(fmt.Sprintf("%v", resp.Entry), ShouldEqual, fmt.Sprintf("%v", &e))
 	})
 }
 
@@ -340,11 +340,26 @@ func TestDHTReceiver(t *testing.T) {
 	if err := h.dht.simHandleChangeReqs(); err != nil {
 		panic(err)
 	}
-	Convey("GET_REQUEST should return the value of the has", t, func() {
+	Convey("GET_REQUEST should return the requested values", t, func() {
 		m := h.node.NewMessage(GET_REQUEST, GetReq{H: hash, StatusMask: StatusLive})
 		r, err := DHTReceiver(h, m)
 		So(err, ShouldBeNil)
-		So(fmt.Sprintf("%v", r), ShouldEqual, fmt.Sprintf("%v", &e))
+		resp := r.(GetResp)
+		So(fmt.Sprintf("%v", resp.Entry), ShouldEqual, fmt.Sprintf("%v", &e))
+
+		m = h.node.NewMessage(GET_REQUEST, GetReq{H: hash, GetMask: GetMaskEntryType})
+		r, err = DHTReceiver(h, m)
+		So(err, ShouldBeNil)
+		resp = r.(GetResp)
+		So(resp.Entry, ShouldBeNil)
+		So(resp.EntryType, ShouldEqual, "evenNumbers")
+
+		m = h.node.NewMessage(GET_REQUEST, GetReq{H: hash, GetMask: GetMaskEntry + GetMaskEntryType})
+		r, err = DHTReceiver(h, m)
+		So(err, ShouldBeNil)
+		resp = r.(GetResp)
+		So(fmt.Sprintf("%v", resp.Entry), ShouldEqual, fmt.Sprintf("%v", &e))
+		So(resp.EntryType, ShouldEqual, "evenNumbers")
 	})
 
 	someData := `{"firstName":"Zippy","lastName":"Pinhead"}`

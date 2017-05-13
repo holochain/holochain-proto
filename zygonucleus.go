@@ -334,6 +334,11 @@ var ZygoLibrary = `(def HC_Version "` + VersionStr + `")` +
 	`(def HC_Status_Deleted ` + StatusDeletedVal + ")" +
 	`(def HC_Status_Modified ` + StatusModifiedVal + ")" +
 	`(def HC_Status_Any ` + StatusAnyVal + ")" +
+	`(def HC_GetMask_Default ` + GetMaskDefaultStr + ")" +
+	`(def HC_GetMask_Entry ` + GetMaskEntryStr + ")" +
+	`(def HC_GetMask_EntryType ` + GetMaskEntryTypeStr + ")" +
+	`(def HC_GetMask_All ` + GetMaskAllStr + ")" +
+
 	`(def HC_LinkAction_Add "` + AddAction + "\")" +
 	`(def HC_LinkAction_Del "` + DelAction + "\")" +
 	`(def HC_PkgReq_Chain "` + PkgReqChain + "\")" +
@@ -562,7 +567,7 @@ func NewZygoNucleus(h *Holochain, code string) (n Nucleus, err error) {
 			if err != nil {
 				return zygo.SexpNull, err
 			}
-			options := GetOptions{StatusMask: StatusDefault}
+			options := GetOptions{StatusMask: StatusDefault, GetMask: GetMaskDefault}
 			if len(zyargs) == 2 {
 				opts := args[1].value.(map[string]interface{})
 				mask, ok := opts["StatusMask"]
@@ -570,22 +575,64 @@ func NewZygoNucleus(h *Holochain, code string) (n Nucleus, err error) {
 					maskval, ok := mask.(float64)
 					if !ok {
 						return zygo.SexpNull,
-							fmt.Errorf("expecting int StatusMask attribute in object, got %T", mask)
+							fmt.Errorf("expecting int StatusMask attribute, got %T", mask)
 					}
 					options.StatusMask = int(maskval)
 				}
+				mask, ok = opts["GetMask"]
+				if ok {
+					maskval, ok := mask.(float64)
+					if !ok {
+						return zygo.SexpNull,
+							fmt.Errorf("expecting int GetMask attribute, got %T", mask)
+					}
+					options.GetMask = int(maskval)
+				}
 			}
-			req := GetReq{H: args[0].value.(Hash), StatusMask: options.StatusMask}
+			req := GetReq{H: args[0].value.(Hash), StatusMask: options.StatusMask, GetMask: options.GetMask}
 
-			var entry interface{}
-			entry, err = NewGetAction(req, &options).Do(h)
+			var r interface{}
+			r, err = NewGetAction(req, &options).Do(h)
+			mask := options.GetMask
+			if mask == GetMaskDefault {
+				mask = GetMaskEntry
+			}
 			var resultValue zygo.Sexp
 			resultValue = zygo.SexpNull
 			if err == nil {
-				t := entry.(*GobEntry)
-				j, err := json.Marshal(t.Content())
-				if err == nil {
-					resultValue = &zygo.SexpStr{S: string(j)}
+				getResp := r.(GetResp)
+				var entryStr string
+				var singleValueReturn bool
+				if mask&GetMaskEntry != 0 {
+					j, err := json.Marshal(getResp.Entry.Content())
+					if err == nil {
+						if GetMaskEntry == mask {
+							singleValueReturn = true
+							resultValue = &zygo.SexpStr{S: string(j)}
+						} else {
+							entryStr = string(j)
+						}
+					}
+				}
+				if mask&GetMaskEntryType != 0 {
+					if GetMaskEntryType == mask {
+						singleValueReturn = true
+						resultValue = &zygo.SexpStr{S: getResp.EntryType}
+					}
+				}
+				if err == nil && !singleValueReturn {
+					// build the return object
+					var respObj *zygo.SexpHash
+					respObj, err = zygo.MakeHash(nil, "hash", env)
+					if err == nil {
+						resultValue = respObj
+						if mask&GetMaskEntry != 0 {
+							err = respObj.HashSet(env.MakeSymbol("Entry"), &zygo.SexpStr{S: entryStr})
+						}
+						if mask&GetMaskEntryType != 0 {
+							err = respObj.HashSet(env.MakeSymbol("EntryType"), &zygo.SexpStr{S: getResp.EntryType})
+						}
+					}
 				}
 			}
 			return makeResult(env, resultValue, err)

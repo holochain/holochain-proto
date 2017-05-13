@@ -365,13 +365,33 @@ func TestJSDHT(t *testing.T) {
 		panic(err)
 	}
 
-	Convey("get should return entry", t, func() {
+	Convey("get should return entry type", t, func() {
 		v, err := NewJSNucleus(h, fmt.Sprintf(`get("%s");`, hash.String()))
 		So(err, ShouldBeNil)
 		z := v.(*JSNucleus)
 		x, err := z.lastResult.Export()
 		So(err, ShouldBeNil)
 		So(fmt.Sprintf("%v", x.(Entry).Content()), ShouldEqual, `7`)
+	})
+
+	Convey("get should return entry type", t, func() {
+		v, err := NewJSNucleus(h, fmt.Sprintf(`get("%s",{GetMask:HC.GetMask.EntryType});`, hash.String()))
+		So(err, ShouldBeNil)
+		z := v.(*JSNucleus)
+		x, err := z.lastResult.Export()
+		So(err, ShouldBeNil)
+		So(fmt.Sprintf("%v", x.(string)), ShouldEqual, `oddNumbers`)
+	})
+
+	Convey("get should return collection", t, func() {
+		v, err := NewJSNucleus(h, fmt.Sprintf(`get("%s",{GetMask:HC.GetMask.Entry+HC.GetMask.EntryType});`, hash.String()))
+		So(err, ShouldBeNil)
+		z := v.(*JSNucleus)
+		x, err := z.lastResult.Export()
+		So(err, ShouldBeNil)
+		obj := x.(map[string]interface{})
+		So(obj["Entry"].(Entry).Content(), ShouldEqual, `7`)
+		So(obj["EntryType"].(string), ShouldEqual, `oddNumbers`)
 	})
 
 	profileHash := commit(h, "profile", `{"firstName":"Zippy","lastName":"Pinhead"}`)

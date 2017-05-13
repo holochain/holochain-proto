@@ -32,7 +32,7 @@ func TestSetupDHT(t *testing.T) {
 		So(err, ShouldBeNil)
 		ID := h.DNAHash()
 		So(h.dht.exists(ID, StatusLive), ShouldBeNil)
-		_, et, status, err := h.dht.get(h.dnaHash, StatusLive)
+		_, et, _, status, err := h.dht.get(h.dnaHash, StatusLive, GetMaskAll)
 		So(err, ShouldBeNil)
 		So(status, ShouldEqual, StatusLive)
 		So(et, ShouldEqual, DNAEntryType)
@@ -40,7 +40,7 @@ func TestSetupDHT(t *testing.T) {
 	})
 
 	Convey("it should push the agent entry to the DHT at genesis time", t, func() {
-		data, et, status, err := h.dht.get(h.agentHash, StatusLive)
+		data, et, _, status, err := h.dht.get(h.agentHash, StatusLive, GetMaskAll)
 		So(err, ShouldBeNil)
 		So(status, ShouldEqual, StatusLive)
 		So(et, ShouldEqual, AgentEntryType)
@@ -56,7 +56,7 @@ func TestSetupDHT(t *testing.T) {
 
 	Convey("it should push the key to the DHT at genesis time", t, func() {
 		keyHash, _ := NewHash(peer.IDB58Encode(h.id))
-		data, et, status, err := h.dht.get(keyHash, StatusLive)
+		data, et, _, status, err := h.dht.get(keyHash, StatusLive, GetMaskAll)
 		So(err, ShouldBeNil)
 		So(status, ShouldEqual, StatusLive)
 		So(et, ShouldEqual, KeyEntryType)
@@ -78,14 +78,14 @@ func TestPutGetModDel(t *testing.T) {
 		So(err, ShouldBeNil)
 		idx, _ = dht.GetIdx()
 
-		data, entryType, status, err := dht.get(hash, StatusLive)
+		data, entryType, _, status, err := dht.get(hash, StatusLive, GetMaskAll)
 		So(err, ShouldBeNil)
 		So(string(data), ShouldEqual, "some value")
 		So(entryType, ShouldEqual, "someType")
 		So(status, ShouldEqual, StatusLive)
 
 		badhash, _ := NewHash("QmY8Mzg9F69e5P9AoQPYat655HEhc1TVGs11tmfNSzkqh3")
-		data, entryType, _, err = dht.get(badhash, StatusLive)
+		data, entryType, _, _, err = dht.get(badhash, StatusLive, GetMaskDefault)
 		So(entryType, ShouldEqual, "")
 		So(err, ShouldEqual, ErrHashNotFound)
 	})
@@ -98,7 +98,7 @@ func TestPutGetModDel(t *testing.T) {
 
 		err := dht.mod(m, hash, newhash)
 		So(err, ShouldBeNil)
-		data, entryType, status, err := dht.get(hash, StatusAny)
+		data, entryType, _, status, err := dht.get(hash, StatusAny, GetMaskAll)
 		So(err, ShouldBeNil)
 		So(string(data), ShouldEqual, "some value")
 		So(entryType, ShouldEqual, "someType")
@@ -108,10 +108,10 @@ func TestPutGetModDel(t *testing.T) {
 
 		So(afterIdx-idx, ShouldEqual, 1)
 
-		data, entryType, status, err = dht.get(hash, StatusLive)
+		data, entryType, _, status, err = dht.get(hash, StatusLive, GetMaskDefault)
 		So(err, ShouldEqual, ErrHashNotFound)
 
-		data, entryType, status, err = dht.get(hash, StatusDefault)
+		data, entryType, _, status, err = dht.get(hash, StatusDefault, GetMaskDefault)
 		So(err, ShouldEqual, ErrHashModified)
 		// replaced by link gets returned in the data!!
 		So(string(data), ShouldEqual, newhashStr)
@@ -128,7 +128,7 @@ func TestPutGetModDel(t *testing.T) {
 		err := dht.del(m, hash)
 		So(err, ShouldBeNil)
 
-		data, entryType, status, err := dht.get(hash, StatusAny)
+		data, entryType, _, status, err := dht.get(hash, StatusAny, GetMaskAll)
 		So(err, ShouldBeNil)
 		So(string(data), ShouldEqual, "some value")
 		So(entryType, ShouldEqual, "someType")
@@ -138,10 +138,10 @@ func TestPutGetModDel(t *testing.T) {
 
 		So(afterIdx-idx, ShouldEqual, 2)
 
-		data, entryType, status, err = dht.get(hash, StatusLive)
+		data, entryType, _, status, err = dht.get(hash, StatusLive, GetMaskDefault)
 		So(err, ShouldEqual, ErrHashNotFound)
 
-		data, entryType, status, err = dht.get(hash, StatusDefault)
+		data, entryType, _, status, err = dht.get(hash, StatusDefault, GetMaskDefault)
 		So(err, ShouldEqual, ErrHashDeleted)
 
 	})
@@ -465,7 +465,7 @@ func TestDHTReceiver(t *testing.T) {
 		err = h.dht.simHandleChangeReqs()
 		So(err, ShouldBeNil)
 
-		data, entryType, status, _ := h.dht.get(hash2, StatusAny)
+		data, entryType, _, status, _ := h.dht.get(hash2, StatusAny, GetMaskAll)
 		var e GobEntry
 		e.Unmarshal(data)
 		So(e.C, ShouldEqual, "321")
@@ -492,7 +492,7 @@ func TestHandleChangeReqs(t *testing.T) {
 	Convey("handle put request should pull data from source and verify it", t, func() {
 		err := h.dht.simHandleChangeReqs()
 		So(err, ShouldBeNil)
-		data, et, _, err := h.dht.get(hd.EntryLink)
+		data, et,_, _, err := h.dht.get(hd.EntryLink, StatusDefault, GetMaskDefault)
 		So(err, ShouldBeNil)
 		So(et, ShouldEqual, "primes")
 		b, _ := e.Marshal()

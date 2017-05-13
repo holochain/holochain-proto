@@ -368,6 +368,15 @@ func TestZygoDHT(t *testing.T) {
 		So(r.(*zygo.SexpStr).S, ShouldEqual, `"2"`)
 	})
 
+	Convey("get should return sources", t, func() {
+		v, err := NewZygoNucleus(h, fmt.Sprintf(`(get "%s" (hash GetMask:HC_GetMask_Sources))`, hash.String()))
+		So(err, ShouldBeNil)
+		z := v.(*ZygoNucleus)
+		r, err := z.lastResult.(*zygo.SexpHash).HashGet(z.env, z.env.MakeSymbol("result"))
+		So(err, ShouldBeNil)
+		So(r.(*zygo.SexpArray).Val[0].(*zygo.SexpStr).S, ShouldEqual, peer.IDB58Encode(h.id))
+	})
+
 	Convey("get should return entry type", t, func() {
 		v, err := NewZygoNucleus(h, fmt.Sprintf(`(get "%s" (hash GetMask:HC_GetMask_EntryType))`, hash.String()))
 		So(err, ShouldBeNil)
@@ -378,7 +387,7 @@ func TestZygoDHT(t *testing.T) {
 	})
 
 	Convey("get should return entry type", t, func() {
-		v, err := NewZygoNucleus(h, fmt.Sprintf(`(get "%s" (hash GetMask:(+ HC_GetMask_Entry HC_GetMask_EntryType)))`, hash.String()))
+		v, err := NewZygoNucleus(h, fmt.Sprintf(`(get "%s" (hash GetMask:HC_GetMask_All))`, hash.String()))
 		So(err, ShouldBeNil)
 		z := v.(*ZygoNucleus)
 		r, err := z.lastResult.(*zygo.SexpHash).HashGet(z.env, z.env.MakeSymbol("result"))
@@ -388,6 +397,8 @@ func TestZygoDHT(t *testing.T) {
 		So(e.(*zygo.SexpStr).S, ShouldEqual, "evenNumbers")
 		e, _ = resp.HashGet(z.env, z.env.MakeSymbol("Entry"))
 		So(e.(*zygo.SexpStr).S, ShouldEqual, `"2"`)
+		e, _ = resp.HashGet(z.env, z.env.MakeSymbol("Sources"))
+		So(e.(*zygo.SexpArray).Val[0].(*zygo.SexpStr).S, ShouldEqual, peer.IDB58Encode(h.id))
 	})
 	profileHash := commit(h, "profile", `{"firstName":"Zippy","lastName":"Pinhead"}`)
 	if err := h.dht.simHandleChangeReqs(); err != nil {
@@ -465,7 +476,7 @@ func TestZygoDHT(t *testing.T) {
 		}
 
 		// the entry should be marked as Modifed
-		data, _, _, err := h.dht.get(profileHash, StatusDefault)
+		data, _, _, _, err := h.dht.get(profileHash, StatusDefault, GetMaskDefault)
 		So(err, ShouldEqual, ErrHashModified)
 		So(string(data), ShouldEqual, profileHashStr2)
 

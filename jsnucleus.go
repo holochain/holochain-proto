@@ -252,6 +252,7 @@ const (
 		`,GetMask:{Default:` + GetMaskDefaultStr +
 		`,Entry:` + GetMaskEntryStr +
 		`,EntryType:` + GetMaskEntryTypeStr +
+		`,Sources:` + GetMaskSourcesStr +
 		`,All:` + GetMaskAllStr +
 		"}" +
 		`,LinkAction:{Add:"` + AddAction + `",Del:"` + DelAction + `"}` +
@@ -567,6 +568,12 @@ func NewJSNucleus(h *Holochain, code string) (n Nucleus, err error) {
 					result, err = z.vm.ToValue(getResp.EntryType)
 				}
 			}
+			if mask&GetMaskSources != 0 {
+				if GetMaskSources == mask {
+					singleValueReturn = true
+					result, err = z.vm.ToValue(getResp.Sources)
+				}
+			}
 			if err == nil && !singleValueReturn {
 				respObj := make(map[string]interface{})
 				if mask&GetMaskEntry != 0 {
@@ -574,6 +581,9 @@ func NewJSNucleus(h *Holochain, code string) (n Nucleus, err error) {
 				}
 				if mask&GetMaskEntryType != 0 {
 					respObj["EntryType"] = getResp.EntryType
+				}
+				if mask&GetMaskEntryType != 0 {
+					respObj["Sources"] = getResp.Sources
 				}
 				result, err = z.vm.ToValue(respObj)
 			}

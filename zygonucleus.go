@@ -337,6 +337,7 @@ var ZygoLibrary = `(def HC_Version "` + VersionStr + `")` +
 	`(def HC_GetMask_Default ` + GetMaskDefaultStr + ")" +
 	`(def HC_GetMask_Entry ` + GetMaskEntryStr + ")" +
 	`(def HC_GetMask_EntryType ` + GetMaskEntryTypeStr + ")" +
+	`(def HC_GetMask_Sources ` + GetMaskSourcesStr + ")" +
 	`(def HC_GetMask_All ` + GetMaskAllStr + ")" +
 
 	`(def HC_LinkAction_Add "` + AddAction + "\")" +
@@ -620,6 +621,18 @@ func NewZygoNucleus(h *Holochain, code string) (n Nucleus, err error) {
 						resultValue = &zygo.SexpStr{S: getResp.EntryType}
 					}
 				}
+				var zSources *zygo.SexpArray
+				if mask&GetMaskSources != 0 {
+					sources := make([]zygo.Sexp, len(getResp.Sources))
+					for i := range getResp.Sources {
+						sources[i] = &zygo.SexpStr{S: getResp.Sources[i]}
+					}
+					zSources = env.NewSexpArray(sources)
+					if GetMaskSources == mask {
+						singleValueReturn = true
+						resultValue = zSources
+					}
+				}
 				if err == nil && !singleValueReturn {
 					// build the return object
 					var respObj *zygo.SexpHash
@@ -631,6 +644,9 @@ func NewZygoNucleus(h *Holochain, code string) (n Nucleus, err error) {
 						}
 						if mask&GetMaskEntryType != 0 {
 							err = respObj.HashSet(env.MakeSymbol("EntryType"), &zygo.SexpStr{S: getResp.EntryType})
+						}
+						if mask&GetMaskSources != 0 {
+							err = respObj.HashSet(env.MakeSymbol("Sources"), zSources)
 						}
 					}
 				}

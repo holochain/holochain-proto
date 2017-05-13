@@ -374,7 +374,7 @@ func (a *ActionGet) DHTReqHandler(dht *DHT, msg *Message) (response interface{},
 		mask = GetMaskEntry
 	}
 	resp := GetResp{}
-	entryData, resp.EntryType, _, err = dht.get(req.H, req.StatusMask)
+	entryData, resp.EntryType, resp.Sources, _, err = dht.get(req.H, req.StatusMask, req.GetMask)
 	if err == nil {
 		if (mask & GetMaskEntry) != 0 {
 			var e GobEntry

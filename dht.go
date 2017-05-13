@@ -383,7 +383,10 @@ func (dht *DHT) source(key Hash) (id peer.ID, err error) {
 }
 
 // get retrieves a value from the DHT store
-func (dht *DHT) get(key Hash, statusMask int) (data []byte, entryType string, status int, err error) {
+func (dht *DHT) get(key Hash, statusMask int, getMask int) (data []byte, entryType string, sources []string, status int, err error) {
+	if getMask == GetMaskDefault {
+		getMask = GetMaskEntry
+	}
 	err = dht.db.View(func(tx *buntdb.Tx) error {
 		k := key.String()
 		val, err := _get(tx, k, statusMask)
@@ -391,15 +394,36 @@ func (dht *DHT) get(key Hash, statusMask int) (data []byte, entryType string, st
 			data = []byte(val) // gotta do this because value is valid if ErrHashModified
 			return err
 		}
-		entryType, err = tx.Get("type:" + k)
+		data = []byte(val)
+
+		if (getMask & GetMaskEntryType) != 0 {
+			entryType, err = tx.Get("type:" + k)
+			if err != nil {
+				return err
+			}
+		}
+		if (getMask & GetMaskSources) != 0 {
+			val, err = tx.Get("src:" + k)
+			if err == buntdb.ErrNotFound {
+				err = ErrHashNotFound
+			}
+			if err == nil {
+				sources = append(sources, val)
+			}
+			if err != nil {
+				return err
+			}
+		}
+
+		val, err = tx.Get("status:" + k)
 		if err != nil {
 			return err
 		}
-		if err == nil {
-			data = []byte(val)
-			val, err = tx.Get("status:" + k)
-			status, err = strconv.Atoi(val)
+		status, err = strconv.Atoi(val)
+		if err != nil {
+			return err
 		}
+
 		return err
 	})
 	return
@@ -619,7 +643,7 @@ func (dht *DHT) handleChangeReq(m *Message) (err error) {
 		}
 	case ModReq:
 		//var hashStatus int
-		_, _, _, err = dht.get(t.H, StatusDefault)
+		err = dht.exists(t.H, StatusDefault)
 		if err != nil {
 			if err == ErrHashNotFound {
 				dht.dlog.Logf("don't yet have %s, trying again later", t.H)
@@ -653,7 +677,7 @@ func (dht *DHT) handleChangeReq(m *Message) (err error) {
 	case DelReq:
 		//var hashType string
 		//var hashStatus int
-		_, _, _, err = dht.get(t.H, StatusDefault)
+		err = dht.exists(t.H, StatusDefault)
 		if err != nil {
 			if err == ErrHashNotFound {
 				dht.dlog.Logf("don't yet have %s, trying again later", t.H)
@@ -695,7 +719,7 @@ func (dht *DHT) handleChangeReq(m *Message) (err error) {
 
 		//var baseType string
 		//var baseStatus int
-		_, _, _, err = dht.get(t.Base, StatusLive)
+		err = dht.exists(t.Base, StatusLive)
 		// @TODO what happens if the baseStatus is not StatusLive?
 		if err != nil {
 			if err == ErrHashNotFound {

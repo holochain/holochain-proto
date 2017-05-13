@@ -383,8 +383,17 @@ func TestJSDHT(t *testing.T) {
 		So(fmt.Sprintf("%v", x.(string)), ShouldEqual, `oddNumbers`)
 	})
 
+	Convey("get should return sources", t, func() {
+		v, err := NewJSNucleus(h, fmt.Sprintf(`get("%s",{GetMask:HC.GetMask.Sources});`, hash.String()))
+		So(err, ShouldBeNil)
+		z := v.(*JSNucleus)
+		x, err := z.lastResult.Export()
+		So(err, ShouldBeNil)
+		So(fmt.Sprintf("%v", x), ShouldEqual, fmt.Sprintf("[%v]", peer.IDB58Encode(h.id)))
+	})
+
 	Convey("get should return collection", t, func() {
-		v, err := NewJSNucleus(h, fmt.Sprintf(`get("%s",{GetMask:HC.GetMask.Entry+HC.GetMask.EntryType});`, hash.String()))
+		v, err := NewJSNucleus(h, fmt.Sprintf(`get("%s",{GetMask:HC.GetMask.All});`, hash.String()))
 		So(err, ShouldBeNil)
 		z := v.(*JSNucleus)
 		x, err := z.lastResult.Export()
@@ -392,6 +401,7 @@ func TestJSDHT(t *testing.T) {
 		obj := x.(map[string]interface{})
 		So(obj["Entry"].(Entry).Content(), ShouldEqual, `7`)
 		So(obj["EntryType"].(string), ShouldEqual, `oddNumbers`)
+		So(fmt.Sprintf("%v", obj["Sources"]), ShouldEqual, fmt.Sprintf("[%v]", peer.IDB58Encode(h.id)))
 	})
 
 	profileHash := commit(h, "profile", `{"firstName":"Zippy","lastName":"Pinhead"}`)
@@ -469,7 +479,7 @@ func TestJSDHT(t *testing.T) {
 		}
 
 		// the entry should be marked as Modifed
-		data, _, _, err := h.dht.get(profileHash, StatusDefault)
+		data, _, _, _, err := h.dht.get(profileHash, StatusDefault, GetMaskDefault)
 		So(err, ShouldEqual, ErrHashModified)
 		So(string(data), ShouldEqual, profileHashStr2)
 

@@ -123,13 +123,29 @@ func toString(input interface{}) string {
 
 // TestStringReplacements inserts special values into testing input and output values for matching
 func (h *Holochain) TestStringReplacements(input, r1, r2, r3 string, lastMatches *[3][]string) string {
-	// get the top 2 hashes for substituting for %h% and %h1% in the test expectation
-	top := h.chain.Top().EntryLink
-	top1 := h.chain.Nth(1).EntryLink
 
-	var output string
-	output = strings.Replace(input, "%h%", top.String(), -1)
-	output = strings.Replace(output, "%h1%", top1.String(), -1)
+	output := input
+
+	// look for %hn% in the string and do the replacements for recent hashes
+	re := regexp.MustCompile(`(\%h([0-9]*)\%)`)
+	var matches [][]string
+	matches = re.FindAllStringSubmatch(output, -1)
+	if len(matches) > 0 {
+		for _, m := range matches {
+			var hashIdx int
+			if m[2] != "" {
+				var err error
+				hashIdx, err = strconv.Atoi(m[2])
+				if err != nil {
+					panic(err)
+				}
+			}
+			hash := h.chain.Nth(hashIdx).EntryLink
+			output = strings.Replace(output, m[1], hash.String(), -1)
+		}
+	}
+	// get the top 2 hashes for substituting for %h% and %h1% in the test expectation
+
 	output = strings.Replace(output, "%r1%", r1, -1)
 	output = strings.Replace(output, "%r2%", r2, -1)
 	output = strings.Replace(output, "%r3%", r3, -1)
@@ -139,8 +155,7 @@ func (h *Holochain) TestStringReplacements(input, r1, r2, r3 string, lastMatches
 	output = strings.Replace(output, "%key%", peer.IDB58Encode(h.id), -1)
 
 	// look for %mx.y% in the string and do the replacements from last matches
-	re := regexp.MustCompile(`(\%m([0-9])\.([0-9])\%)`)
-	var matches [][]string
+	re = regexp.MustCompile(`(\%m([0-9])\.([0-9])\%)`)
 	matches = re.FindAllStringSubmatch(output, -1)
 	if len(matches) > 0 {
 		for _, m := range matches {

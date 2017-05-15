@@ -315,7 +315,7 @@ func (h *Holochain) DoTest(name string, i int, t TestData, startTime time.Time, 
 				comparisonString := fmt.Sprintf("\nTest: %s\n\tExpected error:\t%v\n\tGot error:\t\t%v", testID, expectedError, actualError)
 				if actualError == nil || (actualError.Error() != expectedError) {
 					failed.pf("\n=====================\n%s\n\tfailed! m(\n=====================", comparisonString)
-					err = fmt.Errorf(expectedError)
+					err = errors.New(expectedError)
 				} else {
 					// all fine
 					Debugf("%s\n\tpassed :D", comparisonString)
@@ -324,7 +324,7 @@ func (h *Holochain) DoTest(name string, i int, t TestData, startTime time.Time, 
 			} else {
 				if actualError != nil {
 					errorString := fmt.Sprintf("\nTest: %s\n\tExpected:\t%s\n\tGot Error:\t\t%s\n", testID, expectedResult, actualError)
-					err = fmt.Errorf(errorString)
+					err = errors.New(errorString)
 					failed.pf(fmt.Sprintf("\n=====================\n%s\n\tfailed! m(\n=====================", errorString))
 				} else {
 					var resultString = toString(actualResult)
@@ -358,7 +358,7 @@ func (h *Holochain) DoTest(name string, i int, t TestData, startTime time.Time, 
 						Debugf("%s\n\tpassed! :D", comparisonString)
 						passed.p("passed! ✔")
 					} else {
-						err = fmt.Errorf(comparisonString)
+						err = errors.New(comparisonString)
 						failed.pf(fmt.Sprintf("\n=====================\n%s\n\tfailed! m(\n=====================", comparisonString))
 					}
 				}

@@ -102,9 +102,12 @@ Next, in your Control Panel, select *System>Advanced system settings>Environment
     - `C:\Program Files (x86)\GnuWin32\bin` (Or wherever you installed GnuWin32 make to+`\bin`).
 
 ### Docker Based Install
-Using docker, you don't have to install Go first.  The docker container installs everything needed to run holochains. The docker installation can runs just fine with a Go installation of holochain, sharing config directories.  See [docker usage](https://github.com/metacurrency/holochain/wiki/Docker-Usage) on our wiki for more on how this works.
+Using docker, you don't have to install Go first. Our docker scripts manage installation of Go, holochain dependencies and holochain. The docker installation can run alongside Local ("Go") installation of holochain, sharing config directories.  See [docker usage](https://github.com/metacurrency/holochain/wiki/Docker-Usage) on our wiki for more on how this works.
 
-1. Install the latest version of [Docker for your OS](https://store.docker.com/search?type=edition&offering=community).  See [Docker Getting Started](https://docs.docker.com/engine/getstarted/step_one/) for help. Also, if you don't want to remember to type `sudo` in front of each docker command, see the first sectoin of these [post installation steps](https://docs.docker.com/engine/installation/linux/linux-postinstall/))
+1. Install the latest version of Docker on your machine
+  1. [Docker Installation](https://docs.docker.com/engine/installation/). The Community edition; stable is sufficient. 
+  2. See [Docker Getting Started](https://docs.docker.com/engine/getstarted/step_one/) for help.
+  3. It is recommended to add your user to the `docker` group as in: [Post Installation Steps](https://docs.docker.com/engine/installation/linux/linux-postinstall/), rather than use `sudo` before all script commands. Holochain Apps cannot exploit the kinds of security concerns mentioned in the Post Installation Steps document.
 &nbsp;
 2. Confirm that docker installation and permissions are working by running:
 ```bash
@@ -116,7 +119,9 @@ $ docker info
 $ git clone https://github.com/metacurrency/holochain.git holochain
 $ cd holochain
 ```
-4. Build the holochain core with all dependencies (note, the first time you run this step it takes a long time.)
+4. Build the holochain core with all dependencies
+  * the first time build is run on a machine, it will download Alpine unix, and install all holochain dependencies.
+  * During development cycles, docker/build will just compile changes made to the holochain go code, and run tests
 ```bash
 $ docker/build
 ```
@@ -202,7 +207,7 @@ The `--debug` flag will turn on a number of different kinds of debugging. You ca
 ### Multi-instance Integration Testing
 Building a distributed application requires being able to spin up many instances of it and have them interact. Our docker cluster testing harness automates that process, and enables app developers to specify scenarios and roles and test instructions to run on multiple docker containers.
 
-Please see the [https://github.com/metacurrency/holoSkel](https://github.com/metacurrency/holoSkel) repository for details.
+Please see the [Multi Node Testing](https://github.com/metacurrency/holochain/wiki/App-Testing) documentation for details.
 
 ## Architecture Overview and Documentation
 Architecture information and application developer documentation is in our [Holochain Wiki](https://github.com/metacurrency/holochain/wiki/).
@@ -240,6 +245,8 @@ $ make test
 If you want to use `go test` instead of `make test`, you'll need to do a couple extra things because of this project's dependency on `gx`:
 * Before running `go test` you need to run `make work` to configure the imports properly.
 * If you do this, before commiting you must also run `make pub` to revert the changes it makes.
+
+The docker setup rund tests automatically during builds.
 
 ## License
 [![License: GPL v3](https://img.shields.io/badge/License-GPL%20v3-blue.svg)](http://www.gnu.org/licenses/gpl-3.0)

@@ -120,11 +120,12 @@ $ git clone https://github.com/metacurrency/holochain.git holochain
 $ cd holochain
 ```
 4. Build the holochain core with all dependencies
-  * the first time build is run on a machine, it will download Alpine unix, and install all holochain dependencies.
-  * During development cycles, docker/build will just compile changes made to the holochain go code, and run tests
 ```bash
 $ docker/build
 ```
+  * the first time build is run on a machine, it will download Alpine unix, and install all holochain dependencies.
+  * During development cycles, docker/build will just compile changes made to the holochain go code, and run tests
+
 5. To run holochain in your new environment, suitable to continue the walkthrough below in [usage](#usage)
 ```bash
 $ docker/run
@@ -207,7 +208,7 @@ The `--debug` flag will turn on a number of different kinds of debugging. You ca
 ### Multi-instance Integration Testing
 Building a distributed application requires being able to spin up many instances of it and have them interact. Our docker cluster testing harness automates that process, and enables app developers to specify scenarios and roles and test instructions to run on multiple docker containers.
 
-Please see the [Multi Node Testing](https://github.com/metacurrency/holochain/wiki/App-Testing) documentation for details.
+Please see the [App-Testing](https://github.com/metacurrency/holochain/wiki/App-Testing) documentation for details.
 
 ## Architecture Overview and Documentation
 Architecture information and application developer documentation is in our [Holochain Wiki](https://github.com/metacurrency/holochain/wiki/).

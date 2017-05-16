@@ -246,7 +246,7 @@ If you want to use `go test` instead of `make test`, you'll need to do a couple 
 * Before running `go test` you need to run `make work` to configure the imports properly.
 * If you do this, before commiting you must also run `make pub` to revert the changes it makes.
 
-The docker setup rund tests automatically during builds.
+The docker setup runs tests automatically during builds.
 
 ## License
 [![License: GPL v3](https://img.shields.io/badge/License-GPL%20v3-blue.svg)](http://www.gnu.org/licenses/gpl-3.0)

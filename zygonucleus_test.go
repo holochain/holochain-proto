@@ -460,8 +460,8 @@ func TestZygoDHT(t *testing.T) {
 		So(r.(*zygo.SexpStr).S, ShouldEqual, `[{"H":"QmYeinX5vhuA91D3v24YbgyLofw9QAxY6PoATrBHnRwbtt","E":""}]`)
 	})
 
-	Convey("mod function should commit a new entry and on DHT mark item modified", t, func() {
-		v, err := NewZygoNucleus(h, fmt.Sprintf(`(modify "profile" (hash firstName:"Zippy" lastName:"ThePinhead") "%s")`, profileHash.String()))
+	Convey("update function should commit a new entry and on DHT mark item modified", t, func() {
+		v, err := NewZygoNucleus(h, fmt.Sprintf(`(update "profile" (hash firstName:"Zippy" lastName:"ThePinhead") "%s")`, profileHash.String()))
 		So(err, ShouldBeNil)
 		z := v.(*ZygoNucleus)
 		profileHashStr2 := z.lastResult.(*zygo.SexpStr).S
@@ -489,8 +489,8 @@ func TestZygoDHT(t *testing.T) {
 		So(r.(*zygo.SexpStr).S, ShouldEqual, `"{\"firstName\":\"Zippy\", \"lastName\":\"ThePinhead\"}"`)
 	})
 
-	Convey("del function should mark item deleted", t, func() {
-		v, err := NewZygoNucleus(h, fmt.Sprintf(`(del "%s" "expired")`, hash.String()))
+	Convey("remove function should mark item deleted", t, func() {
+		v, err := NewZygoNucleus(h, fmt.Sprintf(`(remove "%s" "expired")`, hash.String()))
 		So(err, ShouldBeNil)
 
 		z := v.(*ZygoNucleus)

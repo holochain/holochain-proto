@@ -463,8 +463,8 @@ func TestJSDHT(t *testing.T) {
 		So(fmt.Sprintf("%v", lqr.Links[0].H), ShouldEqual, profileHash.String())
 	})
 
-	Convey("mod function should commit a new entry and on DHT mark item modified", t, func() {
-		v, err := NewJSNucleus(h, fmt.Sprintf(`mod("profile",{firstName:"Zippy",lastName:"ThePinhead"},"%s")`, profileHash.String()))
+	Convey("update function should commit a new entry and on DHT mark item modified", t, func() {
+		v, err := NewJSNucleus(h, fmt.Sprintf(`update("profile",{firstName:"Zippy",lastName:"ThePinhead"},"%s")`, profileHash.String()))
 		So(err, ShouldBeNil)
 		z := v.(*JSNucleus)
 		profileHashStr2 := z.lastResult.String()
@@ -491,8 +491,8 @@ func TestJSDHT(t *testing.T) {
 		So(fmt.Sprintf("%v", x.(Entry).Content()), ShouldEqual, `{"firstName":"Zippy","lastName":"ThePinhead"}`)
 	})
 
-	Convey("del function should mark item deleted", t, func() {
-		v, err := NewJSNucleus(h, fmt.Sprintf(`del("%s","expired");`, hash.String()))
+	Convey("remove function should mark item deleted", t, func() {
+		v, err := NewJSNucleus(h, fmt.Sprintf(`remove("%s","expired");`, hash.String()))
 		So(err, ShouldBeNil)
 		z := v.(*JSNucleus)
 		delhashstr := z.lastResult.String()

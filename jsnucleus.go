@@ -599,7 +599,7 @@ func NewJSNucleus(h *Holochain, code string) (n Nucleus, err error) {
 		return nil, err
 	}
 
-	err = z.vm.Set("mod", func(call otto.FunctionCall) (result otto.Value) {
+	err = z.vm.Set("update", func(call otto.FunctionCall) (result otto.Value) {
 		var a Action = &ActionMod{}
 		args := a.Args()
 		err := jsProcessArgs(&z, args, call.ArgumentList)
@@ -628,7 +628,7 @@ func NewJSNucleus(h *Holochain, code string) (n Nucleus, err error) {
 		return nil, err
 	}
 
-	err = z.vm.Set("del", func(call otto.FunctionCall) (result otto.Value) {
+	err = z.vm.Set("remove", func(call otto.FunctionCall) (result otto.Value) {
 		var a Action = &ActionDel{}
 		args := a.Args()
 		err := jsProcessArgs(&z, args, call.ArgumentList)

@@ -655,7 +655,7 @@ func NewZygoNucleus(h *Holochain, code string) (n Nucleus, err error) {
 			//			return result, err
 		})
 
-	z.env.AddFunction("modify",
+	z.env.AddFunction("update",
 		func(env *zygo.Glisp, name string, zyargs []zygo.Sexp) (zygo.Sexp, error) {
 			var a Action = &ActionMod{}
 			args := a.Args()
@@ -680,7 +680,7 @@ func NewZygoNucleus(h *Holochain, code string) (n Nucleus, err error) {
 			return &result, nil
 		})
 
-	z.env.AddFunction("del",
+	z.env.AddFunction("remove",
 		func(env *zygo.Glisp, name string, zyargs []zygo.Sexp) (zygo.Sexp, error) {
 			var a Action = &ActionDel{}
 			args := a.Args()

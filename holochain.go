@@ -4,7 +4,6 @@
 
 // Data integrity engine for distributed applications -- a validating monotonic
 // DHT "backed" by authoritative hashchains for data provenance.
-
 package holochain
 
 import (
@@ -32,7 +31,7 @@ const Version int = 9
 // VersionStr is the textual version number of the holochain library
 const VersionStr string = "9"
 
-// Zome struct encapsulates logically related code, from "chromosome"
+// Zome struct encapsulates logically related code, from a "chromosome"
 type Zome struct {
 	Name        string
 	Description string
@@ -56,7 +55,7 @@ type Loggers struct {
 	TestInfo   Logger
 }
 
-// Config holds the non-DNA configuration for a holo-chain
+// Config holds the non-DNA configuration for a holo-chain, from config file or environment variables
 type Config struct {
 	Port            int
 	PeerModeAuthor  bool
@@ -65,7 +64,7 @@ type Config struct {
 	Loggers         Loggers
 }
 
-// Holochain struct holds the full "DNA" of the holochain
+// Holochain struct holds the full "DNA" of the holochain (all your app code for managing distributed data integrity)
 type Holochain struct {
 	Version          int
 	ID               uuid.UUID
@@ -73,11 +72,11 @@ type Holochain struct {
 	Properties       map[string]string
 	PropertiesSchema string
 	HashType         string
-	BasedOn          Hash // holochain hash for base schemas and code
+	BasedOn          Hash // references hash of another holochain that these schemas and code are derived from
 	Zomes            []Zome
 	RequiresVersion  int
-	//---- private values not serialized; initialized on Load
-	id             peer.ID // this is hash of the id, also used in the node
+	//---- lowercase private values not serialized; initialized on Load
+	id             peer.ID // this is hash of the id, also used in the node. @todo clarify id variable name?
 	dnaHash        Hash
 	agentHash      Hash
 	rootPath       string
@@ -87,7 +86,7 @@ type Holochain struct {
 	config         Config
 	dht            *DHT
 	node           *Node
-	chain          *Chain // the chain itself
+	chain          *Chain // This node's local source chain
 }
 
 var debugLog Logger
@@ -113,7 +112,7 @@ func Infof(m string, args ...interface{}) {
 	infoLog.Logf(m, args...)
 }
 
-// Initialize function that must be called once at startup by any client app
+// Initialize function that must be called once at startup by any peered app
 func Initialize() {
 	gob.Register(Header{})
 	gob.Register(AgentEntry{})
@@ -150,6 +149,7 @@ func Initialize() {
 	GossipProtocol = Protocol{protocol.ID("/hc-gossip/0.0.0"), GossipReceiver}
 }
 
+// Find the DNA files
 func findDNA(path string) (f string, err error) {
 	p := path + "/" + DNAFileName
 
@@ -179,7 +179,7 @@ func (h *Holochain) ZomePath(z *Zome) string {
 	return h.DNAPath() + "/" + z.Name
 }
 
-// IsConfigured checks a directory for correctly set up holochain configuration files
+// IsConfigured checks a directory for correctly set up holochain configuration file
 func (s *Service) IsConfigured(name string) (f string, err error) {
 	root := s.Path + "/" + name
 
@@ -202,6 +202,7 @@ func (s *Service) Load(name string) (h *Holochain, err error) {
 	return
 }
 
+// if the directories don't exist, make the place to store chains
 func (h *Holochain) mkChainDirs() (err error) {
 	if err = os.MkdirAll(h.DBPath(), os.ModePerm); err != nil {
 		return err
@@ -286,10 +287,10 @@ func (s *Service) load(name string, format string) (hP *Holochain, err error) {
 		return
 	}
 
-	// try and get the agent from the holochain instance
+	// try and get the holochain-specific agent info
 	agent, err := LoadAgent(root)
 	if err != nil {
-		// get the default if not available
+		// if not specified for this app, get the default from the Agent.txt file for all apps
 		agent, err = LoadAgent(filepath.Dir(root))
 	}
 	if err != nil {

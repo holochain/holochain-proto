@@ -1,0 +1,29 @@
+[
+    {
+        "Convey":"We get an error for getFollow with bad following type",
+        "Zome": "clutter",
+        "FnName": "getFollow",
+        "Input": {"from":"%key%","type":"foo"},
+        "Output": "{\"error\":\"bad type: foo\"}",
+        "Err": "",
+        "Regexp": ""
+    },
+    {
+        "Convey":"We can follow a user by agent hash",
+        "Zome": "clutter",
+        "FnName": "follow",
+        "Input": "%key%",
+        "Output": "%h%",
+        "Err": "",
+        "Regexp": ""
+    },
+    {
+        "Convey":"We can get following list",
+        "Zome": "clutter",
+        "FnName": "getFollow",
+        "Input": {"from":"%key%","type":"following"},
+        "Output": "{\"result\":[\"%key%\"]}",
+        "Err": "",
+        "Regexp": ""
+    }
+]

@@ -1,23 +1,43 @@
-var Clutter = {posts:{},users:{},follows:{},nick:""};
+var Clutter = {posts:{},users:{},handles:{},follows:{},handle:"",me:""};
 
-function send(fn,data,resultFn) {
-    $.post(
-        "/fn/clutter/"+fn,
-        JSON.stringify(data),
-        function(response) {
-            resultFn(JSON.parse(response));
+function getHandle(who,fn) {
+    send("getHandle",who,function(data) {
+        cacheUser({handle:data,hash:who});
+        if (fn!=undefined) {
+            fn(data);
         }
-    ).error(function(response) {
-        console.log(response.responseText);
-    })
-    ;
-};
+    });
+}
+
+function getMyHandle(fn) {
+    getHandle(Clutter.me,function(data){
+        Clutter.handle = data;
+        $("#handle").html(data);
+        if (fn!=undefined) {
+            fn();
+        }
+    });
+}
+
+function getFollow(who,type) {
+    send("getFollow",JSON.stringify({from:who,type:type}),function(data) {
+        var j =  JSON.parse(data);
+        var following = j.result;
+        if (following != undefined) {
+
+            var len = following.length;
+            for (var i = 0; i < len; i++) {
+                cacheFollow(following[i]);
+            }
+        }
+    });
+}
 
 function getProfile() {
-    send("getData",{what:"nick"},function(data) {
-        Clutter.nick = data;
-        $("#nick").html(data);
-        getPosts(data);
+    send("appProperty","App_Key_Hash", function(me) {
+        Clutter.me = me;
+        getMyHandle(getMyPosts);
+        getFollow(me,"following");
     });
 }
 
@@ -27,77 +47,106 @@ function addPost() {
         message:$('#meow').val(),
         stamp: now.valueOf()
     };
-    send("addPost",post,function(data) {
+    send("post",JSON.stringify(post),function(data) {
         post.key = data; // save the key of our post to the post
-        post.nick = Clutter.nick;
+        post.handle = Clutter.handle;
         var id = cachePost(post);
-        $("#meows").prepend(makePostHTML(id,post,Clutter.nick));
+        $("#meows").prepend(makePostHTML(id,post,Clutter.handle));
     });
 }
 
 function follow(w) {
-    var follow = {
-        whom:w
-    };
-    send("follow",follow,function(data) {
-        follow.key = data; // save the key of our follow
-        var id = cacheFollow(follow);
+    send("follow",w,function(data) {
+        cacheFollow(w);
     });
 }
 
 function makePostHTML(id,post) {
-    return '<div class="meow" id="'+id+'"><div class="user">'+post.nick+'</div><div class="message">'+post.message+'</div></div>';
+    var d = Date(post.stamp);
+    return '<div class="meow" id="'+id+'"><div class="stamp">'+d+'</div><div class="user">'+post.handle+'</div><div class="message">'+post.message+'</div></div>';
 }
 
 function makeUserHTML(user) {
-    return '<div class="user">'+user.nick+'</div>';
-
+    return '<div class="user">'+user.handle+'</div>';
 }
+
+function makeResultHTML(result) {
+    var id;
+    return '<div class="search-result" id="'+id+'"><div class="user">'+result.handle+'</div></div>';
+}
+
+function getMyPosts() {
+    getPosts(Clutter.me);
+}
+
 function getPosts(by) {
-    send("getData",{what:"posts",whom:by},function(arr) {
-        for (var i = 0, len = arr.length; i < len; i++) {
-            var post = JSON.parse(arr[i]);
-            post.nick = by;
-            var id = cachePost(post);
-            displayPosts();
-//            $("#meows").prepend(makePost(id,post));
-        }
-    });
-}
+    send("getPostsBy",by,function(arr) {
 
-function getUsers() {
-    send("getData",{what:"users"},function(arr) {
-        for (var i = 0, len = arr.length; i < len; i++) {
-            var user = JSON.parse(arr[i]);
-            // don't cache yourself!
-            if (user.nick != Clutter.nick) {
-                cacheUser(user);
+        arr = JSON.parse(arr);
+        console.log("arr: " + JSON.stringify(arr));
+
+        // if we actually get something, then get the handle and
+        // add it to the posts objects before caching.
+        var len = len = arr.length;
+        if (len > 0) {
+            var postsFn = function(author_handle) {
+                for (var i = 0; i < len; i++) {
+                    console.log("arr[i]: " + JSON.stringify(arr[i]));
+                    var post = JSON.parse(arr[i].post);
+                    post.handle = author_handle;
+                    var id = cachePost(post);
+                    displayPosts();
+                    //            $("#meows").prepend(makePost(id,post));
+                }
+            };
+            var user = Clutter.handles[by];
+            if (user == undefined) {
+                send("getHandle", by, postsFn);
+            }
+            else {
+                postsFn(user.handle);
             }
         }
     });
 }
 
-function getFollows(w) {
-    send("getData",{what:"follows",whom:w},function(arr) {
-        for (var i = 0, len = arr.length; i < len; i++) {
-            var follow = JSON.parse(arr[i]);
-            cacheFollow(follow);
-        }
-    });
-}
-
-function cachePost(p,nick) {
-    var id = p.stamp.toString()+nick;
+function cachePost(p) {
+    //console.log("Caching:"+JSON.stringify(p));
+    var id = p.stamp.toString()+p.handle;
     Clutter.posts[id] = p;
     return id;
 }
 
 function cacheUser(u) {
-    Clutter.user[u.nick] = u;
+    Clutter.users[u.handle] = u;
+    Clutter.handles[u.hash] = u;
 }
 
 function cacheFollow(f) {
-    Clutter.follows[f.whom] = f;
+    console.log("caching: "+f);
+    Clutter.follows[f] = true;
+}
+
+function makeFollowingHTML(handle) {
+    return "<div class='handle'>"+handle+"</div>";
+}
+
+function displayFollowing() {
+    var handles = [];
+    var following = Object.keys(Clutter.follows);
+    var len = following.length;
+    for (var i = 0; i < len; i++) {
+        var user = Clutter.handles[following[i]];
+        if (user != undefined) {
+            handles.push(user.handle)
+        }
+    }
+    handles.sort();
+    $("#following").html("");
+    len = handles.length;
+    for (i = 0; i < len; i++) {
+        $("#following").append(makeFollowingHTML(handles[i]));
+    }
 }
 
 function displayPosts() {
@@ -121,3 +170,76 @@ function displayPosts() {
         $("#meows").append(makePostHTML(k,post));
     }
 }
+
+function doFollow() {
+    var handle = $("#followHandle").val();
+
+    send("getAgent",handle,function(data) {
+        if (data != "") {
+            follow(data);
+        }
+        else {
+            alert(handle+" not found");
+        }
+        $('#followDialog').modal('hide');
+    });
+}
+
+function doSearch() {
+    $('#search-results').fadeIn();
+    $("#people-results").html("");
+    $("#people-results").append(makeResultHTML({handle:"Bob Smith!"}));
+}
+
+function hideSearchResults() {
+    $('#search-results').fadeOut();
+}
+
+function searchTab(tab) {
+    var tabs = $('.search-results-data');
+    var len = tabs.length;
+    for (i = 0; i < len; i++) {
+        var t= tabs[i];
+        var tj = $(t);
+        var cur = t.id.split("-")[0];
+        var tabj = $("#"+cur+"-tab");
+        if (tab == cur) {
+            tj.slideToggle();
+            tabj.addClass('active-tab');
+        }
+        else {
+            tj.slideToggle();
+            tabj.removeClass('active-tab');
+        }
+    }
+}
+
+function doSetHandle() {
+    var handle = $("#myHandle").val();
+
+    send("newHandle",handle,function(data) {
+        if (data != "") {
+            getMyHandle();
+        }
+        $('#setHandleDialog').modal('hide');
+    });
+}
+
+function openFollow() {
+    $("#followHandle").val("");
+    displayFollowing();
+    $('#followDialog').modal('show');
+}
+
+function openSetHandle() {
+    $('#setHandleDialog').modal('show');
+}
+
+$(window).ready(function() {
+    $("#submitFollow").click(doFollow);
+    $('#followButton').click(openFollow);
+    $("#handle").on("click", "", openSetHandle);
+    $('#setHandleButton').click(doSetHandle);
+
+    getProfile();
+});

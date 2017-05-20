@@ -1,0 +1,47 @@
+[
+    {
+        "Convey":"setup handle for posting",
+        "Zome": "clutter",
+        "FnName": "newHandle",
+        "Input": "buffaloBill",
+        "Output": "%h2%",
+        "Err": "",
+        "Regexp": ""
+    },
+    {
+        "Convey":"Getting posts when they don't exist returns empty list",
+        "Zome":   "clutter",
+        "FnName": "getPostsBy",
+        "Input":  "%r1%",
+        "Output": "[]",
+        "Err": "",
+        "Regexp": ""
+    },
+    {
+        "Convey":"We can create a new post",
+        "Zome": "clutter",
+        "FnName": "post",
+        "Input": {"message": "here is a test post",
+                  "stamp":12345},
+        "Output": "%h1%",
+        "Err": "",
+        "Regexp": ""
+    },
+    {
+        "Zome": "clutter",
+        "FnName": "appProperty",
+        "Input": "App_Key_Hash",
+        "Output": "",
+        "Err": "",
+        "Regexp": "Qm[a-zA-Z0-9]*"
+    },
+    {
+        "Convey":"We can retrieve posts",
+        "Zome":   "clutter",
+        "FnName": "getPostsBy",
+        "Input":  "%r1%",
+        "Output": "[{\"H\":\"%h1%\",\"post\":\"{\\\"message\\\":\\\"here is a test post\\\",\\\"stamp\\\":12345}\"}]",
+        "Err": "",
+        "Regexp": ""
+    }
+]

@@ -1,0 +1,38 @@
+[
+    {
+        "Convey":"We can create a new handle",
+        "Zome": "clutter",
+        "FnName": "newHandle",
+        "Input": "buffaloBill",
+        "Output": "%h2%",
+        "Err": "",
+        "Regexp": ""
+    },
+    {
+        "Convey":"We can retrieve the new handle",
+        "Zome": "clutter",
+        "FnName": "getHandle",
+        "Input": "%key%",
+        "Output": "buffaloBill",
+        "Err": "",
+        "Regexp": ""
+    },
+     {
+        "Convey":"getAgent request on non existent handle returns empty string",
+        "Zome": "clutter",
+        "FnName": "getAgent",
+        "Input": "fooHandle",
+        "Output": "",
+        "Err": "",
+        "Regexp": ""
+    },
+    {
+        "Convey":"We can retrieve agent by handle",
+        "Zome": "clutter",
+        "FnName": "getAgent",
+        "Input": "buffaloBill",
+        "Output": "%key%",
+        "Err": "",
+        "Regexp": ""
+    }
+]

@@ -1,0 +1,34 @@
+[
+    {
+
+        "Zome": "clutter",
+        "FnName": "appProperty",
+        "Input": "App_DNA_Hash",
+        "Output": "%dna%",
+        "Err": "",
+        "Regexp": ""
+    },
+    {
+        "Zome": "clutter",
+        "FnName": "appProperty",
+        "Input": "App_Key_Hash",
+        "Output": "%key%",
+        "Err": "",
+        "Regexp": ""
+    },    {
+        "Zome": "clutter",
+        "FnName": "appProperty",
+        "Input": "garbage",
+        "Output": "Error: No App Property with name: garbage",
+        "Err": "",
+        "Regexp": ""
+    },
+    {
+        "Zome": "clutter",
+        "FnName": "getProperty",
+        "Input": "description",
+        "Output": "",
+        "Err": "",
+        "Regexp": "[a-z]{2,3}"
+    }
+]

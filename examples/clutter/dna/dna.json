@@ -2,9 +2,9 @@
     "Version": 0,
     "ID": "00000000-0000-0000-0000-000000000000",
     "Name": "clutter",
-    "RequiresVersion": 4,
+    "RequiresVersion": 9,
     "Properties": {
-        "description": "distributed micro-blogging",
+        "description": "distributed micro-blogging (Twitter clone)",
         "language": "en"
     },
     "PropertiesSchema": "properties_schema.json",
@@ -22,6 +22,15 @@
             },
             "Entries": [
                 {
+                    "Name": "handle",
+                    "DataFormat": "string",
+                    "Sharing": "public",
+                    "Schema": "",
+                    "SchemaHash": {
+                        "H": null
+                    }
+                },
+                {
                     "Name": "post",
                     "DataFormat": "json",
                     "Sharing": "public",
@@ -31,22 +40,26 @@
                     }
                 },
                 {
-                    "Name": "relation",
+                    "Name": "post_links",
                     "DataFormat": "links"
                 },
-                 {
-                    "Name": "follow",
-                    "DataFormat": "json",
-                    "Schema": "follow.json",
-                    "SchemaHash": {
-                        "H": null
-                    }
+                {
+                    "Name": "handle_links",
+                    "DataFormat": "links"
                 },
-                 {
-                    "Name": "profile",
+                {
+                    "Name": "follow",
+                    "DataFormat": "links"
+                },
+                {
+                    "Name": "unfollow",
+                    "DataFormat": "links"
+                },
+                {
+                    "Name": "anchor",
                     "DataFormat": "json",
                     "Sharing": "public",
-                    "Schema": "profile.json",
+                    "Schema": "anchor.json",
                     "SchemaHash": {
                         "H": null
                     }
@@ -54,15 +67,47 @@
             ],
             "Functions": [
                 {
-                    "Name": "addPost",
-                    "CallingType": "json"
+                    "Name": "getProperty",
+                    "CallingType": "string"
                 },
                 {
-                    "Name": "getData",
-                    "CallingType": "json"
+                    "Name": "appProperty",
+                    "CallingType": "string"
                 },
                 {
                     "Name": "follow",
+                    "CallingType": "string"
+                },
+                {
+                    "Name": "addPost",
+                    "CallingType": "string"
+                },
+                {
+                    "Name": "unfollow",
+                    "CallingType": "string"
+                },
+                {
+                    "Name": "post",
+                    "CallingType": "string"
+                },
+                {
+                    "Name": "getPostsBy",
+                    "CallingType": "string"
+                },
+                {
+                    "Name": "newHandle",
+                    "CallingType": "string"
+                },
+                {
+                    "Name": "getHandle",
+                    "CallingType": "string"
+                },
+                {
+                    "Name": "getAgent",
+                    "CallingType": "string"
+                },
+                {
+                    "Name": "getFollow",
                     "CallingType": "json"
                 }
             ],

@@ -288,7 +288,7 @@ func readPair(flags int64, reader io.Reader) (header *Header, entry Entry, err e
 }
 
 // MarshalChain serializes a chain data to a writer
-func (c *Chain) MarshalChain(writer io.Writer, flags int64) (err error) {
+func (c *Chain) MarshalChain(writer io.Writer, flags int64, types ...string) (err error) {
 
 	if len(c.Headers) != len(c.Entries) {
 		err = ErrIncompleteChain
@@ -300,16 +300,47 @@ func (c *Chain) MarshalChain(writer io.Writer, flags int64) (err error) {
 		return err
 	}
 
-	var l = int64(len(c.Headers))
-	err = binary.Write(writer, binary.LittleEndian, l)
+	var lastIdx int64
+	numEntries := int64(len(c.Headers))
+	var entryFilter []bool
+	if len(types) > 0 {
+		// make a hash of the types if we need to filter by type
+		typesHash := make(map[string]bool)
+		for _, entryType := range types {
+			typesHash[entryType] = true
+		}
+		// make the entry filter array
+		entryFilter = make([]bool, numEntries)
+		numEntries = 0
+		for i, hdr := range c.Headers {
+			_, ok := typesHash[hdr.Type]
+			if i == 0 {
+				ok = true
+			}
+			entryFilter[i] = ok
+			if ok {
+				lastIdx = int64(i)
+				numEntries++
+			}
+		}
+
+	} else {
+		lastIdx = numEntries - 1
+	}
+
+	err = binary.Write(writer, binary.LittleEndian, numEntries)
 	if err != nil {
 		return err
 	}
 
-	for i, h := range c.Headers {
+	for i, hdr := range c.Headers {
 		var e Entry
+
+		if entryFilter != nil && !entryFilter[i] {
+			continue
+		}
 		if (flags & ChainMarshalFlagsNoHeaders) != 0 {
-			h = nil
+			hdr = nil
 		}
 		if (flags & ChainMarshalFlagsNoEntries) == 0 {
 			if (i == 0) && ((flags & ChainMarshalFlagsOmitDNA) != 0) {
@@ -319,14 +350,15 @@ func (c *Chain) MarshalChain(writer io.Writer, flags int64) (err error) {
 				e = c.Entries[i]
 			}
 		}
-		err = writePair(writer, h, e)
+
+		err = writePair(writer, hdr, e)
 		if err != nil {
 			return
 		}
 	}
 
 	if (flags & ChainMarshalFlagsNoHeaders) == 0 {
-		hash := c.Hashes[l-1]
+		hash := c.Hashes[lastIdx]
 		err = hash.MarshalHash(writer)
 	}
 	return

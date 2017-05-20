@@ -16,20 +16,23 @@ import (
 )
 
 const (
+
+	// System defined entry types
+
 	DNAEntryType   = "%dna"
 	AgentEntryType = "%agent"
 	KeyEntryType   = "%%key" // virtual entry type, not actually on the chain
-)
 
-const (
+	// Entry type formats
+
 	DataFormatLinks   = "links"
 	DataFormatJSON    = "json"
 	DataFormatString  = "string"
 	DataFormatRawJS   = "js"
 	DataFormatRawZygo = "zygo"
-)
 
-const (
+	// Entry sharing types
+
 	Public  = "public"
 	Partial = "partial"
 )

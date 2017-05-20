@@ -24,13 +24,20 @@ type ValidationPackage struct {
 	Chain *Chain
 }
 
-// Constants for use requesting validation packages
 const (
-	PkgReqChain = "chain"
-)
 
-// Constants for use requesting chain data in validation package
-const (
+	// Constants for the key values of the validation request object returned
+	// by validateXPkg functions
+
+	// PkgReqChain is the key who value is one of the PkgReqChainOptX masks
+	PkgReqChain = "chain"
+
+	// PkgReqEntryTypes is the key who value is an array of entry types to limit
+	// the chain to
+	PkgReqEntryTypes = "types"
+
+	// Constant mask values for PkgReqChain key of the validation request object
+
 	PkgReqChainOptNone       = 0x00
 	PkgReqChainOptHeaders    = 0x01
 	PkgReqChainOptEntries    = 0x02
@@ -71,7 +78,12 @@ func MakePackage(h *Holochain, req PackagingReq) (pkg Package, err error) {
 		if (flags & PkgReqChainOptEntries) == 0 {
 			mflags += ChainMarshalFlagsNoEntries
 		}
-		h.chain.MarshalChain(&b, mflags+ChainMarshalFlagsOmitDNA)
+
+		var types []string
+		if t, ok := req[PkgReqEntryTypes]; ok {
+			types = t.([]string)
+		}
+		h.chain.MarshalChain(&b, mflags+ChainMarshalFlagsOmitDNA, types...)
 		pkg.Chain = b.Bytes()
 	}
 	return

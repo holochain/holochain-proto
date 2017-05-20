@@ -346,7 +346,7 @@ var ZygoLibrary = `(def HC_Version "` + VersionStr + `")` +
 	`(def HC_PkgReq_ChainOpt_None "` + PkgReqChainOptNoneStr + "\")" +
 	`(def HC_PkgReq_ChainOpt_Headers "` + PkgReqChainOptHeadersStr + "\")" +
 	`(def HC_PkgReq_ChainOpt_Entries "` + PkgReqChainOptEntriesStr + "\")" +
-	`(def HC_PkgReq_ChainOpt_Full "` + PkgReqChainOptNoneStr + "\")"
+	`(def HC_PkgReq_ChainOpt_Full "` + PkgReqChainOptFullStr + "\")"
 
 func makeResult(env *zygo.Glisp, resultValue zygo.Sexp, resultError error) (zygo.Sexp, error) {
 	result, err := zygo.MakeHash(nil, "hash", env)

@@ -179,7 +179,13 @@ func TestMarshalChain(t *testing.T) {
 	c := NewChain()
 	h, key, now := chainTestSetup()
 
-	e := GobEntry{C: "some data"}
+	e := GobEntry{C: "fake DNA"}
+	c.AddEntry(h, now, DNAEntryType, &e, key)
+
+	e = GobEntry{C: "fake agent entry"}
+	c.AddEntry(h, now, AgentEntryType, &e, key)
+
+	e = GobEntry{C: "some data"}
 	c.AddEntry(h, now, "entryTypeFoo1", &e, key)
 
 	e = GobEntry{C: "some other data"}
@@ -206,6 +212,22 @@ func TestMarshalChain(t *testing.T) {
 		So(reflect.DeepEqual(c.Hmap, c1.Hmap), ShouldBeTrue)
 		So(reflect.DeepEqual(c.Emap, c1.Emap), ShouldBeTrue)
 		So(reflect.DeepEqual(c.Entries, c1.Entries), ShouldBeTrue)
+	})
+
+	Convey("it should be able to marshal and unmarshal specify types", t, func() {
+		var b bytes.Buffer
+
+		err := c.MarshalChain(&b, ChainMarshalFlagsNone, AgentEntryType, "entryTypeFoo2")
+		So(err, ShouldBeNil)
+		flags, c1, err := UnmarshalChain(&b)
+		So(err, ShouldBeNil)
+		So(flags, ShouldEqual, ChainMarshalFlagsNone)
+		So(len(c1.Entries), ShouldEqual, 3)
+		So(c1.Headers[0].Type, ShouldEqual, DNAEntryType)
+		So(c1.Headers[1].Type, ShouldEqual, AgentEntryType)
+		So(c1.Headers[2].Type, ShouldEqual, "entryTypeFoo2")
+		So(c1.TypeTops[AgentEntryType], ShouldEqual, 1)
+		So(c1.TypeTops["entryTypeFoo2"], ShouldEqual, 2)
 	})
 
 	Convey("it should be able to marshal and unmarshal headers only", t, func() {

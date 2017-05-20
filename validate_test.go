@@ -109,6 +109,22 @@ func TestMakePackage(t *testing.T) {
 		h.chain.MarshalChain(&b, ChainMarshalFlagsNoHeaders+ChainMarshalFlagsOmitDNA)
 		So(string(pkg.Chain), ShouldEqual, string(b.Bytes()))
 	})
+
+	Convey("it should be able to make package of a chain of just a few types", t, func() {
+		entry := GobEntry{C: "2"}
+		h.NewEntry(time.Now(), "evenNumbers", &entry)
+		entry = GobEntry{C: "3"}
+		h.NewEntry(time.Now(), "oddNumbers", &entry)
+
+		req := PackagingReq{PkgReqChain: int64(PkgReqChainOptFull), PkgReqEntryTypes: []string{"oddNumbers"}}
+		pkg, err := MakePackage(h, req)
+		So(err, ShouldBeNil)
+
+		var b bytes.Buffer
+		h.chain.MarshalChain(&b, ChainMarshalFlagsOmitDNA, "oddNumbers")
+		So(string(pkg.Chain), ShouldEqual, string(b.Bytes()))
+	})
+
 }
 
 func TestMakeValidatePackage(t *testing.T) {

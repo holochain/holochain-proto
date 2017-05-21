@@ -112,20 +112,41 @@ function getFollow(params) {
     return result;
 }
 
+function newHandle(handle){
+    var me = getMe();
+    var directory = getDirectory();
+    var handles = doGetLink(me,"handle");
+    var n = handles.length - 1;
+    if (n >= 0) {
+        var oldKey = handles[n];
+        var key = update("handle",handle,oldKey);
 
-function newHandle(handle) {
+        debug(handle+" is "+key);
+        commit("handle_links",
+               {Links:[
+                   {Base:me,Link:oldKey,Tag:"handle",LinkAction:HC.LinkAction.Del},
+                   {Base:me,Link:key,Tag:"handle"}
+               ]});
+        commit("handle_links",
+               {Links:[
+                   {Base:directory,Link:oldKey,Tag:"handle",LinkAction:HC.LinkAction.Del},
+                   {Base:directory,Link:key,Tag:"handle"}
+               ]});
+        return key;
+    }
+    return addHandle(handle);
+}
+
+function addHandle(handle) {
+    // TODO confirm no collision
     var key = commit("handle",handle);        // On my source chain, commits a new handle entry
     var me = getMe();
-    var directory = getDirectory();              // placeholder till we can calculate a hash
+    var directory = getDirectory();
 
     debug(handle+" is "+key);
 
-    // TODO confirm no collision before next step
     debug("HQ1"+commit("handle_links", {Links:[{Base:me,Link:key,Tag:"handle"}]}));
     debug("HQ2"+commit("handle_links", {Links:[{Base:directory,Link:key,Tag:"handle"}]}));
-
-// (getLink me "handle")                // On the DHT, get on my hash the link marked "handle"
-    // (mod meta me "handle" key)            // On the DHT, mark my old handle as deprecated
 
     return key;
 }
@@ -162,7 +183,7 @@ function getAgent(handle) {
 function genesis() {                            // 'hc gen chain' calls the genesis function in every zome file for the app
 
     // use the agent string (usually email) used with 'hc init' to identify myself and create a new handle
-    newHandle(App.Agent.String);
+    addHandle(App.Agent.String);
     //commit("anchor",{type:"sys",value:"directory"});
     return true;
 }

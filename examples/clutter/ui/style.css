@@ -8,14 +8,13 @@ html {
 }
 
 body {
-	font-family: 'Share Tech Mono', fixed;
-	font-size: 0.9em;
+/*	font-family: 'Share Tech Mono', fixed;
+	font-size: 0.9em;*/
 	line-height: 1.3em;
-	height: 100%;
+	height: 100%;/
 	background-color: black;
 	background-image: url("cats.jpg");
 	background-size: 100% auto;
-	color: white;
 	width: calc(100vw - 34px); /* Prevent jump from scrollbar appearing on only some pages */
 	padding-left: 9px; /* Recenter page from scrollbar width adjustment */
 }
@@ -61,7 +60,7 @@ h4 {
 }
 
 a:link {
-	color: #199912;
+	color: #a35f1a;
 }
 
 a:visited {
@@ -94,8 +93,8 @@ ul li {
 	text-align: center;
 	line-height: 1.1em;
 	display: block;
-	color: transparent;
- 	background: url("calico2.png") repeat;
+	color: white;
+ 	background: url("calico2.png") no-repeat no-repeat stretch;
  	-webkit-background-clip: text;
 }
 
@@ -104,6 +103,16 @@ ul li {
 	background-color: rgba(0, 0, 0, 0.6);
 	max-width: 14.5em;
 	margin-left: 1em;
+}
+
+#about {
+  color: white;
+}
+
+a#handle {
+  display:block;
+  background-color: rgba(0, 0, 0, 0.6);
+  text-align:center;
 }
 
 .pagetitle {
@@ -479,9 +488,9 @@ summary {
 /*  GO FULL WIDTH BELOW 480 PIXELS */
 @media only screen and (max-width: 480px) {
 	.col {  margin: 1% 0 1% 0%; }
-    
+
     .span_1_of_12, .span_2_of_12, .span_3_of_12, .span_4_of_12, .span_5_of_12, .span_6_of_12, .span_7_of_12, .span_8_of_12, .span_9_of_12, .span_10_of_12, .span_11_of_12, .span_12_of_12 {
-	width: 100%; 
+	width: 100%;
 	}
 }
 
@@ -490,4 +499,22 @@ summary {
 	padding: 0.75em;
 	background-color: rgba(0, 0, 0, 0.6);
 	border-radius: 10px;
+        color: wheat;
+}
+.closer {
+  float:right;
+}
+.results-tab {
+  display:inline-block;
+  background-color:green;
+}
+.active-tab {
+  background-color:white;
+  color:green;
+}
+
+.search-results-data {
+    background-color: lightgray;
+    color: black;
+    padding: 4px;
 }

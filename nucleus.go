@@ -15,15 +15,25 @@ import (
 
 type NucleusFactory func(h *Holochain, code string) (Nucleus, error)
 
-// calling types
 const (
+
+	// calling types
+
 	STRING_CALLING = "string"
 	JSON_CALLING   = "json"
-)
 
-// these constants are for a removed feature, see ChangeAppProperty
-// @TODO figure out how to remove code over time that becomes obsolete, i.e. for long-dead changes
-const (
+	// exposure types for functions
+
+	// ZOME_EXPOSURE is the default and means the function is only exposed for use by other zomes in the app
+	ZOME_EXPOSURE = ""
+	// AUTHENTICATED_EXPOSURE means that the function is only available after authentication (TODO)
+	AUTHENTICATED_EXPOSURE = "auth"
+	// PUBLIC_EXPOSURE means that the function is callable by anyone
+	PUBLIC_EXPOSURE = "public"
+
+	// these constants are for a removed feature, see ChangeAppProperty
+	// @TODO figure out how to remove code over time that becomes obsolete, i.e. for long-dead changes
+
 	ID_PROPERTY         = "_id"
 	AGENT_ID_PROPERTY   = "_agent_id"
 	AGENT_NAME_PROPERTY = "_agent_name"
@@ -35,6 +45,15 @@ var ValidationFailedErr = errors.New("Validation Failed")
 type FunctionDef struct {
 	Name        string
 	CallingType string
+	Exposure    string
+}
+
+// ValidExposure verifies that the function can be called in the given context
+func (f *FunctionDef) ValidExposure(context string) bool {
+	if f.Exposure == PUBLIC_EXPOSURE {
+		return true
+	}
+	return f.Exposure == context
 }
 
 // Nucleus type abstracts the functions of code execution environments

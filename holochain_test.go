@@ -464,18 +464,22 @@ func TestCall(t *testing.T) {
 	d, _, h := prepareTestChain("test")
 	defer cleanupTestDir(d)
 	Convey("it should call the exposed function", t, func() {
-		result, err := h.Call("zySampleZome", "testStrFn1", "arg1 arg2")
+		result, err := h.Call("zySampleZome", "testStrFn1", "arg1 arg2", ZOME_EXPOSURE)
 		So(err, ShouldBeNil)
 		So(result.(string), ShouldEqual, "result: arg1 arg2")
 
-		result, err = h.Call("zySampleZome", "addEven", "42")
+		result, err = h.Call("zySampleZome", "addEven", "42", ZOME_EXPOSURE)
 		So(err, ShouldBeNil)
 
 		ph := h.chain.Top().EntryLink
 		So(result.(string), ShouldEqual, ph.String())
 
-		//_, err = h.Call("zySampleZome", "addEven", "41")
-		//So(err.Error(), ShouldEqual, "Error calling 'commit': Invalid entry: 41")
+		_, err = h.Call("zySampleZome", "addEven", "41", ZOME_EXPOSURE)
+		So(err.Error(), ShouldEqual, "Error calling 'commit': Invalid entry: 41")
+	})
+	Convey("it should fail calls to functions not exposed to the given context", t, func() {
+		_, err := h.Call("zySampleZome", "testStrFn1", "arg1 arg2", PUBLIC_EXPOSURE)
+		So(err.Error(), ShouldEqual, "function not available")
 	})
 }
 

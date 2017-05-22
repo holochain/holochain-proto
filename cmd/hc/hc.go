@@ -261,7 +261,7 @@ func setupApp() (app *cli.App) {
 				function := os.Args[4]
 				args := os.Args[5:]
 				fmt.Printf("calling %s on zome %s with params %v\n", function, zome, args)
-				result, err := h.Call(zome, function, strings.Join(args, " "))
+				result, err := h.Call(zome, function, strings.Join(args, " "), holo.PUBLIC_EXPOSURE)
 				if err != nil {
 					return err
 				}

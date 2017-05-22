@@ -725,8 +725,8 @@ func (s *Service) GenDev(root string, format string) (hP *Holochain, err error) 
 				},
 				Functions: []FunctionDef{
 					{Name: "getDNA", CallingType: STRING_CALLING},
-					{Name: "addEven", CallingType: STRING_CALLING},
-					{Name: "addPrime", CallingType: JSON_CALLING},
+					{Name: "addEven", CallingType: STRING_CALLING, Exposure: PUBLIC_EXPOSURE},
+					{Name: "addPrime", CallingType: JSON_CALLING, Exposure: PUBLIC_EXPOSURE},
 					{Name: "testStrFn1", CallingType: STRING_CALLING},
 					{Name: "testStrFn2", CallingType: STRING_CALLING},
 					{Name: "testJsonFn1", CallingType: JSON_CALLING},
@@ -745,8 +745,8 @@ func (s *Service) GenDev(root string, format string) (hP *Holochain, err error) 
 				},
 				Functions: []FunctionDef{
 					{Name: "getProperty", CallingType: STRING_CALLING},
-					{Name: "addOdd", CallingType: STRING_CALLING},
-					{Name: "addProfile", CallingType: JSON_CALLING},
+					{Name: "addOdd", CallingType: STRING_CALLING, Exposure: PUBLIC_EXPOSURE},
+					{Name: "addProfile", CallingType: JSON_CALLING, Exposure: PUBLIC_EXPOSURE},
 					{Name: "testStrFn1", CallingType: STRING_CALLING},
 					{Name: "testStrFn2", CallingType: STRING_CALLING},
 					{Name: "testJsonFn1", CallingType: JSON_CALLING},
@@ -808,7 +808,7 @@ func (s *Service) GenDev(root string, format string) (hP *Holochain, err error) 
 	"required": ["firstName", "lastName"]
 }`
 
-		fixtures := [7]TestData{
+		fixtures := [8]TestData{
 			{
 				Zome:   "zySampleZome",
 				FnName: "addEven",
@@ -844,6 +844,13 @@ func (s *Service) GenDev(root string, format string) (hP *Holochain, err error) 
 				FnName: "getDNA",
 				Input:  "",
 				Output: "%dna%"},
+			{
+				Zome:     "zySampleZome",
+				FnName:   "getDNA",
+				Input:    "",
+				Err:      "function not available",
+				Exposure: PUBLIC_EXPOSURE,
+			},
 		}
 
 		fixtures2 := [2]TestData{
@@ -1129,13 +1136,17 @@ func (h *Holochain) GetEntryDef(t string) (zome *Zome, d *EntryDef, err error) {
 }
 
 // Call executes an exposed function
-func (h *Holochain) Call(zomeType string, function string, arguments interface{}) (result interface{}, err error) {
+func (h *Holochain) Call(zomeType string, function string, arguments interface{}, exposureContext string) (result interface{}, err error) {
 	n, z, err := h.MakeNucleus(zomeType)
 	if err != nil {
 		return
 	}
 	fn, err := h.GetFunctionDef(z, function)
 	if err != nil {
+		return
+	}
+	if !fn.ValidExposure(exposureContext) {
+		err = errors.New("function not available")
 		return
 	}
 	result, err = n.Call(fn, arguments)

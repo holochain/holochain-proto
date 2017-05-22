@@ -61,7 +61,7 @@ func serve(h *holo.Holochain, port string) {
 				err = conn.WriteMessage(websocket.TextMessage, t)
 				//err = conn.WriteJSON(t)
 			default:
-				err = fmt.Errorf("Unknown type from Call of %s:%s", zome, function)
+				err = fmt.Errorf("Unknown type from Call of %s:%s", zome, function, holo.PUBLIC_EXPOSURE)
 			}
 
 			if err != nil {
@@ -127,7 +127,7 @@ func serve(h *holo.Holochain, port string) {
 func call(h *holo.Holochain, zome string, function string, args string) (result interface{}, err error) {
 
 	log.Logf("calling %s:%s(%s)\n", zome, function, args)
-	result, err = h.Call(zome, function, args)
+	result, err = h.Call(zome, function, args, holo.PUBLIC_EXPOSURE)
 
 	if err != nil {
 		_, err = mkErr(err.Error(), 400)

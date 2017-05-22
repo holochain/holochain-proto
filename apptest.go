@@ -23,14 +23,15 @@ const (
 
 // TestData holds a test entry for a chain
 type TestData struct {
-	Convey string        // a human readable description of the tests intent
-	Zome   string        // the zome in which to find the function
-	FnName string        // the function to call
-	Input  interface{}   // the function's input
-	Output string        // the expected output to match against (full match)
-	Err    string        // the expected error to match against
-	Regexp string        // the expected out to match again (regular expression)
-	Time   time.Duration // offset in milliseconds from the start of the test at which to run this test.
+	Convey   string        // a human readable description of the tests intent
+	Zome     string        // the zome in which to find the function
+	FnName   string        // the function to call
+	Input    interface{}   // the function's input
+	Output   string        // the expected output to match against (full match)
+	Err      string        // the expected error to match against
+	Regexp   string        // the expected out to match again (regular expression)
+	Time     time.Duration // offset in milliseconds from the start of the test at which to run this test.
+	Exposure string        // the exposure context for the test call (defaults to ZOME_EXPOSURE)
 }
 
 // TestConfig holds the configuration options for a test
@@ -304,7 +305,7 @@ func (h *Holochain) DoTest(name string, i int, t TestData, startTime time.Time, 
 			input = h.TestStringReplacements(input, r1, r2, r3, lastMatches)
 			Debugf("Input after replacement: %s", input)
 			//====================
-			var actualResult, actualError = h.Call(t.Zome, t.FnName, input)
+			var actualResult, actualError = h.Call(t.Zome, t.FnName, input, t.Exposure)
 			var expectedResult, expectedError = t.Output, t.Err
 			var expectedResultRegexp = t.Regexp
 			//====================

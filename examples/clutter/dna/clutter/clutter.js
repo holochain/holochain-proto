@@ -32,10 +32,12 @@ function follow(userAddress) {
 }
 
 function unfollow(userAddress){
-    var me = getMe();                       // Looks up my hash address and assign it to 'me'
-    return commit("unfollow",userAddress);  // On my source chain, commits the unfollow entry
-    // (delmeta userAddress me "follower")  // Marks the given follower link on their hash as deleted
-    // (delmeta me userAddress "following") // Marks the given following link on my hash as deleted
+    var me = getMe();
+    return commit("unfollow",  // On my source chain, commits the unfollow entry
+                  {Links:[
+                      {Base:userAddress,Link:me,Tag:"follower",LinkAction:HC.LinkAction.Del},
+                      {Base:me,Link:userAddress,Tag:"following",LinkAction:HC.LinkAction.Del}
+                  ]});
 }
 
 function post(postBody) {

@@ -127,8 +127,13 @@ function cacheFollow(f) {
     Clutter.follows[f] = true;
 }
 
+function uncacheFollow(f) {
+    console.log("uncaching: "+f);
+    delete Clutter.follows[f];
+}
+
 function makeFollowingHTML(handle) {
-    return "<div class='handle'>"+handle+"</div>";
+    return "<div class='following-handle'><span class='handle'>"+handle+'</span><button type="button" class="close" aria-label="Close" onclick="unfollow(this);"><span aria-hidden="true">&times;</span></button></div>';
 }
 
 function displayFollowing() {
@@ -138,7 +143,7 @@ function displayFollowing() {
     for (var i = 0; i < len; i++) {
         var user = Clutter.handles[following[i]];
         if (user != undefined) {
-            handles.push(user.handle)
+            handles.push(user.handle);
         }
     }
     handles.sort();
@@ -235,11 +240,21 @@ function openSetHandle() {
     $('#setHandleDialog').modal('show');
 }
 
+function unfollow(button) {
+    // pull the handle out from the HTML
+    var handle = $(button).parent().find('.handle')[0].innerHTML;
+    var user = Clutter.users[handle].hash;
+    send("unfollow",user,function(data) {
+        uncacheFollow(user);
+        $('#followDialog').modal('hide');
+    });
+}
+
 $(window).ready(function() {
     $("#submitFollow").click(doFollow);
     $('#followButton').click(openFollow);
     $("#handle").on("click", "", openSetHandle);
     $('#setHandleButton').click(doSetHandle);
-
+    $('#search-results.closer').click(hideSearchResults);
     getProfile();
 });

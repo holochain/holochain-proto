@@ -416,7 +416,7 @@ func TestPersistingChain(t *testing.T) {
 func chainTestSetup() (hs HashSpec, key ic.PrivKey, now time.Time) {
 	a, _ := NewAgent(IPFS, "agent id")
 	key = a.PrivKey()
-	hc := Holochain{HashType: "sha2-256"}
+	hc := Holochain{DHTConfig: DHTConfig{HashType: "sha2-256"}}
 	hP := &hc
 	hP.PrepareHashType()
 	hs = hP.hashSpec

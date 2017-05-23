@@ -2,8 +2,9 @@ Version = 0
 ID = "00000000-0000-0000-0000-000000000000"
 Name = "sample"
 PropertiesSchema = "properties_schema.json"
-HashType = "sha2-256"
-RequiresVersion = 10
+RequiresVersion = 11
+[DHTConfig]
+  HashType = "sha2-256"
 
 [Properties]
   description = "a bogus test holochain"

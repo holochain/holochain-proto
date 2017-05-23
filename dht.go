@@ -16,6 +16,28 @@ import (
 	"strings"
 )
 
+// Holds the dht configuration options
+type DHTConfig struct {
+	// HashType : (string) Identifies hash type to be used for this application. Should be from the list of hash types from the multihash library
+	HashType string
+
+	// NeighborhoodSize : (integer) Establishes minimum online redundancy targets for data, and size of peer sets for sync gossip. A neighborhood size of ZERO means no sharding (every node syncs all data with every other node). ONE means you are running this as a centralized application and gossip is turned OFF. For most applications we recommend neighborhoods no smaller than 8 for nearness or 32 for hashmask sharding.
+
+	// ShardingMethod : Identifier for sharding method (none, XOR, hashmask, other nearness algorithms?, etc.)
+
+	// MaxLinkSets : (integer) Maximum number of results to return on a GetLinks query to keep computation and traffic to a reasonable size. You need to break these result sets into multiple "pages" of results retrieve more.
+
+	// ValidationTimeout : (integer) Time period in seconds, until data that needs to be validated against a source remains "alive" to keep trying to get validation from that source. If someone commits something and then goes offline, how long do they have to come back online before DHT sync requests consider that data invalid?
+
+	//PeerTimeout : (integer) Time period in seconds, until a node drops a peer from its neighborhood list for failing to respond to gossip requests.
+
+	// WireEncryption : settings for point-to-point encryption of messages on the network (none, AES, what are the options?)
+
+	// DataEncryption : What are the options for encrypting data at rest in the dht.db that don't break db functionality? Is there really a point to trying to do this?
+
+	// MaxEntrySize : Sets the maximum allowable size of entries for this holochain
+}
+
 // DHT struct holds the data necessary to run the distributed hash table
 type DHT struct {
 	h         *Holochain // pointer to the holochain this DHT is part of

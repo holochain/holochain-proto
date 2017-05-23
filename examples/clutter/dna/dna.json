@@ -2,13 +2,15 @@
     "Version": 0,
     "ID": "00000000-0000-0000-0000-000000000000",
     "Name": "clutter",
-    "RequiresVersion": 10,
+    "RequiresVersion": 11,
     "Properties": {
         "description": "distributed micro-blogging (Twitter clone)",
         "language": "en"
     },
     "PropertiesSchema": "properties_schema.json",
-    "HashType": "sha2-256",
+    "DHTConfig": {
+        "HashType": "sha2-256"
+    },
     "BasedOn": {
         "H": null
     },

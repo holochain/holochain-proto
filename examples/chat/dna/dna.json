@@ -9,7 +9,9 @@
         "initial_admin": "chuck@norris.com"
     },
     "PropertiesSchema": "properties_schema.json",
-    "HashType": "sha2-256",
+    "DHTConfig": {
+        "HashType": "sha2-256"
+    },
     "BasedOn": {
         "H": null
     },

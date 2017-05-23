@@ -26,10 +26,10 @@ import (
 )
 
 // Version is the numeric version number of the holochain library
-const Version int = 10
+const Version int = 11
 
 // VersionStr is the textual version number of the holochain library
-const VersionStr string = "10"
+const VersionStr string = "11"
 
 // Zome struct encapsulates logically related code, from a "chromosome"
 type Zome struct {
@@ -71,10 +71,10 @@ type Holochain struct {
 	Name             string
 	Properties       map[string]string
 	PropertiesSchema string
-	HashType         string
 	BasedOn          Hash // references hash of another holochain that these schemas and code are derived from
 	Zomes            []Zome
 	RequiresVersion  int
+	DHTConfig        DHTConfig
 	//---- lowercase private values not serialized; initialized on Load
 	id             peer.ID // this is hash of the id, also used in the node. @todo clarify id variable name?
 	dnaHash        Hash
@@ -224,8 +224,8 @@ func NewHolochain(agent Agent, root string, format string, zomes ...Zome) Holoch
 	}
 	h := Holochain{
 		ID:              u,
-		HashType:        "sha2-256",
 		RequiresVersion: Version,
+		DHTConfig:       DHTConfig{HashType: "sha2-256"},
 		agent:           agent,
 		rootPath:        root,
 		encodingFormat:  format,
@@ -344,9 +344,9 @@ func (h *Holochain) Agent() Agent {
 // PrepareHashType makes sure the given string is a correct multi-hash and stores
 // the code and length to the Holochain struct
 func (h *Holochain) PrepareHashType() (err error) {
-	c, ok := mh.Names[h.HashType]
+	c, ok := mh.Names[h.DHTConfig.HashType]
 	if !ok {
-		return fmt.Errorf("Unknown hash type: %s", h.HashType)
+		return fmt.Errorf("Unknown hash type: %s", h.DHTConfig.HashType)
 	}
 	h.hashSpec.Code = c
 	h.hashSpec.Length = -1

@@ -75,12 +75,12 @@ func TestPrepare(t *testing.T) {
 func TestPrepareHashType(t *testing.T) {
 
 	Convey("A bad hash type should return an error", t, func() {
-		h := Holochain{HashType: "bogus"}
+		h := Holochain{DHTConfig: DHTConfig{HashType: "bogus"}}
 		err := h.PrepareHashType()
 		So(err.Error(), ShouldEqual, "Unknown hash type: bogus")
 	})
 	Convey("It should initialized fixed and variable sized hashes", t, func() {
-		h := Holochain{HashType: "sha1"}
+		h := Holochain{DHTConfig: DHTConfig{HashType: "sha1"}}
 		err := h.PrepareHashType()
 		So(err, ShouldBeNil)
 		var hash Hash
@@ -88,7 +88,7 @@ func TestPrepareHashType(t *testing.T) {
 		So(err, ShouldBeNil)
 		So(hash.String(), ShouldEqual, "5duC28CW416wX42vses7TeTeRYwku9")
 
-		h.HashType = "blake2b-256"
+		h.DHTConfig.HashType = "blake2b-256"
 		err = h.PrepareHashType()
 		So(err, ShouldBeNil)
 		err = hash.Sum(h.hashSpec, []byte("test data"))

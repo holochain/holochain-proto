@@ -2,7 +2,7 @@
     "Version": 0,
     "ID": "00000000-0000-0000-0000-000000000000",
     "Name": "clutter",
-    "RequiresVersion": 9,
+    "RequiresVersion": 10,
     "Properties": {
         "description": "distributed micro-blogging (Twitter clone)",
         "language": "en"
@@ -68,47 +68,58 @@
             "Functions": [
                 {
                     "Name": "getProperty",
-                    "CallingType": "string"
+                    "CallingType": "string",
+                    "Exposure":"public"
                 },
                 {
                     "Name": "appProperty",
-                    "CallingType": "string"
+                    "CallingType": "string",
+                    "Exposure":"public"
                 },
                 {
                     "Name": "follow",
-                    "CallingType": "string"
+                    "CallingType": "string",
+                    "Exposure":"public"
                 },
                 {
                     "Name": "addPost",
-                    "CallingType": "string"
+                    "CallingType": "string",
+                    "Exposure":"public"
                 },
                 {
                     "Name": "unfollow",
-                    "CallingType": "string"
+                    "CallingType": "string",
+                    "Exposure":"public"
                 },
                 {
                     "Name": "post",
-                    "CallingType": "string"
+                    "CallingType": "string",
+                    "Exposure":"public"
                 },
                 {
                     "Name": "getPostsBy",
-                    "CallingType": "string"
+                    "CallingType": "string",
+                    "Exposure":"public"
                 },
                 {
                     "Name": "newHandle",
-                    "CallingType": "string"
+                    "CallingType": "string",
+                    "Exposure":"public"
                 },
                 {
                     "Name": "getHandle",
-                    "CallingType": "string"
+                    "CallingType": "string",
+                    "Exposure":"public"
                 },
                 {
                     "Name": "getAgent",
-                    "CallingType": "string"
+                    "CallingType": "string",
+                    "Exposure":"public"
                 },
                 {
                     "Name": "getFollow",
-                    "CallingType": "json"
+                    "CallingType": "json",
+                    "Exposure":"public"
                 }
             ],
             "NucleusType": "js"

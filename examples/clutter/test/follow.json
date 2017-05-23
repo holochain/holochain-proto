@@ -5,6 +5,7 @@
         "FnName": "getFollow",
         "Input": {"from":"%key%","type":"foo"},
         "Output": "{\"error\":\"bad type: foo\"}",
+        "Exposure":"public",
         "Err": "",
         "Regexp": ""
     },
@@ -14,6 +15,7 @@
         "FnName": "follow",
         "Input": "%key%",
         "Output": "%h%",
+        "Exposure":"public",
         "Err": "",
         "Regexp": ""
     },
@@ -23,6 +25,7 @@
         "FnName": "getFollow",
         "Input": {"from":"%key%","type":"following"},
         "Output": "{\"result\":[\"%key%\"]}",
+        "Exposure":"public",
         "Err": "",
         "Regexp": ""
     }

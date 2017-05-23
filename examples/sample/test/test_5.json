@@ -1,1 +1,1 @@
-[{"Convey":"","Zome":"jsSampleZome","FnName":"addProfile","Input":"{\"firstName\":\"Art\",\"lastName\":\"Brock\"}","Output":"\"%h%\"","Err":"","Regexp":"","Time":0}]
+[{"Convey":"","Zome":"jsSampleZome","FnName":"addProfile","Input":"{\"firstName\":\"Art\",\"lastName\":\"Brock\"}","Output":"\"%h%\"","Err":"","Regexp":"","Time":0,"Exposure":""}]

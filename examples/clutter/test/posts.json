@@ -5,6 +5,7 @@
         "FnName": "newHandle",
         "Input": "buffaloBill",
         "Output": "%h2%",
+        "Exposure":"public",
         "Err": "",
         "Regexp": ""
     },
@@ -14,6 +15,7 @@
         "FnName": "getPostsBy",
         "Input":  "%r1%",
         "Output": "[]",
+        "Exposure":"public",
         "Err": "",
         "Regexp": ""
     },
@@ -24,6 +26,7 @@
         "Input": {"message": "here is a test post",
                   "stamp":12345},
         "Output": "%h1%",
+        "Exposure":"public",
         "Err": "",
         "Regexp": ""
     },
@@ -32,6 +35,7 @@
         "FnName": "appProperty",
         "Input": "App_Key_Hash",
         "Output": "",
+        "Exposure":"public",
         "Err": "",
         "Regexp": "Qm[a-zA-Z0-9]*"
     },
@@ -41,6 +45,7 @@
         "FnName": "getPostsBy",
         "Input":  "%r1%",
         "Output": "[{\"H\":\"%h1%\",\"post\":\"{\\\"message\\\":\\\"here is a test post\\\",\\\"stamp\\\":12345}\"}]",
+        "Exposure":"public",
         "Err": "",
         "Regexp": ""
     }

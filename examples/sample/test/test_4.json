@@ -1,1 +1,1 @@
-[{"Convey":"","Zome":"zySampleZome","FnName":"addPrime","Input":"{\"prime\":4}","Output":"","Err":"Error calling 'commit': Invalid entry: {\"prime\":4}","Regexp":"","Time":0}]
+[{"Convey":"","Zome":"zySampleZome","FnName":"addPrime","Input":"{\"prime\":4}","Output":"","Err":"Error calling 'commit': Invalid entry: {\"prime\":4}","Regexp":"","Time":0,"Exposure":""}]

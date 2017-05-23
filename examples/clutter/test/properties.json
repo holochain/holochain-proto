@@ -5,6 +5,7 @@
         "FnName": "appProperty",
         "Input": "App_DNA_Hash",
         "Output": "%dna%",
+        "Exposure":"public",
         "Err": "",
         "Regexp": ""
     },
@@ -13,6 +14,7 @@
         "FnName": "appProperty",
         "Input": "App_Key_Hash",
         "Output": "%key%",
+        "Exposure":"public",
         "Err": "",
         "Regexp": ""
     },    {
@@ -20,6 +22,7 @@
         "FnName": "appProperty",
         "Input": "garbage",
         "Output": "Error: No App Property with name: garbage",
+        "Exposure":"public",
         "Err": "",
         "Regexp": ""
     },
@@ -28,6 +31,7 @@
         "FnName": "getProperty",
         "Input": "description",
         "Output": "",
+        "Exposure":"public",
         "Err": "",
         "Regexp": "[a-z]{2,3}"
     }

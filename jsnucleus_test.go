@@ -1,6 +1,7 @@
 package holochain
 
 import (
+	"encoding/json"
 	"fmt"
 	peer "github.com/libp2p/go-libp2p-peer"
 	"github.com/robertkrimen/otto"
@@ -134,6 +135,28 @@ func TestNewJSNucleus(t *testing.T) {
 			hash1, err = NewHash(z.lastResult.String())
 			So(err, ShouldBeNil)
 			So(hash1.String(), ShouldEqual, profileHash.String())
+		})
+		Convey("call", func() {
+			// a string calling function
+			_, err := z.Run(`call("zySampleZome","addEven","432")`)
+			So(err, ShouldBeNil)
+			So(h.chain.Entries[len(h.chain.Hashes)-1].Content(), ShouldEqual, "432")
+			z := v.(*JSNucleus)
+			hash, _ := NewHash(z.lastResult.String())
+			entry, _, _ := h.chain.GetEntry(hash)
+			So(entry.Content(), ShouldEqual, "432")
+
+			// a json calling function
+			_, err = z.Run(`call("zySampleZome","addPrime",{prime:7})`)
+			So(err, ShouldBeNil)
+			So(h.chain.Entries[len(h.chain.Hashes)-1].Content(), ShouldEqual, `{"prime":7}`)
+			hashJSONStr := z.lastResult.String()
+			var hashStr string
+			json.Unmarshal([]byte(hashJSONStr), &hashStr)
+			hash, _ = NewHash(hashStr)
+			entry, _, _ = h.chain.GetEntry(hash)
+			So(entry.Content(), ShouldEqual, `{"prime":7}`)
+
 		})
 	})
 }
@@ -577,11 +600,29 @@ func TestJSProcessArgs(t *testing.T) {
 		So(args[0].value.(string), ShouldEqual, "bar")
 
 		// create an otto.object for a test arg
-		val, _ = z.vm.ToValue(TaggedHash{H: "foo", E: "bar"})
+		val, _ = z.vm.ToValue(map[string]string{"H": "foo", "E": "bar"})
 		err = jsProcessArgs(z, args, []otto.Value{val})
 		So(err, ShouldBeNil)
 		So(args[0].value.(string), ShouldEqual, `{"E":"bar","H":"foo"}`)
 	})
+
+	// currently ArgsArg and EntryArg are identical, but we expect this to change
+	Convey("it should convert ArgsArg from string or object", t, func() {
+		args := []Arg{{Name: "foo", Type: ArgsArg}}
+		err := jsProcessArgs(z, args, []otto.Value{nilValue})
+		So(err.Error(), ShouldEqual, "argument 1 (foo) should be string or object")
+		val, _ := z.vm.ToValue("bar")
+		err = jsProcessArgs(z, args, []otto.Value{val})
+		So(err, ShouldBeNil)
+		So(args[0].value.(string), ShouldEqual, "bar")
+
+		// create an otto.object for a test arg
+		val, _ = z.vm.ToValue(map[string]string{"H": "foo", "E": "bar"})
+		err = jsProcessArgs(z, args, []otto.Value{val})
+		So(err, ShouldBeNil)
+		So(args[0].value.(string), ShouldEqual, `{"E":"bar","H":"foo"}`)
+	})
+
 	Convey("it should convert MapArg a map", t, func() {
 		args := []Arg{{Name: "foo", Type: MapArg}}
 		err := jsProcessArgs(z, args, []otto.Value{nilValue})

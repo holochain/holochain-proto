@@ -316,7 +316,7 @@ func (z *ZygoNucleus) Call(fn *FunctionDef, params interface{}) (result interfac
 			// type should always be SexpRaw
 			switch t := result.(type) {
 			case *zygo.SexpRaw:
-				result = []byte(cleanZygoJson(string(t.Val)))
+				result = cleanZygoJson(string(t.Val))
 			default:
 				err = errors.New("expected SexpRaw return type")
 			}
@@ -416,6 +416,15 @@ func zyProcessArgs(args []Arg, zyArgs []zygo.Sexp) (err error) {
 				args[i].value = boolean
 			default:
 				return argErr("boolean", i+1, args[i])
+			}
+		case ArgsArg:
+			switch t := a.(type) {
+			case *zygo.SexpStr:
+				args[i].value = t.S
+			case *zygo.SexpHash:
+				args[i].value = cleanZygoJson(zygo.SexpToJson(t))
+			default:
+				return argErr("string or hash", i+1, args[i])
 			}
 		case EntryArg:
 			switch t := a.(type) {
@@ -534,6 +543,45 @@ func NewZygoNucleus(h *Holochain, code string) (n Nucleus, err error) {
 			}
 			var result = zygo.SexpStr{S: entryHash.String()}
 			return &result, nil
+		})
+
+	z.env.AddFunction("call",
+		func(env *zygo.Glisp, name string, zyargs []zygo.Sexp) (zygo.Sexp, error) {
+			a := &ActionCall{}
+			args := a.Args()
+			err := zyProcessArgs(args, zyargs)
+			if err != nil {
+				return zygo.SexpNull, err
+			}
+			a.zome = args[0].value.(string)
+			var zome *Zome
+			zome, err = h.GetZome(a.zome)
+			if err != nil {
+				return zygo.SexpNull, err
+			}
+			a.function = args[1].value.(string)
+			var fn *FunctionDef
+			fn, err = h.GetFunctionDef(zome, a.function)
+			if err != nil {
+				return zygo.SexpNull, err
+			}
+			if fn.CallingType == JSON_CALLING {
+				switch zyargs[2].(type) {
+				case *zygo.SexpHash:
+					a.args = args[2].value
+				default:
+					return zygo.SexpNull, errors.New("function calling type requires hash argument type")
+				}
+
+			} else {
+				a.args = args[2].value.(string)
+			}
+			var r interface{}
+			r, err = a.Do(h)
+			if err != nil {
+				return zygo.SexpNull, err
+			}
+			return &zygo.SexpStr{S: r.(string)}, err
 		})
 
 	z.env.AddFunction("commit",

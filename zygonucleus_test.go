@@ -1,6 +1,7 @@
 package holochain
 
 import (
+	"encoding/json"
 	"fmt"
 	zygo "github.com/glycerine/zygomys/repl"
 	peer "github.com/libp2p/go-libp2p-peer"
@@ -146,6 +147,29 @@ func TestNewZygoNucleus(t *testing.T) {
 			hash1, err = NewHash(z.lastResult.(*zygo.SexpStr).S)
 			So(err, ShouldBeNil)
 			So(hash1.String(), ShouldEqual, profileHash.String())
+		})
+
+		Convey("call", func() {
+			// a string calling function
+			_, err := z.Run(`(call "jsSampleZome" "addOdd" "321")`)
+			So(err, ShouldBeNil)
+			So(h.chain.Entries[len(h.chain.Hashes)-1].Content(), ShouldEqual, "321")
+			z := v.(*ZygoNucleus)
+			hashStr := z.lastResult.(*zygo.SexpStr).S
+			hash, _ := NewHash(hashStr)
+			entry, _, _ := h.chain.GetEntry(hash)
+			So(entry.Content(), ShouldEqual, "321")
+
+			// a json calling function
+			_, err = z.Run(`(call "jsSampleZome" "addProfile" (hash firstName: "Jane" lastName: "Jetson"))`)
+			So(err, ShouldBeNil)
+			So(h.chain.Entries[len(h.chain.Hashes)-1].Content(), ShouldEqual, `{"firstName":"Jane","lastName":"Jetson"}`)
+			hashJSONStr := z.lastResult.(*zygo.SexpStr).S
+			json.Unmarshal([]byte(hashJSONStr), &hashStr)
+			hash, _ = NewHash(hashStr)
+			entry, _, _ = h.chain.GetEntry(hash)
+			So(entry.Content(), ShouldEqual, `{"firstName":"Jane","lastName":"Jetson"}`)
+
 		})
 	})
 }
@@ -329,13 +353,13 @@ func TestZygoExposeCall(t *testing.T) {
 		times2, _ := h.GetFunctionDef(zome, "testJsonFn1")
 		result, err := z.Call(times2, `{"input": 2}`)
 		So(err, ShouldBeNil)
-		So(string(result.([]byte)), ShouldEqual, `{"input":2, "output":4}`)
+		So(string(result.(string)), ShouldEqual, `{"input":2, "output":4}`)
 	})
 	Convey("should allow a function declared with JSON parameter to be called with no parameter", t, func() {
 		emptyParametersJSON, _ := h.GetFunctionDef(zome, "testJsonFn2")
 		result, err := z.Call(emptyParametersJSON, "")
 		So(err, ShouldBeNil)
-		So(string(result.([]byte)), ShouldEqual, `[{"a":"b"}]`)
+		So(string(result.(string)), ShouldEqual, `[{"a":"b"}]`)
 	})
 }
 
@@ -576,6 +600,29 @@ func TestZyProcessArgs(t *testing.T) {
 
 	Convey("it should convert EntryArg from string or hash", t, func() {
 		args := []Arg{{Name: "foo", Type: EntryArg}}
+		err := zyProcessArgs(args, []zygo.Sexp{zygo.SexpNull})
+		So(err.Error(), ShouldEqual, "argument 1 (foo) should be string or hash")
+		var val zygo.Sexp = &zygo.SexpStr{S: "bar"}
+		err = zyProcessArgs(args, []zygo.Sexp{val})
+		So(err, ShouldBeNil)
+		So(args[0].value.(string), ShouldEqual, "bar")
+
+		// create a zygo hash for a test arg
+
+		v, err := NewZygoNucleus(h, "")
+		env := v.(*ZygoNucleus).env
+		hval, _ := zygo.MakeHash(nil, "hash", env)
+		hval.HashSet(env.MakeSymbol("fname"), &zygo.SexpStr{S: "Jane"})
+		hval.HashSet(env.MakeSymbol("lname"), &zygo.SexpStr{S: "Smith"})
+		err = zyProcessArgs(args, []zygo.Sexp{hval})
+		So(err, ShouldBeNil)
+		So(args[0].value.(string), ShouldEqual, `{"fname":"Jane", "lname":"Smith"}`)
+
+	})
+
+	// currently ArgsArg and EntryArg are identical, but we expect this to change
+	Convey("it should convert ArgsArg from string or hash", t, func() {
+		args := []Arg{{Name: "foo", Type: ArgsArg}}
 		err := zyProcessArgs(args, []zygo.Sexp{zygo.SexpNull})
 		So(err.Error(), ShouldEqual, "argument 1 (foo) should be string or hash")
 		var val zygo.Sexp = &zygo.SexpStr{S: "bar"}

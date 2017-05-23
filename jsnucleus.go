@@ -357,6 +357,27 @@ func jsProcessArgs(z *JSNucleus, args []Arg, oArgs []otto.Value) (err error) {
 			} else {
 				return argErr("boolean", i+1, args[i])
 			}
+		case ArgsArg:
+			if arg.IsString() {
+				str, err := arg.ToString()
+				if err != nil {
+					return err
+				}
+				args[i].value = str
+			} else if arg.IsObject() {
+				v, err := z.vm.Call("JSON.stringify", nil, arg)
+				if err != nil {
+					return err
+				}
+				entry, err := v.ToString()
+				if err != nil {
+					return err
+				}
+				args[i].value = entry
+
+			} else {
+				return argErr("string or object", i+1, args[i])
+			}
 		case EntryArg:
 			if arg.IsString() {
 				str, err := arg.ToString()
@@ -485,6 +506,46 @@ func NewJSNucleus(h *Holochain, code string) (n Nucleus, err error) {
 			entryHash = r.(Hash)
 		}
 		result, _ := z.vm.ToValue(entryHash.String())
+		return result
+	})
+
+	err = z.vm.Set("call", func(call otto.FunctionCall) otto.Value {
+		a := &ActionCall{}
+		args := a.Args()
+		err := jsProcessArgs(&z, args, call.ArgumentList)
+		if err != nil {
+			return mkOttoErr(&z, err.Error())
+		}
+		a.zome = args[0].value.(string)
+		var zome *Zome
+		zome, err = h.GetZome(a.zome)
+		if err != nil {
+			return mkOttoErr(&z, err.Error())
+		}
+		a.function = args[1].value.(string)
+		var fn *FunctionDef
+		fn, err = h.GetFunctionDef(zome, a.function)
+		if err != nil {
+			return mkOttoErr(&z, err.Error())
+		}
+		if fn.CallingType == JSON_CALLING {
+			if !call.ArgumentList[2].IsObject() {
+				return mkOttoErr(&z, "function calling type requires object argument type")
+			}
+		}
+		a.args = args[2].value.(string)
+
+		var r interface{}
+		r, err = a.Do(h)
+		if err != nil {
+			return mkOttoErr(&z, err.Error())
+		}
+		var result otto.Value
+		result, err = z.vm.ToValue(r)
+
+		if err != nil {
+			return mkOttoErr(&z, err.Error())
+		}
 		return result
 	})
 

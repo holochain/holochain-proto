@@ -497,7 +497,7 @@ func TestLoadTestFiles(t *testing.T) {
 		path := h.rootPath + "/" + ChainTestDir
 		tests, err := LoadTestFiles(path)
 		So(err, ShouldBeNil)
-		So(len(tests), ShouldEqual, 8)
+		So(len(tests), ShouldEqual, 9)
 	})
 
 }

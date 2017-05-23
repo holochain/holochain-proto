@@ -15,14 +15,17 @@ import (
 
 type ArgType int8
 
+// these constants define the argument types for actions, i.e. system functions callable
+// from within nuclei
 const (
 	HashArg = iota
 	StringArg
-	EntryArg
+	EntryArg // special arg type for entries, can be a string or a hash
 	IntArg
 	BoolArg
 	MapArg
-	ToStrArg
+	ToStrArg // special arg type that converts anything to a string, used for the debug action
+	ArgsArg  // special arg type for arguments passed to the call action
 )
 
 type Arg struct {
@@ -229,15 +232,6 @@ func (a *ActionProperty) Do(h *Holochain) (response interface{}, err error) {
 	return
 }
 
-func (a *ActionProperty) SysValidation(h *Holochain, d *EntryDef, sources []peer.ID) (err error) {
-	return
-}
-
-func (a *ActionProperty) DHTReqHandler(dht *DHT, msg *Message) (response interface{}, err error) {
-	err = NonDHTAction
-	return
-}
-
 //------------------------------------------------------------
 // Debug
 
@@ -260,15 +254,6 @@ func (a *ActionDebug) Args() []Arg {
 
 func (a *ActionDebug) Do(h *Holochain) (response interface{}, err error) {
 	h.config.Loggers.App.p(a.msg)
-	return
-}
-
-func (a *ActionDebug) SysValidation(h *Holochain, d *EntryDef, sources []peer.ID) (err error) {
-	return
-}
-
-func (a *ActionDebug) DHTReqHandler(dht *DHT, msg *Message) (response interface{}, err error) {
-	err = NonDHTAction
 	return
 }
 
@@ -302,12 +287,30 @@ func (a *ActionMakeHash) Do(h *Holochain) (response interface{}, err error) {
 	return
 }
 
-func (a *ActionMakeHash) SysValidation(h *Holochain, d *EntryDef, sources []peer.ID) (err error) {
-	return
+//------------------------------------------------------------
+// Call
+
+type ActionCall struct {
+	zome     string
+	function string
+	args     interface{}
 }
 
-func (a *ActionMakeHash) DHTReqHandler(dht *DHT, msg *Message) (response interface{}, err error) {
-	err = NonDHTAction
+func NewCallAction(zome string, function string, args interface{}) *ActionCall {
+	a := ActionCall{zome: zome, function: function, args: args}
+	return &a
+}
+
+func (a *ActionCall) Name() string {
+	return "call"
+}
+
+func (a *ActionCall) Args() []Arg {
+	return []Arg{{Name: "zome", Type: StringArg}, {Name: "function", Type: StringArg}, {Name: "args", Type: ArgsArg}}
+}
+
+func (a *ActionCall) Do(h *Holochain) (response interface{}, err error) {
+	response, err = h.Call(a.zome, a.function, a.args, ZOME_EXPOSURE)
 	return
 }
 

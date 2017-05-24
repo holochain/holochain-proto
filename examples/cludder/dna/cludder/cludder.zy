@@ -1,0 +1,253 @@
+// These are the Exposed a functions which are visible to the UI so it can be called via localhost, web browser, or socket
+(defn getProperty [name]            // The definition of the function you intend to expose
+  (property name))                  // Retrieves a property of the holochain from the DNA (e.g., Name, Language)
+
+(defn appProperty [name]            // The definition of the function you intend to expose
+  (cond (== name "App_Agent_Hash")   App_Agent_Hash
+        (== name "App_Agent_String") App_Agent_String
+        (== name "App_Key_Hash")     App_Key_Hash
+        (== name "App_DNA_Hash")     App_DNA_Hash
+        (concat "Error: No App Property with name: " name)))
+
+// helper function to resolve which hash will be used as "me"
+(defn getMe [] App_Key_Hash)
+
+// currently we just use the DNA hash as our entry for linking the directory to
+// TODO commit an anchor entry explicitly for this purpose.
+(defn getDirectory [] App_DNA_Hash)
+
+(defn follow [userAddress]
+  // Expects a userAddress hash of the person you want to follow
+  (let [me (getMe)]                  // Looks up my hash address and assign it to 'me'
+
+       // Commits a new follow entry to my source chain
+       // On the DHT, puts a link on their hash to my hash as a "follower"
+       // On the DHT, puts a link on my hash to their hash as a "following"
+       (commit "follow" (hash Links:[
+            (hash Base:userAddress Link:me Tag:"follower")
+            (hash Base:me Link:userAddress Tag:"following")
+            ]))
+       ))
+
+(defn unfollow [userAddress]
+  (let [me (getMe)]
+    // On my source chain, commits the unfollow entry
+    (commit "unfollow" (hash Links:[
+                                    (hash Base:userAddress Link:me Tag:"follower" LinkAction:HC_LinkAction_Del)
+                                    (hash Base:me Link:userAddress Tag:"following" LinkAction:HC_LinkAction_Del)
+                                    ]))
+    ))
+
+(defn post [postBody]
+  (let [key (commit "post" postBody)        // Commits the post block to my source chain, assigns resulting hash to 'key'
+        me (getMe)]
+                                            // which DHT nodes will use to request validation info from my source chain
+//    (for [(def i 0) (< i 20000) (def i (+ 1 i))] (mod 99999999 7))
+//    (debug (concat "post text: " (str (get key))))
+
+      // On the DHT, puts a link on my hash to the new post
+      (commit "post_links" (hash Links:[
+              (hash Base:me Link:key Tag:"post")
+            ]))
+
+//    (for [(def i 0) (< i 20000) (def i (+ 1 i))] (mod 99999999 7))
+    (debug (concat "meta: " (str (getLink me "post" (hash Load:true)))))
+    (debug key)
+    key))                                   // Returns the hash key of the new post to the calling function
+
+// Helper function to do getLink call, handle the no-link error case, and copy the returned entry values into a nicer array
+(defn doGetLinkLoad [base tag]
+  // get the tag from the base in the DHT
+  (letseq [raw_links (getLink base tag (hash Load:true))
+           // default to empty list (when result empty because of error
+           linksjson (hget raw_links %result "[]")
+           links (unjson (raw linksjson))
+           links_filled (map (fn [x]
+                                (let [hash (hget x %H)]
+                                     (hash (str2sym tag) (hget x %E)  H:hash)))
+                   links)
+          ]
+          (debug (concat "Raw Links:" (str raw_links)))
+          (debug (concat "Links Filled:" (str links_filled)))
+          links_filled
+  )
+)
+
+// helper function to call getLinks, handle the no links entry error, and build a simpler links array.
+(defn doGetLink [base tag]
+  (letseq [raw_links (getLink base tag)
+           linksjson (hget raw_links %result "[]")
+           links (unjson (raw linksjson))
+           ]
+           (map (fn [x] (hget x %H)) links)
+           )
+)
+
+// TODO add "last 10" or "since timestamp" when query info is supported
+(defn getPostsBy [userAddress]
+  // From the DHT, gets all "post" metadata entries linked from this userAddress
+  (json (doGetLinkLoad userAddress "post"))
+)
+
+// get a list of all the people from the DHT a user is following or follows
+(defn getFollow [params]
+  (let [type (hget params %type)
+        base (hget params %from)
+        result (hash)
+        ]
+       (cond (or (== type "follows") (== type "following"))
+             (hset result %result (doGetLink base type))
+             (hset result %error (concat "bad type: " type)))
+       result
+       )
+)
+
+(defn newHandle [handle]
+  (letseq [me (getMe)
+           directory (getDirectory)
+           handles (doGetLink me "handle")
+           n (- (len handles) 1)
+           ]
+          (cond (>= n 0)
+                (letseq [oldKey (aget handles n)
+                         key (update "handle" handle oldKey)
+                         ]
+                        (debug (concat handle " is " key))
+                        (commit "handle_links"
+                                (hash Links:[
+                                             (hash Base:me Link:oldKey Tag:"handle" LinkAction:HC_LinkAction_Del)
+                                             (hash Base:me Link:key Tag:"handle")
+                                             ]))
+                        (commit "handle_links"
+                                (hash Links:[
+                                             (hash Base:directory Link:oldKey Tag:"handle"  LinkAction:HC_LinkAction_Del)
+                                             (hash Base:directory Link:key Tag:"handle")
+                                             ]))
+                        key
+                        )
+                (addHandle handle)))
+  )
+
+(defn addHandle [handle]
+  // TODO confirm no collision
+  (let [key (commit "handle" handle)        // On my source chain, commits a new handle entry
+        me  (getMe)
+        directory (getDirectory)
+        ]
+      (debug (concat handle " is " key))
+
+      // TODO check error status of commit?
+      (commit "handle_links" (hash Links:[
+              (hash Base:me Link:key Tag:"handle")
+            ]))
+
+      (commit "handle_links" (hash Links:[
+              (hash Base:directory Link:key Tag:"handle")
+            ]))
+    key)
+)
+
+// returns the handle of an agent by looking it up on the user's DHT entry, the last handle will be the current one?
+(defn getHandle [user_hash]
+  (letseq [handles (doGetLinkLoad user_hash "handle")
+           n (- (len handles) 1)
+           h (aget handles n)
+           ]
+           (cond (>= n 0) (hget h %handle)
+                 "")))
+
+// returns the agent associated agent by converting the handle to a hash
+// and getting that hash's source from the DHT
+(defn getAgent [handle]
+  (letseq [directory (getDirectory)
+           handleHash (makeHash handle)
+           handleEntry (get handleHash (hash GetMask:HC_GetMask_Sources))
+           sources (hget handleEntry %result [])
+           n (- (len sources) 1)
+           ]
+           (cond (>= n 0) (aget sources n)
+                 "")))
+
+
+// ==============================================================================
+// CALLBACKS: Called by back-end system, instead of front-end app or UI
+// ===============================================================================
+
+// GENESIS - Called only when your source chain is generated:'hc gen chain <name>'
+// ===============================================================================
+(defn genesis []                            // 'hc gen chain' calls the genesis function in every zome file for the app
+  (begin
+    // use the agent string (usually email) used with 'hc init' to identify myself and create a new handle
+    (addHandle App_Agent_String)
+//    (commit "anchor" (hash type:"sys" value:"directory")))
+    true))
+
+// ===============================================================================
+//   VALIDATION functions for *EVERY* change made to DHT entry -
+//     Every DHT node uses their own copy of these functions to validate
+//     any and all changes requested before accepting. put / mod / del & metas
+// ===============================================================================
+(defn validateCommit [entryType entry header pkg sources]
+  (validate entryType entry header sources))
+(defn validatePut [entryType entry header pkg sources]
+  (validate entryType entry header sources))
+
+(defn validate [entryType entryData header sources]
+//  (cond
+//    (== entryType "handle") (true)
+//    (let [headers (hget entryProperties %:headers)
+//          address (hget headers %address)  // maybe a :%
+//          collision (get address)]
+//      (debug (str collision) true))
+      // TODO deal with handle collisions
+      // TODO strip "handle" of any illegal chars
+//    (or (== entryType "follow") (== entryType "unfollow"))
+//    (let [fromAddr (first (hget entryProperties %Sources))
+//          tag (hget entryProperties %MetaTag)]
+//      (cond (== tag "follower")
+//            (true) // entryData needs to match the sourceAddr
+//            (== tag "following")
+//            (true) // base-hash needs to match the sourceAddr
+//            (true)))
+//      (and (== entryType "post") (== tag "post"))
+//          true // base-hash matches sourceAddr
+//      true)
+    true
+    )
+
+(defn validateLink [linkEntryType baseHash links pkg sources] true)
+// Are there types of tags that you need special permission to do put?
+// Examples: Only Bob should be able to make Bob a "follower" of Alice
+//   - Only Bob should be able to list Alice in his people he is "following"
+//  true)
+// need always to check
+
+(defn validateMod [entryType hash newHash pkg sources] true)
+
+
+// (defn validateModMeta [base-Hash metaTag entryType entryData entryProperties]
+// For example, check whether the edit request came from the creator of the data being edited
+//  true)
+
+(defn validateDel [entryType hash pkg sources] true)
+
+// ===============================================================================
+//   PACKAGING functions for *EVERY* validation call for DHT entry
+//     What data needs to be sent for each above validation function?
+//     Default: send and sign the chain entry that matches requested HASH
+// ===============================================================================
+
+(defn validatePutPkg [entryType] nil)
+(defn validateModPkg [entryType] nil)
+(defn validateDelPkg [entryType] nil)
+(defn validateLinkPkg [entryType] nil)
+
+
+(defn confirmSource [command hashKey]
+  true)
+
+// Do we want to have a log of DHT changes we've sent so we can confirm we sent it?
+// We need to enable querying of local chain for entries which match the hashKey
+// The system has built-in confirmation for DNA & Keys
+// Switch on command type to know what data needs to be harvested from
+//    local chain to send to nodes doing validation

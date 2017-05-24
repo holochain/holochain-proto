@@ -1,0 +1,52 @@
+[
+    {
+        "Convey":"setup handle for posting",
+        "Zome": "cludder",
+        "FnName": "newHandle",
+        "Input": "buffaloBill",
+        "Output": "%h2%",
+        "Exposure":"public",
+        "Err": "",
+        "Regexp": ""
+    },
+    {
+        "Convey":"Getting posts when they don't exist returns empty list",
+        "Zome":   "cludder",
+        "FnName": "getPostsBy",
+        "Input":  "%r1%",
+        "Output": "[]",
+        "Exposure":"public",
+        "Err": "",
+        "Regexp": ""
+    },
+    {
+        "Convey":"We can create a new post",
+        "Zome": "cludder",
+        "FnName": "post",
+        "Input": {"message": "here is a test post",
+                  "stamp":12345},
+        "Output": "%h1%",
+        "Exposure":"public",
+        "Err": "",
+        "Regexp": ""
+    },
+    {
+        "Zome": "cludder",
+        "FnName": "appProperty",
+        "Input": "App_Key_Hash",
+        "Output": "",
+        "Exposure":"public",
+        "Err": "",
+        "Regexp": "Qm[a-zA-Z0-9]*"
+    },
+    {
+        "Convey":"We can retrieve posts",
+        "Zome":   "cludder",
+        "FnName": "getPostsBy",
+        "Input":  "%r1%",
+        "Output": "[{\"Atype\":\"hash\", \"post\":\"{\\\"message\\\":\\\"here is a test post\\\",\\\"stamp\\\":12345}\", \"H\":\"%h1%\", \"zKeyOrder\":[\"post\", \"H\"]}]",
+        "Exposure":"public",
+        "Err": "",
+        "Regexp": ""
+    }
+]

@@ -1,0 +1,4 @@
+Port = 6283
+PeerModeAuthor = true
+PeerModeDHTNode = true
+BootstrapServer = "bootstrap.holochain.net:10000"

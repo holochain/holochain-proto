@@ -1,0 +1,114 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <meta name="google-site-verification" content="OitftAoQ5E7PKeUupCAnxIVwK_TbYe0sGKuzdlkwJJU" />
+    <link href="https://fonts.googleapis.com/css?family=Griffy|Play" rel="stylesheet">
+    <script type="text/javascript" src="http://code.jquery.com/jquery-latest.js"></script>
+    <script type="text/javascript" src="/cludder.js"></script>
+    <script type="text/javascript" src="/hc.js"></script>
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css" integrity="sha384-BVYiiSIFeK1dGmJRAkycuHAHRg32OmUcww7on3RYdg4Va+PmSTsz/K68vbdEjh4u" crossorigin="anonymous">
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js" integrity="sha384-Tc5IQib027qvyjSMfHjOMaLkfuWVxZxUPnCJA7l2mCWNIpG9mGCD8wGNIcPD7Txa" crossorigin="anonymous"></script>
+    <link href="style.css" rel="stylesheet" type="text/css" />
+
+    <title>Cludder</title>
+  </head>
+  <body>
+    <div class="alphabox" style="float: right; padding-left: 1em; padding-right: 1em; margin-bottom: 0.5em; margin-left: 0.5em;">
+      <button id="followButton">Follow</button>
+      <form id="search-form" style="display:none;">
+        <input id="search" name="search" type="text" size="20" />
+	<button type="submit" onClick="doSearch();return false;">Search</button>
+      </form>
+      <div id="search-results" style="display:none">
+        <span class="closer" onClick="hideSearchResults();">Close</span>
+        <div id="results-tabs">
+          <div id="people-tab" class="results-tab active-tab" onClick="searchTab('people');">people</div>
+          <div id="posts-tab" class="results-tab" onClick="searchTab('posts');">posts</div>
+        </div>
+        <div id="people-results" class="search-results-data">people search not implemented</div>
+        <div id="posts-results" class="search-results-data" style="display:none">post search not implemented</div>
+      </div>
+      <div id="about">
+	<h2>What is Cludder?</h2>
+	<p>A <a href="https://en.wiktionary.org/wiki/clutter"><em>clutter</em></a> is a flock of cats.</p>
+	<p><strong>Cludder</strong> is a fully decentralized alternative to Twitter.</p>
+	<p>Impossible to censor or control.</p>
+	<p>Join the mewvolution on <a href="http://ceptr.org">Ceptr.org</a>.</p>
+      </div>
+    </div>
+    <div style="position: absolute; left: 2.8em; top: 1em;">
+      <img src="cat-eating-bird-circle.png" style="width: 13em; height: 13em;" />
+      <a id="handle" href="#"></a>
+    </div>
+    <div class="contentcontainer">
+      <div id="banner">Cludder
+	<div class="subtitle">can haz herd cats?</div>
+      </div>
+      <div id="content">
+	<form id="meow-form" action="" style="text-align: center; margin-bottom: 1.75em;">
+	  <input id="meow" name="meow" type="text" size="64" />
+	  <button type="submit" onclick="addPost();return false;">Meow</button>
+	</form>
+	<div id="meows">
+	</div>
+	<div class="section group">
+	  <div id="footer">
+	    <p><a href="http://validator.w3.org/check?uri=referer">Validate XHTML</a></p>
+	  </div>
+	</div>
+      </div>
+
+    </div>
+
+
+    <div class="modal fade" id="followDialog" tabindex="-1" role="dialog" aria-labelledby="myModalLabel">
+      <div class="modal-dialog" role="document">
+        <div class="modal-content">
+          <div class="modal-header">
+            <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+            <h4 class="modal-title" id="myModalLabel">Follow</h4>
+          </div>
+          <div class="modal-body">
+            <form>
+              <div class="form-group">
+                <label for="followHandle">Handle</label>
+                <input type="text" class="form-control" id="followHandle" placeholder="@handle">
+                <button id="submitFollow" type="button" class="btn btn-primary">follow</button>
+              </div>
+            </form>
+            <h4>Following:</h4>
+            <div id="following"></div>
+
+          </div>
+          <div class="modal-footer">
+
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal fade" id="setHandleDialog" tabindex="-1" role="dialog" aria-labelledby="setHandleModalLabel">
+      <div class="modal-dialog" role="document">
+        <div class="modal-content">
+          <div class="modal-header">
+            <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+            <h4 class="modal-title" id="setHandleModalLabel">Set Handle</h4>
+          </div>
+          <div class="modal-body">
+            <form>
+              <div class="form-group">
+                <label for="myHandle">Handle</label>
+                <input type="text" class="form-control" id="myHandle" placeholder="@handle">
+              </div>
+            </form>
+          </div>
+          <div class="modal-footer">
+            <button id="setHandleButton" type="button" class="btn btn-primary">Set Handle</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </body>
+</html>

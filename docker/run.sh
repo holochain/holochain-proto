@@ -4,4 +4,4 @@ if id -nG "$USER" | grep -qw "docker"; then
 else
         docker="sudo docker"
 fi
-$docker run -p=3141:3141 -v ~/.holochain:/home/user/.holochain -e LOCAL_USER_ID=`id -u $USER`  -Pit metacurrency/holochain /bin/sh
+$docker run --rm -p 3141 -it metacurrency/holochain sh

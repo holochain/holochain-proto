@@ -1,1 +1,5 @@
-.git
+.git*
+examples
+docker
+*.md
+**/*_test.go

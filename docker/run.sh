@@ -4,4 +4,4 @@ if id -nG "$USER" | grep -qw "docker"; then
 else
         docker="sudo docker"
 fi
-$docker run --rm -p 3141 -it metacurrency/holochain sh
+$docker run --rm -p 3141:3141 -it metacurrency/holochain sh

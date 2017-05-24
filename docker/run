@@ -1,4 +1,4 @@
 :; . docker/run.sh #
 :; exit #
 @ECHO OFF
-docker run --rm -p 3141 -it metacurrency/holochain sh
+docker run --rm -p 3141:3141 -it metacurrency/holochain sh

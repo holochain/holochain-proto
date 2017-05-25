@@ -1,0 +1,25 @@
+#!/bin/sh
+sleep 2
+
+echo #!/bin/sh $0
+seedID=`cat /chain.seeded/devchain/.seedID`
+clusterDir="/chain.seeded/devchain/cluster/$seedID"
+
+set -x
+
+ls $clusterDir/hc
+ls /runtime
+
+
+counter=1
+for container in `ls $clusterDir/hc`; do
+	cp /runtime/cluster/hc/$counter.* $clusterDir/hc/$container
+	counter=$(( counter+1 ))
+done
+
+
+
+echo "unlocking cluster $seedID"
+rm $clusterDir/.cluster.lock
+
+

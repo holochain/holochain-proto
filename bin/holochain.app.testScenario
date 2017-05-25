@@ -1,0 +1,66 @@
+#!/bin/bash
+echo "HC: $0"
+
+scenarioName=$1
+
+#set the HOLOCHAIN_SYSTEM_BIN variable
+. holochain.system.checkInstalled
+#set the HOLOCHAIN_APPNAME and HOLOCHAIN_APPDIR variables
+. holochain.app.findAppDir
+
+
+export dockerBaseRun=" -e LOCAL_USER_ID=`id -u $USER` "
+export LOCAL_USER_ID=`id -u $USER`
+
+. $HOLOCHAIN_SYSTEM_BIN/app/createRuntime || exit 1
+
+#creates a single script for each role in the testScenario, which is run by the respective container
+$HOLOCHAIN_SYSTEM_BIN/app/testScenario.createClusterScripts $scenarioName
+
+#begin log for this session
+logFile=$HOLOCHAIN_APPDIR/logs/testScenario.$scenarioName.log
+printf "########################################################################\n########################################################################\n########################################################################\n" | tee -a $logFile
+echo "HC: testScenario $scenarioName started `date`" | tee -a $HOLOCHAIN_APPDIR/logs/cluster.log >> $logFile
+
+
+####docker stuff
+mkdir -p "$HOLOCHAIN_APPDIR/runtime/docker" > /dev/null
+#need to hardlink the Dockerfile for docker security
+echo "ln $HOLOCHAIN_SYSTEM_BIN/../docker/app.docker/Dockerfile.BASE $HOLOCHAIN_APPDIR/runtime/docker/Dockerfile.BASE"
+ln $HOLOCHAIN_SYSTEM_BIN/../docker/app.docker/Dockerfile.BASE $HOLOCHAIN_APPDIR/runtime/docker/Dockerfile.BASE
+#build the image to use as the base for the bs instance and hc instances
+echo "docker build --no-cache -f $HOLOCHAIN_APPDIR/runtime/docker/Dockerfile.BASE -t chain.testing $HOLOCHAIN_APPDIR"
+docker build --no-cache -f $HOLOCHAIN_APPDIR/runtime/docker/Dockerfile.BASE -t chain.testing $HOLOCHAIN_APPDIR
+
+
+#TODO COMMENT AND MAKE WORK
+#CONSTANTS
+systemAppDockerDir="$HOLOCHAIN_SYSTEM_BIN/../docker/app.docker"
+appAppDockerDir="$HOLOCHAIN_APPDIR/runtime/docker"
+
+#appScriptDir="$HOLOCHAIN_APPDIR/runtime/Scripts"
+
+#configureThis
+dockerComposeSystem="$systemAppDockerDir/docker-compose.with.bs.syncedHCMultiNode.yml"
+#constants
+dockerComposeApp="$HOLOCHAIN_APPDIR/__tmp__.holochain.2134837348734.docker-compose.runCluster.yml"
+rm $dockerComposeApp
+ln $dockerComposeSystem $dockerComposeApp
+
+#these depend on what your dockerComposeSystem file requires
+ln "$systemAppDockerDir/Dockerfile.seedService" "$appAppDockerDir/Dockerfile.seedService"
+ln "$systemAppDockerDir/Dockerfile.bsService" "$appAppDockerDir/Dockerfile.bsService"
+ln "$systemAppDockerDir/Dockerfile.syncedHCMultiNode" "$appAppDockerDir/Dockerfile.syncedHCMultiNode"
+ln "$systemAppDockerDir/Dockerfile.syncedHCMultiNode.releaseSyncService" "$appAppDockerDir/Dockerfile.syncedHCMultiNode.releaseSyncService"
+
+#give access to the scripts .. maybe, might not work ( symlinks )
+ln -s $HOLOCHAIN_SYSTEM_BIN/../docker/app.docker $HOLOCHAIN_APPDIR/runtime/Scripts
+
+#copy the whole repo into the runtime directory as the build context
+
+
+echo "$HOLOCHAIN_SYSTEM_BIN/app/runCluster $scenarioName $dockerComposeSystem $logFile"
+$HOLOCHAIN_SYSTEM_BIN/app/runCluster $scenarioName $logFile
+
+rm $dockerComposeApp &
+rm -r $HOLOCHAIN_APPDIR/runtime &

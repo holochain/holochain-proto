@@ -1,0 +1,4 @@
+FROM metacurrency/holochain
+
+EXPOSE 10000
+

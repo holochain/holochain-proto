@@ -1,0 +1,3 @@
+FROM metacurrency/holochain
+
+RUN echo "hc.post.up.docker.build"

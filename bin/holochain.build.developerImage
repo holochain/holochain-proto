@@ -1,0 +1,3 @@
+Scripts/holochain.app.checkInitialised
+
+echo $HOLOCHAIN_APPNAME

@@ -1,0 +1,4 @@
+FROM metacurrency/holochain
+
+expose 3141
+

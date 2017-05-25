@@ -1,0 +1,15 @@
+#!/bin/bash
+
+FILE=".hc/immutable"
+if [ ! -d $FILE ]; then
+   
+  # check if we are in root dir, in which case, die
+  [ $PWD == "/" ] && echo "HC: this does not appear to be a holochain directory" && exit 1
+   
+  # check up a directory
+   cd ..
+   . holochain.app.findAppDir
+else
+  export HOLOCHAIN_APPNAME=`cat .hc/immutable/readableName`
+  export HOLOCHAIN_APPDIR=$PWD
+fi

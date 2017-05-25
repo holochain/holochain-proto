@@ -1,0 +1,13 @@
+echo "bin/apps/createRuntime"
+
+appRuntimeDir="$HOLOCHAIN_APPDIR/runtime"
+[ -d $appRuntimeDir ] && { echo "runtime directory: $appRuntimeDir is in use by another process" && echo "exiting" && exit 1 ; }
+
+echo "mkdir -p $appRuntimeDir > /dev/null"
+mkdir -p $appRuntimeDir > /dev/null
+mkdir $appRuntimeDir/chain.seeded
+
+[ -d "$HOLOCHAIN_APPDIR/logs" ] || mkdir $HOLOCHAIN_APPDIR/logs > /dev/null
+
+# HOLOCHAIN_APP_RUNTIMEDIR=$appRuntimeDir
+# export HOLOCHAIN_APP_RUNTIMEDIR

@@ -1,0 +1,12 @@
+#!/bin/sh
+echo #!/bin/sh $0
+
+ipaddr=`hostname -i`
+
+echo "bootstrap server container ip address: $ipaddr"
+
+echo $ipaddr > /chain.seeded/bs.ip
+
+bs &
+
+#mkfifo "$HOME/.pause.fifo" 2>/dev/null; read <"$HOME/.pause.fifo"

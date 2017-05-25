@@ -1,0 +1,2 @@
+grep -q "holochain.2134837348734" ~/.bashrc && holochain.system.version > /dev/null
+export HOLOCHAIN_SYSTEM_BIN="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"

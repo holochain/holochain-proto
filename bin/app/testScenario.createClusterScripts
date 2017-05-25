@@ -1,0 +1,23 @@
+#!/bin/bash
+echo "HC: $0"
+
+testScenarioName=$1
+
+#create testScenarioDirectory variable, and sanity check
+testScenarioDirectory="$HOLOCHAIN_APPDIR/test/$testScenarioName"
+[ ! -d $testScenarioDirectory ] && echo "HC: $testScenarioDirectory does not exist" && exit 1
+
+# ok, we are cooking. do stuff
+appClusterDir=$HOLOCHAIN_APPDIR/runtime/cluster
+mkdir -p $appClusterDir/hc > /dev/null
+
+counter=1
+for role in `ls $testScenarioDirectory`; do
+    if test "$role" != '_config.json' ;then
+        roleScript="$appClusterDir/hc/$counter.$role.fromTemplate.hc.testScenario.role"
+        cp $HOLOCHAIN_SYSTEM_BIN/app/templates/hc.testScenario.role.template $roleScript
+        sed -i'' s/{{SCENARIO}}/$testScenarioName/g $roleScript
+        sed -i'' s/{{ROLE}}/${role%.json}/g $roleScript
+        counter=$(( counter+1 ))
+    fi
+done

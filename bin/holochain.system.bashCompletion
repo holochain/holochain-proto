@@ -1,0 +1,33 @@
+#!/bin/bash
+_holochain_app_testScenario() 
+{
+    local cur prev opts
+    COMPREPLY=()
+    cur="${COMP_WORDS[COMP_CWORD]}"
+    prev="${COMP_WORDS[COMP_CWORD-1]}"
+
+    local originalDir=$PWD
+    local loopMore="true"
+
+    while [[ "$loopMore" == "true" ]] ; do
+        #echo $PWD
+        #echo `basename $PWD`
+        #echo $loopMore
+            { [ -d "$PWD/.hc/immutable" ] && loopMore="success" ; } \
+        ||  { [ $PWD == "/" ] && loopMore="fail"; } \
+        ||  cd ..
+      done
+
+    if [ $loopMore == "success" ]; then
+      [ -d "test" ] && cd test && opts="`ls -d */ | sed 's#/##'`" || return 1
+      # echo $opts
+
+      COMPREPLY=( $(compgen -W "${opts}" -- ${cur}) )
+    else
+      printf "\nHC: not a holochain app"
+    fi
+
+    cd $originalDir
+    return 0
+}
+complete -F _holochain_app_testScenario holochain.app.testScenario

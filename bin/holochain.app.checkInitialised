@@ -1,0 +1,8 @@
+#!/bin/bash
+
+holochain.app.findAppDir
+
+docker --version > /dev/null || { echo "docker does not appear to be installed"  && exit 1 ; }
+
+echo "HC: $HOLOCHAIN_APPNAME found in $HOLOCHAIN_APPDIR"
+

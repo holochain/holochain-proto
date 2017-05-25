@@ -1,0 +1,3 @@
+sed -i.bak '/holochain\.2134837348734/d' ~/.bashrc
+
+echo "holochain PATH removed from .bashrc"

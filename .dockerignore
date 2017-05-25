@@ -1,5 +1,2 @@
-.git*
-examples
+.dockerignore
 docker
-*.md
-**/*_test.go

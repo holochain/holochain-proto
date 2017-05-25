@@ -100,7 +100,7 @@
                 },
                 {
                     "Name": "getPostsBy",
-                    "CallingType": "string",
+                    "CallingType": "json",
                     "Exposure":"public"
                 },
                 {

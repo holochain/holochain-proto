@@ -95,9 +95,20 @@ function doGetLink(base,tag) {
 }
 
 // TODO add "last 10" or "since timestamp" when query info is supported
-function getPostsBy(userAddress) {
-  // From the DHT, gets all "post" metadata entries linked from this userAddress
-    return JSON.stringify(doGetLinkLoad(userAddress,"post"));
+function getPostsBy(userAddresses) {
+    // From the DHT, gets all "post" metadata entries linked from this userAddress
+    var posts = [];
+    for (var i=0;i<userAddresses.length;i++) {
+        var author = userAddresses[i];
+        var authorPosts = doGetLinkLoad(author,"post");
+        // add in the author
+        for(var j=0;j<authorPosts.length;j++) {
+            var post = authorPosts[j];
+            post.author = author;
+            posts.push(post);
+        }
+    }
+    return posts;
 }
 
 // get a list of all the people from the DHT a user is following or follows

@@ -1,20 +1,20 @@
-var Cludder = {posts:{},users:{},handles:{},follows:{},handle:"",me:""};
+var App = {posts:{},users:{},handles:{},follows:{},handle:"",me:""};
 
-function getHandle(who,fn) {
-    send("getHandle",who,function(data) {
-        cacheUser({handle:data,hash:who});
-        if (fn!=undefined) {
-            fn(data);
+function getHandle(who,callbackFn) {
+    send("getHandle",who,function(handle) {
+        cacheUser({handle:handle,hash:who});
+        if (callbackFn!=undefined) {
+            callbackFn(who,handle);
         }
     });
 }
 
-function getMyHandle(fn) {
-    getHandle(Cludder.me,function(data){
-        Cludder.handle = data;
-        $("#handle").html(data);
-        if (fn!=undefined) {
-            fn();
+function getMyHandle(callbackFn) {
+    getHandle(App.me,function(hash,handle){
+        App.handle = handle;
+        $("#handle").html(handle);
+        if (callbackFn!=undefined) {
+            callbackFn();
         }
     });
 }
@@ -35,7 +35,7 @@ function getFollow(who,type) {
 
 function getProfile() {
     send("appProperty","App_Key_Hash", function(me) {
-        Cludder.me = me;
+        App.me = me;
         getMyHandle(getMyPosts);
         getFollow(me,"following");
     });
@@ -49,9 +49,9 @@ function addPost() {
     };
     send("post",JSON.stringify(post),function(data) {
         post.key = data; // save the key of our post to the post
-        post.handle = Cludder.handle;
+        post.author = App.me;
         var id = cachePost(post);
-        $("#meows").prepend(makePostHTML(id,post,Cludder.handle));
+        $("#meows").prepend(makePostHTML(id,post,App.handle));
     });
 }
 
@@ -63,7 +63,14 @@ function follow(w) {
 
 function makePostHTML(id,post) {
     var d = Date(post.stamp);
-    return '<div class="meow" id="'+id+'"><div class="stamp">'+d+'</div><div class="user">'+post.handle+'</div><div class="message">'+post.message+'</div></div>';
+    var author = App.handles[post.author];
+    var handle;
+    if (author == undefined) {
+        handle = post.author;
+    } else {
+        handle = author.handle;
+    }
+    return '<div class="meow" id="'+id+'"><div class="stamp">'+d+'</div><div class="user">'+handle+'</div><div class="message">'+post.message+'</div></div>';
 }
 
 function makeUserHTML(user) {
@@ -76,60 +83,59 @@ function makeResultHTML(result) {
 }
 
 function getMyPosts() {
-    getPosts(Cludder.me);
+    getPosts([App.me]);
 }
 
 function getPosts(by) {
-    send("getPostsBy",by,function(arr) {
 
+    // check to see if we have the user's handles
+    for (var i=0;i<by.length;i++) {
+        var author = by[i];
+        var handle = App.handles[author];
+        if (handle == undefined) {
+            send("getHandle", author);
+        }
+    }
+    send("getPostsBy",JSON.stringify(by),function(arr) {
         arr = JSON.parse(arr);
-        console.log("arr: " + JSON.stringify(arr));
+        console.log("posts: " + JSON.stringify(arr));
 
         // if we actually get something, then get the handle and
         // add it to the posts objects before caching.
         var len = len = arr.length;
         if (len > 0) {
-            var postsFn = function(author_handle) {
-                for (var i = 0; i < len; i++) {
-                    console.log("arr[i]: " + JSON.stringify(arr[i]));
-                    var post = JSON.parse(arr[i].post);
-                    post.handle = author_handle;
-                    var id = cachePost(post);
-                    displayPosts();
-                    //            $("#meows").prepend(makePost(id,post));
-                }
-            };
-            var user = Cludder.handles[by];
-            if (user == undefined) {
-                send("getHandle", by, postsFn);
-            }
-            else {
-                postsFn(user.handle);
+            for (var i = 0; i < len; i++) {
+                console.log("arr[i]: " + JSON.stringify(arr[i]));
+                var post = JSON.parse(arr[i].post);
+                post.author = arr[i].author;
+                var id = cachePost(post);
+                //            $("#meows").prepend(makePost(id,post));
             }
         }
+        displayPosts();
     });
 }
 
 function cachePost(p) {
     //console.log("Caching:"+JSON.stringify(p));
-    var id = p.stamp.toString()+p.handle;
-    Cludder.posts[id] = p;
+    var id = p.stamp;
+    App.posts[id] = p;
     return id;
 }
 
 function cacheUser(u) {
-    Cludder.users[u.handle] = u;
-    Cludder.handles[u.hash] = u;
+    App.users[u.handle] = u;
+    App.handles[u.hash] = u;
 }
 
 function cacheFollow(f) {
     console.log("caching: "+f);
-    Cludder.follows[f] = true;
+    App.follows[f] = true;
 }
 
 function uncacheFollow(f) {
     console.log("uncaching: "+f);
-    delete Cludder.follows[f];
+    delete App.follows[f];
 }
 
 function makeFollowingHTML(handle) {
@@ -138,10 +144,10 @@ function makeFollowingHTML(handle) {
 
 function displayFollowing() {
     var handles = [];
-    var following = Object.keys(Cludder.follows);
+    var following = Object.keys(App.follows);
     var len = following.length;
     for (var i = 0; i < len; i++) {
-        var user = Cludder.handles[following[i]];
+        var user = App.handles[following[i]];
         if (user != undefined) {
             handles.push(user.handle);
         }
@@ -154,12 +160,16 @@ function displayFollowing() {
     }
 }
 
-function displayPosts() {
+function displayPosts(filter) {
     var keys = [],
     k, i, len;
 
-    for (k in Cludder.posts) {
-        if (Cludder.posts.hasOwnProperty(k)) {
+    for (k in App.posts) {
+        if (filter != undefined) {
+            if (filter.includes(App.posts[k].handle)) {
+                keys.push(k);
+            }
+        } else {
             keys.push(k);
         }
     }
@@ -171,7 +181,7 @@ function displayPosts() {
     $("#meows").html("");
     for (i = 0; i < len; i++) {
         k = keys[i];
-        var post = Cludder.posts[k];
+        var post = App.posts[k];
         $("#meows").append(makePostHTML(k,post));
     }
 }
@@ -208,7 +218,7 @@ function searchTab(tab) {
         var tj = $(t);
         var cur = t.id.split("-")[0];
         var tabj = $("#"+cur+"-tab");
-        if (tab == cur) {w
+        if (tab == cur) {
             tj.slideToggle();
             tabj.addClass('active-tab');
         }
@@ -243,7 +253,7 @@ function openSetHandle() {
 function unfollow(button) {
     // pull the handle out from the HTML
     var handle = $(button).parent().find('.handle')[0].innerHTML;
-    var user = Cludder.users[handle].hash;
+    var user = App.users[handle].hash;
     send("unfollow",user,function(data) {
         uncacheFollow(user);
         $('#followDialog').modal('hide');
@@ -255,6 +265,6 @@ $(window).ready(function() {
     $('#followButton').click(openFollow);
     $("#handle").on("click", "", openSetHandle);
     $('#setHandleButton').click(doSetHandle);
-
+    $('#search-results.closer').click(hideSearchResults);
     getProfile();
 });

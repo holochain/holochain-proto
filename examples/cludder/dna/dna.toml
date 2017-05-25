@@ -101,7 +101,7 @@ RequiresVersion = 11
     Exposure = "public"
   [[Zomes.Functions]]    
     Name = "getPostsBy"
-    CallingType = "string"
+    CallingType = "json"
     Exposure = "public"
   [[Zomes.Functions]]    
     Name = "newHandle"

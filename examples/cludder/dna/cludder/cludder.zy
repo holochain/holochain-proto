@@ -84,9 +84,11 @@
 )
 
 // TODO add "last 10" or "since timestamp" when query info is supported
-(defn getPostsBy [userAddress]
+(defn getPostsBy [userAddresses]
   // From the DHT, gets all "post" metadata entries linked from this userAddress
-  (json (doGetLinkLoad userAddress "post"))
+  (apply concat (map (fn [userAddress]
+                       (map (fn [post] (begin (hset post author:userAddress) post)) (doGetLinkLoad userAddress "post")))
+                     userAddresses))
 )
 
 // get a list of all the people from the DHT a user is following or follows

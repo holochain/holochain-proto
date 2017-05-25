@@ -19,15 +19,17 @@ function getMyHandle(callbackFn) {
     });
 }
 
-function getFollow(who,type) {
+function getFollow(who,type,callbackFn) {
     send("getFollow",JSON.stringify({from:who,type:type}),function(data) {
         var j =  JSON.parse(data);
         var following = j.result;
         if (following != undefined) {
-
             var len = following.length;
             for (var i = 0; i < len; i++) {
                 cacheFollow(following[i]);
+            }
+            if (callbackFn!=undefined) {
+                callbackFn();
             }
         }
     });
@@ -36,8 +38,8 @@ function getFollow(who,type) {
 function getProfile() {
     send("appProperty","App_Key_Hash", function(me) {
         App.me = me;
-        getMyHandle(getMyPosts);
-        getFollow(me,"following");
+        getMyHandle();
+        getFollow(me,"following",getMyFeed);
     });
 }
 
@@ -61,16 +63,21 @@ function follow(w) {
     });
 }
 
-function makePostHTML(id,post) {
-    var d = Date(post.stamp);
-    var author = App.handles[post.author];
+function getUserHandle(user) {
+    var author = App.handles[user];
     var handle;
     if (author == undefined) {
-        handle = post.author;
+        handle = user;
     } else {
         handle = author.handle;
     }
-    return '<div class="meow" id="'+id+'"><div class="stamp">'+d+'</div><div class="user">'+handle+'</div><div class="message">'+post.message+'</div></div>';
+    return handle;
+}
+
+function makePostHTML(id,post) {
+    var d = Date(post.stamp);
+    var handle = getUserHandle(post.author);
+    return '<div class="meow" id="'+id+'"><div class="stamp">'+d+'</div><a href="#" class="user" onclick="showUser(\''+post.author+'\');">'+handle+'</a><div class="message">'+post.message+'</div></div>';
 }
 
 function makeUserHTML(user) {
@@ -82,13 +89,21 @@ function makeResultHTML(result) {
     return '<div class="search-result" id="'+id+'"><div class="user">'+result.handle+'</div></div>';
 }
 
-function getMyPosts() {
-    getPosts([App.me]);
+function getUserPosts(user) {
+    getPosts([user]);
+}
+
+function getMyFeed() {
+    var users = Object.keys(App.follows);
+    if (!users.includes(App.me)) {
+        users.push(App.me);
+    }
+    getPosts(users);
 }
 
 function getPosts(by) {
 
-    // check to see if we have the user's handles
+    // check to see if we have the author's handles
     for (var i=0;i<by.length;i++) {
         var author = by[i];
         var handle = App.handles[author];
@@ -100,16 +115,12 @@ function getPosts(by) {
         arr = JSON.parse(arr);
         console.log("posts: " + JSON.stringify(arr));
 
-        // if we actually get something, then get the handle and
-        // add it to the posts objects before caching.
         var len = len = arr.length;
         if (len > 0) {
             for (var i = 0; i < len; i++) {
-                console.log("arr[i]: " + JSON.stringify(arr[i]));
                 var post = JSON.parse(arr[i].post);
                 post.author = arr[i].author;
                 var id = cachePost(post);
-                //            $("#meows").prepend(makePost(id,post));
             }
         }
         displayPosts();
@@ -260,11 +271,27 @@ function unfollow(button) {
     });
 }
 
+function showUser(user) {
+    $('#meow-form').fadeOut();
+    $('#user-header').html(getUserHandle(user));
+    $('#user-header').fadeIn();
+    App.posts={};
+    getPosts([user]);
+}
+
+function showFeed() {
+    $('#meow-form').fadeIn();
+    $('#user-header').fadeOut();
+    App.posts={};
+    getMyFeed();
+}
+
 $(window).ready(function() {
     $("#submitFollow").click(doFollow);
     $('#followButton').click(openFollow);
     $("#handle").on("click", "", openSetHandle);
     $('#setHandleButton').click(doSetHandle);
     $('#search-results.closer').click(hideSearchResults);
+    $('#user-header').click(showFeed);
     getProfile();
 });

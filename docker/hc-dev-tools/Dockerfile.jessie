@@ -14,8 +14,7 @@ RUN apt-get update && apt-get install -y \
 
 # Use checked out version of holochain
 COPY . ${GOPATH}/src/github.com/metacurrency/holochain
-RUN make -C "${GOPATH}/src/github.com/metacurrency/holochain" \
-&& rm -rf ${GOPATH}/pkg ${GOPATH}/src/* ${GOPATH}/bin/gx*
+RUN make -C "${GOPATH}/src/github.com/metacurrency/holochain"
 
 RUN useradd -mUu $uid holochain \
 && adduser holochain sudo \

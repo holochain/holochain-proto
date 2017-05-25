@@ -7,14 +7,8 @@ RUN apk add --update \
   sudo \
 && rm -rf /var/cache/apk/*
 
-# Cache dependencies of holochain
 RUN go get -v -d github.com/metacurrency/holochain \
-&& make -C "${GOPATH}/src/github.com/metacurrency/holochain" deps \
-&& rm -rf ${GOPATH}/src/github.com/metacurrency/holochain
-
-# Use checked out version of holochain
-COPY . ${GOPATH}/src/github.com/metacurrency/holochain
-RUN make -C "${GOPATH}/src/github.com/metacurrency/holochain" \
+&& make -C "${GOPATH}/src/github.com/metacurrency/holochain" \
 && rm -rf ${GOPATH}/pkg ${GOPATH}/src/* ${GOPATH}/bin/gx*
 
 RUN adduser -D holochain \

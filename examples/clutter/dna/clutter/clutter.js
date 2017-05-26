@@ -1,4 +1,7 @@
-// These are the Exposed a functions which are visible to the UI so it can be called via localhost, web browser, or socket
+// ==============================================================================
+// EXPOSED Functions: visible to the UI, can be called via localhost, web browser, or socket
+// ===============================================================================
+
 function getProperty(name) {            // The definition of the function you intend to expose
     return property(name);              // Retrieves a property of the holochain from the DNA (e.g., Name, Language
 }
@@ -11,11 +14,6 @@ function appProperty(name) {            // The definition of the function you in
     if (name == "App_DNA_Hash")   {return   App.DNA.Hash;}
     return "Error: No App Property with name: " + name;
 }
-
-// use a local function to resolve which has will be used as "me"
-function getMe() {return App.Key.Hash;}
-
-function getDirectory() {return App.DNA.Hash;}
 
 function follow(userAddress) {
   // Expects a userAddress hash of the person you want to follow
@@ -51,47 +49,6 @@ function post(postBody) {
     debug("meta: "+JSON.stringify(getLink(me,"post",{Load:true})));
     debug(key);
     return key;                                  // Returns the hash key of the new post to the calling function
-}
-
-function isErr(result) {
-    return ((typeof result === 'object') && result.name == "HolochainError");
-}
-
-// Helper function to do getLink call, handle the no-link error case, and copy the returned entry values into a nicer array
-function doGetLinkLoad(base, tag) {
-    // get the tag from the base in the DHT
-    var links = getLink(base, tag,{Load:true});
-    if (isErr(links)) {
-        links = [];
-    } else {
-        links = links.Links;
-    }
-    var links_filled = [];
-    for (var i=0;i <links.length;i++) {
-        var link = {H:links[i].H};
-        link[tag] = links[i].E;
-        links_filled.push(link);
-    }
-    debug("Links Filled:"+JSON.stringify(links_filled));
-    return links_filled;
-}
-
-// helper function to call getLinks, handle the no links entry error, and build a simpler links array.
-function doGetLink(base,tag) {
-    // get the tag from the base in the DHT
-    var links = getLink(base, tag,{Load:true});
-    if (isErr(links)) {
-        links = [];
-    }
-     else {
-        links = links.Links;
-    }
-    debug("Links:"+JSON.stringify(links));
-    var links_filled = [];
-    for (var i=0;i <links.length;i++) {
-        links_filled.push(links[i].H);
-    }
-    return links_filled;
 }
 
 // TODO add "last 10" or "since timestamp" when query info is supported
@@ -150,20 +107,6 @@ function newHandle(handle){
     return addHandle(handle);
 }
 
-function addHandle(handle) {
-    // TODO confirm no collision
-    var key = commit("handle",handle);        // On my source chain, commits a new handle entry
-    var me = getMe();
-    var directory = getDirectory();
-
-    debug(handle+" is "+key);
-
-    debug("HQ1"+commit("handle_links", {Links:[{Base:me,Link:key,Tag:"handle"}]}));
-    debug("HQ2"+commit("handle_links", {Links:[{Base:directory,Link:key,Tag:"handle"}]}));
-
-    return key;
-}
-
 // returns the handle of an agent by looking it up on the user's DHT entry, the last handle will be the current one?
 function getHandle(userHash) {
     var handles = doGetLinkLoad(userHash,"handle");
@@ -185,6 +128,77 @@ function getAgent(handle) {
         return (n >= 0) ? sources[n] : "";
     }
     return "";
+}
+
+// ==============================================================================
+// HELPERS: unexposed functions
+// ==============================================================================
+
+
+// helper function to resolve which has will be used as "me"
+function getMe() {return App.Key.Hash;}
+
+// helper function to resolve which hash will be used as the base for the directory
+// currently we just use the DNA hash as our entry for linking the directory to
+// TODO commit an anchor entry explicitly for this purpose.
+function getDirectory() {return App.DNA.Hash;}
+
+
+// helper function to actually commit a handle and its links on the directory
+function addHandle(handle) {
+    // TODO confirm no collision
+    var key = commit("handle",handle);        // On my source chain, commits a new handle entry
+    var me = getMe();
+    var directory = getDirectory();
+
+    debug(handle+" is "+key);
+
+    commit("handle_links", {Links:[{Base:me,Link:key,Tag:"handle"}]});
+    commit("handle_links", {Links:[{Base:directory,Link:key,Tag:"handle"}]});
+
+    return key;
+}
+
+// helper function to determine if value returned from holochain function is an error
+function isErr(result) {
+    return ((typeof result === 'object') && result.name == "HolochainError");
+}
+
+// helper function to do getLink call, handle the no-link error case, and copy the returned entry values into a nicer array
+function doGetLinkLoad(base, tag) {
+    // get the tag from the base in the DHT
+    var links = getLink(base, tag,{Load:true});
+    if (isErr(links)) {
+        links = [];
+    } else {
+        links = links.Links;
+    }
+    var links_filled = [];
+    for (var i=0;i <links.length;i++) {
+        var link = {H:links[i].H};
+        link[tag] = links[i].E;
+        links_filled.push(link);
+    }
+    debug("Links Filled:"+JSON.stringify(links_filled));
+    return links_filled;
+}
+
+// helper function to call getLinks, handle the no links entry error, and build a simpler links array.
+function doGetLink(base,tag) {
+    // get the tag from the base in the DHT
+    var links = getLink(base, tag,{Load:true});
+    if (isErr(links)) {
+        links = [];
+    }
+     else {
+        links = links.Links;
+    }
+    debug("Links:"+JSON.stringify(links));
+    var links_filled = [];
+    for (var i=0;i <links.length;i++) {
+        links_filled.push(links[i].H);
+    }
+    return links_filled;
 }
 
 // ==============================================================================

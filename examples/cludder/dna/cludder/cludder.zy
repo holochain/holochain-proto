@@ -1,4 +1,7 @@
-// These are the Exposed a functions which are visible to the UI so it can be called via localhost, web browser, or socket
+// ==============================================================================
+// EXPOSED Functions: visible to the UI, can be called via localhost, web browser, or socket
+// ===============================================================================
+
 (defn getProperty [name]            // The definition of the function you intend to expose
   (property name))                  // Retrieves a property of the holochain from the DNA (e.g., Name, Language)
 
@@ -8,13 +11,6 @@
         (== name "App_Key_Hash")     App_Key_Hash
         (== name "App_DNA_Hash")     App_DNA_Hash
         (concat "Error: No App Property with name: " name)))
-
-// helper function to resolve which hash will be used as "me"
-(defn getMe [] App_Key_Hash)
-
-// currently we just use the DNA hash as our entry for linking the directory to
-// TODO commit an anchor entry explicitly for this purpose.
-(defn getDirectory [] App_DNA_Hash)
 
 (defn follow [userAddress]
   // Expects a userAddress hash of the person you want to follow
@@ -54,34 +50,6 @@
     (debug (concat "meta: " (str (getLink me "post" (hash Load:true)))))
     (debug key)
     key))                                   // Returns the hash key of the new post to the calling function
-
-// Helper function to do getLink call, handle the no-link error case, and copy the returned entry values into a nicer array
-(defn doGetLinkLoad [base tag]
-  // get the tag from the base in the DHT
-  (letseq [raw_links (getLink base tag (hash Load:true))
-           // default to empty list (when result empty because of error
-           linksjson (hget raw_links %result "[]")
-           links (unjson (raw linksjson))
-           links_filled (map (fn [x]
-                                (let [hash (hget x %H)]
-                                     (hash (str2sym tag) (hget x %E)  H:hash)))
-                   links)
-          ]
-          (debug (concat "Raw Links:" (str raw_links)))
-          (debug (concat "Links Filled:" (str links_filled)))
-          links_filled
-  )
-)
-
-// helper function to call getLinks, handle the no links entry error, and build a simpler links array.
-(defn doGetLink [base tag]
-  (letseq [raw_links (getLink base tag)
-           linksjson (hget raw_links %result "[]")
-           links (unjson (raw linksjson))
-           ]
-           (map (fn [x] (hget x %H)) links)
-           )
-)
 
 // TODO add "last 10" or "since timestamp" when query info is supported
 (defn getPostsBy [userAddresses]
@@ -130,25 +98,6 @@
                 (addHandle handle)))
   )
 
-(defn addHandle [handle]
-  // TODO confirm no collision
-  (let [key (commit "handle" handle)        // On my source chain, commits a new handle entry
-        me  (getMe)
-        directory (getDirectory)
-        ]
-      (debug (concat handle " is " key))
-
-      // TODO check error status of commit?
-      (commit "handle_links" (hash Links:[
-              (hash Base:me Link:key Tag:"handle")
-            ]))
-
-      (commit "handle_links" (hash Links:[
-              (hash Base:directory Link:key Tag:"handle")
-            ]))
-    key)
-)
-
 // returns the handle of an agent by looking it up on the user's DHT entry, the last handle will be the current one?
 (defn getHandle [user_hash]
   (letseq [handles (doGetLinkLoad user_hash "handle")
@@ -170,6 +119,65 @@
            (cond (>= n 0) (aget sources n)
                  "")))
 
+// ==============================================================================
+// HELPERS: unexposed functions
+// ==============================================================================
+
+// helper function to resolve which hash will be used as "me"
+(defn getMe [] App_Key_Hash)
+
+// helper function to resolve which hash will be used as the base for the directory
+// currently we just use the DNA hash as our entry for linking the directory to
+// TODO commit an anchor entry explicitly for this purpose.
+(defn getDirectory [] App_DNA_Hash)
+
+// helper function to actually commit a handle and its links on the directory
+(defn addHandle [handle]
+  // TODO confirm no collision
+  (let [key (commit "handle" handle)        // On my source chain, commits a new handle entry
+        me  (getMe)
+        directory (getDirectory)
+        ]
+      (debug (concat handle " is " key))
+
+      // TODO check error status of commit?
+      (commit "handle_links" (hash Links:[
+              (hash Base:me Link:key Tag:"handle")
+            ]))
+
+      (commit "handle_links" (hash Links:[
+              (hash Base:directory Link:key Tag:"handle")
+            ]))
+    key)
+)
+
+// helper function to do getLink call, handle the no-link error case, and copy the returned entry values into a nicer array
+(defn doGetLinkLoad [base tag]
+  // get the tag from the base in the DHT
+  (letseq [raw_links (getLink base tag (hash Load:true))
+           // default to empty list (when result empty because of error
+           linksjson (hget raw_links %result "[]")
+           links (unjson (raw linksjson))
+           links_filled (map (fn [x]
+                                (let [hash (hget x %H)]
+                                     (hash (str2sym tag) (hget x %E)  H:hash)))
+                   links)
+          ]
+          (debug (concat "Raw Links:" (str raw_links)))
+          (debug (concat "Links Filled:" (str links_filled)))
+          links_filled
+  )
+)
+
+// helper function to call getLinks, handle the no links entry error, and build a simpler links array.
+(defn doGetLink [base tag]
+  (letseq [raw_links (getLink base tag)
+           linksjson (hget raw_links %result "[]")
+           links (unjson (raw linksjson))
+           ]
+           (map (fn [x] (hget x %H)) links)
+           )
+)
 
 // ==============================================================================
 // CALLBACKS: Called by back-end system, instead of front-end app or UI

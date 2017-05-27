@@ -67,6 +67,10 @@ RequiresVersion = 11
     DataFormat = "links"             # Special "meta-tag" that links one DHT entry to another. You could think of this like RDF graph stuff.
 
   [[Zomes.Entries]]
+    Name = "directory_links"
+    DataFormat = "links"
+
+  [[Zomes.Entries]]
     Name = "handle_links"
     DataFormat = "links"
 

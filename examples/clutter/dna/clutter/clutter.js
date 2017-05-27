@@ -97,7 +97,7 @@ function newHandle(handle){
                    {Base:me,Link:oldKey,Tag:"handle",LinkAction:HC.LinkAction.Del},
                    {Base:me,Link:key,Tag:"handle"}
                ]});
-        commit("handle_links",
+        commit("directory_links",
                {Links:[
                    {Base:directory,Link:oldKey,Tag:"handle",LinkAction:HC.LinkAction.Del},
                    {Base:directory,Link:key,Tag:"handle"}
@@ -154,7 +154,7 @@ function addHandle(handle) {
     debug(handle+" is "+key);
 
     commit("handle_links", {Links:[{Base:me,Link:key,Tag:"handle"}]});
-    commit("handle_links", {Links:[{Base:directory,Link:key,Tag:"handle"}]});
+    commit("directory_links", {Links:[{Base:directory,Link:key,Tag:"handle"}]});
 
     return key;
 }
@@ -220,7 +220,7 @@ function genesis() {                            // 'hc gen chain' calls the gene
 //     Every DHT node uses their own copy of these functions to validate
 //     any and all changes requested before accepting. put / mod / del & metas
 // ===============================================================================
-function validate(entry_type,entry,meta) {
+function validate(entry_type,entry,header,sources) {
     debug("validate: "+entry_type);
     if (entry_type=="post") {
         var l = entry.message.length;
@@ -248,7 +248,36 @@ function validateCommit(entry_type,entry,header,pkg,sources) {
 //   - Only Bob should be able to list Alice in his people he is "following"
 //  true)
 // need always to check
-function validateLink(linkEntryType,baseHash,links,pkg,sources){return true;}
+function validateLink(linkEntryType,baseHash,links,pkg,sources){
+    if (linkEntryType=="handle_links") {
+        var length = links.length;
+        // a valid handle is when:
+
+        // there should just be one or two links only
+        if (length==2) {
+            // if this is a modify it will have two links the first of which
+            // will be the del and the second the new link.
+            if (links[0].LinkAction != HC.LinkAction.Del) return false;
+            if (links[1].LinkAction != HC.LinkAction.Add) return false;
+        } else if (length==1) {
+            // if this is a new handle, there will just be one Add link
+            if (links[0].LinkAction != HC.LinkAction.Add) return false;
+        } else {return false;}
+
+        for (var i=0;i<length;i++) {
+            var link = links[i];
+            // the base must be this base
+            if (link.Base != baseHash) return false;
+            // the base must be the source
+            if (link.Base != sources[0]) return false;
+            // The tag name should be "handle"
+            if (link.Tag != "handle") return false;
+            //TODO check something about the link, i.e. get it and check it's type?
+        }
+        return true;
+    }
+    return true;
+}
 function validateMod(entry_type,hash,newHash,pkg,sources) {return true;}
 function validateDel(entry_type,hash,pkg,sources) {return true;}
 

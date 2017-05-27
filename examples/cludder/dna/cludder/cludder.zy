@@ -59,6 +59,7 @@
                      userAddresses))
 )
 
+
 // get a list of all the people from the DHT a user is following or follows
 (defn getFollow [params]
   (let [type (hget params %type)
@@ -145,7 +146,7 @@
               (hash Base:me Link:key Tag:"handle")
             ]))
 
-      (commit "handle_links" (hash Links:[
+      (commit "directory_links" (hash Links:[
               (hash Base:directory Link:key Tag:"handle")
             ]))
     key)
@@ -155,14 +156,14 @@
 (defn doGetLinkLoad [base tag]
   // get the tag from the base in the DHT
   (letseq [raw_links (getLink base tag (hash Load:true))
-           // default to empty list (when result empty because of error
+           // default to empty list when result empty because of error
            linksjson (hget raw_links %result "[]")
            links (unjson (raw linksjson))
            links_filled (map (fn [x]
-                                (let [hash (hget x %H)]
-                                     (hash (str2sym tag) (hget x %E)  H:hash)))
-                   links)
-          ]
+                               (let [hash (hget x %H)]
+                                 (hash (str2sym tag) (hget x %E)  H:hash)))
+                             links)
+           ]
           (debug (concat "Raw Links:" (str raw_links)))
           (debug (concat "Links Filled:" (str links_filled)))
           links_filled
@@ -175,9 +176,10 @@
            linksjson (hget raw_links %result "[]")
            links (unjson (raw linksjson))
            ]
-           (map (fn [x] (hget x %H)) links)
-           )
-)
+          (map (fn [x] (hget x %H)) links)
+          )
+  )
+
 
 // ==============================================================================
 // CALLBACKS: Called by back-end system, instead of front-end app or UI
@@ -189,7 +191,7 @@
   (begin
     // use the agent string (usually email) used with 'hc init' to identify myself and create a new handle
     (addHandle App_Agent_String)
-//    (commit "anchor" (hash type:"sys" value:"directory")))
+//    (commit "anchor" (hash type:"sys" value:"directory"))
     true))
 
 // ===============================================================================
@@ -225,20 +227,57 @@
     true
     )
 
-(defn validateLink [linkEntryType baseHash links pkg sources] true)
 // Are there types of tags that you need special permission to do put?
 // Examples: Only Bob should be able to make Bob a "follower" of Alice
 //   - Only Bob should be able to list Alice in his people he is "following"
-//  true)
+//  true
 // need always to check
+(defn validateLink [linkEntryType baseHash links pkg sources]
+
+  (cond (== linkEntryType "handle_links")
+        (let [length (len links)]
+          (def result true)
+          (debug sources)
+          (debug links)
+          (debug length)
+          // a valid handle is when:
+          (and
+
+           // there should just be one or two links only
+           (or
+            // if this is a modify it will have two links the first of which
+            // will be the del and the second the new link.
+            (and (== length 2)
+                 (== (hget (aget links 0) %LinkAction) HC_LinkAction_Del)
+                 (== (hget (aget links 1) %LinkAction) HC_LinkAction_Add)
+                 )
+
+            // if this is a new handle, there will just be one Add link
+            (and (== length 1)
+                 (== (hget (aget links 0) %LinkAction) HC_LinkAction_Add))
+            )
+
+           // and for all the links, the base must match the source
+           // and the tag has to be "handle"
+           (begin
+            // for doesn't return anything in zygo, hence the begin and use of result
+            (for [(def i 0) (and (< i length) result) (def i (+ 1 i))]
+              (let [link (aget links i)]
+                (set result (and (== link.Base baseHash)
+                                 (== link.Base (aget sources 0))
+                                 (== link.Tag "handle")))
+                )
+              )
+            result
+            )
+           )
+          )
+        // place holder for all other link types
+        true
+        )
+)
 
 (defn validateMod [entryType hash newHash pkg sources] true)
-
-
-// (defn validateModMeta [base-Hash metaTag entryType entryData entryProperties]
-// For example, check whether the edit request came from the creator of the data being edited
-//  true)
-
 (defn validateDel [entryType hash pkg sources] true)
 
 // ===============================================================================

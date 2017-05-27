@@ -50,6 +50,10 @@
                     "DataFormat": "links"
                 },
                 {
+                    "Name": "directory_links",
+                    "DataFormat": "links"
+                },
+                {
                     "Name": "follow",
                     "DataFormat": "links"
                 },

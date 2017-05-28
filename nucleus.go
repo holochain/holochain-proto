@@ -63,6 +63,7 @@ type Nucleus interface {
 	ValidatePackagingRequest(action ValidatingAction, def *EntryDef) (req PackagingReq, err error)
 	ChainGenesis() error
 	Call(fn *FunctionDef, params interface{}) (interface{}, error)
+	Run(code string) (result interface{}, err error)
 }
 
 var nucleusFactories = make(map[string]NucleusFactory)

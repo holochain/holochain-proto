@@ -853,7 +853,7 @@ func (s *Service) GenDev(root string, format string) (hP *Holochain, err error) 
 			},
 		}
 
-		fixtures2 := [2]TestData{
+		fixtures2 := [3]TestData{
 			{
 				Zome:   "jsSampleZome",
 				FnName: "addOdd",
@@ -864,6 +864,12 @@ func (s *Service) GenDev(root string, format string) (hP *Holochain, err error) 
 				FnName: "addOdd",
 				Input:  "2",
 				Err:    "Invalid entry: 2"},
+			{
+				Zome:   "jsSampleZome",
+				Input:  "unexposed(\"this is a\")",
+				Output: "this is a fish",
+				Raw:    true,
+			},
 		}
 
 		for fileName, fileText := range SampleUI {
@@ -900,6 +906,7 @@ func (s *Service) GenDev(root string, format string) (hP *Holochain, err error) 
 (defn genesis [] true)
 `
 		code["jsSampleZome"] = `
+function unexposed(x) {return x+" fish";};
 function testStrFn1(x) {return "result: "+x};
 function testStrFn2(x){ return parseInt(x)+2};
 function testJsonFn1(x){ x.output = x.input*2; return x;};

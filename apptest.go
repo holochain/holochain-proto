@@ -32,6 +32,7 @@ type TestData struct {
 	Regexp   string        // the expected out to match again (regular expression)
 	Time     time.Duration // offset in milliseconds from the start of the test at which to run this test.
 	Exposure string        // the exposure context for the test call (defaults to ZOME_EXPOSURE)
+	Raw      bool          // set to true if we should ignore fnName and just call input as raw code in the zome, useful for testing helper functions and validation functions
 }
 
 // TestConfig holds the configuration options for a test
@@ -305,7 +306,19 @@ func (h *Holochain) DoTest(name string, i int, t TestData, startTime time.Time, 
 			input = h.TestStringReplacements(input, r1, r2, r3, lastMatches)
 			Debugf("Input after replacement: %s", input)
 			//====================
-			var actualResult, actualError = h.Call(t.Zome, t.FnName, input, t.Exposure)
+
+			var actualResult interface{}
+			var actualError error
+			if t.Raw {
+				n, _, err := h.MakeNucleus(t.Zome)
+				if err != nil {
+					actualError = err
+				} else {
+					actualResult, actualError = n.Run(input)
+				}
+			} else {
+				actualResult, actualError = h.Call(t.Zome, t.FnName, input, t.Exposure)
+			}
 			var expectedResult, expectedError = t.Output, t.Err
 			var expectedResultRegexp = t.Regexp
 			//====================

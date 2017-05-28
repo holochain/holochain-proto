@@ -243,11 +243,10 @@ function validateCommit(entry_type,entry,header,pkg,sources) {
     return validate(entry_type,entry,header,sources);
 }
 
-// Are there types of tags that you need special permission to do put?
-// Examples: Only Bob should be able to make Bob a "follower" of Alice
+// Are there types of tags that you need special permission to add links?
+// Examples:
+//   - Only Bob should be able to make Bob a "follower" of Alice
 //   - Only Bob should be able to list Alice in his people he is "following"
-//  true)
-// need always to check
 function validateLink(linkEntryType,baseHash,links,pkg,sources){
     if (linkEntryType=="handle_links") {
         var length = links.length;

@@ -781,12 +781,13 @@ func NewJSNucleus(h *Holochain, code string) (n Nucleus, err error) {
 }
 
 // Run executes javascript code
-func (z *JSNucleus) Run(code string) (result *otto.Value, err error) {
+func (z *JSNucleus) Run(code string) (result interface{}, err error) {
 	v, err := z.vm.Run(code)
 	if err != nil {
 		err = errors.New("JS exec error: " + err.Error())
 		return
 	}
 	z.lastResult = &v
+	result = &v
 	return
 }

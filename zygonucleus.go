@@ -819,19 +819,21 @@ func NewZygoNucleus(h *Holochain, code string) (n Nucleus, err error) {
 }
 
 // Run executes zygo code
-func (z *ZygoNucleus) Run(code string) (result zygo.Sexp, err error) {
+func (z *ZygoNucleus) Run(code string) (result interface{}, err error) {
 	c := fmt.Sprintf("(begin %s %s)", z.library, code)
 	err = z.env.LoadString(c)
 	if err != nil {
 		err = errors.New("Zygomys load error: " + err.Error())
 		return
 	}
-	result, err = z.env.Run()
+	var sexp zygo.Sexp
+	sexp, err = z.env.Run()
 	if err != nil {
 		err = errors.New("Zygomys exec error: " + err.Error())
 		return
 	}
-	z.lastResult = result
+	z.lastResult = sexp
+	result = sexp
 	return
 }
 

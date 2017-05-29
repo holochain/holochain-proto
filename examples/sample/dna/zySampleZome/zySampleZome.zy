@@ -9,7 +9,7 @@
   (validate entryType entry header sources))
 (defn validatePut [entryType entry header pkg sources]
   (validate entryType entry header sources))
-(defn validateMod [entryType hash newHash pkg sources] true)
+(defn validateMod [entryType entry header replaces pkg sources] true)
 (defn validateDel [entryType hash pkg sources] true)
 (defn validate [entryType entry header sources]
   (cond (== entryType "evenNumbers")  (cond (== (mod entry 2) 0) true false)

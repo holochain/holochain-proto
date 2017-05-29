@@ -117,6 +117,9 @@ func prepareJSValidateArgs(action Action, def *EntryDef) (args string, err error
 		args, err = prepareJSEntryArgs(def, t.entry, t.header)
 	case *ActionMod:
 		args, err = prepareJSEntryArgs(def, t.entry, t.header)
+		if err == nil {
+			args += fmt.Sprintf(`,"%s"`, t.replaces.String())
+		}
 	case *ActionDel:
 		args = fmt.Sprintf(`"%s"`, t.entry.Hash.String())
 	case *ActionLink:

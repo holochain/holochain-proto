@@ -221,7 +221,6 @@ function genesis() {                            // 'hc gen chain' calls the gene
 //     any and all changes requested before accepting. put / mod / del & metas
 // ===============================================================================
 function validate(entry_type,entry,header,sources) {
-    debug("validate: "+entry_type);
     if (entry_type=="post") {
         var l = entry.message.length;
         if (l>0 && l<256) {return true;}
@@ -237,9 +236,11 @@ function validate(entry_type,entry,header,sources) {
 }
 
 function validatePut(entry_type,entry,header,pkg,sources) {
+    debug("validate put: "+entry_type);
     return validate(entry_type,entry,header,sources);
 }
 function validateCommit(entry_type,entry,header,pkg,sources) {
+    debug("validate commit: "+entry_type);
     return validate(entry_type,entry,header,sources);
 }
 
@@ -248,6 +249,7 @@ function validateCommit(entry_type,entry,header,pkg,sources) {
 //   - Only Bob should be able to make Bob a "follower" of Alice
 //   - Only Bob should be able to list Alice in his people he is "following"
 function validateLink(linkEntryType,baseHash,links,pkg,sources){
+    debug("validate link: "+linkEntryType);
     if (linkEntryType=="handle_links") {
         var length = links.length;
         // a valid handle is when:
@@ -277,8 +279,21 @@ function validateLink(linkEntryType,baseHash,links,pkg,sources){
     }
     return true;
 }
-function validateMod(entry_type,hash,newHash,pkg,sources) {return true;}
-function validateDel(entry_type,hash,pkg,sources) {return true;}
+function validateMod(entry_type,entry,header,replaces,pkg,sources) {
+    debug("validate mod: "+entry_type+" header:"+JSON.stringify(header)+" replaces:"+JSON.stringify(replaces));
+    if (entry_type=="handle") {
+        // check that the source is the same as the creator
+        // TODO we could also check that the previous link in the type-chain is the replaces hash.
+        var orig_sources = get(replaces,{GetMask:HC.GetMask.Sources});
+        if (isErr(orig_sources) || orig_sources == undefined || orig_sources.length !=1 || orig_sources[0] != sources[0]) {return false;}
+
+    }
+    return true;
+}
+function validateDel(entry_type,hash,pkg,sources) {
+    debug("validate del: "+entry_type);
+    return true;
+}
 
 // ===============================================================================
 //   PACKAGING functions for *EVERY* validation call for DHT entry

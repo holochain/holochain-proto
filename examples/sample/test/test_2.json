@@ -1,1 +1,1 @@
-[{"Convey":"","Zome":"zySampleZome","FnName":"addEven","Input":"5","Output":"","Err":"Error calling 'commit': Invalid entry: 5","Regexp":"","Time":0,"Exposure":""}]
+[{"Convey":"","Zome":"zySampleZome","FnName":"addEven","Input":"5","Output":"","Err":"Error calling 'commit': Invalid entry: 5","Regexp":"","Time":0,"Exposure":"","Raw":false}]

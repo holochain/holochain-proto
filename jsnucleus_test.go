@@ -296,6 +296,17 @@ func TestPrepareJSValidateArgs(t *testing.T) {
 		So(err, ShouldBeNil)
 		So(args, ShouldEqual, `"2",{"EntryLink":"","Type":"","Time":"0001-01-01T00:00:00Z"}`)
 	})
+	Convey("it should prepare args for mod", t, func() {
+		e := GobEntry{C: "4"}
+		var header = Header{Type: "foo"}
+		hash, _ := NewHash("QmY8Mzg9F69e5P9AoQPYat6x5HEhc1TVGs11tmfNSzkqh2") // fake hash for previous entry
+		a := NewModAction("evenNumbers", &e, hash)
+		a.header = &header
+
+		args, err := prepareJSValidateArgs(a, &d)
+		So(err, ShouldBeNil)
+		So(args, ShouldEqual, `"4",{"EntryLink":"","Type":"foo","Time":"0001-01-01T00:00:00Z"},"QmY8Mzg9F69e5P9AoQPYat6x5HEhc1TVGs11tmfNSzkqh2"`)
+	})
 	Convey("it should prepare args for del", t, func() {
 		hash, _ := NewHash("QmY8Mzg9F69e5P9AoQPYat6x5HEhc1TVGs11tmfNSzkqh2")
 		entry := DelEntry{Hash: hash, Message: "expired"}
@@ -304,7 +315,6 @@ func TestPrepareJSValidateArgs(t *testing.T) {
 		So(err, ShouldBeNil)
 		So(args, ShouldEqual, `"QmY8Mzg9F69e5P9AoQPYat6x5HEhc1TVGs11tmfNSzkqh2"`)
 	})
-
 	Convey("it should prepare args for link", t, func() {
 		hash, _ := NewHash("QmY8Mzg9F69e5P9AoQPYat6x5HEhc1TVGs11tmfNSzkqh2")
 		a := NewLinkAction("evenNumbers", []Link{{Base: "QmdRXz53TVT9qBYfbXctHyy2GpTNa6YrpAy6ZcDGG8Xhc5", Link: "QmdRXz53TVT9qBYfbXctHyy2GpTNa6YrpAy6ZcDGG8Xhc5", Tag: "fish"}})

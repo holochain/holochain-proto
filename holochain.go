@@ -890,7 +890,7 @@ func (s *Service) GenDev(root string, format string) (hP *Holochain, err error) 
   (validate entryType entry header sources))
 (defn validatePut [entryType entry header pkg sources]
   (validate entryType entry header sources))
-(defn validateMod [entryType hash newHash pkg sources] true)
+(defn validateMod [entryType entry header replaces pkg sources] true)
 (defn validateDel [entryType hash pkg sources] true)
 (defn validate [entryType entry header sources]
   (cond (== entryType "evenNumbers")  (cond (== (mod entry 2) 0) true false)
@@ -918,7 +918,7 @@ function addProfile(x) {return commit("profile",x);}
 function validatePut(entry_type,entry,header,pkg,sources) {
   return validate(entry_type,entry,header,sources);
 }
-function validateMod(entry_type,hash,newHash,pkg,sources) {
+function validateMod(entry_type,entry,header,replaces,pkg,sources) {
   return true;
 }
 function validateDel(entry_type,hash,pkg,sources) {

@@ -276,7 +276,16 @@
         )
 )
 
-(defn validateMod [entryType hash newHash pkg sources] true)
+(defn validateMod [entryType entry header replaces pkg sources]
+  (cond (== entryType "handle")
+        (letseq [replacesReq (get replaces (hash GetMask:HC_GetMask_Sources))
+                 orig_sources (hget replacesReq %result [])
+                 ]
+                (and (== 1 (len orig_sources))
+                     (== (aget orig_sources 0) (aget sources 0))
+                     ))
+    true)
+  )
 (defn validateDel [entryType hash pkg sources] true)
 
 // ===============================================================================

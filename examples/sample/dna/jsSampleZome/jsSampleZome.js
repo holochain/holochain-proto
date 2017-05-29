@@ -1,4 +1,5 @@
 
+function unexposed(x) {return x+" fish";};
 function testStrFn1(x) {return "result: "+x};
 function testStrFn2(x){ return parseInt(x)+2};
 function testJsonFn1(x){ x.output = x.input*2; return x;};
@@ -10,7 +11,7 @@ function addProfile(x) {return commit("profile",x);}
 function validatePut(entry_type,entry,header,pkg,sources) {
   return validate(entry_type,entry,header,sources);
 }
-function validateMod(entry_type,hash,newHash,pkg,sources) {
+function validateMod(entry_type,entry,header,replaces,pkg,sources) {
   return true;
 }
 function validateDel(entry_type,hash,pkg,sources) {

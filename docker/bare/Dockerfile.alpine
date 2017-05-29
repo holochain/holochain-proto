@@ -15,7 +15,7 @@ RUN go get -v -d github.com/metacurrency/holochain \
 
 RUN adduser -D holochain \
 && addgroup holochain wheel \
-&& sed -i -e'/%wheel ALL=(ALL) NOPASSWD/s/# //' /etc/sudoers
+&& sed -i -e'/ALL=(ALL) NOPASSWD/s/# %wheel/%wheel/' /etc/sudoers
 USER holochain
 
 EXPOSE 3141

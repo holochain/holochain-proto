@@ -25,7 +25,7 @@
         "FnName": "post",
         "Input": {"message": "here is a test post",
                   "stamp":12345},
-        "Output": "%h1%",
+        "Output": "\"%h1%\"",
         "Exposure":"public",
         "Err": "",
         "Regexp": ""
@@ -45,6 +45,28 @@
         "FnName": "getPostsBy",
         "Input":  "[\"%r1%\"]",
         "Output": "[{\"H\":\"%h1%\",\"author\":\"%key%\",\"post\":\"{\\\"message\\\":\\\"here is a test post\\\",\\\"stamp\\\":12345}\"}]",
+        "Exposure":"public",
+        "Err": "",
+        "Regexp": ""
+    },
+    {
+        "Convey":"We can modify a post",
+        "Zome": "clutter",
+        "FnName": "postMod",
+        "Input": {"hash": "%h1%",
+                  "post": {"stamp": 12346,
+                           "message":"this is the modified post"}},
+        "Output": "\"%h%\"",
+        "Exposure":"public",
+        "Err": "",
+        "Regexp": ""
+    },
+    {
+        "Convey":"We can retrieve modified posts",
+        "Zome":   "clutter",
+        "FnName": "getPostsBy",
+        "Input":  "[\"%r3%\"]",
+        "Output": "[{\"H\":\"%h2%\",\"author\":\"%key%\",\"post\":\"{\\\"message\\\":\\\"this is the modified post\\\",\\\"stamp\\\":12346}\"}]",
         "Exposure":"public",
         "Err": "",
         "Regexp": ""

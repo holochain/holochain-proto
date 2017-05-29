@@ -50,9 +50,26 @@ function addPost() {
         stamp: now.valueOf()
     };
     send("post",JSON.stringify(post),function(data) {
-        post.key = data; // save the key of our post to the post
+        post.key = JSON.parse(data); // save the key of our post to the post
         post.author = App.me;
         var id = cachePost(post);
+        $("#meows").prepend(makePostHTML(id,post,App.handle));
+    });
+}
+
+function doEditPost() {
+    var now = new(Date);
+    var id = $('#postID').val();
+    var post = {
+        message:$('#editedMessage').val(),
+        stamp: now.valueOf()
+    };
+    $('#editPostDialog').modal('hide');
+    send("postMod",JSON.stringify({hash:App.posts[id].key,post:post}),function(data) {
+        post.key = JSON.parse(data); // save the key of our post to the post
+        post.author = App.me;
+        $("#"+id).remove();
+        id = cachePost(post);
         $("#meows").prepend(makePostHTML(id,post,App.handle));
     });
 }
@@ -75,9 +92,9 @@ function getUserHandle(user) {
 }
 
 function makePostHTML(id,post) {
-    var d = Date(post.stamp);
+    var d = new Date(post.stamp);
     var handle = getUserHandle(post.author);
-    return '<div class="meow" id="'+id+'"><div class="stamp">'+d+'</div><a href="#" class="user" onclick="showUser(\''+post.author+'\');">'+handle+'</a><div class="message">'+post.message+'</div></div>';
+    return '<div class="meow" id="'+id+'"><a class="meow-edit" href="#" onclick="openEditPost('+id+')">edit</a><div class="stamp">'+d+'</div><a href="#" class="user" onclick="showUser(\''+post.author+'\');">'+handle+'</a><div class="message">'+post.message+'</div></div>';
 }
 
 function makeUserHTML(user) {
@@ -261,6 +278,12 @@ function openSetHandle() {
     $('#setHandleDialog').modal('show');
 }
 
+function openEditPost(id) {
+    $("#editedMessage").val(App.posts[id].message);
+    $('#postID').val(id);
+    $('#editPostDialog').modal('show');
+}
+
 function unfollow(button) {
     // pull the handle out from the HTML
     var handle = $(button).parent().find('.handle')[0].innerHTML;
@@ -293,5 +316,7 @@ $(window).ready(function() {
     $('#setHandleButton').click(doSetHandle);
     $('#search-results.closer').click(hideSearchResults);
     $('#user-header').click(showFeed);
+    $('#editPostButton').click(doEditPost);
+
     getProfile();
 });

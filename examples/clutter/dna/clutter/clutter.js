@@ -38,8 +38,8 @@ function unfollow(userAddress){
                   ]});
 }
 
-function post(postBody) {
-    var key = commit("post",postBody);        // Commits the post block to my source chain, assigns resulting hash to 'key'
+function post(post) {
+    var key = commit("post",post);        // Commits the post block to my source chain, assigns resulting hash to 'key'
     var me = getMe();                       // Looks up my hash address and assign it to 'me'
                                             // which DHT nodes will use to request validation info from my source chain
 
@@ -49,6 +49,13 @@ function post(postBody) {
     debug("meta: "+JSON.stringify(getLink(me,"post",{Load:true})));
     debug(key);
     return key;                                  // Returns the hash key of the new post to the calling function
+}
+
+function postMod(params) {
+    var hash = params.hash;
+    var post = params.post;
+    // TODO, update the original link too?
+    return update("post",post,hash);
 }
 
 // TODO add "last 10" or "since timestamp" when query info is supported

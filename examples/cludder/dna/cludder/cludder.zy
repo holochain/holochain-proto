@@ -34,22 +34,28 @@
                                     ]))
     ))
 
-(defn post [postBody]
-  (let [key (commit "post" postBody)        // Commits the post block to my source chain, assigns resulting hash to 'key'
+(defn post [post]
+  (let [
+        // Commits the post block to my source chain, assigns resulting hash to 'key'
+        // which DHT nodes will use to request validation info from my source chain
+        key (commit "post" post)
         me (getMe)]
-                                            // which DHT nodes will use to request validation info from my source chain
-//    (for [(def i 0) (< i 20000) (def i (+ 1 i))] (mod 99999999 7))
-//    (debug (concat "post text: " (str (get key))))
 
-      // On the DHT, puts a link on my hash to the new post
-      (commit "post_links" (hash Links:[
-              (hash Base:me Link:key Tag:"post")
-            ]))
 
-//    (for [(def i 0) (< i 20000) (def i (+ 1 i))] (mod 99999999 7))
+    // On the DHT, puts a link on my hash to the new post
+    (commit "post_links" (hash Links:[(hash Base:me Link:key Tag:"post")]))
+
     (debug (concat "meta: " (str (getLink me "post" (hash Load:true)))))
     (debug key)
-    key))                                   // Returns the hash key of the new post to the calling function
+    key  // Returns the hash key of the new post to the calling function
+    ))
+
+(defn postMod [params]
+  (let [hash (hget params %hash)
+        post (hget params %post)]
+    (update "post" post hash)
+    )
+  )
 
 // TODO add "last 10" or "since timestamp" when query info is supported
 (defn getPostsBy [userAddresses]

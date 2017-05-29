@@ -111,5 +111,28 @@
       </div>
     </div>
 
+    <div class="modal fade" id="editPostDialog" tabindex="-1" role="dialog" aria-labelledby="editPostModalLabel">
+      <div class="modal-dialog" role="document">
+        <div class="modal-content">
+          <div class="modal-header">
+            <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+            <h4 class="modal-title" id="editPostModalLabel">Edit Post</h4>
+          </div>
+          <div class="modal-body">
+            <form>
+              <div class="form-group">
+                <label for="editedMessage">Post</label>
+                <input type="text" class="form-control" id="editedMessage">
+                <input type="hidden" id="postID">
+              </div>
+            </form>
+          </div>
+          <div class="modal-footer">
+            <button id="editPostButton" type="button" class="btn btn-primary">Update Post</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
   </body>
 </html>

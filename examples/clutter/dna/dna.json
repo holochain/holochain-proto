@@ -99,7 +99,12 @@
                 },
                 {
                     "Name": "post",
-                    "CallingType": "string",
+                    "CallingType": "json",
+                    "Exposure":"public"
+                },
+                 {
+                    "Name": "postMod",
+                    "CallingType": "json",
                     "Exposure":"public"
                 },
                 {

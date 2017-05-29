@@ -95,13 +95,17 @@ RequiresVersion = 11
     Name = "follow"
     CallingType = "string"
     Exposure = "public"
-  [[Zomes.Functions]]    
+  [[Zomes.Functions]]
     Name = "unfollow"
     CallingType = "string"
     Exposure = "public"
   [[Zomes.Functions]]    
     Name = "post"
-    CallingType = "string"
+    CallingType = "json"
+    Exposure = "public"
+  [[Zomes.Functions]]    
+    Name = "postMod"
+    CallingType = "json"
     Exposure = "public"
   [[Zomes.Functions]]    
     Name = "getPostsBy"

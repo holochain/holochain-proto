@@ -1,4 +1,4 @@
 :; . docker/build.sh #
 :; exit #
 @ECHO OFF
-docker build -f docker/hc-dev-tools/jessie -t hc-dev-tools:jessie .
+docker build -f docker/hc-dev-tools/Dockerfile.jessie -t hc-dev-tools:jessie .

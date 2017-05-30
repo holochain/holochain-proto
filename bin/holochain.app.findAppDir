@@ -12,4 +12,5 @@ if [ ! -d $FILE ]; then
 else
   export HOLOCHAIN_APPNAME=`cat .hc/immutable/readableName`
   export HOLOCHAIN_APPDIR=$PWD
+  export HOLOCHAIN_APPLOGDIR="$PWD/logs.holochain"
 fi

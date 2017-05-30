@@ -7,7 +7,7 @@ echo "mkdir -p $appRuntimeDir > /dev/null"
 mkdir -p $appRuntimeDir > /dev/null
 mkdir $appRuntimeDir/chain.seeded
 
-[ -d "$HOLOCHAIN_APPDIR/logs" ] || mkdir $HOLOCHAIN_APPDIR/logs > /dev/null
+[ -d "$HOLOCHAIN_APPDIR/logs.holochain" ] || mkdir $HOLOCHAIN_APPDIR/logs.holochain > /dev/null
 
 # HOLOCHAIN_APP_RUNTIMEDIR=$appRuntimeDir
 # export HOLOCHAIN_APP_RUNTIMEDIR

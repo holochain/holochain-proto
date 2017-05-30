@@ -28,4 +28,8 @@ echo $readableName > readableName
 cd ../..
 #chmod 550 .hc/immutable
 
+echo "/runtime/" >> .gitignore
+echo "/logs.holochain/" >> .gitignore
+echo "__tmp__*" >> .gitignore
+
 echo "HC: holochain app initialised"

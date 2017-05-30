@@ -18,9 +18,9 @@ export LOCAL_USER_ID=`id -u $USER`
 $HOLOCHAIN_SYSTEM_BIN/app/testScenario.createClusterScripts $scenarioName
 
 #begin log for this session
-logFile=$HOLOCHAIN_APPDIR/logs/testScenario.$scenarioName.log
+logFile=$HOLOCHAIN_APPLOGDIR/testScenario.$scenarioName.log
 printf "########################################################################\n########################################################################\n########################################################################\n" | tee -a $logFile
-echo "HC: testScenario $scenarioName started `date`" | tee -a $HOLOCHAIN_APPDIR/logs/cluster.log >> $logFile
+echo "HC: testScenario $scenarioName started `date`" | tee -a $HOLOCHAIN_APPLOGDIR/cluster.log >> $logFile
 
 
 ####docker stuff

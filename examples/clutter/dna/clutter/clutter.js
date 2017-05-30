@@ -288,12 +288,23 @@ function validateLink(linkEntryType,baseHash,links,pkg,sources){
 }
 function validateMod(entry_type,entry,header,replaces,pkg,sources) {
     debug("validate mod: "+entry_type+" header:"+JSON.stringify(header)+" replaces:"+JSON.stringify(replaces));
-    if (entry_type=="handle") {
+    if (entry_type == "handle") {
         // check that the source is the same as the creator
         // TODO we could also check that the previous link in the type-chain is the replaces hash.
         var orig_sources = get(replaces,{GetMask:HC.GetMask.Sources});
         if (isErr(orig_sources) || orig_sources == undefined || orig_sources.length !=1 || orig_sources[0] != sources[0]) {return false;}
 
+    } else if (entry_type == "post") {
+        // there must actually be a message
+        if (entry.message == "") return false;
+        var orig = get(replaces,{GetMask:HC.GetMask.Sources+HC.GetMask.Entry});
+
+        // check that source is same as creator
+        if (orig.Sources.length !=1 || orig.Sources[0] != sources[0]) {return false;}
+
+        var orig_message = JSON.parse(orig.Entry.C).message;
+        // message must actually be different
+        return orig_message != entry.message;
     }
     return true;
 }

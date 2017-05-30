@@ -70,5 +70,16 @@
         "Exposure":"public",
         "Err": "",
         "Regexp": ""
+    },
+    {
+        "Convey":"Modify a post, must actually modify it's content",
+        "Zome": "clutter",
+        "FnName": "postMod",
+        "Input": {"hash": "%h2%",
+                  "post": {"stamp": 12346,
+                           "message":"this is the modified post"}},
+        "Exposure":"public",
+        "Output": "{\"message\":\"Invalid entry: {\\\"message\\\":\\\"this is the modified post\\\",\\\"stamp\\\":12346}\",\"name\":\"HolochainError\"}",
+        "Regexp": ""
     }
 ]

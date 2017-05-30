@@ -284,13 +284,33 @@
 
 (defn validateMod [entryType entry header replaces pkg sources]
   (cond (== entryType "handle")
+        // check that the source is the same as the creator
+        // TODO we could also check that the previous link in the type-chain is the replaces
         (letseq [replacesReq (get replaces (hash GetMask:HC_GetMask_Sources))
                  orig_sources (hget replacesReq %result [])
                  ]
                 (and (== 1 (len orig_sources))
                      (== (aget orig_sources 0) (aget sources 0))
                      ))
-    true)
+        (== entryType "post")
+        (let [message (hget entry %message)]
+          // there must actually be a message
+          (and (!= message "")
+               (letseq [replacesReq (get replaces (hash GetMask:(+ HC_GetMask_Sources HC_GetMask_Entry)))
+                        orig (hget replacesReq %result)
+                        orig_sources (hget orig %Sources)
+                        post (unjson (raw (hget orig %Entry)))
+                        orig_message (hget (unjson (raw post)) %message)
+                        ]
+                       (and
+                        // check that source is same as creator
+                        (== 1 (len orig_sources))
+                        (== (aget orig_sources 0) (aget sources 0))
+                        // message must actually be different
+                        (!= orig_message message))
+                       ))
+          )
+        true)
   )
 (defn validateDel [entryType hash pkg sources] true)
 

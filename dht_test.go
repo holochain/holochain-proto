@@ -78,11 +78,12 @@ func TestPutGetModDel(t *testing.T) {
 		So(err, ShouldBeNil)
 		idx, _ = dht.GetIdx()
 
-		data, entryType, _, status, err := dht.get(hash, StatusLive, GetMaskAll)
+		data, entryType, sources, status, err := dht.get(hash, StatusLive, GetMaskAll)
 		So(err, ShouldBeNil)
 		So(string(data), ShouldEqual, "some value")
 		So(entryType, ShouldEqual, "someType")
 		So(status, ShouldEqual, StatusLive)
+		So(sources[0], ShouldEqual, peer.IDB58Encode(h.id))
 
 		badhash, _ := NewHash("QmY8Mzg9F69e5P9AoQPYat655HEhc1TVGs11tmfNSzkqh3")
 		data, entryType, _, _, err = dht.get(badhash, StatusLive, GetMaskDefault)
@@ -360,6 +361,22 @@ func TestDHTReceiver(t *testing.T) {
 		resp = r.(GetResp)
 		So(fmt.Sprintf("%v", resp.Entry), ShouldEqual, fmt.Sprintf("%v", &e))
 		So(resp.EntryType, ShouldEqual, "evenNumbers")
+
+		m = h.node.NewMessage(GET_REQUEST, GetReq{H: hash, GetMask: GetMaskSources})
+		r, err = DHTReceiver(h, m)
+		So(err, ShouldBeNil)
+		resp = r.(GetResp)
+		So(resp.Entry, ShouldBeNil)
+		So(fmt.Sprintf("%v", resp.Sources), ShouldEqual, fmt.Sprintf("[%v]", peer.IDB58Encode(h.id)))
+		So(resp.EntryType, ShouldEqual, "")
+
+		m = h.node.NewMessage(GET_REQUEST, GetReq{H: hash, GetMask: GetMaskEntry + GetMaskSources})
+		r, err = DHTReceiver(h, m)
+		So(err, ShouldBeNil)
+		resp = r.(GetResp)
+		So(fmt.Sprintf("%v", resp.Entry), ShouldEqual, fmt.Sprintf("%v", &e))
+		So(fmt.Sprintf("%v", resp.Sources), ShouldEqual, fmt.Sprintf("[%v]", peer.IDB58Encode(h.id)))
+		So(resp.EntryType, ShouldEqual, "")
 	})
 
 	someData := `{"firstName":"Zippy","lastName":"Pinhead"}`
@@ -436,8 +453,8 @@ func TestDHTReceiver(t *testing.T) {
 	})
 
 	// put a second entry to DHT
-	e2 := GobEntry{C: "321"}
-	_, hd2, _ := h.NewEntry(now, "oddNumbers", &e2)
+	e2 := GobEntry{C: "322"}
+	_, hd2, _ := h.NewEntry(now, "evenNumbers", &e2)
 	hash2 := hd2.EntryLink
 	m2 := h.node.NewMessage(PUT_REQUEST, PutReq{H: hash2})
 	DHTReceiver(h, m2)
@@ -453,7 +470,7 @@ func TestDHTReceiver(t *testing.T) {
 
 	Convey("DELETE_REQUEST should set status of hash to deleted", t, func() {
 		entry := DelEntry{Hash: hash2, Message: "expired"}
-		a := NewDelAction("oddNumbers", entry)
+		a := NewDelAction("evenNumbers", entry)
 		_, _, entryHash, err := h.doCommit(a, &StatusChange{Action: DelAction, Hash: hash2})
 
 		m := h.node.NewMessage(DEL_REQUEST, DelReq{H: hash2, By: entryHash})
@@ -468,8 +485,8 @@ func TestDHTReceiver(t *testing.T) {
 		data, entryType, _, status, _ := h.dht.get(hash2, StatusAny, GetMaskAll)
 		var e GobEntry
 		e.Unmarshal(data)
-		So(e.C, ShouldEqual, "321")
-		So(entryType, ShouldEqual, "oddNumbers")
+		So(e.C, ShouldEqual, "322")
+		So(entryType, ShouldEqual, "evenNumbers")
 		So(status, ShouldEqual, StatusDeleted)
 	})
 }

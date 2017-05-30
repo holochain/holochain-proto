@@ -646,7 +646,7 @@ func NewJSNucleus(h *Holochain, code string) (n Nucleus, err error) {
 				if mask&GetMaskEntryType != 0 {
 					respObj["EntryType"] = getResp.EntryType
 				}
-				if mask&GetMaskEntryType != 0 {
+				if mask&GetMaskSources != 0 {
 					respObj["Sources"] = getResp.Sources
 				}
 				result, err = z.vm.ToValue(respObj)

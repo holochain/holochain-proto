@@ -346,7 +346,7 @@ func (a *ActionGet) Do(h *Holochain) (response interface{}, err error) {
 			if err != nil {
 				return
 			}
-			req := GetReq{H: hash, StatusMask: StatusDefault}
+			req := GetReq{H: hash, StatusMask: StatusDefault, GetMask: a.options.GetMask}
 			modResp, err := NewGetAction(req, a.options).Do(h)
 			if err == nil {
 				response = modResp

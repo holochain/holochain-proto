@@ -675,7 +675,7 @@ func (dht *DHT) handleChangeReq(m *Message) (err error) {
 			return
 		}
 		var r interface{}
-		r, err = dht.h.Send(ValidateProtocol, from, VALIDATE_MOD_REQUEST, ValidateQuery{H: t.H})
+		r, err = dht.h.Send(ValidateProtocol, from, VALIDATE_MOD_REQUEST, ValidateQuery{H: t.N})
 		if err != nil {
 			return
 		}

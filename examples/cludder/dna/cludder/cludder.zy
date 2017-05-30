@@ -210,28 +210,36 @@
 (defn validatePut [entryType entry header pkg sources]
   (validate entryType entry header sources))
 
-(defn validate [entryType entryData header sources]
-//  (cond
-//    (== entryType "handle") (true)
-//    (let [headers (hget entryProperties %:headers)
-//          address (hget headers %address)  // maybe a :%
-//          collision (get address)]
-//      (debug (str collision) true))
-      // TODO deal with handle collisions
-      // TODO strip "handle" of any illegal chars
-//    (or (== entryType "follow") (== entryType "unfollow"))
-//    (let [fromAddr (first (hget entryProperties %Sources))
-//          tag (hget entryProperties %MetaTag)]
-//      (cond (== tag "follower")
-//            (true) // entryData needs to match the sourceAddr
-//            (== tag "following")
-//            (true) // base-hash needs to match the sourceAddr
-//            (true)))
-//      (and (== entryType "post") (== tag "post"))
-//          true // base-hash matches sourceAddr
-//      true)
-    true
-    )
+(defn validate [entryType entry header sources]
+  (cond
+    (== entryType "post")
+    (letseq [message (hget entry %message)
+             l (len message)]
+      (and (> l 0) (< l 256))
+      )
+    (== entryType "handle") true
+    (== entryType "follow") true
+    //    (== entryType "handle") (true)
+    //    (let [headers (hget entryProperties %:headers)
+                //          address (hget headers %address)  // maybe a :%
+                //          collision (get address)]
+            //      (debug (str collision) true))
+    // TODO deal with handle collisions
+    // TODO strip "handle" of any illegal chars
+    //    (or (== entryType "follow") (== entryType "unfollow"))
+    //    (let [fromAddr (first (hget entryProperties %Sources))
+                //          tag (hget entryProperties %MetaTag)]
+            //      (cond (== tag "follower")
+                          //            (true) // entryData needs to match the sourceAddr
+                          //            (== tag "following")
+                          //            (true) // base-hash needs to match the sourceAddr
+                          //            (true)))
+    //      (and (== entryType "post") (== tag "post"))
+    //
+//    true // base-hash matches sourceAddr
+
+    true)
+  )
 
 // Are there types of tags that you need special permission to add links?
 // Examples:

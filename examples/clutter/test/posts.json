@@ -20,6 +20,17 @@
         "Regexp": ""
     },
     {
+        "Convey":"Post must have non-zero length",
+        "Zome": "clutter",
+        "FnName": "post",
+        "Input": {"message": "",
+                  "stamp":12345},
+        "Output": "{\"message\":\"Invalid entry: {\\\"message\\\":\\\"\\\",\\\"stamp\\\":12345}\",\"name\":\"HolochainError\"}",
+        "Exposure":"public",
+        "Err": "",
+        "Regexp": ""
+    },
+    {
         "Convey":"We can create a new post",
         "Zome": "clutter",
         "FnName": "post",

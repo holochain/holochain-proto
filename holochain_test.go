@@ -9,6 +9,7 @@ import (
 	ic "github.com/libp2p/go-libp2p-crypto"
 	. "github.com/smartystreets/goconvey/convey"
 	"os"
+	"strings"
 	"testing"
 	"time"
 )
@@ -529,6 +530,19 @@ func TestCommit(t *testing.T) {
 		results, err := h.dht.getLink(hash, "4stars", StatusLive)
 		So(err, ShouldBeNil)
 		So(fmt.Sprintf("%v", results), ShouldEqual, "[{QmYeinX5vhuA91D3v24YbgyLofw9QAxY6PoATrBHnRwbtt }]")
+	})
+}
+
+func TestDNADefaults(t *testing.T) {
+	h, err := DecodeDNA(strings.NewReader(`[[Zomes]]
+Name = "test"
+Description = "test-zome"
+NucleusType = "zygo"`), "toml")
+	if err != nil {
+		return
+	}
+	Convey("it should substitute default values", t, func() {
+		So(h.Zomes[0].Code, ShouldEqual, "test.zy")
 	})
 }
 

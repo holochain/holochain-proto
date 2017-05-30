@@ -250,6 +250,20 @@ func DecodeDNA(reader io.Reader, format string) (hP *Holochain, err error) {
 	if err != nil {
 		return
 	}
+
+	for i, zome := range h.Zomes {
+		if zome.Code == "" {
+			var ext string
+			switch zome.NucleusType {
+			case "js":
+				ext = ".js"
+			case "zygo":
+				ext = ".zy"
+			}
+			h.Zomes[i].Code = zome.Name + ext
+		}
+	}
+
 	hP = &h
 	hP.encodingFormat = format
 

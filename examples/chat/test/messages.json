@@ -38,7 +38,7 @@
     "Zome":"profiles",
     "FnName":"myProfile",
     "Input":"",
-    "Output":"{\"agent_id\":\"QmXksx1cnsNcWtWzn2yPHPeM23y7ejTUgSsiuq1m48uY3d\",\"email\":\"chuck@norris.com\",\"firstName\":\"Chuck\",\"lastName\":\"Norris\",\"username\":\"cnorris\"}",
+    "Output":"{\"agent_id\":\"%key%\",\"email\":\"chuck@norris.com\",\"firstName\":\"Chuck\",\"lastName\":\"Norris\",\"username\":\"cnorris\"}",
     "Err":""
   },  {
     "Zome":"rooms",

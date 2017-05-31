@@ -1,10 +1,14 @@
 #!/bin/sh
 
+#pause everything
 syncStart hc.sync.counter pre.up bs hc.sync.ready post.up hc.sync.complete
 
+#all containers have already started
 sync externalStartEvent
 
+#make sure that all hc.sync containers have started properly (this probably isnt necessary)
 sync hc.sync.counter
+
 
 rm -rf /home/user/.holochain/devchain
 rm -rf /chain.seeded/devchain

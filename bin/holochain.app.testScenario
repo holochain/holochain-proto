@@ -44,14 +44,14 @@ appAppDockerDir="$HOLOCHAIN_APPDIR/runtime/docker"
 dockerComposeSystem="$systemAppDockerDir/docker-compose.with.bs.syncedHCMultiNode.yml"
 #constants
 dockerComposeApp="$HOLOCHAIN_APPDIR/__tmp__.holochain.2134837348734.docker-compose.runCluster.yml"
-rm $dockerComposeApp
+rm $dockerComposeApp $> /dev/null
 ln $dockerComposeSystem $dockerComposeApp
 
 #these depend on what your dockerComposeSystem file requires
-ln "$systemAppDockerDir/Dockerfile.seedService" "$appAppDockerDir/Dockerfile.seedService"
-ln "$systemAppDockerDir/Dockerfile.bsService" "$appAppDockerDir/Dockerfile.bsService"
-ln "$systemAppDockerDir/Dockerfile.syncedHCMultiNode" "$appAppDockerDir/Dockerfile.syncedHCMultiNode"
-ln "$systemAppDockerDir/Dockerfile.syncedHCMultiNode.releaseSyncService" "$appAppDockerDir/Dockerfile.syncedHCMultiNode.releaseSyncService"
+for dockerFileName in "seedService bsService syncedHCMultiNode syncedHCMultiNode.releaseSyncService externalStartEvent"
+do
+  ln "systemAppDockerDir/Dockerfile.$dockerFileName" "appAppDockerDir/Dockerfile.$dockerFileName"
+done
 
 #give access to the scripts .. maybe, might not work ( symlinks )
 ln -s $HOLOCHAIN_SYSTEM_BIN/../docker/app.docker $HOLOCHAIN_APPDIR/runtime/Scripts

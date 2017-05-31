@@ -1,2 +1,3 @@
 .dockerignore
 docker
+bin

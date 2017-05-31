@@ -1,0 +1,3 @@
+FROM metacurrency/holochain
+
+CMD [ "rm", "/runtime/cluster/sync/externalStartEvent" ]

@@ -1,4 +1,3 @@
-FROM metacurrency/holochain
+FROM metacurrency/holochain/core.docker
 
-expose 3141
-
+CMD [ "export", "PATH=\"/Scripts/syncedMultiNode.containers.scripts:$PATH\" " ]

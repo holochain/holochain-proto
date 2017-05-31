@@ -17,12 +17,12 @@ This document provides a description and usage instructions for the different us
 This is a list of use-cases for Docker in the context of Holochain. Once you have found the Docker image for your needs, scroll down to the relevant image section below.
 
 ### Multi-Node Tests
-Docker enables easy creation of virtual nodes, which makes it good for testing how multiple nodes interact.
+Docker enables easy creation of virtual machines, which makes it good for testing how multiple holochain nodes interact.
 
 See [the Holochain skeleton repository](https://github.com/metacurrency/holoSkel) for working examples of this.
 
 ### Development
-Docker can also be used for doing development inside of containers. This can be helpful for developers who are unable to run Holochain on their system.
+Docker can also be used for doing development inside of containers. This can be helpful for developers who are unable to (or don't want to) run Holochain directly on their system.
 
 For this use-case, one of the [hc-dev-tools](#hc-dev-tools) images should be built and run interactively.
 
@@ -33,10 +33,10 @@ Docker can also be used for distributing a Holochain application as an image.
 For this use-case one of the [metacurrency/holochain](#metacurrencyholochain) images should be used as the base of a custom image for your project.
 
 ## Images
-This is a list of Docker images published by holochain as well as instructions on how to use them.
+This is a list of Docker images [published by holochain](https://hub.docker.com/u/metacurrency/) as well as instructions on how to use them.
 
 ### metacurrency/holochain
-These images are based on the official `golang` with the addition of installing the `hc` command.
+These images are based on the official [`golang`](https://hub.docker.com/_/golang/) with the addition of installing the `hc` command.
 
 In order to use these images place their tag in the `FROM` statement of your Dockerfile.
 

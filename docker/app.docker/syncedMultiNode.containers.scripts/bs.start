@@ -1,6 +1,8 @@
 #!/bin/sh
 echo #!/bin/sh $0
 
+export PATH="/Scripts/syncedMultiNode.containers.scripts:$PATH"
+
 sync externalStartEvent
 
 sync pre.up
@@ -15,6 +17,6 @@ bs &
 #give bs server time to actually start
 sleep .5
 
-cyns bs
+cnys bs
 
 sync hc.sync.complete

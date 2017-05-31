@@ -1,4 +1,5 @@
 #!/bin/sh
+export "PATH=/Scripts/syncedMultiNode.containers.scripts:$PATH"
 
 sync externalStartEvent
 
@@ -21,4 +22,4 @@ for container in `ls $clusterDir/hc`; do
 done
 
 
-cyns post.up
+cnys post.up

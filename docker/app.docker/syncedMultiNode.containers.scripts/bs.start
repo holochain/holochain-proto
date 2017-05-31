@@ -1,6 +1,10 @@
 #!/bin/sh
 echo #!/bin/sh $0
 
+sync externalStartEvent
+
+sync pre.up
+
 ipaddr=`hostname -i`
 
 echo "bootstrap server container ip address: $ipaddr"
@@ -8,5 +12,9 @@ echo "bootstrap server container ip address: $ipaddr"
 echo $ipaddr > /chain.seeded/bs.ip
 
 bs &
+#give bs server time to actually start
+sleep .5
 
-#mkfifo "$HOME/.pause.fifo" 2>/dev/null; read <"$HOME/.pause.fifo"
+cyns bs
+
+sync hc.sync.complete

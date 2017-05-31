@@ -1,0 +1,4 @@
+waitOnDir="/runtime/cluster/waitOn"
+[ -d "$waitOnDir" ] || mkdir $waitOnDir $> /dev/null
+
+mkfifo "$waitOnDir/$1.fifo" 2>/dev/null; read < "$waitOnDir/$1"

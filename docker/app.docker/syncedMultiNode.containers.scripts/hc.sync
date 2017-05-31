@@ -1,9 +1,11 @@
 #!/bin/sh
-echo #!/bin/sh $0
-sleep 1
 
-hackyCheatSync="/chain.seeded/devchain"
-/Scripts/syncedMultiNode.containers.scripts/sync  $hackyCheatSync
+syncStart hc.sync.counter.$HOSTNAME hc.sync.ready.$HOSTNAME hc.sync.complete.$HOSTNAME
+cyns hc.sync.counter
+
+sync externalStartEvent
+
+sync bs
 
 seedID=`cat /chain.seeded/devchain/.seedID`
 clusterDir="/chain.seeded/devchain/cluster/$seedID"
@@ -17,8 +19,12 @@ echo "echo defaultBehaviour. No test role found. " >> $clusterDir/hc/$HOSTNAME
 echo "hc serve devchain" >> $clusterDir/hc/$HOSTNAME 
 chmod +x $clusterDir/hc/$HOSTNAME 
 
-/Scripts/syncedMultiNode.containers.scripts/sync $clusterDir
+cyns hc.sync.ready hc.sync.ready.$HOSTNAME
+
+sync post.up
 
 echo "$HOSTNAME > sync completed"
 
 $clusterDir/hc/$HOSTNAME
+
+cyns hc.sync.complete hc.sync.complete.$HOSTNAME

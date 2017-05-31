@@ -1,9 +1,12 @@
 #!/bin/sh
-echo #!/bin/sh $0
+syncDir="/runtime/cluster/sync"
+[ -d "$syncDir" ] || mkdir $syncDir $> /dev/null
 
-#TODO add inotifywait
+syncFile=$1
 
-while [ -f $1/.cluster.lock ]
-do
-  sleep 0.1
-done
+[ ! -f "$syncDir/$syncFile" ] && echo "HC: sync: WARNING: There was never a sync file: $syncFile to begin with"
+
+while { [ -f "$syncDir/$syncFile" ] || [ -f "$syncDir/$syncFile.*" ] ; }
+  do
+    sleep 0.1
+  done

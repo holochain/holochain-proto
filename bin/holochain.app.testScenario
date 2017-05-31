@@ -71,3 +71,6 @@ rm $appDockerCompose &
 rm -r $HOLOCHAIN_APPDIR/runtime &
 
 set +x
+
+#otherwise bash prompt gets injured
+sleep 1

@@ -60,8 +60,9 @@ sed -i'' s/{{FROM_DOCKERIMAGETAG}}/$holochainImageTag/g $appAppDockerDir/Dockerf
 #give access to the scripts .. maybe, might not work ( symlinks )
 ln -s $HOLOCHAIN_SYSTEM_BIN/../docker/app.docker $HOLOCHAIN_APPDIR/runtime/Scripts
 
-#copy the whole repo into the runtime directory as the build context
-
+#add own flowcontrol over docker start order
+mkdir -p $HOLOCHAIN_APPDIR/runtime/cluster/sync &> /dev/null
+touch $HOLOCHAIN_APPDIR/runtime/cluster/sync/externalStartEvent || { echo "HC: Could not add start event" && exit 1 ; }
 
 echo "$HOLOCHAIN_SYSTEM_BIN/app/runCluster $scenarioName $systemDockerCompose $logFile"
 $HOLOCHAIN_SYSTEM_BIN/app/runCluster $scenarioName $logFile

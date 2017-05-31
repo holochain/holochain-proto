@@ -1,0 +1,9 @@
+#!/bin/bash
+
+#set the HOLOCHAIN_SYSTEM_BIN variable
+. holochain.system.checkInstalled || { echo "HC: cannot find holochain bin directory. exitting" && exit 1 ; }
+
+# use --no-cache=true or not? Not because its up to developer to manage
+noCache=""
+holochain.tools.confirm "Use --no-cache=true to build the docker image (takes time, probabaly not needed) ? (N/y)" && noCache="--no-cache=true"
+docker build $noCache -f $HOLOCHAIN_SYSTEM_BIN/../docker/core.docker/Dockerfile.core.entrypointForLocalUID -t metacurrency/holochain/core.docker.forapptests $HOLOCHAIN_SYSTEM_BIN/..

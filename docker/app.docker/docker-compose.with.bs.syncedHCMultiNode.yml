@@ -25,7 +25,7 @@ services:
       - ./runtime/Scripts:/Scripts
       - ./runtime:/runtime
     depends_on: [service.chain]
-    command: /bin/sh -c /Scripts/syncedMultiNode.containers.scripts/bs.start
+    command: /bin/sh -c "/Scripts/syncedMultiNode.containers.scripts/bs.start"
   hc:
     build:
       context: .
@@ -57,12 +57,12 @@ services:
   external.start.event:
     build:
       context: .
-      dockerfile: runtime/docker/Dockerfile.app.externalStartEvent
+      dockerfile: runtime/docker/Dockerfile.BASE
     environment:
       - LOCAL_USER_ID
     volumes:
       - ./runtime:/runtime
-    command: /bin/sh -c ":"
+    command: [ "rm", "/runtime/cluster/sync/externalStartEvent" ]
     depends_on: [hc.post.up]
 
 # volumes:

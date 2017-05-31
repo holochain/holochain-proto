@@ -1,9 +1,10 @@
 #!/bin/sh
+export "PATH=/Scripts/syncedMultiNode.containers.scripts:$PATH"
 
 syncStart hc.sync.counter.$HOSTNAME hc.sync.ready.$HOSTNAME hc.sync.complete.$HOSTNAME
 
 sync externalStartEvent
-cyns hc.sync.counter
+cnys hc.sync.counter
 
 sync bs
 
@@ -19,7 +20,7 @@ echo "echo defaultBehaviour. No test role found. " >> $clusterDir/hc/$HOSTNAME
 echo "hc serve devchain" >> $clusterDir/hc/$HOSTNAME 
 chmod +x $clusterDir/hc/$HOSTNAME 
 
-cyns hc.sync.ready hc.sync.ready.$HOSTNAME
+cnys hc.sync.ready hc.sync.ready.$HOSTNAME
 
 sync post.up
 
@@ -27,4 +28,4 @@ echo "$HOSTNAME > sync completed"
 
 $clusterDir/hc/$HOSTNAME
 
-cyns hc.sync.complete hc.sync.complete.$HOSTNAME
+cnys hc.sync.complete hc.sync.complete.$HOSTNAME

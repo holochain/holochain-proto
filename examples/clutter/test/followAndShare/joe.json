@@ -1,0 +1,43 @@
+[
+    {
+        "Convey":"setup handle for posting",
+        "Zome": "clutter",
+        "FnName": "newHandle",
+        "Input": "joe",
+        "Output": "%h2%",
+        "Exposure":"public",
+        "Err": "",
+        "Regexp": ""
+    },
+    {
+        "Time":2000,
+        "Convey":"get jane's agent key",
+        "Zome": "clutter",
+        "FnName": "getAgent",
+        "Input": "jane",
+        "Exposure":"public",
+        "Err": "",
+        "Regexp": "Qm[a-zA-Z0-9]*"
+    },
+    {
+        "Time":2100,
+        "Convey":"follow jane",
+        "Zome": "clutter",
+        "FnName": "follow",
+        "Input": "%r1%",
+        "Output": "%h%",
+        "Exposure":"public",
+        "Err": "",
+        "Regexp": ""
+    },
+    {
+        "Time":2150,
+        "Convey":"retrieve jane's posts",
+        "Zome":   "clutter",
+        "FnName": "getPostsBy",
+        "Input":  "[\"%r2%\"]",
+        "Exposure":"public",
+        "Err": "",
+        "Regexp": ".*hello world.*"
+   }
+]

@@ -1,0 +1,24 @@
+[
+    {
+        "Convey":"setup handle for posting",
+        "Zome": "clutter",
+        "FnName": "newHandle",
+        "Input": "jane",
+        "Output": "%h2%",
+        "Exposure":"public",
+        "Err": "",
+        "Regexp": ""
+    },
+    {
+        "Convey":"create a new post",
+        "Zome": "clutter",
+        "FnName": "post",
+        "Input": {"message": "hello world",
+                  "stamp":12345},
+        "Output": "\"%h1%\"",
+        "Exposure":"public",
+        "Err": "",
+        "Regexp": "",
+        "Time":100
+    }
+]

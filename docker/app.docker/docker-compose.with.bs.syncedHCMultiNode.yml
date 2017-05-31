@@ -4,7 +4,7 @@ services:
   service.chain:
     build:
       context: .
-      dockerfile: runtime/docker/Dockerfile.seedService
+      dockerfile: runtime/docker/Dockerfile.app.seedService
     environment:
       - LOCAL_USER_ID
     volumes:
@@ -15,7 +15,7 @@ services:
   bs:
     build:
       context: .
-      dockerfile: runtime/docker/Dockerfile.bsService
+      dockerfile: runtime/docker/Dockerfile.app.bsService
     ports:
       - "3142"
     environment:
@@ -29,7 +29,7 @@ services:
   hc:
     build:
       context: .
-      dockerfile: runtime/docker/Dockerfile.syncedHCMultiNode
+      dockerfile: runtime/docker/Dockerfile.app.syncedHCMultiNode
     ports:
       - "3141"
       - "6283"
@@ -45,7 +45,7 @@ services:
   hc.post.up:
     build:
       context: .
-      dockerfile: runtime/docker/Dockerfile.syncedHCMultiNode.releaseSyncService
+      dockerfile: runtime/docker/Dockerfile.app.syncedHCMultiNode.releaseSyncService
     environment:
       - LOCAL_USER_ID
     volumes:
@@ -57,7 +57,7 @@ services:
   external.start.event:
     build:
       context: .
-      dockerfile: runtime/docker/Dockerfile.externalStartEvent
+      dockerfile: runtime/docker/Dockerfile.app.externalStartEvent
     environment:
       - LOCAL_USER_ID
     volumes:

@@ -51,7 +51,7 @@ WORKDIR /work/golang/src/github.com/metacurrency/holochain
 EXPOSE 3141
 
 # sort out dynamic user login
-  COPY        docker/core.docker/entrypoint.sh.addHostUserToContainer /usr/local/bin/entrypoint.sh.addHostUserToContainer
+  COPY        scriptsAccessibleByDockerfiles/entrypoint.sh.addHostUserToContainer /usr/local/bin/entrypoint.sh.addHostUserToContainer
   RUN         chmod +x /usr/local/bin/entrypoint.sh.addHostUserToContainer
   ENTRYPOINT  ["/usr/local/bin/entrypoint.sh.addHostUserToContainer"]
 

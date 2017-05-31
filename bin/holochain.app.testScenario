@@ -4,9 +4,9 @@ echo "HC: $0"
 scenarioName=$1
 
 #set the HOLOCHAIN_SYSTEM_BIN variable
-. holochain.system.checkInstalled
+. holochain.system.checkInstalled || { echo "HC: cannot find holochain bin directory. exitting" && exit 1 ; }
 #set the HOLOCHAIN_APPNAME and HOLOCHAIN_APPDIR variables
-. holochain.app.findAppDir
+. holochain.app.findAppDir ||  exit 1
 
 
 export dockerBaseRun=" -e LOCAL_USER_ID=`id -u $USER` "
@@ -31,7 +31,7 @@ cp $HOLOCHAIN_SYSTEM_BIN/../docker/app.docker/Dockerfile.BASE $HOLOCHAIN_APPDIR/
 #build the image to use as the base for the bs instance and hc instances
 
 holochainImageTag="holochain.app.testing.$HOLOCHAIN_APPNAME"
-docker image inspect metacurrency/holochain/core.docker || { echo "no current docker image for testing app. Run [insert command here]" && exit 1 ; }
+docker image inspect metacurrency/holochain/core.docker.forapptests || { printf "HC: no current docker image for testing app.\n\n  run: $ holochain.system.buildImageForAppTests" && exit 1 ; }
 docker build --no-cache=true -f $HOLOCHAIN_APPDIR/runtime/docker/Dockerfile.BASE -t $holochainImageTag $HOLOCHAIN_APPDIR
 
 

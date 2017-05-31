@@ -2,7 +2,7 @@
 syncDir="/runtime/cluster/sync"
 [ -d "$syncDir" ] || mkdir $syncDir $> /dev/null
 
-for syncFile in "$@"
+for syncFile in $@
 do
     touch "$syncDir/$syncFile"
 done

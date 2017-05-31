@@ -26,11 +26,13 @@ set -x
 
 ####docker stuff
 mkdir -p "$HOLOCHAIN_APPDIR/runtime/docker" > /dev/null
-#need to hardlink the Dockerfile for docker security
-ln $HOLOCHAIN_SYSTEM_BIN/../docker/app.docker/Dockerfile.BASE $HOLOCHAIN_APPDIR/runtime/docker/Dockerfile.BASE
+#cp the Dockerfile in preparation for dependency injection
+cp $HOLOCHAIN_SYSTEM_BIN/../docker/app.docker/Dockerfile.BASE $HOLOCHAIN_APPDIR/runtime/docker/Dockerfile.BASE
 #build the image to use as the base for the bs instance and hc instances
 
-docker build --no-cache -f $HOLOCHAIN_APPDIR/runtime/docker/Dockerfile.BASE -t holochain.app.testing.$HOLOCHAIN_APPNAME $HOLOCHAIN_APPDIR
+holochainImageTag="holochain.app.testing.$HOLOCHAIN_APPNAME"
+docker image inspect metacurrency/holochain/core.docker || { echo "no current docker image for testing app. Run [insert command here]" && exit 1 ; }
+docker build --no-cache=true -f $HOLOCHAIN_APPDIR/runtime/docker/Dockerfile.BASE -t $holochainImageTag $HOLOCHAIN_APPDIR
 
 
 #TODO COMMENT AND MAKE WORK
@@ -53,7 +55,7 @@ for dockerFileName in $dockerfiles
 do
   cp "$systemAppDockerDir/Dockerfile.$dockerFileName" "$appAppDockerDir/Dockerfile.$dockerFileName"
 done
-sed -i'' s/{{FROM_DOCKERIMAGETAG}}/holochain.app.testing.$HOLOCHAIN_APPNAME/g $appAppDockerDir/Dockerfile.app.*
+sed -i'' s/{{FROM_DOCKERIMAGETAG}}/$holochainImageTag/g $appAppDockerDir/Dockerfile.app.*
 
 #give access to the scripts .. maybe, might not work ( symlinks )
 ln -s $HOLOCHAIN_SYSTEM_BIN/../docker/app.docker $HOLOCHAIN_APPDIR/runtime/Scripts

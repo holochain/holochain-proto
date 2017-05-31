@@ -1,3 +1,0 @@
-FROM metacurrency/holochain
-
-rm /runtime/cluster/sync/externalStartEvent

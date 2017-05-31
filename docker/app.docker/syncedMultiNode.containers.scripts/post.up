@@ -1,5 +1,8 @@
 #!/bin/sh
-sleep 2
+
+sync externalStartEvent
+
+sync hc.sync.ready
 
 echo #!/bin/sh $0
 seedID=`cat /chain.seeded/devchain/.seedID`
@@ -18,8 +21,4 @@ for container in `ls $clusterDir/hc`; do
 done
 
 
-
-echo "unlocking cluster $seedID"
-rm $clusterDir/.cluster.lock
-
-
+cyns post.up

@@ -1,29 +1,24 @@
 #!/bin/sh
-echo #!/bin/sh $0
+
+syncStart hc.sync.counter pre.up bs hc.sync.ready post.up hc.sync.complete
+
+sync externalStartEvent
+
+sync hc.sync.counter
 
 rm -rf /home/user/.holochain/devchain
 rm -rf /chain.seeded/devchain
 
-hackyCheatSync="/chain.seeded/devchain"
-mkdir /chain.seeded/devchain
-touch $hackyCheatSync/.cluster.lock
-
 set -x
 
 hc init $HOSTNAME
-echo
 
 ls /chain.source -la
 hc clone /chain.source devchain
-echo 
 
 hc test devchain
-echo
 
 hc seed devchain
-echo
-
-
 
 
 echo "$HOSTNAME" > /home/user/.holochain/devchain/.seedID
@@ -34,24 +29,18 @@ clusterDir="/home/user/.holochain/devchain/cluster/$seedID"
 mkdir /home/user/.holochain/devchain/cluster
 mkdir /home/user/.holochain/devchain/cluster/$seedID
 
-touch $clusterDir/.cluster.lock
-echo
+# touch $clusterDir/.cluster.lock
 
-ls -la $clusterDir
-echo
-
-
+# ls -la $clusterDir
+# echo
 
 
 ls /home/user/.holochain
-echo
 
 cp /home/user/.holochain/devchain /chain.seeded -r
-echo 
 
 ls -la /chain.seeded/devchain
-echo 
 
-rm $hackyCheatSync/.cluster.lock
+cnys pre.up
 
 set +x

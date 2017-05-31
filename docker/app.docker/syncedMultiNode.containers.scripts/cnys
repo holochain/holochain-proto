@@ -1,0 +1,7 @@
+syncDir="/runtime/cluster/sync"
+[ -d "$syncDir" ] || mkdir $syncDir $> /dev/null
+
+for syncFile in "$@"
+do
+    [ -f "$syncDir/$syncFile" ] && rm $syncDir/$syncFile
+done

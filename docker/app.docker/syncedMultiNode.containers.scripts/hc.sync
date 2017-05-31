@@ -1,9 +1,9 @@
 #!/bin/sh
 
 syncStart hc.sync.counter.$HOSTNAME hc.sync.ready.$HOSTNAME hc.sync.complete.$HOSTNAME
-cyns hc.sync.counter
 
 sync externalStartEvent
+cyns hc.sync.counter
 
 sync bs
 

@@ -54,6 +54,16 @@ services:
       - ./runtime:/runtime
     command: /Scripts/syncedMultiNode.containers.scripts/post.up
     depends_on: [hc]
+  external.start.event:
+    build:
+      context: .
+      dockerfile: runtime/docker/Dockerfile.externalStartEvent
+    environment:
+      - LOCAL_USER_ID
+    volumes:
+      - ./runtime:/runtime
+    command: /bin/sh -c ":"
+    depends_on: [hc.post.up]
 
 # volumes:
 #   seed:

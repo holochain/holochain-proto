@@ -1,4 +1,4 @@
-FROM metacurrency/holochain
+FROM {{FROM_DOCKERIMAGETAG}}
 
 EXPOSE 10000
 

@@ -1,4 +1,4 @@
-FROM metacurrency/holochain
+FROM {{FROM_DOCKERIMAGETAG}}
 
 ADD . /chain.source
 WORKDIR /chain.source

@@ -3,8 +3,11 @@ export "PATH=/Scripts/syncedMultiNode.containers.scripts:$PATH"
 
 syncStart hc.sync.counter.$HOSTNAME hc.sync.ready.$HOSTNAME hc.sync.complete.$HOSTNAME
 
+#ls /runtime/cluster/sync
+
 sync externalStartEvent
-cnys hc.sync.counter
+
+cnys hc.sync.counter.$HOSTNAME
 
 sync bs
 
@@ -14,7 +17,7 @@ clusterDir="/chain.seeded/devchain/cluster/$seedID"
 echo "Seed host name: $seedID"
 echo "My host name: $HOSTNAME"
 
-mkdir $clusterDir/hc
+[ ! -d "$clusterDir/hc" ] && mkdir $clusterDir/hc
 echo "#!/bin/sh" >> $clusterDir/hc/$HOSTNAME 
 echo "echo defaultBehaviour. No test role found. " >> $clusterDir/hc/$HOSTNAME 
 echo "hc serve devchain" >> $clusterDir/hc/$HOSTNAME 
@@ -24,7 +27,8 @@ cnys hc.sync.ready hc.sync.ready.$HOSTNAME
 
 sync post.up
 
-echo "$HOSTNAME > sync completed"
+releaseTime=`date +%s-%N`
+echo "$HOSTNAME > starting hc at: $releaseTime"
 
 $clusterDir/hc/$HOSTNAME
 

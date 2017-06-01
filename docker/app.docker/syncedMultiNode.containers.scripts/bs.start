@@ -1,5 +1,4 @@
 #!/bin/sh
-echo #!/bin/sh $0
 
 export PATH="/Scripts/syncedMultiNode.containers.scripts:$PATH"
 

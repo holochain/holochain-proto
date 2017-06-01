@@ -2,7 +2,7 @@
 export PATH="/Scripts/syncedMultiNode.containers.scripts:$PATH"
 
 #pause everything
-syncStart hc.sync.counter pre.up bs hc.sync.ready post.up hc.sync.complete
+syncStart pre.up bs hc.sync.ready post.up hc.sync.complete
 
 #all containers have already started
 sync externalStartEvent

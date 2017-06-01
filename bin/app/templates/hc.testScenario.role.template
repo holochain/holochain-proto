@@ -3,22 +3,22 @@ export scenario="{{SCENARIO}}"
 export role="{{ROLE}}"
 
 
-ls /chain.seeded -la
+#ls /chain.seeded -la
 
-echo "hc init $HOSTNAME"
+#echo "hc init $HOSTNAME"
 hc init $HOSTNAME
-echo
+#echo
 
-echo "hc join /.holochain/devchain"
+#echo "hc join /.holochain/devchain"
 hc join /chain.seeded/devchain devchain
-echo
+#echo
 dnahash=`cat ~/.holochain/devchain/dna.hash`
-echo "joined: $dnahash"
+#echo "joined: $dnahash"
 
 bsip=`cat /chain.seeded/bs.ip`
-echo "setting boostrap to $bsip:3142"
+#echo "setting boostrap to $bsip:3142"
 sed -i "s/bootstrap.holochain.net:10000/$bsip:3142/" ~/.holochain/devchain/config.json
 
-echo "hc -debug test devchain $scenario $role"
+#echo "hc -debug test devchain $scenario $role"
 hc -debug test devchain $scenario $role
-echo
+#echo

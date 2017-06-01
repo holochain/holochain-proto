@@ -1,12 +1,26 @@
 #!/bin/sh
+
+
 syncDir="/runtime/cluster/sync"
 [ -d "$syncDir" ] || mkdir $syncDir $> /dev/null
 
 syncFile=$1
 
-[ ! -f "$syncDir/$syncFile" ] && echo "HC: sync: WARNING: There was never a sync file: $syncFile to begin with"
+if ! ls $syncDir/$syncFile &> /dev/null ; then
+  if ! ls $syncDir/$syncFile.* &> /dev/null ; then
+    ls $syncDir
+    echo "HC: sync: WARNING: There was never a sync file: $syncFile to begin with"
+  fi
+fi
 
-while { [ -f "$syncDir/$syncFile" ] || [ -f "$syncDir/$syncFile.*" ] ; }
+while true
   do
+    if ! ls $syncDir/$syncFile &> /dev/null; then
+      if ! ls $syncDir/$syncFile.* &> /dev/null ; then
+        echo "HC: $syncFile sync released"
+        exit 0
+      fi
+    fi
+    #echo "HC: sync waiting on $syncFile"
     sleep 0.1
   done

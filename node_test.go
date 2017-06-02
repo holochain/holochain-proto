@@ -112,13 +112,14 @@ func TestNodeSend(t *testing.T) {
 		So(err, ShouldBeNil)
 	})
 
-	node1.Host.Peerstore().AddAddr(node2.HashAddr, node2.NetAddr, pstore.PermanentAddrTTL)
 	node2.Host.Peerstore().AddAddr(node1.HashAddr, node1.NetAddr, pstore.PermanentAddrTTL)
 
 	Convey("It should fail on messages without a source", t, func() {
 		m := Message{Type: PUT_REQUEST, Body: "fish"}
+		So(len(node1.Host.Peerstore().Peers()), ShouldEqual, 1)
 		r, err := node2.Send(DHTProtocol, node1.HashAddr, &m)
 		So(err, ShouldBeNil)
+		So(len(node1.Host.Peerstore().Peers()), ShouldEqual, 2) // node1's peerstore should now have node2
 		So(r.Type, ShouldEqual, ERROR_RESPONSE)
 		So(r.From, ShouldEqual, node1.HashAddr) // response comes from who we sent to
 		So(r.Body.(ErrorResponse).Message, ShouldEqual, "message must have a source")

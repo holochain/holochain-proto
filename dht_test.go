@@ -74,7 +74,7 @@ func TestPutGetModDel(t *testing.T) {
 	hash, _ := NewHash("QmY8Mzg9F69e5P9AoQPYat655HEhc1TVGs11tmfNSzkqh2")
 	var idx int
 	Convey("It should store and retrieve", t, func() {
-		err := dht.put(nil, "someType", hash, id, []byte("some value"), StatusLive)
+		err := dht.put(h.node.NewMessage(PUT_REQUEST, PutReq{H: hash}), "someType", hash, id, []byte("some value"), StatusLive)
 		So(err, ShouldBeNil)
 		idx, _ = dht.GetIdx()
 
@@ -150,21 +150,21 @@ func TestPutGetModDel(t *testing.T) {
 }
 
 func TestLinking(t *testing.T) {
-	d := setupTestDir()
+	d, _, h := prepareTestChain("test")
 	defer cleanupTestDir(d)
-	var h Holochain
-	h.rootPath = d
-	os.MkdirAll(h.DBPath(), os.ModePerm)
-	dht := NewDHT(&h)
+
+	err := h.dht.SetupDHT()
+	dht := h.dht
+
 	baseStr := "QmZcUPvPhD1Xvk6mwijYF8AfR3mG31S1YsEfHG4khrFPRr"
 	base, err := NewHash(baseStr)
 	if err != nil {
 		panic(err)
 	}
 	linkHash1Str := "QmY8Mzg9F69e5P9AoQPYat655HEhc1TVGs11tmfNSzkqh1"
-	// linkHash1, _ := NewHash(linkHash1Str)
+	//linkHash1, _ := NewHash(linkHash1Str)
 	linkHash2Str := "QmY8Mzg9F69e5P9AoQPYat655HEhc1TVGs11tmfNSzkqh2"
-	//	linkHash2, _ := NewHash(linkHash2Str)
+	//linkHash2, _ := NewHash(linkHash2Str)
 	Convey("It should fail if hash doesn't exist", t, func() {
 		err := dht.putLink(nil, baseStr, linkHash1Str, "tag foo")
 		So(err, ShouldEqual, ErrHashNotFound)
@@ -175,23 +175,26 @@ func TestLinking(t *testing.T) {
 	})
 
 	var id peer.ID
-	err = dht.put(nil, "someType", base, id, []byte("some value"), StatusLive)
+	err = dht.put(h.node.NewMessage(PUT_REQUEST, PutReq{H: base}), "someType", base, id, []byte("some value"), StatusLive)
 	if err != nil {
 		panic(err)
 	}
+
+	// the message doesn't actually matter for this test because it only gets used later in gossiping
+	fakeMsg := h.node.NewMessage(LINK_REQUEST, LinkReq{})
 
 	Convey("It should store and retrieve links values on a base", t, func() {
 		data, err := dht.getLink(base, "tag foo", StatusLive)
 		So(err, ShouldNotBeNil)
 		So(err.Error(), ShouldEqual, "No links for tag foo")
 
-		err = dht.putLink(nil, baseStr, linkHash1Str, "tag foo")
+		err = dht.putLink(fakeMsg, baseStr, linkHash1Str, "tag foo")
 		So(err, ShouldBeNil)
 
-		err = dht.putLink(nil, baseStr, linkHash2Str, "tag foo")
+		err = dht.putLink(fakeMsg, baseStr, linkHash2Str, "tag foo")
 		So(err, ShouldBeNil)
 
-		err = dht.putLink(nil, baseStr, linkHash1Str, "tag bar")
+		err = dht.putLink(fakeMsg, baseStr, linkHash1Str, "tag bar")
 		So(err, ShouldBeNil)
 
 		data, err = dht.getLink(base, "tag foo", StatusLive)
@@ -212,27 +215,27 @@ func TestLinking(t *testing.T) {
 	Convey("It should fail delete links non existent links bases and tags", t, func() {
 		badHashStr := "QmY8Mzg9F69e5P9AoQPYat655HEhc1TVGs11tmfNSzkqhX"
 
-		err := dht.delLink(nil, badHashStr, linkHash1Str, "tag foo")
+		err := dht.delLink(fakeMsg, badHashStr, linkHash1Str, "tag foo")
 		So(err, ShouldEqual, ErrHashNotFound)
-		err = dht.delLink(nil, baseStr, badHashStr, "tag foo")
+		err = dht.delLink(fakeMsg, baseStr, badHashStr, "tag foo")
 		So(err, ShouldEqual, ErrLinkNotFound)
-		err = dht.delLink(nil, baseStr, linkHash1Str, "tag baz")
+		err = dht.delLink(fakeMsg, baseStr, linkHash1Str, "tag baz")
 		So(err, ShouldEqual, ErrLinkNotFound)
 	})
 
 	Convey("It should delete links", t, func() {
-		err := dht.delLink(nil, baseStr, linkHash1Str, "tag bar")
+		err := dht.delLink(fakeMsg, baseStr, linkHash1Str, "tag bar")
 		So(err, ShouldBeNil)
 		data, err := dht.getLink(base, "tag bar", StatusLive)
 		So(err.Error(), ShouldEqual, "No links for tag bar")
 
-		err = dht.delLink(nil, baseStr, linkHash1Str, "tag foo")
+		err = dht.delLink(fakeMsg, baseStr, linkHash1Str, "tag foo")
 		So(err, ShouldBeNil)
 		data, err = dht.getLink(base, "tag foo", StatusLive)
 		So(err, ShouldBeNil)
 		So(len(data), ShouldEqual, 1)
 
-		err = dht.delLink(nil, baseStr, linkHash2Str, "tag foo")
+		err = dht.delLink(fakeMsg, baseStr, linkHash2Str, "tag foo")
 		So(err, ShouldBeNil)
 		data, err = dht.getLink(base, "tag foo", StatusLive)
 		So(err.Error(), ShouldEqual, "No links for tag foo")
@@ -419,7 +422,7 @@ func TestDHTReceiver(t *testing.T) {
 		r, err := GossipReceiver(h, m)
 		So(err, ShouldBeNil)
 		gr := r.(Gossip)
-		So(len(gr.Puts), ShouldEqual, 4)
+		So(len(gr.Puts), ShouldEqual, 3)
 	})
 
 	le2 := GobEntry{C: fmt.Sprintf(`{"Links":[{"Base":"%s","Link":"%s","Tag":"4stars","LinkAction":"%s"}]}`, hash.String(), profileHash.String(), DelAction)}

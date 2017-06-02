@@ -113,7 +113,7 @@ func (h *Holochain) ValidateAction(a ValidatingAction, entryType string, pkg *Pa
 	return
 }
 
-// GetValidationPackage check the validation request and builds the validation package based
+// GetValidationResponse check the validation request and builds the validation package based
 // on the app's requirements
 func (h *Holochain) GetValidationResponse(a ValidatingAction, hash Hash) (resp ValidateResponse, err error) {
 	var entry Entry
@@ -128,30 +128,39 @@ func (h *Holochain) GetValidationResponse(a ValidatingAction, hash Hash) (resp V
 		return
 	}
 	resp.Header = *hd
-	var def *EntryDef
-	var z *Zome
-	z, def, err = h.GetEntryDef(hd.Type)
-	if err != nil {
-		return
-	}
-	err = a.CheckValidationRequest(def)
-	if err != nil {
-		return
-	}
+	switch hd.Type {
+	case DNAEntryType:
+		panic("attempt to validate DNA")
+	case KeyEntryType:
+		fallthrough
+	case AgentEntryType:
+	default:
+		// app defined entry types
+		var def *EntryDef
+		var z *Zome
+		z, def, err = h.GetEntryDef(hd.Type)
+		if err != nil {
+			return
+		}
+		err = a.CheckValidationRequest(def)
+		if err != nil {
+			return
+		}
 
-	// get the packaging request from the app
-	var n Nucleus
-	n, err = h.makeNucleus(z)
-	if err != nil {
-		return
-	}
+		// get the packaging request from the app
+		var n Nucleus
+		n, err = h.makeNucleus(z)
+		if err != nil {
+			return
+		}
 
-	var req PackagingReq
-	req, err = n.ValidatePackagingRequest(a, def)
-	if err != nil {
-		Debugf("Nucleus GetValidationPackage(%T) err:%v\n", a, err)
+		var req PackagingReq
+		req, err = n.ValidatePackagingRequest(a, def)
+		if err != nil {
+			Debugf("Nucleus GetValidationPackage(%T) err:%v\n", a, err)
+		}
+		resp.Package, err = MakePackage(h, req)
 	}
-	resp.Package, err = MakePackage(h, req)
 	return
 }
 

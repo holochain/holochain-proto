@@ -48,10 +48,10 @@ func TestGetFindGossiper(t *testing.T) {
 		So(g.Id, ShouldEqual, fooAddr)
 	})
 
-	Convey("GetIdx for self should be 3 to start with", t, func() {
+	Convey("GetIdx for self should be 2 to start with (DNA not stored)", t, func() {
 		idx, err := dht.GetIdx()
 		So(err, ShouldBeNil)
-		So(idx, ShouldEqual, 3)
+		So(idx, ShouldEqual, 2)
 	})
 
 	barAddr, _ := makePeer("peer_bar")
@@ -68,11 +68,11 @@ func TestGossipData(t *testing.T) {
 	d, _, h := prepareTestChain("test")
 	defer cleanupTestDir(d)
 	dht := h.dht
-	Convey("Idx should be 3 at start (first puts are DNA, Agent & Key)", t, func() {
+	Convey("Idx should be 2 at start (first puts are DNA, Agent & Key but DNA put not stored)", t, func() {
 		var idx int
 		idx, err := dht.GetIdx()
 		So(err, ShouldBeNil)
-		So(idx, ShouldEqual, 3)
+		So(idx, ShouldEqual, 2)
 	})
 
 	// simulate a handled put request
@@ -116,17 +116,17 @@ func TestGossipData(t *testing.T) {
 		var idx int
 		idx, err := dht.GetIdx()
 		So(err, ShouldBeNil)
-		So(idx, ShouldEqual, 5)
+		So(idx, ShouldEqual, 4)
 	})
 
 	Convey("GetPuts should return a list of the puts since an index value", t, func() {
 		puts, err := dht.GetPuts(0)
 		So(err, ShouldBeNil)
-		So(len(puts), ShouldEqual, 5)
-		So(fmt.Sprintf("%v", puts[3].M), ShouldEqual, fmt.Sprintf("%v", *m1))
-		So(fmt.Sprintf("%v", puts[4].M), ShouldEqual, fmt.Sprintf("%v", *m2))
+		So(len(puts), ShouldEqual, 4)
+		So(fmt.Sprintf("%v", puts[2].M), ShouldEqual, fmt.Sprintf("%v", *m1))
+		So(fmt.Sprintf("%v", puts[3].M), ShouldEqual, fmt.Sprintf("%v", *m2))
 
-		puts, err = dht.GetPuts(5)
+		puts, err = dht.GetPuts(4)
 		So(err, ShouldBeNil)
 		So(len(puts), ShouldEqual, 1)
 		So(fmt.Sprintf("%v", puts[0].M), ShouldEqual, fmt.Sprintf("%v", *m2))

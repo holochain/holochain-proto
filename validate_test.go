@@ -127,6 +127,20 @@ func TestMakePackage(t *testing.T) {
 
 }
 
+func TestGetValidationResponse(t *testing.T) {
+	d, _, h := prepareTestChain("test")
+	defer cleanupTestDir(d)
+	Convey("Sys defined entry types should return empty packages", t, func() {
+		entry, _, err := h.chain.GetEntry(h.agentHash)
+		a := NewPutAction(AgentEntryType, entry, &Header{})
+		resp, err := h.GetValidationResponse(a, h.agentHash)
+		So(err, ShouldBeNil)
+		So(resp.Type, ShouldEqual, AgentEntryType)
+		So(fmt.Sprintf("%v", &resp.Entry), ShouldEqual, fmt.Sprintf("%v", entry))
+		So(fmt.Sprintf("%v", resp.Package), ShouldEqual, fmt.Sprintf("%v", Package{}))
+	})
+}
+
 func TestMakeValidatePackage(t *testing.T) {
 	d, _, h := prepareTestChain("test")
 	defer cleanupTestDir(d)

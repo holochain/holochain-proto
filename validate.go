@@ -139,7 +139,7 @@ func ValidateReceiver(h *Holochain, m *Message) (response interface{}, err error
 			err = fmt.Errorf("expected ValidateQuery got %T", t)
 		}
 	}
-	h.dht.dlog.Logf("responding with: %v (err=%v)", response, err)
+	h.dht.dlog.Logf("validate responding with: %T %v (err=%v)", response, response, err)
 	return
 }
 

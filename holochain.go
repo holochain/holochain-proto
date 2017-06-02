@@ -401,6 +401,12 @@ func (h *Holochain) Prepare() (err error) {
 		}
 	}
 
+	listenaddr := fmt.Sprintf("/ip4/0.0.0.0/tcp/%d", h.config.Port)
+	h.node, err = NewNode(listenaddr, h.id, h.Agent().PrivKey())
+	if err != nil {
+		return
+	}
+
 	h.dht = NewDHT(h)
 
 	return
@@ -408,12 +414,6 @@ func (h *Holochain) Prepare() (err error) {
 
 // Activate fires up the holochain node
 func (h *Holochain) Activate() (err error) {
-	listenaddr := fmt.Sprintf("/ip4/0.0.0.0/tcp/%d", h.config.Port)
-	h.node, err = NewNode(listenaddr, h.id, h.Agent().PrivKey())
-	if err != nil {
-		return
-	}
-
 	if h.config.PeerModeDHTNode {
 		if err = h.dht.StartDHT(); err != nil {
 			return

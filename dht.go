@@ -209,11 +209,12 @@ func NewDHT(h *Holochain) *DHT {
 	return &dht
 }
 
-// SetupDHT prepares a DHT for use by adding the holochain's ID
+// SetupDHT prepares a DHT for use by putting the genesis entries that are added by GenChain
 func (dht *DHT) SetupDHT() (err error) {
 	x := ""
 	// put the holochain id so it always exists for linking
-	err = dht.put(nil, DNAEntryType, dht.h.DNAHash(), dht.h.id, []byte(x), StatusLive)
+	dna := dht.h.DNAHash()
+	err = dht.put(nil, DNAEntryType, dna, dht.h.id, []byte(x), StatusLive)
 	if err != nil {
 		return
 	}
@@ -235,7 +236,7 @@ func (dht *DHT) SetupDHT() (err error) {
 	if err != nil {
 		return
 	}
-	if err = dht.put(nil, AgentEntryType, a, dht.h.id, b, StatusLive); err != nil {
+	if err = dht.put(dht.h.node.NewMessage(PUT_REQUEST, PutReq{H: a}), AgentEntryType, a, dht.h.id, b, StatusLive); err != nil {
 		return
 	}
 
@@ -244,7 +245,7 @@ func (dht *DHT) SetupDHT() (err error) {
 	if err != nil {
 		return
 	}
-	if err = dht.put(nil, KeyEntryType, kh, dht.h.id, []byte(dht.h.id), StatusLive); err != nil {
+	if err = dht.put(dht.h.node.NewMessage(PUT_REQUEST, PutReq{H: kh}), KeyEntryType, kh, dht.h.id, []byte(dht.h.id), StatusLive); err != nil {
 		return
 	}
 

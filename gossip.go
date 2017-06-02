@@ -45,6 +45,12 @@ var ErrDHTExpectedGossipReqInBody error = errors.New("expected gossip request")
 
 // incIdx adds a new index record to dht for gossiping later
 func incIdx(tx *buntdb.Tx, m *Message) (index string, err error) {
+	// if message is nil we can't record this for gossiping
+	// this should only be the case for the DNA
+	if m == nil {
+		return
+	}
+
 	var idx int
 	idx, err = getIntVal("_idx", tx)
 	if err != nil {
@@ -284,6 +290,8 @@ func (dht *DHT) gossipWith(id peer.ID, after int) (err error) {
 					r, e := DHTReceiver(dht.h, &p.M)
 					dht.glog.Logf("DHTReceiver for fingerprint %v returned %v with err %v", f, r, e)
 				}
+			} else {
+				dht.glog.Logf("error calculating fingerprint for %v", p)
 			}
 		}
 	}

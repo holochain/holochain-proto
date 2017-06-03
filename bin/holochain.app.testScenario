@@ -4,7 +4,7 @@ echo "HC: $0"
 scenarioName=$1
 
 #set the HOLOCHAIN_SYSTEM_BIN variable
-. holochain.system.checkInstalled || { echo "HC: cannot find holochain bin directory. exitting" && exit 1 ; }
+. holochain.system.checkInstalled || { echo "HC: cannot find holochain bin directory. exiting" && exit 1 ; }
 #set the HOLOCHAIN_APPNAME and HOLOCHAIN_APPDIR variables
 . holochain.app.findAppDir ||  exit 1
 

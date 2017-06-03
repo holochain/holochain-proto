@@ -218,6 +218,16 @@ func (dht *DHT) SetupDHT() (err error) {
 	if err != nil {
 		return
 	}
+
+	// put the KeyEntry so it always exists for retrieving the public key
+	kh, err := NewHash(peer.IDB58Encode(dht.h.id))
+	if err != nil {
+		return
+	}
+	if err = dht.put(dht.h.node.NewMessage(PUT_REQUEST, PutReq{H: kh}), KeyEntryType, kh, dht.h.id, []byte(dht.h.id), StatusLive); err != nil {
+		return
+	}
+
 	// put the AgentEntry so it always exists for linking
 	a := dht.h.AgentHash()
 	var e Entry
@@ -237,15 +247,6 @@ func (dht *DHT) SetupDHT() (err error) {
 		return
 	}
 	if err = dht.put(dht.h.node.NewMessage(PUT_REQUEST, PutReq{H: a}), AgentEntryType, a, dht.h.id, b, StatusLive); err != nil {
-		return
-	}
-
-	// put the KeyEntry so it always exists for linking
-	kh, err := NewHash(peer.IDB58Encode(dht.h.id))
-	if err != nil {
-		return
-	}
-	if err = dht.put(dht.h.node.NewMessage(PUT_REQUEST, PutReq{H: kh}), KeyEntryType, kh, dht.h.id, []byte(dht.h.id), StatusLive); err != nil {
 		return
 	}
 

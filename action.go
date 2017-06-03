@@ -80,35 +80,46 @@ func prepareSources(sources []peer.ID) (srcs []string) {
 
 // ValidateAction runs the different phases of validating an action
 func (h *Holochain) ValidateAction(a ValidatingAction, entryType string, pkg *Package, sources []peer.ID) (d *EntryDef, err error) {
-	var z *Zome
-	z, d, err = h.GetEntryDef(entryType)
-	if err != nil {
-		return
-	}
+	switch entryType {
+	case DNAEntryType:
+		//		panic("attempt to get validation response for DNA")
+	case KeyEntryType:
+		//		resp.Entry = TODO public key goes here
+	case AgentEntryType:
+	default:
 
-	var vpkg *ValidationPackage
-	vpkg, err = MakeValidationPackage(h, pkg)
-	if err != nil {
-		return
-	}
+		// validation actions for application defined entry types
 
-	// run the action's system level validations
-	err = a.SysValidation(h, d, sources)
-	if err != nil {
-		Debugf("Sys ValidateAction(%T) err:%v\n", a, err)
-		return
-	}
+		var z *Zome
+		z, d, err = h.GetEntryDef(entryType)
+		if err != nil {
+			return
+		}
 
-	// run the action's app level validations
-	var n Nucleus
-	n, err = h.makeNucleus(z)
-	if err != nil {
-		return
-	}
+		var vpkg *ValidationPackage
+		vpkg, err = MakeValidationPackage(h, pkg)
+		if err != nil {
+			return
+		}
 
-	err = n.ValidateAction(a, d, vpkg, prepareSources(sources))
-	if err != nil {
-		Debugf("Nucleus ValidateAction(%T) err:%v\n", a, err)
+		// run the action's system level validations
+		err = a.SysValidation(h, d, sources)
+		if err != nil {
+			Debugf("Sys ValidateAction(%T) err:%v\n", a, err)
+			return
+		}
+
+		// run the action's app level validations
+		var n Nucleus
+		n, err = h.makeNucleus(z)
+		if err != nil {
+			return
+		}
+
+		err = n.ValidateAction(a, d, vpkg, prepareSources(sources))
+		if err != nil {
+			Debugf("Nucleus ValidateAction(%T) err:%v\n", a, err)
+		}
 	}
 	return
 }
@@ -118,27 +129,35 @@ func (h *Holochain) ValidateAction(a ValidatingAction, entryType string, pkg *Pa
 func (h *Holochain) GetValidationResponse(a ValidatingAction, hash Hash) (resp ValidateResponse, err error) {
 	var entry Entry
 	entry, resp.Type, err = h.chain.GetEntry(hash)
-	if err != nil {
+	if err == ErrHashNotFound {
+		if hash.String() == peer.IDB58Encode(h.id) {
+			resp.Type = KeyEntryType
+			err = nil
+		} else {
+			return
+		}
+	} else if err != nil {
 		return
+	} else {
+		resp.Entry = *(entry.(*GobEntry))
+		var hd *Header
+		hd, err = h.chain.GetEntryHeader(hash)
+		if err != nil {
+			return
+		}
+		resp.Header = *hd
 	}
-	resp.Entry = *(entry.(*GobEntry))
-	var hd *Header
-	hd, err = h.chain.GetEntryHeader(hash)
-	if err != nil {
-		return
-	}
-	resp.Header = *hd
-	switch hd.Type {
+	switch resp.Type {
 	case DNAEntryType:
-		panic("attempt to validate DNA")
+		panic("attempt to get validation response for DNA")
 	case KeyEntryType:
-		fallthrough
+		//		resp.Entry = TODO public key goes here
 	case AgentEntryType:
 	default:
 		// app defined entry types
 		var def *EntryDef
 		var z *Zome
-		z, def, err = h.GetEntryDef(hd.Type)
+		z, def, err = h.GetEntryDef(resp.Type)
 		if err != nil {
 			return
 		}

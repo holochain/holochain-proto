@@ -11,6 +11,7 @@ if [ ! -d $FILE ]; then
    . holochain.app.findAppDir
 else
   export HOLOCHAIN_APPNAME=`cat .hc/immutable/readableName`
+  export HOLOCHAIN_APP_MACHINENAME=`cat .hc/immutable/machineName`
   export HOLOCHAIN_APPDIR=$PWD
   export HOLOCHAIN_APPLOGDIR="$PWD/logs.holochain"
 fi

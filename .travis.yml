@@ -7,7 +7,7 @@ install:
   - make hc && hc init node@example.com
 
 script:
-  - make work && go test -v -race -coverprofile=coverage.txt -covermode=atomic ./... && make pub
+  - make work && go test -v -coverprofile=coverage.txt -covermode=atomic && go test -v ./... && make pub
   - hc --debug --verbose clone --force examples/sample examples-sample && hc --debug --verbose test examples-sample
 
 after_success:

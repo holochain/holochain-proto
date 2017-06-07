@@ -3,10 +3,15 @@ os:
 
 language: go
 
-install: true
+install:
+  - make hc && hc init node@example.com
 
 script:
-  - make testall
+  - make work && go test -v -race -coverprofile=coverage.txt -covermode=atomic ./... && make pub
+  - hc --debug --verbose clone --force examples/sample examples-sample && hc --debug --verbose test examples-sample
+
+after_success:
+  - bash <(curl -s https://codecov.io/bash)
 
 cache:
     directories:

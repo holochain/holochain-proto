@@ -41,4 +41,4 @@ floospace/
 
 # temporary files
 *.swp
-
+coverage.txt

@@ -1,7 +1,19 @@
-cd tests/
+cd docker/tests
+
+./build.tests
+
 echo "--- Test 1 - serve start as user"
 ./test.runAsHostUserUID.test && echo "--- passed" || echo "--- failed"
 echo
 echo "--- Test 2 - serve examples/sample with hc"
 ./test.hc.serve.sample.test && echo "--- passed" || echo "--- failed"
+echo
+echo "--- Test 3 - determine development cycle time of Dockerfile"
+./test.developmentCycleBuildTime.test && echo "--- passed" || echo "--- failed" 
+echo
+echo "--- Test 4 - determine development cycle time of Dockerfile.timo"
+./test.developmentCycleBuildTime.test .timo && echo "--- passed" || echo "--- failed"
+echo
+echo "--- Test 5 - determine development cycle time of Dockerfile.timo2"
+./test.developmentCycleBuildTime.test .timo.2 && echo "--- passed" || echo "--- failed"
 echo

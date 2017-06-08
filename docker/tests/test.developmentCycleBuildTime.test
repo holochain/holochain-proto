@@ -1,0 +1,27 @@
+echo "performing initial build to create docker image metacurrency/holochain/tests"
+./build.tests $1 > /dev/null
+echo "  docker run metacurrency/holochain/tests into container to force read of host filesystem"
+docker run  -e LOCAL_USER_ID=`id -u $USER` -i metacurrency/holochain/tests /bin/sh -c ls > /dev/null
+echo "  completed initial build"
+echo
+
+echo "sleeping for five seconds"
+echo
+sleep 5
+SECONDS=0
+
+echo "simulating change of source code, and rebuilding docker image"
+touch simulatingSourceCodeEdit
+echo "biggerBolderChange" > ../../obviousSourceCodeEdit
+./build.tests $1 > /dev/null
+echo " docker run metacurrency/holochain/tests. ls should output a list including the filename obviousSourceCodeEdit"
+docker run  -e LOCAL_USER_ID=`id -u $USER` -i metacurrency/holochain/tests /bin/sh -c ls > /dev/null
+echo "  rebuild required: $SECONDS seconds"
+echo
+
+rm simulatingSourceCodeEdit
+rm ../../obviousSourceCodeEdit
+
+echo "this always passes"
+echo "passed"
+

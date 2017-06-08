@@ -1,4 +1,4 @@
-FROM devcore
+FROM metacurrency/holochain/tests
 
 ADD . .
 

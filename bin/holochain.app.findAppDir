@@ -10,6 +10,8 @@ if [ ! -d $FILE ]; then
    cd ..
    . holochain.app.findAppDir
 else
+  { [[ -d ".hc/immutable/readableName" ]] && [[ -d ".hc/immutable/machineName" ]] ; } || { echo "HC .hc is corrupt. Please try to re-init maybe? Or fix!" && exit 1 ; }
+
   export HOLOCHAIN_APPNAME=`cat .hc/immutable/readableName`
   export HOLOCHAIN_APP_MACHINENAME=`cat .hc/immutable/machineName`
   export HOLOCHAIN_APPDIR=$PWD

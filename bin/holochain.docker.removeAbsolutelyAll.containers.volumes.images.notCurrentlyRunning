@@ -1,0 +1,8 @@
+#!/bin/bash
+
+echo "HC: this script does nothing. Not completed"
+
+#holochain.docker.containers.stopped.remove
+#holochain.docker.volumes.dangling.remove
+#wanna remove the UNAMED images
+#holochain.docker.images.dangling.remove

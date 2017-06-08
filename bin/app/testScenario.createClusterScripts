@@ -21,3 +21,5 @@ for role in `ls $testScenarioDirectory`; do
         counter=$(( counter+1 ))
     fi
 done
+
+echo "HC: gonna build $(( counter -1 )) hc_instances"

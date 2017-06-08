@@ -15,7 +15,7 @@ export LOCAL_USER_ID=`id -u $USER`
 . $HOLOCHAIN_SYSTEM_BIN/app/createRuntime || exit 1
 
 #creates a single script for each role in the testScenario, which is run by the respective container
-$HOLOCHAIN_SYSTEM_BIN/app/testScenario.createClusterScripts $scenarioName
+$HOLOCHAIN_SYSTEM_BIN/app/testScenario.createClusterScripts $scenarioName || exit 1
 
 #begin log for this session
 logFile=$HOLOCHAIN_APPLOGDIR/testScenario.$scenarioName.log

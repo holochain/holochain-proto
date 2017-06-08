@@ -22,7 +22,7 @@ docker-compose -f $dockerComposeApp scale "hc=$HC_SCALE"
 
 #bring network up
 echo "docker-compose -f $dockerComposeApp up | tee ./$testName.output"
-docker-compose -f $dockerComposeApp up | tee -a $logFile
+{ docker-compose -f $dockerComposeApp up --scale "hc=$HC_SCALE" | tee -a $logFile ; } || docker-compose -f $dockerComposeApp up | tee -a $logFile
 
 set +x
 #TODO MAKE TEST PASS / FAIL AUTOMATICALLY PASS THROUGH TO BUILD SYSTEM

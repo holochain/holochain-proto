@@ -331,25 +331,27 @@ func (z *ZygoNucleus) Call(fn *FunctionDef, params interface{}) (result interfac
 
 // These are the zygo implementations of the library functions that must available in
 // all Nucleii implementations.
-var ZygoLibrary = `(def HC_Version "` + VersionStr + `")` +
-	`(def HC_Status_Live ` + StatusLiveVal + ")" +
-	`(def HC_Status_Rejected ` + StatusRejectedVal + ")" +
-	`(def HC_Status_Deleted ` + StatusDeletedVal + ")" +
-	`(def HC_Status_Modified ` + StatusModifiedVal + ")" +
-	`(def HC_Status_Any ` + StatusAnyVal + ")" +
-	`(def HC_GetMask_Default ` + GetMaskDefaultStr + ")" +
-	`(def HC_GetMask_Entry ` + GetMaskEntryStr + ")" +
-	`(def HC_GetMask_EntryType ` + GetMaskEntryTypeStr + ")" +
-	`(def HC_GetMask_Sources ` + GetMaskSourcesStr + ")" +
-	`(def HC_GetMask_All ` + GetMaskAllStr + ")" +
+const (
+	ZygoLibrary = `(def HC_Version "` + VersionStr + `")` +
+		`(def HC_Status_Live ` + StatusLiveVal + ")" +
+		`(def HC_Status_Rejected ` + StatusRejectedVal + ")" +
+		`(def HC_Status_Deleted ` + StatusDeletedVal + ")" +
+		`(def HC_Status_Modified ` + StatusModifiedVal + ")" +
+		`(def HC_Status_Any ` + StatusAnyVal + ")" +
+		`(def HC_GetMask_Default ` + GetMaskDefaultStr + ")" +
+		`(def HC_GetMask_Entry ` + GetMaskEntryStr + ")" +
+		`(def HC_GetMask_EntryType ` + GetMaskEntryTypeStr + ")" +
+		`(def HC_GetMask_Sources ` + GetMaskSourcesStr + ")" +
+		`(def HC_GetMask_All ` + GetMaskAllStr + ")" +
 
-	`(def HC_LinkAction_Add "` + AddAction + "\")" +
-	`(def HC_LinkAction_Del "` + DelAction + "\")" +
-	`(def HC_PkgReq_Chain "` + PkgReqChain + "\")" +
-	`(def HC_PkgReq_ChainOpt_None "` + PkgReqChainOptNoneStr + "\")" +
-	`(def HC_PkgReq_ChainOpt_Headers "` + PkgReqChainOptHeadersStr + "\")" +
-	`(def HC_PkgReq_ChainOpt_Entries "` + PkgReqChainOptEntriesStr + "\")" +
-	`(def HC_PkgReq_ChainOpt_Full "` + PkgReqChainOptFullStr + "\")"
+		`(def HC_LinkAction_Add "` + AddAction + "\")" +
+		`(def HC_LinkAction_Del "` + DelAction + "\")" +
+		`(def HC_PkgReq_Chain "` + PkgReqChain + "\")" +
+		`(def HC_PkgReq_ChainOpt_None "` + PkgReqChainOptNoneStr + "\")" +
+		`(def HC_PkgReq_ChainOpt_Headers "` + PkgReqChainOptHeadersStr + "\")" +
+		`(def HC_PkgReq_ChainOpt_Entries "` + PkgReqChainOptEntriesStr + "\")" +
+		`(def HC_PkgReq_ChainOpt_Full "` + PkgReqChainOptFullStr + "\")"
+)
 
 func makeResult(env *zygo.Glisp, resultValue zygo.Sexp, resultError error) (zygo.Sexp, error) {
 	result, err := zygo.MakeHash(nil, "hash", env)

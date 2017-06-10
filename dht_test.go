@@ -62,6 +62,10 @@ func TestSetupDHT(t *testing.T) {
 		So(et, ShouldEqual, KeyEntryType)
 		So(string(data), ShouldEqual, string([]byte(h.id)))
 
+		data, et, _, status, err = h.dht.get(keyHash, StatusDefault, GetMaskDefault)
+		So(err, ShouldBeNil)
+		So(status, ShouldEqual, StatusLive)
+		So(string(data), ShouldEqual, string([]byte(h.id)))
 	})
 }
 

@@ -1,7 +1,12 @@
 function register(x) {
     x.agent_id = App.Key.Hash
     var key = commit("profile", x);
-    commit("registrations",{Links:[{Base:App.DNA.Hash,Link:key,Tag:"registered_users"}]})
+    commit("registrations", {Links:[{Base:App.DNA.Hash,Link:key,Tag:"registered_users"}]})
+    commit("agent_profile_link", { Links:[{
+      Base: App.Key.Hash,
+      Link: key,
+      Tag: "profile"
+    }]})
     return key
 }
 
@@ -69,6 +74,21 @@ function validateCommit(entry_type,entry,header,pkg,sources) {
         }
         return true;
     }
+
+    if (entry_type == "agent_profile_link" ){
+      if(entry.Links.length != 1) {
+        debug("validation failed, expected agent_profile_link to contain exactly one link")
+        return false
+      }
+
+      if(entry.Links[0].Base != sources[0]) {
+        debug("validation failed, expected agent_profile_link to link from the source")
+        return false
+      }
+
+      return true
+    }
+
     return validate(entry_type,entry,header,sources);
 }
 // Local validate an entry before committing ???

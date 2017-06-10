@@ -16,6 +16,23 @@
   border: 1px solid grey;
   border-radius: 2px;
   overflow: scroll;
+  padding-left: 10px;
+}
+
+#messages .username {
+  display: block;
+  font-size: 12px;
+  font-weight: bold;
+}
+
+#messages .timestamp {
+  float: right;
+  font-size: 10px;
+  color: light-grey;
+}
+
+#messages .message {
+  padding-left: 5px;
 }
 
 .selected-room {

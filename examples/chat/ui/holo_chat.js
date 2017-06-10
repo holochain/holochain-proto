@@ -50,7 +50,11 @@ var activeRoom;
        return timeA > timeB
      })
      for(var i=0;i<messages.length;i++) {
-       $("#messages").append("<li data=\""+messages[i].timestamp+"\">"+messages[i].content+"</li>")
+       $("#messages").append("<li class=\"list-unstyled\">"+
+          "<span class=\"timestamp\">"+messages[i].timestamp+"</span>"+
+          "<span class=\"username\">"+messages[i].author.username+"</span>"+
+          "<span class=\"message\">"+messages[i].content+"</span>"+
+       "</li>")
      }
    });
  }

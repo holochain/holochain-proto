@@ -139,6 +139,10 @@
                     "DataFormat": "links"
                 },
                 {
+                    "Name": "agent_profile_link",
+                    "DataFormat": "links"
+                },
+                {
                     "Name": "profile",
                     "DataFormat": "json",
                     "Schema": "profile.json",

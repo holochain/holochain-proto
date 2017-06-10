@@ -47,10 +47,10 @@ var activeRoom;
      messages = messages.sort(function(a,b){
        timeA = new Date(a.timestamp)
        timeB = new Date(b.timestamp)
-       return a.valueOf() < b.valueOf()
+       return timeA > timeB
      })
      for(var i=0;i<messages.length;i++) {
-       $("#messages").append("<li>"+messages[i].content+"</li>")
+       $("#messages").append("<li data=\""+messages[i].timestamp+"\">"+messages[i].content+"</li>")
      }
    });
  }

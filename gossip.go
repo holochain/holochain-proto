@@ -273,7 +273,15 @@ func GossipReceiver(h *Holochain, m *Message) (response interface{}, err error) 
 			idx, e := h.dht.GetGossiper(m.From)
 			if e == nil && idx < t.MyIdx {
 				dht.glog.Logf("we only have %d of %d from %v so gossiping back", idx, t.MyIdx, m.From)
+
+				pi := h.node.Host.Peerstore().PeerInfo(m.From)
+				if len(pi.Addrs) == 0 {
+					dht.glog.Logf("NO ADDRESSES FOR PEER:%v", pi)
+				}
 				go func() {
+					// wait a bit before gossiping back just to give the source time to
+					// complete what it's working on.
+					time.Sleep(time.Millisecond * 10)
 					e := h.dht.gossipWith(m.From, idx)
 					if e != nil {
 						dht.glog.Logf("gossip back returned error: %v", e)
@@ -291,6 +299,18 @@ func GossipReceiver(h *Holochain, m *Message) (response interface{}, err error) 
 // gossipWith gossips with an peer asking for everything after since
 func (dht *DHT) gossipWith(id peer.ID, after int) (err error) {
 	dht.glog.Logf("with %v", id)
+
+	// gossip loops are possible where a gossip request triggers a gossip back, which
+	// if the first gossiping wasn't completed triggers the same gossip, so protect against this
+	// with a hash table storing who we are currently gossiping with
+	_, gossiping := dht.gossips[id]
+	if gossiping {
+		return
+	}
+	dht.gossips[id] = true
+	defer func() {
+		delete(dht.gossips, id)
+	}()
 
 	var myIdx int
 	myIdx, err = dht.GetIdx()

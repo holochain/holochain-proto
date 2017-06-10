@@ -46,6 +46,7 @@ type DHT struct {
 	gossiping bool
 	glog      Logger // the gossip logger
 	dlog      Logger // the dht logger
+	gossips   map[peer.ID]bool
 }
 
 // Meta holds data that can be associated with a hash
@@ -205,6 +206,8 @@ func NewDHT(h *Holochain) *DHT {
 
 	dht.glog = h.config.Loggers.Gossip
 	dht.dlog = h.config.Loggers.DHT
+
+	dht.gossips = make(map[peer.ID]bool)
 
 	return &dht
 }
@@ -465,10 +468,10 @@ func _putLink(tx *buntdb.Tx, base string, link string, tag string) (err error) {
 		}
 	} else {
 		//TODO what do we do if there's already something there?
-		//	if val != StatusLiveVal {
+		//		if val != StatusLiveVal {
 		Debugf("putlink when %v has status %v", key, val)
 		panic("putLink over existing link not implemented")
-		//	}
+		//		}
 	}
 	return
 }

@@ -18,6 +18,7 @@
         {
             "Name": "clutter",
             "Description": "zome that implements micro-blogging",
+            "NucleusType": "js",
             "Code": "clutter.js",
             "CodeHash": {
                 "H": null
@@ -132,8 +133,7 @@
                     "CallingType": "json",
                     "Exposure":"public"
                 }
-            ],
-            "NucleusType": "js"
+            ]
         }
     ]
 }

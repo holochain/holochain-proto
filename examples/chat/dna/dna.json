@@ -30,18 +30,21 @@
                     "DataFormat": "links"
                 }
             ],
-            "Functions":[
+            "Functions": [
                 {
-                    "Name":"listMembers",
-                    "CallingType":"json"
+                    "Name": "listMembers",
+                    "CallingType": "json",
+                    "Exposure": "public"
                 },
                 {
-                    "Name":"listAdmins",
-                    "CallingType":"json"
+                    "Name": "listAdmins",
+                    "CallingType": "json",
+                    "Exposure": "public"
                 },
                 {
-                    "Name":"addMember",
-                    "CallingType":"json"
+                    "Name": "addMember",
+                    "CallingType": "json",
+                    "Exposure": "public"
                 }
             ]
         },
@@ -68,14 +71,16 @@
                     "DataFormat": "links"
                 }
             ],
-            "Functions":[
+            "Functions": [
                 {
-                    "Name":"listRooms",
-                    "CallingType":"json"
+                    "Name": "listRooms",
+                    "CallingType": "json",
+                    "Exposure": "public"
                 },
                 {
-                    "Name":"newRoom",
-                    "CallingType":"json"
+                    "Name": "newRoom",
+                    "CallingType": "json",
+                    "Exposure": "public"
                 }
             ]
         },
@@ -102,18 +107,21 @@
                     }
                 }
             ],
-            "Functions":[
+            "Functions": [
                 {
-                    "Name":"listMessages",
-                    "CallingType":"json"
+                    "Name": "listMessages",
+                    "CallingType": "json",
+                    "Exposure": "public"
                 },
                 {
-                    "Name":"newMessage",
-                    "CallingType":"json"
+                    "Name": "newMessage",
+                    "CallingType": "json",
+                    "Exposure": "public"
                 },
                 {
-                    "Name":"modMessage",
-                    "CallingType":"json"
+                    "Name": "modMessage",
+                    "CallingType": "json",
+                    "Exposure": "public"
                 }
             ]
         },
@@ -140,26 +148,31 @@
                     }
                 }
             ],
-            "Functions":[
+            "Functions": [
                 {
-                    "Name":"register",
-                    "CallingType":"json"
+                    "Name": "register",
+                    "CallingType": "json",
+                    "Exposure": "public"
                 },
                 {
-                    "Name":"isRegistered",
-                    "CallingType":"json"
+                    "Name": "isRegistered",
+                    "CallingType": "json",
+                    "Exposure": "public"
                 },
                 {
-                    "Name":"getProfile",
-                    "CallingType":"json"
+                    "Name": "getProfile",
+                    "CallingType": "json",
+                    "Exposure": "public"
                 },
                 {
-                    "Name":"myProfile",
-                    "CallingType":"json"
+                    "Name": "myProfile",
+                    "CallingType": "json",
+                    "Exposure": "public"
                 },
                 {
-                    "Name":"modProfile",
-                    "CallingType":"json"
+                    "Name": "modProfile",
+                    "CallingType": "json",
+                    "Exposure": "public"
                 }
             ]
         }

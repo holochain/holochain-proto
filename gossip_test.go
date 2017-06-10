@@ -2,6 +2,7 @@ package holochain
 
 import (
 	"fmt"
+	peer "github.com/libp2p/go-libp2p-peer"
 	. "github.com/smartystreets/goconvey/convey"
 	"testing"
 	"time"
@@ -73,6 +74,26 @@ func TestGossipData(t *testing.T) {
 		idx, err := dht.GetIdx()
 		So(err, ShouldBeNil)
 		So(idx, ShouldEqual, 2)
+	})
+
+	var msg1 Message
+	var err error
+	Convey("GetIdxMessage should return the message that made the change", t, func() {
+		msg1, err = dht.GetIdxMessage(1)
+		So(err, ShouldBeNil)
+		So(msg1.Type, ShouldEqual, PUT_REQUEST)
+		So(msg1.Body.(PutReq).H.String(), ShouldEqual, peer.IDB58Encode(h.id))
+	})
+
+	Convey("GetFingerprint should return the index of the message that made the change", t, func() {
+		f, _ := msg1.Fingerprint()
+		idx, err := dht.GetFingerprint(f)
+		So(err, ShouldBeNil)
+		So(idx, ShouldEqual, 1)
+
+		idx, err = dht.GetFingerprint(NullHash())
+		So(err, ShouldBeNil)
+		So(idx, ShouldEqual, -1)
 	})
 
 	// simulate a handled put request

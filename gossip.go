@@ -42,6 +42,7 @@ type Gossiper struct {
 
 var ErrDHTErrNoGossipersAvailable error = errors.New("no gossipers available")
 var ErrDHTExpectedGossipReqInBody error = errors.New("expected gossip request")
+var ErrNoSuchIdx error = errors.New("no such change index")
 
 // incIdx adds a new index record to dht for gossiping later
 func incIdx(tx *buntdb.Tx, m *Message) (index string, err error) {
@@ -82,7 +83,7 @@ func incIdx(tx *buntdb.Tx, m *Message) (index string, err error) {
 	if err != nil {
 		return
 	}
-	_, _, err = tx.Set("f:"+f.String(), "", nil)
+	_, _, err = tx.Set("f:"+f.String(), index, nil)
 	if err != nil {
 		return
 	}
@@ -120,18 +121,49 @@ func (dht *DHT) GetIdx() (idx int, err error) {
 	return
 }
 
-//HaveFingerprint return true if we have seen the given fingerprint
-func (dht *DHT) HaveFingerprint(f Hash) (result bool, err error) {
+// GetIdxMessage returns the messages that causes the change at a given index
+func (dht *DHT) GetIdxMessage(idx int) (msg Message, err error) {
 	err = dht.db.View(func(tx *buntdb.Tx) error {
-		var e error
-		_, e = tx.Get("f:" + f.String())
+		msgStr, e := tx.Get(fmt.Sprintf("idx:%d", idx))
+		if e == buntdb.ErrNotFound {
+			return ErrNoSuchIdx
+		}
+		if e != nil {
+			return e
+		}
+		e = ByteDecoder([]byte(msgStr), &msg)
+		if err != nil {
+			return e
+		}
+		return nil
+	})
+	return
+}
+
+//HaveFingerprint returns true if we have seen the given fingerprint
+func (dht *DHT) HaveFingerprint(f Hash) (result bool, err error) {
+	index, err := dht.GetFingerprint(f)
+	if err == nil {
+		result = index >= 0
+	}
+	return
+}
+
+// GetFingerprint returns the index that of the message that made a change or -1 if we don't have it
+func (dht *DHT) GetFingerprint(f Hash) (index int, err error) {
+	index = -1
+	err = dht.db.View(func(tx *buntdb.Tx) error {
+		idxStr, e := tx.Get("f:" + f.String())
 		if e == buntdb.ErrNotFound {
 			return nil
 		}
 		if e != nil {
 			return e
 		}
-		result = true
+		index, e = strconv.Atoi(idxStr)
+		if e != nil {
+			return e
+		}
 		return nil
 	})
 	return
@@ -282,14 +314,24 @@ func (dht *DHT) gossipWith(id peer.ID, after int) (err error) {
 	if count > 0 {
 		err = dht.UpdateGossiper(id, count)
 		dht.glog.Logf("running %d puts", count)
-		for _, p := range puts {
+		for i, p := range puts {
+			idx := i + after + 1
 			f, e := p.M.Fingerprint()
 			if e == nil {
+				dht.glog.Logf("PUT--%d (fingerprint: %v)", idx, f)
 				exists, e := dht.HaveFingerprint(f)
 				if !exists && e == nil {
+					dht.glog.Logf("PUT--%d calling DHTReceiver", idx)
 					r, e := DHTReceiver(dht.h, &p.M)
-					dht.glog.Logf("DHTReceiver for fingerprint %v returned %v with err %v", f, r, e)
+					dht.glog.Logf("PUT--%d DHTReceiver returned %v with err %v", idx, r, e)
+				} else {
+					if e == nil {
+						dht.glog.Logf("already have fingerprint %v", f)
+					} else {
+						dht.glog.Logf("error in HaveFingerprint %v", e)
+					}
 				}
+
 			} else {
 				dht.glog.Logf("error calculating fingerprint for %v", p)
 			}

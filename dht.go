@@ -456,7 +456,8 @@ func (dht *DHT) get(key Hash, statusMask int, getMask int) (data []byte, entryTy
 // _putLink is a low level routine to add a link, also used by mod
 func _putLink(tx *buntdb.Tx, base string, link string, tag string) (err error) {
 	key := "link:" + base + ":" + link + ":" + tag
-	_, err = tx.Get(key)
+	var val string
+	val, err = tx.Get(key)
 	if err == buntdb.ErrNotFound {
 		_, _, err = tx.Set(key, StatusLiveVal, nil)
 		if err != nil {
@@ -464,7 +465,10 @@ func _putLink(tx *buntdb.Tx, base string, link string, tag string) (err error) {
 		}
 	} else {
 		//TODO what do we do if there's already something there?
+		//	if val != StatusLiveVal {
+		Debugf("putlink when %v has status %v", key, val)
 		panic("putLink over existing link not implemented")
+		//	}
 	}
 	return
 }

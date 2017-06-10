@@ -121,4 +121,6 @@ var activeRoom;
     $("#room-name-button").click(addRoom)
     $("#rooms").on("click", "li", selectRoom)
     $("#message-button").click(sendMessage)
+
+    setInterval(getMessages, 1000)
  });

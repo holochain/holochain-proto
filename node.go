@@ -45,8 +45,10 @@ const (
 	LINK_REQUEST
 	GETLINK_REQUEST
 	DELETELINK_REQUEST
+
+	// Gossip messages
+
 	GOSSIP_REQUEST
-	GOSSIP
 
 	// Validate Messages
 

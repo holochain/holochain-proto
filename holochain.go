@@ -1307,14 +1307,14 @@ func (h *Holochain) Send(proto Protocol, to peer.ID, t MsgType, body interface{}
 	// if we are sending to ourselves we should bypass the network mechanics and call
 	// the receiver directly
 	if to == h.node.HashAddr {
-		Debugf("Sending message local:%v", message)
+		Debugf("Sending message (local):%v (fingerprint:%s)", message, f)
 		response, err = proto.Receiver(h, message)
-		Debugf("local send result: %v error:%v", response, err)
+		Debugf("send result (local): %v (fp:%s)error:%v", response, f, err)
 	} else {
-		Debugf("Sending message net:%v", message)
+		Debugf("Sending message (net):%v (fingerprint:%s)", message, f)
 		var r Message
 		r, err = h.node.Send(proto, to, message)
-		Debugf("send result: %v error:%v", r, err)
+		Debugf("send result (net): %v (fp:%s) error:%v", r, f, err)
 
 		if err != nil {
 			return

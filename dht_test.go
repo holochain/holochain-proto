@@ -5,7 +5,7 @@ import (
 	peer "github.com/libp2p/go-libp2p-peer"
 	. "github.com/smartystreets/goconvey/convey"
 	"os"
-	"regexp"
+	"strings"
 	"testing"
 	"time"
 )
@@ -509,11 +509,10 @@ func TestDHTDump(t *testing.T) {
 
 		str, err := h.dht.DumpIdx(1)
 		So(err, ShouldBeNil)
-		re := regexp.MustCompile(fmt.Sprintf(".*MSG \\(fingerprint %v\\).*", f))
-		So(re.MatchString(str), ShouldBeTrue)
 
-		re = regexp.MustCompile(fmt.Sprintf(".*%v.*", msgStr))
-		So(re.MatchString(str), ShouldBeTrue)
+		So(strings.Index(str, fmt.Sprintf("MSG (fingerprint %v)", f)) >= 0, ShouldBeTrue)
+		So(strings.Index(str, msgStr) >= 0, ShouldBeTrue)
+
 	})
 	Convey("dht dump of index 99 should return err", t, func() {
 		_, err := h.dht.DumpIdx(99)

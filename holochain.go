@@ -1304,6 +1304,10 @@ func (h *Holochain) Send(proto Protocol, to peer.ID, t MsgType, body interface{}
 	if err != nil {
 		return
 	}
+	f, err := message.Fingerprint()
+	if err != nil {
+		panic(fmt.Sprintf("error calculating fingerprint when sending message %v", message))
+	}
 	// if we are sending to ourselves we should bypass the network mechanics and call
 	// the receiver directly
 	if to == h.node.HashAddr {

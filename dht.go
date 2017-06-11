@@ -38,6 +38,11 @@ type DHTConfig struct {
 	// MaxEntrySize : Sets the maximum allowable size of entries for this holochain
 }
 
+type gossipWithReq struct {
+	id    peer.ID
+	after int
+}
+
 // DHT struct holds the data necessary to run the distributed hash table
 type DHT struct {
 	h         *Holochain // pointer to the holochain this DHT is part of
@@ -47,6 +52,7 @@ type DHT struct {
 	glog      Logger // the gossip logger
 	dlog      Logger // the dht logger
 	gossips   map[peer.ID]bool
+	gchan     chan gossipWithReq
 }
 
 // Meta holds data that can be associated with a hash
@@ -208,6 +214,7 @@ func NewDHT(h *Holochain) *DHT {
 	dht.dlog = h.config.Loggers.DHT
 
 	dht.gossips = make(map[peer.ID]bool)
+	dht.gchan = make(chan gossipWithReq, 10)
 
 	return &dht
 }

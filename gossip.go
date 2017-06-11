@@ -278,15 +278,9 @@ func GossipReceiver(h *Holochain, m *Message) (response interface{}, err error) 
 				if len(pi.Addrs) == 0 {
 					dht.glog.Logf("NO ADDRESSES FOR PEER:%v", pi)
 				}
-				go func() {
-					// wait a bit before gossiping back just to give the source time to
-					// complete what it's working on.
-					time.Sleep(time.Millisecond * 10)
-					e := h.dht.gossipWith(m.From, idx)
-					if e != nil {
-						dht.glog.Logf("gossip back returned error: %v", e)
-					}
-				}()
+
+				// queue up a request to gossip back
+				dht.gchan <- gossipWithReq{m.From, idx}
 			}
 
 		default:
@@ -369,7 +363,7 @@ func (dht *DHT) gossip() (err error) {
 		return
 	}
 
-	err = dht.gossipWith(g.Id, g.Idx)
+	dht.gchan <- gossipWithReq{g.Id, g.Idx}
 	return
 }
 
@@ -383,4 +377,22 @@ func (dht *DHT) Gossip(interval time.Duration) {
 		}
 		time.Sleep(interval)
 	}
+}
+
+// HandleGossipWiths waits on a chanel for gossipWith requests
+func (dht *DHT) HandleGossipWiths() (err error) {
+	for {
+		dht.glog.Log("HandleGossipWiths: waiting for request")
+		g, ok := <-dht.gchan
+		if !ok {
+			dht.glog.Log("HandleGossipWiths: channel closed, breaking")
+			break
+		}
+
+		err = dht.gossipWith(g.id, g.after)
+		if err != nil {
+			dht.glog.Logf("HandleGossipWiths: got err: %v", err)
+		}
+	}
+	return nil
 }

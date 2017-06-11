@@ -242,6 +242,7 @@ func setupApp() (app *cli.App) {
 					return err
 				}
 				go h.DHT().HandleChangeReqs()
+				go h.DHT().HandleGossipWiths()
 				go h.DHT().Gossip(2 * time.Second)
 				serve(h, port)
 				return err

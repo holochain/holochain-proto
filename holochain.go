@@ -1282,6 +1282,7 @@ func (h *Holochain) Reset() (err error) {
 	}
 	if h.dht != nil {
 		close(h.dht.puts)
+		close(h.dht.gchan)
 	}
 	h.dht = NewDHT(h)
 

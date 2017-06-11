@@ -323,6 +323,41 @@ func setupApp() (app *cli.App) {
 			},
 		},
 		{
+			Name:      "dht",
+			ArgsUsage: "holochain-name",
+			Usage:     "display a text dump of an app's dht",
+			Action: func(c *cli.Context) error {
+				h, err := getHolochain(c, service, "dht")
+				if err != nil {
+					return err
+				}
+
+				if !h.Started() {
+					return errors.New("No data to dump, chain not yet initialized.")
+				}
+				dnaHash := h.DNAHash()
+
+				fmt.Printf("DHT for: %s\n", dnaHash)
+
+				var idx int
+				dht := h.DHT()
+				idx, err = dht.GetIdx()
+				if err != nil {
+					return err
+				}
+				fmt.Printf("DHT changes:%d\n", idx)
+				for i := 1; i <= idx; i++ {
+					str, err := dht.DumpIdx(i)
+					if err != nil {
+						fmt.Printf("%d Error:%v\n", i, err)
+					} else {
+						fmt.Printf("%d\n%v\n", i, str)
+					}
+				}
+				return nil
+			},
+		},
+		{
 			Name:      "join",
 			Aliases:   []string{"c"},
 			ArgsUsage: "src-path holochain-name",

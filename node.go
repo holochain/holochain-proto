@@ -11,6 +11,7 @@ import (
 	//	host "github.com/libp2p/go-libp2p-host"
 	"encoding/gob"
 	"errors"
+	"fmt"
 	ic "github.com/libp2p/go-libp2p-crypto"
 	net "github.com/libp2p/go-libp2p-net"
 	peer "github.com/libp2p/go-libp2p-peer"
@@ -166,6 +167,42 @@ func (m *Message) Fingerprint() (f Hash, err error) {
 	}
 
 	return
+}
+
+// String converts a message to a nice string
+func (m Message) String() string {
+	var typeStr string
+	switch m.Type {
+	case ERROR_RESPONSE:
+		typeStr = "ERROR_RESPONSE"
+	case OK_RESPONSE:
+		typeStr = "OK_RESPONSE"
+	case PUT_REQUEST:
+		typeStr = "PUT_REQUEST"
+	case DEL_REQUEST:
+		typeStr = "DEL_REQUEST"
+	case MOD_REQUEST:
+		typeStr = "MOD_REQUEST"
+	case GET_REQUEST:
+		typeStr = "GET_REQUEST"
+	case LINK_REQUEST:
+		typeStr = "LINK_REQUEST"
+	case GETLINK_REQUEST:
+		typeStr = "GETLINK_REQUEST"
+	case DELETELINK_REQUEST:
+		typeStr = "DELETELINK_REQUEST"
+	case GOSSIP_REQUEST:
+		typeStr = "GOSSIP_REQUEST"
+	case VALIDATE_PUT_REQUEST:
+		typeStr = "VALIDATE_PUT_REQUEST"
+	case VALIDATE_LINK_REQUEST:
+		typeStr = "VALIDATE_LINK_REQUEST"
+	case VALIDATE_DEL_REQUEST:
+		typeStr = "VALIDATE_DEL_REQUEST"
+	case VALIDATE_MOD_REQUEST:
+		typeStr = "VALIDATE_MOD_REQUEST"
+	}
+	return fmt.Sprintf("%s @ %v From:%v Body:%v", typeStr, m.Time, m.From, m.Body)
 }
 
 // respondWith writes a message either error or otherwise, to the stream

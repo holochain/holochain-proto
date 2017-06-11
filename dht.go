@@ -355,7 +355,7 @@ func _get(tx *buntdb.Tx, k string, statusMask int) (string, error) {
 
 		if statusMask == StatusDefault {
 			// if the status mask is not given (i.e. Default) then
-			// we return information about the status is it's other than live
+			// we return information about the status if it's other than live
 			switch statusVal {
 			case StatusDeletedVal:
 				err = ErrHashDeleted
@@ -826,5 +826,28 @@ func (dht *DHT) StartDHT() (err error) {
 		return
 	}
 	dht.h.node.StartProtocol(dht.h, GossipProtocol)
+	return
+}
+
+// DumpIdx converts message and data of a DHT change request to a string for human consumption
+func (dht *DHT) DumpIdx(idx int) (str string, err error) {
+	var msg Message
+	msg, err = dht.GetIdxMessage(idx)
+	if err != nil {
+		return
+	}
+	f, _ := msg.Fingerprint()
+	str = fmt.Sprintf("MSG (fingerprint %v):\n   %v\n", f, msg)
+	switch msg.Type {
+	case PUT_REQUEST:
+		key := msg.Body.(PutReq).H
+		entry, entryType, _, _, e := dht.get(key, StatusDefault, GetMaskAll)
+		if e != nil {
+			err = fmt.Errorf("couldn't get %v err:%v ", key, e)
+			return
+		} else {
+			str += fmt.Sprintf("DATA: type:%s entry: %v\n", entryType, entry)
+		}
+	}
 	return
 }

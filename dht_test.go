@@ -5,6 +5,7 @@ import (
 	peer "github.com/libp2p/go-libp2p-peer"
 	. "github.com/smartystreets/goconvey/convey"
 	"os"
+	"regexp"
 	"testing"
 	"time"
 )
@@ -495,6 +496,29 @@ func TestDHTReceiver(t *testing.T) {
 		So(e.C, ShouldEqual, "322")
 		So(entryType, ShouldEqual, "evenNumbers")
 		So(status, ShouldEqual, StatusDeleted)
+	})
+}
+
+func TestDHTDump(t *testing.T) {
+	d, _, h := prepareTestChain("test")
+	defer cleanupTestDir(d)
+	Convey("dht dump of index 1 should show the agent put", t, func() {
+		msg, _ := h.dht.GetIdxMessage(1)
+		f, _ := msg.Fingerprint()
+		msgStr := msg.String()
+
+		str, err := h.dht.DumpIdx(1)
+		So(err, ShouldBeNil)
+		re := regexp.MustCompile(fmt.Sprintf(".*MSG \\(fingerprint %v\\).*", f))
+		So(re.MatchString(str), ShouldBeTrue)
+
+		re = regexp.MustCompile(fmt.Sprintf(".*%v.*", msgStr))
+		So(re.MatchString(str), ShouldBeTrue)
+	})
+	Convey("dht dump of index 99 should return err", t, func() {
+		_, err := h.dht.DumpIdx(99)
+		So(err.Error(), ShouldEqual, "no such change index")
+
 	})
 }
 

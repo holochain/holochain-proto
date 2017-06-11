@@ -84,8 +84,9 @@ func (h *Holochain) ValidateAction(a ValidatingAction, entryType string, pkg *Pa
 	case DNAEntryType:
 		//		panic("attempt to get validation response for DNA")
 	case KeyEntryType:
-		//		resp.Entry = TODO public key goes here
+		//		validate the public key?
 	case AgentEntryType:
+		//		validate the Agent Entry?
 	default:
 
 		// validation actions for application defined entry types
@@ -153,6 +154,7 @@ func (h *Holochain) GetValidationResponse(a ValidatingAction, hash Hash) (resp V
 	case KeyEntryType:
 		//		resp.Entry = TODO public key goes here
 	case AgentEntryType:
+		//		resp.Entry = TODO agent block goes here
 	default:
 		// app defined entry types
 		var def *EntryDef
@@ -405,15 +407,31 @@ func (a *ActionGet) DHTReqHandler(dht *DHT, msg *Message) (response interface{},
 		mask = GetMaskEntry
 	}
 	resp := GetResp{}
-	entryData, resp.EntryType, resp.Sources, _, err = dht.get(req.H, req.StatusMask, req.GetMask)
+	var entryType string
+	entryData, entryType, resp.Sources, _, err = dht.get(req.H, req.StatusMask, req.GetMask|GetMaskEntryType)
+	if (mask & GetMaskEntryType) != 0 {
+		resp.EntryType = entryType
+	}
+
 	if err == nil {
 		if (mask & GetMaskEntry) != 0 {
-			var e GobEntry
-			err = e.Unmarshal(entryData)
-			if err != nil {
-				return
+			switch entryType {
+			case DNAEntryType:
+				panic("nobody should actually get the DNA!")
+			case AgentEntryType:
+				fallthrough
+			case KeyEntryType:
+				var e GobEntry
+				e.C = string(entryData)
+				resp.Entry = &e
+			default:
+				var e GobEntry
+				err = e.Unmarshal(entryData)
+				if err != nil {
+					return
+				}
+				resp.Entry = &e
 			}
-			resp.Entry = &e
 		}
 	} else {
 		if err == ErrHashModified {
@@ -885,7 +903,13 @@ func (a *ActionGetLink) Do(h *Holochain) (response interface{}, err error) {
 					req := GetReq{H: hash, StatusMask: StatusDefault}
 					rsp, err := NewGetAction(req, &GetOptions{StatusMask: StatusDefault}).Do(h)
 					if err == nil {
-						t.Links[i].E = rsp.(GetResp).Entry.(Entry).Content().(string)
+						entry := rsp.(GetResp).Entry
+						if entry != nil {
+							t.Links[i].E = entry.(Entry).Content().(string)
+						} else {
+							panic(fmt.Sprintf("Nil entry in GetLink.Do response to req: %v", req))
+						}
+
 					}
 					//TODO better error handling here, i.e break out of the loop and return if error?
 				}

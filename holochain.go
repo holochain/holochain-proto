@@ -58,6 +58,7 @@ type Loggers struct {
 // Config holds the non-DNA configuration for a holo-chain, from config file or environment variables
 type Config struct {
 	Port            int
+	EnableMDNS      bool
 	PeerModeAuthor  bool
 	PeerModeDHTNode bool
 	BootstrapServer string
@@ -407,6 +408,13 @@ func (h *Holochain) Prepare() (err error) {
 		return
 	}
 
+	if h.config.EnableMDNS {
+		err = h.node.EnableMDNSDiscovery(h, time.Second)
+		if err != nil {
+			return
+		}
+	}
+
 	h.dht = NewDHT(h)
 
 	return
@@ -665,6 +673,7 @@ func (s *Service) Clone(srcPath string, root string, new bool) (hP *Holochain, e
 }
 
 func (h *Holochain) setupConfig() (err error) {
+	h.config.EnableMDNS = true
 	if err = h.config.Loggers.App.New(nil); err != nil {
 		return
 	}

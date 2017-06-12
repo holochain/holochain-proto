@@ -94,9 +94,25 @@ func (r *Router) FindPeer(context.Context, peer.ID) (peer pstore.PeerInfo, err e
 }
 
 // implement peer found function for mdns discovery
-func (n *Node) HandlePeerFound(pi pstore.PeerInfo) {
-	Debugf("discovered peer via mdns: %v", pi)
-	n.Host.Connect(context.Background(), pi)
+func (h *Holochain) HandlePeerFound(pi pstore.PeerInfo) {
+	h.dht.dlog.Logf("discovered peer via mdns: %v", pi)
+	h.node.Host.Connect(context.Background(), pi)
+	err := h.dht.UpdateGossiper(pi.ID, 0)
+	if err != nil {
+		h.dht.dlog.Logf("error when updating gossiper: %v", pi)
+	}
+}
+
+func (n *Node) EnableMDNSDiscovery(notifee discovery.Notifee, interval time.Duration) (err error) {
+	ctx := context.Background()
+
+	n.mdnsSvc, err = discovery.NewMdnsService(ctx, n.Host, interval)
+	if err != nil {
+		return
+	}
+
+	n.mdnsSvc.RegisterNotifee(notifee)
+	return
 }
 
 // NewNode creates a new ipfs basichost node with given identity
@@ -137,13 +153,6 @@ func NewNode(listenAddr string, id peer.ID, priv ic.PrivKey) (node *Node, err er
 	}
 	hr := Router{}
 	n.Host = rhost.Wrap(bh, &hr)
-
-	n.mdnsSvc, err = discovery.NewMdnsService(ctx, n.Host, time.Second)
-	if err != nil {
-		return
-	}
-
-	n.mdnsSvc.RegisterNotifee(&n)
 
 	node = &n
 	return

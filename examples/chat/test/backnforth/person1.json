@@ -4,7 +4,7 @@
         "Zome":"profiles",
         "FnName":"register",
         "Input":"{\"username\":\"person1\", \"firstName\":\"Joe\", \"lastName\":\"Person1\", \"email\":\"joe@example.com\"}",
-        "Output":"\"%h1%\"",
+        "Output":"\"%h2%\"",
         "Err":""
     },
     {

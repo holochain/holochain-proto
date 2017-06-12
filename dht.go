@@ -39,8 +39,7 @@ type DHTConfig struct {
 }
 
 type gossipWithReq struct {
-	id    peer.ID
-	after int
+	id peer.ID
 }
 
 // DHT struct holds the data necessary to run the distributed hash table

@@ -19,7 +19,8 @@ import (
 
 // Put holds a put or link for gossiping
 type Put struct {
-	M Message
+	M   Message
+	idx int
 }
 
 // Gossip holds a gossip message
@@ -31,13 +32,6 @@ type Gossip struct {
 type GossipReq struct {
 	MyIdx   int
 	YourIdx int
-}
-
-// Gossiper holds data about a gossiper
-type Gossiper struct {
-	Id       peer.ID
-	Idx      int
-	LastSeen time.Time
 }
 
 var ErrDHTErrNoGossipersAvailable error = errors.New("no gossipers available")
@@ -208,8 +202,8 @@ func (dht *DHT) GetGossiper(id peer.ID) (idx int, err error) {
 }
 
 // FindGossiper picks a random DHT node to gossip with
-func (dht *DHT) FindGossiper() (g *Gossiper, err error) {
-	glist := make([]Gossiper, 0)
+func (dht *DHT) FindGossiper() (g peer.ID, err error) {
+	glist := make([]peer.ID, 0)
 
 	err = dht.db.View(func(tx *buntdb.Tx) error {
 		err = tx.Ascend("peer", func(key, value string) bool {
@@ -218,9 +212,8 @@ func (dht *DHT) FindGossiper() (g *Gossiper, err error) {
 			if e != nil {
 				return false
 			}
-			idx, _ := strconv.Atoi(value)
-			g := Gossiper{Id: id, Idx: idx}
-			glist = append(glist, g)
+			//			idx, _ := strconv.Atoi(value)
+			glist = append(glist, id)
 			return true
 		})
 		return nil
@@ -229,7 +222,7 @@ func (dht *DHT) FindGossiper() (g *Gossiper, err error) {
 	if len(glist) == 0 {
 		err = ErrDHTErrNoGossipersAvailable
 	} else {
-		g = &glist[rand.Intn(len(glist))]
+		g = glist[rand.Intn(len(glist))]
 	}
 	return
 }
@@ -243,7 +236,7 @@ func (dht *DHT) UpdateGossiper(id peer.ID, newIdx int) (err error) {
 		if e != nil {
 			return e
 		}
-		if newIdx <= idx {
+		if newIdx < idx {
 			return nil
 		}
 		sidx := fmt.Sprintf("%d", newIdx)
@@ -283,7 +276,7 @@ func GossipReceiver(h *Holochain, m *Message) (response interface{}, err error) 
 				}
 
 				// queue up a request to gossip back
-				dht.gchan <- gossipWithReq{m.From, idx}
+				dht.gchan <- gossipWithReq{m.From}
 			}
 
 		default:
@@ -294,7 +287,7 @@ func GossipReceiver(h *Holochain, m *Message) (response interface{}, err error) 
 }
 
 // gossipWith gossips with an peer asking for everything after since
-func (dht *DHT) gossipWith(id peer.ID, after int) (err error) {
+func (dht *DHT) gossipWith(id peer.ID) (err error) {
 	dht.glog.Logf("with %v", id)
 
 	// gossip loops are possible where a gossip request triggers a gossip back, which
@@ -309,14 +302,19 @@ func (dht *DHT) gossipWith(id peer.ID, after int) (err error) {
 		delete(dht.gossips, id)
 	}()
 
-	var myIdx int
+	var myIdx, yourIdx int
 	myIdx, err = dht.GetIdx()
 	if err != nil {
 		return
 	}
 
+	yourIdx, err = dht.GetGossiper(id)
+	if err != nil {
+		return
+	}
+
 	var r interface{}
-	r, err = dht.h.Send(GossipProtocol, id, GOSSIP_REQUEST, GossipReq{MyIdx: myIdx, YourIdx: after + 1})
+	r, err = dht.h.Send(GossipProtocol, id, GOSSIP_REQUEST, GossipReq{MyIdx: myIdx, YourIdx: yourIdx + 1})
 	if err != nil {
 		return
 	}
@@ -330,9 +328,9 @@ func (dht *DHT) gossipWith(id peer.ID, after int) (err error) {
 	count := len(puts)
 	if count > 0 {
 		dht.glog.Logf("running %d puts", count)
-		max := 0
+		var idx int
 		for i, p := range puts {
-			idx := i + after + 1
+			idx = i + yourIdx + 1
 			f, e := p.M.Fingerprint()
 			if e == nil {
 				dht.glog.Logf("PUT--%d (fingerprint: %v)", idx, f)
@@ -343,7 +341,6 @@ func (dht *DHT) gossipWith(id peer.ID, after int) (err error) {
 					dht.glog.Logf("PUT--%d DHTReceiver returned %v with err %v", idx, r, e)
 				} else {
 					if e == nil {
-						max = idx
 						dht.glog.Logf("already have fingerprint %v", f)
 					} else {
 						dht.glog.Logf("error in HaveFingerprint %v", e)
@@ -354,9 +351,7 @@ func (dht *DHT) gossipWith(id peer.ID, after int) (err error) {
 				dht.glog.Logf("error calculating fingerprint for %v", p)
 			}
 		}
-		if max > 0 {
-			err = dht.UpdateGossiper(id, max)
-		}
+		err = dht.UpdateGossiper(id, idx)
 	}
 	return
 }
@@ -364,13 +359,13 @@ func (dht *DHT) gossipWith(id peer.ID, after int) (err error) {
 // gossip picks a random node in my neighborhood and sends gossips with it
 func (dht *DHT) gossip() (err error) {
 
-	var g *Gossiper
+	var g peer.ID
 	g, err = dht.FindGossiper()
 	if err != nil {
 		return
 	}
 
-	dht.gchan <- gossipWithReq{g.Id, g.Idx}
+	dht.gchan <- gossipWithReq{g}
 	return
 }
 
@@ -396,7 +391,7 @@ func (dht *DHT) HandleGossipWiths() (err error) {
 			break
 		}
 
-		err = dht.gossipWith(g.id, g.after)
+		err = dht.gossipWith(g.id)
 		if err != nil {
 			dht.glog.Logf("HandleGossipWiths: got err: %v", err)
 		}

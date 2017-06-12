@@ -31,6 +31,23 @@ func TestGetFindGossiper(t *testing.T) {
 
 	fooAddr, _ := makePeer("peer_foo")
 
+	Convey("UpdateGossiper to 0 should add the gossiper", t, func() {
+		err := dht.UpdateGossiper(fooAddr, 0)
+		So(err, ShouldBeNil)
+	})
+
+	Convey("FindGossiper should return the gossiper", t, func() {
+		g, err := dht.FindGossiper()
+		So(err, ShouldBeNil)
+		So(g, ShouldEqual, fooAddr)
+	})
+
+	Convey("GetGossiper should return the gossiper idx", t, func() {
+		idx, err := dht.GetGossiper(fooAddr)
+		So(err, ShouldBeNil)
+		So(idx, ShouldEqual, 0)
+	})
+
 	Convey("UpdateGossiper should add a gossiper", t, func() {
 		err := dht.UpdateGossiper(fooAddr, 92)
 		So(err, ShouldBeNil)
@@ -53,8 +70,7 @@ func TestGetFindGossiper(t *testing.T) {
 	Convey("FindGossiper should return the gossiper", t, func() {
 		g, err := dht.FindGossiper()
 		So(err, ShouldBeNil)
-		So(g.Idx, ShouldEqual, 92)
-		So(g.Id, ShouldEqual, fooAddr)
+		So(g, ShouldEqual, fooAddr)
 	})
 
 	Convey("UpdateGossiper should update when value greater than previously stored", t, func() {

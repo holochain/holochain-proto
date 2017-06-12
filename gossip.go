@@ -235,15 +235,18 @@ func (dht *DHT) FindGossiper() (g *Gossiper, err error) {
 }
 
 // UpdateGossiper updates a gossiper
-func (dht *DHT) UpdateGossiper(id peer.ID, count int) (err error) {
-	dht.glog.Logf("updaing %v with %d", id, count)
+func (dht *DHT) UpdateGossiper(id peer.ID, newIdx int) (err error) {
+	dht.glog.Logf("updaing %v to %d", id, newIdx)
 	err = dht.db.Update(func(tx *buntdb.Tx) error {
 		key := "peer:" + peer.IDB58Encode(id)
 		idx, e := getIntVal(key, tx)
 		if e != nil {
 			return e
 		}
-		sidx := fmt.Sprintf("%d", idx+count)
+		if newIdx <= idx {
+			return nil
+		}
+		sidx := fmt.Sprintf("%d", newIdx)
 		_, _, err = tx.Set(key, sidx, nil)
 		if err != nil {
 			return err
@@ -326,8 +329,8 @@ func (dht *DHT) gossipWith(id peer.ID, after int) (err error) {
 	// and also run their puts
 	count := len(puts)
 	if count > 0 {
-		err = dht.UpdateGossiper(id, count)
 		dht.glog.Logf("running %d puts", count)
+		max := 0
 		for i, p := range puts {
 			idx := i + after + 1
 			f, e := p.M.Fingerprint()
@@ -340,6 +343,7 @@ func (dht *DHT) gossipWith(id peer.ID, after int) (err error) {
 					dht.glog.Logf("PUT--%d DHTReceiver returned %v with err %v", idx, r, e)
 				} else {
 					if e == nil {
+						max = idx
 						dht.glog.Logf("already have fingerprint %v", f)
 					} else {
 						dht.glog.Logf("error in HaveFingerprint %v", e)
@@ -349,6 +353,9 @@ func (dht *DHT) gossipWith(id peer.ID, after int) (err error) {
 			} else {
 				dht.glog.Logf("error calculating fingerprint for %v", p)
 			}
+		}
+		if max > 0 {
+			err = dht.UpdateGossiper(id, max)
 		}
 	}
 	return

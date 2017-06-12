@@ -42,11 +42,27 @@ func TestGetFindGossiper(t *testing.T) {
 		So(idx, ShouldEqual, 92)
 	})
 
+	Convey("UpdateGossiper should ignore values less than previously stored", t, func() {
+		err := dht.UpdateGossiper(fooAddr, 32)
+		So(err, ShouldBeNil)
+		idx, err := dht.GetGossiper(fooAddr)
+		So(err, ShouldBeNil)
+		So(idx, ShouldEqual, 92)
+	})
+
 	Convey("FindGossiper should return the gossiper", t, func() {
 		g, err := dht.FindGossiper()
 		So(err, ShouldBeNil)
 		So(g.Idx, ShouldEqual, 92)
 		So(g.Id, ShouldEqual, fooAddr)
+	})
+
+	Convey("UpdateGossiper should update when value greater than previously stored", t, func() {
+		err := dht.UpdateGossiper(fooAddr, 132)
+		So(err, ShouldBeNil)
+		idx, err := dht.GetGossiper(fooAddr)
+		So(err, ShouldBeNil)
+		So(idx, ShouldEqual, 132)
 	})
 
 	Convey("GetIdx for self should be 2 to start with (DNA not stored)", t, func() {

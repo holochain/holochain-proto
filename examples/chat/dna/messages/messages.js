@@ -9,8 +9,8 @@ function listMessages(room) {
     for( i=0; i<messages.length; i++) {
       return_messages[i] = JSON.parse(messages[i]["E"])
       return_messages[i].id = messages[i]["H"]
-      return_messages[i].author_hash = get(messages[i]["H"],{GetMask:HC.GetMask.Sources})[0]
-      var agent_profile_link = getLink(return_messages[i].author_hash, "profile", {Load: true})
+      var author_hash = get(messages[i]["H"],{GetMask:HC.GetMask.Sources})[0]
+      var agent_profile_link = getLink(author_hash, "profile", {Load: true})
       return_messages[i].author = JSON.parse(agent_profile_link.Links[0].E)
     }
     return return_messages

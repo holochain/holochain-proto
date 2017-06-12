@@ -1,4 +1,18 @@
 GOBIN = $(value GOPATH)/bin
+
+ifndef HOME
+# Is probably a windows machine
+ifdef USERPROFILE
+HOME = $(USERPROFILE)
+# Windows variable for home is USERPROFILE
+else
+$(error unable to get home directory)
+endif
+endif
+
+HOLOPATH ?= $(HOME)/.holochain
+# Default .holochain location
+
 .PHONY: test test-sample deps gx work pub
 # Anything which requires deps should end with: gx-go rewrite --undo
 
@@ -13,6 +27,15 @@ test: deps
 	go test -v ./...||exit 1
 	gx-go rewrite --undo
 test-sample: hc
+# Init if not already init-ed
+ifeq '$(and \
+$(strip $(wildcard $(HOLOPATH))),\
+$(strip $(wildcard $(HOLOPATH)/system.conf)),\
+$(strip $(wildcard $(HOLOPATH)/agent.txt)))' ''
+# If they all existed, the output of $(and) would be != ''
+	$(warning hc not init-ed. using bogus email.)
+	hc init node@example.com
+endif
 	hc --debug --verbose clone --force examples/sample examples-sample
 	hc --debug --verbose test examples-sample
 deps: gx

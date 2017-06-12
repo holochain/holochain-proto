@@ -18,6 +18,7 @@ import (
 	pstore "github.com/libp2p/go-libp2p-peerstore"
 	protocol "github.com/libp2p/go-libp2p-protocol"
 	swarm "github.com/libp2p/go-libp2p-swarm"
+	discovery "github.com/libp2p/go-libp2p/p2p/discovery"
 	bhost "github.com/libp2p/go-libp2p/p2p/host/basic"
 	rhost "github.com/libp2p/go-libp2p/p2p/host/routed"
 	ma "github.com/multiformats/go-multiaddr"
@@ -72,6 +73,7 @@ type Node struct {
 	HashAddr peer.ID
 	NetAddr  ma.Multiaddr
 	Host     *rhost.RoutedHost
+	mdnsSvc  discovery.Service
 }
 
 // Protocol encapsulates data for our different protocols
@@ -89,6 +91,12 @@ type Router struct {
 func (r *Router) FindPeer(context.Context, peer.ID) (peer pstore.PeerInfo, err error) {
 	err = errors.New("routing not implemented")
 	return
+}
+
+// implement peer found function for mdns discovery
+func (n *Node) HandlePeerFound(pi pstore.PeerInfo) {
+	Debugf("discovered peer via mdns: %v", pi)
+	n.Host.Connect(context.Background(), pi)
 }
 
 // NewNode creates a new ipfs basichost node with given identity
@@ -129,6 +137,13 @@ func NewNode(listenAddr string, id peer.ID, priv ic.PrivKey) (node *Node, err er
 	}
 	hr := Router{}
 	n.Host = rhost.Wrap(bh, &hr)
+
+	n.mdnsSvc, err = discovery.NewMdnsService(ctx, n.Host, time.Second)
+	if err != nil {
+		return
+	}
+
+	n.mdnsSvc.RegisterNotifee(&n)
 
 	node = &n
 	return

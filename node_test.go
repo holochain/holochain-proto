@@ -17,6 +17,22 @@ import (
 	"time"
 )
 
+func TestNodeDiscoveryd(t *testing.T) {
+	node1, _ := makeNode(1234, "node1")
+	node2, _ := makeNode(4321, "node2")
+	defer func() {
+		node1.Close()
+		node2.Close()
+	}()
+	Convey("nodes should find eachother via mdns", t, func() {
+		So(len(node1.Host.Peerstore().Peers()), ShouldEqual, 1)
+		So(len(node2.Host.Peerstore().Peers()), ShouldEqual, 1)
+		time.Sleep(time.Second * 1)
+		So(len(node1.Host.Peerstore().Peers()), ShouldEqual, 2)
+		So(len(node2.Host.Peerstore().Peers()), ShouldEqual, 2)
+	})
+}
+
 func TestNewNode(t *testing.T) {
 
 	node, err := makeNode(1234, "")

@@ -1,3 +1,7 @@
+ifndef GOPATH
+$(error GOPATH *must* be defined)
+endif
+
 GOBIN = $(value GOPATH)/bin
 REPO = $(CURDIR:$(GOPATH)/src/%=%)
 # Remove a $(GOPATH)/src/ from the beginning of the current directory.
@@ -16,7 +20,9 @@ endif
 HOLOPATH ?= $(HOME)/.holochain
 # Default .holochain location
 
-.PHONY: test test-sample deps work pub
+TEST_FLAGS = -v
+
+.PHONY: hc bs test test-sample deps work pub
 # Anything which requires deps should end with: gx-go rewrite --undo
 
 hc: deps
@@ -27,7 +33,7 @@ bs: deps
 	gx-go rewrite --undo
 test: deps
 	go get -t $(REPO)
-	go test -v ./...||exit 1
+	go test $(TEST_FLAGS) ./...
 	gx-go rewrite --undo
 test-sample: hc
 # Init if not already init-ed
@@ -39,6 +45,7 @@ $(strip $(wildcard $(HOLOPATH)/agent.txt)))' ''
 	$(warning hc not init-ed. using bogus email.)
 	hc init node@example.com
 endif
+	$(if $(strip $(wildcard $(HOLOPATH)/examples-sample)),$(warning overwriting existing holochain 'examples-sample'))
 	hc --debug --verbose clone --force examples/sample examples-sample
 	hc --debug --verbose test examples-sample
 deps: $(GOBIN)/gx $(GOBIN)/gx-go

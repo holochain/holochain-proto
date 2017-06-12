@@ -16,7 +16,7 @@ Name = "Cludder"
 PropertiesSchema = "properties.json"
 
 # Inidicates which version (or later) of the holochain library this App requires
-RequiresVersion = 11
+RequiresVersion = 12
 
 # Values for the schema
 [Properties]

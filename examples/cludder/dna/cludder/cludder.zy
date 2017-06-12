@@ -95,7 +95,7 @@
                                              (hash Base:me Link:oldKey Tag:"handle" LinkAction:HC_LinkAction_Del)
                                              (hash Base:me Link:key Tag:"handle")
                                              ]))
-                        (commit "handle_links"
+                        (commit "directory_links"
                                 (hash Links:[
                                              (hash Base:directory Link:oldKey Tag:"handle"  LinkAction:HC_LinkAction_Del)
                                              (hash Base:directory Link:key Tag:"handle")
@@ -139,6 +139,8 @@
 (defn getDirectory [] App_DNA_Hash)
 
 // helper function to actually commit a handle and its links on the directory
+// this function gets called at genesis time only because all other times handle gets
+// updated using newHandle
 (defn addHandle [handle]
   // TODO confirm no collision
   (let [key (commit "handle" handle)        // On my source chain, commits a new handle entry
@@ -207,6 +209,7 @@
 // ===============================================================================
 (defn validateCommit [entryType entry header pkg sources]
   (validate entryType entry header sources))
+
 (defn validatePut [entryType entry header pkg sources]
   (validate entryType entry header sources))
 

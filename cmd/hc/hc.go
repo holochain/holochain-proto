@@ -27,7 +27,7 @@ func setupApp() (app *cli.App) {
 	app = cli.NewApp()
 	app.Name = "hc"
 	app.Usage = "holochain peer command line interface"
-	app.Version = fmt.Sprintf("0.0.5 (holochain %s)", holo.VersionStr)
+	app.Version = fmt.Sprintf("0.0.6 (holochain %s)", holo.VersionStr)
 
 	var force bool
 	var root string

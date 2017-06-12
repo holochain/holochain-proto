@@ -2,7 +2,7 @@
     "Version": 0,
     "ID": "00000000-0000-0000-0000-000000000000",
     "Name": "clutter",
-    "RequiresVersion": 11,
+    "RequiresVersion": 12,
     "Properties": {
         "description": "distributed micro-blogging (Twitter clone)",
         "language": "en"

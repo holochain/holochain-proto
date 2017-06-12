@@ -125,7 +125,7 @@ function getPosts(by) {
         var author = by[i];
         var handle = App.handles[author];
         if (handle == undefined) {
-            send("getHandle", author);
+            getHandle(author);
         }
     }
     send("getPostsBy",JSON.stringify(by),function(arr) {

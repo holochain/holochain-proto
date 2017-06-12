@@ -152,6 +152,8 @@ function getDirectory() {return App.DNA.Hash;}
 
 
 // helper function to actually commit a handle and its links on the directory
+// this function gets called at genesis time only because all other times handle gets
+// updated using newHandle
 function addHandle(handle) {
     // TODO confirm no collision
     var key = commit("handle",handle);        // On my source chain, commits a new handle entry
@@ -227,6 +229,17 @@ function genesis() {                            // 'hc gen chain' calls the gene
 //     Every DHT node uses their own copy of these functions to validate
 //     any and all changes requested before accepting. put / mod / del & metas
 // ===============================================================================
+
+function validateCommit(entry_type,entry,header,pkg,sources) {
+    debug("validate commit: "+entry_type);
+    return validate(entry_type,entry,header,sources);
+}
+
+function validatePut(entry_type,entry,header,pkg,sources) {
+    debug("validate put: "+entry_type);
+    return validate(entry_type,entry,header,sources);
+}
+
 function validate(entry_type,entry,header,sources) {
     if (entry_type=="post") {
         var l = entry.message.length;
@@ -240,15 +253,6 @@ function validate(entry_type,entry,header,sources) {
         return true;
     }
     return true;
-}
-
-function validatePut(entry_type,entry,header,pkg,sources) {
-    debug("validate put: "+entry_type);
-    return validate(entry_type,entry,header,sources);
-}
-function validateCommit(entry_type,entry,header,pkg,sources) {
-    debug("validate commit: "+entry_type);
-    return validate(entry_type,entry,header,sources);
 }
 
 // Are there types of tags that you need special permission to add links?

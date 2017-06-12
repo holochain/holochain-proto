@@ -1,4 +1,7 @@
 GOBIN = $(value GOPATH)/bin
+REPO = $(CURDIR:$(GOPATH)/src/%=%)
+# Remove a $(GOPATH)/src/ from the beginning of the current directory.
+# Likely to be github.com/metacurrency/holochain
 
 ifndef HOME
 # Is probably a windows machine
@@ -13,17 +16,17 @@ endif
 HOLOPATH ?= $(HOME)/.holochain
 # Default .holochain location
 
-.PHONY: test test-sample deps gx work pub
+.PHONY: test test-sample deps work pub
 # Anything which requires deps should end with: gx-go rewrite --undo
 
 hc: deps
-	go install ./cmd/hc
+	go get $(REPO)/cmd/hc
 	gx-go rewrite --undo
 bs: deps
-	go install ./cmd/bs
+	go get $(REPO)/cmd/bs
 	gx-go rewrite --undo
 test: deps
-	go get -t
+	go get -t $(REPO)
 	go test -v ./...||exit 1
 	gx-go rewrite --undo
 test-sample: hc
@@ -38,11 +41,8 @@ $(strip $(wildcard $(HOLOPATH)/agent.txt)))' ''
 endif
 	hc --debug --verbose clone --force examples/sample examples-sample
 	hc --debug --verbose test examples-sample
-deps: gx
-	gx-go rewrite
-	go get -d ./...
-gx: $(GOBIN)/gx $(GOBIN)/gx-go
-	gx install --global
+deps: $(GOBIN)/gx $(GOBIN)/gx-go
+	gx-go get $(REPO)
 $(GOBIN)/gx:
 	go get -u github.com/whyrusleeping/gx
 $(GOBIN)/gx-go:

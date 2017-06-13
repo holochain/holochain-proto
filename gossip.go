@@ -12,6 +12,7 @@ import (
 	peer "github.com/libp2p/go-libp2p-peer"
 	"github.com/tidwall/buntdb"
 	"math/rand"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -19,8 +20,8 @@ import (
 
 // Put holds a put or link for gossiping
 type Put struct {
-	M   Message
 	idx int
+	M   Message
 }
 
 // Gossip holds a gossip message
@@ -171,7 +172,7 @@ func (dht *DHT) GetPuts(since int) (puts []Put, err error) {
 			x := strings.Split(key, ":")
 			idx, _ := strconv.Atoi(x[1])
 			if idx >= since {
-				var p Put
+				p := Put{idx: idx}
 				if value != "" {
 					err := ByteDecoder([]byte(value), &p.M)
 					if err != nil {
@@ -182,6 +183,7 @@ func (dht *DHT) GetPuts(since int) (puts []Put, err error) {
 			}
 			return true
 		})
+		sort.Slice(puts, func(i, j int) bool { return puts[i].idx < puts[j].idx })
 		return err
 	})
 	return
@@ -331,6 +333,11 @@ func (dht *DHT) gossipWith(id peer.ID) (err error) {
 		var idx int
 		for i, p := range puts {
 			idx = i + yourIdx + 1
+			/* TODO: Small mystery to be solved, the value of p.idx is always 0 but it should be the actual idx...
+			if idx != p.idx {
+				dht.glog.Logf("WHOA! idx=%d  p.idx:%d p.M: %v", idx, p.idx, p.M)
+			}
+			*/
 			f, e := p.M.Fingerprint()
 			if e == nil {
 				dht.glog.Logf("PUT--%d (fingerprint: %v)", idx, f)

@@ -1,4 +1,4 @@
-FROM golang:1.7.5-alpine
+FROM golang:1.8-alpine
 MAINTAINER Gerry Gleason && Christopher Reay
 
 RUN apk add --update \
@@ -57,4 +57,3 @@ EXPOSE 3141
 
 
 #CMD ["su", "holochain", "-c", "source /etc/holochain.env_vars; make test" ]
-

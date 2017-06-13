@@ -5,6 +5,7 @@ export role="{{ROLE}}"
 
 #ls /chain.seeded -la
 
+go version
 hc -v
 #echo "hc init $HOSTNAME"
 hc init $HOSTNAME

@@ -78,7 +78,7 @@ hc version 0.0.x (holochain y)
 
 #### Unix
 (Unix includes macOS and Linux.)
-You'll need to have a working environment set up for [Go](http://golang.org) version 1.7 or later. See the [installation instructions for Go](http://golang.org/doc/install.html).
+You'll need to have a working environment set up for [Go](http://golang.org) version 1.8 or later. See the [installation instructions for Go](http://golang.org/doc/install.html).
 
 Most importantly you'll need to: (Almost all installation problems that have been reported stem from skipping one of these steps.)
 1. Export the `$GOPATH` variable in your shell profile.
@@ -91,7 +91,7 @@ For example, add the following to the end of your shell profile (usually `~/.bas
 
 #### Windows
 First you'll need to install some necessary programs if you don't already have them.
-* [Install Go](https://golang.org/dl/) 1.7 or later.
+* [Install Go](https://golang.org/dl/) 1.8 or later.
 * [Install Windows git](https://git-scm.com/downloads). Be sure to select the appropriate options so that git is accessible from the Windows command line.
 * [Install GnuWin32 make](http://gnuwin32.sourceforge.net/packages/make.htm#download).
 

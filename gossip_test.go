@@ -178,11 +178,14 @@ func TestGossipData(t *testing.T) {
 		So(len(puts), ShouldEqual, 4)
 		So(fmt.Sprintf("%v", puts[2].M), ShouldEqual, fmt.Sprintf("%v", *m1))
 		So(fmt.Sprintf("%v", puts[3].M), ShouldEqual, fmt.Sprintf("%v", *m2))
+		So(puts[0].idx, ShouldEqual, 1)
+		So(puts[1].idx, ShouldEqual, 2)
 
 		puts, err = dht.GetPuts(4)
 		So(err, ShouldBeNil)
 		So(len(puts), ShouldEqual, 1)
 		So(fmt.Sprintf("%v", puts[0].M), ShouldEqual, fmt.Sprintf("%v", *m2))
+		So(puts[0].idx, ShouldEqual, 4)
 	})
 }
 

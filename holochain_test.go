@@ -21,7 +21,7 @@ func TestMain(m *testing.M) {
 }
 
 func TestNewHolochain(t *testing.T) {
-	a, _ := NewAgent(IPFS, "Joe")
+	a, _ := NewAgent(LibP2P, "Joe")
 
 	Convey("New should fill Holochain struct with provided values and new UUID", t, func() {
 

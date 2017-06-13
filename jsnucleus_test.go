@@ -204,7 +204,7 @@ func TestJSbuildValidate(t *testing.T) {
 func TestJSValidateCommit(t *testing.T) {
 	d, _, h := prepareTestChain("test")
 	defer cleanupTestDir(d)
-	//	a, _ := NewAgent(IPFS, "Joe")
+	//	a, _ := NewAgent(LibP2P, "Joe")
 	//	h := NewHolochain(a, "some/path", "yaml", Zome{})
 	//	a := h.agent
 	h.config.Loggers.App.Format = ""

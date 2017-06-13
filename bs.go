@@ -34,7 +34,7 @@ func (h *Holochain) BSpost() (err error) {
 	if h.node == nil {
 		return errors.New("Node hasn't been initialized yet.")
 	}
-	nodeID := peer.IDB58Encode(h.id)
+	nodeID := h.nodeIDStr
 	req := BSReq{Version: 1, NodeID: nodeID, NodeAddr: h.node.NetAddr.String()}
 	host := h.config.BootstrapServer
 	id := h.DNAHash()
@@ -49,7 +49,7 @@ func (h *Holochain) BSpost() (err error) {
 }
 
 func (h *Holochain) checkBSResponses(nodes []BSResp) (err error) {
-	myNodeID := peer.IDB58Encode(h.id)
+	myNodeID := h.nodeIDStr
 	for _, r := range nodes {
 		h.dht.dlog.Logf("checking returned node: %v", r)
 

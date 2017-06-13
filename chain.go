@@ -154,17 +154,17 @@ func (c *Chain) TopType(entryType string) (hash *Hash, header *Header) {
 }
 
 // AddEntry creates a new header and adds it to a chain
-func (c *Chain) AddEntry(h HashSpec, now time.Time, entryType string, e Entry, key ic.PrivKey) (hash Hash, err error) {
+func (c *Chain) AddEntry(h HashSpec, now time.Time, entryType string, e Entry, privKey ic.PrivKey) (hash Hash, err error) {
 	var l int
 	var header *Header
-	l, hash, header, err = c.PrepareHeader(h, now, entryType, e, key, nil)
+	l, hash, header, err = c.PrepareHeader(h, now, entryType, e, privKey, nil)
 	if err == nil {
 		err = c.addEntry(l, hash, header, e)
 	}
 	return
 }
 
-func (c *Chain) PrepareHeader(h HashSpec, now time.Time, entryType string, e Entry, key ic.PrivKey, change *StatusChange) (entryIdx int, hash Hash, header *Header, err error) {
+func (c *Chain) PrepareHeader(h HashSpec, now time.Time, entryType string, e Entry, privKey ic.PrivKey, change *StatusChange) (entryIdx int, hash Hash, header *Header, err error) {
 
 	// get the previous hashes
 	var ph, pth Hash
@@ -184,7 +184,7 @@ func (c *Chain) PrepareHeader(h HashSpec, now time.Time, entryType string, e Ent
 		pth = c.Hashes[i]
 	}
 
-	hash, header, err = newHeader(h, now, entryType, e, key, ph, pth)
+	hash, header, err = newHeader(h, now, entryType, e, privKey, ph, pth)
 	if err != nil {
 		return
 	}

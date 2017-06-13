@@ -131,7 +131,7 @@ func (h *Holochain) GetValidationResponse(a ValidatingAction, hash Hash) (resp V
 	var entry Entry
 	entry, resp.Type, err = h.chain.GetEntry(hash)
 	if err == ErrHashNotFound {
-		if hash.String() == peer.IDB58Encode(h.id) {
+		if hash.String() == h.nodeIDStr {
 			resp.Type = KeyEntryType
 			err = nil
 		} else {
@@ -454,7 +454,7 @@ func (h *Holochain) doCommit(a CommittingAction, change *StatusChange) (d *Entry
 		return
 	}
 	//TODO	a.header = header
-	d, err = h.ValidateAction(a, entryType, nil, []peer.ID{h.id})
+	d, err = h.ValidateAction(a, entryType, nil, []peer.ID{h.nodeID})
 	if err != nil {
 		if err == ValidationFailedErr {
 			err = fmt.Errorf("Invalid entry: %v", entry.Content())

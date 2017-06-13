@@ -56,17 +56,17 @@ func TestSetupDHT(t *testing.T) {
 	})
 
 	Convey("it should push the key to the DHT at genesis time", t, func() {
-		keyHash, _ := NewHash(peer.IDB58Encode(h.id))
+		keyHash, _ := NewHash(h.nodeIDStr)
 		data, et, _, status, err := h.dht.get(keyHash, StatusLive, GetMaskAll)
 		So(err, ShouldBeNil)
 		So(status, ShouldEqual, StatusLive)
 		So(et, ShouldEqual, KeyEntryType)
-		So(string(data), ShouldEqual, string([]byte(h.id)))
+		So(string(data), ShouldEqual, string([]byte(h.nodeID)))
 
 		data, et, _, status, err = h.dht.get(keyHash, StatusDefault, GetMaskDefault)
 		So(err, ShouldBeNil)
 		So(status, ShouldEqual, StatusLive)
-		So(string(data), ShouldEqual, string([]byte(h.id)))
+		So(string(data), ShouldEqual, string([]byte(h.nodeID)))
 	})
 }
 
@@ -75,7 +75,7 @@ func TestPutGetModDel(t *testing.T) {
 	defer cleanupTestDir(d)
 
 	dht := h.dht
-	var id = h.id
+	var id = h.nodeID
 	hash, _ := NewHash("QmY8Mzg9F69e5P9AoQPYat655HEhc1TVGs11tmfNSzkqh2")
 	var idx int
 	Convey("It should store and retrieve", t, func() {
@@ -88,7 +88,7 @@ func TestPutGetModDel(t *testing.T) {
 		So(string(data), ShouldEqual, "some value")
 		So(entryType, ShouldEqual, "someType")
 		So(status, ShouldEqual, StatusLive)
-		So(sources[0], ShouldEqual, peer.IDB58Encode(h.id))
+		So(sources[0], ShouldEqual, h.nodeIDStr)
 
 		badhash, _ := NewHash("QmY8Mzg9F69e5P9AoQPYat655HEhc1TVGs11tmfNSzkqh3")
 		data, entryType, _, _, err = dht.get(badhash, StatusLive, GetMaskDefault)
@@ -261,7 +261,7 @@ func TestFindNodeForHash(t *testing.T) {
 		}
 		node, err := h.dht.FindNodeForHash(hash)
 		So(err, ShouldBeNil)
-		So(node.HashAddr.Pretty(), ShouldEqual, h.id.Pretty())
+		So(node.HashAddr.Pretty(), ShouldEqual, h.nodeID.Pretty())
 	})
 }
 
@@ -269,7 +269,8 @@ func TestSend(t *testing.T) {
 	d, _, h := prepareTestChain("test")
 	defer cleanupTestDir(d)
 
-	node, err := NewNode("/ip4/127.0.0.1/tcp/1234", h.id, h.Agent().PrivKey())
+	agent := h.Agent().(*LibP2PAgent)
+	node, err := NewNode("/ip4/127.0.0.1/tcp/1234", agent)
 	if err != nil {
 		panic(err)
 	}
@@ -375,7 +376,7 @@ func TestDHTReceiver(t *testing.T) {
 		So(err, ShouldBeNil)
 		resp = r.(GetResp)
 		So(resp.Entry, ShouldBeNil)
-		So(fmt.Sprintf("%v", resp.Sources), ShouldEqual, fmt.Sprintf("[%v]", peer.IDB58Encode(h.id)))
+		So(fmt.Sprintf("%v", resp.Sources), ShouldEqual, fmt.Sprintf("[%v]", h.nodeIDStr))
 		So(resp.EntryType, ShouldEqual, "")
 
 		m = h.node.NewMessage(GET_REQUEST, GetReq{H: hash, GetMask: GetMaskEntry + GetMaskSources})
@@ -383,7 +384,7 @@ func TestDHTReceiver(t *testing.T) {
 		So(err, ShouldBeNil)
 		resp = r.(GetResp)
 		So(fmt.Sprintf("%v", resp.Entry), ShouldEqual, fmt.Sprintf("%v", &e))
-		So(fmt.Sprintf("%v", resp.Sources), ShouldEqual, fmt.Sprintf("[%v]", peer.IDB58Encode(h.id)))
+		So(fmt.Sprintf("%v", resp.Sources), ShouldEqual, fmt.Sprintf("[%v]", h.nodeIDStr))
 		So(resp.EntryType, ShouldEqual, "")
 	})
 

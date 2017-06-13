@@ -7,7 +7,7 @@ import (
 	"testing"
 )
 
-func TestAgent(t *testing.T) {
+func TestLibP2PAgent(t *testing.T) {
 	d := setupTestDir()
 	defer cleanupTestDir(d)
 	a := AgentName("zippy@someemail.com")

@@ -36,7 +36,7 @@ type Header struct {
 }
 
 // newHeader makes Header object linked to a previous Header by hash
-func newHeader(hashSpec HashSpec, now time.Time, t string, entry Entry, key ic.PrivKey, prev Hash, prevType Hash) (hash Hash, header *Header, err error) {
+func newHeader(hashSpec HashSpec, now time.Time, t string, entry Entry, privKey ic.PrivKey, prev Hash, prevType Hash) (hash Hash, header *Header, err error) {
 	var hd Header
 	hd.Type = t
 	hd.Time = now
@@ -50,7 +50,7 @@ func newHeader(hashSpec HashSpec, now time.Time, t string, entry Entry, key ic.P
 	}
 
 	// sign the hash of the entry
-	sig, err := key.Sign(hd.EntryLink.H)
+	sig, err := privKey.Sign(hd.EntryLink.H)
 	if err != nil {
 		return
 	}

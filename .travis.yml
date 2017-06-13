@@ -2,6 +2,8 @@ os:
   - linux
 
 language: go
+go:
+  - 1.8
 
 install:
   - make hc && hc init node@example.com

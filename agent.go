@@ -10,6 +10,7 @@ import (
 	"errors"
 	"fmt"
 	ic "github.com/libp2p/go-libp2p-crypto"
+	"os"
 )
 
 // AgentName is the user's unique identifier in context of this holochain.
@@ -94,12 +95,20 @@ func SaveAgent(path string, agent Agent) (err error) {
 		return
 	}
 	err = writeFile(path, PrivKeyFileName, k)
+	os.Chmod(path+"/"+PrivKeyFileName, OS_USER_R)
 	return
 }
 
 // LoadAgent gets the agent and signing key from the specified directory
 func LoadAgent(path string) (agent Agent, err error) {
-	name, err := readFile(path, AgentFileName)
+	var perms os.FileMode
+	perms, err = filePerms(path, PrivKeyFileName)
+	if perms != OS_USER_R {
+		err = errors.New(path + "/" + PrivKeyFileName + " file not read-only")
+		return
+	}
+	var name []byte
+	name, err = readFile(path, AgentFileName)
 	if err != nil {
 		return
 	}

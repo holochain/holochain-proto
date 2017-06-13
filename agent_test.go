@@ -3,6 +3,7 @@ package holochain
 import (
 	ic "github.com/libp2p/go-libp2p-crypto"
 	. "github.com/smartystreets/goconvey/convey"
+	"os"
 	"testing"
 )
 
@@ -25,5 +26,10 @@ func TestAgent(t *testing.T) {
 		So(a2.Name(), ShouldEqual, a1.Name())
 		So(ic.KeyEqual(a1.PrivKey(), a2.PrivKey()), ShouldBeTrue)
 
+	})
+	Convey("it should fail to load an agent file that has bad permissions", t, func() {
+		os.Chmod(d+"/"+PrivKeyFileName, OS_USER_RW)
+		_, err := LoadAgent(d)
+		So(err.Error(), ShouldEqual, d+"/"+PrivKeyFileName+" file not read-only")
 	})
 }

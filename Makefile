@@ -7,6 +7,9 @@ REPO = $(CURDIR:$(GOPATH)/src/%=%)
 # Remove a $(GOPATH)/src/ from the beginning of the current directory.
 # Likely to be github.com/metacurrency/holochain
 
+go_packages = . $(wildcard ./cmd/*)
+# List of directories containing go packages
+
 ifndef HOME
 # Is probably a windows machine
 ifdef USERPROFILE
@@ -22,6 +25,11 @@ HOLOPATH ?= $(HOME)/.holochain
 
 TEST_FLAGS = -v
 
+define new_line
+
+
+endef
+
 .PHONY: hc bs test test-sample deps work pub
 # Anything which requires deps should end with: gx-go rewrite --undo
 
@@ -32,9 +40,7 @@ bs: deps
 	go get $(REPO)/cmd/bs
 	gx-go rewrite --undo
 test: deps
-	go get -d -t $(REPO) && go test $(TEST_FLAGS) $(REPO)
-	go get -d -t $(REPO)/cmd/hc && go test $(TEST_FLAGS) $(REPO)/cmd/hc
-	go get -d -t $(REPO)/cmd/bs && go test $(TEST_FLAGS) $(REPO)/cmd/bs
+	$(foreach pkg_path,$(go_packages),go get -d -t $(pkg_path) && go test $(TEST_FLAGS) $(pkg_path)${new_line})
 	gx-go rewrite --undo
 test-sample: hc
 # Init if not already init-ed

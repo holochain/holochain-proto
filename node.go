@@ -12,7 +12,6 @@ import (
 	"encoding/gob"
 	"errors"
 	"fmt"
-	ic "github.com/libp2p/go-libp2p-crypto"
 	net "github.com/libp2p/go-libp2p-net"
 	peer "github.com/libp2p/go-libp2p-peer"
 	pstore "github.com/libp2p/go-libp2p-peerstore"
@@ -116,7 +115,13 @@ func (n *Node) EnableMDNSDiscovery(notifee discovery.Notifee, interval time.Dura
 }
 
 // NewNode creates a new ipfs basichost node with given identity
-func NewNode(listenAddr string, id peer.ID, priv ic.PrivKey) (node *Node, err error) {
+func NewNode(listenAddr string, agent *LibP2PAgent) (node *Node, err error) {
+
+	nodeID, _, err := agent.NodeID()
+	if err != nil {
+		return
+	}
+
 	var n Node
 	n.NetAddr, err = ma.NewMultiaddr(listenAddr)
 	if err != nil {
@@ -124,24 +129,16 @@ func NewNode(listenAddr string, id peer.ID, priv ic.PrivKey) (node *Node, err er
 	}
 
 	ps := pstore.NewPeerstore()
-	pid, err := peer.IDFromPrivateKey(priv)
-	if err != nil {
-		return
-	}
 
-	if pid.String() != id.String() {
-		err = errors.New("NewNode: Id doesn't match key")
-		return
-	}
-
-	n.HashAddr = pid
-	ps.AddPrivKey(pid, priv)
-	ps.AddPubKey(pid, priv.GetPublic())
+	n.HashAddr = nodeID
+	priv := agent.PrivKey()
+	ps.AddPrivKey(nodeID, priv)
+	ps.AddPubKey(nodeID, priv.GetPublic())
 
 	ctx := context.Background()
 
 	// create a new swarm to be used by the service host
-	netw, err := swarm.NewNetwork(ctx, []ma.Multiaddr{n.NetAddr}, pid, ps, nil)
+	netw, err := swarm.NewNetwork(ctx, []ma.Multiaddr{n.NetAddr}, nodeID, ps, nil)
 	if err != nil {
 		return nil, err
 	}

@@ -68,7 +68,7 @@ type Config struct {
 // Holochain struct holds the full "DNA" of the holochain (all your app code for managing distributed data integrity)
 type Holochain struct {
 	Version          int
-	ID               uuid.UUID
+	UUID             uuid.UUID
 	Name             string
 	Properties       map[string]string
 	PropertiesSchema string
@@ -77,7 +77,8 @@ type Holochain struct {
 	RequiresVersion  int
 	DHTConfig        DHTConfig
 	//---- lowercase private values not serialized; initialized on Load
-	id             peer.ID // this is hash of the id, also used in the node. @todo clarify id variable name?
+	nodeID         peer.ID // this is hash of the public key of the id and acts as the node address
+	nodeIDStr      string  // this is just a cached version of the nodeID B58 string encoded
 	dnaHash        Hash
 	agentHash      Hash
 	rootPath       string
@@ -224,7 +225,7 @@ func NewHolochain(agent Agent, root string, format string, zomes ...Zome) Holoch
 		panic(err)
 	}
 	h := Holochain{
-		ID:              u,
+		UUID:            u,
 		RequiresVersion: Version,
 		DHTConfig:       DHTConfig{HashType: "sha2-256"},
 		agent:           agent,
@@ -233,7 +234,7 @@ func NewHolochain(agent Agent, root string, format string, zomes ...Zome) Holoch
 	}
 
 	// once the agent is set up we can calculate the id
-	h.id, err = peer.IDFromPrivateKey(agent.PrivKey())
+	h.nodeID, h.nodeIDStr, err = agent.NodeID()
 	if err != nil {
 		panic(err)
 	}
@@ -314,7 +315,7 @@ func (s *Service) load(name string, format string) (hP *Holochain, err error) {
 	h.agent = agent
 
 	// once the agent is set up we can calculate the id
-	h.id, err = peer.IDFromPrivateKey(agent.PrivKey())
+	h.nodeID, h.nodeIDStr, err = agent.NodeID()
 	if err != nil {
 		return
 	}
@@ -403,7 +404,7 @@ func (h *Holochain) Prepare() (err error) {
 	}
 
 	listenaddr := fmt.Sprintf("/ip4/0.0.0.0/tcp/%d", h.config.Port)
-	h.node, err = NewNode(listenaddr, h.id, h.Agent().PrivKey())
+	h.node, err = NewNode(listenaddr, h.Agent().(*LibP2PAgent))
 	if err != nil {
 		return
 	}
@@ -591,7 +592,7 @@ func (s *Service) Clone(srcPath string, root string, new bool) (hP *Holochain, e
 		h.agent = agent
 
 		// once the agent is set up we can calculate the id
-		h.id, err = peer.IDFromPrivateKey(agent.PrivKey())
+		h.nodeID, h.nodeIDStr, err = agent.NodeID()
 		if err != nil {
 			return
 		}
@@ -608,7 +609,7 @@ func (s *Service) Clone(srcPath string, root string, new bool) (hP *Holochain, e
 			if err != nil {
 				return
 			}
-			h.ID = u
+			h.UUID = u
 
 			// use the path as the name
 			h.Name = filepath.Base(root)

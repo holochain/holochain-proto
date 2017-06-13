@@ -10,6 +10,7 @@ import (
 	"errors"
 	"fmt"
 	ic "github.com/libp2p/go-libp2p-crypto"
+	peer "github.com/libp2p/go-libp2p-peer"
 	"os"
 )
 
@@ -28,30 +29,31 @@ type Agent interface {
 	GenKeys() error
 	PrivKey() ic.PrivKey
 	PubKey() ic.PubKey
+	NodeID() (peer.ID, string, error)
 }
 
-type IPFSAgent struct {
+type LibP2PAgent struct {
 	name AgentName
 	priv ic.PrivKey
 }
 
-func (a *IPFSAgent) Name() AgentName {
+func (a *LibP2PAgent) Name() AgentName {
 	return a.name
 }
 
-func (a *IPFSAgent) KeyType() KeytypeType {
+func (a *LibP2PAgent) KeyType() KeytypeType {
 	return IPFS
 }
 
-func (a *IPFSAgent) PrivKey() ic.PrivKey {
+func (a *LibP2PAgent) PrivKey() ic.PrivKey {
 	return a.priv
 }
 
-func (a *IPFSAgent) PubKey() ic.PubKey {
+func (a *LibP2PAgent) PubKey() ic.PubKey {
 	return a.priv.GetPublic()
 }
 
-func (a *IPFSAgent) GenKeys() (err error) {
+func (a *LibP2PAgent) GenKeys() (err error) {
 	var priv ic.PrivKey
 	priv, _, err = ic.GenerateEd25519Key(rand.Reader)
 	if err != nil {
@@ -61,12 +63,20 @@ func (a *IPFSAgent) GenKeys() (err error) {
 	return
 }
 
+func (a *LibP2PAgent) NodeID() (nodeID peer.ID, nodeIDStr string, err error) {
+	nodeID, err = peer.IDFromPrivateKey(a.PrivKey())
+	if err == nil {
+		nodeIDStr = peer.IDB58Encode(nodeID)
+	}
+	return
+}
+
 // NewAgent creates an agent structure of the given type
 // Note: currently only IPFS agents are implemented
 func NewAgent(keyType KeytypeType, name AgentName) (agent Agent, err error) {
 	switch keyType {
 	case IPFS:
-		a := IPFSAgent{
+		a := LibP2PAgent{
 			name: name,
 		}
 		err = a.GenKeys()
@@ -112,7 +122,7 @@ func LoadAgent(path string) (agent Agent, err error) {
 	if err != nil {
 		return
 	}
-	a := IPFSAgent{
+	a := LibP2PAgent{
 		name: AgentName(name),
 	}
 	k, err := readFile(path, PrivKeyFileName)

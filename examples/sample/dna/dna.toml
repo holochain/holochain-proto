@@ -1,10 +1,8 @@
 Version = 0
-ID = "00000000-0000-0000-0000-000000000000"
+UUID = "00000000-0000-0000-0000-000000000000"
 Name = "sample"
 PropertiesSchema = "properties_schema.json"
-RequiresVersion = 11
-[DHTConfig]
-  HashType = "sha2-256"
+RequiresVersion = 12
 
 [Properties]
   description = "a bogus test holochain"
@@ -137,3 +135,6 @@ RequiresVersion = 11
     Name = "testJsonFn2"
     CallingType = "json"
     Exposure = ""
+
+[DHTConfig]
+  HashType = "sha2-256"

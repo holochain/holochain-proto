@@ -7,6 +7,7 @@ import (
 	toml "github.com/BurntSushi/toml"
 	"github.com/google/uuid"
 	ic "github.com/libp2p/go-libp2p-crypto"
+	peer "github.com/libp2p/go-libp2p-peer"
 	. "github.com/smartystreets/goconvey/convey"
 	"os"
 	"strings"
@@ -25,8 +26,8 @@ func TestNewHolochain(t *testing.T) {
 	Convey("New should fill Holochain struct with provided values and new UUID", t, func() {
 
 		h := NewHolochain(a, "some/path", "json")
-		nID := string(uuid.NodeID())
-		So(nID, ShouldEqual, string(h.ID.NodeID()))
+		nUUID := string(uuid.NodeID())
+		So(nUUID, ShouldEqual, string(h.UUID.NodeID())) // this nodeID is from UUID code, i.e the machine's host (not the LibP2P nodeID below)
 		So(h.agent.Name(), ShouldEqual, "Joe")
 		So(h.agent.PrivKey(), ShouldEqual, a.PrivKey())
 		So(h.encodingFormat, ShouldEqual, "json")
@@ -34,6 +35,10 @@ func TestNewHolochain(t *testing.T) {
 		So(h.UIPath(), ShouldEqual, "some/path/ui")
 		So(h.DNAPath(), ShouldEqual, "some/path/dna")
 		So(h.DBPath(), ShouldEqual, "some/path/db")
+		nodeID, nodeIDStr, _ := h.agent.NodeID()
+		So(h.nodeID, ShouldEqual, nodeID)
+		So(h.nodeIDStr, ShouldEqual, nodeIDStr)
+		So(h.nodeIDStr, ShouldEqual, peer.IDB58Encode(h.nodeID))
 	})
 	Convey("New with Zome should fill them", t, func() {
 		z := Zome{Name: "zySampleZome",
@@ -126,7 +131,8 @@ func TestGenDev(t *testing.T) {
 
 		lh, err := s.load(name, "json")
 		So(err, ShouldBeNil)
-		So(lh.id, ShouldEqual, h.id)
+		So(lh.nodeID, ShouldEqual, h.nodeID)
+		So(lh.nodeIDStr, ShouldEqual, h.nodeIDStr)
 		So(lh.config.Port, ShouldEqual, DefaultPort)
 		So(h.config.PeerModeDHTNode, ShouldEqual, s.Settings.DefaultPeerModeDHTNode)
 		So(h.config.PeerModeAuthor, ShouldEqual, s.Settings.DefaultPeerModeAuthor)
@@ -156,7 +162,7 @@ func TestCloneNew(t *testing.T) {
 		h, err := s.Clone(orig, root, true)
 		So(err, ShouldBeNil)
 		So(h.Name, ShouldEqual, "test2")
-		So(h.ID, ShouldNotEqual, h0.ID)
+		So(h.UUID, ShouldNotEqual, h0.UUID)
 		agent, err := LoadAgent(s.Path)
 		So(err, ShouldBeNil)
 		So(h.agent.Name(), ShouldEqual, agent.Name())
@@ -191,7 +197,7 @@ func TestCloneJoin(t *testing.T) {
 		h, err := s.Clone(orig, root, false)
 		So(err, ShouldBeNil)
 		So(h.Name, ShouldEqual, "test")
-		So(h.ID, ShouldEqual, h0.ID)
+		So(h.UUID, ShouldEqual, h0.UUID)
 		agent, err := LoadAgent(s.Path)
 		So(err, ShouldBeNil)
 		So(h.agent.Name(), ShouldEqual, agent.Name())

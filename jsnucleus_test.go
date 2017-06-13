@@ -3,7 +3,6 @@ package holochain
 import (
 	"encoding/json"
 	"fmt"
-	peer "github.com/libp2p/go-libp2p-peer"
 	"github.com/robertkrimen/otto"
 	. "github.com/smartystreets/goconvey/convey"
 	"testing"
@@ -54,7 +53,7 @@ func TestNewJSNucleus(t *testing.T) {
 		_, err = z.Run("App.Key.Hash")
 		So(err, ShouldBeNil)
 		s, _ = z.lastResult.ToString()
-		So(s, ShouldEqual, peer.IDB58Encode(h.id))
+		So(s, ShouldEqual, h.nodeIDStr)
 
 	})
 
@@ -422,7 +421,7 @@ func TestJSDHT(t *testing.T) {
 		z := v.(*JSNucleus)
 		x, err := z.lastResult.Export()
 		So(err, ShouldBeNil)
-		So(fmt.Sprintf("%v", x), ShouldEqual, fmt.Sprintf("[%v]", peer.IDB58Encode(h.id)))
+		So(fmt.Sprintf("%v", x), ShouldEqual, fmt.Sprintf("[%v]", h.nodeIDStr))
 	})
 
 	Convey("get should return collection", t, func() {
@@ -434,7 +433,7 @@ func TestJSDHT(t *testing.T) {
 		obj := x.(map[string]interface{})
 		So(obj["Entry"].(Entry).Content(), ShouldEqual, `7`)
 		So(obj["EntryType"].(string), ShouldEqual, `oddNumbers`)
-		So(fmt.Sprintf("%v", obj["Sources"]), ShouldEqual, fmt.Sprintf("[%v]", peer.IDB58Encode(h.id)))
+		So(fmt.Sprintf("%v", obj["Sources"]), ShouldEqual, fmt.Sprintf("[%v]", h.nodeIDStr))
 	})
 
 	profileHash := commit(h, "profile", `{"firstName":"Zippy","lastName":"Pinhead"}`)

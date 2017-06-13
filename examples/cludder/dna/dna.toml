@@ -3,7 +3,7 @@ Version = 1
 
 # Automatically-generated UUID generated and inserted here by 'hc clone'
 # Changing this or any part of the file will fork you into a new social organism/DHT
-Id = "00000000-0000-0000-0000-000000000000"
+UUID = "00000000-0000-0000-0000-000000000000"
 
 # Name of the application
 Name = "Cludder"

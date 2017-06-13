@@ -223,17 +223,17 @@ func (dht *DHT) SetupDHT() (err error) {
 	x := ""
 	// put the holochain id so it always exists for linking
 	dna := dht.h.DNAHash()
-	err = dht.put(nil, DNAEntryType, dna, dht.h.id, []byte(x), StatusLive)
+	err = dht.put(nil, DNAEntryType, dna, dht.h.nodeID, []byte(x), StatusLive)
 	if err != nil {
 		return
 	}
 
 	// put the KeyEntry so it always exists for retrieving the public key
-	kh, err := NewHash(peer.IDB58Encode(dht.h.id))
+	kh, err := NewHash(peer.IDB58Encode(dht.h.nodeID))
 	if err != nil {
 		return
 	}
-	if err = dht.put(dht.h.node.NewMessage(PUT_REQUEST, PutReq{H: kh}), KeyEntryType, kh, dht.h.id, []byte(dht.h.id), StatusLive); err != nil {
+	if err = dht.put(dht.h.node.NewMessage(PUT_REQUEST, PutReq{H: kh}), KeyEntryType, kh, dht.h.nodeID, []byte(dht.h.nodeID), StatusLive); err != nil {
 		return
 	}
 
@@ -255,7 +255,7 @@ func (dht *DHT) SetupDHT() (err error) {
 	if err != nil {
 		return
 	}
-	if err = dht.put(dht.h.node.NewMessage(PUT_REQUEST, PutReq{H: a}), AgentEntryType, a, dht.h.id, b, StatusLive); err != nil {
+	if err = dht.put(dht.h.node.NewMessage(PUT_REQUEST, PutReq{H: a}), AgentEntryType, a, dht.h.nodeID, b, StatusLive); err != nil {
 		return
 	}
 
@@ -611,11 +611,9 @@ func (dht *DHT) send(to peer.ID, t MsgType, body interface{}) (response interfac
 // FindNodeForHash gets the nearest node to the neighborhood of the hash
 func (dht *DHT) FindNodeForHash(key Hash) (n *Node, err error) {
 
-	// for now, the node it returns is self!
-	pid, err := peer.IDFromPrivateKey(dht.h.Agent().PrivKey())
-	if err != nil {
-		return
-	}
+	// for now, the node it returns it self!
+	pid := dht.h.nodeID
+
 	var node Node
 	node.HashAddr = pid
 

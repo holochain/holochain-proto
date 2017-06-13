@@ -301,6 +301,7 @@ func makePeer(id string) (pid peer.ID, key ic.PrivKey) {
 
 func makeNode(port int, id string) (*Node, error) {
 	listenaddr := fmt.Sprintf("/ip4/127.0.0.1/tcp/%d", port)
-	pid, key := makePeer(id)
-	return NewNode(listenaddr, pid, key)
+	_, key := makePeer(id)
+	agent := LibP2PAgent{AgentName(id), key}
+	return NewNode(listenaddr, &agent)
 }

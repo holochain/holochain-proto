@@ -10,7 +10,6 @@ import (
 	"errors"
 	"fmt"
 	zygo "github.com/glycerine/zygomys/repl"
-	peer "github.com/libp2p/go-libp2p-peer"
 	"math"
 	"regexp"
 	"strconv"
@@ -811,7 +810,7 @@ func NewZygoNucleus(h *Holochain, code string) (n Nucleus, err error) {
 
 	l := ZygoLibrary
 	if h != nil {
-		l += fmt.Sprintf(`(def App_Name "%s")(def App_DNA_Hash "%s")(def App_Agent_Hash "%s")(def App_Agent_String "%s")(def App_Key_Hash "%s")`, h.Name, h.dnaHash, h.agentHash, h.Agent().Name(), peer.IDB58Encode(h.id))
+		l += fmt.Sprintf(`(def App_Name "%s")(def App_DNA_Hash "%s")(def App_Agent_Hash "%s")(def App_Agent_String "%s")(def App_Key_Hash "%s")`, h.Name, h.dnaHash, h.agentHash, h.Agent().Name(), h.nodeIDStr)
 	}
 	z.library = l
 

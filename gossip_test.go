@@ -2,7 +2,6 @@ package holochain
 
 import (
 	"fmt"
-	peer "github.com/libp2p/go-libp2p-peer"
 	. "github.com/smartystreets/goconvey/convey"
 	"testing"
 	"time"
@@ -114,7 +113,7 @@ func TestGossipData(t *testing.T) {
 		msg1, err = dht.GetIdxMessage(1)
 		So(err, ShouldBeNil)
 		So(msg1.Type, ShouldEqual, PUT_REQUEST)
-		So(msg1.Body.(PutReq).H.String(), ShouldEqual, peer.IDB58Encode(h.id))
+		So(msg1.Body.(PutReq).H.String(), ShouldEqual, h.nodeIDStr)
 	})
 
 	Convey("GetFingerprint should return the index of the message that made the change", t, func() {

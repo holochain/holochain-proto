@@ -23,7 +23,7 @@ func TestValidateAction(t *testing.T) {
 	Convey("it should fail if a validator doesn't exist for the entry type", t, func() {
 		entry := &GobEntry{C: "foo"}
 		a := NewCommitAction("bogusType", entry)
-		_, err = h.ValidateAction(a, a.entryType, nil, []peer.ID{h.id})
+		_, err = h.ValidateAction(a, a.entryType, nil, []peer.ID{h.nodeID})
 		So(err.Error(), ShouldEqual, "no definition for entry type: bogusType")
 	})
 
@@ -31,14 +31,14 @@ func TestValidateAction(t *testing.T) {
 		entry := &GobEntry{C: "2"}
 		a := NewCommitAction("evenNumbers", entry)
 		var d *EntryDef
-		d, err = h.ValidateAction(a, a.entryType, nil, []peer.ID{h.id})
+		d, err = h.ValidateAction(a, a.entryType, nil, []peer.ID{h.nodeID})
 		So(err, ShouldBeNil)
 		So(fmt.Sprintf("%v", d), ShouldEqual, "&{evenNumbers zygo   public <nil>}")
 	})
 	Convey("an invalid action returns the ValidationFailedErr", t, func() {
 		entry := &GobEntry{C: "1"}
 		a := NewCommitAction("evenNumbers", entry)
-		_, err = h.ValidateAction(a, a.entryType, nil, []peer.ID{h.id})
+		_, err = h.ValidateAction(a, a.entryType, nil, []peer.ID{h.nodeID})
 		So(err, ShouldEqual, ValidationFailedErr)
 	})
 }
@@ -97,20 +97,20 @@ func TestSysValidateMod(t *testing.T) {
 
 	Convey("it should check that entry types match on mod", t, func() {
 		a := NewModAction("oddNumbers", &GobEntry{}, hash)
-		err := a.SysValidation(h, def, []peer.ID{h.id})
+		err := a.SysValidation(h, def, []peer.ID{h.nodeID})
 		So(err, ShouldEqual, ErrEntryTypeMismatch)
 	})
 
 	Convey("it should check that entry isn't linking ", t, func() {
 		a := NewModAction("rating", &GobEntry{}, hash)
 		_, ratingsDef, _ := h.GetEntryDef("rating")
-		err := a.SysValidation(h, ratingsDef, []peer.ID{h.id})
+		err := a.SysValidation(h, ratingsDef, []peer.ID{h.nodeID})
 		So(err.Error(), ShouldEqual, "Can't mod Links entry")
 	})
 
 	Convey("it should check that entry validates", t, func() {
 		a := NewModAction("evenNumbers", nil, hash)
-		err := a.SysValidation(h, def, []peer.ID{h.id})
+		err := a.SysValidation(h, def, []peer.ID{h.nodeID})
 		So(err.Error(), ShouldEqual, "nil entry invalid")
 	})
 }
@@ -123,14 +123,14 @@ func TestSysValidateDel(t *testing.T) {
 
 	Convey("it should check that entry types match on del", t, func() {
 		a := NewDelAction("oddNumbers", DelEntry{Hash: hash})
-		err := a.SysValidation(h, def, []peer.ID{h.id})
+		err := a.SysValidation(h, def, []peer.ID{h.nodeID})
 		So(err, ShouldEqual, ErrEntryTypeMismatch)
 	})
 
 	Convey("it should check that entry isn't linking ", t, func() {
 		a := NewDelAction("rating", DelEntry{Hash: hash})
 		_, ratingsDef, _ := h.GetEntryDef("rating")
-		err := a.SysValidation(h, ratingsDef, []peer.ID{h.id})
+		err := a.SysValidation(h, ratingsDef, []peer.ID{h.nodeID})
 		So(err.Error(), ShouldEqual, "Can't del Links entry")
 	})
 }

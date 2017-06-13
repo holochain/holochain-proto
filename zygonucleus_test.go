@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	zygo "github.com/glycerine/zygomys/repl"
-	peer "github.com/libp2p/go-libp2p-peer"
 	. "github.com/smartystreets/goconvey/convey"
 	"testing"
 )
@@ -51,7 +50,7 @@ func TestNewZygoNucleus(t *testing.T) {
 		_, err = z.Run("App_Key_Hash")
 		So(err, ShouldBeNil)
 		s = z.lastResult.(*zygo.SexpStr).S
-		So(s, ShouldEqual, peer.IDB58Encode(h.id))
+		So(s, ShouldEqual, h.nodeIDStr)
 	})
 
 	Convey("it should have an HC structure:", t, func() {
@@ -407,7 +406,7 @@ func TestZygoDHT(t *testing.T) {
 		z := v.(*ZygoNucleus)
 		r, err := z.lastResult.(*zygo.SexpHash).HashGet(z.env, z.env.MakeSymbol("result"))
 		So(err, ShouldBeNil)
-		So(r.(*zygo.SexpArray).Val[0].(*zygo.SexpStr).S, ShouldEqual, peer.IDB58Encode(h.id))
+		So(r.(*zygo.SexpArray).Val[0].(*zygo.SexpStr).S, ShouldEqual, h.nodeIDStr)
 	})
 
 	Convey("get should return entry type", t, func() {
@@ -431,7 +430,7 @@ func TestZygoDHT(t *testing.T) {
 		e, _ = resp.HashGet(z.env, z.env.MakeSymbol("Entry"))
 		So(e.(*zygo.SexpStr).S, ShouldEqual, `"2"`)
 		e, _ = resp.HashGet(z.env, z.env.MakeSymbol("Sources"))
-		So(e.(*zygo.SexpArray).Val[0].(*zygo.SexpStr).S, ShouldEqual, peer.IDB58Encode(h.id))
+		So(e.(*zygo.SexpArray).Val[0].(*zygo.SexpStr).S, ShouldEqual, h.nodeIDStr)
 	})
 	profileHash := commit(h, "profile", `{"firstName":"Zippy","lastName":"Pinhead"}`)
 	if err := h.dht.simHandleChangeReqs(); err != nil {

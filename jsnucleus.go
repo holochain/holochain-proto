@@ -9,7 +9,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	peer "github.com/libp2p/go-libp2p-peer"
 	"github.com/robertkrimen/otto"
 	"strings"
 	"time"
@@ -773,7 +772,7 @@ func NewJSNucleus(h *Holochain, code string) (n Nucleus, err error) {
 
 	l := JSLibrary
 	if h != nil {
-		l += fmt.Sprintf(`var App = {Name:"%s",DNA:{Hash:"%s"},Agent:{Hash:"%s",String:"%s"},Key:{Hash:"%s"}};`, h.Name, h.dnaHash, h.agentHash, h.Agent().Name(), peer.IDB58Encode(h.id))
+		l += fmt.Sprintf(`var App = {Name:"%s",DNA:{Hash:"%s"},Agent:{Hash:"%s",String:"%s"},Key:{Hash:"%s"}};`, h.Name, h.dnaHash, h.agentHash, h.Agent().Name(), h.nodeIDStr)
 	}
 	_, err = z.Run(l + code)
 	if err != nil {

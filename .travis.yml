@@ -6,7 +6,7 @@ go:
   - 1.8
 
 script:
-  - TEST_FLAGS='-v -coverprofile=coverage.txt -covermode=atomic' make -e test
+  - TEST_FLAGS='-v -coverprofile=$(pkg_path)/coverage.txt -covermode=atomic' make -e test
   - make test-sample
 
 after_success:

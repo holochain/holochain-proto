@@ -32,8 +32,9 @@ bs: deps
 	go get $(REPO)/cmd/bs
 	gx-go rewrite --undo
 test: deps
-	go get -t $(REPO)
-	go test $(TEST_FLAGS) ./...
+	go get -d -t $(REPO) && go test $(TEST_FLAGS) $(REPO)
+	go get -d -t $(REPO)/cmd/hc && go test $(TEST_FLAGS) $(REPO)/cmd/hc
+	go get -d -t $(REPO)/cmd/bs && go test $(TEST_FLAGS) $(REPO)/cmd/bs
 	gx-go rewrite --undo
 test-sample: hc
 # Init if not already init-ed

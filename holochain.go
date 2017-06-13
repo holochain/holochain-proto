@@ -523,7 +523,7 @@ func (h *Holochain) GenChain() (headerHash Hash, err error) {
 	k.Name = h.agent.Name()
 	k.KeyType = h.agent.KeyType()
 
-	pk := h.agent.PrivKey().GetPublic()
+	pk := h.agent.PubKey()
 
 	k.Key, err = ic.MarshalPublicKey(pk)
 	if err != nil {

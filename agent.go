@@ -1,7 +1,7 @@
 // Copyright (C) 2013-2017, The MetaCurrency Project (Eric Harris-Braun, Arthur Brock, et. al.)
 // Use of this source code is governed by GPLv3 found in the LICENSE file
 //---------------------------------------------------------------------------------------
-// key generation and marshal/unmarshaling for holochains
+// key generation and marshal/unmarshaling and abstraction of agent for holochains
 
 package holochain
 
@@ -20,9 +20,13 @@ type AgentName string
 type KeytypeType int
 
 const (
-	IPFS = iota
+	LibP2P = iota
 )
 
+// Agent abstracts the key behaviors and connection to a holochain node address
+// Note that this is currently only a partial abstraction because the NodeID is always a libp2p peer.ID
+// to complete the abstraction so we could use other libraries for p2p2 network transaction we
+// would need to also abstract a matching NodeID type
 type Agent interface {
 	Name() AgentName
 	KeyType() KeytypeType
@@ -42,7 +46,7 @@ func (a *LibP2PAgent) Name() AgentName {
 }
 
 func (a *LibP2PAgent) KeyType() KeytypeType {
-	return IPFS
+	return LibP2P
 }
 
 func (a *LibP2PAgent) PrivKey() ic.PrivKey {
@@ -75,7 +79,7 @@ func (a *LibP2PAgent) NodeID() (nodeID peer.ID, nodeIDStr string, err error) {
 // Note: currently only IPFS agents are implemented
 func NewAgent(keyType KeytypeType, name AgentName) (agent Agent, err error) {
 	switch keyType {
-	case IPFS:
+	case LibP2P:
 		a := LibP2PAgent{
 			name: name,
 		}

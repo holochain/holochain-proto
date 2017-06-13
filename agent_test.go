@@ -2,6 +2,7 @@ package holochain
 
 import (
 	ic "github.com/libp2p/go-libp2p-crypto"
+	peer "github.com/libp2p/go-libp2p-peer"
 	. "github.com/smartystreets/goconvey/convey"
 	"os"
 	"testing"
@@ -17,7 +18,7 @@ func TestLibP2PAgent(t *testing.T) {
 		So(err.Error(), ShouldEqual, "unknown key type: 99")
 	})
 	Convey("it should be create a new agent that is saved to a file and then loadable", t, func() {
-		a1, err := NewAgent(IPFS, a)
+		a1, err := NewAgent(LibP2P, a)
 		So(err, ShouldBeNil)
 		err = SaveAgent(d, a1)
 		So(err, ShouldBeNil)
@@ -25,6 +26,11 @@ func TestLibP2PAgent(t *testing.T) {
 		So(err, ShouldBeNil)
 		So(a2.Name(), ShouldEqual, a1.Name())
 		So(ic.KeyEqual(a1.PrivKey(), a2.PrivKey()), ShouldBeTrue)
+		So(a1.KeyType(), ShouldEqual, LibP2P)
+
+		nodeID, nodeIDStr, err := a1.NodeID()
+		So(nodeIDStr, ShouldEqual, peer.IDB58Encode(nodeID))
+		So(nodeID.MatchesPublicKey(a1.PubKey()), ShouldBeTrue)
 
 	})
 	Convey("it should fail to load an agent file that has bad permissions", t, func() {

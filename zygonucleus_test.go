@@ -213,7 +213,7 @@ func TestZybuildValidate(t *testing.T) {
 }
 
 func TestZyValidateCommit(t *testing.T) {
-	a, _ := NewAgent(IPFS, "Joe")
+	a, _ := NewAgent(LibP2P, "Joe")
 	h := NewHolochain(a, "some/path", "yaml", Zome{})
 	h.config.Loggers.App.New(nil)
 	hdr := mkTestHeader("evenNumbers")

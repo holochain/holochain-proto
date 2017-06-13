@@ -83,7 +83,7 @@ func Init(root string, agent AgentName) (service *Service, err error) {
 		return
 	}
 
-	a, err := NewAgent(IPFS, agent)
+	a, err := NewAgent(LibP2P, agent)
 	if err != nil {
 		return
 	}

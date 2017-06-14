@@ -65,6 +65,12 @@ type Config struct {
 	Loggers         Loggers
 }
 
+// Progenitor holds data on the creator of the DNA
+type Progenitor struct {
+	Name   string
+	PubKey []byte
+}
+
 // Holochain struct holds the full "DNA" of the holochain (all your app code for managing distributed data integrity)
 type Holochain struct {
 	Version          int
@@ -76,6 +82,7 @@ type Holochain struct {
 	Zomes            []Zome
 	RequiresVersion  int
 	DHTConfig        DHTConfig
+	Progenitor       Progenitor
 	//---- lowercase private values not serialized; initialized on Load
 	nodeID         peer.ID // this is hash of the public key of the id and acts as the node address
 	nodeIDStr      string  // this is just a cached version of the nodeID B58 string encoded
@@ -224,10 +231,16 @@ func NewHolochain(agent Agent, root string, format string, zomes ...Zome) Holoch
 	if err != nil {
 		panic(err)
 	}
+	pk, err := agent.PubKey().Bytes()
+	if err != nil {
+		panic(err)
+	}
+
 	h := Holochain{
 		UUID:            u,
 		RequiresVersion: Version,
 		DHTConfig:       DHTConfig{HashType: "sha2-256"},
+		Progenitor:      Progenitor{Name: string(agent.Name()), PubKey: pk},
 		agent:           agent,
 		rootPath:        root,
 		encodingFormat:  format,
@@ -565,6 +578,7 @@ func (h *Holochain) GenChain() (headerHash Hash, err error) {
 }
 
 // Clone copies DNA files from a source directory
+// bool new indicates if this clone should create a new DNA (when true) or act as a Join
 func (s *Service) Clone(srcPath string, root string, new bool) (hP *Holochain, err error) {
 	hP, err = gen(root, func(root string) (hP *Holochain, err error) {
 
@@ -613,6 +627,14 @@ func (s *Service) Clone(srcPath string, root string, new bool) (hP *Holochain, e
 
 			// use the path as the name
 			h.Name = filepath.Base(root)
+
+			// change the progenitor to self because this is a clone!
+			var pk []byte
+			pk, err = agent.PubKey().Bytes()
+			if err != nil {
+				return
+			}
+			h.Progenitor = Progenitor{Name: string(agent.Name()), PubKey: pk}
 		}
 
 		// copy any UI files
@@ -731,7 +753,11 @@ func makeConfig(h *Holochain, s *Service) (err error) {
 // GenDev generates starter holochain DNA files from which to develop a chain
 func (s *Service) GenDev(root string, format string) (hP *Holochain, err error) {
 	hP, err = gen(root, func(root string) (hP *Holochain, err error) {
-		agent, err := LoadAgent(filepath.Dir(root))
+		agent, err := NewAgent(LibP2P, "Example Agent <example@example.com")
+		if err != nil {
+			return
+		}
+		err = agent.GenKeys(bytes.NewBuffer([]byte("fixed seed 012345678901234567890123456789")))
 		if err != nil {
 			return
 		}

@@ -11,6 +11,7 @@ import (
 	"fmt"
 	ic "github.com/libp2p/go-libp2p-crypto"
 	peer "github.com/libp2p/go-libp2p-peer"
+	"io"
 	"os"
 )
 
@@ -30,7 +31,7 @@ const (
 type Agent interface {
 	Name() AgentName
 	KeyType() KeytypeType
-	GenKeys() error
+	GenKeys(seed io.Reader) error
 	PrivKey() ic.PrivKey
 	PubKey() ic.PubKey
 	NodeID() (peer.ID, string, error)
@@ -57,9 +58,12 @@ func (a *LibP2PAgent) PubKey() ic.PubKey {
 	return a.priv.GetPublic()
 }
 
-func (a *LibP2PAgent) GenKeys() (err error) {
+func (a *LibP2PAgent) GenKeys(seed io.Reader) (err error) {
 	var priv ic.PrivKey
-	priv, _, err = ic.GenerateEd25519Key(rand.Reader)
+	if seed == nil {
+		seed = rand.Reader
+	}
+	priv, _, err = ic.GenerateEd25519Key(seed)
 	if err != nil {
 		return
 	}
@@ -83,7 +87,7 @@ func NewAgent(keyType KeytypeType, name AgentName) (agent Agent, err error) {
 		a := LibP2PAgent{
 			name: name,
 		}
-		err = a.GenKeys()
+		err = a.GenKeys(nil)
 		if err != nil {
 			return
 		}

@@ -39,6 +39,10 @@ func TestNewHolochain(t *testing.T) {
 		So(h.nodeID, ShouldEqual, nodeID)
 		So(h.nodeIDStr, ShouldEqual, nodeIDStr)
 		So(h.nodeIDStr, ShouldEqual, peer.IDB58Encode(h.nodeID))
+
+		So(h.Progenitor.Name, ShouldEqual, "Joe")
+		pk, _ := a.PubKey().Bytes()
+		So(string(h.Progenitor.PubKey), ShouldEqual, string(pk))
 	})
 	Convey("New with Zome should fill them", t, func() {
 		z := Zome{Name: "zySampleZome",
@@ -182,6 +186,10 @@ func TestCloneNew(t *testing.T) {
 
 		So(fileExists(h.rootPath+"/"+ChainTestDir+"/test_0.json"), ShouldBeTrue)
 
+		So(h.Progenitor.Name, ShouldEqual, "Herbert <h@bert.com>")
+		pk, _ := agent.PubKey().Bytes()
+		So(string(h.Progenitor.PubKey), ShouldEqual, string(pk))
+
 	})
 }
 
@@ -209,6 +217,11 @@ func TestCloneJoin(t *testing.T) {
 		So(fileExists(h.DNAPath()+"/zySampleZome/profile.json"), ShouldBeTrue)
 		So(fileExists(h.DNAPath()+"/properties_schema.json"), ShouldBeTrue)
 		So(fileExists(h.rootPath+"/"+ConfigFileName+".toml"), ShouldBeTrue)
+
+		So(h.Progenitor.Name, ShouldEqual, "Example Agent <example@example.com")
+		pk := []byte{8, 1, 18, 32, 193, 43, 31, 148, 23, 249, 163, 154, 128, 25, 237, 167, 253, 63, 214, 220, 206, 131, 217, 74, 168, 30, 215, 237, 231, 160, 69, 89, 48, 17, 104, 210}
+		So(string(h.Progenitor.PubKey), ShouldEqual, string(pk))
+
 	})
 }
 

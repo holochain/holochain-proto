@@ -138,3 +138,7 @@ RequiresVersion = 12
 
 [DHTConfig]
   HashType = "sha2-256"
+
+[Progenitor]
+  Name = "Example Agent <example@example.com"
+  PubKey = [8, 1, 18, 32, 193, 43, 31, 148, 23, 249, 163, 154, 128, 25, 237, 167, 253, 63, 214, 220, 206, 131, 217, 74, 168, 30, 215, 237, 231, 160, 69, 89, 48, 17, 104, 210]

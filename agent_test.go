@@ -1,6 +1,7 @@
 package holochain
 
 import (
+	"bytes"
 	ic "github.com/libp2p/go-libp2p-crypto"
 	peer "github.com/libp2p/go-libp2p-peer"
 	. "github.com/smartystreets/goconvey/convey"
@@ -37,5 +38,32 @@ func TestLibP2PAgent(t *testing.T) {
 		os.Chmod(d+"/"+PrivKeyFileName, OS_USER_RW)
 		_, err := LoadAgent(d)
 		So(err.Error(), ShouldEqual, d+"/"+PrivKeyFileName+" file not read-only")
+	})
+	Convey("genkeys with with nil reader should use random seed", t, func() {
+		agent, _ := NewAgent(LibP2P, a)
+		_, n1, _ := agent.NodeID()
+		agent.GenKeys(nil)
+		_, n2, _ := agent.NodeID()
+		So(n1, ShouldNotEqual, n2)
+	})
+
+	Convey("genkeys with fixed seed should generate the same key", t, func() {
+		agent, err := NewAgent(LibP2P, a)
+		So(err, ShouldBeNil)
+		_, n1, err := agent.NodeID()
+		So(err, ShouldBeNil)
+		err = agent.GenKeys(bytes.NewBuffer([]byte("fixed seed 012345678901234567890123456789")))
+		So(err, ShouldBeNil)
+		_, n2, err := agent.NodeID()
+		So(err, ShouldBeNil)
+		So(n1, ShouldNotEqual, n2)
+		err = agent.GenKeys(bytes.NewBuffer([]byte("fixed seed 012345678901234567890123456789")))
+		So(err, ShouldBeNil)
+		_, n1, _ = agent.NodeID()
+		So(n1, ShouldEqual, n2)
+		err = agent.GenKeys(bytes.NewBuffer([]byte("different seed012345678901234567890123456789")))
+		So(err, ShouldBeNil)
+		_, n2, _ = agent.NodeID()
+		So(n1, ShouldNotEqual, n2)
 	})
 }

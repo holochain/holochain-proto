@@ -18,6 +18,9 @@ var activeRoom;
          "</li>"
        )
      }
+     if(activeRoom) {
+       setActiveRoom()
+     }
    });
  };
 
@@ -32,14 +35,19 @@ var activeRoom;
 
  function selectRoom(event) {
    $("#rooms li").removeClass("selected-room")
-   $(this).addClass("selected-room")
-   activeRoom = this
-   $("#messages-header").text("Messages in #"+$(this).data("name"))
+   activeRoom = $(this).data('id')
+   setActiveRoom()
+ }
+
+ function setActiveRoom() {
+   var roomElement = $("#rooms li[data-id="+activeRoom+"]")
+   $(roomElement).addClass("selected-room")
+   $("#messages-header").text("Messages in #"+$(roomElement).data("name"))
    getMessages()
  }
 
  function getMessages() {
-   var hash = $(activeRoom).data('id')
+   var hash = activeRoom
    console.log("Getting messages for room: "+hash)
    $.post("/fn/messages/listMessages", JSON.stringify(hash), function(messages){
      $("#messages").empty()
@@ -63,7 +71,7 @@ var activeRoom;
    var text = $("#message-input").val()
    var message = {
      content: text,
-     room: $(activeRoom).data('id')
+     room: activeRoom
    }
 
    $.post("/fn/messages/newMessage", JSON.stringify(message), function(){
@@ -123,4 +131,5 @@ var activeRoom;
     $("#message-button").click(sendMessage)
 
     setInterval(getMessages, 1000)
+    setInterval(getRooms, 1000)
  });

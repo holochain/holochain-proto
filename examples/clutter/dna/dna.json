@@ -18,7 +18,7 @@
         {
             "Name": "clutter",
             "Description": "zome that implements micro-blogging",
-            "NucleusType": "js",
+            "RibosomeType": "js",
             "Code": "clutter.js",
             "CodeHash": {
                 "H": null

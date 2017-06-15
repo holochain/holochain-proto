@@ -14,7 +14,7 @@ RequiresVersion = 12
   Name = "zySampleZome"
   Description = "this is a zygomas test zome"
   Code = "zySampleZome.zy"
-  NucleusType = "zygo"
+  RibosomeType = "zygo"
   [Zomes.CodeHash]
 
   [[Zomes.Entries]]
@@ -77,7 +77,7 @@ RequiresVersion = 12
   Name = "jsSampleZome"
   Description = "this is a javascript test zome"
   Code = "jsSampleZome.js"
-  NucleusType = "js"
+  RibosomeType = "js"
   [Zomes.CodeHash]
 
   [[Zomes.Entries]]

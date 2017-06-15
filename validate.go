@@ -116,9 +116,9 @@ func MakeValidationPackage(h *Holochain, pkg *Package) (vpkg *ValidationPackage,
 }
 
 // ValidateReceiver handles messages on the Validate protocol
-func ValidateReceiver(h *Holochain, m *Message) (response interface{}, err error) {
+func ValidateReceiver(h *Holochain, msg *Message) (response interface{}, err error) {
 	var a ValidatingAction
-	switch m.Type {
+	switch msg.Type {
 	case VALIDATE_PUT_REQUEST:
 		a = &ActionPut{}
 	case VALIDATE_MOD_REQUEST:
@@ -128,11 +128,11 @@ func ValidateReceiver(h *Holochain, m *Message) (response interface{}, err error
 	case VALIDATE_LINK_REQUEST:
 		a = &ActionLink{}
 	default:
-		err = fmt.Errorf("message type %d not in holochain-validate protocol", int(m.Type))
+		err = fmt.Errorf("message type %d not in holochain-validate protocol", int(msg.Type))
 	}
 	if err == nil {
-		h.dht.dlog.Logf("got validate %s request: %v", a.Name(), m)
-		switch t := m.Body.(type) {
+		h.dht.dlog.Logf("got validate %s request: %v", a.Name(), msg)
+		switch t := msg.Body.(type) {
 		case ValidateQuery:
 			response, err = h.GetValidationResponse(a, t.H)
 		default:
@@ -141,9 +141,4 @@ func ValidateReceiver(h *Holochain, m *Message) (response interface{}, err error
 	}
 	h.dht.dlog.Logf("validate responding with: %T %v (err=%v)", response, response, err)
 	return
-}
-
-// StartValidate initiates listening for Validate protocol messages on the node
-func (node *Node) StartValidate(h *Holochain) (err error) {
-	return node.StartProtocol(h, ValidateProtocol)
 }

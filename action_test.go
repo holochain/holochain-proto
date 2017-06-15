@@ -8,12 +8,6 @@ import (
 	"testing"
 )
 
-func TestAction(t *testing.T) {
-	Convey("should fail to create a nucleus based from bad nucleus type", t, func() {
-		So(true, ShouldBeTrue)
-	})
-}
-
 func TestValidateAction(t *testing.T) {
 	d, _, h := prepareTestChain("test")
 	defer cleanupTestDir(d)

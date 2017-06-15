@@ -824,7 +824,7 @@ func DHTReceiver(h *Holochain, msg *Message) (response interface{}, err error) {
 	return
 }
 
-// StartDHT initiates listening for DHT protocol messages on the node
+// StartDHT initiates listening for DHT & Gossip protocol messages on the node
 func (dht *DHT) StartDHT() (err error) {
 	if err = dht.h.node.StartProtocol(dht.h, DHTProtocol); err != nil {
 		return

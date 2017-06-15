@@ -447,34 +447,18 @@ func TestGetZome(t *testing.T) {
 	})
 }
 
-func TestGetFunctionDef(t *testing.T) {
-	d, _, h := setupTestChain("test")
-	defer cleanupTestDir(d)
-	z, _ := h.GetZome("zySampleZome")
-
-	Convey("it should fail if the fn isn't defined in the DNA", t, func() {
-		_, err := h.GetFunctionDef(z, "foo")
-		So(err.Error(), ShouldEqual, "unknown exposed function: foo")
-	})
-	Convey("it should return the Fn structure of a defined fn", t, func() {
-		fn, err := h.GetFunctionDef(z, "getDNA")
-		So(err, ShouldBeNil)
-		So(fn.Name, ShouldEqual, "getDNA")
-	})
-}
-
-func TestMakeNucleus(t *testing.T) {
+func TestMakeRibosome(t *testing.T) {
 	d, _, h := setupTestChain("test")
 	defer cleanupTestDir(d)
 	Convey("it should fail if the zome isn't defined in the DNA", t, func() {
-		_, _, err := h.MakeNucleus("bogusZome")
+		_, _, err := h.MakeRibosome("bogusZome")
 		So(err.Error(), ShouldEqual, "unknown zome: bogusZome")
 	})
-	Convey("it should make a nucleus based on the type and return the zome def", t, func() {
-		v, zome, err := h.MakeNucleus("zySampleZome")
+	Convey("it should make a ribosome based on the type and return the zome def", t, func() {
+		v, zome, err := h.MakeRibosome("zySampleZome")
 		So(err, ShouldBeNil)
 		So(zome.Name, ShouldEqual, "zySampleZome")
-		z := v.(*ZygoNucleus)
+		z := v.(*ZygoRibosome)
 		_, err = z.env.Run()
 		So(err, ShouldBeNil)
 	})
@@ -556,7 +540,7 @@ func TestDNADefaults(t *testing.T) {
 	h, err := DecodeDNA(strings.NewReader(`[[Zomes]]
 Name = "test"
 Description = "test-zome"
-NucleusType = "zygo"`), "toml")
+RibosomeType = "zygo"`), "toml")
 	if err != nil {
 		return
 	}

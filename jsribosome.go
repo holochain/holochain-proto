@@ -1,7 +1,7 @@
 // Copyright (C) 2013-2017, The MetaCurrency Project (Eric Harris-Braun, Arthur Brock, et. al.)
 // Use of this source code is governed by GPLv3 found in the LICENSE file
 //----------------------------------------------------------------------------------------
-// JSNucleus implements a javascript use of the Nucleus interface
+// JSRibosome implements a javascript use of the Ribosome interface
 
 package holochain
 
@@ -15,21 +15,21 @@ import (
 )
 
 const (
-	JSNucleusType = "js"
+	JSRibosomeType = "js"
 )
 
-// JSNucleus holds data needed for the Javascript VM
-type JSNucleus struct {
+// JSRibosome holds data needed for the Javascript VM
+type JSRibosome struct {
 	vm         *otto.Otto
 	lastResult *otto.Value
 }
 
-// Type returns the string value under which this nucleus is registered
-func (z *JSNucleus) Type() string { return JSNucleusType }
+// Type returns the string value under which this ribosome is registered
+func (z *JSRibosome) Type() string { return JSRibosomeType }
 
 // ChainGenesis runs the application genesis function
 // this function gets called after the genesis entries are added to the chain
-func (z *JSNucleus) ChainGenesis() (err error) {
+func (z *JSRibosome) ChainGenesis() (err error) {
 	v, err := z.vm.Run(`genesis()`)
 	if err != nil {
 		err = fmt.Errorf("Error executing genesis: %v", err)
@@ -52,7 +52,7 @@ func (z *JSNucleus) ChainGenesis() (err error) {
 }
 
 // ValidatePackagingRequest calls the app for a validation packaging request for an action
-func (z *JSNucleus) ValidatePackagingRequest(action ValidatingAction, def *EntryDef) (req PackagingReq, err error) {
+func (z *JSRibosome) ValidatePackagingRequest(action ValidatingAction, def *EntryDef) (req PackagingReq, err error) {
 	var code string
 	fnName := "validate" + strings.Title(action.Name()) + "Pkg"
 	code = fmt.Sprintf(`%s("%s")`, fnName, def.Name)
@@ -160,7 +160,7 @@ func buildJSValidateAction(action Action, def *EntryDef, pkg *ValidationPackage,
 }
 
 // ValidateAction builds the correct validation function based on the action an calls it
-func (z *JSNucleus) ValidateAction(action Action, def *EntryDef, pkg *ValidationPackage, sources []string) (err error) {
+func (z *JSRibosome) ValidateAction(action Action, def *EntryDef, pkg *ValidationPackage, sources []string) (err error) {
 	var code string
 	code, err = buildJSValidateAction(action, def, pkg, sources)
 	if err != nil {
@@ -176,7 +176,7 @@ func mkJSSources(sources []string) (srcs string) {
 	return
 }
 
-func (z *JSNucleus) prepareJSValidateEntryArgs(def *EntryDef, entry Entry, sources []string) (e string, srcs string, err error) {
+func (z *JSRibosome) prepareJSValidateEntryArgs(def *EntryDef, entry Entry, sources []string) (e string, srcs string, err error) {
 	c := entry.Content().(string)
 	switch def.DataFormat {
 	case DataFormatRawJS:
@@ -195,7 +195,7 @@ func (z *JSNucleus) prepareJSValidateEntryArgs(def *EntryDef, entry Entry, sourc
 	return
 }
 
-func (z *JSNucleus) runValidate(fnName string, code string) (err error) {
+func (z *JSRibosome) runValidate(fnName string, code string) (err error) {
 	var v otto.Value
 	v, err = z.vm.Run(code)
 	if err != nil {
@@ -219,7 +219,7 @@ func (z *JSNucleus) runValidate(fnName string, code string) (err error) {
 	return
 }
 
-func (z *JSNucleus) validateEntry(fnName string, def *EntryDef, entry Entry, header *Header, sources []string) (err error) {
+func (z *JSRibosome) validateEntry(fnName string, def *EntryDef, entry Entry, header *Header, sources []string) (err error) {
 
 	e, srcs, err := z.prepareJSValidateEntryArgs(def, entry, sources)
 	if err != nil {
@@ -277,7 +277,7 @@ func jsSanitizeString(s string) string {
 }
 
 // Call calls the zygo function that was registered with expose
-func (z *JSNucleus) Call(fn *FunctionDef, params interface{}) (result interface{}, err error) {
+func (z *JSRibosome) Call(fn *FunctionDef, params interface{}) (result interface{}, err error) {
 	var code string
 	switch fn.CallingType {
 	case STRING_CALLING:
@@ -312,7 +312,7 @@ func (z *JSNucleus) Call(fn *FunctionDef, params interface{}) (result interface{
 }
 
 // jsProcessArgs processes oArgs according to the args spec filling args[].value with the converted value
-func jsProcessArgs(z *JSNucleus, args []Arg, oArgs []otto.Value) (err error) {
+func jsProcessArgs(z *JSRibosome, args []Arg, oArgs []otto.Value) (err error) {
 	err = checkArgCount(args, len(oArgs))
 	if err != nil {
 		return err
@@ -431,7 +431,7 @@ func jsProcessArgs(z *JSNucleus, args []Arg, oArgs []otto.Value) (err error) {
 	return
 }
 
-func mkOttoErr(z *JSNucleus, msg string) otto.Value {
+func mkOttoErr(z *JSRibosome, msg string) otto.Value {
 	return z.vm.MakeCustomError("HolochainError", msg)
 }
 
@@ -450,9 +450,9 @@ func numInterfaceToInt(num interface{}) (val int, ok bool) {
 	return
 }
 
-// NewJSNucleus builds a javascript execution environment with user specified code
-func NewJSNucleus(h *Holochain, code string) (n Nucleus, err error) {
-	var z JSNucleus
+// NewJSRibosome builds a javascript execution environment with user specified code
+func NewJSRibosome(h *Holochain, code string) (n Ribosome, err error) {
+	var z JSRibosome
 	z.vm = otto.New()
 
 	err = z.vm.Set("property", func(call otto.FunctionCall) otto.Value {
@@ -526,7 +526,7 @@ func NewJSNucleus(h *Holochain, code string) (n Nucleus, err error) {
 		}
 		a.function = args[1].value.(string)
 		var fn *FunctionDef
-		fn, err = h.GetFunctionDef(zome, a.function)
+		fn, err = zome.GetFunctionDef(a.function)
 		if err != nil {
 			return mkOttoErr(&z, err.Error())
 		}
@@ -783,7 +783,7 @@ func NewJSNucleus(h *Holochain, code string) (n Nucleus, err error) {
 }
 
 // Run executes javascript code
-func (z *JSNucleus) Run(code string) (result interface{}, err error) {
+func (z *JSRibosome) Run(code string) (result interface{}, err error) {
 	v, err := z.vm.Run(code)
 	if err != nil {
 		err = errors.New("JS exec error: " + err.Error())

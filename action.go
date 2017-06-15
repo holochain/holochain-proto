@@ -37,7 +37,7 @@ type Arg struct {
 }
 
 // Action provides an abstraction for grouping all the aspects of a nucleus function, i.e.
-// the validation,dht changing, etc
+// the validation,dht changing, ribosome generation etc
 type Action interface {
 	Name() string
 	Do(h *Holochain) (response interface{}, err error)
@@ -111,15 +111,15 @@ func (h *Holochain) ValidateAction(a ValidatingAction, entryType string, pkg *Pa
 		}
 
 		// run the action's app level validations
-		var n Nucleus
-		n, err = h.makeNucleus(z)
+		var n Ribosome
+		n, err = h.makeRibosome(z)
 		if err != nil {
 			return
 		}
 
 		err = n.ValidateAction(a, d, vpkg, prepareSources(sources))
 		if err != nil {
-			Debugf("Nucleus ValidateAction(%T) err:%v\n", a, err)
+			Debugf("Ribosome ValidateAction(%T) err:%v\n", a, err)
 		}
 	}
 	return
@@ -169,8 +169,8 @@ func (h *Holochain) GetValidationResponse(a ValidatingAction, hash Hash) (resp V
 		}
 
 		// get the packaging request from the app
-		var n Nucleus
-		n, err = h.makeNucleus(z)
+		var n Ribosome
+		n, err = h.makeRibosome(z)
 		if err != nil {
 			return
 		}
@@ -178,7 +178,7 @@ func (h *Holochain) GetValidationResponse(a ValidatingAction, hash Hash) (resp V
 		var req PackagingReq
 		req, err = n.ValidatePackagingRequest(a, def)
 		if err != nil {
-			Debugf("Nucleus GetValidationPackage(%T) err:%v\n", a, err)
+			Debugf("Ribosome GetValidationPackage(%T) err:%v\n", a, err)
 		}
 		resp.Package, err = MakePackage(h, req)
 	}

@@ -1,7 +1,7 @@
 // Copyright (C) 2013-2017, The MetaCurrency Project (Eric Harris-Braun, Arthur Brock, et. al.)
 // Use of this source code is governed by GPLv3 found in the LICENSE file
 //----------------------------------------------------------------------------------------
-// ZygoNucleus implements a zygomys use of the Nucleus interface
+// ZygoRibosome implements a zygomys use of the Ribosome interface
 
 package holochain
 
@@ -18,22 +18,22 @@ import (
 )
 
 const (
-	ZygoNucleusType = "zygo"
+	ZygoRibosomeType = "zygo"
 )
 
-// ZygoNucleus holds data needed for the Zygo VM
-type ZygoNucleus struct {
+// ZygoRibosome holds data needed for the Zygo VM
+type ZygoRibosome struct {
 	env        *zygo.Glisp
 	lastResult zygo.Sexp
 	library    string
 }
 
-// Type returns the string value under which this nucleus is registered
-func (z *ZygoNucleus) Type() string { return ZygoNucleusType }
+// Type returns the string value under which this ribosome is registered
+func (z *ZygoRibosome) Type() string { return ZygoRibosomeType }
 
 // ChainGenesis runs the application genesis function
 // this function gets called after the genesis entries are added to the chain
-func (z *ZygoNucleus) ChainGenesis() (err error) {
+func (z *ZygoRibosome) ChainGenesis() (err error) {
 	err = z.env.LoadString(`(genesis)`)
 	if err != nil {
 		return
@@ -60,7 +60,7 @@ func (z *ZygoNucleus) ChainGenesis() (err error) {
 }
 
 // ValidatePackagingRequest calls the app for a validation packaging request for an action
-func (z *ZygoNucleus) ValidatePackagingRequest(action ValidatingAction, def *EntryDef) (req PackagingReq, err error) {
+func (z *ZygoRibosome) ValidatePackagingRequest(action ValidatingAction, def *EntryDef) (req PackagingReq, err error) {
 	var code string
 	fnName := "validate" + strings.Title(action.Name()) + "Pkg"
 	code = fmt.Sprintf(`(%s "%s")`, fnName, def.Name)
@@ -178,7 +178,7 @@ func buildZyValidateAction(action Action, def *EntryDef, pkg *ValidationPackage,
 }
 
 // ValidateAction builds the correct validation function based on the action an calls it
-func (z *ZygoNucleus) ValidateAction(action Action, def *EntryDef, pkg *ValidationPackage, sources []string) (err error) {
+func (z *ZygoRibosome) ValidateAction(action Action, def *EntryDef, pkg *ValidationPackage, sources []string) (err error) {
 	var code string
 	code, err = buildZyValidateAction(action, def, pkg, sources)
 	if err != nil {
@@ -200,7 +200,7 @@ func mkZySources(sources []string) (srcs string) {
 	return
 }
 
-func (z *ZygoNucleus) prepareValidateArgs(def *EntryDef, entry Entry, sources []string) (e string, srcs string, err error) {
+func (z *ZygoRibosome) prepareValidateArgs(def *EntryDef, entry Entry, sources []string) (e string, srcs string, err error) {
 	c := entry.Content().(string)
 	// @todo handle JSON if schema type is different
 	switch def.DataFormat {
@@ -220,7 +220,7 @@ func (z *ZygoNucleus) prepareValidateArgs(def *EntryDef, entry Entry, sources []
 	return
 }
 
-func (z *ZygoNucleus) runValidate(fnName string, code string) (err error) {
+func (z *ZygoRibosome) runValidate(fnName string, code string) (err error) {
 	err = z.env.LoadString(code)
 	if err != nil {
 		return
@@ -245,7 +245,7 @@ func (z *ZygoNucleus) runValidate(fnName string, code string) (err error) {
 	return
 }
 
-func (z *ZygoNucleus) validateEntry(fnName string, def *EntryDef, entry Entry, header *Header, sources []string) (err error) {
+func (z *ZygoRibosome) validateEntry(fnName string, def *EntryDef, entry Entry, header *Header, sources []string) (err error) {
 	e, srcs, err := z.prepareValidateArgs(def, entry, sources)
 	if err != nil {
 		return
@@ -280,7 +280,7 @@ func sanitizeZyString(s string) string {
 }
 
 // Call calls the zygo function that was registered with expose
-func (z *ZygoNucleus) Call(fn *FunctionDef, params interface{}) (result interface{}, err error) {
+func (z *ZygoRibosome) Call(fn *FunctionDef, params interface{}) (result interface{}, err error) {
 	var code string
 	switch fn.CallingType {
 	case STRING_CALLING:
@@ -329,7 +329,7 @@ func (z *ZygoNucleus) Call(fn *FunctionDef, params interface{}) (result interfac
 }
 
 // These are the zygo implementations of the library functions that must available in
-// all Nucleii implementations.
+// all Ribosome implementations.
 const (
 	ZygoLibrary = `(def HC_Version "` + VersionStr + `")` +
 		`(def HC_Status_Live ` + StatusLiveVal + ")" +
@@ -480,9 +480,9 @@ func zyProcessArgs(args []Arg, zyArgs []zygo.Sexp) (err error) {
 	return
 }
 
-// NewZygoNucleus builds an zygo execution environment with user specified code
-func NewZygoNucleus(h *Holochain, code string) (n Nucleus, err error) {
-	var z ZygoNucleus
+// NewZygoRibosome builds an zygo execution environment with user specified code
+func NewZygoRibosome(h *Holochain, code string) (n Ribosome, err error) {
+	var z ZygoRibosome
 	z.env = zygo.NewGlispSandbox()
 	z.env.AddFunction("version",
 		func(env *zygo.Glisp, name string, args []zygo.Sexp) (zygo.Sexp, error) {
@@ -491,7 +491,7 @@ func NewZygoNucleus(h *Holochain, code string) (n Nucleus, err error) {
 
 	addExtras(&z)
 
-	// use a closure so that the registered zygo function can call Expose on the correct ZygoNucleus obj
+	// use a closure so that the registered zygo function can call Expose on the correct ZygoRibosome obj
 
 	z.env.AddFunction("property",
 		func(env *zygo.Glisp, name string, zyargs []zygo.Sexp) (zygo.Sexp, error) {
@@ -565,7 +565,7 @@ func NewZygoNucleus(h *Holochain, code string) (n Nucleus, err error) {
 			}
 			a.function = args[1].value.(string)
 			var fn *FunctionDef
-			fn, err = h.GetFunctionDef(zome, a.function)
+			fn, err = zome.GetFunctionDef(a.function)
 			if err != nil {
 				return zygo.SexpNull, err
 			}
@@ -823,7 +823,7 @@ func NewZygoNucleus(h *Holochain, code string) (n Nucleus, err error) {
 }
 
 // Run executes zygo code
-func (z *ZygoNucleus) Run(code string) (result interface{}, err error) {
+func (z *ZygoRibosome) Run(code string) (result interface{}, err error) {
 	c := fmt.Sprintf("(begin %s %s)", z.library, code)
 	err = z.env.LoadString(c)
 	if err != nil {
@@ -869,7 +869,7 @@ func isPrime(t int64) bool {
 	return true
 }
 
-func addExtras(z *ZygoNucleus) {
+func addExtras(z *ZygoRibosome) {
 	z.env.AddFunction("isprime",
 		func(env *zygo.Glisp, name string, args []zygo.Sexp) (zygo.Sexp, error) {
 

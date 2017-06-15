@@ -31,20 +31,6 @@ const Version int = 12
 // VersionStr is the textual version number of the holochain library
 const VersionStr string = "12"
 
-// Zome struct encapsulates logically related code, from a "chromosome"
-type Zome struct {
-	Name        string
-	Description string
-	Code        string // file name of DNA code
-	CodeHash    Hash
-	Entries     []EntryDef
-	NucleusType string
-	Functions   []FunctionDef
-
-	// cache for code
-	code string
-}
-
 // Loggers holds the logging structures for the different parts of the system
 type Loggers struct {
 	App        Logger
@@ -146,7 +132,7 @@ func Initialize() {
 	gob.Register(StatusChange{})
 	gob.Register(Package{})
 
-	RegisterBultinNucleii()
+	RegisterBultinRibosomes()
 
 	infoLog.New(nil)
 	debugLog.New(nil)
@@ -269,7 +255,7 @@ func DecodeDNA(reader io.Reader, format string) (hP *Holochain, err error) {
 	for i, zome := range h.Zomes {
 		if zome.Code == "" {
 			var ext string
-			switch zome.NucleusType {
+			switch zome.RibosomeType {
 			case "js":
 				ext = ".js"
 			case "zygo":
@@ -450,7 +436,7 @@ func (h *Holochain) Activate() (err error) {
 		}
 	}
 	if h.config.PeerModeAuthor {
-		if err = h.node.StartValidate(h); err != nil {
+		if err = h.node.StartProtocol(h, ValidateProtocol); err != nil {
 			return
 		}
 	}
@@ -563,8 +549,8 @@ func (h *Holochain) GenChain() (headerHash Hash, err error) {
 
 	// run the init functions of each zome
 	for _, z := range h.Zomes {
-		var n Nucleus
-		n, err = h.makeNucleus(&z)
+		var n Ribosome
+		n, err = h.makeRibosome(&z)
 		if err == nil {
 			err = n.ChainGenesis()
 			if err != nil {
@@ -764,10 +750,10 @@ func (s *Service) GenDev(root string, format string) (hP *Holochain, err error) 
 
 		zomes := []Zome{
 			{
-				Name:        "zySampleZome",
-				Code:        "zySampleZome.zy",
-				Description: "this is a zygomas test zome",
-				NucleusType: ZygoNucleusType,
+				Name:         "zySampleZome",
+				Code:         "zySampleZome.zy",
+				Description:  "this is a zygomas test zome",
+				RibosomeType: ZygoRibosomeType,
 				Entries: []EntryDef{
 					{Name: "evenNumbers", DataFormat: DataFormatRawZygo, Sharing: Public},
 					{Name: "primes", DataFormat: DataFormatJSON, Sharing: Public},
@@ -784,10 +770,10 @@ func (s *Service) GenDev(root string, format string) (hP *Holochain, err error) 
 				},
 			},
 			{
-				Name:        "jsSampleZome",
-				Code:        "jsSampleZome.js",
-				Description: "this is a javascript test zome",
-				NucleusType: JSNucleusType,
+				Name:         "jsSampleZome",
+				Code:         "jsSampleZome.js",
+				Description:  "this is a javascript test zome",
+				RibosomeType: JSRibosomeType,
 				Entries: []EntryDef{
 					{Name: "oddNumbers", DataFormat: DataFormatRawJS, Sharing: Public},
 					{Name: "profile", DataFormat: DataFormatJSON, Schema: "profile.json", Sharing: Public},
@@ -1194,11 +1180,11 @@ func (h *Holochain) GetEntryDef(t string) (zome *Zome, d *EntryDef, err error) {
 
 // Call executes an exposed function
 func (h *Holochain) Call(zomeType string, function string, arguments interface{}, exposureContext string) (result interface{}, err error) {
-	n, z, err := h.MakeNucleus(zomeType)
+	n, z, err := h.MakeRibosome(zomeType)
 	if err != nil {
 		return
 	}
-	fn, err := h.GetFunctionDef(z, function)
+	fn, err := z.GetFunctionDef(function)
 	if err != nil {
 		return
 	}
@@ -1210,17 +1196,17 @@ func (h *Holochain) Call(zomeType string, function string, arguments interface{}
 	return
 }
 
-// MakeNucleus creates a Nucleus object based on the zome type
-func (h *Holochain) MakeNucleus(t string) (n Nucleus, z *Zome, err error) {
+// MakeRibosome creates a Ribosome object based on the zome type
+func (h *Holochain) MakeRibosome(t string) (n Ribosome, z *Zome, err error) {
 	z, err = h.GetZome(t)
 	if err != nil {
 		return
 	}
-	n, err = h.makeNucleus(z)
+	n, err = h.makeRibosome(z)
 	return
 }
 
-func (h *Holochain) makeNucleus(z *Zome) (n Nucleus, err error) {
+func (h *Holochain) makeRibosome(z *Zome) (n Ribosome, err error) {
 	//check to see if we have a cached version of the code, otherwise read from disk
 	if z.code == "" {
 		zpath := h.ZomePath(z)
@@ -1232,7 +1218,7 @@ func (h *Holochain) makeNucleus(z *Zome) (n Nucleus, err error) {
 		}
 		z.code = string(code)
 	}
-	n, err = CreateNucleus(h, z.NucleusType, z.code)
+	n, err = CreateRibosome(h, z.RibosomeType, z.code)
 	return
 }
 
@@ -1257,34 +1243,6 @@ func (h *Holochain) GetZome(zName string) (z *Zome, err error) {
 	if z == nil {
 		err = errors.New("unknown zome: " + zName)
 		return
-	}
-	return
-}
-
-// GetEntryDef returns the entry def structure
-func (z *Zome) GetEntryDef(entryName string) (e *EntryDef, err error) {
-	for _, def := range z.Entries {
-		if def.Name == entryName {
-			e = &def
-			break
-		}
-	}
-	if e == nil {
-		err = errors.New("no definition for entry type: " + entryName)
-	}
-	return
-}
-
-// GetFunctionDef returns the exposed function spec for the given zome and function
-func (h *Holochain) GetFunctionDef(zome *Zome, fnName string) (fn *FunctionDef, err error) {
-	for _, f := range zome.Functions {
-		if f.Name == fnName {
-			fn = &f
-			break
-		}
-	}
-	if fn == nil {
-		err = errors.New("unknown exposed function: " + fnName)
 	}
 	return
 }

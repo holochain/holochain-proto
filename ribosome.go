@@ -1,8 +1,8 @@
 // Copyright (C) 2013-2017, The MetaCurrency Project (Eric Harris-Braun, Arthur Brock, et. al.)
 // Use of this source code is governed by GPLv3 found in the LICENSE file
 //----------------------------------------------------------------------------------------
-// Nucleus provides an interface for an execution environment interface for chains and their entries
-// and factory code for creating nucleii instances
+// Ribosome provides an interface for an execution environment interface for chains and their entries
+// and factory code for creating ribosome instances
 
 package holochain
 
@@ -13,7 +13,7 @@ import (
 	"strings"
 )
 
-type NucleusFactory func(h *Holochain, code string) (Nucleus, error)
+type RibosomeFactory func(h *Holochain, code string) (Ribosome, error)
 
 const (
 
@@ -56,8 +56,8 @@ func (f *FunctionDef) ValidExposure(context string) bool {
 	return f.Exposure == context
 }
 
-// Nucleus type abstracts the functions of code execution environments
-type Nucleus interface {
+// Ribosome type abstracts the functions of code execution environments
+type Ribosome interface {
 	Type() string
 	ValidateAction(action Action, def *EntryDef, pkg *ValidationPackage, sources []string) (err error)
 	ValidatePackagingRequest(action ValidatingAction, def *EntryDef) (req PackagingReq, err error)
@@ -66,39 +66,39 @@ type Nucleus interface {
 	Run(code string) (result interface{}, err error)
 }
 
-var nucleusFactories = make(map[string]NucleusFactory)
+var ribosomeFactories = make(map[string]RibosomeFactory)
 
-// RegisterNucleus sets up a Nucleus to be used by the CreateNucleus function
-func RegisterNucleus(name string, factory NucleusFactory) {
+// RegisterRibosome sets up a Ribosome to be used by the CreateRibosome function
+func RegisterRibosome(name string, factory RibosomeFactory) {
 	if factory == nil {
-		panic("Nucleus factory for type %s does not exist." + name)
+		panic("Ribosome factory for type %s does not exist." + name)
 	}
-	_, registered := nucleusFactories[name]
+	_, registered := ribosomeFactories[name]
 	if registered {
-		panic("Nucleus factory for type %s already registered. " + name)
+		panic("Ribosome factory for type %s already registered. " + name)
 	}
-	nucleusFactories[name] = factory
+	ribosomeFactories[name] = factory
 }
 
-// RegisterBultinNucleii adds the built in nucleus types to the factory hash
-func RegisterBultinNucleii() {
-	RegisterNucleus(ZygoNucleusType, NewZygoNucleus)
-	RegisterNucleus(JSNucleusType, NewJSNucleus)
+// RegisterBultinRibosomes adds the built in ribosome types to the factory hash
+func RegisterBultinRibosomes() {
+	RegisterRibosome(ZygoRibosomeType, NewZygoRibosome)
+	RegisterRibosome(JSRibosomeType, NewJSRibosome)
 }
 
-// CreateNucleus returns a new Nucleus of the given type
-func CreateNucleus(h *Holochain, nucleusType string, code string) (Nucleus, error) {
+// CreateRibosome returns a new Ribosome of the given type
+func CreateRibosome(h *Holochain, ribosomeType string, code string) (Ribosome, error) {
 
-	factory, ok := nucleusFactories[nucleusType]
+	factory, ok := ribosomeFactories[ribosomeType]
 	if !ok {
 		// Factory has not been registered.
-		// Make a list of all available nucleus factories for error.
+		// Make a list of all available ribosome factories for error.
 		var available []string
-		for k := range nucleusFactories {
+		for k := range ribosomeFactories {
 			available = append(available, k)
 		}
 		sort.Strings(available)
-		return nil, fmt.Errorf("Invalid nucleus name. Must be one of: %s", strings.Join(available, ", "))
+		return nil, fmt.Errorf("Invalid ribosome name. Must be one of: %s", strings.Join(available, ", "))
 	}
 
 	return factory(h, code)

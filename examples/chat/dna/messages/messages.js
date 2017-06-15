@@ -75,31 +75,30 @@ function validatePut(entry_type,entry,header,pkg,sources) {
     return validate(entry_type,entry,header,sources);
 }
 function validateCommit(entry_type,entry,header,pkg,sources) {
-    if (entry_type == "my_messages") {
-        //TODO proper source validation here...
-        return true;
-    }
     return validate(entry_type,entry,header,sources);
 }
 // Local validate an entry before committing ???
 function validate(entry_type,entry,header,sources) {
+    if( !isAllowed(sources[0]) ) return false
+
+    if (entry_type == "my_messages") {
+        return isValidRoom(entry.Links[0].Base)
+    }
+
     if( !isValidRoom(entry.room) ) {
         debug("message not valid because room "+entry.room+" does not exist");
         return false;
     }
-    if( isAllowed(sources[0]) ) {
-        debug("message \""+entry.content+"\" valid and added to room "+entry.room);
-        return true;
-    } else {
-        return false;
-    }
+
+    return true
 }
 
 function validateLink(linkingEntryType,baseHash,linkHash,tag,pkg,sources){
-    return true;
+    // this can only be "my_message" type which is linking from room to message
+    return isValidRoom(baseHash);
 }
-function validateMod(entry_type,hash,newHash,pkg,sources) {return true;}
-function validateDel(entry_type,hash,pkg,sources) {return true;}
+function validateMod(entry_type,hash,newHash,pkg,sources) {return false;}
+function validateDel(entry_type,hash,pkg,sources) {return false;}
 function validatePutPkg(entry_type) {return null}
 function validateModPkg(entry_type) { return null}
 function validateDelPkg(entry_type) { return null}

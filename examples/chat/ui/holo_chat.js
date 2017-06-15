@@ -130,6 +130,14 @@ var activeRoom;
     $("#rooms").on("click", "li", selectRoom)
     $("#message-button").click(sendMessage)
 
+    $("#room-name-input").keyup(function(event){
+        if(event.keyCode == 13) $("#room-name-button").click()
+    })
+
+    $("#message-input").keyup(function(event){
+        if(event.keyCode == 13) $("#message-button").click()
+    })
+
     setInterval(getMessages, 1000)
     setInterval(getRooms, 1000)
  });

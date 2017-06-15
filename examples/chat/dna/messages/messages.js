@@ -24,7 +24,7 @@ function listMessages(room) {
 function newMessage(x) {
     x.timestamp = new Date();
     var key = commit("message", x);
-    commit("my_messages",{Links:[{Base:x.room,Link:key,Tag:"message"}]})
+    commit("room_message_link",{Links:[{Base:x.room,Link:key,Tag:"message"}]})
     return key
 }
 
@@ -33,7 +33,7 @@ function newMessage(x) {
 // receives message like in newMessage and old_message's hash
 function modMessage(x, old_message) {
     var key = commit("message", x);
-    commit("my_messages",{Links:[{Base:old_post,Link:key,Tag:"replacedBy"}]})
+    commit("room_message_link",{Links:[{Base:old_post,Link:key,Tag:"replacedBy"}]})
     return key
 }
 
@@ -81,7 +81,7 @@ function validateCommit(entry_type,entry,header,pkg,sources) {
 function validate(entry_type,entry,header,sources) {
     if( !isAllowed(sources[0]) ) return false
 
-    if (entry_type == "my_messages") {
+    if (entry_type == "room_message_link") {
         return isValidRoom(entry.Links[0].Base)
     }
 
@@ -94,7 +94,7 @@ function validate(entry_type,entry,header,sources) {
 }
 
 function validateLink(linkingEntryType,baseHash,linkHash,tag,pkg,sources){
-    // this can only be "my_message" type which is linking from room to message
+    // this can only be "room_message_link" type which is linking from room to message
     return isValidRoom(baseHash);
 }
 function validateMod(entry_type,hash,newHash,pkg,sources) {return false;}

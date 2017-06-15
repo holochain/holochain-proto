@@ -94,7 +94,7 @@
             },
             "Entries": [
                 {
-                    "Name": "my_messages",
+                    "Name": "room_message_link",
                     "DataFormat": "links"
                 },
                 {

@@ -24,7 +24,7 @@ function listMessages(room) {
 function newMessage(x) {
     x.timestamp = new Date();
     var key = commit("message", x);
-    commit("my_messages",{Links:[{Base:x.room,Link:key,Tag:"message"}]})
+    commit("room_message_link",{Links:[{Base:x.room,Link:key,Tag:"message"}]})
     return key
 }
 
@@ -33,7 +33,7 @@ function newMessage(x) {
 // receives message like in newMessage and old_message's hash
 function modMessage(x, old_message) {
     var key = commit("message", x);
-    commit("my_messages",{Links:[{Base:old_post,Link:key,Tag:"replacedBy"}]})
+    commit("room_message_link",{Links:[{Base:old_post,Link:key,Tag:"replacedBy"}]})
     return key
 }
 
@@ -75,31 +75,30 @@ function validatePut(entry_type,entry,header,pkg,sources) {
     return validate(entry_type,entry,header,sources);
 }
 function validateCommit(entry_type,entry,header,pkg,sources) {
-    if (entry_type == "my_messages") {
-        //TODO proper source validation here...
-        return true;
-    }
     return validate(entry_type,entry,header,sources);
 }
 // Local validate an entry before committing ???
 function validate(entry_type,entry,header,sources) {
+    if( !isAllowed(sources[0]) ) return false
+
+    if (entry_type == "room_message_link") {
+        return isValidRoom(entry.Links[0].Base)
+    }
+
     if( !isValidRoom(entry.room) ) {
         debug("message not valid because room "+entry.room+" does not exist");
         return false;
     }
-    if( isAllowed(sources[0]) ) {
-        debug("message \""+entry.content+"\" valid and added to room "+entry.room);
-        return true;
-    } else {
-        return false;
-    }
+
+    return true
 }
 
 function validateLink(linkingEntryType,baseHash,linkHash,tag,pkg,sources){
-    return true;
+    // this can only be "room_message_link" type which is linking from room to message
+    return isValidRoom(baseHash);
 }
-function validateMod(entry_type,hash,newHash,pkg,sources) {return true;}
-function validateDel(entry_type,hash,pkg,sources) {return true;}
+function validateMod(entry_type,hash,newHash,pkg,sources) {return false;}
+function validateDel(entry_type,hash,pkg,sources) {return false;}
 function validatePutPkg(entry_type) {return null}
 function validateModPkg(entry_type) { return null}
 function validateDelPkg(entry_type) { return null}

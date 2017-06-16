@@ -112,7 +112,7 @@ func (h *Holochain) ValidateAction(a ValidatingAction, entryType string, pkg *Pa
 
 		// run the action's app level validations
 		var n Ribosome
-		n, err = h.makeRibosome(z)
+		n, err = z.MakeRibosome(h)
 		if err != nil {
 			return
 		}
@@ -170,7 +170,7 @@ func (h *Holochain) GetValidationResponse(a ValidatingAction, hash Hash) (resp V
 
 		// get the packaging request from the app
 		var n Ribosome
-		n, err = h.makeRibosome(z)
+		n, err = z.MakeRibosome(h)
 		if err != nil {
 			return
 		}
@@ -341,6 +341,36 @@ func (a *ActionCall) Args() []Arg {
 
 func (a *ActionCall) Do(h *Holochain) (response interface{}, err error) {
 	response, err = h.Call(a.zome, a.function, a.args, ZOME_EXPOSURE)
+	return
+}
+
+//------------------------------------------------------------
+// Send
+
+type ActionSend struct {
+	to  peer.ID
+	msg AppMsg
+}
+
+func NewSendAction(to peer.ID, msg AppMsg) *ActionSend {
+	a := ActionSend{to: to, msg: msg}
+	return &a
+}
+
+func (a *ActionSend) Name() string {
+	return "send"
+}
+
+func (a *ActionSend) Args() []Arg {
+	return []Arg{{Name: "to", Type: HashArg}, {Name: "msg", Type: MapArg}}
+}
+
+func (a *ActionSend) Do(h *Holochain) (response interface{}, err error) {
+	var r interface{}
+	r, err = h.Send(AppProtocol, a.to, APP_MESSAGE, a.msg)
+	if err == nil {
+		response = r.(AppMsg).Body
+	}
 	return
 }
 

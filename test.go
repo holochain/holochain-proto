@@ -5,6 +5,7 @@ import (
 	. "github.com/smartystreets/goconvey/convey"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -79,7 +80,12 @@ func ShouldLog(log *Logger, message string, fn func()) {
 	e := log.Enabled
 	log.Enabled = true
 	fn()
-	So(buf.String(), ShouldEqual, message)
+	matched := strings.Index(buf.String(), message) >= 0
+	if matched {
+		So(matched, ShouldBeTrue)
+	} else {
+		So(buf.String(), ShouldEqual, message)
+	}
 	log.Enabled = e
 	log.w = w
 }

@@ -13,7 +13,7 @@ import (
 	"strings"
 )
 
-type RibosomeFactory func(h *Holochain, code string) (Ribosome, error)
+type RibosomeFactory func(h *Holochain, zome *Zome) (Ribosome, error)
 
 const (
 
@@ -62,6 +62,7 @@ type Ribosome interface {
 	ValidateAction(action Action, def *EntryDef, pkg *ValidationPackage, sources []string) (err error)
 	ValidatePackagingRequest(action ValidatingAction, def *EntryDef) (req PackagingReq, err error)
 	ChainGenesis() error
+	Receive(msg string) (response string, err error)
 	Call(fn *FunctionDef, params interface{}) (interface{}, error)
 	Run(code string) (result interface{}, err error)
 }
@@ -87,9 +88,9 @@ func RegisterBultinRibosomes() {
 }
 
 // CreateRibosome returns a new Ribosome of the given type
-func CreateRibosome(h *Holochain, ribosomeType string, code string) (Ribosome, error) {
+func CreateRibosome(h *Holochain, zome *Zome) (Ribosome, error) {
 
-	factory, ok := ribosomeFactories[ribosomeType]
+	factory, ok := ribosomeFactories[zome.RibosomeType]
 	if !ok {
 		// Factory has not been registered.
 		// Make a list of all available ribosome factories for error.
@@ -101,5 +102,5 @@ func CreateRibosome(h *Holochain, ribosomeType string, code string) (Ribosome, e
 		return nil, fmt.Errorf("Invalid ribosome name. Must be one of: %s", strings.Join(available, ", "))
 	}
 
-	return factory(h, code)
+	return factory(h, zome)
 }

@@ -80,6 +80,7 @@ type Holochain struct {
 	hashSpec       HashSpec
 	config         Config
 	dht            *DHT
+	nucleus        *Nucleus
 	node           *Node
 	chain          *Chain // This node's local source chain
 }
@@ -131,6 +132,7 @@ func Initialize() {
 	gob.Register(DelEntry{})
 	gob.Register(StatusChange{})
 	gob.Register(Package{})
+	gob.Register(AppMsg{})
 
 	RegisterBultinRibosomes()
 
@@ -142,6 +144,7 @@ func Initialize() {
 	DHTProtocol = Protocol{protocol.ID("/hc-dht/0.0.0"), DHTReceiver}
 	ValidateProtocol = Protocol{protocol.ID("/hc-validate/0.0.0"), ValidateReceiver}
 	GossipProtocol = Protocol{protocol.ID("/hc-gossip/0.0.0"), GossipReceiver}
+	AppProtocol = Protocol{protocol.ID("/hc-app/0.0.0"), AppReceiver}
 }
 
 // Find the DNA files
@@ -408,24 +411,21 @@ func (h *Holochain) Prepare() (err error) {
 		return
 	}
 
+	h.dht = NewDHT(h)
+	h.nucleus = NewNucleus(h)
+
+	return
+}
+
+// Activate fires up the holochain node, starting node discovery and protocols
+func (h *Holochain) Activate() (err error) {
 	if h.config.EnableMDNS {
 		err = h.node.EnableMDNSDiscovery(h, time.Second)
 		if err != nil {
 			return
 		}
 	}
-
-	h.dht = NewDHT(h)
-
-	return
-}
-
-// Activate fires up the holochain node
-func (h *Holochain) Activate() (err error) {
-	if h.config.PeerModeDHTNode {
-		if err = h.dht.StartDHT(); err != nil {
-			return
-		}
+	if h.config.BootstrapServer != "" {
 		e := h.BSpost()
 		if e != nil {
 			h.dht.dlog.Logf("error in BSpost: %s", e.Error())
@@ -435,8 +435,14 @@ func (h *Holochain) Activate() (err error) {
 			h.dht.dlog.Logf("error in BSget: %s", e.Error())
 		}
 	}
+	if h.config.PeerModeDHTNode {
+		if err = h.dht.Start(); err != nil {
+			return
+		}
+
+	}
 	if h.config.PeerModeAuthor {
-		if err = h.node.StartProtocol(h, ValidateProtocol); err != nil {
+		if err = h.nucleus.Start(); err != nil {
 			return
 		}
 	}
@@ -550,7 +556,7 @@ func (h *Holochain) GenChain() (headerHash Hash, err error) {
 	// run the init functions of each zome
 	for _, z := range h.Zomes {
 		var n Ribosome
-		n, err = h.makeRibosome(&z)
+		n, err = z.MakeRibosome(h)
 		if err == nil {
 			err = n.ChainGenesis()
 			if err != nil {
@@ -940,6 +946,8 @@ func (s *Service) GenDev(root string, format string) (hP *Holochain, err error) 
 (defn validateDelPkg [entryType] nil)
 (defn validateLinkPkg [entryType] nil)
 (defn genesis [] true)
+(defn receive [message]
+  (hash pong: (hget message %ping)))
 `
 		code["jsSampleZome"] = `
 function unexposed(x) {return x+" fish";};
@@ -984,6 +992,12 @@ function validateDelPkg(entry_type) { return null}
 function validateLinkPkg(entry_type) { return null}
 
 function genesis() {return true}
+
+function receive(message) {
+  // send back a pong message of what came in the ping message!
+  return {pong:message.ping}
+}
+
 `
 
 		testPath := root + "/test"
@@ -1197,28 +1211,12 @@ func (h *Holochain) Call(zomeType string, function string, arguments interface{}
 }
 
 // MakeRibosome creates a Ribosome object based on the zome type
-func (h *Holochain) MakeRibosome(t string) (n Ribosome, z *Zome, err error) {
+func (h *Holochain) MakeRibosome(t string) (r Ribosome, z *Zome, err error) {
 	z, err = h.GetZome(t)
 	if err != nil {
 		return
 	}
-	n, err = h.makeRibosome(z)
-	return
-}
-
-func (h *Holochain) makeRibosome(z *Zome) (n Ribosome, err error) {
-	//check to see if we have a cached version of the code, otherwise read from disk
-	if z.code == "" {
-		zpath := h.ZomePath(z)
-		var code []byte
-
-		code, err = readFile(zpath, z.Code)
-		if err != nil {
-			return
-		}
-		z.code = string(code)
-	}
-	n, err = CreateRibosome(h, z.RibosomeType, z.code)
+	r, err = z.MakeRibosome(h)
 	return
 }
 

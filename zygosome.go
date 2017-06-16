@@ -10,6 +10,7 @@ import (
 	"errors"
 	"fmt"
 	zygo "github.com/glycerine/zygomys/repl"
+	peer "github.com/libp2p/go-libp2p-peer"
 	"math"
 	"regexp"
 	"strconv"
@@ -23,6 +24,7 @@ const (
 
 // ZygoRibosome holds data needed for the Zygo VM
 type ZygoRibosome struct {
+	zome       *Zome
 	env        *zygo.Glisp
 	lastResult zygo.Sexp
 	library    string
@@ -57,6 +59,34 @@ func (z *ZygoRibosome) ChainGenesis() (err error) {
 	}
 	return
 
+}
+
+// Receive calls the app receive function for node-to-node messages
+func (z *ZygoRibosome) Receive(msg string) (response string, err error) {
+	var code string
+	fnName := "receive"
+
+	code = fmt.Sprintf(`(json (%s (unjson (raw "%s"))))`, fnName, sanitizeZyString(msg))
+	Debug(code)
+	err = z.env.LoadString(code)
+	if err != nil {
+		return
+	}
+	var result interface{}
+	result, err = z.env.Run()
+	if err == nil {
+		switch t := result.(type) {
+		case *zygo.SexpStr:
+			response = t.S
+		case *zygo.SexpInt:
+			response = fmt.Sprintf("%d", t.Val)
+		case *zygo.SexpRaw:
+			response = cleanZygoJson(string(t.Val))
+		default:
+			result = fmt.Sprintf("%v", result)
+		}
+	}
+	return
 }
 
 // ValidatePackagingRequest calls the app for a validation packaging request for an action
@@ -480,10 +510,13 @@ func zyProcessArgs(args []Arg, zyArgs []zygo.Sexp) (err error) {
 	return
 }
 
-// NewZygoRibosome builds an zygo execution environment with user specified code
-func NewZygoRibosome(h *Holochain, code string) (n Ribosome, err error) {
-	var z ZygoRibosome
-	z.env = zygo.NewGlispSandbox()
+// NewZygoRibosome factory function to build a zygo execution environment for a zome
+func NewZygoRibosome(h *Holochain, zome *Zome) (n Ribosome, err error) {
+	z := ZygoRibosome{
+		zome: zome,
+		env:  zygo.NewGlispSandbox(),
+	}
+
 	z.env.AddFunction("version",
 		func(env *zygo.Glisp, name string, args []zygo.Sexp) (zygo.Sexp, error) {
 			return &zygo.SexpStr{S: VersionStr}, nil
@@ -547,6 +580,39 @@ func NewZygoRibosome(h *Holochain, code string) (n Ribosome, err error) {
 			}
 			var result = zygo.SexpStr{S: entryHash.String()}
 			return &result, nil
+		})
+
+	z.env.AddFunction("send",
+		func(env *zygo.Glisp, name string, zyargs []zygo.Sexp) (zygo.Sexp, error) {
+			a := &ActionSend{}
+			args := a.Args()
+			err := zyProcessArgs(args, zyargs)
+			if err != nil {
+				return zygo.SexpNull, err
+			}
+
+			a.to, err = peer.IDB58Decode(args[0].value.(Hash).String())
+			if err != nil {
+				return zygo.SexpNull, err
+			}
+
+			msg := args[1].value.(map[string]interface{})
+			var j []byte
+			j, err = json.Marshal(msg)
+			if err != nil {
+				return zygo.SexpNull, err
+			}
+
+			a.msg.ZomeType = z.zome.Name
+			a.msg.Body = string(j)
+
+			var r interface{}
+			r, err = a.Do(h)
+			var resp zygo.Sexp
+			if err == nil {
+				resp = &zygo.SexpStr{S: r.(string)}
+			}
+			return makeResult(env, resp, err)
 		})
 
 	z.env.AddFunction("call",
@@ -814,7 +880,7 @@ func NewZygoRibosome(h *Holochain, code string) (n Ribosome, err error) {
 	}
 	z.library = l
 
-	_, err = z.Run(l + code)
+	_, err = z.Run(l + zome.code)
 	if err != nil {
 		return
 	}

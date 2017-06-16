@@ -57,6 +57,10 @@ const (
 	VALIDATE_LINK_REQUEST
 	VALIDATE_DEL_REQUEST
 	VALIDATE_MOD_REQUEST
+
+	// Application Messages
+
+	APP_MESSAGE
 )
 
 // Message represents data that can be sent to node in the network
@@ -81,7 +85,7 @@ type Protocol struct {
 	Receiver ReceiverFn
 }
 
-var DHTProtocol, ValidateProtocol, GossipProtocol Protocol
+var DHTProtocol, ValidateProtocol, GossipProtocol, AppProtocol Protocol
 
 type Router struct {
 	dummy int

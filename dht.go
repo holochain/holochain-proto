@@ -48,8 +48,8 @@ type DHT struct {
 	db        *buntdb.DB
 	puts      chan Message
 	gossiping bool
-	glog      Logger // the gossip logger
-	dlog      Logger // the dht logger
+	glog      *Logger // the gossip logger
+	dlog      *Logger // the dht logger
 	gossips   map[peer.ID]bool
 	gchan     chan gossipWithReq
 }
@@ -196,7 +196,9 @@ var ErrEntryTypeMismatch = errors.New("entry type mismatch")
 // NewDHT creates a new DHT structure
 func NewDHT(h *Holochain) *DHT {
 	dht := DHT{
-		h: h,
+		h:    h,
+		glog: &h.config.Loggers.Gossip,
+		dlog: &h.config.Loggers.DHT,
 	}
 	db, err := buntdb.Open(h.DBPath() + "/" + DHTStoreFileName)
 	if err != nil {
@@ -208,9 +210,6 @@ func NewDHT(h *Holochain) *DHT {
 
 	dht.db = db
 	dht.puts = make(chan Message, 10)
-
-	dht.glog = h.config.Loggers.Gossip
-	dht.dlog = h.config.Loggers.DHT
 
 	dht.gossips = make(map[peer.ID]bool)
 	dht.gchan = make(chan gossipWithReq, 10)
@@ -824,8 +823,8 @@ func DHTReceiver(h *Holochain, msg *Message) (response interface{}, err error) {
 	return
 }
 
-// StartDHT initiates listening for DHT & Gossip protocol messages on the node
-func (dht *DHT) StartDHT() (err error) {
+// Start initiates listening for DHT & Gossip protocol messages on the node
+func (dht *DHT) Start() (err error) {
 	if err = dht.h.node.StartProtocol(dht.h, DHTProtocol); err != nil {
 		return
 	}

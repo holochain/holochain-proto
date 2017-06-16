@@ -26,7 +26,7 @@ func (n *TestDiscoveryNotifee) HandlePeerFound(pi pstore.PeerInfo) {
 	n.h.Connect(context.Background(), pi)
 }
 
-func TestNodeDiscoveryd(t *testing.T) {
+func TestNodeDiscovery(t *testing.T) {
 	node1, _ := makeNode(1234, "node1")
 	node2, _ := makeNode(4321, "node2")
 	defer func() {
@@ -136,15 +136,16 @@ func TestNodeSend(t *testing.T) {
 	os.MkdirAll(h2.DBPath(), os.ModePerm)
 	h2.dht = NewDHT(&h2)
 	h2.chain = NewChain()
+	h2.nucleus = NewNucleus(&h2)
 
 	h.Activate()
 
-	Convey("It should start the DHT protocol", t, func() {
-		err := h2.dht.StartDHT()
+	Convey("It should start the DHT protocols", t, func() {
+		err := h2.dht.Start()
 		So(err, ShouldBeNil)
 	})
-	Convey("It should start the Validate protocol", t, func() {
-		err := node2.StartProtocol(h, ValidateProtocol)
+	Convey("It should start the Nucleus protocols", t, func() {
+		err := h2.nucleus.Start()
 		So(err, ShouldBeNil)
 	})
 
@@ -182,6 +183,13 @@ func TestNodeSend(t *testing.T) {
 		So(r.Type, ShouldEqual, ERROR_RESPONSE)
 		So(r.From, ShouldEqual, node1.HashAddr) // response comes from who we sent to
 		So(r.Body.(ErrorResponse).Message, ShouldEqual, "message type 9 not in holochain-dht protocol")
+
+		m = node2.NewMessage(PUT_REQUEST, "fish")
+		r, err = node2.Send(AppProtocol, node1.HashAddr, m)
+		So(err, ShouldBeNil)
+		So(r.Type, ShouldEqual, ERROR_RESPONSE)
+		So(r.From, ShouldEqual, node1.HashAddr) // response comes from who we sent to
+		So(r.Body.(ErrorResponse).Message, ShouldEqual, "message type 2 not in holochain-app protocol")
 	})
 
 	Convey("It should respond with err on bad request on invalid PUT_REQUESTS", t, func() {

@@ -10,14 +10,14 @@ import (
 
 func TestNewJSRibosome(t *testing.T) {
 	Convey("new should create a ribosome", t, func() {
-		v, err := NewJSRibosome(nil, `1 + 1`)
+		v, err := NewJSRibosome(nil, &Zome{RibosomeType: JSRibosomeType, code: `1 + 1`})
 		So(err, ShouldBeNil)
 		z := v.(*JSRibosome)
 		i, _ := z.lastResult.ToInteger()
 		So(i, ShouldEqual, 2)
 	})
 	Convey("new fail to create ribosome when code is bad", t, func() {
-		v, err := NewJSRibosome(nil, "\n1+ )")
+		v, err := NewJSRibosome(nil, &Zome{RibosomeType: JSRibosomeType, code: "\n1+ )"})
 		So(v, ShouldBeNil)
 		So(err.Error(), ShouldEqual, "JS exec error: (anonymous): Line 2:4 Unexpected token )")
 	})
@@ -26,7 +26,7 @@ func TestNewJSRibosome(t *testing.T) {
 		d, _, h := prepareTestChain("test")
 		defer cleanupTestDir(d)
 
-		v, err := NewJSRibosome(h, "")
+		v, err := NewJSRibosome(h, &Zome{RibosomeType: JSRibosomeType})
 		So(err, ShouldBeNil)
 		z := v.(*JSRibosome)
 
@@ -61,7 +61,7 @@ func TestNewJSRibosome(t *testing.T) {
 		d, _, h := prepareTestChain("test")
 		defer cleanupTestDir(d)
 
-		v, err := NewJSRibosome(h, "")
+		v, err := NewJSRibosome(h, &Zome{RibosomeType: JSRibosomeType})
 		So(err, ShouldBeNil)
 		z := v.(*JSRibosome)
 
@@ -100,7 +100,8 @@ func TestNewJSRibosome(t *testing.T) {
 		d, _, h := prepareTestChain("test")
 		defer cleanupTestDir(d)
 
-		v, err := NewJSRibosome(h, "")
+		zome, _ := h.GetZome("jsSampleZome")
+		v, err := NewJSRibosome(h, zome)
 		So(err, ShouldBeNil)
 		z := v.(*JSRibosome)
 
@@ -157,19 +158,34 @@ func TestNewJSRibosome(t *testing.T) {
 			So(entry.Content(), ShouldEqual, `{"prime":7}`)
 
 		})
+		Convey("send", func() {
+			ShouldLog(h.nucleus.alog, `result was: "{\"pong\":\"foobar\"}"`, func() {
+				_, err := z.Run(`debug("result was: "+JSON.stringify(send(App.Key.Hash,{ping:"foobar"})))`)
+				So(err, ShouldBeNil)
+			})
+		})
 	})
 }
 
 func TestJSGenesis(t *testing.T) {
 	Convey("it should fail if the init function returns false", t, func() {
-		z, _ := NewJSRibosome(nil, `function genesis() {return false}`)
+		z, _ := NewJSRibosome(nil, &Zome{RibosomeType: JSRibosomeType, code: `function genesis() {return false}`})
 		err := z.ChainGenesis()
 		So(err.Error(), ShouldEqual, "genesis failed")
 	})
 	Convey("it should work if the genesis function returns true", t, func() {
-		z, _ := NewJSRibosome(nil, `function genesis() {return true}`)
+		z, _ := NewJSRibosome(nil, &Zome{RibosomeType: JSRibosomeType, code: `function genesis() {return true}`})
 		err := z.ChainGenesis()
 		So(err, ShouldBeNil)
+	})
+}
+
+func TestJSReceive(t *testing.T) {
+	Convey("it should call a receive function", t, func() {
+		z, _ := NewJSRibosome(nil, &Zome{RibosomeType: JSRibosomeType, code: `function receive(msg) {return {foo:msg.bar}}`})
+		response, err := z.Receive(`{"bar":"baz"}`)
+		So(err, ShouldBeNil)
+		So(response, ShouldEqual, `{"foo":"baz"}`)
 	})
 }
 
@@ -205,7 +221,7 @@ func TestJSValidateCommit(t *testing.T) {
 	d, _, h := prepareTestChain("test")
 	defer cleanupTestDir(d)
 	//	a, _ := NewAgent(LibP2P, "Joe")
-	//	h := NewHolochain(a, "some/path", "yaml", Zome{})
+	//	h := NewHolochain(a, "some/path", "yaml", Zome{RibosomeType:JSRibosomeType,})
 	//	a := h.agent
 	h.config.Loggers.App.Format = ""
 	h.config.Loggers.App.New(nil)
@@ -214,7 +230,7 @@ func TestJSValidateCommit(t *testing.T) {
 	vpkg, _ := MakeValidationPackage(h, &pkg)
 
 	Convey("it should be passing in the correct values", t, func() {
-		v, err := NewJSRibosome(h, `function validateCommit(name,entry,header,pkg,sources) {debug(name);debug(entry);debug(JSON.stringify(header));debug(JSON.stringify(sources));debug(JSON.stringify(pkg));return true};`)
+		v, err := NewJSRibosome(h, &Zome{RibosomeType: JSRibosomeType, code: `function validateCommit(name,entry,header,pkg,sources) {debug(name);debug(entry);debug(JSON.stringify(header));debug(JSON.stringify(sources));debug(JSON.stringify(pkg));return true};`})
 		So(err, ShouldBeNil)
 		d := EntryDef{Name: "evenNumbers", DataFormat: DataFormatString}
 		ShouldLog(&h.config.Loggers.App, `evenNumbers
@@ -230,7 +246,7 @@ foo
 		})
 	})
 	Convey("should run an entry value against the defined validator for string data", t, func() {
-		v, err := NewJSRibosome(nil, `function validateCommit(name,entry,header,pkg,sources) { return (entry=="fish")};`)
+		v, err := NewJSRibosome(nil, &Zome{RibosomeType: JSRibosomeType, code: `function validateCommit(name,entry,header,pkg,sources) { return (entry=="fish")};`})
 		So(err, ShouldBeNil)
 		d := EntryDef{Name: "oddNumbers", DataFormat: DataFormatString}
 
@@ -245,7 +261,7 @@ foo
 		So(err, ShouldBeNil)
 	})
 	Convey("should run an entry value against the defined validator for js data", t, func() {
-		v, err := NewJSRibosome(nil, `function validateCommit(name,entry,header,pkg,sources) { return (entry=="fish")};`)
+		v, err := NewJSRibosome(nil, &Zome{RibosomeType: JSRibosomeType, code: `function validateCommit(name,entry,header,pkg,sources) { return (entry=="fish")};`})
 		d := EntryDef{Name: "evenNumbers", DataFormat: DataFormatRawJS}
 
 		a := NewCommitAction("oddNumbers", &GobEntry{C: "\"cow\""})
@@ -259,7 +275,7 @@ foo
 		So(err, ShouldBeNil)
 	})
 	Convey("should run an entry value against the defined validator for json data", t, func() {
-		v, err := NewJSRibosome(nil, `function validateCommit(name,entry,header,pkg,sources) { return (entry.data=="fish")};`)
+		v, err := NewJSRibosome(nil, &Zome{RibosomeType: JSRibosomeType, code: `function validateCommit(name,entry,header,pkg,sources) { return (entry.data=="fish")};`})
 		d := EntryDef{Name: "evenNumbers", DataFormat: DataFormatJSON}
 
 		a := NewCommitAction("evenNumbers", &GobEntry{C: `{"data":"cow"}`})
@@ -335,8 +351,7 @@ func TestJSExposeCall(t *testing.T) {
 	d, _, h := prepareTestChain("test")
 	defer cleanupTestDir(d)
 
-	zome, _ := h.GetZome("jsSampleZome")
-	v, err := h.makeRibosome(zome)
+	v, zome, err := h.MakeRibosome("jsSampleZome")
 	if err != nil {
 		panic(err)
 	}
@@ -384,7 +399,7 @@ func TestJSDHT(t *testing.T) {
 
 	hash, _ := NewHash("QmY8Mzg9F69e5P9AoQPYat6x5HEhc1TVGs11tmfNSzkqh2")
 	Convey("get should return hash not found if it doesn't exist", t, func() {
-		v, err := NewJSRibosome(h, fmt.Sprintf(`get("%s");`, hash.String()))
+		v, err := NewJSRibosome(h, &Zome{RibosomeType: JSRibosomeType, code: fmt.Sprintf(`get("%s");`, hash.String())})
 		So(err, ShouldBeNil)
 		z := v.(*JSRibosome)
 		So(z.lastResult.String(), ShouldEqual, "HolochainError: hash not found")
@@ -398,7 +413,7 @@ func TestJSDHT(t *testing.T) {
 	}
 
 	Convey("get should return entry type", t, func() {
-		v, err := NewJSRibosome(h, fmt.Sprintf(`get("%s");`, hash.String()))
+		v, err := NewJSRibosome(h, &Zome{RibosomeType: JSRibosomeType, code: fmt.Sprintf(`get("%s");`, hash.String())})
 		So(err, ShouldBeNil)
 		z := v.(*JSRibosome)
 		x, err := z.lastResult.Export()
@@ -407,7 +422,7 @@ func TestJSDHT(t *testing.T) {
 	})
 
 	Convey("get should return entry type", t, func() {
-		v, err := NewJSRibosome(h, fmt.Sprintf(`get("%s",{GetMask:HC.GetMask.EntryType});`, hash.String()))
+		v, err := NewJSRibosome(h, &Zome{RibosomeType: JSRibosomeType, code: fmt.Sprintf(`get("%s",{GetMask:HC.GetMask.EntryType});`, hash.String())})
 		So(err, ShouldBeNil)
 		z := v.(*JSRibosome)
 		x, err := z.lastResult.Export()
@@ -416,7 +431,7 @@ func TestJSDHT(t *testing.T) {
 	})
 
 	Convey("get should return sources", t, func() {
-		v, err := NewJSRibosome(h, fmt.Sprintf(`get("%s",{GetMask:HC.GetMask.Sources});`, hash.String()))
+		v, err := NewJSRibosome(h, &Zome{RibosomeType: JSRibosomeType, code: fmt.Sprintf(`get("%s",{GetMask:HC.GetMask.Sources});`, hash.String())})
 		So(err, ShouldBeNil)
 		z := v.(*JSRibosome)
 		x, err := z.lastResult.Export()
@@ -425,7 +440,7 @@ func TestJSDHT(t *testing.T) {
 	})
 
 	Convey("get should return collection", t, func() {
-		v, err := NewJSRibosome(h, fmt.Sprintf(`get("%s",{GetMask:HC.GetMask.All});`, hash.String()))
+		v, err := NewJSRibosome(h, &Zome{RibosomeType: JSRibosomeType, code: fmt.Sprintf(`get("%s",{GetMask:HC.GetMask.All});`, hash.String())})
 		So(err, ShouldBeNil)
 		z := v.(*JSRibosome)
 		x, err := z.lastResult.Export()
@@ -445,7 +460,7 @@ func TestJSDHT(t *testing.T) {
 	}
 
 	Convey("getLink function should return the Links", t, func() {
-		v, err := NewJSRibosome(h, fmt.Sprintf(`getLink("%s","4stars");`, hash.String()))
+		v, err := NewJSRibosome(h, &Zome{RibosomeType: JSRibosomeType, code: fmt.Sprintf(`getLink("%s","4stars");`, hash.String())})
 		So(err, ShouldBeNil)
 		z := v.(*JSRibosome)
 		So(z.lastResult.Class(), ShouldEqual, "Object")
@@ -456,7 +471,7 @@ func TestJSDHT(t *testing.T) {
 	})
 
 	Convey("getLink function with load option should return the Links and entries", t, func() {
-		v, err := NewJSRibosome(h, fmt.Sprintf(`getLink("%s","4stars",{Load:true});`, hash.String()))
+		v, err := NewJSRibosome(h, &Zome{RibosomeType: JSRibosomeType, code: fmt.Sprintf(`getLink("%s","4stars",{Load:true});`, hash.String())})
 		So(err, ShouldBeNil)
 		z := v.(*JSRibosome)
 		So(z.lastResult.Class(), ShouldEqual, "Object")
@@ -468,7 +483,7 @@ func TestJSDHT(t *testing.T) {
 	})
 
 	Convey("commit with del link should delete link", t, func() {
-		v, err := NewJSRibosome(h, fmt.Sprintf(`commit("rating",{Links:[{"LinkAction":HC.LinkAction.Del,Base:"%s",Link:"%s",Tag:"4stars"}]});`, hash.String(), profileHash.String()))
+		v, err := NewJSRibosome(h, &Zome{RibosomeType: JSRibosomeType, code: fmt.Sprintf(`commit("rating",{Links:[{"LinkAction":HC.LinkAction.Del,Base:"%s",Link:"%s",Tag:"4stars"}]});`, hash.String(), profileHash.String())})
 		So(err, ShouldBeNil)
 		z := v.(*JSRibosome)
 		_, err = NewHash(z.lastResult.String())
@@ -484,7 +499,7 @@ func TestJSDHT(t *testing.T) {
 	})
 
 	Convey("getLink function with StatusMask option should return deleted Links", t, func() {
-		v, err := NewJSRibosome(h, fmt.Sprintf(`getLink("%s","4stars",{StatusMask:HC.Status.Deleted});`, hash.String()))
+		v, err := NewJSRibosome(h, &Zome{RibosomeType: JSRibosomeType, code: fmt.Sprintf(`getLink("%s","4stars",{StatusMask:HC.Status.Deleted});`, hash.String())})
 		So(err, ShouldBeNil)
 		z := v.(*JSRibosome)
 
@@ -496,7 +511,7 @@ func TestJSDHT(t *testing.T) {
 	})
 
 	Convey("update function should commit a new entry and on DHT mark item modified", t, func() {
-		v, err := NewJSRibosome(h, fmt.Sprintf(`update("profile",{firstName:"Zippy",lastName:"ThePinhead"},"%s")`, profileHash.String()))
+		v, err := NewJSRibosome(h, &Zome{RibosomeType: JSRibosomeType, code: fmt.Sprintf(`update("profile",{firstName:"Zippy",lastName:"ThePinhead"},"%s")`, profileHash.String())})
 		So(err, ShouldBeNil)
 		z := v.(*JSRibosome)
 		profileHashStr2 := z.lastResult.String()
@@ -516,7 +531,7 @@ func TestJSDHT(t *testing.T) {
 		So(string(data), ShouldEqual, profileHashStr2)
 
 		// but a regular get, should resolve through
-		v, err = NewJSRibosome(h, fmt.Sprintf(`get("%s");`, profileHash.String()))
+		v, err = NewJSRibosome(h, &Zome{RibosomeType: JSRibosomeType, code: fmt.Sprintf(`get("%s");`, profileHash.String())})
 		z = v.(*JSRibosome)
 		x, err := z.lastResult.Export()
 		So(err, ShouldBeNil)
@@ -524,19 +539,19 @@ func TestJSDHT(t *testing.T) {
 	})
 
 	Convey("remove function should mark item deleted", t, func() {
-		v, err := NewJSRibosome(h, fmt.Sprintf(`remove("%s","expired");`, hash.String()))
+		v, err := NewJSRibosome(h, &Zome{RibosomeType: JSRibosomeType, code: fmt.Sprintf(`remove("%s","expired");`, hash.String())})
 		So(err, ShouldBeNil)
 		z := v.(*JSRibosome)
 		delhashstr := z.lastResult.String()
 		_, err = NewHash(delhashstr)
 		So(err, ShouldBeNil)
 
-		v, err = NewJSRibosome(h, fmt.Sprintf(`get("%s");`, hash.String()))
+		v, err = NewJSRibosome(h, &Zome{RibosomeType: JSRibosomeType, code: fmt.Sprintf(`get("%s");`, hash.String())})
 		So(err, ShouldBeNil)
 		z = v.(*JSRibosome)
 		So(z.lastResult.String(), ShouldEqual, "HolochainError: hash deleted")
 
-		v, err = NewJSRibosome(h, fmt.Sprintf(`get("%s",{StatusMask:HC.Status.Deleted});`, hash.String()))
+		v, err = NewJSRibosome(h, &Zome{RibosomeType: JSRibosomeType, code: fmt.Sprintf(`get("%s",{StatusMask:HC.Status.Deleted});`, hash.String())})
 		So(err, ShouldBeNil)
 		z = v.(*JSRibosome)
 
@@ -550,7 +565,7 @@ func TestJSProcessArgs(t *testing.T) {
 	d, _, h := prepareTestChain("test")
 	defer cleanupTestDir(d)
 
-	v, _ := NewJSRibosome(h, "")
+	v, _ := NewJSRibosome(h, &Zome{RibosomeType: JSRibosomeType, code: ""})
 	z := v.(*JSRibosome)
 
 	nilValue := otto.UndefinedValue()

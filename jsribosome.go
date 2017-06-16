@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	peer "github.com/libp2p/go-libp2p-peer"
 	"github.com/robertkrimen/otto"
 	"strings"
 	"time"
@@ -20,17 +21,18 @@ const (
 
 // JSRibosome holds data needed for the Javascript VM
 type JSRibosome struct {
+	zome       *Zome
 	vm         *otto.Otto
 	lastResult *otto.Value
 }
 
 // Type returns the string value under which this ribosome is registered
-func (z *JSRibosome) Type() string { return JSRibosomeType }
+func (jsr *JSRibosome) Type() string { return JSRibosomeType }
 
 // ChainGenesis runs the application genesis function
 // this function gets called after the genesis entries are added to the chain
-func (z *JSRibosome) ChainGenesis() (err error) {
-	v, err := z.vm.Run(`genesis()`)
+func (jsr *JSRibosome) ChainGenesis() (err error) {
+	v, err := jsr.vm.Run(`genesis()`)
 	if err != nil {
 		err = fmt.Errorf("Error executing genesis: %v", err)
 		return
@@ -51,14 +53,31 @@ func (z *JSRibosome) ChainGenesis() (err error) {
 	return
 }
 
+// Receive calls the app receive function for node-to-node messages
+func (jsr *JSRibosome) Receive(msg string) (response string, err error) {
+	var code string
+	fnName := "receive"
+
+	code = fmt.Sprintf(`JSON.stringify(%s(JSON.parse("%s")))`, fnName, jsSanitizeString(msg))
+	Debug(code)
+	var v otto.Value
+	v, err = jsr.vm.Run(code)
+	if err != nil {
+		err = fmt.Errorf("Error executing %s: %v", fnName, err)
+		return
+	}
+	response, err = v.ToString()
+	return
+}
+
 // ValidatePackagingRequest calls the app for a validation packaging request for an action
-func (z *JSRibosome) ValidatePackagingRequest(action ValidatingAction, def *EntryDef) (req PackagingReq, err error) {
+func (jsr *JSRibosome) ValidatePackagingRequest(action ValidatingAction, def *EntryDef) (req PackagingReq, err error) {
 	var code string
 	fnName := "validate" + strings.Title(action.Name()) + "Pkg"
 	code = fmt.Sprintf(`%s("%s")`, fnName, def.Name)
 	Debug(code)
 	var v otto.Value
-	v, err = z.vm.Run(code)
+	v, err = jsr.vm.Run(code)
 	if err != nil {
 		err = fmt.Errorf("Error executing %s: %v", fnName, err)
 		return
@@ -160,14 +179,14 @@ func buildJSValidateAction(action Action, def *EntryDef, pkg *ValidationPackage,
 }
 
 // ValidateAction builds the correct validation function based on the action an calls it
-func (z *JSRibosome) ValidateAction(action Action, def *EntryDef, pkg *ValidationPackage, sources []string) (err error) {
+func (jsr *JSRibosome) ValidateAction(action Action, def *EntryDef, pkg *ValidationPackage, sources []string) (err error) {
 	var code string
 	code, err = buildJSValidateAction(action, def, pkg, sources)
 	if err != nil {
 		return
 	}
 	Debug(code)
-	err = z.runValidate(action.Name(), code)
+	err = jsr.runValidate(action.Name(), code)
 	return
 }
 
@@ -176,7 +195,7 @@ func mkJSSources(sources []string) (srcs string) {
 	return
 }
 
-func (z *JSRibosome) prepareJSValidateEntryArgs(def *EntryDef, entry Entry, sources []string) (e string, srcs string, err error) {
+func (jsr *JSRibosome) prepareJSValidateEntryArgs(def *EntryDef, entry Entry, sources []string) (e string, srcs string, err error) {
 	c := entry.Content().(string)
 	switch def.DataFormat {
 	case DataFormatRawJS:
@@ -195,9 +214,9 @@ func (z *JSRibosome) prepareJSValidateEntryArgs(def *EntryDef, entry Entry, sour
 	return
 }
 
-func (z *JSRibosome) runValidate(fnName string, code string) (err error) {
+func (jsr *JSRibosome) runValidate(fnName string, code string) (err error) {
 	var v otto.Value
-	v, err = z.vm.Run(code)
+	v, err = jsr.vm.Run(code)
 	if err != nil {
 		err = fmt.Errorf("Error executing %s: %v", fnName, err)
 		return
@@ -219,9 +238,9 @@ func (z *JSRibosome) runValidate(fnName string, code string) (err error) {
 	return
 }
 
-func (z *JSRibosome) validateEntry(fnName string, def *EntryDef, entry Entry, header *Header, sources []string) (err error) {
+func (jsr *JSRibosome) validateEntry(fnName string, def *EntryDef, entry Entry, header *Header, sources []string) (err error) {
 
-	e, srcs, err := z.prepareJSValidateEntryArgs(def, entry, sources)
+	e, srcs, err := jsr.prepareJSValidateEntryArgs(def, entry, sources)
 	if err != nil {
 		return
 	}
@@ -235,7 +254,7 @@ func (z *JSRibosome) validateEntry(fnName string, def *EntryDef, entry Entry, he
 
 	code := fmt.Sprintf(`%s("%s",%s,%s,%s)`, fnName, def.Name, e, hdr, srcs)
 	Debugf("%s: %s", fnName, code)
-	err = z.runValidate(fnName, code)
+	err = jsr.runValidate(fnName, code)
 	if err != nil && err == ValidationFailedErr {
 		err = fmt.Errorf("Invalid entry: %v", entry.Content())
 	}
@@ -277,7 +296,7 @@ func jsSanitizeString(s string) string {
 }
 
 // Call calls the zygo function that was registered with expose
-func (z *JSRibosome) Call(fn *FunctionDef, params interface{}) (result interface{}, err error) {
+func (jsr *JSRibosome) Call(fn *FunctionDef, params interface{}) (result interface{}, err error) {
 	var code string
 	switch fn.CallingType {
 	case STRING_CALLING:
@@ -295,7 +314,7 @@ func (z *JSRibosome) Call(fn *FunctionDef, params interface{}) (result interface
 	}
 	Debugf("JS Call: %s", code)
 	var v otto.Value
-	v, err = z.vm.Run(code)
+	v, err = jsr.vm.Run(code)
 	if err == nil {
 		if v.IsObject() && v.Class() == "Error" {
 			Debugf("JS Error:\n%v", v)
@@ -312,7 +331,7 @@ func (z *JSRibosome) Call(fn *FunctionDef, params interface{}) (result interface
 }
 
 // jsProcessArgs processes oArgs according to the args spec filling args[].value with the converted value
-func jsProcessArgs(z *JSRibosome, args []Arg, oArgs []otto.Value) (err error) {
+func jsProcessArgs(jsr *JSRibosome, args []Arg, oArgs []otto.Value) (err error) {
 	err = checkArgCount(args, len(oArgs))
 	if err != nil {
 		return err
@@ -367,7 +386,7 @@ func jsProcessArgs(z *JSRibosome, args []Arg, oArgs []otto.Value) (err error) {
 				}
 				args[i].value = str
 			} else if arg.IsObject() {
-				v, err := z.vm.Call("JSON.stringify", nil, arg)
+				v, err := jsr.vm.Call("JSON.stringify", nil, arg)
 				if err != nil {
 					return err
 				}
@@ -388,7 +407,7 @@ func jsProcessArgs(z *JSRibosome, args []Arg, oArgs []otto.Value) (err error) {
 				}
 				args[i].value = str
 			} else if arg.IsObject() {
-				v, err := z.vm.Call("JSON.stringify", nil, arg)
+				v, err := jsr.vm.Call("JSON.stringify", nil, arg)
 				if err != nil {
 					return err
 				}
@@ -414,7 +433,7 @@ func jsProcessArgs(z *JSRibosome, args []Arg, oArgs []otto.Value) (err error) {
 		case ToStrArg:
 			var str string
 			if arg.IsObject() {
-				v, err := z.vm.Call("JSON.stringify", nil, arg)
+				v, err := jsr.vm.Call("JSON.stringify", nil, arg)
 				if err != nil {
 					return err
 				}
@@ -431,8 +450,8 @@ func jsProcessArgs(z *JSRibosome, args []Arg, oArgs []otto.Value) (err error) {
 	return
 }
 
-func mkOttoErr(z *JSRibosome, msg string) otto.Value {
-	return z.vm.MakeCustomError("HolochainError", msg)
+func mkOttoErr(jsr *JSRibosome, msg string) otto.Value {
+	return jsr.vm.MakeCustomError("HolochainError", msg)
 }
 
 func numInterfaceToInt(num interface{}) (val int, ok bool) {
@@ -450,17 +469,19 @@ func numInterfaceToInt(num interface{}) (val int, ok bool) {
 	return
 }
 
-// NewJSRibosome builds a javascript execution environment with user specified code
-func NewJSRibosome(h *Holochain, code string) (n Ribosome, err error) {
-	var z JSRibosome
-	z.vm = otto.New()
+// NewJSRibosome factory function to build a javascript execution environment for a zome
+func NewJSRibosome(h *Holochain, zome *Zome) (n Ribosome, err error) {
+	jsr := JSRibosome{
+		zome: zome,
+		vm:   otto.New(),
+	}
 
-	err = z.vm.Set("property", func(call otto.FunctionCall) otto.Value {
+	err = jsr.vm.Set("property", func(call otto.FunctionCall) otto.Value {
 		a := &ActionProperty{}
 		args := a.Args()
-		err := jsProcessArgs(&z, args, call.ArgumentList)
+		err := jsProcessArgs(&jsr, args, call.ArgumentList)
 		if err != nil {
-			return mkOttoErr(&z, err.Error())
+			return mkOttoErr(&jsr, err.Error())
 		}
 
 		a.prop = args[0].value.(string)
@@ -470,69 +491,105 @@ func NewJSRibosome(h *Holochain, code string) (n Ribosome, err error) {
 		if err != nil {
 			return otto.UndefinedValue()
 		}
-		result, _ := z.vm.ToValue(p)
+		result, _ := jsr.vm.ToValue(p)
 		return result
 	})
 	if err != nil {
 		return nil, err
 	}
 
-	err = z.vm.Set("debug", func(call otto.FunctionCall) otto.Value {
+	err = jsr.vm.Set("debug", func(call otto.FunctionCall) otto.Value {
 		a := &ActionDebug{}
 		args := a.Args()
-		err := jsProcessArgs(&z, args, call.ArgumentList)
+		err := jsProcessArgs(&jsr, args, call.ArgumentList)
 		if err != nil {
-			return mkOttoErr(&z, err.Error())
+			return mkOttoErr(&jsr, err.Error())
 		}
 		a.msg = args[0].value.(string)
 		a.Do(h)
 		return otto.UndefinedValue()
 	})
 
-	err = z.vm.Set("makeHash", func(call otto.FunctionCall) otto.Value {
+	err = jsr.vm.Set("makeHash", func(call otto.FunctionCall) otto.Value {
 		a := &ActionMakeHash{}
 		args := a.Args()
-		err := jsProcessArgs(&z, args, call.ArgumentList)
+		err := jsProcessArgs(&jsr, args, call.ArgumentList)
 		if err != nil {
-			return mkOttoErr(&z, err.Error())
+			return mkOttoErr(&jsr, err.Error())
 		}
 
 		a.entry = &GobEntry{C: args[0].value.(string)}
 		var r interface{}
 		r, err = a.Do(h)
 		if err != nil {
-			return mkOttoErr(&z, err.Error())
+			return mkOttoErr(&jsr, err.Error())
 		}
 		var entryHash Hash
 		if r != nil {
 			entryHash = r.(Hash)
 		}
-		result, _ := z.vm.ToValue(entryHash.String())
+		result, _ := jsr.vm.ToValue(entryHash.String())
 		return result
 	})
 
-	err = z.vm.Set("call", func(call otto.FunctionCall) otto.Value {
+	err = jsr.vm.Set("send", func(call otto.FunctionCall) otto.Value {
+		a := &ActionSend{}
+		args := a.Args()
+		err := jsProcessArgs(&jsr, args, call.ArgumentList)
+		if err != nil {
+			return mkOttoErr(&jsr, err.Error())
+		}
+
+		a.to, err = peer.IDB58Decode(args[0].value.(Hash).String())
+		if err != nil {
+			return mkOttoErr(&jsr, err.Error())
+		}
+		msg := args[1].value.(map[string]interface{})
+		var j []byte
+		j, err = json.Marshal(msg)
+		if err != nil {
+			return mkOttoErr(&jsr, err.Error())
+		}
+
+		a.msg.ZomeType = jsr.zome.Name
+		a.msg.Body = string(j)
+
+		var r interface{}
+		r, err = a.Do(h)
+		if err != nil {
+			return mkOttoErr(&jsr, err.Error())
+		}
+		var result otto.Value
+		result, err = jsr.vm.ToValue(r)
+
+		if err != nil {
+			return mkOttoErr(&jsr, err.Error())
+		}
+		return result
+	})
+
+	err = jsr.vm.Set("call", func(call otto.FunctionCall) otto.Value {
 		a := &ActionCall{}
 		args := a.Args()
-		err := jsProcessArgs(&z, args, call.ArgumentList)
+		err := jsProcessArgs(&jsr, args, call.ArgumentList)
 		if err != nil {
-			return mkOttoErr(&z, err.Error())
+			return mkOttoErr(&jsr, err.Error())
 		}
 		a.zome = args[0].value.(string)
 		var zome *Zome
 		zome, err = h.GetZome(a.zome)
 		if err != nil {
-			return mkOttoErr(&z, err.Error())
+			return mkOttoErr(&jsr, err.Error())
 		}
 		a.function = args[1].value.(string)
 		var fn *FunctionDef
 		fn, err = zome.GetFunctionDef(a.function)
 		if err != nil {
-			return mkOttoErr(&z, err.Error())
+			return mkOttoErr(&jsr, err.Error())
 		}
 		if fn.CallingType == JSON_CALLING {
 			if !call.ArgumentList[2].IsObject() {
-				return mkOttoErr(&z, "function calling type requires object argument type")
+				return mkOttoErr(&jsr, "function calling type requires object argument type")
 			}
 		}
 		a.args = args[2].value.(string)
@@ -540,23 +597,23 @@ func NewJSRibosome(h *Holochain, code string) (n Ribosome, err error) {
 		var r interface{}
 		r, err = a.Do(h)
 		if err != nil {
-			return mkOttoErr(&z, err.Error())
+			return mkOttoErr(&jsr, err.Error())
 		}
 		var result otto.Value
-		result, err = z.vm.ToValue(r)
+		result, err = jsr.vm.ToValue(r)
 
 		if err != nil {
-			return mkOttoErr(&z, err.Error())
+			return mkOttoErr(&jsr, err.Error())
 		}
 		return result
 	})
 
-	err = z.vm.Set("commit", func(call otto.FunctionCall) otto.Value {
+	err = jsr.vm.Set("commit", func(call otto.FunctionCall) otto.Value {
 		var a Action = &ActionCommit{}
 		args := a.Args()
-		err := jsProcessArgs(&z, args, call.ArgumentList)
+		err := jsProcessArgs(&jsr, args, call.ArgumentList)
 		if err != nil {
-			return mkOttoErr(&z, err.Error())
+			return mkOttoErr(&jsr, err.Error())
 		}
 
 		entryType := args[0].value.(string)
@@ -565,25 +622,25 @@ func NewJSRibosome(h *Holochain, code string) (n Ribosome, err error) {
 		entry := GobEntry{C: entryStr}
 		r, err = NewCommitAction(entryType, &entry).Do(h)
 		if err != nil {
-			return mkOttoErr(&z, err.Error())
+			return mkOttoErr(&jsr, err.Error())
 		}
 		var entryHash Hash
 		if r != nil {
 			entryHash = r.(Hash)
 		}
 
-		result, _ := z.vm.ToValue(entryHash.String())
+		result, _ := jsr.vm.ToValue(entryHash.String())
 		return result
 	})
 	if err != nil {
 		return nil, err
 	}
-	err = z.vm.Set("get", func(call otto.FunctionCall) (result otto.Value) {
+	err = jsr.vm.Set("get", func(call otto.FunctionCall) (result otto.Value) {
 		var a Action = &ActionGet{}
 		args := a.Args()
-		err := jsProcessArgs(&z, args, call.ArgumentList)
+		err := jsProcessArgs(&jsr, args, call.ArgumentList)
 		if err != nil {
-			return mkOttoErr(&z, err.Error())
+			return mkOttoErr(&jsr, err.Error())
 		}
 
 		options := GetOptions{StatusMask: StatusDefault}
@@ -595,7 +652,7 @@ func NewJSRibosome(h *Holochain, code string) (n Ribosome, err error) {
 				// the mask was returned by constant or addition so
 				maskval, ok := numInterfaceToInt(mask)
 				if !ok {
-					return mkOttoErr(&z, fmt.Sprintf("expecting int StatusMask attribute, got %T", mask))
+					return mkOttoErr(&jsr, fmt.Sprintf("expecting int StatusMask attribute, got %T", mask))
 				}
 				options.StatusMask = int(maskval)
 			}
@@ -604,7 +661,7 @@ func NewJSRibosome(h *Holochain, code string) (n Ribosome, err error) {
 				maskval, ok := numInterfaceToInt(mask)
 				if !ok {
 
-					return mkOttoErr(&z, fmt.Sprintf("expecting int GetMask attribute, got %T", mask))
+					return mkOttoErr(&jsr, fmt.Sprintf("expecting int GetMask attribute, got %T", mask))
 				}
 				options.GetMask = int(maskval)
 			}
@@ -622,19 +679,19 @@ func NewJSRibosome(h *Holochain, code string) (n Ribosome, err error) {
 			if mask&GetMaskEntry != 0 {
 				if GetMaskEntry == mask {
 					singleValueReturn = true
-					result, err = z.vm.ToValue(getResp.Entry)
+					result, err = jsr.vm.ToValue(getResp.Entry)
 				}
 			}
 			if mask&GetMaskEntryType != 0 {
 				if GetMaskEntryType == mask {
 					singleValueReturn = true
-					result, err = z.vm.ToValue(getResp.EntryType)
+					result, err = jsr.vm.ToValue(getResp.EntryType)
 				}
 			}
 			if mask&GetMaskSources != 0 {
 				if GetMaskSources == mask {
 					singleValueReturn = true
-					result, err = z.vm.ToValue(getResp.Sources)
+					result, err = jsr.vm.ToValue(getResp.Sources)
 				}
 			}
 			if err == nil && !singleValueReturn {
@@ -648,13 +705,13 @@ func NewJSRibosome(h *Holochain, code string) (n Ribosome, err error) {
 				if mask&GetMaskSources != 0 {
 					respObj["Sources"] = getResp.Sources
 				}
-				result, err = z.vm.ToValue(respObj)
+				result, err = jsr.vm.ToValue(respObj)
 			}
 			return
 		}
 
 		if err != nil {
-			return mkOttoErr(&z, err.Error())
+			return mkOttoErr(&jsr, err.Error())
 		}
 		panic("Shouldn't get here!")
 	})
@@ -662,12 +719,12 @@ func NewJSRibosome(h *Holochain, code string) (n Ribosome, err error) {
 		return nil, err
 	}
 
-	err = z.vm.Set("update", func(call otto.FunctionCall) (result otto.Value) {
+	err = jsr.vm.Set("update", func(call otto.FunctionCall) (result otto.Value) {
 		var a Action = &ActionMod{}
 		args := a.Args()
-		err := jsProcessArgs(&z, args, call.ArgumentList)
+		err := jsProcessArgs(&jsr, args, call.ArgumentList)
 		if err != nil {
-			return mkOttoErr(&z, err.Error())
+			return mkOttoErr(&jsr, err.Error())
 		}
 		entryType := args[0].value.(string)
 		entryStr := args[1].value.(string)
@@ -676,13 +733,13 @@ func NewJSRibosome(h *Holochain, code string) (n Ribosome, err error) {
 		entry := GobEntry{C: entryStr}
 		resp, err := NewModAction(entryType, &entry, replaces).Do(h)
 		if err != nil {
-			return mkOttoErr(&z, err.Error())
+			return mkOttoErr(&jsr, err.Error())
 		}
 		var entryHash Hash
 		if resp != nil {
 			entryHash = resp.(Hash)
 		}
-		result, _ = z.vm.ToValue(entryHash.String())
+		result, _ = jsr.vm.ToValue(entryHash.String())
 
 		return
 
@@ -691,12 +748,12 @@ func NewJSRibosome(h *Holochain, code string) (n Ribosome, err error) {
 		return nil, err
 	}
 
-	err = z.vm.Set("remove", func(call otto.FunctionCall) (result otto.Value) {
+	err = jsr.vm.Set("remove", func(call otto.FunctionCall) (result otto.Value) {
 		var a Action = &ActionDel{}
 		args := a.Args()
-		err := jsProcessArgs(&z, args, call.ArgumentList)
+		err := jsProcessArgs(&jsr, args, call.ArgumentList)
 		if err != nil {
-			return mkOttoErr(&z, err.Error())
+			return mkOttoErr(&jsr, err.Error())
 		}
 		entry := DelEntry{
 			Hash:    args[0].value.(Hash),
@@ -710,11 +767,11 @@ func NewJSRibosome(h *Holochain, code string) (n Ribosome, err error) {
 				if resp != nil {
 					entryHash = resp.(Hash)
 				}
-				result, _ = z.vm.ToValue(entryHash.String())
+				result, _ = jsr.vm.ToValue(entryHash.String())
 				return
 			}
 		}
-		result = mkOttoErr(&z, err.Error())
+		result = mkOttoErr(&jsr, err.Error())
 		return
 
 	})
@@ -722,12 +779,12 @@ func NewJSRibosome(h *Holochain, code string) (n Ribosome, err error) {
 		return nil, err
 	}
 
-	err = z.vm.Set("getLink", func(call otto.FunctionCall) (result otto.Value) {
+	err = jsr.vm.Set("getLink", func(call otto.FunctionCall) (result otto.Value) {
 		var a Action = &ActionGetLink{}
 		args := a.Args()
-		err := jsProcessArgs(&z, args, call.ArgumentList)
+		err := jsProcessArgs(&jsr, args, call.ArgumentList)
 		if err != nil {
-			return z.vm.MakeCustomError("HolochainError", err.Error())
+			return jsr.vm.MakeCustomError("HolochainError", err.Error())
 		}
 		base := args[0].value.(Hash)
 		tag := args[1].value.(string)
@@ -740,7 +797,7 @@ func NewJSRibosome(h *Holochain, code string) (n Ribosome, err error) {
 			if ok {
 				loadval, ok := load.(bool)
 				if !ok {
-					return mkOttoErr(&z, fmt.Sprintf("expecting boolean Load attribute in object, got %T", load))
+					return mkOttoErr(&jsr, fmt.Sprintf("expecting boolean Load attribute in object, got %T", load))
 				}
 				options.Load = loadval
 			}
@@ -748,7 +805,7 @@ func NewJSRibosome(h *Holochain, code string) (n Ribosome, err error) {
 			if ok {
 				maskval, ok := numInterfaceToInt(mask)
 				if !ok {
-					return mkOttoErr(&z, fmt.Sprintf("expecting int StatusMask attribute in object, got %T", mask))
+					return mkOttoErr(&jsr, fmt.Sprintf("expecting int StatusMask attribute in object, got %T", mask))
 				}
 				options.StatusMask = int(maskval)
 			}
@@ -759,9 +816,9 @@ func NewJSRibosome(h *Holochain, code string) (n Ribosome, err error) {
 		Debugf("RESPONSE:%v\n", response)
 
 		if err == nil {
-			result, err = z.vm.ToValue(response)
+			result, err = jsr.vm.ToValue(response)
 		} else {
-			result = mkOttoErr(&z, err.Error())
+			result = mkOttoErr(&jsr, err.Error())
 		}
 
 		return
@@ -774,22 +831,22 @@ func NewJSRibosome(h *Holochain, code string) (n Ribosome, err error) {
 	if h != nil {
 		l += fmt.Sprintf(`var App = {Name:"%s",DNA:{Hash:"%s"},Agent:{Hash:"%s",String:"%s"},Key:{Hash:"%s"}};`, h.Name, h.dnaHash, h.agentHash, h.Agent().Name(), h.nodeIDStr)
 	}
-	_, err = z.Run(l + code)
+	_, err = jsr.Run(l + zome.code)
 	if err != nil {
 		return
 	}
-	n = &z
+	n = &jsr
 	return
 }
 
 // Run executes javascript code
-func (z *JSRibosome) Run(code string) (result interface{}, err error) {
-	v, err := z.vm.Run(code)
+func (jsr *JSRibosome) Run(code string) (result interface{}, err error) {
+	v, err := jsr.vm.Run(code)
 	if err != nil {
 		err = errors.New("JS exec error: " + err.Error())
 		return
 	}
-	z.lastResult = &v
+	jsr.lastResult = &v
 	result = &v
 	return
 }

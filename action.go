@@ -37,7 +37,7 @@ type Arg struct {
 }
 
 // Action provides an abstraction for grouping all the aspects of a nucleus function, i.e.
-// the validation,dht changing, etc
+// the validation,dht changing, ribosome generation etc
 type Action interface {
 	Name() string
 	Do(h *Holochain) (response interface{}, err error)
@@ -111,15 +111,15 @@ func (h *Holochain) ValidateAction(a ValidatingAction, entryType string, pkg *Pa
 		}
 
 		// run the action's app level validations
-		var n Nucleus
-		n, err = h.makeNucleus(z)
+		var n Ribosome
+		n, err = z.MakeRibosome(h)
 		if err != nil {
 			return
 		}
 
 		err = n.ValidateAction(a, d, vpkg, prepareSources(sources))
 		if err != nil {
-			Debugf("Nucleus ValidateAction(%T) err:%v\n", a, err)
+			Debugf("Ribosome ValidateAction(%T) err:%v\n", a, err)
 		}
 	}
 	return
@@ -169,8 +169,8 @@ func (h *Holochain) GetValidationResponse(a ValidatingAction, hash Hash) (resp V
 		}
 
 		// get the packaging request from the app
-		var n Nucleus
-		n, err = h.makeNucleus(z)
+		var n Ribosome
+		n, err = z.MakeRibosome(h)
 		if err != nil {
 			return
 		}
@@ -178,7 +178,7 @@ func (h *Holochain) GetValidationResponse(a ValidatingAction, hash Hash) (resp V
 		var req PackagingReq
 		req, err = n.ValidatePackagingRequest(a, def)
 		if err != nil {
-			Debugf("Nucleus GetValidationPackage(%T) err:%v\n", a, err)
+			Debugf("Ribosome GetValidationPackage(%T) err:%v\n", a, err)
 		}
 		resp.Package, err = MakePackage(h, req)
 	}
@@ -345,6 +345,36 @@ func (a *ActionCall) Do(h *Holochain) (response interface{}, err error) {
 }
 
 //------------------------------------------------------------
+// Send
+
+type ActionSend struct {
+	to  peer.ID
+	msg AppMsg
+}
+
+func NewSendAction(to peer.ID, msg AppMsg) *ActionSend {
+	a := ActionSend{to: to, msg: msg}
+	return &a
+}
+
+func (a *ActionSend) Name() string {
+	return "send"
+}
+
+func (a *ActionSend) Args() []Arg {
+	return []Arg{{Name: "to", Type: HashArg}, {Name: "msg", Type: MapArg}}
+}
+
+func (a *ActionSend) Do(h *Holochain) (response interface{}, err error) {
+	var r interface{}
+	r, err = h.Send(AppProtocol, a.to, APP_MESSAGE, a.msg)
+	if err == nil {
+		response = r.(AppMsg).Body
+	}
+	return
+}
+
+//------------------------------------------------------------
 // Get
 
 type ActionGet struct {
@@ -366,6 +396,25 @@ func (a *ActionGet) Args() []Arg {
 }
 
 func (a *ActionGet) Do(h *Holochain) (response interface{}, err error) {
+	if a.options.Local {
+		var entry Entry
+		var entryType string
+		entry, entryType, err = h.chain.GetEntry(a.req.H)
+		if err != nil {
+			return
+		}
+		resp := GetResp{Entry: entry}
+		mask := a.options.GetMask
+		if (mask & GetMaskEntryType) != 0 {
+			resp.EntryType = entryType
+		}
+		if (mask & GetMaskEntry) != 0 {
+			resp.Entry = entry
+		}
+
+		response = resp
+		return
+	}
 	rsp, err := h.dht.Send(a.req.H, GET_REQUEST, a.req)
 	if err != nil {
 

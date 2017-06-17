@@ -1,0 +1,52 @@
+[
+    {
+        "Convey":"setup handle: joe",
+        "Zome": "cointoss",
+        "FnName": "newHandle",
+        "Input": "joe",
+        "Output": "%h2%",
+        "Exposure":"public",
+        "Err": "",
+        "Regexp": ""
+    },
+    {
+        "Time":2000,
+        "Convey":"get jane's agent key",
+        "Zome": "cointoss",
+        "FnName": "getAgent",
+        "Input": "jane",
+        "Exposure":"public",
+        "Err": "",
+        "Regexp": "Qm[a-zA-Z0-9]*"
+    },
+    {
+        "Convey":"retrieve all handles in the directory",
+        "Zome": "cointoss",
+        "FnName": "getHandles",
+        "Input": {},
+        "Exposure":"public",
+        "Err": "",
+        "Regexp":"^\\[\\{\"agent\":\"(%r1%)\",\"handle\":\"jane\"\\},\\{\"agent\":\"%key%\",\"handle\":\"joe\"\\}\\]$",
+        "Time":2100
+    },
+    {
+        "Time":2200,
+        "Convey":"request cointoss with jane",
+        "Zome": "cointoss",
+        "FnName": "requestToss",
+        "Input": {"agent":"%m1.1%"},
+        "Exposure":"public",
+        "Err": "",
+        "Output": "{\"toss\":\"%h%\"}"
+    },
+    {
+        "Time":2300,
+        "Convey":"confirm the toss",
+        "Zome": "cointoss",
+        "FnName": "confirmToss",
+        "Input": "%h%",
+        "Exposure":"public",
+        "Err": "",
+        "Regexp": "(win)|(loss)"
+    }
+]

@@ -1,0 +1,12 @@
+[
+    {
+        "Convey":"setup handle: jane",
+        "Zome": "cointoss",
+        "FnName": "newHandle",
+        "Input": "jane",
+        "Output": "%h2%",
+        "Exposure":"public",
+        "Err": "",
+        "Regexp": ""
+    }
+ ]

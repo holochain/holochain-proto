@@ -1,10 +1,10 @@
 {
     "Version": 0,
     "UUID": "00000000-0000-0000-0000-000000000000",
-    "Name": "clutter",
+    "Name": "cointoss",
     "RequiresVersion": 12,
     "Properties": {
-        "description": "distributed micro-blogging (Twitter clone)",
+        "description": "sample n2n app",
         "language": "en"
     },
     "PropertiesSchema": "properties_schema.json",
@@ -16,10 +16,10 @@
     },
     "Zomes": [
         {
-            "Name": "clutter",
-            "Description": "zome that implements micro-blogging",
+            "Name": "cointoss",
+            "Description": "zome that uses n2n for co-signing of a coin toss",
             "RibosomeType": "js",
-            "Code": "clutter.js",
+            "Code": "cointoss.js",
             "CodeHash": {
                 "H": null
             },
@@ -34,19 +34,6 @@
                     }
                 },
                 {
-                    "Name": "post",
-                    "DataFormat": "json",
-                    "Sharing": "public",
-                    "Schema": "post.json",
-                    "SchemaHash": {
-                        "H": null
-                    }
-                },
-                {
-                    "Name": "post_links",
-                    "DataFormat": "links"
-                },
-                {
                     "Name": "handle_links",
                     "DataFormat": "links"
                 },
@@ -55,12 +42,15 @@
                     "DataFormat": "links"
                 },
                 {
-                    "Name": "follow",
-                    "DataFormat": "links"
+                    "Name": "toss",
+                    "DataFormat": "json",
+                    "Schema": "toss.json",
+                    "Sharing": "public"
                 },
                 {
-                    "Name": "unfollow",
-                    "DataFormat": "links"
+                    "Name": "seed",
+                    "DataFormat": "string",
+                    "Sharing": "private"
                 },
                 {
                     "Name": "anchor",
@@ -74,48 +64,18 @@
             ],
             "Functions": [
                 {
-                    "Name": "getProperty",
-                    "CallingType": "string",
-                    "Exposure":"public"
-                },
-                {
                     "Name": "appProperty",
                     "CallingType": "string",
                     "Exposure":"public"
                 },
                 {
-                    "Name": "follow",
-                    "CallingType": "string",
-                    "Exposure":"public"
-                },
-                {
-                    "Name": "addPost",
-                    "CallingType": "string",
-                    "Exposure":"public"
-                },
-                {
-                    "Name": "unfollow",
-                    "CallingType": "string",
-                    "Exposure":"public"
-                },
-                {
-                    "Name": "post",
-                    "CallingType": "json",
-                    "Exposure":"public"
-                },
-                 {
-                    "Name": "postMod",
-                    "CallingType": "json",
-                    "Exposure":"public"
-                },
-                {
-                    "Name": "getPostsBy",
-                    "CallingType": "json",
-                    "Exposure":"public"
-                },
-                {
                     "Name": "newHandle",
                     "CallingType": "string",
+                    "Exposure":"public"
+                },
+                {
+                    "Name": "getHandles",
+                    "CallingType": "json",
                     "Exposure":"public"
                 },
                 {
@@ -129,10 +89,16 @@
                     "Exposure":"public"
                 },
                 {
-                    "Name": "getFollow",
+                    "Name": "requestToss",
                     "CallingType": "json",
                     "Exposure":"public"
+                },
+                {
+                    "Name": "confirmToss",
+                    "CallingType": "string",
+                    "Exposure":"public"
                 }
+
             ]
         }
     ]

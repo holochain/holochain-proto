@@ -1,0 +1,13 @@
+{
+    "title": "Anchor Schema",
+    "type": "object",
+    "properties": {
+	"type": {
+	    "type": "string"
+	},
+	"value": {
+	    "type": "string"
+	}
+    },
+    "required": ["type","value"]
+}

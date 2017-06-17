@@ -26,7 +26,7 @@ func (n *TestDiscoveryNotifee) HandlePeerFound(pi pstore.PeerInfo) {
 	n.h.Connect(context.Background(), pi)
 }
 
-func TestNodeDiscoveryd(t *testing.T) {
+func TestNodeDiscovery(t *testing.T) {
 	node1, _ := makeNode(1234, "node1")
 	node2, _ := makeNode(4321, "node2")
 	defer func() {
@@ -114,14 +114,15 @@ func TestNewMessage(t *testing.T) {
 }
 
 func TestNodeSend(t *testing.T) {
-	d := setupTestDir()
+	d, _, h := prepareTestChain("test")
 	defer cleanupTestDir(d)
 
 	node1, err := makeNode(1234, "node1")
 	if err != nil {
 		panic(err)
 	}
-	defer node1.Close()
+	h.node.Close()
+	h.node = node1
 
 	node2, err := makeNode(1235, "node2")
 	if err != nil {
@@ -129,19 +130,22 @@ func TestNodeSend(t *testing.T) {
 	}
 	defer node2.Close()
 
-	var h Holochain
-	h.rootPath = d
-	h.node = node1
-	os.MkdirAll(h.DBPath(), os.ModePerm)
-	h.dht = NewDHT(&h)
-	h.chain = NewChain()
+	var h2 Holochain
+	h2.rootPath = d
+	h2.node = node2
+	os.MkdirAll(h2.DBPath(), os.ModePerm)
+	h2.dht = NewDHT(&h2)
+	h2.chain = NewChain()
+	h2.nucleus = NewNucleus(&h2)
 
-	Convey("It should start the DHT protocol", t, func() {
-		err := h.dht.StartDHT()
+	h.Activate()
+
+	Convey("It should start the DHT protocols", t, func() {
+		err := h2.dht.Start()
 		So(err, ShouldBeNil)
 	})
-	Convey("It should start the Validate protocol", t, func() {
-		err := node2.StartValidate(&h)
+	Convey("It should start the Nucleus protocols", t, func() {
+		err := h2.nucleus.Start()
 		So(err, ShouldBeNil)
 	})
 
@@ -165,6 +169,27 @@ func TestNodeSend(t *testing.T) {
 		So(r.Type, ShouldEqual, ERROR_RESPONSE)
 		So(r.From, ShouldEqual, node2.HashAddr) // response comes from who we sent to
 		So(r.Body.(ErrorResponse).Message, ShouldEqual, "message type 2 not in holochain-validate protocol")
+
+		m = node2.NewMessage(PUT_REQUEST, "fish")
+		r, err = node2.Send(GossipProtocol, node1.HashAddr, m)
+		So(err, ShouldBeNil)
+		So(r.Type, ShouldEqual, ERROR_RESPONSE)
+		So(r.From, ShouldEqual, node1.HashAddr) // response comes from who we sent to
+		So(r.Body.(ErrorResponse).Message, ShouldEqual, "message type 2 not in holochain-gossip protocol")
+
+		m = node2.NewMessage(GOSSIP_REQUEST, "fish")
+		r, err = node2.Send(DHTProtocol, node1.HashAddr, m)
+		So(err, ShouldBeNil)
+		So(r.Type, ShouldEqual, ERROR_RESPONSE)
+		So(r.From, ShouldEqual, node1.HashAddr) // response comes from who we sent to
+		So(r.Body.(ErrorResponse).Message, ShouldEqual, "message type 9 not in holochain-dht protocol")
+
+		m = node2.NewMessage(PUT_REQUEST, "fish")
+		r, err = node2.Send(AppProtocol, node1.HashAddr, m)
+		So(err, ShouldBeNil)
+		So(r.Type, ShouldEqual, ERROR_RESPONSE)
+		So(r.From, ShouldEqual, node1.HashAddr) // response comes from who we sent to
+		So(r.Body.(ErrorResponse).Message, ShouldEqual, "message type 2 not in holochain-app protocol")
 	})
 
 	Convey("It should respond with err on bad request on invalid PUT_REQUESTS", t, func() {
@@ -184,7 +209,7 @@ func TestNodeSend(t *testing.T) {
 		So(err, ShouldBeNil)
 		So(r.Type, ShouldEqual, OK_RESPONSE)
 		So(r.From, ShouldEqual, node1.HashAddr) // response comes from who we sent to
-		So(fmt.Sprintf("%v", r.Body), ShouldEqual, "{[]}")
+		So(fmt.Sprintf("%T", r.Body), ShouldEqual, "holochain.Gossip")
 	})
 
 }

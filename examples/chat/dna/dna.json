@@ -19,7 +19,7 @@
         {
             "Name": "chat",
             "Description": "chat code",
-            "NucleusType": "js",
+            "RibosomeType": "js",
             "Code": "chat.js",
             "CodeHash": {
                 "H": null
@@ -51,7 +51,7 @@
         {
             "Name": "rooms",
             "Description": "Rooms controller",
-            "NucleusType": "js",
+            "RibosomeType": "js",
             "Code": "rooms.js",
             "CodeHash": {
                 "H": null
@@ -87,7 +87,7 @@
         {
             "Name": "messages",
             "Description": "Messages controller",
-            "NucleusType": "js",
+            "RibosomeType": "js",
             "Code": "messages.js",
             "CodeHash": {
                 "H": null
@@ -128,7 +128,7 @@
         {
             "Name": "profiles",
             "Description": "Profiles controller",
-            "NucleusType": "js",
+            "RibosomeType": "js",
             "Code": "profiles.js",
             "CodeHash": {
                 "H": null

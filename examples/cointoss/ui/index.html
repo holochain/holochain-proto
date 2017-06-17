@@ -1,0 +1,65 @@
+<html>
+  <head>
+    <title>Coin Toss</title>
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css" integrity="sha384-BVYiiSIFeK1dGmJRAkycuHAHRg32OmUcww7on3RYdg4Va+PmSTsz/K68vbdEjh4u" crossorigin="anonymous">
+    <link rel="stylesheet" href="cointoss.css">
+    <script type="text/javascript" src="http://code.jquery.com/jquery-latest.js"></script>
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js" integrity="sha384-Tc5IQib027qvyjSMfHjOMaLkfuWVxZxUPnCJA7l2mCWNIpG9mGCD8wGNIcPD7Txa" crossorigin="anonymous"></script>
+    <script type="text/javascript" src="hc.js"></script>
+    <script type="text/javascript" src="cointoss.js"></script>
+  </head>
+  <body>
+    <h1>
+      <a id="handle" href="#"></a>
+      <span>Toss a Coin?</span>
+    </h1>
+    <div class="container">
+      <div class="row">
+        <div class="col-md-4 players">
+          <div class="panel panel-default">
+            <div class="panel-heading">players</div>
+            <div class="panel-body">
+              <ul id="players">
+              </ul>
+            </div>
+          </div>
+        </div>
+        <div class="col-md-8">
+          <div class="panel panel-default">
+            <div id="tosses-header" class="panel-heading">Coin Tosses</div>
+            <div class="panel-body">
+              <ul id="tosses">
+              </ul>
+              <div class="row">
+                <button id="req-toss-button" type="button" class="btn btn-primary">Request Toss</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+
+    <div class="modal fade" id="setHandleDialog" tabindex="-1" role="dialog" aria-labelledby="setHandleModalLabel">
+      <div class="modal-dialog" role="document">
+        <div class="modal-content">
+          <div class="modal-header">
+            <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+            <h4 class="modal-title" id="setHandleModalLabel">Set Handle</h4>
+          </div>
+          <div class="modal-body">
+            <form>
+              <div class="form-group">
+                <label for="myHandle">Handle</label>
+                <input type="text" class="form-control" id="myHandle" placeholder="@handle">
+              </div>
+            </form>
+          </div>
+          <div class="modal-footer">
+            <button id="setHandleButton" type="button" class="btn btn-primary">Set Handle</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>

@@ -310,7 +310,7 @@ func (h *Holochain) DoTest(name string, i int, t TestData, startTime time.Time, 
 			var actualResult interface{}
 			var actualError error
 			if t.Raw {
-				n, _, err := h.MakeNucleus(t.Zome)
+				n, _, err := h.MakeRibosome(t.Zome)
 				if err != nil {
 					actualError = err
 				} else {

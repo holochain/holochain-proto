@@ -1,0 +1,52 @@
+[
+    {
+        "Convey":"We can create a new handle",
+        "Zome": "cointoss",
+        "FnName": "newHandle",
+        "Input": "buffaloBill",
+        "Output": "%h2%",
+        "Exposure":"public",
+        "Err": "",
+        "Regexp": ""
+    },
+    {
+        "Convey":"We can retrieve the new handle",
+        "Zome": "cointoss",
+        "FnName": "getHandle",
+        "Input": "%key%",
+        "Output": "buffaloBill",
+        "Exposure":"public",
+        "Err": "",
+        "Regexp": ""
+    },
+    {
+        "Convey":"getAgent request on non existent handle returns empty string",
+        "Zome": "cointoss",
+        "FnName": "getAgent",
+        "Input": "fooHandle",
+        "Output": "",
+        "Exposure":"public",
+        "Err": "",
+        "Regexp": ""
+    },
+    {
+        "Convey":"We can retrieve agent by handle",
+        "Zome": "cointoss",
+        "FnName": "getAgent",
+        "Input": "buffaloBill",
+        "Output": "%key%",
+        "Exposure":"public",
+        "Err": "",
+        "Regexp": ""
+    },
+    {
+        "Convey":"We can retrieve all handles in the directory",
+        "Zome": "cointoss",
+        "FnName": "getHandles",
+        "Input": {},
+        "Output": "[{\"agent\":\"%key%\",\"handle\":\"buffaloBill\"}]",
+        "Exposure":"public",
+        "Err": "",
+        "Regexp": ""
+    }
+]

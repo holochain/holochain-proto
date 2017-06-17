@@ -8,15 +8,15 @@ import (
 	"testing"
 )
 
-func TestNewZygoNucleus(t *testing.T) {
-	Convey("new should create a nucleus", t, func() {
-		v, err := NewZygoNucleus(nil, `(+ 1 1)`)
-		z := v.(*ZygoNucleus)
+func TestNewZygoRibosome(t *testing.T) {
+	Convey("new should create a ribosome", t, func() {
+		v, err := NewZygoRibosome(nil, &Zome{RibosomeType: ZygoRibosomeType, code: `(+ 1 1)`})
+		z := v.(*ZygoRibosome)
 		So(err, ShouldBeNil)
 		So(z.lastResult.(*zygo.SexpInt).Val, ShouldEqual, 2)
 	})
-	Convey("new fail to create nucleus when code is bad", t, func() {
-		v, err := NewZygoNucleus(nil, "(should make a zygo syntax error")
+	Convey("new fail to create ribosome when code is bad", t, func() {
+		v, err := NewZygoRibosome(nil, &Zome{RibosomeType: ZygoRibosomeType, code: "(should make a zygo syntax error"})
 		So(v, ShouldBeNil)
 		So(err.Error(), ShouldEqual, "Zygomys load error: Error on line 1: parser needs more input\n")
 	})
@@ -25,9 +25,9 @@ func TestNewZygoNucleus(t *testing.T) {
 		d, _, h := prepareTestChain("test")
 		defer cleanupTestDir(d)
 
-		v, err := NewZygoNucleus(h, "")
+		v, err := NewZygoRibosome(h, &Zome{RibosomeType: ZygoRibosomeType, code: ""})
 		So(err, ShouldBeNil)
-		z := v.(*ZygoNucleus)
+		z := v.(*ZygoRibosome)
 
 		_, err = z.Run("App_Name")
 		So(err, ShouldBeNil)
@@ -57,9 +57,9 @@ func TestNewZygoNucleus(t *testing.T) {
 		d, _, h := prepareTestChain("test")
 		defer cleanupTestDir(d)
 
-		v, err := NewZygoNucleus(h, "")
+		v, err := NewZygoRibosome(h, &Zome{RibosomeType: ZygoRibosomeType})
 		So(err, ShouldBeNil)
-		z := v.(*ZygoNucleus)
+		z := v.(*ZygoRibosome)
 
 		_, err = z.Run("HC_Version")
 		So(err, ShouldBeNil)
@@ -96,9 +96,10 @@ func TestNewZygoNucleus(t *testing.T) {
 		d, _, h := prepareTestChain("test")
 		defer cleanupTestDir(d)
 
-		v, err := NewZygoNucleus(h, "")
+		zome, _ := h.GetZome("zySampleZome")
+		v, err := NewZygoRibosome(h, zome)
 		So(err, ShouldBeNil)
-		z := v.(*ZygoNucleus)
+		z := v.(*ZygoRibosome)
 
 		Convey("atoi", func() {
 			_, err = z.Run(`(atoi "3141")`)
@@ -136,7 +137,7 @@ func TestNewZygoNucleus(t *testing.T) {
 		Convey("makeHash", func() {
 			_, err = z.Run(`(makeHash "3")`)
 			So(err, ShouldBeNil)
-			z := v.(*ZygoNucleus)
+			z := v.(*ZygoRibosome)
 			hash1, err := NewHash(z.lastResult.(*zygo.SexpStr).S)
 			So(err, ShouldBeNil)
 			So(hash1.String(), ShouldEqual, hash.String())
@@ -153,7 +154,7 @@ func TestNewZygoNucleus(t *testing.T) {
 			_, err := z.Run(`(call "jsSampleZome" "addOdd" "321")`)
 			So(err, ShouldBeNil)
 			So(h.chain.Entries[len(h.chain.Hashes)-1].Content(), ShouldEqual, "321")
-			z := v.(*ZygoNucleus)
+			z := v.(*ZygoRibosome)
 			hashStr := z.lastResult.(*zygo.SexpStr).S
 			hash, _ := NewHash(hashStr)
 			entry, _, _ := h.chain.GetEntry(hash)
@@ -170,19 +171,48 @@ func TestNewZygoNucleus(t *testing.T) {
 			So(entry.Content(), ShouldEqual, `{"firstName":"Jane","lastName":"Jetson"}`)
 
 		})
+		Convey("send", func() {
+			ShouldLog(h.nucleus.alog, `result was: "{\"pong\":\"foobar\"}"`, func() {
+				_, err := z.Run(`(debug (concat "result was: " (str (hget (send App_Key_Hash (hash ping: "foobar")) %result))))`)
+				So(err, ShouldBeNil)
+			})
+		})
 	})
 }
 
 func TestZygoGenesis(t *testing.T) {
 	Convey("it should fail if the genesis function returns false", t, func() {
-		z, _ := NewZygoNucleus(nil, `(defn genesis [] false)`)
+		z, _ := NewZygoRibosome(nil, &Zome{RibosomeType: ZygoRibosomeType, code: `(defn genesis [] false)`})
 		err := z.ChainGenesis()
 		So(err.Error(), ShouldEqual, "genesis failed")
 	})
 	Convey("it should work if the genesis function returns true", t, func() {
-		z, _ := NewZygoNucleus(nil, `(defn genesis [] true)`)
+		z, _ := NewZygoRibosome(nil, &Zome{RibosomeType: ZygoRibosomeType, code: `(defn genesis [] true)`})
 		err := z.ChainGenesis()
 		So(err, ShouldBeNil)
+	})
+}
+
+func TestZyReceive(t *testing.T) {
+	Convey("it should call a receive function that returns a hash", t, func() {
+		z, _ := NewZygoRibosome(nil, &Zome{RibosomeType: ZygoRibosomeType, code: `(defn receive [from msg] (hash %foo (hget msg %bar)))`})
+		response, err := z.Receive("fakehash", `{"bar":"baz"}`)
+		So(err, ShouldBeNil)
+		So(response, ShouldEqual, `{"foo":"baz"}`)
+	})
+
+	Convey("it should call a receive function that returns a string", t, func() {
+		z, _ := NewZygoRibosome(nil, &Zome{RibosomeType: ZygoRibosomeType, code: `(defn receive [from msg] (concat "fish:" (hget msg %bar)))`})
+		response, err := z.Receive("fakehash", `{"bar":"baz"}`)
+		So(err, ShouldBeNil)
+		So(response, ShouldEqual, `"fish:baz"`)
+	})
+
+	Convey("it should call a receive function that returns an int", t, func() {
+		z, _ := NewZygoRibosome(nil, &Zome{RibosomeType: ZygoRibosomeType, code: `(defn receive [from msg] (len (hget msg %bar)))`})
+		response, err := z.Receive("fakehash", `{"bar":"baz"}`)
+		So(err, ShouldBeNil)
+		So(response, ShouldEqual, `3`)
 	})
 }
 
@@ -214,12 +244,12 @@ func TestZybuildValidate(t *testing.T) {
 
 func TestZyValidateCommit(t *testing.T) {
 	a, _ := NewAgent(LibP2P, "Joe")
-	h := NewHolochain(a, "some/path", "yaml", Zome{})
+	h := NewHolochain(a, "some/path", "yaml", Zome{RibosomeType: ZygoRibosomeType})
 	h.config.Loggers.App.New(nil)
 	hdr := mkTestHeader("evenNumbers")
 
 	Convey("it should be passing in the correct values", t, func() {
-		v, err := NewZygoNucleus(&h, `(defn validateCommit [name entry header pkg sources] (debug name) (debug entry) (debug header) (debug sources) (debug pkg) true)`)
+		v, err := NewZygoRibosome(&h, &Zome{RibosomeType: ZygoRibosomeType, code: `(defn validateCommit [name entry header pkg sources] (debug name) (debug entry) (debug header) (debug sources) (debug pkg) true)`})
 		So(err, ShouldBeNil)
 		d := EntryDef{Name: "evenNumbers", DataFormat: DataFormatString}
 		ShouldLog(&h.config.Loggers.App, `evenNumbers
@@ -235,7 +265,7 @@ foo
 		})
 	})
 	Convey("should run an entry value against the defined validator for string data", t, func() {
-		v, err := NewZygoNucleus(nil, `(defn validateCommit [name entry header pkg sources] (cond (== entry "fish") true false))`)
+		v, err := NewZygoRibosome(nil, &Zome{RibosomeType: ZygoRibosomeType, code: `(defn validateCommit [name entry header pkg sources] (cond (== entry "fish") true false))`})
 		So(err, ShouldBeNil)
 		d := EntryDef{Name: "oddNumbers", DataFormat: DataFormatString}
 
@@ -250,7 +280,7 @@ foo
 		So(err, ShouldBeNil)
 	})
 	Convey("should run an entry value against the defined validator for zygo data", t, func() {
-		v, err := NewZygoNucleus(nil, `(defn validateCommit [name entry header pkg sources] (cond (== entry "fish") true false))`)
+		v, err := NewZygoRibosome(nil, &Zome{RibosomeType: ZygoRibosomeType, code: `(defn validateCommit [name entry header pkg sources] (cond (== entry "fish") true false))`})
 		d := EntryDef{Name: "evenNumbers", DataFormat: DataFormatRawZygo}
 
 		a := NewCommitAction("oddNumbers", &GobEntry{C: "\"cow\""})
@@ -264,7 +294,7 @@ foo
 		So(err, ShouldBeNil)
 	})
 	Convey("should run an entry value against the defined validator for json data", t, func() {
-		v, err := NewZygoNucleus(nil, `(defn validateCommit [name entry header pkg sources] (cond (== (hget entry data:) "fish") true false))`)
+		v, err := NewZygoRibosome(nil, &Zome{RibosomeType: ZygoRibosomeType, code: `(defn validateCommit [name entry header pkg sources] (cond (== (hget entry data:) "fish") true false))`})
 		d := EntryDef{Name: "evenNumbers", DataFormat: DataFormatJSON}
 
 		a := NewCommitAction("evenNumbers", &GobEntry{C: `{"data":"cow"}`})
@@ -339,32 +369,31 @@ func TestZygoExposeCall(t *testing.T) {
 	d, _, h := prepareTestChain("test")
 	defer cleanupTestDir(d)
 
-	zome, _ := h.GetZome("zySampleZome")
-	v, err := h.makeNucleus(zome)
+	v, zome, err := h.MakeRibosome("zySampleZome")
 	if err != nil {
 		panic(err)
 	}
-	z := v.(*ZygoNucleus)
+	z := v.(*ZygoRibosome)
 
 	Convey("should allow calling exposed STRING based functions", t, func() {
-		cater, _ := h.GetFunctionDef(zome, "testStrFn1")
+		cater, _ := zome.GetFunctionDef("testStrFn1")
 		result, err := z.Call(cater, "fish \"zippy\"")
 		So(err, ShouldBeNil)
 		So(result.(string), ShouldEqual, "result: fish \"zippy\"")
 
-		adder, _ := h.GetFunctionDef(zome, "testStrFn2")
+		adder, _ := zome.GetFunctionDef("testStrFn2")
 		result, err = z.Call(adder, "10")
 		So(err, ShouldBeNil)
 		So(result.(string), ShouldEqual, "12")
 	})
 	Convey("should allow calling exposed JSON based functions", t, func() {
-		times2, _ := h.GetFunctionDef(zome, "testJsonFn1")
+		times2, _ := zome.GetFunctionDef("testJsonFn1")
 		result, err := z.Call(times2, `{"input": 2}`)
 		So(err, ShouldBeNil)
 		So(string(result.(string)), ShouldEqual, `{"input":2, "output":4}`)
 	})
 	Convey("should allow a function declared with JSON parameter to be called with no parameter", t, func() {
-		emptyParametersJSON, _ := h.GetFunctionDef(zome, "testJsonFn2")
+		emptyParametersJSON, _ := zome.GetFunctionDef("testJsonFn2")
 		result, err := z.Call(emptyParametersJSON, "")
 		So(err, ShouldBeNil)
 		So(string(result.(string)), ShouldEqual, `[{"a":"b"}]`)
@@ -377,9 +406,9 @@ func TestZygoDHT(t *testing.T) {
 
 	hash, _ := NewHash("QmY8Mzg9F69e5P9AoQPYat6x5HEhc1TVGs11tmfNSzkqh2")
 	Convey("get should return hash not found if it doesn't exist", t, func() {
-		v, err := NewZygoNucleus(h, fmt.Sprintf(`(get "%s")`, hash.String()))
+		v, err := NewZygoRibosome(h, &Zome{RibosomeType: ZygoRibosomeType, code: fmt.Sprintf(`(get "%s")`, hash.String())})
 		So(err, ShouldBeNil)
-		z := v.(*ZygoNucleus)
+		z := v.(*ZygoRibosome)
 		r, err := z.lastResult.(*zygo.SexpHash).HashGet(z.env, z.env.MakeSymbol("error"))
 		So(err, ShouldBeNil)
 		So(r.(*zygo.SexpStr).S, ShouldEqual, "hash not found")
@@ -392,36 +421,36 @@ func TestZygoDHT(t *testing.T) {
 	}
 
 	Convey("get should return entry", t, func() {
-		v, err := NewZygoNucleus(h, fmt.Sprintf(`(get "%s")`, hash.String()))
+		v, err := NewZygoRibosome(h, &Zome{RibosomeType: ZygoRibosomeType, code: fmt.Sprintf(`(get "%s")`, hash.String())})
 		So(err, ShouldBeNil)
-		z := v.(*ZygoNucleus)
+		z := v.(*ZygoRibosome)
 		r, err := z.lastResult.(*zygo.SexpHash).HashGet(z.env, z.env.MakeSymbol("result"))
 		So(err, ShouldBeNil)
 		So(r.(*zygo.SexpStr).S, ShouldEqual, `"2"`)
 	})
 
 	Convey("get should return sources", t, func() {
-		v, err := NewZygoNucleus(h, fmt.Sprintf(`(get "%s" (hash GetMask:HC_GetMask_Sources))`, hash.String()))
+		v, err := NewZygoRibosome(h, &Zome{RibosomeType: ZygoRibosomeType, code: fmt.Sprintf(`(get "%s" (hash GetMask:HC_GetMask_Sources))`, hash.String())})
 		So(err, ShouldBeNil)
-		z := v.(*ZygoNucleus)
+		z := v.(*ZygoRibosome)
 		r, err := z.lastResult.(*zygo.SexpHash).HashGet(z.env, z.env.MakeSymbol("result"))
 		So(err, ShouldBeNil)
 		So(r.(*zygo.SexpArray).Val[0].(*zygo.SexpStr).S, ShouldEqual, h.nodeIDStr)
 	})
 
 	Convey("get should return entry type", t, func() {
-		v, err := NewZygoNucleus(h, fmt.Sprintf(`(get "%s" (hash GetMask:HC_GetMask_EntryType))`, hash.String()))
+		v, err := NewZygoRibosome(h, &Zome{RibosomeType: ZygoRibosomeType, code: fmt.Sprintf(`(get "%s" (hash GetMask:HC_GetMask_EntryType))`, hash.String())})
 		So(err, ShouldBeNil)
-		z := v.(*ZygoNucleus)
+		z := v.(*ZygoRibosome)
 		r, err := z.lastResult.(*zygo.SexpHash).HashGet(z.env, z.env.MakeSymbol("result"))
 		So(err, ShouldBeNil)
 		So(r.(*zygo.SexpStr).S, ShouldEqual, "evenNumbers")
 	})
 
 	Convey("get should return entry type", t, func() {
-		v, err := NewZygoNucleus(h, fmt.Sprintf(`(get "%s" (hash GetMask:HC_GetMask_All))`, hash.String()))
+		v, err := NewZygoRibosome(h, &Zome{RibosomeType: ZygoRibosomeType, code: fmt.Sprintf(`(get "%s" (hash GetMask:HC_GetMask_All))`, hash.String())})
 		So(err, ShouldBeNil)
-		z := v.(*ZygoNucleus)
+		z := v.(*ZygoRibosome)
 		r, err := z.lastResult.(*zygo.SexpHash).HashGet(z.env, z.env.MakeSymbol("result"))
 		So(err, ShouldBeNil)
 		resp := r.(*zygo.SexpHash)
@@ -443,9 +472,9 @@ func TestZygoDHT(t *testing.T) {
 	}
 
 	Convey("getLink function should return the Links", t, func() {
-		v, err := NewZygoNucleus(h, fmt.Sprintf(`(getLink "%s" "4stars")`, hash.String()))
+		v, err := NewZygoRibosome(h, &Zome{RibosomeType: ZygoRibosomeType, code: fmt.Sprintf(`(getLink "%s" "4stars")`, hash.String())})
 		So(err, ShouldBeNil)
-		z := v.(*ZygoNucleus)
+		z := v.(*ZygoRibosome)
 		sh := z.lastResult.(*zygo.SexpHash)
 
 		r, err := sh.HashGet(z.env, z.env.MakeSymbol("result"))
@@ -453,9 +482,9 @@ func TestZygoDHT(t *testing.T) {
 		So(r.(*zygo.SexpStr).S, ShouldEqual, `[{"H":"QmYeinX5vhuA91D3v24YbgyLofw9QAxY6PoATrBHnRwbtt","E":""}]`)
 	})
 	Convey("getLink function with load option should return the Links and entries", t, func() {
-		v, err := NewZygoNucleus(h, fmt.Sprintf(`(getLink "%s" "4stars" (hash Load:true))`, hash.String()))
+		v, err := NewZygoRibosome(h, &Zome{RibosomeType: ZygoRibosomeType, code: fmt.Sprintf(`(getLink "%s" "4stars" (hash Load:true))`, hash.String())})
 		So(err, ShouldBeNil)
-		z := v.(*ZygoNucleus)
+		z := v.(*ZygoRibosome)
 		sh := z.lastResult.(*zygo.SexpHash)
 
 		r, err := sh.HashGet(z.env, z.env.MakeSymbol("result"))
@@ -464,9 +493,9 @@ func TestZygoDHT(t *testing.T) {
 	})
 
 	Convey("commit with del link should delete link", t, func() {
-		v, err := NewZygoNucleus(h, fmt.Sprintf(`(commit "rating" (hash Links:[(hash LinkAction:HC_LinkAction_Del Base:"%s" Link:"%s" Tag:"4stars")]))`, hash.String(), profileHash.String()))
+		v, err := NewZygoRibosome(h, &Zome{RibosomeType: ZygoRibosomeType, code: fmt.Sprintf(`(commit "rating" (hash Links:[(hash LinkAction:HC_LinkAction_Del Base:"%s" Link:"%s" Tag:"4stars")]))`, hash.String(), profileHash.String())})
 		So(err, ShouldBeNil)
-		z := v.(*ZygoNucleus)
+		z := v.(*ZygoRibosome)
 
 		_, err = NewHash(z.lastResult.(*zygo.SexpStr).S)
 		So(err, ShouldBeNil)
@@ -482,9 +511,9 @@ func TestZygoDHT(t *testing.T) {
 	})
 
 	Convey("getLink function with StatusMask option should return deleted Links", t, func() {
-		v, err := NewZygoNucleus(h, fmt.Sprintf(`(getLink "%s" "4stars" (hash StatusMask:HC_Status_Deleted))`, hash.String()))
+		v, err := NewZygoRibosome(h, &Zome{RibosomeType: ZygoRibosomeType, code: fmt.Sprintf(`(getLink "%s" "4stars" (hash StatusMask:HC_Status_Deleted))`, hash.String())})
 		So(err, ShouldBeNil)
-		z := v.(*ZygoNucleus)
+		z := v.(*ZygoRibosome)
 
 		sh := z.lastResult.(*zygo.SexpHash)
 		r, err := sh.HashGet(z.env, z.env.MakeSymbol("result"))
@@ -493,9 +522,9 @@ func TestZygoDHT(t *testing.T) {
 	})
 
 	Convey("update function should commit a new entry and on DHT mark item modified", t, func() {
-		v, err := NewZygoNucleus(h, fmt.Sprintf(`(update "profile" (hash firstName:"Zippy" lastName:"ThePinhead") "%s")`, profileHash.String()))
+		v, err := NewZygoRibosome(h, &Zome{RibosomeType: ZygoRibosomeType, code: fmt.Sprintf(`(update "profile" (hash firstName:"Zippy" lastName:"ThePinhead") "%s")`, profileHash.String())})
 		So(err, ShouldBeNil)
-		z := v.(*ZygoNucleus)
+		z := v.(*ZygoRibosome)
 		profileHashStr2 := z.lastResult.(*zygo.SexpStr).S
 
 		header := h.chain.Top()
@@ -513,33 +542,33 @@ func TestZygoDHT(t *testing.T) {
 		So(string(data), ShouldEqual, profileHashStr2)
 
 		// but a regular get, should resolve through
-		v, err = NewZygoNucleus(h, fmt.Sprintf(`(get "%s")`, profileHash.String()))
+		v, err = NewZygoRibosome(h, &Zome{RibosomeType: ZygoRibosomeType, code: fmt.Sprintf(`(get "%s")`, profileHash.String())})
 		So(err, ShouldBeNil)
-		z = v.(*ZygoNucleus)
+		z = v.(*ZygoRibosome)
 		r, err := z.lastResult.(*zygo.SexpHash).HashGet(z.env, z.env.MakeSymbol("result"))
 		So(err, ShouldBeNil)
 		So(r.(*zygo.SexpStr).S, ShouldEqual, `"{\"firstName\":\"Zippy\", \"lastName\":\"ThePinhead\"}"`)
 	})
 
 	Convey("remove function should mark item deleted", t, func() {
-		v, err := NewZygoNucleus(h, fmt.Sprintf(`(remove "%s" "expired")`, hash.String()))
+		v, err := NewZygoRibosome(h, &Zome{RibosomeType: ZygoRibosomeType, code: fmt.Sprintf(`(remove "%s" "expired")`, hash.String())})
 		So(err, ShouldBeNil)
 
-		z := v.(*ZygoNucleus)
+		z := v.(*ZygoRibosome)
 		_, err = NewHash(z.lastResult.(*zygo.SexpStr).S)
 		So(err, ShouldBeNil)
 
-		v, err = NewZygoNucleus(h, fmt.Sprintf(`(get "%s")`, hash.String()))
+		v, err = NewZygoRibosome(h, &Zome{RibosomeType: ZygoRibosomeType, code: fmt.Sprintf(`(get "%s")`, hash.String())})
 		So(err, ShouldBeNil)
-		z = v.(*ZygoNucleus)
+		z = v.(*ZygoRibosome)
 
 		r, err := z.lastResult.(*zygo.SexpHash).HashGet(z.env, z.env.MakeSymbol("error"))
 		So(err, ShouldBeNil)
 		So(r.(*zygo.SexpStr).S, ShouldEqual, "hash deleted")
 
-		v, err = NewZygoNucleus(h, fmt.Sprintf(`(get "%s" (hash StatusMask:HC_Status_Deleted))`, hash.String()))
+		v, err = NewZygoRibosome(h, &Zome{RibosomeType: ZygoRibosomeType, code: fmt.Sprintf(`(get "%s" (hash StatusMask:HC_Status_Deleted))`, hash.String())})
 		So(err, ShouldBeNil)
-		z = v.(*ZygoNucleus)
+		z = v.(*ZygoRibosome)
 
 		r, err = z.lastResult.(*zygo.SexpHash).HashGet(z.env, z.env.MakeSymbol("result"))
 		So(err, ShouldBeNil)
@@ -617,8 +646,8 @@ func TestZyProcessArgs(t *testing.T) {
 
 		// create a zygo hash for a test arg
 
-		v, err := NewZygoNucleus(h, "")
-		env := v.(*ZygoNucleus).env
+		v, err := NewZygoRibosome(h, &Zome{RibosomeType: ZygoRibosomeType, code: ""})
+		env := v.(*ZygoRibosome).env
 		hval, _ := zygo.MakeHash(nil, "hash", env)
 		hval.HashSet(env.MakeSymbol("fname"), &zygo.SexpStr{S: "Jane"})
 		hval.HashSet(env.MakeSymbol("lname"), &zygo.SexpStr{S: "Smith"})
@@ -640,8 +669,8 @@ func TestZyProcessArgs(t *testing.T) {
 
 		// create a zygo hash for a test arg
 
-		v, err := NewZygoNucleus(h, "")
-		env := v.(*ZygoNucleus).env
+		v, err := NewZygoRibosome(h, &Zome{RibosomeType: ZygoRibosomeType, code: ""})
+		env := v.(*ZygoRibosome).env
 		hval, _ := zygo.MakeHash(nil, "hash", env)
 		hval.HashSet(env.MakeSymbol("fname"), &zygo.SexpStr{S: "Jane"})
 		hval.HashSet(env.MakeSymbol("lname"), &zygo.SexpStr{S: "Smith"})
@@ -657,8 +686,8 @@ func TestZyProcessArgs(t *testing.T) {
 		So(err.Error(), ShouldEqual, "argument 1 (foo) should be hash")
 
 		// create a zygo hash as a test arg
-		v, err := NewZygoNucleus(h, "")
-		env := v.(*ZygoNucleus).env
+		v, err := NewZygoRibosome(h, &Zome{RibosomeType: ZygoRibosomeType, code: ""})
+		env := v.(*ZygoRibosome).env
 		var hashstr zygo.Sexp = &zygo.SexpStr{S: "fakehashvalue"}
 		hval, _ := zygo.MakeHash(nil, "hash", env)
 		hval.HashSet(env.MakeSymbol("H"), hashstr)
@@ -687,8 +716,8 @@ func TestZyProcessArgs(t *testing.T) {
 		So(args[0].value.(string), ShouldEqual, "true")
 
 		// create a zygo hash as a test arg
-		v, err := NewZygoNucleus(h, "")
-		env := v.(*ZygoNucleus).env
+		v, err := NewZygoRibosome(h, &Zome{RibosomeType: ZygoRibosomeType, code: ""})
+		env := v.(*ZygoRibosome).env
 		var hashstr zygo.Sexp = &zygo.SexpStr{S: "fakehashvalue"}
 		hval, _ := zygo.MakeHash(nil, "hash", env)
 		hval.HashSet(env.MakeSymbol("H"), hashstr)

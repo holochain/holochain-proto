@@ -284,6 +284,8 @@ func GossipReceiver(h *Holochain, m *Message) (response interface{}, err error) 
 		default:
 			err = ErrDHTExpectedGossipReqInBody
 		}
+	default:
+		err = fmt.Errorf("message type %d not in holochain-gossip protocol", int(m.Type))
 	}
 	return
 }

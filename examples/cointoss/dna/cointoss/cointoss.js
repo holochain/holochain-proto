@@ -78,14 +78,15 @@ function getAgent(handle) {
     return "";
 }
 
-function commitToss(initiator,initiatorSeed,responder,responderSeed) {
-    var toss = {initiator:initiator,initiatorSeedHash:initiatorSeed,responder:responder,responderSeedHash:responderSeed};
+function commitToss(initiator,initiatorSeed,responder,responderSeed,call) {
+    var toss = {initiator:initiator,initiatorSeedHash:initiatorSeed,responder:responder,responderSeedHash:responderSeed,call:call};
     return commit("toss",JSON.stringify(toss));
 }
 
 
 function commitSeed() {
-    return commit("seed",App.Key.Hash+"."+Math.floor(Math.random()*10));
+    var salt = ""+Math.random()+""+Math.random();
+    return commit("seed",salt+"-"+Math.floor(Math.random()*10));
 }
 
 // initiates node2node communication with an agent to commit
@@ -95,7 +96,8 @@ function requestToss(req) {
     var response = send(req.agent,{type:"tossReq",seed:mySeed});
     debug("requestToss response:"+response);
     response = JSON.parse(response);
-    var theToss = commitToss(App.Key.Hash,mySeed,req.agent,response.seed);
+    // create our own copy of the toss according to the seed and call from the responder
+    var theToss = commitToss(App.Key.Hash,mySeed,req.agent,response.seed,response.call);
     if (theToss != response.toss) {
         return {error:"toss didn't match!"};
     }
@@ -107,8 +109,10 @@ function receive(from,msg) {
     var type = msg.type;
     if (type=='tossReq') {
         var mySeed = commitSeed();
-        var theToss = commitToss(from,msg.seed,App.Key.Hash,mySeed);
-        return {seed:mySeed,toss:theToss};
+        // call whether we want head or tails randomly.
+        var call = Math.floor(Math.random()*10)%2 == 0;
+        var theToss = commitToss(from,msg.seed,App.Key.Hash,mySeed,call);
+        return {seed:mySeed,toss:theToss,call:call};
     } else if (type=="seedReq") {
         // make sure I committed toss and the seed hash is one of the seeds in the commit
         var rsp = get(msg.toss,{Local:true,GetMask:HC.GetMask.EntryType+HC.GetMask.Entry});
@@ -146,9 +150,15 @@ function confirmToss(toss) {
             var rSeed = send(entry.responder,{type:"seedReq",seedHash:entry.responderSeedHash,toss:toss});
             rSeed = confirmSeed(rSeed,entry.responderSeedHash);
             if (rSeed) {
-                var i = parseInt(iSeed.split(".")[1]);
-                var r = parseInt(rSeed.split(".")[1]);
-                return (i+r)%2 ? "win" : "loss";
+                var i = parseInt(iSeed.split("-")[1]);
+                var r = parseInt(rSeed.split("-")[1]);
+                // compare the odd evenness of the addition of the two seed values to the call
+                var sum = (i+r);
+                debug("call was:"+entry.call);
+                debug("and sum of seed is:"+sum);
+                var result = ((sum%2==0) == entry.call) ? "win" : "loss";
+                debug("so responder gets a "+result);
+                return result;
             }
         }
     } else {

@@ -7,7 +7,10 @@
 	},
 	"responderSeedHash": {
 	    "type": "string"
+	},
+	"call": {
+	    "type": "boolean"
 	}
     },
-    "required": ["initiatorSeedHash","responderSeedHash"]
+    "required": ["initiatorSeedHash","responderSeedHash","call"]
 }

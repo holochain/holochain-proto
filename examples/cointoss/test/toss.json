@@ -1,0 +1,31 @@
+[
+    {
+        "Convey":"confirm toss of non toss should fail",
+        "Zome": "cointoss",
+        "FnName": "confirmToss",
+        "Input": "%key%",
+        "Output": "",
+        "Exposure":"public",
+        "Err": "",
+        "Regexp": ""
+    },
+    {
+        "Convey":"request a coin toss",
+        "Zome": "cointoss",
+        "FnName": "requestToss",
+        "Input": {"agent":"%key%"},
+        "Output": "{\"toss\":\"%h%\"}",
+        "Exposure":"public",
+        "Err": "",
+        "Regexp": ""
+    },
+    {
+        "Convey":"confirm the toss",
+        "Zome": "cointoss",
+        "FnName": "confirmToss",
+        "Input": "%h%",
+        "Exposure":"public",
+        "Err": "",
+        "Regexp": "(win)|(loss)"
+    }
+]

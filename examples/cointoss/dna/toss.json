@@ -1,0 +1,13 @@
+{
+    "title": "Toss Schema",
+    "type": "object",
+    "properties": {
+	"initiatorSeedHash": {
+	    "type": "string"
+	},
+	"responderSeedHash": {
+	    "type": "string"
+	}
+    },
+    "required": ["initiatorSeedHash","responderSeedHash"]
+}

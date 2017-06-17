@@ -1,0 +1,105 @@
+{
+    "Version": 0,
+    "UUID": "00000000-0000-0000-0000-000000000000",
+    "Name": "cointoss",
+    "RequiresVersion": 12,
+    "Properties": {
+        "description": "sample n2n app",
+        "language": "en"
+    },
+    "PropertiesSchema": "properties_schema.json",
+    "DHTConfig": {
+        "HashType": "sha2-256"
+    },
+    "BasedOn": {
+        "H": null
+    },
+    "Zomes": [
+        {
+            "Name": "cointoss",
+            "Description": "zome that uses n2n for co-signing of a coin toss",
+            "RibosomeType": "js",
+            "Code": "cointoss.js",
+            "CodeHash": {
+                "H": null
+            },
+            "Entries": [
+                {
+                    "Name": "handle",
+                    "DataFormat": "string",
+                    "Sharing": "public",
+                    "Schema": "",
+                    "SchemaHash": {
+                        "H": null
+                    }
+                },
+                {
+                    "Name": "handle_links",
+                    "DataFormat": "links"
+                },
+                {
+                    "Name": "directory_links",
+                    "DataFormat": "links"
+                },
+                {
+                    "Name": "toss",
+                    "DataFormat": "json",
+                    "Schema": "toss.json",
+                    "Sharing": "public"
+                },
+                {
+                    "Name": "seed",
+                    "DataFormat": "string",
+                    "Sharing": "private"
+                },
+                {
+                    "Name": "anchor",
+                    "DataFormat": "json",
+                    "Sharing": "public",
+                    "Schema": "anchor.json",
+                    "SchemaHash": {
+                        "H": null
+                    }
+                }
+            ],
+            "Functions": [
+                {
+                    "Name": "appProperty",
+                    "CallingType": "string",
+                    "Exposure":"public"
+                },
+                {
+                    "Name": "newHandle",
+                    "CallingType": "string",
+                    "Exposure":"public"
+                },
+                {
+                    "Name": "getHandles",
+                    "CallingType": "json",
+                    "Exposure":"public"
+                },
+                {
+                    "Name": "getHandle",
+                    "CallingType": "string",
+                    "Exposure":"public"
+                },
+                {
+                    "Name": "getAgent",
+                    "CallingType": "string",
+                    "Exposure":"public"
+                },
+                {
+                    "Name": "requestToss",
+                    "CallingType": "json",
+                    "Exposure":"public"
+                },
+                {
+                    "Name": "confirmToss",
+                    "CallingType": "string",
+                    "Exposure":"public"
+                }
+
+            ]
+        }
+    ]
+}

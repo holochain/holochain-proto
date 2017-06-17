@@ -195,22 +195,22 @@ func TestZygoGenesis(t *testing.T) {
 
 func TestZyReceive(t *testing.T) {
 	Convey("it should call a receive function that returns a hash", t, func() {
-		z, _ := NewZygoRibosome(nil, &Zome{RibosomeType: ZygoRibosomeType, code: `(defn receive [msg] (hash %foo (hget msg %bar)))`})
-		response, err := z.Receive(`{"bar":"baz"}`)
+		z, _ := NewZygoRibosome(nil, &Zome{RibosomeType: ZygoRibosomeType, code: `(defn receive [from msg] (hash %foo (hget msg %bar)))`})
+		response, err := z.Receive("fakehash", `{"bar":"baz"}`)
 		So(err, ShouldBeNil)
 		So(response, ShouldEqual, `{"foo":"baz"}`)
 	})
 
 	Convey("it should call a receive function that returns a string", t, func() {
-		z, _ := NewZygoRibosome(nil, &Zome{RibosomeType: ZygoRibosomeType, code: `(defn receive [msg] (concat "fish:" (hget msg %bar)))`})
-		response, err := z.Receive(`{"bar":"baz"}`)
+		z, _ := NewZygoRibosome(nil, &Zome{RibosomeType: ZygoRibosomeType, code: `(defn receive [from msg] (concat "fish:" (hget msg %bar)))`})
+		response, err := z.Receive("fakehash", `{"bar":"baz"}`)
 		So(err, ShouldBeNil)
 		So(response, ShouldEqual, `"fish:baz"`)
 	})
 
 	Convey("it should call a receive function that returns an int", t, func() {
-		z, _ := NewZygoRibosome(nil, &Zome{RibosomeType: ZygoRibosomeType, code: `(defn receive [msg] (len (hget msg %bar)))`})
-		response, err := z.Receive(`{"bar":"baz"}`)
+		z, _ := NewZygoRibosome(nil, &Zome{RibosomeType: ZygoRibosomeType, code: `(defn receive [from msg] (len (hget msg %bar)))`})
+		response, err := z.Receive("fakehash", `{"bar":"baz"}`)
 		So(err, ShouldBeNil)
 		So(response, ShouldEqual, `3`)
 	})

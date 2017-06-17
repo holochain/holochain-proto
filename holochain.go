@@ -947,7 +947,7 @@ func (s *Service) GenDev(root string, format string) (hP *Holochain, err error) 
 (defn validateDelPkg [entryType] nil)
 (defn validateLinkPkg [entryType] nil)
 (defn genesis [] true)
-(defn receive [message]
+(defn receive [from message]
   (hash pong: (hget message %ping)))
 `
 		code["jsSampleZome"] = `
@@ -997,7 +997,7 @@ function validateLinkPkg(entry_type) { return null}
 
 function genesis() {return true}
 
-function receive(message) {
+function receive(from,message) {
   // send back a pong message of what came in the ping message!
   return {pong:message.ping}
 }

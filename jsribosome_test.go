@@ -182,8 +182,8 @@ func TestJSGenesis(t *testing.T) {
 
 func TestJSReceive(t *testing.T) {
 	Convey("it should call a receive function", t, func() {
-		z, _ := NewJSRibosome(nil, &Zome{RibosomeType: JSRibosomeType, code: `function receive(msg) {return {foo:msg.bar}}`})
-		response, err := z.Receive(`{"bar":"baz"}`)
+		z, _ := NewJSRibosome(nil, &Zome{RibosomeType: JSRibosomeType, code: `function receive(from,msg) {return {foo:msg.bar}}`})
+		response, err := z.Receive("fakehash", `{"bar":"baz"}`)
 		So(err, ShouldBeNil)
 		So(response, ShouldEqual, `{"foo":"baz"}`)
 	})

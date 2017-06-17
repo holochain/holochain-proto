@@ -62,11 +62,11 @@ func (z *ZygoRibosome) ChainGenesis() (err error) {
 }
 
 // Receive calls the app receive function for node-to-node messages
-func (z *ZygoRibosome) Receive(msg string) (response string, err error) {
+func (z *ZygoRibosome) Receive(from string, msg string) (response string, err error) {
 	var code string
 	fnName := "receive"
 
-	code = fmt.Sprintf(`(json (%s (unjson (raw "%s"))))`, fnName, sanitizeZyString(msg))
+	code = fmt.Sprintf(`(json (%s "%s" (unjson (raw "%s"))))`, fnName, from, sanitizeZyString(msg))
 	Debug(code)
 	err = z.env.LoadString(code)
 	if err != nil {

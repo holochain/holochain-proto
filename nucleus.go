@@ -6,6 +6,7 @@ package holochain
 
 import (
 	"fmt"
+	peer "github.com/libp2p/go-libp2p-peer"
 )
 
 // Nucleus encapsulates Application parts: Ribosomes to run code in Zomes, plus application
@@ -53,7 +54,7 @@ func AppReceiver(h *Holochain, msg *Message) (response interface{}, err error) {
 				return
 			}
 			rsp := AppMsg{ZomeType: t.ZomeType}
-			rsp.Body, err = r.Receive(t.Body)
+			rsp.Body, err = r.Receive(peer.IDB58Encode(msg.From), t.Body)
 			if err == nil {
 				response = rsp
 			}

@@ -54,11 +54,11 @@ func (jsr *JSRibosome) ChainGenesis() (err error) {
 }
 
 // Receive calls the app receive function for node-to-node messages
-func (jsr *JSRibosome) Receive(msg string) (response string, err error) {
+func (jsr *JSRibosome) Receive(from string, msg string) (response string, err error) {
 	var code string
 	fnName := "receive"
 
-	code = fmt.Sprintf(`JSON.stringify(%s(JSON.parse("%s")))`, fnName, jsSanitizeString(msg))
+	code = fmt.Sprintf(`JSON.stringify(%s("%s",JSON.parse("%s")))`, fnName, from, jsSanitizeString(msg))
 	Debug(code)
 	var v otto.Value
 	v, err = jsr.vm.Run(code)

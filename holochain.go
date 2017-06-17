@@ -784,6 +784,7 @@ func (s *Service) GenDev(root string, format string) (hP *Holochain, err error) 
 					{Name: "oddNumbers", DataFormat: DataFormatRawJS, Sharing: Public},
 					{Name: "profile", DataFormat: DataFormatJSON, Schema: "profile.json", Sharing: Public},
 					{Name: "rating", DataFormat: DataFormatLinks},
+					{Name: "secret", DataFormat: DataFormatString},
 				},
 				Functions: []FunctionDef{
 					{Name: "getProperty", CallingType: STRING_CALLING},
@@ -977,6 +978,9 @@ function validate(entry_type,entry,header,sources) {
     return entry%2 != 0
   }
   if (entry_type=="profile") {
+    return true
+  }
+  if (entry_type=="secret") {
     return true
   }
   return false

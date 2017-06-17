@@ -150,3 +150,30 @@ func TestCheckArgCount(t *testing.T) {
 		So(err, ShouldEqual, ErrWrongNargs)
 	})
 }
+
+func TestActionGetLocal(t *testing.T) {
+	d, _, h := prepareTestChain("test")
+	defer cleanupTestDir(d)
+	hash := commit(h, "secret", "31415")
+
+	Convey("non local get should fail for private entries", t, func() {
+		req := GetReq{H: hash, GetMask: GetMaskEntry}
+		_, err := NewGetAction(req, &GetOptions{GetMask: req.GetMask}).Do(h)
+		So(err.Error(), ShouldEqual, "hash not found")
+	})
+
+	Convey("it should fail to get non-existent private local values", t, func() {
+		badHash, _ := NewHash("QmY8Mzg9F69e5P9AoQPYat655HEhc1TVGs11tmfNSzkqh2")
+		req := GetReq{H: badHash, GetMask: GetMaskEntry}
+		_, err := NewGetAction(req, &GetOptions{GetMask: req.GetMask, Local: true}).Do(h)
+		So(err.Error(), ShouldEqual, "hash not found")
+	})
+
+	Convey("it should get private local values", t, func() {
+		req := GetReq{H: hash, GetMask: GetMaskEntry}
+		rsp, err := NewGetAction(req, &GetOptions{GetMask: req.GetMask, Local: true}).Do(h)
+		So(err, ShouldBeNil)
+		getResp := rsp.(GetResp)
+		So(getResp.Entry.Content().(string), ShouldEqual, "31415")
+	})
+}

@@ -665,6 +665,10 @@ func NewJSRibosome(h *Holochain, zome *Zome) (n Ribosome, err error) {
 				}
 				options.GetMask = int(maskval)
 			}
+			local, ok := opts["Local"]
+			if ok {
+				options.Local = local.(bool)
+			}
 		}
 		req := GetReq{H: args[0].value.(Hash), StatusMask: options.StatusMask, GetMask: options.GetMask}
 		var r interface{}

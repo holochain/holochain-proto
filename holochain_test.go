@@ -554,7 +554,7 @@ func commit(h *Holochain, entryType, entryStr string) (entryHash Hash) {
 
 	r, err := NewCommitAction(entryType, &entry).Do(h)
 	if err != nil {
-		return
+		panic(err)
 	}
 	if r != nil {
 		entryHash = r.(Hash)

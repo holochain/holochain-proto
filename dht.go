@@ -165,8 +165,9 @@ type LinkQuery struct {
 
 // GetOptions options to holochain level Get functions
 type GetOptions struct {
-	StatusMask int // mask of which status of entries to return
-	GetMask    int // mask of what to include in the response
+	StatusMask int  // mask of which status of entries to return
+	GetMask    int  // mask of what to include in the response
+	Local      bool // bool if get should happen from chain not DHT
 }
 
 // GetLinkOptions options to holochain level GetLink functions

@@ -396,6 +396,25 @@ func (a *ActionGet) Args() []Arg {
 }
 
 func (a *ActionGet) Do(h *Holochain) (response interface{}, err error) {
+	if a.options.Local {
+		var entry Entry
+		var entryType string
+		entry, entryType, err = h.chain.GetEntry(a.req.H)
+		if err != nil {
+			return
+		}
+		resp := GetResp{Entry: entry}
+		mask := a.options.GetMask
+		if (mask & GetMaskEntryType) != 0 {
+			resp.EntryType = entryType
+		}
+		if (mask & GetMaskEntry) != 0 {
+			resp.Entry = entry
+		}
+
+		response = resp
+		return
+	}
 	rsp, err := h.dht.Send(a.req.H, GET_REQUEST, a.req)
 	if err != nil {
 

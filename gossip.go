@@ -345,9 +345,9 @@ func (dht *DHT) gossipWith(id peer.ID) (err error) {
 				dht.glog.Logf("PUT--%d (fingerprint: %v)", idx, f)
 				exists, e := dht.HaveFingerprint(f)
 				if !exists && e == nil {
-					dht.glog.Logf("PUT--%d calling DHTReceiver", idx)
-					r, e := DHTReceiver(dht.h, &p.M)
-					dht.glog.Logf("PUT--%d DHTReceiver returned %v with err %v", idx, r, e)
+					dht.glog.Logf("PUT--%d calling ActionReceiver", idx)
+					r, e := ActionReceiver(dht.h, &p.M)
+					dht.glog.Logf("PUT--%d ActionReceiver returned %v with err %v", idx, r, e)
 				} else {
 					if e == nil {
 						dht.glog.Logf("already have fingerprint %v", f)

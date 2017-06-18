@@ -310,20 +310,20 @@ func TestSend(t *testing.T) {
 	})
 }
 
-func TestDHTReceiver(t *testing.T) {
+func TestActionReceiver(t *testing.T) {
 	d, _, h := prepareTestChain("test")
 	defer cleanupTestDir(d)
 
 	Convey("PUT_REQUEST should fail if body isn't a hash", t, func() {
 		m := h.node.NewMessage(PUT_REQUEST, "foo")
-		_, err := DHTReceiver(h, m)
-		So(err.Error(), ShouldEqual, "Unexpected request body type 'string' in put request")
+		_, err := ActionReceiver(h, m)
+		So(err.Error(), ShouldEqual, "Unexpected request body type 'string' in put request, expecting holochain.PutReq")
 	})
 
 	Convey("LINK_REQUEST should fail if body not a good linking request", t, func() {
 		m := h.node.NewMessage(LINK_REQUEST, "foo")
-		_, err := DHTReceiver(h, m)
-		So(err.Error(), ShouldEqual, "Unexpected request body type 'string' in link request")
+		_, err := ActionReceiver(h, m)
+		So(err.Error(), ShouldEqual, "Unexpected request body type 'string' in link request, expecting holochain.LinkReq")
 	})
 
 	hash, _ := NewHash("QmY8Mzg9F69e5P9AoQPYat655HEhc1TVGs11tmfNSzkqh2")
@@ -331,7 +331,7 @@ func TestDHTReceiver(t *testing.T) {
 	Convey("LINK_REQUEST should fail if hash doesn't exist", t, func() {
 		me := LinkReq{Base: hash, Links: hash}
 		m := h.node.NewMessage(LINK_REQUEST, me)
-		_, err := DHTReceiver(h, m)
+		_, err := ActionReceiver(h, m)
 		So(err.Error(), ShouldEqual, "hash not found")
 	})
 
@@ -342,7 +342,7 @@ func TestDHTReceiver(t *testing.T) {
 
 	Convey("PUT_REQUEST should queue a valid message", t, func() {
 		m := h.node.NewMessage(PUT_REQUEST, PutReq{H: hash})
-		r, err := DHTReceiver(h, m)
+		r, err := ActionReceiver(h, m)
 		So(err, ShouldBeNil)
 		So(r, ShouldEqual, "queued")
 	})
@@ -352,27 +352,27 @@ func TestDHTReceiver(t *testing.T) {
 	}
 	Convey("GET_REQUEST should return the requested values", t, func() {
 		m := h.node.NewMessage(GET_REQUEST, GetReq{H: hash, StatusMask: StatusLive})
-		r, err := DHTReceiver(h, m)
+		r, err := ActionReceiver(h, m)
 		So(err, ShouldBeNil)
 		resp := r.(GetResp)
 		So(fmt.Sprintf("%v", resp.Entry), ShouldEqual, fmt.Sprintf("%v", &e))
 
 		m = h.node.NewMessage(GET_REQUEST, GetReq{H: hash, GetMask: GetMaskEntryType})
-		r, err = DHTReceiver(h, m)
+		r, err = ActionReceiver(h, m)
 		So(err, ShouldBeNil)
 		resp = r.(GetResp)
 		So(resp.Entry, ShouldBeNil)
 		So(resp.EntryType, ShouldEqual, "evenNumbers")
 
 		m = h.node.NewMessage(GET_REQUEST, GetReq{H: hash, GetMask: GetMaskEntry + GetMaskEntryType})
-		r, err = DHTReceiver(h, m)
+		r, err = ActionReceiver(h, m)
 		So(err, ShouldBeNil)
 		resp = r.(GetResp)
 		So(fmt.Sprintf("%v", resp.Entry), ShouldEqual, fmt.Sprintf("%v", &e))
 		So(resp.EntryType, ShouldEqual, "evenNumbers")
 
 		m = h.node.NewMessage(GET_REQUEST, GetReq{H: hash, GetMask: GetMaskSources})
-		r, err = DHTReceiver(h, m)
+		r, err = ActionReceiver(h, m)
 		So(err, ShouldBeNil)
 		resp = r.(GetResp)
 		So(resp.Entry, ShouldBeNil)
@@ -380,7 +380,7 @@ func TestDHTReceiver(t *testing.T) {
 		So(resp.EntryType, ShouldEqual, "")
 
 		m = h.node.NewMessage(GET_REQUEST, GetReq{H: hash, GetMask: GetMaskEntry + GetMaskSources})
-		r, err = DHTReceiver(h, m)
+		r, err = ActionReceiver(h, m)
 		So(err, ShouldBeNil)
 		resp = r.(GetResp)
 		So(fmt.Sprintf("%v", resp.Entry), ShouldEqual, fmt.Sprintf("%v", &e))
@@ -399,7 +399,7 @@ func TestDHTReceiver(t *testing.T) {
 	Convey("LINK_REQUEST should store links", t, func() {
 		lr := LinkReq{Base: hash, Links: lhd.EntryLink}
 		m := h.node.NewMessage(LINK_REQUEST, lr)
-		r, err := DHTReceiver(h, m)
+		r, err := ActionReceiver(h, m)
 		So(err, ShouldBeNil)
 		So(r, ShouldEqual, "queued")
 
@@ -416,7 +416,7 @@ func TestDHTReceiver(t *testing.T) {
 	Convey("GETLINK_REQUEST should retrieve link values", t, func() {
 		mq := LinkQuery{Base: hash, T: "4stars"}
 		m := h.node.NewMessage(GETLINK_REQUEST, mq)
-		r, err := DHTReceiver(h, m)
+		r, err := ActionReceiver(h, m)
 		So(err, ShouldBeNil)
 		results := r.(*LinkQueryResp)
 		So(results.Links[0].H, ShouldEqual, hd.EntryLink.String())
@@ -437,7 +437,7 @@ func TestDHTReceiver(t *testing.T) {
 	Convey("LINK_REQUEST with del type should mark a link as deleted", t, func() {
 		lr := LinkReq{Base: hash, Links: lhd2.EntryLink}
 		m := h.node.NewMessage(LINK_REQUEST, lr)
-		r, err := DHTReceiver(h, m)
+		r, err := ActionReceiver(h, m)
 		So(r, ShouldEqual, "queued")
 
 		// fake the handling of change requests
@@ -455,7 +455,7 @@ func TestDHTReceiver(t *testing.T) {
 	Convey("GETLINK_REQUEST with mask option should retrieve deleted link values", t, func() {
 		mq := LinkQuery{Base: hash, T: "4stars", StatusMask: StatusDeleted}
 		m := h.node.NewMessage(GETLINK_REQUEST, mq)
-		r, err := DHTReceiver(h, m)
+		r, err := ActionReceiver(h, m)
 		So(err, ShouldBeNil)
 		results := r.(*LinkQueryResp)
 		So(results.Links[0].H, ShouldEqual, hd.EntryLink.String())
@@ -466,12 +466,12 @@ func TestDHTReceiver(t *testing.T) {
 	_, hd2, _ := h.NewEntry(now, "evenNumbers", &e2)
 	hash2 := hd2.EntryLink
 	m2 := h.node.NewMessage(PUT_REQUEST, PutReq{H: hash2})
-	DHTReceiver(h, m2)
+	ActionReceiver(h, m2)
 
 	Convey("MOD_REQUEST should set hash to modified", t, func() {
 		req := ModReq{H: hash, N: hash2}
 		m := h.node.NewMessage(MOD_REQUEST, req)
-		r, err := DHTReceiver(h, m)
+		r, err := ActionReceiver(h, m)
 		So(err, ShouldBeNil)
 		results := r.(string)
 		So(results, ShouldEqual, "queued")
@@ -483,7 +483,7 @@ func TestDHTReceiver(t *testing.T) {
 		_, _, entryHash, err := h.doCommit(a, &StatusChange{Action: DelAction, Hash: hash2})
 
 		m := h.node.NewMessage(DEL_REQUEST, DelReq{H: hash2, By: entryHash})
-		r, err := DHTReceiver(h, m)
+		r, err := ActionReceiver(h, m)
 		So(err, ShouldBeNil)
 		So(r, ShouldEqual, "queued")
 

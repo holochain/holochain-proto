@@ -154,7 +154,7 @@ func TestNodeSend(t *testing.T) {
 	Convey("It should fail on messages without a source", t, func() {
 		m := Message{Type: PUT_REQUEST, Body: "fish"}
 		So(len(node1.Host.Peerstore().Peers()), ShouldEqual, 1)
-		r, err := node2.Send(DHTProtocol, node1.HashAddr, &m)
+		r, err := node2.Send(ActionProtocol, node1.HashAddr, &m)
 		So(err, ShouldBeNil)
 		So(len(node1.Host.Peerstore().Peers()), ShouldEqual, 2) // node1's peerstore should now have node2
 		So(r.Type, ShouldEqual, ERROR_RESPONSE)
@@ -178,25 +178,19 @@ func TestNodeSend(t *testing.T) {
 		So(r.Body.(ErrorResponse).Message, ShouldEqual, "message type 2 not in holochain-gossip protocol")
 
 		m = node2.NewMessage(GOSSIP_REQUEST, "fish")
-		r, err = node2.Send(DHTProtocol, node1.HashAddr, m)
+		r, err = node2.Send(ActionProtocol, node1.HashAddr, m)
 		So(err, ShouldBeNil)
 		So(r.Type, ShouldEqual, ERROR_RESPONSE)
 		So(r.From, ShouldEqual, node1.HashAddr) // response comes from who we sent to
-		So(r.Body.(ErrorResponse).Message, ShouldEqual, "message type 9 not in holochain-dht protocol")
+		So(r.Body.(ErrorResponse).Message, ShouldEqual, "message type 9 not in holochain-action protocol")
 
-		m = node2.NewMessage(PUT_REQUEST, "fish")
-		r, err = node2.Send(AppProtocol, node1.HashAddr, m)
-		So(err, ShouldBeNil)
-		So(r.Type, ShouldEqual, ERROR_RESPONSE)
-		So(r.From, ShouldEqual, node1.HashAddr) // response comes from who we sent to
-		So(r.Body.(ErrorResponse).Message, ShouldEqual, "message type 2 not in holochain-app protocol")
 	})
 
 	Convey("It should respond with err on bad request on invalid PUT_REQUESTS", t, func() {
 		hash, _ := NewHash("QmY8Mzg9F69e5P9AoQPYat6x5HEhc1TVGs11tmfNSzkqh2")
 
 		m := node2.NewMessage(PUT_REQUEST, PutReq{H: hash})
-		r, err := node2.Send(DHTProtocol, node1.HashAddr, m)
+		r, err := node2.Send(ActionProtocol, node1.HashAddr, m)
 		So(err, ShouldBeNil)
 		So(r.Type, ShouldEqual, ERROR_RESPONSE)
 		So(r.From, ShouldEqual, node1.HashAddr) // response comes from who we sent to
@@ -304,7 +298,7 @@ func TestFindPeer(t *testing.T) {
 
 	Convey("sending to an unknown peer should fail with no route to peer", t, func() {
 		m := Message{Type: PUT_REQUEST, Body: "fish"}
-		_, err := node1.Send(DHTProtocol, pid, &m)
+		_, err := node1.Send(ActionProtocol, pid, &m)
 		//So(r, ShouldBeNil)
 		So(err, ShouldEqual, "fish")
 	})

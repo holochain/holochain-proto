@@ -85,7 +85,7 @@ type Protocol struct {
 	Receiver ReceiverFn
 }
 
-var DHTProtocol, ValidateProtocol, GossipProtocol, AppProtocol Protocol
+var ValidateProtocol, GossipProtocol, ActionProtocol Protocol
 
 type Router struct {
 	dummy int

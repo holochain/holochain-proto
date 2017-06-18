@@ -141,10 +141,9 @@ func Initialize() {
 
 	rand.Seed(time.Now().Unix()) // initialize global pseudo random generator
 
-	DHTProtocol = Protocol{protocol.ID("/hc-dht/0.0.0"), DHTReceiver}
 	ValidateProtocol = Protocol{protocol.ID("/hc-validate/0.0.0"), ValidateReceiver}
 	GossipProtocol = Protocol{protocol.ID("/hc-gossip/0.0.0"), GossipReceiver}
-	AppProtocol = Protocol{protocol.ID("/hc-app/0.0.0"), AppReceiver}
+	ActionProtocol = Protocol{protocol.ID("/hc-action/0.0.0"), ActionReceiver}
 }
 
 // Find the DNA files

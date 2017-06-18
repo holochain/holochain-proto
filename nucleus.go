@@ -4,11 +4,6 @@
 
 package holochain
 
-import (
-	"fmt"
-	peer "github.com/libp2p/go-libp2p-peer"
-)
-
 // Nucleus encapsulates Application parts: Ribosomes to run code in Zomes, plus application
 // validation and direct message passing protocols
 type Nucleus struct {
@@ -30,7 +25,7 @@ func (n *Nucleus) Start() (err error) {
 	if err = n.h.node.StartProtocol(n.h, ValidateProtocol); err != nil {
 		return
 	}
-	if err = n.h.node.StartProtocol(n.h, AppProtocol); err != nil {
+	if err = n.h.node.StartProtocol(n.h, ActionProtocol); err != nil {
 		return
 	}
 	return
@@ -41,28 +36,17 @@ type AppMsg struct {
 	Body     string
 }
 
-// AppReceiver handles messages on the application protocol
-func AppReceiver(h *Holochain, msg *Message) (response interface{}, err error) {
-	switch msg.Type {
-	case APP_MESSAGE:
-		h.config.Loggers.App.Logf("got app message: %v", msg)
-		switch t := msg.Body.(type) {
-		case AppMsg:
-			var r Ribosome
-			r, _, err = h.MakeRibosome(t.ZomeType)
-			if err != nil {
-				return
-			}
-			rsp := AppMsg{ZomeType: t.ZomeType}
-			rsp.Body, err = r.Receive(peer.IDB58Encode(msg.From), t.Body)
-			if err == nil {
-				response = rsp
-			}
-		default:
-			err = fmt.Errorf("expected AppMsg got %T", t)
-		}
-	default:
-		err = fmt.Errorf("message type %d not in holochain-app protocol", int(msg.Type))
+// ActionReceiver handles messages on the action protocol
+func ActionReceiver(h *Holochain, msg *Message) (response interface{}, err error) {
+	dht := h.dht
+	var a Action
+	a, err = MakeActionFromMessage(msg)
+	if err == nil {
+		dht.dlog.Logf("ActionReceiver got %s: %v", a.Name(), msg)
+		// N.B. a.Receive calls made to an Action whose values are NOT populated.
+		// The Receive functions understand this and use the values from the message body
+		// TODO, this indicates an architectural error, so fix!
+		response, err = a.Receive(dht, msg)
 	}
 	return
 }

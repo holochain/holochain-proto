@@ -41,11 +41,12 @@ type Chain struct {
 
 	//---
 
-	s *os.File // if this stream is not nil, new entries will get marshaled to it
+	s        *os.File // if this stream is not nil, new entries will get marshaled to it
+	hashSpec HashSpec
 }
 
 // NewChain creates and empty chain
-func NewChain() (chain *Chain) {
+func NewChain(hashSpec HashSpec) (chain *Chain) {
 	c := Chain{
 		Headers:  make([]*Header, 0),
 		Entries:  make([]Entry, 0),
@@ -53,6 +54,7 @@ func NewChain() (chain *Chain) {
 		TypeTops: make(map[string]int),
 		Hmap:     make(map[string]int),
 		Emap:     make(map[string]int),
+		hashSpec: hashSpec,
 	}
 	chain = &c
 	return
@@ -60,13 +62,13 @@ func NewChain() (chain *Chain) {
 
 // NewChainFromFile creates a chain from a file, loading any data there,
 // and setting it to be persisted to. If no file exists it will be created.
-func NewChainFromFile(h HashSpec, path string) (c *Chain, err error) {
+func NewChainFromFile(spec HashSpec, path string) (c *Chain, err error) {
 	defer func() {
 		if err != nil {
 			Debugf("error loading chain :%s", err.Error())
 		}
 	}()
-	c = NewChain()
+	c = NewChain(spec)
 
 	var f *os.File
 	if fileExists(path) {
@@ -98,7 +100,7 @@ func NewChainFromFile(h HashSpec, path string) (c *Chain, err error) {
 			var hash Hash
 
 			// hash the header
-			hash, _, err = hd.Sum(h)
+			hash, _, err = hd.Sum(spec)
 			if err != nil {
 				return
 			}
@@ -154,17 +156,17 @@ func (c *Chain) TopType(entryType string) (hash *Hash, header *Header) {
 }
 
 // AddEntry creates a new header and adds it to a chain
-func (c *Chain) AddEntry(h HashSpec, now time.Time, entryType string, e Entry, privKey ic.PrivKey) (hash Hash, err error) {
+func (c *Chain) AddEntry(now time.Time, entryType string, e Entry, privKey ic.PrivKey) (hash Hash, err error) {
 	var l int
 	var header *Header
-	l, hash, header, err = c.PrepareHeader(h, now, entryType, e, privKey, nil)
+	l, hash, header, err = c.PrepareHeader(now, entryType, e, privKey, nil)
 	if err == nil {
 		err = c.addEntry(l, hash, header, e)
 	}
 	return
 }
 
-func (c *Chain) PrepareHeader(h HashSpec, now time.Time, entryType string, e Entry, privKey ic.PrivKey, change *StatusChange) (entryIdx int, hash Hash, header *Header, err error) {
+func (c *Chain) PrepareHeader(now time.Time, entryType string, e Entry, privKey ic.PrivKey, change *StatusChange) (entryIdx int, hash Hash, header *Header, err error) {
 
 	// get the previous hashes
 	var ph, pth Hash
@@ -184,7 +186,7 @@ func (c *Chain) PrepareHeader(h HashSpec, now time.Time, entryType string, e Ent
 		pth = c.Hashes[i]
 	}
 
-	hash, header, err = newHeader(h, now, entryType, e, privKey, ph, pth, change)
+	hash, header, err = newHeader(c.hashSpec, now, entryType, e, privKey, ph, pth, change)
 	if err != nil {
 		return
 	}
@@ -383,13 +385,13 @@ func (c *Chain) addPair(header *Header, entry Entry, i int) {
 }
 
 // UnmarshalChain unserializes a chain from a reader
-func UnmarshalChain(reader io.Reader) (flags int64, c *Chain, err error) {
+func UnmarshalChain(hashSpec HashSpec, reader io.Reader) (flags int64, c *Chain, err error) {
 	defer func() {
 		if err != nil {
 			Debugf("error unmarshaling chain:%s", err.Error())
 		}
 	}()
-	c = NewChain()
+	c = NewChain(hashSpec)
 	err = binary.Read(reader, binary.LittleEndian, &flags)
 	if err != nil {
 		return
@@ -437,14 +439,14 @@ func (c *Chain) Walk(fn WalkerFn) (err error) {
 // Validate traverses chain confirming the hashes
 // @TODO confirm that TypeLinks are also correct
 // @TODO confirm signatures
-func (c *Chain) Validate(hashSpec HashSpec, skipEntries bool) (err error) {
+func (c *Chain) Validate(skipEntries bool) (err error) {
 	l := len(c.Headers)
 	for i := 0; i < l; i++ {
 		hd := c.Headers[i]
 
 		var hash, nexth Hash
 		// hash the header
-		hash, _, err = hd.Sum(hashSpec)
+		hash, _, err = hd.Sum(c.hashSpec)
 		if err != nil {
 			return
 		}
@@ -467,7 +469,7 @@ func (c *Chain) Validate(hashSpec HashSpec, skipEntries bool) (err error) {
 			if err != nil {
 				return
 			}
-			err = hash.Sum(hashSpec, b)
+			err = hash.Sum(c.hashSpec, b)
 			if err != nil {
 				return
 			}
@@ -486,7 +488,8 @@ func (c *Chain) String() string {
 	l := len(c.Headers)
 	r := ""
 	for i := 0; i < l; i++ {
-		r += fmt.Sprintf("Header:%v\n", *c.Headers[i])
+		hash, _, _ := c.Headers[i].Sum(c.hashSpec)
+		r += fmt.Sprintf("Header (%v):%v\n", hash, *c.Headers[i])
 		r += fmt.Sprintf("Entry:%v\n\n", c.Entries[i])
 	}
 	r += "Hashlist:\n"

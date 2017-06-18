@@ -96,7 +96,7 @@ func MakeValidationPackage(h *Holochain, pkg *Package) (vpkg *ValidationPackage,
 	if (pkg != nil) && (pkg.Chain != nil) {
 		buf := bytes.NewBuffer(pkg.Chain)
 		var flags int64
-		flags, vp.Chain, err = UnmarshalChain(buf)
+		flags, vp.Chain, err = UnmarshalChain(h.hashSpec, buf)
 		if err != nil {
 			return
 		}
@@ -105,7 +105,7 @@ func MakeValidationPackage(h *Holochain, pkg *Package) (vpkg *ValidationPackage,
 			vp.Chain.Entries[0].(*GobEntry).C = h.chain.Entries[0].(*GobEntry).C
 		}
 		if flags&ChainMarshalFlagsNoHeaders == 0 {
-			err = vp.Chain.Validate(h.hashSpec, flags&ChainMarshalFlagsNoEntries != 0)
+			err = vp.Chain.Validate(flags&ChainMarshalFlagsNoEntries != 0)
 			if err != nil {
 				return
 			}

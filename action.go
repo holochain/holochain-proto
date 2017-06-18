@@ -498,7 +498,7 @@ func (h *Holochain) doCommit(a CommittingAction, change *StatusChange) (d *Entry
 	entry := a.Entry()
 	var l int
 	var hash Hash
-	l, hash, header, err = h.chain.PrepareHeader(h.hashSpec, time.Now(), entryType, entry, h.agent.PrivKey(), change)
+	l, hash, header, err = h.chain.PrepareHeader(time.Now(), entryType, entry, h.agent.PrivKey(), change)
 	if err != nil {
 		return
 	}

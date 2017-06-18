@@ -135,7 +135,7 @@ func TestNodeSend(t *testing.T) {
 	h2.node = node2
 	os.MkdirAll(h2.DBPath(), os.ModePerm)
 	h2.dht = NewDHT(&h2)
-	h2.chain = NewChain()
+	h2.chain = NewChain(h.hashSpec)
 	h2.nucleus = NewNucleus(&h2)
 
 	h.Activate()

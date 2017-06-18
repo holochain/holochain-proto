@@ -1157,7 +1157,7 @@ func (h *Holochain) GenDNAHashes() (err error) {
 // NewEntry adds an entry and it's header to the chain and returns the header and it's hash
 func (h *Holochain) NewEntry(now time.Time, entryType string, entry Entry) (hash Hash, header *Header, err error) {
 	var l int
-	l, hash, header, err = h.chain.PrepareHeader(h.hashSpec, now, entryType, entry, h.agent.PrivKey(), nil)
+	l, hash, header, err = h.chain.PrepareHeader(now, entryType, entry, h.agent.PrivKey(), nil)
 	if err == nil {
 		err = h.chain.addEntry(l, hash, header, entry)
 	}

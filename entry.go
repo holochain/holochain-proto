@@ -9,9 +9,7 @@ package holochain
 import (
 	"encoding/binary"
 	"encoding/json"
-	"github.com/lestrrat/go-jsschema"
 	"github.com/lestrrat/go-jsval"
-	"github.com/lestrrat/go-jsval/builder"
 	"io"
 )
 
@@ -67,8 +65,6 @@ type DelEntry struct {
 type EntryDef struct {
 	Name       string
 	DataFormat string
-	Schema     string // file name of schema or language schema directive
-	SchemaHash Hash
 	Sharing    string
 	validator  SchemaValidator
 }
@@ -187,18 +183,17 @@ func (v *JSONSchemaValidator) Validate(entry interface{}) (err error) {
 
 // BuildJSONSchemaValidator builds a validator in an EntryDef
 func (d *EntryDef) BuildJSONSchemaValidator(path string) (err error) {
-	var s *schema.Schema
-	s, err = schema.ReadFile(path + "/" + d.Schema)
-	if err != nil {
-		return
-	}
+	validator, err := BuildJSONSchemaValidatorFromFile(path)
+	if err != nil { return }
+	validator.v.SetName(d.Name)
+	d.validator = validator
+	return
+}
 
-	b := builder.New()
-	var v JSONSchemaValidator
-	v.v, err = b.Build(s)
-	if err == nil {
-		v.v.SetName(d.Schema)
-		d.validator = &v
-	}
+func (d *EntryDef) BuildJSONSchemaValidatorFromString(schema string) (err error) {
+	validator, err := BuildJSONSchemaValidatorFromString(schema)
+	if err != nil { return }
+	validator.v.SetName(d.Name)
+	d.validator = validator
 	return
 }

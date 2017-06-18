@@ -8,11 +8,11 @@ import (
 
 func TestCreateRibosome(t *testing.T) {
 	Convey("should fail to create a ribosome based from bad ribosome type", t, func() {
-		_, err := CreateRibosome(nil, &Zome{RibosomeType: "foo", code: "some code"})
+		_, err := CreateRibosome(nil, &Zome{RibosomeType: "foo", Code: "some code"})
 		So(err.Error(), ShouldEqual, "Invalid ribosome name. Must be one of: js, zygo")
 	})
 	Convey("should create a ribosome based from a good schema type", t, func() {
-		v, err := CreateRibosome(nil, &Zome{RibosomeType: ZygoRibosomeType, code: `(+ 1 1)`})
+		v, err := CreateRibosome(nil, &Zome{RibosomeType: ZygoRibosomeType, Code: `(+ 1 1)`})
 		z := v.(*ZygoRibosome)
 		So(err, ShouldBeNil)
 		So(fmt.Sprintf("%v", z.lastResult), ShouldEqual, "&{2 <nil>}")

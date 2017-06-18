@@ -36,6 +36,27 @@ func TestJSONEntry(t *testing.T) {
 	*/
 }
 
+func testValidateJSON(ed EntryDef, err error) {
+	So(err, ShouldBeNil)
+	So(ed.validator, ShouldNotBeNil)
+	profile := `{"firstName":"Eric","lastName":"H-B"}`
+
+	var input interface{}
+	if err = json.Unmarshal([]byte(profile), &input); err != nil {
+		panic(err)
+	}
+	err = ed.validator.Validate(input)
+	So(err, ShouldBeNil)
+	profile = `{"firstName":"Eric"}`
+	if err = json.Unmarshal([]byte(profile), &input); err != nil {
+		panic(err)
+	}
+
+	err = ed.validator.Validate(input)
+	So(err, ShouldNotBeNil)
+	So(err.Error(), ShouldEqual, "validator schema_profile.json failed: object property 'lastName' is required")
+}
+
 func TestJSONSchemaValidator(t *testing.T) {
 	d, _ := setupTestService()
 	defer cleanupTestDir(d)
@@ -58,32 +79,22 @@ func TestJSONSchemaValidator(t *testing.T) {
 	},
 	"required": ["firstName", "lastName"]
 }`
-	ed := EntryDef{Schema: "schema_profile.json"}
+	edf := EntryDefFile{SchemaFile: "schema_profile.json"}
 
-	if err := writeFile(d, ed.Schema, []byte(schema)); err != nil {
+	if err := writeFile(d, edf.SchemaFile, []byte(schema)); err != nil {
 		panic(err)
 	}
 
-	Convey("it should validate JSON entries", t, func() {
-		err := ed.BuildJSONSchemaValidator(d)
-		So(err, ShouldBeNil)
-		So(ed.validator, ShouldNotBeNil)
-		profile := `{"firstName":"Eric","lastName":"H-B"}`
+	ed := EntryDef{Name: "schema_profile.json"}
 
-		var input interface{}
-		if err = json.Unmarshal([]byte(profile), &input); err != nil {
-			panic(err)
-		}
-		err = ed.validator.Validate(input)
-		So(err, ShouldBeNil)
-		profile = `{"firstName":"Eric"}`
-		if err = json.Unmarshal([]byte(profile), &input); err != nil {
-			panic(err)
-		}
+	Convey("it should validate JSON entries from schema file", t, func() {
+		err := ed.BuildJSONSchemaValidator(d+"/"+ed.Name)
+		testValidateJSON(ed, err)
+	})
 
-		err = ed.validator.Validate(input)
-		So(err, ShouldNotBeNil)
-		So(err.Error(), ShouldEqual, "validator schema_profile.json failed: object property 'lastName' is required")
+	Convey("it should validate JSON entries from string", t, func() {
+		err := ed.BuildJSONSchemaValidatorFromString(schema)
+		testValidateJSON(ed, err)
 	})
 }
 

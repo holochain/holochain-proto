@@ -7,6 +7,7 @@ package holochain
 
 import (
 	"bytes"
+	"strings"
 	"encoding/gob"
 	"encoding/json"
 	"errors"
@@ -16,6 +17,8 @@ import (
 	"io"
 	"io/ioutil"
 	"os"
+	"github.com/lestrrat/go-jsschema"
+	"github.com/lestrrat/go-jsval/builder"
 )
 
 const (
@@ -269,5 +272,37 @@ func ByteDecoder(b []byte, to interface{}) (err error) {
 	buf := bytes.NewBuffer(b)
 	dec := gob.NewDecoder(buf)
 	err = dec.Decode(to)
+	return
+}
+
+func BuildJSONSchemaValidatorFromFile(path string) (validator *JSONSchemaValidator, err error) {
+	var s *schema.Schema
+	s, err = schema.ReadFile(path)
+	if err != nil {
+		return
+	}
+
+	b := builder.New()
+	var v JSONSchemaValidator
+	v.v, err = b.Build(s)
+	if err == nil {
+		validator = &v
+	}
+	return
+}
+
+
+func BuildJSONSchemaValidatorFromString(input string) (validator *JSONSchemaValidator, err error) {
+	var s *schema.Schema
+	s, err = schema.Read(strings.NewReader(input))
+	if err != nil {
+		return
+	}
+	b := builder.New()
+	var v JSONSchemaValidator
+	v.v, err = b.Build(s)
+	if err == nil {
+		validator = &v
+	}
 	return
 }

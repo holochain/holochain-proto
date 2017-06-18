@@ -13,13 +13,9 @@ type Zome struct {
 	Name         string
 	Description  string
 	Code         string // file name of DNA code
-	CodeHash     Hash
 	Entries      []EntryDef
 	RibosomeType string
 	Functions    []FunctionDef
-
-	// cache for code
-	code string
 }
 
 // GetEntryDef returns the entry def structure
@@ -51,17 +47,6 @@ func (zome *Zome) GetFunctionDef(fnName string) (fn *FunctionDef, err error) {
 }
 
 func (zome *Zome) MakeRibosome(h *Holochain) (r Ribosome, err error) {
-	//check to see if we have a cached version of the code, otherwise read from disk
-	if zome.code == "" {
-		zpath := h.ZomePath(zome)
-		var code []byte
-
-		code, err = readFile(zpath, zome.Code)
-		if err != nil {
-			return
-		}
-		zome.code = string(code)
-	}
 	r, err = CreateRibosome(h, zome)
 	return
 }

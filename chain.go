@@ -184,14 +184,11 @@ func (c *Chain) PrepareHeader(h HashSpec, now time.Time, entryType string, e Ent
 		pth = c.Hashes[i]
 	}
 
-	hash, header, err = newHeader(h, now, entryType, e, privKey, ph, pth)
+	hash, header, err = newHeader(h, now, entryType, e, privKey, ph, pth, change)
 	if err != nil {
 		return
 	}
 	entryIdx = l
-	if change != nil {
-		header.Change = *change
-	}
 	return
 }
 

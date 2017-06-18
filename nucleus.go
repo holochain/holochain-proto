@@ -15,12 +15,13 @@ type DNA struct {
 	UUID                      uuid.UUID
 	Name                      string
 	Properties                map[string]string
+	PropertiesSchema          string
 	BasedOn                   Hash // references hash of another holochain that these schemas and code are derived from
 	RequiresVersion           int
 	DHTConfig                 DHTConfig
 	Progenitor                Progenitor
 	Zomes                     []Zome
-	PropertiesSchemaValidator SchemaValidator
+	propertiesSchemaValidator SchemaValidator
 }
 
 func (dna *DNA) check() (err error) {

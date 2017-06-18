@@ -247,7 +247,10 @@ func (s *Service) LoadDNA(path string, filename string, format string) (dnaP *DN
 	if err != nil {return}
 
 	var validator SchemaValidator
+	var propertiesSchema []byte
 	if dnaFile.PropertiesSchemaFile != "" {
+		propertiesSchema, err = readFile(path, dnaFile.PropertiesSchemaFile)
+		if err != nil {return}
 		schemapath := path+"/"+dnaFile.PropertiesSchemaFile
 		//fmt.Printf("LoadDNA: opening schema file %s\n", schemapath)
 		validator, err = BuildJSONSchemaValidatorFromFile(schemapath)
@@ -263,7 +266,8 @@ func (s *Service) LoadDNA(path string, filename string, format string) (dnaP *DN
 	dna.DHTConfig 								= dnaFile.DHTConfig
 	dna.Progenitor								= dnaFile.Progenitor
 	dna.Properties 								= dnaFile.Properties
-	dna.PropertiesSchemaValidator = validator
+	dna.PropertiesSchema					= string(propertiesSchema)
+	dna.propertiesSchemaValidator = validator
 
 	err = dna.check()
 	if err != nil {return}
@@ -307,6 +311,10 @@ func (s *Service) LoadDNA(path string, filename string, format string) (dnaP *DN
 				if !fileExists(schemaFilePath) {
 					return nil, errors.New("DNA specified schema file missing: " + schemaFilePath)
 				}
+				var schema []byte
+				schema, err = readFile(zomePath, entry.SchemaFile)
+				if err != nil {return}
+				dna.Zomes[i].Entries[j].Schema = string(schema)
 				if strings.HasSuffix(entry.SchemaFile, ".json") {
 					if err = dna.Zomes[i].Entries[j].BuildJSONSchemaValidator(schemaFilePath); err != nil {
 						return nil, err

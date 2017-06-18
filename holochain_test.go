@@ -58,8 +58,8 @@ func TestNewHolochain(t *testing.T) {
 		nz, _ := h.GetZome("zySampleZome")
 		So(nz.Description, ShouldEqual, "zome desc")
 		So(nz.Code, ShouldEqual, "zome_zySampleZome.zy")
-		So(fmt.Sprintf("%v", nz.Entries[0]), ShouldEqual, "{entryTypeFoo string  <nil>}")
-		So(fmt.Sprintf("%v", nz.Entries[1]), ShouldEqual, "{entryTypeBar zygo  <nil>}")
+		So(fmt.Sprintf("%v", nz.Entries[0]), ShouldEqual, "{entryTypeFoo string   <nil>}")
+		So(fmt.Sprintf("%v", nz.Entries[1]), ShouldEqual, "{entryTypeBar zygo   <nil>}")
 	})
 
 }

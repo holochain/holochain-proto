@@ -66,6 +66,7 @@ type EntryDef struct {
 	Name       string
 	DataFormat string
 	Sharing    string
+	Schema		 string
 	validator  SchemaValidator
 }
 

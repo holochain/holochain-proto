@@ -27,7 +27,7 @@ func TestValidateAction(t *testing.T) {
 		var d *EntryDef
 		d, err = h.ValidateAction(a, a.entryType, nil, []peer.ID{h.nodeID})
 		So(err, ShouldBeNil)
-		So(fmt.Sprintf("%v", d), ShouldEqual, "&{evenNumbers zygo public <nil>}")
+		So(fmt.Sprintf("%v", d), ShouldEqual, "&{evenNumbers zygo public  <nil>}")
 	})
 	Convey("an invalid action returns the ValidationFailedErr", t, func() {
 		entry := &GobEntry{C: "1"}

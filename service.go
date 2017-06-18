@@ -864,6 +864,18 @@ func (s *Service) Clone(srcPath string, root string, new bool) (hP *Holochain, e
 		h.encodingFormat = format
 		h.rootPath = root
 
+		srcDna := srcDNAPath+"/"+DNAFileName+"."+format
+		dstDna := h.DNAPath()+"/"+DNAFileName+"."+format
+		//fmt.Printf("Copy dna from: %s to: %s\n", srcDna, dstDna)
+
+		// create the DNA directory and copy
+		if err := os.MkdirAll(h.DNAPath(), os.ModePerm); err != nil {
+			return nil, err
+		}
+		if err = CopyFile(srcDna, dstDna); err != nil {
+			return
+		}
+
 		agent, err := LoadAgent(filepath.Dir(root))
 		if err != nil {
 			return
@@ -923,11 +935,6 @@ func (s *Service) Clone(srcPath string, root string, new bool) (hP *Holochain, e
 
 		//fmt.Printf("srcTestDir: %s, err: %s\n", srcTestDir, err)
 
-		// create the DNA directory and copy
-		if err := os.MkdirAll(h.DNAPath(), os.ModePerm); err != nil {
-			return nil, err
-		}
-
 		propertiesSchema := srcDNAPath + "/properties_schema.json"
 		if fileExists(propertiesSchema) {
 			if err = CopyFile(propertiesSchema, h.DNAPath()+"/properties_schema.json"); err != nil {
@@ -955,8 +962,6 @@ func (s *Service) Clone(srcPath string, root string, new bool) (hP *Holochain, e
 		}
 
 		hP = &h
-
-		fmt.Printf("done!")
 
 		return
 	})

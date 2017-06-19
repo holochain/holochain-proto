@@ -7,7 +7,6 @@
 package holochain
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	peer "github.com/libp2p/go-libp2p-peer"
@@ -605,7 +604,7 @@ func (dht *DHT) Send(key Hash, msgType MsgType, body interface{}) (response inte
 
 // Send sends a message to the node
 func (dht *DHT) send(to peer.ID, t MsgType, body interface{}) (response interface{}, err error) {
-	return dht.h.Send(DHTProtocol, to, t, body)
+	return dht.h.Send(ActionProtocol, to, t, body)
 }
 
 // FindNodeForHash gets the nearest node to the neighborhood of the hash
@@ -623,7 +622,7 @@ func (dht *DHT) FindNodeForHash(key Hash) (n *Node, err error) {
 }
 
 // HandleChangeReqs waits on a chanel for messages to handle
-func (dht *DHT) HandleChangeReqs() (err error) {
+/*func (dht *DHT) HandleChangeReqs() (err error) {
 	for {
 		dht.dlog.Log("HandleChangeReq: waiting for request")
 		m, ok := <-dht.puts
@@ -639,197 +638,11 @@ func (dht *DHT) HandleChangeReqs() (err error) {
 	}
 	return nil
 }
-
-func (dht *DHT) handleChangeReq(m *Message) (err error) {
-	switch t := m.Body.(type) {
-	default:
-		dht.dlog.Logf("handling %T: %v", t, m)
-
-	}
-	from := m.From
-	switch t := m.Body.(type) {
-	case PutReq:
-		var r interface{}
-		r, err = dht.h.Send(ValidateProtocol, from, VALIDATE_PUT_REQUEST, ValidateQuery{H: t.H})
-		if err != nil {
-			return
-		}
-		switch resp := r.(type) {
-		case ValidateResponse:
-			a := NewPutAction(resp.Type, &resp.Entry, &resp.Header)
-			_, err = dht.h.ValidateAction(a, a.entryType, &resp.Package, []peer.ID{from})
-
-			var status int
-			if err != nil {
-				dht.dlog.Logf("Put %v rejected: %v", t.H, err)
-				status = StatusRejected
-			} else {
-				status = StatusLive
-			}
-			entry := resp.Entry
-			var b []byte
-			b, err = entry.Marshal()
-			if err == nil {
-				err = dht.put(m, resp.Type, t.H, from, b, status)
-			}
-
-		default:
-			err = fmt.Errorf("expected ValidateResponse from validator got %T", r)
-		}
-	case ModReq:
-		//var hashStatus int
-		err = dht.exists(t.H, StatusDefault)
-		if err != nil {
-			if err == ErrHashNotFound {
-				dht.dlog.Logf("don't yet have %s, trying again later", t.H)
-				panic("RETRY-MOD NOT IMPLEMENTED")
-				// try the del again later
-			}
-			return
-		}
-		var r interface{}
-		r, err = dht.h.Send(ValidateProtocol, from, VALIDATE_MOD_REQUEST, ValidateQuery{H: t.N})
-		if err != nil {
-			return
-		}
-		switch resp := r.(type) {
-		case ValidateResponse:
-			a := NewModAction(resp.Type, &resp.Entry, t.H)
-			a.header = &resp.Header
-			//@TODO what comes back from Validate Del
-			_, err = dht.h.ValidateAction(a, resp.Type, &resp.Package, []peer.ID{from})
-			if err != nil {
-				// how do we record an invalid Mod?
-				//@TODO store as REJECTED?
-			} else {
-				err = dht.mod(m, t.H, t.N)
-			}
-
-		default:
-			err = fmt.Errorf("expected ValidateResponse from validator got %T", resp)
-		}
-
-	case DelReq:
-		//var hashType string
-		//var hashStatus int
-		err = dht.exists(t.H, StatusDefault)
-		if err != nil {
-			if err == ErrHashNotFound {
-				dht.dlog.Logf("don't yet have %s, trying again later", t.H)
-				panic("RETRY-DELETE NOT IMPLEMENTED")
-				// try the del again later
-			}
-			return
-		}
-
-		var r interface{}
-		r, err = dht.h.Send(ValidateProtocol, from, VALIDATE_DEL_REQUEST, ValidateQuery{H: t.By})
-		if err != nil {
-			return
-		}
-
-		switch resp := r.(type) {
-		case ValidateResponse:
-			var delEntry DelEntry
-			err = ByteDecoder([]byte(resp.Entry.Content().(string)), &delEntry)
-			if err != nil {
-				return
-			}
-
-			a := NewDelAction(resp.Type, delEntry)
-			//@TODO what comes back from Validate Del
-			_, err = dht.h.ValidateAction(a, resp.Type, &resp.Package, []peer.ID{from})
-			if err != nil {
-				// how do we record an invalid DEL?
-				//@TODO store as REJECTED
-			} else {
-				err = dht.del(m, delEntry.Hash)
-			}
-
-		default:
-			err = fmt.Errorf("expected ValidateResponse from validator got %T", resp)
-		}
-
-	case LinkReq:
-
-		//var baseType string
-		//var baseStatus int
-		err = dht.exists(t.Base, StatusLive)
-		// @TODO what happens if the baseStatus is not StatusLive?
-		if err != nil {
-			if err == ErrHashNotFound {
-				dht.dlog.Logf("don't yet have %s, trying again later", t.Base)
-				panic("RETRY-LINK NOT IMPLEMENTED")
-				// try the put again later
-			}
-			return
-		}
-
-		var r interface{}
-		r, err = dht.h.Send(ValidateProtocol, from, VALIDATE_LINK_REQUEST, ValidateQuery{H: t.Links})
-		if err != nil {
-			return
-		}
-		switch resp := r.(type) {
-		case ValidateResponse:
-			var le LinksEntry
-
-			if err = json.Unmarshal([]byte(resp.Entry.Content().(string)), &le); err != nil {
-				return
-			}
-
-			a := NewLinkAction(resp.Type, le.Links)
-			a.validationBase = t.Base
-			_, err = dht.h.ValidateAction(a, a.entryType, &resp.Package, []peer.ID{from})
-			//@TODO this is "one bad apple spoils the lot" because the app
-			// has no way to tell us not to link certain of the links.
-			// we need to extend the return value of the app to be able to
-			// have it reject a subset of the links.
-			if err != nil {
-				// how do we record an invalid linking?
-				//@TODO store as REJECTED
-			} else {
-				base := t.Base.String()
-				for _, l := range le.Links {
-					if base == l.Base {
-						if l.LinkAction == DelAction {
-							err = dht.delLink(m, base, l.Link, l.Tag)
-						} else {
-							err = dht.putLink(m, base, l.Link, l.Tag)
-						}
-					}
-				}
-
-			}
-		default:
-			err = fmt.Errorf("expected ValidateResponse from validator got %T", r)
-		}
-	default:
-		err = fmt.Errorf("unexpected body type %T in handleChangeReq", t)
-	}
-	return
-}
-
-// DHTReceiver handles messages on the dht protocol
-func DHTReceiver(h *Holochain, msg *Message) (response interface{}, err error) {
-	dht := h.dht
-	var a Action
-	a, err = h.GetDHTReqAction(msg)
-	if err == nil {
-		dht.dlog.Logf("DHTReceiver got %s: %v", a.Name(), msg)
-		// N.B. DHTReqHandler calls made to an Action whose values are NOT populated
-		// the handler's understand this and use the values from the message body
-		response, err = a.DHTReqHandler(dht, msg)
-	}
-	return
-}
+*/
 
 // Start initiates listening for DHT & Gossip protocol messages on the node
 func (dht *DHT) Start() (err error) {
-	if err = dht.h.node.StartProtocol(dht.h, DHTProtocol); err != nil {
-		return
-	}
-	dht.h.node.StartProtocol(dht.h, GossipProtocol)
+	err = dht.h.node.StartProtocol(dht.h, GossipProtocol)
 	return
 }
 

@@ -37,11 +37,11 @@ type Arg struct {
 }
 
 // Action provides an abstraction for grouping all the aspects of a nucleus function, i.e.
-// the validation,dht changing, ribosome generation etc
+// the initiating actions, receiving them, validation, ribosome generation etc
 type Action interface {
 	Name() string
 	Do(h *Holochain) (response interface{}, err error)
-	DHTReqHandler(dht *DHT, msg *Message) (response interface{}, err error)
+	Receive(dht *DHT, msg *Message) (response interface{}, err error)
 	Args() []Arg
 }
 
@@ -50,7 +50,7 @@ type CommittingAction interface {
 	Name() string
 	Do(h *Holochain) (response interface{}, err error)
 	SysValidation(h *Holochain, d *EntryDef, sources []peer.ID) (err error)
-	DHTReqHandler(dht *DHT, msg *Message) (response interface{}, err error)
+	Receive(dht *DHT, msg *Message) (response interface{}, err error)
 	CheckValidationRequest(def *EntryDef) (err error)
 	Args() []Arg
 	EntryType() string
@@ -62,7 +62,7 @@ type ValidatingAction interface {
 	Name() string
 	Do(h *Holochain) (response interface{}, err error)
 	SysValidation(h *Holochain, d *EntryDef, sources []peer.ID) (err error)
-	DHTReqHandler(dht *DHT, msg *Message) (response interface{}, err error)
+	Receive(dht *DHT, msg *Message) (response interface{}, err error)
 	CheckValidationRequest(def *EntryDef) (err error)
 	Args() []Arg
 }
@@ -185,12 +185,13 @@ func (h *Holochain) GetValidationResponse(a ValidatingAction, hash Hash) (resp V
 	return
 }
 
-// GetDHTReqAction generates an action from DHT request
-// TODO this should be refactored into the Action interface
-func (h *Holochain) GetDHTReqAction(msg *Message) (a Action, err error) {
+// MakeActionFromMessage generates an action from an action protocol messsage
+func MakeActionFromMessage(msg *Message) (a Action, err error) {
 	var t reflect.Type
-	// TODO this can be refactored into Action
 	switch msg.Type {
+	case APP_MESSAGE:
+		a = &ActionSend{}
+		t = reflect.TypeOf(AppMsg{})
 	case PUT_REQUEST:
 		a = &ActionPut{}
 		t = reflect.TypeOf(PutReq{})
@@ -210,10 +211,10 @@ func (h *Holochain) GetDHTReqAction(msg *Message) (a Action, err error) {
 		a = &ActionGetLink{}
 		t = reflect.TypeOf(LinkQuery{})
 	default:
-		err = fmt.Errorf("message type %d not in holochain-dht protocol", int(msg.Type))
+		err = fmt.Errorf("message type %d not in holochain-action protocol", int(msg.Type))
 	}
 	if err == nil && reflect.TypeOf(msg.Body) != t {
-		err = fmt.Errorf("Unexpected request body type '%T' in %s request", msg.Body, a.Name())
+		err = fmt.Errorf("Unexpected request body type '%T' in %s request, expecting %v", msg.Body, a.Name(), t)
 	}
 	return
 }
@@ -367,9 +368,24 @@ func (a *ActionSend) Args() []Arg {
 
 func (a *ActionSend) Do(h *Holochain) (response interface{}, err error) {
 	var r interface{}
-	r, err = h.Send(AppProtocol, a.to, APP_MESSAGE, a.msg)
+	r, err = h.Send(ActionProtocol, a.to, APP_MESSAGE, a.msg)
 	if err == nil {
 		response = r.(AppMsg).Body
+	}
+	return
+}
+
+func (a *ActionSend) Receive(dht *DHT, msg *Message) (response interface{}, err error) {
+	t := msg.Body.(AppMsg)
+	var r Ribosome
+	r, _, err = dht.h.MakeRibosome(t.ZomeType)
+	if err != nil {
+		return
+	}
+	rsp := AppMsg{ZomeType: t.ZomeType}
+	rsp.Body, err = r.Receive(peer.IDB58Encode(msg.From), t.Body)
+	if err == nil {
+		response = rsp
 	}
 	return
 }
@@ -447,7 +463,7 @@ func (a *ActionGet) SysValidation(h *Holochain, d *EntryDef, sources []peer.ID) 
 	return
 }
 
-func (a *ActionGet) DHTReqHandler(dht *DHT, msg *Message) (response interface{}, err error) {
+func (a *ActionGet) Receive(dht *DHT, msg *Message) (response interface{}, err error) {
 	var entryData []byte
 	//var status int
 	req := msg.Body.(GetReq)
@@ -498,7 +514,7 @@ func (h *Holochain) doCommit(a CommittingAction, change *StatusChange) (d *Entry
 	entry := a.Entry()
 	var l int
 	var hash Hash
-	l, hash, header, err = h.chain.PrepareHeader(h.hashSpec, time.Now(), entryType, entry, h.agent.PrivKey(), change)
+	l, hash, header, err = h.chain.PrepareHeader(time.Now(), entryType, entry, h.agent.PrivKey(), change)
 	if err != nil {
 		return
 	}
@@ -653,7 +669,7 @@ func (a *ActionCommit) SysValidation(h *Holochain, d *EntryDef, sources []peer.I
 	return
 }
 
-func (a *ActionCommit) DHTReqHandler(dht *DHT, msg *Message) (response interface{}, err error) {
+func (a *ActionCommit) Receive(dht *DHT, msg *Message) (response interface{}, err error) {
 	err = NonDHTAction
 	return
 }
@@ -694,9 +710,44 @@ func (a *ActionPut) SysValidation(h *Holochain, d *EntryDef, sources []peer.ID) 
 	return
 }
 
-func (a *ActionPut) DHTReqHandler(dht *DHT, msg *Message) (response interface{}, err error) {
+func RunValidationPhase(h *Holochain, source peer.ID, msgType MsgType, query Hash, handler func(resp ValidateResponse) error) (err error) {
+	var r interface{}
+	r, err = h.Send(ValidateProtocol, source, msgType, ValidateQuery{H: query})
+	if err != nil {
+		return
+	}
+	switch resp := r.(type) {
+	case ValidateResponse:
+		err = handler(resp)
+	default:
+		err = fmt.Errorf("expected ValidateResponse from validator got %T", r)
+	}
+	return
+}
+
+func (a *ActionPut) Receive(dht *DHT, msg *Message) (response interface{}, err error) {
 	//dht.puts <- *m  TODO add back in queueing
-	err = dht.handleChangeReq(msg)
+	t := msg.Body.(PutReq)
+	err = RunValidationPhase(dht.h, msg.From, VALIDATE_PUT_REQUEST, t.H, func(resp ValidateResponse) error {
+		a := NewPutAction(resp.Type, &resp.Entry, &resp.Header)
+		_, err := dht.h.ValidateAction(a, a.entryType, &resp.Package, []peer.ID{msg.From})
+
+		var status int
+		if err != nil {
+			dht.dlog.Logf("Put %v rejected: %v", t.H, err)
+			status = StatusRejected
+		} else {
+			status = StatusLive
+		}
+		entry := resp.Entry
+		var b []byte
+		b, err = entry.Marshal()
+		if err == nil {
+			err = dht.put(msg, resp.Type, t.H, msg.From, b, status)
+		}
+		return err
+	})
+
 	response = "queued"
 	return
 }
@@ -771,9 +822,32 @@ func (a *ActionMod) SysValidation(h *Holochain, def *EntryDef, sources []peer.ID
 	return
 }
 
-func (a *ActionMod) DHTReqHandler(dht *DHT, msg *Message) (response interface{}, err error) {
-	//dht.puts <- *m  TODO add back in queueing
-	err = dht.handleChangeReq(msg)
+func (a *ActionMod) Receive(dht *DHT, msg *Message) (response interface{}, err error) {
+	//var hashStatus int
+	t := msg.Body.(ModReq)
+	from := msg.From
+	err = dht.exists(t.H, StatusDefault)
+	if err != nil {
+		if err == ErrHashNotFound {
+			dht.dlog.Logf("don't yet have %s, trying again later", t.H)
+			panic("RETRY-MOD NOT IMPLEMENTED")
+			// try the del again later
+		}
+		return
+	}
+	err = RunValidationPhase(dht.h, msg.From, VALIDATE_MOD_REQUEST, t.N, func(resp ValidateResponse) error {
+		a := NewModAction(resp.Type, &resp.Entry, t.H)
+		a.header = &resp.Header
+		//@TODO what comes back from Validate Del
+		_, err = dht.h.ValidateAction(a, resp.Type, &resp.Package, []peer.ID{from})
+		if err != nil {
+			// how do we record an invalid Mod?
+			//@TODO store as REJECTED?
+		} else {
+			err = dht.mod(msg, t.H, t.N)
+		}
+		return err
+	})
 	response = "queued"
 	return
 }
@@ -819,10 +893,12 @@ func (a *ActionDel) Args() []Arg {
 func (a *ActionDel) Do(h *Holochain) (response interface{}, err error) {
 	var d *EntryDef
 	var entryHash Hash
+
 	d, _, entryHash, err = h.doCommit(a, &StatusChange{Action: DelAction, Hash: a.entry.Hash})
 	if err != nil {
 		return
 	}
+
 	if d.Sharing == Public {
 		// if it's a public entry send the DHT DEL
 		_, err = h.dht.Send(a.entry.Hash, DEL_REQUEST, DelReq{H: a.entry.Hash, By: entryHash})
@@ -849,9 +925,37 @@ func (a *ActionDel) SysValidation(h *Holochain, d *EntryDef, sources []peer.ID) 
 	return
 }
 
-func (a *ActionDel) DHTReqHandler(dht *DHT, msg *Message) (response interface{}, err error) {
-	//dht.puts <- *m  TODO add back in queueing
-	err = dht.handleChangeReq(msg)
+func (a *ActionDel) Receive(dht *DHT, msg *Message) (response interface{}, err error) {
+	t := msg.Body.(DelReq)
+	from := msg.From
+	err = dht.exists(t.H, StatusDefault)
+	if err != nil {
+		if err == ErrHashNotFound {
+			dht.dlog.Logf("don't yet have %s, trying again later", t.H)
+			panic("RETRY-DELETE NOT IMPLEMENTED")
+			// try the del again later
+		}
+		return
+	}
+
+	err = RunValidationPhase(dht.h, msg.From, VALIDATE_DEL_REQUEST, t.By, func(resp ValidateResponse) error {
+		var delEntry DelEntry
+		err := ByteDecoder([]byte(resp.Entry.Content().(string)), &delEntry)
+		if err != nil {
+			return err
+		}
+
+		a := NewDelAction(resp.Type, delEntry)
+		//@TODO what comes back from Validate Del
+		_, err = dht.h.ValidateAction(a, resp.Type, &resp.Package, []peer.ID{from})
+		if err != nil {
+			// how do we record an invalid DEL?
+			//@TODO store as REJECTED
+		} else {
+			err = dht.del(msg, delEntry.Hash)
+		}
+		return err
+	})
 	response = "queued"
 	return
 }
@@ -892,16 +996,59 @@ func (a *ActionLink) SysValidation(h *Holochain, d *EntryDef, sources []peer.ID)
 	return
 }
 
-func (a *ActionLink) DHTReqHandler(dht *DHT, msg *Message) (response interface{}, err error) {
-	base := msg.Body.(LinkReq).Base
+func (a *ActionLink) Receive(dht *DHT, msg *Message) (response interface{}, err error) {
+	t := msg.Body.(LinkReq)
+	base := t.Base
+	from := msg.From
 	err = dht.exists(base, StatusLive)
 	if err == nil {
-		//h.dht.puts <- *m  TODO add back in queueing
-		err = dht.handleChangeReq(msg)
+		err = dht.exists(t.Base, StatusLive)
+		// @TODO what happens if the baseStatus is not StatusLive?
+		if err != nil {
+			if err == ErrHashNotFound {
+				dht.dlog.Logf("don't yet have %s, trying again later", t.Base)
+				panic("RETRY-LINK NOT IMPLEMENTED")
+				// try the put again later
+			}
+			return
+		}
+
+		err = RunValidationPhase(dht.h, msg.From, VALIDATE_LINK_REQUEST, t.Links, func(resp ValidateResponse) error {
+			var le LinksEntry
+
+			if err = json.Unmarshal([]byte(resp.Entry.Content().(string)), &le); err != nil {
+				return err
+			}
+
+			a := NewLinkAction(resp.Type, le.Links)
+			a.validationBase = t.Base
+			_, err = dht.h.ValidateAction(a, a.entryType, &resp.Package, []peer.ID{from})
+			//@TODO this is "one bad apple spoils the lot" because the app
+			// has no way to tell us not to link certain of the links.
+			// we need to extend the return value of the app to be able to
+			// have it reject a subset of the links.
+			if err != nil {
+				// how do we record an invalid linking?
+				//@TODO store as REJECTED
+			} else {
+				base := t.Base.String()
+				for _, l := range le.Links {
+					if base == l.Base {
+						if l.LinkAction == DelAction {
+							err = dht.delLink(msg, base, l.Link, l.Tag)
+						} else {
+							err = dht.putLink(msg, base, l.Link, l.Tag)
+						}
+					}
+				}
+
+			}
+			return err
+		})
 
 		response = "queued"
 	} else {
-		dht.dlog.Logf("DHTReceiver key %v doesn't exist, ignoring", base)
+		dht.dlog.Logf("DHTReceive key %v doesn't exist, ignoring", base)
 	}
 	return
 }
@@ -975,7 +1122,7 @@ func (a *ActionGetLink) SysValidation(h *Holochain, d *EntryDef, sources []peer.
 	return
 }
 
-func (a *ActionGetLink) DHTReqHandler(dht *DHT, msg *Message) (response interface{}, err error) {
+func (a *ActionGetLink) Receive(dht *DHT, msg *Message) (response interface{}, err error) {
 	lq := msg.Body.(LinkQuery)
 	var r LinkQueryResp
 	r.Links, err = dht.getLink(lq.Base, lq.T, lq.StatusMask)

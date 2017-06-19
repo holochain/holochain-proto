@@ -36,13 +36,17 @@ type Header struct {
 }
 
 // newHeader makes Header object linked to a previous Header by hash
-func newHeader(hashSpec HashSpec, now time.Time, t string, entry Entry, privKey ic.PrivKey, prev Hash, prevType Hash) (hash Hash, header *Header, err error) {
+func newHeader(hashSpec HashSpec, now time.Time, t string, entry Entry, privKey ic.PrivKey, prev Hash, prevType Hash, change *StatusChange) (hash Hash, header *Header, err error) {
 	var hd Header
 	hd.Type = t
 	hd.Time = now
 	hd.HeaderLink = prev
 	hd.TypeLink = prevType
-	hd.Change.Hash = NullHash()
+	if change != nil {
+		hd.Change = *change
+	} else {
+		hd.Change.Hash = NullHash()
+	}
 
 	hd.EntryLink, err = entry.Sum(hashSpec)
 	if err != nil {

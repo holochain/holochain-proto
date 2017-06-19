@@ -133,10 +133,9 @@ func Initialize() {
 
 	rand.Seed(time.Now().Unix()) // initialize global pseudo random generator
 
-	DHTProtocol = Protocol{protocol.ID("/hc-dht/0.0.0"), DHTReceiver}
 	ValidateProtocol = Protocol{protocol.ID("/hc-validate/0.0.0"), ValidateReceiver}
 	GossipProtocol = Protocol{protocol.ID("/hc-gossip/0.0.0"), GossipReceiver}
-	AppProtocol = Protocol{protocol.ID("/hc-app/0.0.0"), AppReceiver}
+	ActionProtocol = Protocol{protocol.ID("/hc-action/0.0.0"), ActionReceiver}
 }
 
 // ZomePath returns the path to the zome dna data
@@ -442,7 +441,7 @@ func (h *Holochain) EncodeDNA(writer io.Writer) (err error) {
 // NewEntry adds an entry and it's header to the chain and returns the header and it's hash
 func (h *Holochain) NewEntry(now time.Time, entryType string, entry Entry) (hash Hash, header *Header, err error) {
 	var l int
-	l, hash, header, err = h.chain.PrepareHeader(h.hashSpec, now, entryType, entry, h.agent.PrivKey(), nil)
+	l, hash, header, err = h.chain.PrepareHeader(now, entryType, entry, h.agent.PrivKey(), nil)
 	if err == nil {
 		err = h.chain.addEntry(l, hash, header, entry)
 	}

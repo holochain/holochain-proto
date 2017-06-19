@@ -198,7 +198,7 @@ func (h *Holochain) TestScenario(dir string, role string) (err error, testErrs [
 	}
 
 	if config.GossipInterval > 0 {
-		go h.DHT().HandleChangeReqs()
+		//	go h.DHT().HandleChangeReqs()
 		go h.DHT().HandleGossipWiths()
 		go h.DHT().Gossip(config.GossipInterval * time.Millisecond)
 	}
@@ -423,7 +423,7 @@ func (h *Holochain) Test() []error {
 		if err != nil {
 			panic("activate err " + err.Error())
 		}
-		go h.dht.HandleChangeReqs()
+		//	go h.dht.HandleChangeReqs()
 		ers := h.DoTests(name, ts, 0)
 
 		errs = append(errs, ers...)

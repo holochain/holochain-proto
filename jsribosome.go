@@ -765,7 +765,8 @@ func NewJSRibosome(h *Holochain, zome *Zome) (n Ribosome, err error) {
 		}
 		header, err := h.chain.GetEntryHeader(entry.Hash)
 		if err == nil {
-			resp, err := NewDelAction(header.Type, entry).Do(h)
+			var resp interface{}
+			resp, err = NewDelAction(header.Type, entry).Do(h)
 			if err == nil {
 				var entryHash Hash
 				if resp != nil {

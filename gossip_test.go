@@ -9,7 +9,7 @@ import (
 
 /*
 @TODO add setup for gossip that adds entry and meta entry so we have something
-to gossip about.  Currently test is DHTReceiver test
+to gossip about.  Currently test is ActionReceiver test
 
 func TestGossipReceiver(t *testing.T) {
 	d, _, h := prepareTestChain("test")
@@ -139,7 +139,7 @@ func TestGossipData(t *testing.T) {
 		r, _ := dht.HaveFingerprint(f)
 		So(r, ShouldBeFalse)
 	})
-	DHTReceiver(h, m1)
+	ActionReceiver(h, m1)
 	dht.simHandleChangeReqs()
 
 	someData := `{"firstName":"Zippy","lastName":"Pinhead"}`
@@ -152,7 +152,7 @@ func TestGossipData(t *testing.T) {
 	lr := LinkReq{Base: hash, Links: le.EntryLink}
 
 	m2 := h.node.NewMessage(LINK_REQUEST, lr)
-	DHTReceiver(h, m2)
+	ActionReceiver(h, m2)
 	h.dht.simHandleChangeReqs()
 
 	Convey("fingerprints for messages should exist", t, func() {

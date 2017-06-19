@@ -11,8 +11,9 @@ import (
 )
 
 func TestNewChain(t *testing.T) {
+	hashSpec, _, _ := chainTestSetup()
 	Convey("it should make an empty chain", t, func() {
-		c := NewChain()
+		c := NewChain(hashSpec)
 		So(len(c.Headers), ShouldEqual, 0)
 		So(len(c.Entries), ShouldEqual, 0)
 	})
@@ -22,36 +23,36 @@ func TestNewChain(t *testing.T) {
 func TestNewChainFromFile(t *testing.T) {
 	d := setupTestDir()
 	defer cleanupTestDir(d)
-	h, key, now := chainTestSetup()
+	hashSpec, key, now := chainTestSetup()
 
 	var c *Chain
 	var err error
 	path := d + "/chain.dat"
 	Convey("it should make an empty chain with encoder", t, func() {
-		c, err = NewChainFromFile(h, path)
+		c, err = NewChainFromFile(hashSpec, path)
 		So(err, ShouldBeNil)
 		So(c.s, ShouldNotBeNil)
 		So(fileExists(path), ShouldBeTrue)
 	})
 
 	e := GobEntry{C: "some data1"}
-	c.AddEntry(h, now, "entryTypeFoo1", &e, key)
+	c.AddEntry(now, "entryTypeFoo1", &e, key)
 	e = GobEntry{C: "some other data2"}
-	c.AddEntry(h, now, "entryTypeFoo2", &e, key)
+	c.AddEntry(now, "entryTypeFoo2", &e, key)
 	dump := c.String()
 	c.s.Close()
-	c, err = NewChainFromFile(h, path)
+	c, err = NewChainFromFile(hashSpec, path)
 	Convey("it should load chain data if available", t, func() {
 		So(err, ShouldBeNil)
 		So(c.String(), ShouldEqual, dump)
 	})
 
 	e = GobEntry{C: "yet other data"}
-	c.AddEntry(h, now, "yourData", &e, key)
+	c.AddEntry(now, "yourData", &e, key)
 	dump = c.String()
 	c.s.Close()
 
-	c, err = NewChainFromFile(h, path)
+	c, err = NewChainFromFile(hashSpec, path)
 	Convey("should continue to append data after reload", t, func() {
 		So(err, ShouldBeNil)
 		So(c.String(), ShouldEqual, dump)
@@ -59,7 +60,8 @@ func TestNewChainFromFile(t *testing.T) {
 }
 
 func TestTop(t *testing.T) {
-	c := NewChain()
+	hashSpec, key, now := chainTestSetup()
+	c := NewChain(hashSpec)
 	var hash *Hash
 	var hd *Header
 	Convey("it should return an nil for an empty chain", t, func() {
@@ -69,9 +71,9 @@ func TestTop(t *testing.T) {
 		So(hd, ShouldBeNil)
 		So(hash, ShouldBeNil)
 	})
-	h, key, now := chainTestSetup()
+
 	e := GobEntry{C: "some data"}
-	c.AddEntry(h, now, "entryTypeFoo", &e, key)
+	c.AddEntry(now, "entryTypeFoo", &e, key)
 
 	Convey("Top it should return the top header", t, func() {
 		hd = c.Top()
@@ -86,7 +88,7 @@ func TestTop(t *testing.T) {
 		hash, hd = c.TopType("entryTypeFoo")
 		So(hd, ShouldEqual, c.Headers[0])
 	})
-	c.AddEntry(h, now, "otherData", &e, key)
+	c.AddEntry(now, "otherData", &e, key)
 	Convey("TopType should return headers for both types", t, func() {
 		hash, hd = c.TopType("entryTypeFoo")
 		So(hd, ShouldEqual, c.Headers[0])
@@ -102,7 +104,8 @@ func TestTop(t *testing.T) {
 }
 
 func TestTopType(t *testing.T) {
-	c := NewChain()
+	hashSpec, _, _ := chainTestSetup()
+	c := NewChain(hashSpec)
 	Convey("it should return nil for an empty chain", t, func() {
 		hash, hd := c.TopType("entryTypeFoo")
 		So(hd, ShouldBeNil)
@@ -113,13 +116,12 @@ func TestTopType(t *testing.T) {
 }
 
 func TestAddEntry(t *testing.T) {
-	c := NewChain()
-
-	h, key, now := chainTestSetup()
+	hashSpec, key, now := chainTestSetup()
+	c := NewChain(hashSpec)
 
 	Convey("it should add nil to the chain", t, func() {
 		e := GobEntry{C: "some data"}
-		hash, err := c.AddEntry(h, now, "entryTypeFoo", &e, key)
+		hash, err := c.AddEntry(now, "entryTypeFoo", &e, key)
 		So(err, ShouldBeNil)
 		So(len(c.Headers), ShouldEqual, 1)
 		So(len(c.Entries), ShouldEqual, 1)
@@ -129,15 +131,15 @@ func TestAddEntry(t *testing.T) {
 }
 
 func TestGet(t *testing.T) {
-	c := NewChain()
-	h, key, now := chainTestSetup()
+	hashSpec, key, now := chainTestSetup()
+	c := NewChain(hashSpec)
 
 	e1 := GobEntry{C: "some data"}
-	h1, _ := c.AddEntry(h, now, "entryTypeFoo", &e1, key)
+	h1, _ := c.AddEntry(now, "entryTypeFoo", &e1, key)
 	hd1, err1 := c.Get(h1)
 
 	e2 := GobEntry{C: "some other data"}
-	h2, _ := c.AddEntry(h, now, "entryTypeFoo", &e2, key)
+	h2, _ := c.AddEntry(now, "entryTypeFoo", &e2, key)
 	hd2, err2 := c.Get(h2)
 
 	Convey("it should get header by hash or by Entry hash", t, func() {
@@ -176,30 +178,30 @@ func TestGet(t *testing.T) {
 }
 
 func TestMarshalChain(t *testing.T) {
-	c := NewChain()
-	h, key, now := chainTestSetup()
+	hashSpec, key, now := chainTestSetup()
+	c := NewChain(hashSpec)
 
 	e := GobEntry{C: "fake DNA"}
-	c.AddEntry(h, now, DNAEntryType, &e, key)
+	c.AddEntry(now, DNAEntryType, &e, key)
 
 	e = GobEntry{C: "fake agent entry"}
-	c.AddEntry(h, now, AgentEntryType, &e, key)
+	c.AddEntry(now, AgentEntryType, &e, key)
 
 	e = GobEntry{C: "some data"}
-	c.AddEntry(h, now, "entryTypeFoo1", &e, key)
+	c.AddEntry(now, "entryTypeFoo1", &e, key)
 
 	e = GobEntry{C: "some other data"}
-	c.AddEntry(h, now, "entryTypeFoo2", &e, key)
+	c.AddEntry(now, "entryTypeFoo2", &e, key)
 
 	e = GobEntry{C: "and more data"}
-	c.AddEntry(h, now, "entryTypeFoo3", &e, key)
+	c.AddEntry(now, "entryTypeFoo3", &e, key)
 
 	Convey("it should be able to marshal and unmarshal full chain", t, func() {
 		var b bytes.Buffer
 
 		err := c.MarshalChain(&b, ChainMarshalFlagsNone)
 		So(err, ShouldBeNil)
-		flags, c1, err := UnmarshalChain(&b)
+		flags, c1, err := UnmarshalChain(hashSpec, &b)
 		So(err, ShouldBeNil)
 		So(flags, ShouldEqual, ChainMarshalFlagsNone)
 		So(c1.String(), ShouldEqual, c.String())
@@ -219,7 +221,7 @@ func TestMarshalChain(t *testing.T) {
 
 		err := c.MarshalChain(&b, ChainMarshalFlagsNone, AgentEntryType, "entryTypeFoo2")
 		So(err, ShouldBeNil)
-		flags, c1, err := UnmarshalChain(&b)
+		flags, c1, err := UnmarshalChain(hashSpec, &b)
 		So(err, ShouldBeNil)
 		So(flags, ShouldEqual, ChainMarshalFlagsNone)
 		So(len(c1.Entries), ShouldEqual, 3)
@@ -235,7 +237,7 @@ func TestMarshalChain(t *testing.T) {
 
 		err := c.MarshalChain(&b, ChainMarshalFlagsNoEntries)
 		So(err, ShouldBeNil)
-		flags, c1, err := UnmarshalChain(&b)
+		flags, c1, err := UnmarshalChain(hashSpec, &b)
 		So(err, ShouldBeNil)
 		So(flags, ShouldEqual, ChainMarshalFlagsNoEntries)
 
@@ -257,7 +259,7 @@ func TestMarshalChain(t *testing.T) {
 
 		err := c.MarshalChain(&b, ChainMarshalFlagsNoHeaders)
 		So(err, ShouldBeNil)
-		flags, c1, err := UnmarshalChain(&b)
+		flags, c1, err := UnmarshalChain(hashSpec, &b)
 		So(err, ShouldBeNil)
 		So(flags, ShouldEqual, ChainMarshalFlagsNoHeaders)
 
@@ -276,7 +278,7 @@ func TestMarshalChain(t *testing.T) {
 
 		err := c.MarshalChain(&b, ChainMarshalFlagsOmitDNA)
 		So(err, ShouldBeNil)
-		flags, c1, err := UnmarshalChain(&b)
+		flags, c1, err := UnmarshalChain(hashSpec, &b)
 		So(err, ShouldBeNil)
 		So(flags, ShouldEqual, ChainMarshalFlagsOmitDNA)
 		So(c1.Entries[0].Content(), ShouldEqual, "")
@@ -297,16 +299,16 @@ func TestMarshalChain(t *testing.T) {
 }
 
 func TestWalkChain(t *testing.T) {
-	c := NewChain()
-	h, key, now := chainTestSetup()
+	hashSpec, key, now := chainTestSetup()
+	c := NewChain(hashSpec)
 	e := GobEntry{C: "some data"}
-	c.AddEntry(h, now, "entryTypeFoo1", &e, key)
+	c.AddEntry(now, "entryTypeFoo1", &e, key)
 
 	e = GobEntry{C: "some other data"}
-	c.AddEntry(h, now, "entryTypeFoo2", &e, key)
+	c.AddEntry(now, "entryTypeFoo2", &e, key)
 
 	e = GobEntry{C: "and more data"}
-	c.AddEntry(h, now, "entryTypeFoo3", &e, key)
+	c.AddEntry(now, "entryTypeFoo3", &e, key)
 
 	Convey("it should walk back from the top through all entries", t, func() {
 		var x string
@@ -322,62 +324,62 @@ func TestWalkChain(t *testing.T) {
 }
 
 func TestValidateChain(t *testing.T) {
-	c := NewChain()
 	hashSpec, key, now := chainTestSetup()
+	c := NewChain(hashSpec)
 	e := GobEntry{C: "some data"}
-	c.AddEntry(hashSpec, now, DNAEntryType, &e, key)
+	c.AddEntry(now, DNAEntryType, &e, key)
 
 	e = GobEntry{C: "some other data"}
-	c.AddEntry(hashSpec, now, AgentEntryType, &e, key)
+	c.AddEntry(now, AgentEntryType, &e, key)
 
 	e = GobEntry{C: "and more data"}
-	c.AddEntry(hashSpec, now, "entryTypeFoo1", &e, key)
+	c.AddEntry(now, "entryTypeFoo1", &e, key)
 
 	Convey("it should validate", t, func() {
-		So(c.Validate(hashSpec, false), ShouldBeNil)
+		So(c.Validate(false), ShouldBeNil)
 	})
 
 	Convey("it should fail to validate if we diddle some bits", t, func() {
 		c.Entries[0].(*GobEntry).C = "fish" // tweak
-		So(c.Validate(hashSpec, false).Error(), ShouldEqual, "entry hash mismatch at link 0")
-		So(c.Validate(hashSpec, true), ShouldBeNil) // test skipping entry validation
+		So(c.Validate(false).Error(), ShouldEqual, "entry hash mismatch at link 0")
+		So(c.Validate(true), ShouldBeNil) // test skipping entry validation
 
 		c.Entries[0].(*GobEntry).C = "some data" //restore
 		hash, _ := NewHash("QmY8Mzg9F69e5P9AoQPYat655HEhc1TVGs11tmfNSzkqh2")
 		c.Headers[1].TypeLink = hash // tweak
-		So(c.Validate(hashSpec, false).Error(), ShouldEqual, "header hash mismatch at link 1")
+		So(c.Validate(false).Error(), ShouldEqual, "header hash mismatch at link 1")
 
 		c.Headers[1].TypeLink = NullHash() //restore
 		c.Headers[0].Type = "entryTypeBar" //tweak
-		err := c.Validate(hashSpec, false)
+		err := c.Validate(false)
 		So(err.Error(), ShouldEqual, "header hash mismatch at link 0")
 
 		c.Headers[0].Type = DNAEntryType // restore
 		t := c.Headers[0].Time           // tweak
 		c.Headers[0].Time = time.Now()
-		err = c.Validate(hashSpec, false)
+		err = c.Validate(false)
 		So(err.Error(), ShouldEqual, "header hash mismatch at link 0")
 
 		c.Headers[0].Time = t                            // restore
 		c.Headers[0].HeaderLink = c.Headers[0].EntryLink // tweak
-		err = c.Validate(hashSpec, false)
+		err = c.Validate(false)
 		So(err.Error(), ShouldEqual, "header hash mismatch at link 0")
 
 		c.Headers[0].HeaderLink = NullHash() // restore
 		val := c.Headers[0].EntryLink.H[2]
 		c.Headers[0].EntryLink.H[2] = 3 // tweak
-		err = c.Validate(hashSpec, false)
+		err = c.Validate(false)
 		So(err.Error(), ShouldEqual, "header hash mismatch at link 0")
 
 		c.Headers[0].EntryLink.H[2] = val // restore
 		val = c.Headers[0].Sig.S[0]
 		c.Headers[0].Sig.S[0] = 99 // tweak
-		err = c.Validate(hashSpec, false)
+		err = c.Validate(false)
 		So(err.Error(), ShouldEqual, "header hash mismatch at link 0")
 
 		c.Headers[0].Sig.S[0] = val        // restore
 		c.Headers[0].Change.Action = "foo" // tweak
-		err = c.Validate(hashSpec, false)
+		err = c.Validate(false)
 		So(err.Error(), ShouldEqual, "header hash mismatch at link 0")
 
 	})
@@ -385,19 +387,20 @@ func TestValidateChain(t *testing.T) {
 
 /*
 func TestPersistingChain(t *testing.T) {
-	c := NewChain()
+	hashSpec, key, now := chainTestSetup()
+	c := NewChain(hashSpec)
 	var b bytes.Buffer
 	c.encoder = gob.NewEncoder(&b)
 
 	h, key, now := chainTestSetup()
 	e := GobEntry{C: "some data"}
-	c.AddEntry(h, now, "entryTypeFoo1", &e, key)
+	c.AddEntry(now, "entryTypeFoo1", &e, key)
 
 	e = GobEntry{C: "some other data"}
-	c.AddEntry(h, now, "entryTypeFoo1", &e, key)
+	c.AddEntry(now, "entryTypeFoo1", &e, key)
 
 	e = GobEntry{C: "and more data"}
-	c.AddEntry(h, now, "entryTypeFoo1", &e, key)
+	c.AddEntry(now, "entryTypeFoo1", &e, key)
 
 	dec := gob.NewDecoder(&b)
 

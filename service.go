@@ -578,17 +578,17 @@ func (s *Service) GenDev(root string, format string) (hP *Holochain, err error) 
 		}
 
 		propertiesSchema := `{
-			"title": "Properties Schema",
-			"type": "object",
-			"properties": {
-				"description": {
-					"type": "string"
-				},
-				"language": {
-					"type": "string"
-				}
-			}
-		}`
+	"title": "Properties Schema",
+	"type": "object",
+	"properties": {
+		"description": {
+			"type": "string"
+		},
+		"language": {
+			"type": "string"
+		}
+	}
+}`
 
 		//fmt.Printf("\nGenDev writing propertie schema to ", h.DNAPath()+"/"+propertiesSchemaFile)
 
@@ -597,34 +597,34 @@ func (s *Service) GenDev(root string, format string) (hP *Holochain, err error) 
 		}
 
 		profileSchema := `{
-			"title": "Profile Schema",
-			"type": "object",
-			"properties": {
-			"firstName": {
-				"type": "string"
-			},
-			"lastName": {
-				"type": "string"
-			},
-			"age": {
-				"description": "Age in years",
-				"type": "integer",
-				"minimum": 0
-			}
-			},
-			"required": ["firstName", "lastName"]
-		}`
+	"title": "Profile Schema",
+	"type": "object",
+	"properties": {
+		"firstName": {
+			"type": "string"
+		},
+		"lastName": {
+			"type": "string"
+		},
+		"age": {
+			"description": "Age in years",
+			"type": "integer",
+			"minimum": 0
+		}
+	},
+	"required": ["firstName", "lastName"]
+}`
 
 		primesSchema := `{
-			"title": "Prime Schema",
-			"type": "object",
-			"properties": {
-				"prime": {
-					"type": "integer"
-				}
-			},
-			"required": ["prime"]
-		}`
+	"title": "Prime Schema",
+	"type": "object",
+	"properties": {
+		"prime": {
+			"type": "integer"
+		}
+	},
+	"required": ["prime"]
+}`
 
 		zygoCode := `
 (defn testStrFn1 [x] (concat "result: " x))
@@ -634,16 +634,16 @@ func (s *Service) GenDev(root string, format string) (hP *Holochain, err error) 
 (defn addEven [x] (commit "evenNumbers" x))
 (defn addPrime [x] (commit "primes" x))
 (defn validateCommit [entryType entry header pkg sources]
-	(validate entryType entry header sources))
+  (validate entryType entry header sources))
 (defn validatePut [entryType entry header pkg sources]
-	(validate entryType entry header sources))
+  (validate entryType entry header sources))
 (defn validateMod [entryType entry header replaces pkg sources] true)
 (defn validateDel [entryType hash pkg sources] true)
 (defn validate [entryType entry header sources]
-	(cond (== entryType "evenNumbers")  (cond (== (mod entry 2) 0) true false)
-				(== entryType "primes")  (isprime (hget entry %prime))
-				(== entryType "profile") true
-				false)
+  (cond (== entryType "evenNumbers")  (cond (== (mod entry 2) 0) true false)
+        (== entryType "primes")  (isprime (hget entry %prime))
+        (== entryType "profile") true
+        false)
 )
 (defn validateLink [linkEntryType baseHash links pkg sources] true)
 (defn validatePutPkg [entryType] nil)
@@ -678,35 +678,35 @@ function getProperty(x) {return property(x)};
 function addOdd(x) {return commit("oddNumbers",x);}
 function addProfile(x) {return commit("profile",x);}
 function validatePut(entry_type,entry,header,pkg,sources) {
-return validate(entry_type,entry,header,sources);
+  return validate(entry_type,entry,header,sources);
 }
 function validateMod(entry_type,entry,header,replaces,pkg,sources) {
-return true;
+  return true;
 }
 function validateDel(entry_type,hash,pkg,sources) {
-return true;
+  return true;
 }
 function validateCommit(entry_type,entry,header,pkg,sources) {
-if (entry_type == "rating") {return true}
-return validate(entry_type,entry,header,sources);
+  if (entry_type == "rating") {return true}
+  return validate(entry_type,entry,header,sources);
 }
 function validate(entry_type,entry,header,sources) {
-if (entry_type=="oddNumbers") {
-	return entry%2 != 0
-}
-if (entry_type=="profile") {
-	return true
-}
-if (entry_type=="secret") {
-	return true
-}
-return false
+  if (entry_type=="oddNumbers") {
+    return entry%2 != 0
+  }
+  if (entry_type=="profile") {
+    return true
+  }
+  if (entry_type=="secret") {
+    return true
+  }
+  return false
 }
 function validateLink(linkEntryType,baseHash,linkHash,tag,pkg,sources){return true}
 function validatePutPkg(entry_type) {
-req = {};
-req[HC.PkgReq.Chain]=HC.PkgReq.ChainOpt.Full;
-return req;
+  req = {};
+  req[HC.PkgReq.Chain]=HC.PkgReq.ChainOpt.Full;
+  return req;
 }
 function validateModPkg(entry_type) { return null}
 function validateDelPkg(entry_type) { return null}
@@ -715,8 +715,8 @@ function validateLinkPkg(entry_type) { return null}
 function genesis() {return true}
 
 function receive(from,message) {
-// send back a pong message of what came in the ping message!
-return {pong:message.ping}
+  // send back a pong message of what came in the ping message!
+  return {pong:message.ping}
 }
 
 `

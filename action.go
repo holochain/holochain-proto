@@ -710,9 +710,9 @@ func (a *ActionPut) SysValidation(h *Holochain, d *EntryDef, sources []peer.ID) 
 	return
 }
 
-func RunValidationPhase(h *Holochain, source peer.ID, query Hash, handler func(resp ValidateResponse) error) (err error) {
+func RunValidationPhase(h *Holochain, source peer.ID, msgType MsgType, query Hash, handler func(resp ValidateResponse) error) (err error) {
 	var r interface{}
-	r, err = h.Send(ValidateProtocol, source, VALIDATE_PUT_REQUEST, ValidateQuery{H: query})
+	r, err = h.Send(ValidateProtocol, source, msgType, ValidateQuery{H: query})
 	if err != nil {
 		return
 	}
@@ -728,7 +728,7 @@ func RunValidationPhase(h *Holochain, source peer.ID, query Hash, handler func(r
 func (a *ActionPut) Receive(dht *DHT, msg *Message) (response interface{}, err error) {
 	//dht.puts <- *m  TODO add back in queueing
 	t := msg.Body.(PutReq)
-	err = RunValidationPhase(dht.h, msg.From, t.H, func(resp ValidateResponse) error {
+	err = RunValidationPhase(dht.h, msg.From, VALIDATE_PUT_REQUEST, t.H, func(resp ValidateResponse) error {
 		a := NewPutAction(resp.Type, &resp.Entry, &resp.Header)
 		_, err := dht.h.ValidateAction(a, a.entryType, &resp.Package, []peer.ID{msg.From})
 
@@ -835,7 +835,7 @@ func (a *ActionMod) Receive(dht *DHT, msg *Message) (response interface{}, err e
 		}
 		return
 	}
-	err = RunValidationPhase(dht.h, msg.From, t.N, func(resp ValidateResponse) error {
+	err = RunValidationPhase(dht.h, msg.From, VALIDATE_MOD_REQUEST, t.N, func(resp ValidateResponse) error {
 		a := NewModAction(resp.Type, &resp.Entry, t.H)
 		a.header = &resp.Header
 		//@TODO what comes back from Validate Del
@@ -938,7 +938,7 @@ func (a *ActionDel) Receive(dht *DHT, msg *Message) (response interface{}, err e
 		return
 	}
 
-	err = RunValidationPhase(dht.h, msg.From, t.By, func(resp ValidateResponse) error {
+	err = RunValidationPhase(dht.h, msg.From, VALIDATE_DEL_REQUEST, t.By, func(resp ValidateResponse) error {
 		var delEntry DelEntry
 		err := ByteDecoder([]byte(resp.Entry.Content().(string)), &delEntry)
 		if err != nil {
@@ -1013,7 +1013,7 @@ func (a *ActionLink) Receive(dht *DHT, msg *Message) (response interface{}, err 
 			return
 		}
 
-		err = RunValidationPhase(dht.h, msg.From, t.Links, func(resp ValidateResponse) error {
+		err = RunValidationPhase(dht.h, msg.From, VALIDATE_LINK_REQUEST, t.Links, func(resp ValidateResponse) error {
 			var le LinksEntry
 
 			if err = json.Unmarshal([]byte(resp.Entry.Content().(string)), &le); err != nil {

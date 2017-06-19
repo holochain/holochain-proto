@@ -60,6 +60,7 @@ type Service struct {
 type EntryDefFile struct {
 	Name       string
 	DataFormat string
+	Schema		 string
 	SchemaFile string // file name of schema or language schema directive
 	Sharing    string
 }
@@ -67,6 +68,7 @@ type EntryDefFile struct {
 type ZomeFile struct {
 	Name         string
 	Description  string
+	Code				 string
 	CodeFile     string
 	Entries      []EntryDefFile
 	RibosomeType string
@@ -299,24 +301,27 @@ func (s *Service) LoadDNA(path string, filename string, format string) (dnaP *DN
 			//fmt.Printf("%v", zome)
 			return nil, errors.New("DNA specified code file missing: " + zome.CodeFile)
 		}
-		var code []byte
-		code, err = readFile(zomePath, zome.CodeFile)
-		if err != nil {
-			return
-		}
 
 		dna.Zomes[i].Name = zome.Name
 		dna.Zomes[i].Description = zome.Description
 		dna.Zomes[i].RibosomeType = zome.RibosomeType
 		dna.Zomes[i].Functions = zome.Functions
-		dna.Zomes[i].Code = string(code[:])
+		if zome.Code == "" {
+				var code []byte
+				code, err = readFile(zomePath, zome.CodeFile)
+				if err != nil {return}
+				dna.Zomes[i].Code					= string(code[:])
+		} else {
+			dna.Zomes[i].Code = zome.Code
+		}
 
 		dna.Zomes[i].Entries = make([]EntryDef, len(zome.Entries))
 		for j, entry := range zome.Entries {
 			dna.Zomes[i].Entries[j].Name = entry.Name
 			dna.Zomes[i].Entries[j].DataFormat = entry.DataFormat
 			dna.Zomes[i].Entries[j].Sharing = entry.Sharing
-			if entry.SchemaFile != "" {
+			dna.Zomes[i].Entries[j].Schema = entry.Schema
+			if entry.Schema == "" && entry.SchemaFile != "" {
 				schemaFilePath := zomePath + "/" + entry.SchemaFile
 				if !fileExists(schemaFilePath) {
 					return nil, errors.New("DNA specified schema file missing: " + schemaFilePath)
@@ -943,8 +948,6 @@ func (s *Service) Clone(srcPath string, root string, new bool) (hP *Holochain, e
 		}
 
 		for _, z := range h.nucleus.dna.Zomes {
-			srczpath := srcDNAPath + "/" + z.Name
-
 			zpath := h.ZomePath(&z)
 			if err = os.MkdirAll(zpath, os.ModePerm); err != nil {
 				return nil, err
@@ -954,7 +957,7 @@ func (s *Service) Clone(srcPath string, root string, new bool) (hP *Holochain, e
 			}
 			for _, e := range z.Entries {
 				if e.DataFormat == "json" {
-					if err = CopyFile(srczpath+"/"+e.Name+".json", zpath+"/"+e.Name+".json"); err != nil {
+					if err = writeFile(zpath, e.Name+".json", []byte(e.Schema)); err != nil {
 						return
 					}
 				}

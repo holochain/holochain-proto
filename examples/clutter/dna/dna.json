@@ -7,7 +7,7 @@
         "description": "distributed micro-blogging (Twitter clone)",
         "language": "en"
     },
-    "PropertiesSchema": "properties_schema.json",
+    "PropertiesSchemaFile": "properties_schema.json",
     "DHTConfig": {
         "HashType": "sha2-256"
     },
@@ -19,28 +19,18 @@
             "Name": "clutter",
             "Description": "zome that implements micro-blogging",
             "RibosomeType": "js",
-            "Code": "clutter.js",
-            "CodeHash": {
-                "H": null
-            },
+            "CodeFile": "clutter.js",
             "Entries": [
                 {
                     "Name": "handle",
                     "DataFormat": "string",
-                    "Sharing": "public",
-                    "Schema": "",
-                    "SchemaHash": {
-                        "H": null
-                    }
+                    "Sharing": "public"
                 },
                 {
                     "Name": "post",
                     "DataFormat": "json",
                     "Sharing": "public",
-                    "Schema": "post.json",
-                    "SchemaHash": {
-                        "H": null
-                    }
+                    "SchemaFile": "post.json"
                 },
                 {
                     "Name": "post_links",
@@ -66,10 +56,7 @@
                     "Name": "anchor",
                     "DataFormat": "json",
                     "Sharing": "public",
-                    "Schema": "anchor.json",
-                    "SchemaHash": {
-                        "H": null
-                    }
+                    "SchemaFile": "anchor.json"
                 }
             ],
             "Functions": [

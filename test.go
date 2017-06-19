@@ -50,6 +50,7 @@ func prepareTestChain(n string) (d string, s *Service, h *Holochain) {
 	if err != nil {
 		panic(err)
 	}
+
 	err = h.Activate()
 	if err != nil {
 		panic(err)

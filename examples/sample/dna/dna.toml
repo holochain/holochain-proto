@@ -1,8 +1,8 @@
 Version = 0
 UUID = "00000000-0000-0000-0000-000000000000"
 Name = "sample"
-PropertiesSchema = "properties_schema.json"
-RequiresVersion = 12
+PropertiesSchemaFile = "properties_schema.json"
+RequiresVersion = 0
 
 [Properties]
   description = "a bogus test holochain"
@@ -13,30 +13,30 @@ RequiresVersion = 12
 [[Zomes]]
   Name = "zySampleZome"
   Description = "this is a zygomas test zome"
-  Code = "zySampleZome.zy"
+  Code = ""
+  CodeFile = "zySampleZome.zy"
   RibosomeType = "zygo"
-  [Zomes.CodeHash]
 
   [[Zomes.Entries]]
     Name = "evenNumbers"
     DataFormat = "zygo"
     Schema = ""
+    SchemaFile = ""
     Sharing = "public"
-    [Zomes.Entries.SchemaHash]
 
   [[Zomes.Entries]]
     Name = "primes"
     DataFormat = "json"
     Schema = ""
+    SchemaFile = "primes.json"
     Sharing = "public"
-    [Zomes.Entries.SchemaHash]
 
   [[Zomes.Entries]]
     Name = "profile"
     DataFormat = "json"
-    Schema = "profile.json"
+    Schema = ""
+    SchemaFile = "profile.json"
     Sharing = "public"
-    [Zomes.Entries.SchemaHash]
 
   [[Zomes.Functions]]
     Name = "getDNA"
@@ -76,30 +76,37 @@ RequiresVersion = 12
 [[Zomes]]
   Name = "jsSampleZome"
   Description = "this is a javascript test zome"
-  Code = "jsSampleZome.js"
+  Code = ""
+  CodeFile = "jsSampleZome.js"
   RibosomeType = "js"
-  [Zomes.CodeHash]
 
   [[Zomes.Entries]]
     Name = "oddNumbers"
     DataFormat = "js"
     Schema = ""
+    SchemaFile = ""
     Sharing = "public"
-    [Zomes.Entries.SchemaHash]
 
   [[Zomes.Entries]]
     Name = "profile"
     DataFormat = "json"
-    Schema = "profile.json"
+    Schema = ""
+    SchemaFile = "profile.json"
     Sharing = "public"
-    [Zomes.Entries.SchemaHash]
 
   [[Zomes.Entries]]
     Name = "rating"
     DataFormat = "links"
     Schema = ""
+    SchemaFile = ""
     Sharing = ""
-    [Zomes.Entries.SchemaHash]
+
+  [[Zomes.Entries]]
+    Name = "secret"
+    DataFormat = "string"
+    Schema = ""
+    SchemaFile = ""
+    Sharing = ""
 
   [[Zomes.Functions]]
     Name = "getProperty"

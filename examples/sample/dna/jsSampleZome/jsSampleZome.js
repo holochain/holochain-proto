@@ -28,6 +28,9 @@ function validate(entry_type,entry,header,sources) {
   if (entry_type=="profile") {
     return true
   }
+  if (entry_type=="secret") {
+    return true
+  }
   return false
 }
 function validateLink(linkEntryType,baseHash,linkHash,tag,pkg,sources){return true}
@@ -41,3 +44,9 @@ function validateDelPkg(entry_type) { return null}
 function validateLinkPkg(entry_type) { return null}
 
 function genesis() {return true}
+
+function receive(from,message) {
+  // send back a pong message of what came in the ping message!
+  return {pong:message.ping}
+}
+

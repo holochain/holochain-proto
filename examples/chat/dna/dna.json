@@ -8,7 +8,7 @@
         "language": "en",
         "initial_admin": "chuck@norris.com"
     },
-    "PropertiesSchema": "properties_schema.json",
+    "PropertiesSchemaFile": "properties_schema.json",
     "DHTConfig": {
         "HashType": "sha2-256"
     },
@@ -20,10 +20,7 @@
             "Name": "chat",
             "Description": "chat code",
             "RibosomeType": "js",
-            "Code": "chat.js",
-            "CodeHash": {
-                "H": null
-            },
+            "CodeFile": "chat.js",
             "Entries": [
                 {
                     "Name": "membership",
@@ -52,19 +49,13 @@
             "Name": "rooms",
             "Description": "Rooms controller",
             "RibosomeType": "js",
-            "Code": "rooms.js",
-            "CodeHash": {
-                "H": null
-            },
+            "CodeFile": "rooms.js",
             "Entries": [
                 {
                     "Name": "room",
                     "DataFormat": "json",
-                    "Schema": "room.json",
-                    "Sharing": "public",
-                    "SchemaHash": {
-                        "H": null
-                    }
+                    "SchemaFile": "room.json",
+                    "Sharing": "public"
                 },
                 {
                     "Name": "room_links",
@@ -88,10 +79,7 @@
             "Name": "messages",
             "Description": "Messages controller",
             "RibosomeType": "js",
-            "Code": "messages.js",
-            "CodeHash": {
-                "H": null
-            },
+            "CodeFile": "messages.js",
             "Entries": [
                 {
                     "Name": "room_message_link",
@@ -100,11 +88,8 @@
                 {
                     "Name": "message",
                     "DataFormat": "json",
-                    "Schema": "message.json",
-                    "Sharing": "public",
-                    "SchemaHash": {
-                        "H": null
-                    }
+                    "SchemaFile": "message.json",
+                    "Sharing": "public"
                 }
             ],
             "Functions": [
@@ -129,10 +114,7 @@
             "Name": "profiles",
             "Description": "Profiles controller",
             "RibosomeType": "js",
-            "Code": "profiles.js",
-            "CodeHash": {
-                "H": null
-            },
+            "CodeFile": "profiles.js",
             "Entries": [
                 {
                     "Name": "registrations",
@@ -145,11 +127,8 @@
                 {
                     "Name": "profile",
                     "DataFormat": "json",
-                    "Schema": "profile.json",
-                    "Sharing": "public",
-                    "SchemaHash": {
-                        "H": null
-                    }
+                    "SchemaFile": "profile.json",
+                    "Sharing": "public"
                 }
             ],
             "Functions": [

@@ -7,7 +7,7 @@
         "description": "sample n2n app",
         "language": "en"
     },
-    "PropertiesSchema": "properties_schema.json",
+    "PropertiesSchemaFile": "properties_schema.json",
     "DHTConfig": {
         "HashType": "sha2-256"
     },
@@ -19,19 +19,12 @@
             "Name": "cointoss",
             "Description": "zome that uses n2n for co-signing of a coin toss",
             "RibosomeType": "js",
-            "Code": "cointoss.js",
-            "CodeHash": {
-                "H": null
-            },
+            "CodeFile": "cointoss.js",
             "Entries": [
                 {
                     "Name": "handle",
                     "DataFormat": "string",
-                    "Sharing": "public",
-                    "Schema": "",
-                    "SchemaHash": {
-                        "H": null
-                    }
+                    "Sharing": "public"
                 },
                 {
                     "Name": "handle_links",
@@ -44,7 +37,7 @@
                 {
                     "Name": "toss",
                     "DataFormat": "json",
-                    "Schema": "toss.json",
+                    "SchemaFile": "toss.json",
                     "Sharing": "public"
                 },
                 {
@@ -56,10 +49,7 @@
                     "Name": "anchor",
                     "DataFormat": "json",
                     "Sharing": "public",
-                    "Schema": "anchor.json",
-                    "SchemaHash": {
-                        "H": null
-                    }
+                    "SchemaFile": "anchor.json"
                 }
             ],
             "Functions": [

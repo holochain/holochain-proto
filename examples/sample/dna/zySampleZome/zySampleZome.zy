@@ -23,3 +23,5 @@
 (defn validateDelPkg [entryType] nil)
 (defn validateLinkPkg [entryType] nil)
 (defn genesis [] true)
+(defn receive [from message]
+	(hash pong: (hget message %ping)))

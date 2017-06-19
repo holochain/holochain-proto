@@ -1,0 +1,10 @@
+{
+	"title": "Prime Schema",
+	"type": "object",
+	"properties": {
+		"prime": {
+			"type": "integer"
+		}
+	},
+	"required": ["prime"]
+}

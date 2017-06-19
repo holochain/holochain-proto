@@ -9,20 +9,18 @@ package holochain
 import (
 	"bytes"
 	"encoding/gob"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"github.com/google/uuid"
+	"io"
+	"math/rand"
+	"os"
+	"time"
+
 	ic "github.com/libp2p/go-libp2p-crypto"
 	peer "github.com/libp2p/go-libp2p-peer"
 	protocol "github.com/libp2p/go-libp2p-protocol"
 	mh "github.com/multiformats/go-multihash"
-	"io"
-	"math/rand"
-	"os"
-	"path/filepath"
-	"strings"
-	"time"
 )
 
 // Version is the numeric version number of the holochain library
@@ -59,16 +57,6 @@ type Progenitor struct {
 
 // Holochain struct holds the full "DNA" of the holochain (all your app code for managing distributed data integrity)
 type Holochain struct {
-	Version          int
-	UUID             uuid.UUID
-	Name             string
-	Properties       map[string]string
-	PropertiesSchema string
-	BasedOn          Hash // references hash of another holochain that these schemas and code are derived from
-	Zomes            []Zome
-	RequiresVersion  int
-	DHTConfig        DHTConfig
-	Progenitor       Progenitor
 	//---- lowercase private values not serialized; initialized on Load
 	nodeID         peer.ID // this is hash of the public key of the id and acts as the node address
 	nodeIDStr      string  // this is just a cached version of the nodeID B58 string encoded
@@ -83,6 +71,10 @@ type Holochain struct {
 	nucleus        *Nucleus
 	node           *Node
 	chain          *Chain // This node's local source chain
+}
+
+func (h *Holochain) Nucleus() (n *Nucleus) {
+	return h.nucleus
 }
 
 var debugLog Logger
@@ -146,57 +138,10 @@ func Initialize() {
 	ActionProtocol = Protocol{protocol.ID("/hc-action/0.0.0"), ActionReceiver}
 }
 
-// Find the DNA files
-func findDNA(path string) (f string, err error) {
-	p := path + "/" + DNAFileName
-
-	matches, err := filepath.Glob(p + ".*")
-	if err != nil {
-		return
-	}
-	for _, fn := range matches {
-		s := strings.Split(fn, ".")
-		f = s[len(s)-1]
-		if f == "json" || f == "yaml" || f == "toml" {
-			break
-		}
-		f = ""
-	}
-
-	if f == "" {
-		err = fmt.Errorf("No DNA file in %s/", path)
-		return
-	}
-	return
-}
-
 // ZomePath returns the path to the zome dna data
 // @todo sanitize the name value
 func (h *Holochain) ZomePath(z *Zome) string {
 	return h.DNAPath() + "/" + z.Name
-}
-
-// IsConfigured checks a directory for correctly set up holochain configuration file
-func (s *Service) IsConfigured(name string) (f string, err error) {
-	root := s.Path + "/" + name
-
-	f, err = findDNA(root + "/" + ChainDNADir)
-	if err != nil {
-		return
-	}
-	//@todo check other things?
-
-	return
-}
-
-// Load instantiates a Holochain instance from disk
-func (s *Service) Load(name string) (h *Holochain, err error) {
-	f, err := s.IsConfigured(name)
-	if err != nil {
-		return
-	}
-	h, err = s.load(name, f)
-	return
 }
 
 // if the directories don't exist, make the place to store chains
@@ -224,15 +169,21 @@ func NewHolochain(agent Agent, root string, format string, zomes ...Zome) Holoch
 		panic(err)
 	}
 
-	h := Holochain{
+	dna := DNA{
 		UUID:            u,
 		RequiresVersion: Version,
 		DHTConfig:       DHTConfig{HashType: "sha2-256"},
 		Progenitor:      Progenitor{Name: string(agent.Name()), PubKey: pk},
-		agent:           agent,
-		rootPath:        root,
-		encodingFormat:  format,
+		Zomes:           zomes,
 	}
+
+	h := Holochain{
+		agent:          agent,
+		rootPath:       root,
+		encodingFormat: format,
+	}
+
+	h.nucleus = NewNucleus(&h, &dna)
 
 	// once the agent is set up we can calculate the id
 	h.nodeID, h.nodeIDStr, err = agent.NodeID()
@@ -241,116 +192,8 @@ func NewHolochain(agent Agent, root string, format string, zomes ...Zome) Holoch
 	}
 
 	h.PrepareHashType()
-	h.Zomes = zomes
 
 	return h
-}
-
-// DecodeDNA decodes a Holochain structure from an io.Reader
-func DecodeDNA(reader io.Reader, format string) (hP *Holochain, err error) {
-	var h Holochain
-	err = Decode(reader, format, &h)
-	if err != nil {
-		return
-	}
-
-	for i, zome := range h.Zomes {
-		if zome.Code == "" {
-			var ext string
-			switch zome.RibosomeType {
-			case "js":
-				ext = ".js"
-			case "zygo":
-				ext = ".zy"
-			}
-			h.Zomes[i].Code = zome.Name + ext
-		}
-	}
-
-	hP = &h
-	hP.encodingFormat = format
-
-	return
-}
-
-// load unmarshals a holochain structure for the named chain and format
-func (s *Service) load(name string, format string) (hP *Holochain, err error) {
-
-	root := s.Path + "/" + name
-	var f *os.File
-	f, err = os.Open(root + "/" + ChainDNADir + "/" + DNAFileName + "." + format)
-	if err != nil {
-		return
-	}
-	defer f.Close()
-	h, err := DecodeDNA(f, format)
-	if err != nil {
-		return
-	}
-	h.encodingFormat = format
-	h.rootPath = root
-
-	// load the config
-	f, err = os.Open(root + "/" + ConfigFileName + "." + format)
-	if err != nil {
-		return
-	}
-	defer f.Close()
-	err = Decode(f, format, &h.config)
-	if err != nil {
-		return
-	}
-	if err = h.setupConfig(); err != nil {
-		return
-	}
-
-	// try and get the holochain-specific agent info
-	agent, err := LoadAgent(root)
-	if err != nil {
-		// if not specified for this app, get the default from the Agent.txt file for all apps
-		agent, err = LoadAgent(filepath.Dir(root))
-	}
-	if err != nil {
-		return
-	}
-	h.agent = agent
-
-	// once the agent is set up we can calculate the id
-	h.nodeID, h.nodeIDStr, err = agent.NodeID()
-	if err != nil {
-		return
-	}
-
-	if err = h.PrepareHashType(); err != nil {
-		return
-	}
-
-	h.chain, err = NewChainFromFile(h.hashSpec, h.DBPath()+"/"+StoreFileName)
-	if err != nil {
-		return
-	}
-
-	// if the chain has been started there should be a DNAHashFile which
-	// we can load to check against the actual hash of the DNA entry
-	var b []byte
-	b, err = readFile(h.rootPath, DNAHashFileName)
-	if err == nil {
-		h.dnaHash, err = NewHash(string(b))
-		if err != nil {
-			return
-		}
-		// @TODO compare value from file to actual hash
-	}
-
-	if h.chain.Length() > 0 {
-		h.agentHash = h.chain.Headers[1].EntryLink
-	}
-	if err = h.Prepare(); err != nil {
-		return
-	}
-
-	hP = h
-	return
 }
 
 // Agent exposes the agent element
@@ -361,9 +204,9 @@ func (h *Holochain) Agent() Agent {
 // PrepareHashType makes sure the given string is a correct multi-hash and stores
 // the code and length to the Holochain struct
 func (h *Holochain) PrepareHashType() (err error) {
-	c, ok := mh.Names[h.DHTConfig.HashType]
+	c, ok := mh.Names[h.nucleus.dna.DHTConfig.HashType]
 	if !ok {
-		return fmt.Errorf("Unknown hash type: %s", h.DHTConfig.HashType)
+		return fmt.Errorf("Unknown hash type: %s", h.nucleus.dna.DHTConfig.HashType)
 	}
 	h.hashSpec.Code = c
 	h.hashSpec.Length = -1
@@ -371,37 +214,16 @@ func (h *Holochain) PrepareHashType() (err error) {
 }
 
 // Prepare sets up a holochain to run by:
-// validating the DNA, loading the schema validators, setting up a Network node and setting up the DHT
+// loading the schema validators, setting up a Network node and setting up the DHT
 func (h *Holochain) Prepare() (err error) {
 
-	if h.RequiresVersion > Version {
-		err = fmt.Errorf("Chain requires Holochain version %d", h.RequiresVersion)
+	err = h.nucleus.dna.check()
+	if err != nil {
 		return
 	}
 
 	if err = h.PrepareHashType(); err != nil {
 		return
-	}
-	for _, z := range h.Zomes {
-		zpath := h.ZomePath(&z)
-		if !fileExists(zpath + "/" + z.Code) {
-			fmt.Printf("%v", z)
-			return errors.New("DNA specified code file missing: " + z.Code)
-		}
-		for i, e := range z.Entries {
-			sc := e.Schema
-			if sc != "" {
-				if !fileExists(zpath + "/" + sc) {
-					return errors.New("DNA specified schema file missing: " + sc)
-				}
-				if strings.HasSuffix(sc, ".json") {
-					if err = e.BuildJSONSchemaValidator(zpath); err != nil {
-						return err
-					}
-					z.Entries[i] = e
-				}
-			}
-		}
 	}
 
 	listenaddr := fmt.Sprintf("/ip4/0.0.0.0/tcp/%d", h.config.Port)
@@ -411,7 +233,7 @@ func (h *Holochain) Prepare() (err error) {
 	}
 
 	h.dht = NewDHT(h)
-	h.nucleus = NewNucleus(h)
+	h.nucleus.h = h
 
 	return
 }
@@ -552,142 +374,12 @@ func (h *Holochain) GenChain() (headerHash Hash, err error) {
 		return
 	}
 
-	// run the init functions of each zome
-	for _, z := range h.Zomes {
-		var n Ribosome
-		n, err = z.MakeRibosome(h)
-		if err == nil {
-			err = n.ChainGenesis()
-			if err != nil {
-				err = fmt.Errorf("In '%s' zome: %s", z.Name, err.Error())
-				return
-			}
-		}
-	}
+	h.nucleus.RunGenesis()
 
-	return
-}
-
-// Clone copies DNA files from a source directory
-// bool new indicates if this clone should create a new DNA (when true) or act as a Join
-func (s *Service) Clone(srcPath string, root string, new bool) (hP *Holochain, err error) {
-	hP, err = gen(root, func(root string) (hP *Holochain, err error) {
-
-		srcDNAPath := srcPath + "/" + ChainDNADir
-		format, err := findDNA(srcDNAPath)
-		if err != nil {
-			return
-		}
-
-		f, err := os.Open(srcDNAPath + "/" + DNAFileName + "." + format)
-		if err != nil {
-			return
-		}
-		defer f.Close()
-		h, err := DecodeDNA(f, format)
-		if err != nil {
-			return
-		}
-		h.rootPath = root
-
-		agent, err := LoadAgent(filepath.Dir(root))
-		if err != nil {
-			return
-		}
-		h.agent = agent
-
-		// once the agent is set up we can calculate the id
-		h.nodeID, h.nodeIDStr, err = agent.NodeID()
-		if err != nil {
-			return
-		}
-
-		// make a config file
-		if err = makeConfig(h, s); err != nil {
-			return
-		}
-
-		if new {
-			// generate a new UUID
-			var u uuid.UUID
-			u, err = uuid.NewUUID()
-			if err != nil {
-				return
-			}
-			h.UUID = u
-
-			// use the path as the name
-			h.Name = filepath.Base(root)
-
-			// change the progenitor to self because this is a clone!
-			var pk []byte
-			pk, err = agent.PubKey().Bytes()
-			if err != nil {
-				return
-			}
-			h.Progenitor = Progenitor{Name: string(agent.Name()), PubKey: pk}
-		}
-
-		// copy any UI files
-		srcUIPath := srcPath + "/" + ChainUIDir
-		if dirExists(srcUIPath) {
-			if err = CopyDir(srcUIPath, h.UIPath()); err != nil {
-				return
-			}
-		}
-
-		// copy any test files
-		srcTestDir := srcPath + "/" + ChainTestDir
-		if dirExists(srcTestDir) {
-			if err = CopyDir(srcTestDir, root+"/"+ChainTestDir); err != nil {
-				return
-			}
-		}
-
-		// create the DNA directory and copy
-		if err := os.MkdirAll(h.DNAPath(), os.ModePerm); err != nil {
-			return nil, err
-		}
-
-		propertiesSchema := srcDNAPath + "/properties_schema.json"
-		if fileExists(propertiesSchema) {
-			if err = CopyFile(propertiesSchema, h.DNAPath()+"/properties_schema.json"); err != nil {
-				return
-			}
-		}
-
-		for _, z := range h.Zomes {
-			var bs []byte
-			srczpath := srcDNAPath + "/" + z.Name
-			bs, err = readFile(srczpath, z.Code)
-			if err != nil {
-				return
-			}
-			zpath := h.ZomePath(&z)
-			if err = os.MkdirAll(zpath, os.ModePerm); err != nil {
-				return nil, err
-			}
-			if err = writeFile(zpath, z.Code, bs); err != nil {
-				return
-			}
-			for _, e := range z.Entries {
-				sc := e.Schema
-				if sc != "" {
-					if err = CopyFile(srczpath+"/"+sc, zpath+"/"+sc); err != nil {
-						return
-					}
-				}
-			}
-		}
-
-		hP = h
-		return
-	})
 	return
 }
 
 func (h *Holochain) setupConfig() (err error) {
-	h.config.EnableMDNS = true
 	if err = h.config.Loggers.App.New(nil); err != nil {
 		return
 	}
@@ -741,416 +433,9 @@ func makeConfig(h *Holochain, s *Service) (err error) {
 	return
 }
 
-// GenDev generates starter holochain DNA files from which to develop a chain
-func (s *Service) GenDev(root string, format string) (hP *Holochain, err error) {
-	hP, err = gen(root, func(root string) (hP *Holochain, err error) {
-		agent, err := NewAgent(LibP2P, "Example Agent <example@example.com")
-		if err != nil {
-			return
-		}
-		err = agent.GenKeys(bytes.NewBuffer([]byte("fixed seed 012345678901234567890123456789")))
-		if err != nil {
-			return
-		}
-
-		zomes := []Zome{
-			{
-				Name:         "zySampleZome",
-				Code:         "zySampleZome.zy",
-				Description:  "this is a zygomas test zome",
-				RibosomeType: ZygoRibosomeType,
-				Entries: []EntryDef{
-					{Name: "evenNumbers", DataFormat: DataFormatRawZygo, Sharing: Public},
-					{Name: "primes", DataFormat: DataFormatJSON, Sharing: Public},
-					{Name: "profile", DataFormat: DataFormatJSON, Schema: "profile.json", Sharing: Public},
-				},
-				Functions: []FunctionDef{
-					{Name: "getDNA", CallingType: STRING_CALLING},
-					{Name: "addEven", CallingType: STRING_CALLING, Exposure: PUBLIC_EXPOSURE},
-					{Name: "addPrime", CallingType: JSON_CALLING, Exposure: PUBLIC_EXPOSURE},
-					{Name: "testStrFn1", CallingType: STRING_CALLING},
-					{Name: "testStrFn2", CallingType: STRING_CALLING},
-					{Name: "testJsonFn1", CallingType: JSON_CALLING},
-					{Name: "testJsonFn2", CallingType: JSON_CALLING},
-				},
-			},
-			{
-				Name:         "jsSampleZome",
-				Code:         "jsSampleZome.js",
-				Description:  "this is a javascript test zome",
-				RibosomeType: JSRibosomeType,
-				Entries: []EntryDef{
-					{Name: "oddNumbers", DataFormat: DataFormatRawJS, Sharing: Public},
-					{Name: "profile", DataFormat: DataFormatJSON, Schema: "profile.json", Sharing: Public},
-					{Name: "rating", DataFormat: DataFormatLinks},
-					{Name: "secret", DataFormat: DataFormatString},
-				},
-				Functions: []FunctionDef{
-					{Name: "getProperty", CallingType: STRING_CALLING},
-					{Name: "addOdd", CallingType: STRING_CALLING, Exposure: PUBLIC_EXPOSURE},
-					{Name: "addProfile", CallingType: JSON_CALLING, Exposure: PUBLIC_EXPOSURE},
-					{Name: "testStrFn1", CallingType: STRING_CALLING},
-					{Name: "testStrFn2", CallingType: STRING_CALLING},
-					{Name: "testJsonFn1", CallingType: JSON_CALLING},
-					{Name: "testJsonFn2", CallingType: JSON_CALLING},
-				}},
-		}
-
-		h := NewHolochain(agent, root, format, zomes...)
-
-		if err = h.mkChainDirs(); err != nil {
-			return nil, err
-		}
-
-		// use the path as the name
-		h.Name = filepath.Base(root)
-
-		if err = makeConfig(&h, s); err != nil {
-			return
-		}
-
-		schema := `{
-	"title": "Properties Schema",
-	"type": "object",
-	"properties": {
-		"description": {
-			"type": "string"
-		},
-		"language": {
-			"type": "string"
-		}
-	}
-}`
-
-		if err = writeFile(h.DNAPath(), "properties_schema.json", []byte(schema)); err != nil {
-			return
-		}
-
-		h.PropertiesSchema = "properties_schema.json"
-		h.Properties = map[string]string{
-			"description": "a bogus test holochain",
-			"language":    "en"}
-
-		schema = `{
-	"title": "Profile Schema",
-	"type": "object",
-	"properties": {
-		"firstName": {
-			"type": "string"
-		},
-		"lastName": {
-			"type": "string"
-		},
-		"age": {
-			"description": "Age in years",
-			"type": "integer",
-			"minimum": 0
-		}
-	},
-	"required": ["firstName", "lastName"]
-}`
-
-		fixtures := [8]TestData{
-			{
-				Zome:   "zySampleZome",
-				FnName: "addEven",
-				Input:  "2",
-				Output: "%h%"},
-			{
-				Zome:   "zySampleZome",
-				FnName: "addEven",
-				Input:  "4",
-				Output: "%h%"},
-			{
-				Zome:   "zySampleZome",
-				FnName: "addEven",
-				Input:  "5",
-				Err:    "Error calling 'commit': Invalid entry: 5"},
-			{
-				Zome:   "zySampleZome",
-				FnName: "addPrime",
-				Input:  "{\"prime\":7}",
-				Output: "\"%h%\""}, // quoted because return value is json
-			{
-				Zome:   "zySampleZome",
-				FnName: "addPrime",
-				Input:  "{\"prime\":4}",
-				Err:    `Error calling 'commit': Invalid entry: {"prime":4}`},
-			{
-				Zome:   "jsSampleZome",
-				FnName: "addProfile",
-				Input:  `{"firstName":"Art","lastName":"Brock"}`,
-				Output: `"%h%"`},
-			{
-				Zome:   "zySampleZome",
-				FnName: "getDNA",
-				Input:  "",
-				Output: "%dna%"},
-			{
-				Zome:     "zySampleZome",
-				FnName:   "getDNA",
-				Input:    "",
-				Err:      "function not available",
-				Exposure: PUBLIC_EXPOSURE,
-			},
-		}
-
-		fixtures2 := [3]TestData{
-			{
-				Zome:   "jsSampleZome",
-				FnName: "addOdd",
-				Input:  "7",
-				Output: "%h%"},
-			{
-				Zome:   "jsSampleZome",
-				FnName: "addOdd",
-				Input:  "2",
-				Err:    "Invalid entry: 2"},
-			{
-				Zome:   "jsSampleZome",
-				Input:  "unexposed(\"this is a\")",
-				Output: "this is a fish",
-				Raw:    true,
-			},
-		}
-
-		for fileName, fileText := range SampleUI {
-			if err = writeFile(h.UIPath(), fileName, []byte(fileText)); err != nil {
-				return
-			}
-		}
-
-		code := make(map[string]string)
-		code["zySampleZome"] = `
-(defn testStrFn1 [x] (concat "result: " x))
-(defn testStrFn2 [x] (+ (atoi x) 2))
-(defn testJsonFn1 [x] (begin (hset x output: (* (-> x input:) 2)) x))
-(defn testJsonFn2 [x] (unjson (raw "[{\"a\":\"b\"}]"))) (defn getDNA [x] App_DNA_Hash)
-(defn addEven [x] (commit "evenNumbers" x))
-(defn addPrime [x] (commit "primes" x))
-(defn validateCommit [entryType entry header pkg sources]
-  (validate entryType entry header sources))
-(defn validatePut [entryType entry header pkg sources]
-  (validate entryType entry header sources))
-(defn validateMod [entryType entry header replaces pkg sources] true)
-(defn validateDel [entryType hash pkg sources] true)
-(defn validate [entryType entry header sources]
-  (cond (== entryType "evenNumbers")  (cond (== (mod entry 2) 0) true false)
-        (== entryType "primes")  (isprime (hget entry %prime))
-        (== entryType "profile") true
-        false)
-)
-(defn validateLink [linkEntryType baseHash links pkg sources] true)
-(defn validatePutPkg [entryType] nil)
-(defn validateModPkg [entryType] nil)
-(defn validateDelPkg [entryType] nil)
-(defn validateLinkPkg [entryType] nil)
-(defn genesis [] true)
-(defn receive [from message]
-  (hash pong: (hget message %ping)))
-`
-		code["jsSampleZome"] = `
-function unexposed(x) {return x+" fish";};
-function testStrFn1(x) {return "result: "+x};
-function testStrFn2(x){ return parseInt(x)+2};
-function testJsonFn1(x){ x.output = x.input*2; return x;};
-function testJsonFn2(x){ return [{a:'b'}] };
-
-function getProperty(x) {return property(x)};
-function addOdd(x) {return commit("oddNumbers",x);}
-function addProfile(x) {return commit("profile",x);}
-function validatePut(entry_type,entry,header,pkg,sources) {
-  return validate(entry_type,entry,header,sources);
-}
-function validateMod(entry_type,entry,header,replaces,pkg,sources) {
-  return true;
-}
-function validateDel(entry_type,hash,pkg,sources) {
-  return true;
-}
-function validateCommit(entry_type,entry,header,pkg,sources) {
-  if (entry_type == "rating") {return true}
-  return validate(entry_type,entry,header,sources);
-}
-function validate(entry_type,entry,header,sources) {
-  if (entry_type=="oddNumbers") {
-    return entry%2 != 0
-  }
-  if (entry_type=="profile") {
-    return true
-  }
-  if (entry_type=="secret") {
-    return true
-  }
-  return false
-}
-function validateLink(linkEntryType,baseHash,linkHash,tag,pkg,sources){return true}
-function validatePutPkg(entry_type) {
-  req = {};
-  req[HC.PkgReq.Chain]=HC.PkgReq.ChainOpt.Full;
-  return req;
-}
-function validateModPkg(entry_type) { return null}
-function validateDelPkg(entry_type) { return null}
-function validateLinkPkg(entry_type) { return null}
-
-function genesis() {return true}
-
-function receive(from,message) {
-  // send back a pong message of what came in the ping message!
-  return {pong:message.ping}
-}
-
-`
-
-		testPath := root + "/test"
-		if err = os.MkdirAll(testPath, os.ModePerm); err != nil {
-			return nil, err
-		}
-
-		for _, z := range h.Zomes {
-
-			zpath := h.ZomePath(&z)
-
-			if err = os.MkdirAll(zpath, os.ModePerm); err != nil {
-				return nil, err
-			}
-
-			c, _ := code[z.Name]
-			if err = writeFile(zpath, z.Code, []byte(c)); err != nil {
-				return
-			}
-
-			// both zomes have the same profile schma, this will be generalized for
-			// scaffold building code.
-			if err = writeFile(zpath, "profile.json", []byte(schema)); err != nil {
-				return
-			}
-
-		}
-
-		// write out the tests
-		for i, d := range fixtures {
-			fn := fmt.Sprintf("test_%d.json", i)
-			var j []byte
-			t := []TestData{d}
-			j, err = json.Marshal(t)
-			if err != nil {
-				return
-			}
-			if err = writeFile(testPath, fn, j); err != nil {
-				return
-			}
-		}
-
-		// also write out some grouped tests
-		fn := "grouped.json"
-		var j []byte
-		j, err = json.Marshal(fixtures2)
-		if err != nil {
-			return
-		}
-		if err = writeFile(testPath, fn, j); err != nil {
-			return
-		}
-		hP = &h
-		return
-	})
-	return
-}
-
-// gen calls a make function which should build the holochain structure and supporting files
-func gen(root string, makeH func(root string) (hP *Holochain, err error)) (h *Holochain, err error) {
-	if dirExists(root) {
-		return nil, mkErr(root + " already exists")
-	}
-	if err := os.MkdirAll(root, os.ModePerm); err != nil {
-		return nil, err
-	}
-
-	// cleanup the directory if we enounter an error while generating
-	defer func() {
-		if err != nil {
-			os.RemoveAll(root)
-		}
-	}()
-
-	h, err = makeH(root)
-	if err != nil {
-		return nil, err
-	}
-
-	if err := os.MkdirAll(h.DBPath(), os.ModePerm); err != nil {
-		return nil, err
-	}
-
-	h.chain, err = NewChainFromFile(h.hashSpec, h.DBPath()+"/"+StoreFileName)
-	if err != nil {
-		return nil, err
-	}
-
-	err = h.SaveDNA(false)
-	if err != nil {
-		return nil, err
-	}
-
-	return
-}
-
 // EncodeDNA encodes a holochain's DNA to an io.Writer
 func (h *Holochain) EncodeDNA(writer io.Writer) (err error) {
-	return Encode(writer, h.encodingFormat, &h)
-}
-
-// SaveDNA writes the holochain DNA to a file
-func (h *Holochain) SaveDNA(overwrite bool) (err error) {
-	p := h.DNAPath() + "/" + DNAFileName + "." + h.encodingFormat
-	if !overwrite && fileExists(p) {
-		return mkErr(p + " already exists")
-	}
-	f, err := os.Create(p)
-	if err != nil {
-		return err
-	}
-	defer f.Close()
-	err = h.EncodeDNA(f)
-	return
-}
-
-// GenDNAHashes generates hashes for all the definition files in the DNA.
-// This function should only be called by developer tools at the end of the process
-// of finalizing DNA development or versioning
-func (h *Holochain) GenDNAHashes() (err error) {
-	var b []byte
-	for _, z := range h.Zomes {
-		code := z.Code
-		zpath := h.ZomePath(&z)
-		b, err = readFile(zpath, code)
-		if err != nil {
-			return
-		}
-		err = z.CodeHash.Sum(h.hashSpec, b)
-		if err != nil {
-			return
-		}
-		for i, e := range z.Entries {
-			sc := e.Schema
-			if sc != "" {
-				b, err = readFile(zpath, sc)
-				if err != nil {
-					return
-				}
-				err = e.SchemaHash.Sum(h.hashSpec, b)
-				if err != nil {
-					return
-				}
-				z.Entries[i] = e
-			}
-		}
-
-	}
-	err = h.SaveDNA(true)
-	return
+	return Encode(writer, h.encodingFormat, &h.nucleus.dna)
 }
 
 // NewEntry adds an entry and it's header to the chain and returns the header and it's hash
@@ -1185,7 +470,7 @@ func (h *Holochain) Walk(fn WalkerFn, entriesToo bool) (err error) {
 // GetEntryDef returns an EntryDef of the given name
 // @TODO this makes the incorrect assumption that entry type strings are unique across zomes
 func (h *Holochain) GetEntryDef(t string) (zome *Zome, d *EntryDef, err error) {
-	for _, z := range h.Zomes {
+	for _, z := range h.nucleus.dna.Zomes {
 		d, err = z.GetEntryDef(t)
 		if err == nil {
 			zome = &z
@@ -1228,14 +513,14 @@ func (h *Holochain) GetProperty(prop string) (property string, err error) {
 	if prop == ID_PROPERTY || prop == AGENT_ID_PROPERTY || prop == AGENT_NAME_PROPERTY {
 		ChangeAppProperty.Log()
 	} else {
-		property = h.Properties[prop]
+		property = h.nucleus.dna.Properties[prop]
 	}
 	return
 }
 
 // GetZome returns a zome structure given its name
 func (h *Holochain) GetZome(zName string) (z *Zome, err error) {
-	for _, zome := range h.Zomes {
+	for _, zome := range h.nucleus.dna.Zomes {
 		if zome.Name == zName {
 			z = &zome
 			break

@@ -14,7 +14,7 @@ func TestNewNucleus(t *testing.T) {
 	h.rootPath = d
 	os.MkdirAll(h.DBPath(), os.ModePerm)
 
-	nucleus := NewNucleus(&h)
+	nucleus := NewNucleus(&h, &DNA{})
 	Convey("It should initialize the Nucleus struct", t, func() {
 		So(nucleus.h, ShouldEqual, &h)
 		So(nucleus.alog, ShouldEqual, &h.config.Loggers.App)

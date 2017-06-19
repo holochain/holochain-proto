@@ -105,7 +105,7 @@ func setupApp() (app *cli.App) {
 				h, err := service.Clone(srcPath, root+"/"+name, true)
 				if err == nil {
 					if verbose {
-						fmt.Printf("cloned %s from %s with new uuid: %v\n", name, srcPath, h.UUID)
+						fmt.Printf("cloned %s from %s with new uuid: %v\n", name, srcPath, h.Nucleus().DNA().UUID)
 					}
 				}
 				return err
@@ -224,7 +224,7 @@ func setupApp() (app *cli.App) {
 					return err
 				}
 				if !h.Started() {
-					return fmt.Errorf("Can't serve an un-started chain. Run 'gen chain %s' to generate genesis entries and start the chain.", h.Name)
+					return fmt.Errorf("Can't serve an un-started chain. Run 'gen chain %s' to generate genesis entries and start the chain.", h.Nucleus().DNA().Name)
 				}
 
 				if verbose {
@@ -399,13 +399,9 @@ func setupApp() (app *cli.App) {
 		{
 			Name:      "seed",
 			ArgsUsage: "holochain-name",
-			Usage:     "seed calculates DNA hashes and builds DNA file without generating genesis entries.  Useful only for testing and development.",
+			Usage:     "seed calculates DNA hash and builds DNA file without generating genesis entries.  Useful only for testing and development.",
 			Action: func(c *cli.Context) error {
 				h, err := getHolochain(c, service, "seed")
-				if err != nil {
-					return err
-				}
-				err = h.GenDNAHashes()
 				if err != nil {
 					return err
 				}
@@ -465,7 +461,7 @@ func setupApp() (app *cli.App) {
 				h, err := service.GenDev(root+"/"+name, format)
 				if err == nil {
 					if verbose {
-						fmt.Printf("created %s with new uuid: %v\n", name, h.UUID)
+						fmt.Printf("created %s with new uuid: %v\n", name, h.Nucleus().DNA().UUID)
 					}
 				}
 				return err
@@ -578,10 +574,6 @@ func mkErr(etext string, code int) (int, error) {
 
 func genChain(service *holo.Service, name string) error {
 	h, err := service.Load(name)
-	if err != nil {
-		return err
-	}
-	err = h.GenDNAHashes()
 	if err != nil {
 		return err
 	}

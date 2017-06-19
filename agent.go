@@ -13,6 +13,7 @@ import (
 	peer "github.com/libp2p/go-libp2p-peer"
 	"io"
 	"os"
+	"runtime"
 )
 
 // AgentName is the user's unique identifier in context of this holochain.
@@ -120,10 +121,14 @@ func SaveAgent(path string, agent Agent) (err error) {
 // LoadAgent gets the agent and signing key from the specified directory
 func LoadAgent(path string) (agent Agent, err error) {
 	var perms os.FileMode
-	perms, err = filePerms(path, PrivKeyFileName)
-	if perms != OS_USER_R {
-		err = errors.New(path + "/" + PrivKeyFileName + " file not read-only")
-		return
+
+	// TODO, make this check also work on windows instead of just bypassing!
+	if runtime.GOOS != "windows" {
+		perms, err = filePerms(path, PrivKeyFileName)
+		if perms != OS_USER_R {
+			err = errors.New(path + "/" + PrivKeyFileName + " file not read-only")
+			return
+		}
 	}
 	var name []byte
 	name, err = readFile(path, AgentFileName)

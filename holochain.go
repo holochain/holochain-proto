@@ -381,7 +381,6 @@ func (h *Holochain) GenChain() (headerHash Hash, err error) {
 }
 
 func (h *Holochain) setupConfig() (err error) {
-	h.config.EnableMDNS = true
 	if err = h.config.Loggers.App.New(nil); err != nil {
 		return
 	}

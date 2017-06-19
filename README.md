@@ -60,7 +60,7 @@ Which you choose depends on your preference and your purpose.  If you intend to 
 
 ### Go Based Install
 
-1. Install Go on your system.  See platform specific instructions and hints below for making this work.
+1. [Install Go](https://golang.org/doc/install) on your system.  See platform specific instructions and hints below for making this work.
 2. Install the hc command line tool with:
 
 ```bash

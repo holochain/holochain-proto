@@ -7,18 +7,18 @@ package holochain
 
 import (
 	"bytes"
-	"strings"
 	"encoding/gob"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"github.com/BurntSushi/toml"
 	"github.com/ghodss/yaml"
+	"github.com/lestrrat/go-jsschema"
+	"github.com/lestrrat/go-jsval/builder"
 	"io"
 	"io/ioutil"
 	"os"
-	"github.com/lestrrat/go-jsschema"
-	"github.com/lestrrat/go-jsval/builder"
+	"strings"
 )
 
 const (
@@ -290,7 +290,6 @@ func BuildJSONSchemaValidatorFromFile(path string) (validator *JSONSchemaValidat
 	}
 	return
 }
-
 
 func BuildJSONSchemaValidatorFromString(input string) (validator *JSONSchemaValidator, err error) {
 	var s *schema.Schema

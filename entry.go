@@ -66,7 +66,7 @@ type EntryDef struct {
 	Name       string
 	DataFormat string
 	Sharing    string
-	Schema		 string
+	Schema     string
 	validator  SchemaValidator
 }
 
@@ -185,7 +185,9 @@ func (v *JSONSchemaValidator) Validate(entry interface{}) (err error) {
 // BuildJSONSchemaValidator builds a validator in an EntryDef
 func (d *EntryDef) BuildJSONSchemaValidator(path string) (err error) {
 	validator, err := BuildJSONSchemaValidatorFromFile(path)
-	if err != nil { return }
+	if err != nil {
+		return
+	}
 	validator.v.SetName(d.Name)
 	d.validator = validator
 	return
@@ -193,7 +195,9 @@ func (d *EntryDef) BuildJSONSchemaValidator(path string) (err error) {
 
 func (d *EntryDef) BuildJSONSchemaValidatorFromString(schema string) (err error) {
 	validator, err := BuildJSONSchemaValidatorFromString(schema)
-	if err != nil { return }
+	if err != nil {
+		return
+	}
 	validator.v.SetName(d.Name)
 	d.validator = validator
 	return

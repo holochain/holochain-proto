@@ -1,7 +1,7 @@
 // Copyright (C) 2013-2017, The MetaCurrency Project (Eric Harris-Braun, Arthur Brock, et. al.)
 // Use of this source code is governed by GPLv3 found in the LICENSE file
 //----------------------------------------------------------------------------------------
-// Service implements functions and data that provide Holochain services
+// Service implements functions and data that provide Holochain services in a unix file based environment
 
 package holochain
 
@@ -10,13 +10,13 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/BurntSushi/toml"
+	"github.com/google/uuid"
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
-
-	"github.com/BurntSushi/toml"
-	"github.com/google/uuid"
 )
 
 // System settings, directory, and file names
@@ -60,7 +60,7 @@ type Service struct {
 type EntryDefFile struct {
 	Name       string
 	DataFormat string
-	Schema		 string
+	Schema     string
 	SchemaFile string // file name of schema or language schema directive
 	Sharing    string
 }
@@ -68,7 +68,7 @@ type EntryDefFile struct {
 type ZomeFile struct {
 	Name         string
 	Description  string
-	Code				 string
+	Code         string
 	CodeFile     string
 	Entries      []EntryDefFile
 	RibosomeType string
@@ -307,10 +307,12 @@ func (s *Service) LoadDNA(path string, filename string, format string) (dnaP *DN
 		dna.Zomes[i].RibosomeType = zome.RibosomeType
 		dna.Zomes[i].Functions = zome.Functions
 		if zome.Code == "" {
-				var code []byte
-				code, err = readFile(zomePath, zome.CodeFile)
-				if err != nil {return}
-				dna.Zomes[i].Code					= string(code[:])
+			var code []byte
+			code, err = readFile(zomePath, zome.CodeFile)
+			if err != nil {
+				return
+			}
+			dna.Zomes[i].Code = string(code[:])
 		} else {
 			dna.Zomes[i].Code = zome.Code
 		}
@@ -869,8 +871,8 @@ func (s *Service) Clone(srcPath string, root string, new bool) (hP *Holochain, e
 		h.encodingFormat = format
 		h.rootPath = root
 
-		srcDna := srcDNAPath+"/"+DNAFileName+"."+format
-		dstDna := h.DNAPath()+"/"+DNAFileName+"."+format
+		srcDna := srcDNAPath + "/" + DNAFileName + "." + format
+		dstDna := h.DNAPath() + "/" + DNAFileName + "." + format
 		//fmt.Printf("Copy dna from: %s to: %s\n", srcDna, dstDna)
 
 		// create the DNA directory and copy
@@ -968,5 +970,52 @@ func (s *Service) Clone(srcPath string, root string, new bool) (hP *Holochain, e
 
 		return
 	})
+	return
+}
+
+// GenChain adds the genesis entries to a newly cloned or joined chain
+func (s *Service) GenChain(name string) (h *Holochain, err error) {
+	h, err = s.Load(name)
+	if err != nil {
+		return
+	}
+	err = h.Activate()
+	if err != nil {
+		return
+	}
+	_, err = h.GenChain()
+	if err != nil {
+		return
+	}
+	//	go h.DHT().HandleChangeReqs()
+	return
+}
+
+// List chains produces a textual representation of the chains in the .holochain directory
+func (s *Service) ListChains() (list string) {
+
+	chains, _ := s.ConfiguredChains()
+	l := len(chains)
+	if l > 0 {
+		keys := make([]string, l)
+		i := 0
+		for k := range chains {
+			keys[i] = k
+			i++
+		}
+		sort.Strings(keys)
+		list = "installed holochains: "
+		for _, k := range keys {
+			id := chains[k].DNAHash()
+			var sid = "<not-started>"
+			if id.String() != "" {
+				sid = id.String()
+			}
+			list += fmt.Sprintf("    %v %v\n", k, sid)
+		}
+
+	} else {
+		list = "no installed chains"
+	}
 	return
 }

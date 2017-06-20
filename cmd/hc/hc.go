@@ -14,7 +14,6 @@ import (
 	"github.com/urfave/cli"
 	"os"
 	"os/user"
-	"sort"
 	"strings"
 	"time"
 )
@@ -398,7 +397,7 @@ func setupApp() (app *cli.App) {
 				if !initialized {
 					return uninitialized
 				}
-				listChains(service)
+				fmt.Println(service.ListChains())
 				return nil
 			},
 		},
@@ -475,7 +474,7 @@ func setupApp() (app *cli.App) {
 		if !initialized {
 			cli.ShowAppHelp(c)
 		} else {
-			listChains(service)
+			fmt.Println(service.ListChains())
 		}
 		return nil
 	}
@@ -516,51 +515,11 @@ func checkForName(c *cli.Context, cmd string) (name string, err error) {
 	return
 }
 
-func listChains(s *holo.Service) {
-	chains, _ := s.ConfiguredChains()
-	l := len(chains)
-	if l > 0 {
-		keys := make([]string, l)
-		i := 0
-		for k := range chains {
-			keys[i] = k
-			i++
-		}
-		sort.Strings(keys)
-		fmt.Println("installed holochains: ")
-		for _, k := range keys {
-			id := chains[k].DNAHash()
-			var sid = "<not-started>"
-			if id.String() != "" {
-				sid = id.String()
-			}
-			fmt.Println("    ", k, sid)
-		}
-	} else {
-		fmt.Println("no installed chains")
-	}
-}
-
-func mkErr(etext string, code int) (int, error) {
-	fmt.Println("Error:", code, etext)
-	return code, errors.New(etext)
-}
-
 func genChain(service *holo.Service, name string) error {
-	h, err := service.Load(name)
+	h, err := service.GenChain(name)
 	if err != nil {
 		return err
 	}
-	err = h.Activate()
-	if err != nil {
-		return err
-	}
-	_, err = h.GenChain()
-	if err != nil {
-		return err
-	}
-	//	go h.DHT().HandleChangeReqs()
-
 	if verbose {
 		fmt.Printf("Genesis entries added and DNA hashed for new holochain with ID: %s\n", h.DNAHash().String())
 	}

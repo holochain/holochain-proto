@@ -291,41 +291,9 @@ func setupApp() (app *cli.App) {
 					return errors.New("No data to dump, chain not yet initialized.")
 				}
 				dnaHash := h.DNAHash()
-
 				fmt.Printf("Chain: %s\n", dnaHash)
+				fmt.Printf("%v", h.Chain())
 
-				links := make(map[string]holo.Header)
-				index := make(map[int]string)
-				entries := make(map[int]interface{})
-				idx := 0
-				err = h.Walk(func(key *holo.Hash, header *holo.Header, entry holo.Entry) (err error) {
-					ks := (*key).String()
-					index[idx] = ks
-					links[ks] = *header
-					entries[idx] = entry
-					idx++
-					return nil
-				}, true)
-
-				for i := 0; i < idx; i++ {
-					k := index[i]
-					hdr := links[k]
-					fmt.Printf("%s:%s @ %v\n", hdr.Type, k, hdr.Time)
-					fmt.Printf("    Next Header: %v\n", hdr.HeaderLink)
-					fmt.Printf("    Next %s: %v\n", hdr.Type, hdr.TypeLink)
-					fmt.Printf("    Entry: %v\n", hdr.EntryLink)
-					e := entries[i]
-					switch hdr.Type {
-					case holo.KeyEntryType:
-						fmt.Printf("       %v\n", e.(*holo.GobEntry).C)
-					case holo.DNAEntryType:
-						fmt.Printf("       %s\n", e.(*holo.GobEntry).C)
-					case holo.AgentEntryType:
-						fmt.Printf("       %v\n", e.(*holo.GobEntry).C.(holo.AgentEntry))
-					default:
-						fmt.Printf("       %v\n", e)
-					}
-				}
 				return nil
 			},
 		},

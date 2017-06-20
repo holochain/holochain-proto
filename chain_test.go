@@ -385,6 +385,22 @@ func TestValidateChain(t *testing.T) {
 	})
 }
 
+func TestChain2String(t *testing.T) {
+	hashSpec, key, now := chainTestSetup()
+	c := NewChain(hashSpec)
+
+	Convey("it should dump empty string for empty chain", t, func() {
+		So(c.String(), ShouldEqual, "")
+	})
+
+	e := GobEntry{C: "some data"}
+	c.AddEntry(now, DNAEntryType, &e, key)
+
+	Convey("it should dump a chain to text", t, func() {
+		So(c.String(), ShouldNotEqual, "")
+	})
+}
+
 /*
 func TestPersistingChain(t *testing.T) {
 	hashSpec, key, now := chainTestSetup()

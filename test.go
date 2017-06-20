@@ -44,6 +44,10 @@ func setupTestChain(n string) (d string, s *Service, h *Holochain) {
 	return
 }
 
+func PrepareTestChain(n string) (d string, s *Service, h *Holochain) {
+	return prepareTestChain(n)
+}
+
 func prepareTestChain(n string) (d string, s *Service, h *Holochain) {
 	d, s, h = setupTestChain("test")
 	_, err := h.GenChain()
@@ -66,6 +70,8 @@ func setupTestDir() string {
 	}
 	return d
 }
+
+func CleanupTestDir(path string) { cleanupTestDir(path) }
 
 func cleanupTestDir(path string) {
 	err := os.RemoveAll(path)

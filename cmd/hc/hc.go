@@ -10,6 +10,7 @@ import (
 	"errors"
 	"fmt"
 	holo "github.com/metacurrency/holochain"
+	"github.com/metacurrency/holochain/ui"
 	"github.com/urfave/cli"
 	"os"
 	"os/user"
@@ -249,7 +250,7 @@ func setupApp() (app *cli.App) {
 				//				go h.DHT().HandleChangeReqs()
 				go h.DHT().HandleGossipWiths()
 				go h.DHT().Gossip(2 * time.Second)
-				serve(h, port)
+				ui.NewWebServer(h, port).Start()
 				return err
 			},
 		},

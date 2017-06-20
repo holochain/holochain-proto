@@ -2,12 +2,13 @@
 // Use of this source code is governed by GPLv3 found in the LICENSE file
 //----------------------------------------------------------------------------------------
 
-// implements webserver functionality for the hc command
+// implements webserver functionality for holochain UI
 
-package main
+package ui
 
 import (
 	_ "encoding/json"
+	"errors"
 	"fmt"
 	websocket "github.com/gorilla/websocket"
 	holo "github.com/metacurrency/holochain"
@@ -17,15 +18,26 @@ import (
 	"strings"
 )
 
-var log = holo.Logger{Format: "%{color:magenta}%{message}"}
-var errs = holo.Logger{Format: "%{color:red}%{time} %{message}", Enabled: true}
+type WebServer struct {
+	h    *holo.Holochain
+	port string
+	log  holo.Logger
+	errs holo.Logger
+}
 
-func serve(h *holo.Holochain, port string) {
+func NewWebServer(h *holo.Holochain, port string) *WebServer {
+	w := WebServer{h: h, port: port}
+	w.log = holo.Logger{Format: "%{color:magenta}%{message}"}
+	w.errs = holo.Logger{Format: "%{color:red}%{time} %{message}", Enabled: true}
+	return &w
+}
 
-	log.New(nil)
-	errs.New(os.Stderr)
+func (ws *WebServer) Start() {
 
-	fs := http.FileServer(http.Dir(h.UIPath()))
+	ws.log.New(nil)
+	ws.errs.New(os.Stderr)
+
+	fs := http.FileServer(http.Dir(ws.h.UIPath()))
 	http.Handle("/", fs)
 
 	var upgrader = websocket.Upgrader{
@@ -37,7 +49,7 @@ func serve(h *holo.Holochain, port string) {
 	http.HandleFunc("/_sock/", func(w http.ResponseWriter, r *http.Request) {
 		conn, err := upgrader.Upgrade(w, r, nil)
 		if err != nil {
-			errs.Log(err)
+			ws.errs.Logf(err.Error())
 			return
 		}
 
@@ -45,15 +57,15 @@ func serve(h *holo.Holochain, port string) {
 			var v map[string]string
 			err := conn.ReadJSON(&v)
 
-			log.Logf("conn got: %v\n", v)
+			ws.log.Logf("conn got: %v\n", v)
 
 			if err != nil {
-				errs.Log(err)
+				ws.errs.Log(err)
 				return
 			}
 			zome := v["zome"]
 			function := v["fn"]
-			result, err := call(h, zome, function, v["arg"])
+			result, err := ws.call(zome, function, v["arg"])
 			switch t := result.(type) {
 			case string:
 				err = conn.WriteMessage(websocket.TextMessage, []byte(t))
@@ -61,11 +73,11 @@ func serve(h *holo.Holochain, port string) {
 				err = conn.WriteMessage(websocket.TextMessage, t)
 				//err = conn.WriteJSON(t)
 			default:
-				err = fmt.Errorf("Unknown type from Call of %s:%s", zome, function, holo.PUBLIC_EXPOSURE)
+				err = fmt.Errorf("Unknown type from Call of %s:%s", zome, function)
 			}
 
 			if err != nil {
-				errs.Log(err)
+				ws.errs.Log(err)
 				return
 			}
 		}
@@ -77,7 +89,7 @@ func serve(h *holo.Holochain, port string) {
 		var errCode = 400
 		defer func() {
 			if err != nil {
-				log.Logf("ERROR:%s,code:%d", err.Error(), errCode)
+				ws.log.Logf("ERROR:%s,code:%d", err.Error(), errCode)
 				http.Error(w, err.Error(), errCode)
 			}
 		}()
@@ -93,21 +105,21 @@ func serve(h *holo.Holochain, port string) {
 			errCode, err = mkErr("unable to read body", 500)
 			return
 		}
-		fmt.Printf("processing req:%s\n  Body:%v\n", r.URL.Path, string(body))
+		ws.log.Logf("processing req:%s\n  Body:%v\n", r.URL.Path, string(body))
 
 		path := strings.Split(r.URL.Path, "/")
 
 		zome := path[2]
 		function := path[3]
 		args := string(body)
-		result, err := call(h, zome, function, args)
+		result, err := ws.call(zome, function, args)
 		if err != nil {
-			log.Logf("HC Serve: call of %s:%s resulted in error: %v\n", zome, function, err)
+			ws.log.Logf("call of %s:%s resulted in error: %v\n", zome, function, err)
 			http.Error(w, err.Error(), 500)
 
 			return
 		}
-		log.Logf(" result: %v\n", result)
+		ws.log.Logf(" result: %v\n", result)
 		switch t := result.(type) {
 		case string:
 			fmt.Fprintf(w, t)
@@ -117,17 +129,21 @@ func serve(h *holo.Holochain, port string) {
 			err = fmt.Errorf("Unknown type from Call of %s:%s", zome, function)
 		}
 	}) // set router
-	fmt.Printf("starting server on localhost:%s\n", port)
-	err := http.ListenAndServe(":"+port, nil) // set listen port
+	ws.log.Logf("starting server on localhost:%s\n", ws.port)
+	err := http.ListenAndServe(":"+ws.port, nil) // set listen port
 	if err != nil {
-		errs.Logf("Couldn't start server: %v", err)
+		ws.errs.Logf("Couldn't start server: %v", err)
 	}
 }
 
-func call(h *holo.Holochain, zome string, function string, args string) (result interface{}, err error) {
+func mkErr(etext string, code int) (int, error) {
+	return code, errors.New(etext)
+}
 
-	log.Logf("calling %s:%s(%s)\n", zome, function, args)
-	result, err = h.Call(zome, function, args, holo.PUBLIC_EXPOSURE)
+func (ws *WebServer) call(zome string, function string, args string) (result interface{}, err error) {
+
+	ws.log.Logf("calling %s:%s(%s)\n", zome, function, args)
+	result, err = ws.h.Call(zome, function, args, holo.PUBLIC_EXPOSURE)
 
 	if err != nil {
 		_, err = mkErr(err.Error(), 400)

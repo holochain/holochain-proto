@@ -9,10 +9,12 @@ import (
 	"errors"
 	"fmt"
 	holo "github.com/metacurrency/holochain"
+	"github.com/metacurrency/holochain/ui"
 	"github.com/urfave/cli"
 	"os"
 	"os/user"
 	"path"
+	"time"
 )
 
 const (
@@ -20,13 +22,14 @@ const (
 )
 
 var debug bool
+var rootPath, devPath, name string
 
 func setupApp() (app *cli.App) {
 	app = cli.NewApp()
 	app.Name = "hcdev"
 	app.Usage = "holochain dev command line tool"
 	app.Version = fmt.Sprintf("0.0.0 (holochain %s)", holo.VersionStr)
-	var rootPath, devPath, name string
+
 	var service *holo.Service
 
 	app.Flags = []cli.Flag{
@@ -54,22 +57,7 @@ func setupApp() (app *cli.App) {
 			Action: func(c *cli.Context) error {
 				var err error
 				var h *holo.Holochain
-
-				fmt.Printf("Copying chain to: %s\n", rootPath)
-				err = os.RemoveAll(rootPath + "/" + name)
-				if err != nil {
-					return err
-				}
-
-				h, err = service.Clone(devPath, rootPath+"/"+name, false)
-				if err != nil {
-					return err
-				}
-
-				h, err = service.Load(name)
-				if err != nil {
-					return err
-				}
+				h, err = getHolochain(c, service)
 
 				args := c.Args()
 				var errs []error
@@ -98,7 +86,40 @@ func setupApp() (app *cli.App) {
 				return nil
 			},
 		},
-	}
+		{
+			Name:      "web",
+			Aliases:   []string{"serve", "w"},
+			ArgsUsage: "holochain-name [port]",
+			Usage:     fmt.Sprintf("serve a chain to the web on localhost:<port> (defaults to %s)", defaultPort),
+			Action: func(c *cli.Context) error {
+				h, err := getHolochain(c, service)
+				if err != nil {
+					return err
+				}
+				h, err = service.GenChain(name)
+				if err != nil {
+					return err
+				}
+
+				var port string
+				if len(c.Args()) == 0 {
+					port = defaultPort
+				} else {
+					port = c.Args()[0]
+				}
+				fmt.Printf("Serving holochain with DNA hash:%v on port:%s\n", h.DNAHash(), port)
+
+				err = h.Activate()
+				if err != nil {
+					return err
+				}
+				//				go h.DHT().HandleChangeReqs()
+				go h.DHT().HandleGossipWiths()
+				go h.DHT().Gossip(2 * time.Second)
+				ui.NewWebServer(h, port).Start()
+				return err
+			},
+		}}
 
 	app.Before = func(c *cli.Context) error {
 		if debug {
@@ -161,4 +182,21 @@ func main() {
 		fmt.Printf("Error: %v\n", err)
 		os.Exit(1)
 	}
+}
+
+func getHolochain(c *cli.Context, service *holo.Service) (h *holo.Holochain, err error) {
+	fmt.Printf("Copying chain to: %s\n", rootPath)
+	err = os.RemoveAll(rootPath + "/" + name)
+	if err != nil {
+		return
+	}
+	h, err = service.Clone(devPath, rootPath+"/"+name, false)
+	if err != nil {
+		return
+	}
+	h, err = service.Load(name)
+	if err != nil {
+		return
+	}
+	return
 }

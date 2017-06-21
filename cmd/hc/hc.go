@@ -1,3 +1,8 @@
+// Copyright (C) 2013-2017, The MetaCurrency Project (Eric Harris-Braun, Arthur Brock, et. al.)
+// Use of this source code is governed by GPLv3 found in the LICENSE file
+//---------------------------------------------------------------------------------------
+// command line interface to running holochain applications
+
 package main
 
 import (
@@ -66,7 +71,7 @@ func setupApp() (app *cli.App) {
 				if err == nil {
 					fmt.Println("Holochain service initialized")
 					if verbose {
-						fmt.Println("    ~/.holochain directory created")
+						fmt.Printf("    %s directory created\n", root)
 						fmt.Printf("    defaults stored to %s\n", holo.SysFileName)
 						fmt.Println("    key-pair generated")
 						fmt.Printf("    default agent stored to %s\n", holo.AgentFileName)

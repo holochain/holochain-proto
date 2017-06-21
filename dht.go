@@ -668,3 +668,24 @@ func (dht *DHT) DumpIdx(idx int) (str string, err error) {
 	}
 	return
 }
+
+func (dht *DHT) String() (result string) {
+	dnaHash := dht.h.DNAHash()
+
+	result = fmt.Sprintf("DHT for: %s\n", dnaHash)
+
+	idx, err := dht.GetIdx()
+	if err != nil {
+		return ""
+	}
+	result += fmt.Sprintf("DHT changes:%d\n", idx)
+	for i := 1; i <= idx; i++ {
+		str, err := dht.DumpIdx(i)
+		if err != nil {
+			result += fmt.Sprintf("%d Error:%v\n", i, err)
+		} else {
+			result += fmt.Sprintf("%d\n%v\n", i, str)
+		}
+	}
+	return
+}

@@ -309,25 +309,7 @@ func setupApp() (app *cli.App) {
 				if !h.Started() {
 					return errors.New("No data to dump, chain not yet initialized.")
 				}
-				dnaHash := h.DNAHash()
-
-				fmt.Printf("DHT for: %s\n", dnaHash)
-
-				var idx int
-				dht := h.DHT()
-				idx, err = dht.GetIdx()
-				if err != nil {
-					return err
-				}
-				fmt.Printf("DHT changes:%d\n", idx)
-				for i := 1; i <= idx; i++ {
-					str, err := dht.DumpIdx(i)
-					if err != nil {
-						fmt.Printf("%d Error:%v\n", i, err)
-					} else {
-						fmt.Printf("%d\n%v\n", i, str)
-					}
-				}
+				fmt.Printf("%v", h.DHT())
 				return nil
 			},
 		},

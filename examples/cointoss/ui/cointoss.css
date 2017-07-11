@@ -1,7 +1,11 @@
 .players {
   width: 300px;
+}
+
+#players li {
   cursor: pointer;
 }
+
 #player-name-input, #player-name-button {
   width: 100%;
 }

@@ -522,6 +522,15 @@ func TestDHTDump(t *testing.T) {
 	})
 }
 
+func TestDHT2String(t *testing.T) {
+	d, _, h := prepareTestChain("test")
+	defer cleanupTestDir(d)
+
+	Convey("it dump should show the changes count", t, func() {
+		So(strings.Index(h.dht.String(), "DHT changes:2") >= 0, ShouldBeTrue)
+	})
+}
+
 /*
 func TestHandleChangeReqs(t *testing.T) {
 	d, _, h := prepareTestChain("test")

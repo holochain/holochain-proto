@@ -1,3 +1,8 @@
+// Copyright (C) 2013-2017, The MetaCurrency Project (Eric Harris-Braun, Arthur Brock, et. al.)
+// Use of this source code is governed by GPLv3 found in the LICENSE file
+//---------------------------------------------------------------------------------------
+// command line interface to running holochain applications
+
 package main
 
 import (
@@ -5,10 +10,10 @@ import (
 	"errors"
 	"fmt"
 	holo "github.com/metacurrency/holochain"
+	"github.com/metacurrency/holochain/ui"
 	"github.com/urfave/cli"
 	"os"
 	"os/user"
-	"sort"
 	"strings"
 	"time"
 )
@@ -66,7 +71,7 @@ func setupApp() (app *cli.App) {
 				if err == nil {
 					fmt.Println("Holochain service initialized")
 					if verbose {
-						fmt.Println("    ~/.holochain directory created")
+						fmt.Printf("    %s directory created\n", root)
 						fmt.Printf("    defaults stored to %s\n", holo.SysFileName)
 						fmt.Println("    key-pair generated")
 						fmt.Printf("    default agent stored to %s\n", holo.AgentFileName)
@@ -244,7 +249,7 @@ func setupApp() (app *cli.App) {
 				//				go h.DHT().HandleChangeReqs()
 				go h.DHT().HandleGossipWiths()
 				go h.DHT().Gossip(2 * time.Second)
-				serve(h, port)
+				ui.NewWebServer(h, port).Start()
 				return err
 			},
 		},
@@ -285,41 +290,9 @@ func setupApp() (app *cli.App) {
 					return errors.New("No data to dump, chain not yet initialized.")
 				}
 				dnaHash := h.DNAHash()
-
 				fmt.Printf("Chain: %s\n", dnaHash)
+				fmt.Printf("%v", h.Chain())
 
-				links := make(map[string]holo.Header)
-				index := make(map[int]string)
-				entries := make(map[int]interface{})
-				idx := 0
-				err = h.Walk(func(key *holo.Hash, header *holo.Header, entry holo.Entry) (err error) {
-					ks := (*key).String()
-					index[idx] = ks
-					links[ks] = *header
-					entries[idx] = entry
-					idx++
-					return nil
-				}, true)
-
-				for i := 0; i < idx; i++ {
-					k := index[i]
-					hdr := links[k]
-					fmt.Printf("%s:%s @ %v\n", hdr.Type, k, hdr.Time)
-					fmt.Printf("    Next Header: %v\n", hdr.HeaderLink)
-					fmt.Printf("    Next %s: %v\n", hdr.Type, hdr.TypeLink)
-					fmt.Printf("    Entry: %v\n", hdr.EntryLink)
-					e := entries[i]
-					switch hdr.Type {
-					case holo.KeyEntryType:
-						fmt.Printf("       %v\n", e.(*holo.GobEntry).C)
-					case holo.DNAEntryType:
-						fmt.Printf("       %s\n", e.(*holo.GobEntry).C)
-					case holo.AgentEntryType:
-						fmt.Printf("       %v\n", e.(*holo.GobEntry).C.(holo.AgentEntry))
-					default:
-						fmt.Printf("       %v\n", e)
-					}
-				}
 				return nil
 			},
 		},
@@ -336,25 +309,7 @@ func setupApp() (app *cli.App) {
 				if !h.Started() {
 					return errors.New("No data to dump, chain not yet initialized.")
 				}
-				dnaHash := h.DNAHash()
-
-				fmt.Printf("DHT for: %s\n", dnaHash)
-
-				var idx int
-				dht := h.DHT()
-				idx, err = dht.GetIdx()
-				if err != nil {
-					return err
-				}
-				fmt.Printf("DHT changes:%d\n", idx)
-				for i := 1; i <= idx; i++ {
-					str, err := dht.DumpIdx(i)
-					if err != nil {
-						fmt.Printf("%d Error:%v\n", i, err)
-					} else {
-						fmt.Printf("%d\n%v\n", i, str)
-					}
-				}
+				fmt.Printf("%v", h.DHT())
 				return nil
 			},
 		},
@@ -424,7 +379,7 @@ func setupApp() (app *cli.App) {
 				if !initialized {
 					return uninitialized
 				}
-				listChains(service)
+				fmt.Println(service.ListChains())
 				return nil
 			},
 		},
@@ -501,7 +456,7 @@ func setupApp() (app *cli.App) {
 		if !initialized {
 			cli.ShowAppHelp(c)
 		} else {
-			listChains(service)
+			fmt.Println(service.ListChains())
 		}
 		return nil
 	}
@@ -542,51 +497,11 @@ func checkForName(c *cli.Context, cmd string) (name string, err error) {
 	return
 }
 
-func listChains(s *holo.Service) {
-	chains, _ := s.ConfiguredChains()
-	l := len(chains)
-	if l > 0 {
-		keys := make([]string, l)
-		i := 0
-		for k := range chains {
-			keys[i] = k
-			i++
-		}
-		sort.Strings(keys)
-		fmt.Println("installed holochains: ")
-		for _, k := range keys {
-			id := chains[k].DNAHash()
-			var sid = "<not-started>"
-			if id.String() != "" {
-				sid = id.String()
-			}
-			fmt.Println("    ", k, sid)
-		}
-	} else {
-		fmt.Println("no installed chains")
-	}
-}
-
-func mkErr(etext string, code int) (int, error) {
-	fmt.Println("Error:", code, etext)
-	return code, errors.New(etext)
-}
-
 func genChain(service *holo.Service, name string) error {
-	h, err := service.Load(name)
+	h, err := service.GenChain(name)
 	if err != nil {
 		return err
 	}
-	err = h.Activate()
-	if err != nil {
-		return err
-	}
-	_, err = h.GenChain()
-	if err != nil {
-		return err
-	}
-	//	go h.DHT().HandleChangeReqs()
-
 	if verbose {
 		fmt.Printf("Genesis entries added and DNA hashed for new holochain with ID: %s\n", h.DNAHash().String())
 	}

@@ -614,3 +614,7 @@ func (h *Holochain) Send(proto Protocol, to peer.ID, t MsgType, body interface{}
 	}
 	return
 }
+
+func (h *Holochain) Chain() *Chain {
+	return h.chain
+}

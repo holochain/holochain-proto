@@ -488,14 +488,24 @@ func (c *Chain) String() string {
 	l := len(c.Headers)
 	r := ""
 	for i := 0; i < l; i++ {
-		hash, _, _ := c.Headers[i].Sum(c.hashSpec)
-		r += fmt.Sprintf("Header (%v):%v\n", hash, *c.Headers[i])
-		r += fmt.Sprintf("Entry:%v\n\n", c.Entries[i])
-	}
-	r += "Hashlist:\n"
-	for i := 0; i < len(c.Headers); i++ {
-		r += fmt.Sprintf("%s\n", c.Hashes[i].String())
-
+		hdr := c.Headers[i]
+		hash := c.Hashes[i]
+		r += fmt.Sprintf("%s:%s @ %v\n", hdr.Type, hash, hdr.Time)
+		r += fmt.Sprintf("    Next Header: %v\n", hdr.HeaderLink)
+		r += fmt.Sprintf("    Next %s: %v\n", hdr.Type, hdr.TypeLink)
+		r += fmt.Sprintf("    Entry: %v\n", hdr.EntryLink)
+		e := c.Entries[i]
+		switch hdr.Type {
+		case KeyEntryType:
+			r += fmt.Sprintf("       %v\n", e.(*GobEntry).C)
+		case DNAEntryType:
+			r += fmt.Sprintf("       %s\n", e.(*GobEntry).C)
+		case AgentEntryType:
+			r += fmt.Sprintf("       %v\n", e.(*GobEntry).C.(string))
+		default:
+			r += fmt.Sprintf("       %v\n", e)
+		}
+		r += "\n"
 	}
 	return r
 }

@@ -56,7 +56,7 @@ There are two approaches to installing holochain:
 1. as a standard Go language application for direct execution on your machine
 2. using [docker](https://www.docker.com/) for execution in a container.
 
-Which you choose depends on your preference and your purpose.  If you intend to develop holochain applications, then you should almost certainly use the docker approach as we provide a testing harness for running multiple holochain instances in a docker cluster.  If you will be developing in Go onholochain itself then you will probably end up doing both.
+Which you choose depends on your preference and your purpose.  If you intend to develop holochain applications, then you should almost certainly use the docker approach as we provide a testing harness for running multiple holochain instances in a docker cluster.  If you will be developing in Go on holochain itself then you will probably end up doing both.
 
 ### Go Based Install
 
@@ -86,7 +86,7 @@ Most importantly you'll need to: (Almost all installation problems that have bee
 
 For example, add the following to the end of your shell profile (usually `~/.bashrc` or `~/.bash_profile`):
 
-    export GOPATH=`$HOME/go`
+    export GOPATH="$HOME/go"
     export PATH=$GOPATH/bin:$PATH
 
 #### Windows

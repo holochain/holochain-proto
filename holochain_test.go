@@ -6,7 +6,6 @@ import (
 	"fmt"
 	// toml "github.com/BurntSushi/toml"
 	"github.com/google/uuid"
-	ic "github.com/libp2p/go-libp2p-crypto"
 	peer "github.com/libp2p/go-libp2p-peer"
 	. "github.com/smartystreets/goconvey/convey"
 	"os"
@@ -111,124 +110,6 @@ func TestPrepareHashType(t *testing.T) {
 		err = hash.Sum(h.hashSpec, []byte("test data"))
 		So(err, ShouldBeNil)
 		So(hash.String(), ShouldEqual, "2DrjgbL49zKmX4P7UgdopSCC7MhfVUySNbRHBQzdDuXgaJSNEg")
-	})
-}
-
-func TestGenDev(t *testing.T) {
-	d, s := setupTestService()
-	defer cleanupTestDir(d)
-	name := "test"
-	root := s.Path + "/" + name
-
-	Convey("we detected unconfigured holochains", t, func() {
-		f, err := s.IsConfigured(name)
-		So(f, ShouldEqual, "")
-		So(err.Error(), ShouldEqual, "No DNA file in "+root+"/"+ChainDNADir+"/")
-		_, err = s.load("test", "json")
-		So(err.Error(), ShouldEqual, "open "+root+"/"+ChainDNADir+"/"+DNAFileName+".json: no such file or directory")
-
-	})
-
-	Convey("when generating a dev holochain", t, func() {
-		h, err := s.GenDev(root, "json")
-		So(err, ShouldBeNil)
-
-		f, err := s.IsConfigured(name)
-		So(err, ShouldBeNil)
-		So(f, ShouldEqual, "json")
-
-		h, err = s.Load(name)
-		So(err, ShouldBeNil)
-
-		lh, err := s.load(name, "json")
-		So(err, ShouldBeNil)
-		So(lh.nodeID, ShouldEqual, h.nodeID)
-		So(lh.nodeIDStr, ShouldEqual, h.nodeIDStr)
-		So(lh.config.Port, ShouldEqual, DefaultPort)
-		So(h.config.PeerModeDHTNode, ShouldEqual, s.Settings.DefaultPeerModeDHTNode)
-		So(h.config.PeerModeAuthor, ShouldEqual, s.Settings.DefaultPeerModeAuthor)
-		So(h.config.BootstrapServer, ShouldEqual, s.Settings.DefaultBootstrapServer)
-
-		So(fileExists(h.DNAPath()+"/zySampleZome/profile.json"), ShouldBeTrue)
-		So(fileExists(h.UIPath()+"/index.html"), ShouldBeTrue)
-		So(fileExists(h.UIPath()+"/hc.js"), ShouldBeTrue)
-		So(fileExists(h.rootPath+"/"+ConfigFileName+".json"), ShouldBeTrue)
-
-		Convey("we should not be able re generate it", func() {
-			_, err = s.GenDev(root, "json")
-			So(err.Error(), ShouldEqual, "holochain: "+root+" already exists")
-		})
-	})
-}
-
-func TestCloneNew(t *testing.T) {
-	d, s, h0 := setupTestChain("test")
-	defer cleanupTestDir(d)
-
-	name := "test2"
-	root := s.Path + "/" + name
-
-	orig := s.Path + "/test"
-	Convey("it should create a chain from the examples directory", t, func() {
-		h, err := s.Clone(orig, root, true)
-		So(err, ShouldBeNil)
-		So(h.nucleus.dna.Name, ShouldEqual, "test2")
-		So(h.nucleus.dna.UUID, ShouldNotEqual, h0.nucleus.dna.UUID)
-		agent, err := LoadAgent(s.Path)
-		So(err, ShouldBeNil)
-		So(h.agent.Name(), ShouldEqual, agent.Name())
-		So(ic.KeyEqual(h.agent.PrivKey(), agent.PrivKey()), ShouldBeTrue)
-		src, _ := readFile(orig+"/dna/", "zySampleZome.zy")
-		dst, _ := readFile(h.DNAPath(), "zySampleZome.zy")
-		So(string(src), ShouldEqual, string(dst))
-		So(h.rootPath, ShouldEqual, root)
-		So(h.UIPath(), ShouldEqual, root+"/ui")
-		So(h.DNAPath(), ShouldEqual, root+"/dna")
-		So(h.DBPath(), ShouldEqual, root+"/db")
-
-		So(fileExists(h.UIPath()+"/index.html"), ShouldBeTrue)
-		So(fileExists(h.DNAPath()+"/zySampleZome/profile.json"), ShouldBeTrue)
-		So(fileExists(h.DNAPath()+"/properties_schema.json"), ShouldBeTrue)
-		So(fileExists(h.rootPath+"/"+ConfigFileName+".toml"), ShouldBeTrue)
-
-		So(fileExists(h.rootPath+"/"+ChainTestDir+"/test_0.json"), ShouldBeTrue)
-
-		So(h.nucleus.dna.Progenitor.Name, ShouldEqual, "Herbert <h@bert.com>")
-		pk, _ := agent.PubKey().Bytes()
-		So(string(h.nucleus.dna.Progenitor.PubKey), ShouldEqual, string(pk))
-
-	})
-}
-
-func TestCloneJoin(t *testing.T) {
-	d, s, h0 := setupTestChain("test")
-	defer cleanupTestDir(d)
-
-	name := "test2"
-	root := s.Path + "/" + name
-
-	orig := s.Path + "/test"
-	Convey("it should create a chain from the examples directory", t, func() {
-		h, err := s.Clone(orig, root, false)
-		So(err, ShouldBeNil)
-		So(h.nucleus.dna.Name, ShouldEqual, "test")
-		So(h.nucleus.dna.UUID, ShouldEqual, h0.nucleus.dna.UUID)
-		agent, err := LoadAgent(s.Path)
-		So(err, ShouldBeNil)
-		So(h.agent.Name(), ShouldEqual, agent.Name())
-		So(ic.KeyEqual(h.agent.PrivKey(), agent.PrivKey()), ShouldBeTrue)
-		src, _ := readFile(orig+"/dna/", "zySampleZome.zy")
-		dst, _ := readFile(root, "zySampleZome.zy")
-		So(string(src), ShouldEqual, string(dst))
-		So(fileExists(h.UIPath()+"/index.html"), ShouldBeTrue)
-		So(fileExists(h.DNAPath()+"/zySampleZome/profile.json"), ShouldBeTrue)
-		So(fileExists(h.DNAPath()+"/properties_schema.json"), ShouldBeTrue)
-		So(fileExists(h.rootPath+"/"+ConfigFileName+".toml"), ShouldBeTrue)
-
-		So(h.nucleus.dna.Progenitor.Name, ShouldEqual, "Example Agent <example@example.com")
-		pk := []byte{8, 1, 18, 32, 193, 43, 31, 148, 23, 249, 163, 154, 128, 25, 237, 167, 253, 63, 214, 220, 206, 131, 217, 74, 168, 30, 215, 237, 231, 160, 69, 89, 48, 17, 104, 210}
-		So(string(h.nucleus.dna.Progenitor.PubKey), ShouldEqual, string(pk))
-
 	})
 }
 

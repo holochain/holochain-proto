@@ -50,3 +50,12 @@ func (zome *Zome) MakeRibosome(h *Holochain) (r Ribosome, err error) {
 	r, err = CreateRibosome(h, zome)
 	return
 }
+
+func (zome *Zome) CodeFileName() string {
+	if zome.RibosomeType == ZygoRibosomeType {
+		return zome.Name + ".zy"
+	} else if zome.RibosomeType == JSRibosomeType {
+		return zome.Name + ".js"
+	}
+	panic("unknown ribosome type:" + zome.RibosomeType)
+}

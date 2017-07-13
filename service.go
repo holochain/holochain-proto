@@ -68,7 +68,6 @@ type EntryDefFile struct {
 type ZomeFile struct {
 	Name         string
 	Description  string
-	Code         string
 	CodeFile     string
 	Entries      []EntryDefFile
 	RibosomeType string
@@ -306,16 +305,13 @@ func (s *Service) LoadDNA(path string, filename string, format string) (dnaP *DN
 		dna.Zomes[i].Description = zome.Description
 		dna.Zomes[i].RibosomeType = zome.RibosomeType
 		dna.Zomes[i].Functions = zome.Functions
-		if zome.Code == "" {
-			var code []byte
-			code, err = readFile(zomePath, zome.CodeFile)
-			if err != nil {
-				return
-			}
-			dna.Zomes[i].Code = string(code[:])
-		} else {
-			dna.Zomes[i].Code = zome.Code
+
+		var code []byte
+		code, err = readFile(zomePath, zome.CodeFile)
+		if err != nil {
+			return
 		}
+		dna.Zomes[i].Code = string(code[:])
 
 		dna.Zomes[i].Entries = make([]EntryDef, len(zome.Entries))
 		for j, entry := range zome.Entries {
@@ -858,29 +854,18 @@ func (s *Service) Clone(srcPath string, root string, new bool) (hP *Holochain, e
 			return
 		}
 
-		//fmt.Printf("format: %s, err: %s\n", format, err)
-
 		dna, err := s.LoadDNA(srcDNAPath, DNAFileName, format)
 		if err != nil {
 			return
 		}
 
-		//fmt.Printf("dna: %s, err: %s\n", dna, err)
-
 		h.nucleus = NewNucleus(&h, dna)
 		h.encodingFormat = format
 		h.rootPath = root
 
-		srcDna := srcDNAPath + "/" + DNAFileName + "." + format
-		dstDna := h.DNAPath() + "/" + DNAFileName + "." + format
-		//fmt.Printf("Copy dna from: %s to: %s\n", srcDna, dstDna)
-
 		// create the DNA directory and copy
 		if err := os.MkdirAll(h.DNAPath(), os.ModePerm); err != nil {
 			return nil, err
-		}
-		if err = CopyFile(srcDna, dstDna); err != nil {
-			return
 		}
 
 		agent, err := LoadAgent(filepath.Dir(root))
@@ -922,6 +907,11 @@ func (s *Service) Clone(srcPath string, root string, new bool) (hP *Holochain, e
 			h.nucleus.dna.Progenitor = Progenitor{Name: string(agent.Name()), PubKey: pk}
 		}
 
+		// save out the DNA file
+		if err = s.SaveDNAFile(&h, true); err != nil {
+			return
+		}
+
 		// copy any UI files
 		srcUIPath := srcPath + "/" + ChainUIDir
 		if dirExists(srcUIPath) {
@@ -929,8 +919,6 @@ func (s *Service) Clone(srcPath string, root string, new bool) (hP *Holochain, e
 				return
 			}
 		}
-
-		//fmt.Printf("srcUIPath: %s, err: %s\n", srcUIPath, err)
 
 		// copy any test files
 		srcTestDir := srcPath + "/" + ChainTestDir
@@ -1017,5 +1005,55 @@ func (s *Service) ListChains() (list string) {
 	} else {
 		list = "no installed chains"
 	}
+	return
+}
+
+// SaveDNAFile writes out holochain DNA to a file
+func (s *Service) SaveDNAFile(h *Holochain, overwrite bool) (err error) {
+
+	p := h.DNAPath() + "/" + DNAFileName + "." + h.encodingFormat
+	if !overwrite && fileExists(p) {
+		return mkErr(p + " already exists")
+	}
+	f, err := os.Create(p)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	dna := h.nucleus.dna
+	dnaFile := DNAFile{
+		Version:              dna.Version,
+		UUID:                 dna.UUID,
+		Name:                 dna.Name,
+		Properties:           dna.Properties,
+		PropertiesSchemaFile: "properties_schema.json",
+		BasedOn:              dna.BasedOn,
+		RequiresVersion:      dna.RequiresVersion,
+		DHTConfig:            dna.DHTConfig,
+		Progenitor:           dna.Progenitor,
+	}
+	for _, z := range dna.Zomes {
+
+		zomeFile := ZomeFile{Name: z.Name,
+			Description:  z.Description,
+			CodeFile:     z.CodeFileName(),
+			RibosomeType: z.RibosomeType,
+			Functions:    z.Functions,
+		}
+		for _, e := range z.Entries {
+			entryDefFile := EntryDefFile{
+				Name:       e.Name,
+				DataFormat: e.DataFormat,
+				Sharing:    e.Sharing,
+			}
+			if e.DataFormat == DataFormatJSON {
+				entryDefFile.SchemaFile = e.Name + ".json"
+			}
+			zomeFile.Entries = append(zomeFile.Entries, entryDefFile)
+		}
+		dnaFile.Zomes = append(dnaFile.Zomes, zomeFile)
+	}
+
+	err = Encode(f, h.encodingFormat, dnaFile)
 	return
 }

@@ -386,6 +386,17 @@ func (h *Holochain) DoTest(name string, i int, t TestData, startTime time.Time, 
 // This function is useful only in the context of developing a holochain and will return
 // an error if the chain has already been started (i.e. has genesis entries)
 func (h *Holochain) Test() []error {
+	return h.test("")
+}
+
+// TestOne tests a single test file
+// This function is useful only in the context of developing a holochain and will return
+// an error if the chain has already been started (i.e. has genesis entries)
+func (h *Holochain) TestOne(one string) []error {
+	return h.test(one)
+}
+
+func (h *Holochain) test(one string) []error {
 
 	var err error
 	var errs []error
@@ -406,7 +417,9 @@ func (h *Holochain) Test() []error {
 	failed := h.config.Loggers.TestFailed
 
 	for name, ts := range tests {
-
+		if one != "" && name != one {
+			continue
+		}
 		info.p("========================================")
 		info.pf("Test: '%s' starting...", name)
 		info.p("========================================")

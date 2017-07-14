@@ -96,3 +96,15 @@ func ShouldLog(log *Logger, message string, fn func()) {
 	log.Enabled = e
 	log.w = w
 }
+
+func compareFile(path1 string, path2 string, fileName string) bool {
+	src, err := readFile(path1, fileName)
+	if err != nil {
+		panic(err)
+	}
+	dst, _ := readFile(path2, fileName)
+	if err != nil {
+		panic(err)
+	}
+	return (string(src) == string(dst)) && (string(src) != "")
+}

@@ -197,7 +197,7 @@ func findDNA(path string) (f string, err error) {
 	for _, fn := range matches {
 		s := strings.Split(fn, ".")
 		f = s[len(s)-1]
-		if f == "json" || f == "yaml" || f == "toml" {
+		if f == "json" || f == "yml" || f == "yaml" || f == "toml" {
 			break
 		}
 		f = ""

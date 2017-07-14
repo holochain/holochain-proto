@@ -212,6 +212,8 @@ func Encode(writer io.Writer, format string, data interface{}) (err error) {
 		enc.SetIndent("", "    ")
 		err = enc.Encode(data)
 
+	case "yml":
+		fallthrough
 	case "yaml":
 		y, e := yaml.Marshal(data)
 		if e != nil {
@@ -238,10 +240,11 @@ func Decode(reader io.Reader, format string, data interface{}) (err error) {
 	switch format {
 	case "toml":
 		_, err = toml.DecodeReader(reader, data)
-
 	case "json":
 		dec := json.NewDecoder(reader)
 		err = dec.Decode(data)
+	case "yml":
+		fallthrough
 	case "yaml":
 		y, e := ioutil.ReadAll(reader)
 		if e != nil {

@@ -59,7 +59,9 @@ func setupApp() (app *cli.App) {
 				var err error
 				var h *holo.Holochain
 				h, err = getHolochain(c, service)
-
+				if err != nil {
+					return err
+				}
 				args := c.Args()
 				var errs []error
 

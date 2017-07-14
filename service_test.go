@@ -144,7 +144,6 @@ func TestCloneNew(t *testing.T) {
 		So(h.nucleus.dna.Progenitor.Name, ShouldEqual, "Herbert <h@bert.com>")
 		pk, _ := agent.PubKey().Bytes()
 		So(string(h.nucleus.dna.Progenitor.PubKey), ShouldEqual, string(pk))
-
 	})
 }
 

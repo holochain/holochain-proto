@@ -946,7 +946,7 @@ func (s *Service) Clone(srcPath string, root string, new bool) (hP *Holochain, e
 				return
 			}
 			for _, e := range z.Entries {
-				if e.DataFormat == "json" {
+				if e.DataFormat == "json" && e.Schema != "" {
 					if err = writeFile(zpath, e.Name+".json", []byte(e.Schema)); err != nil {
 						return
 					}

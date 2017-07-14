@@ -51,9 +51,10 @@ func setupApp() (app *cli.App) {
 	}
 	app.Commands = []cli.Command{
 		{
-			Name:    "test",
-			Aliases: []string{"t"},
-			Usage:   "run chain's unit or scenario tests",
+			Name:      "test",
+			Aliases:   []string{"t"},
+			ArgsUsage: "no args run's all stand-alone | [test file prefix] | [scenario] [role]",
+			Usage:     "run chain's stand-alone or scenario tests",
 			Action: func(c *cli.Context) error {
 				var err error
 				var h *holo.Holochain
@@ -70,10 +71,12 @@ func setupApp() (app *cli.App) {
 					if err != nil {
 						return err
 					}
-				} else if len(args) != 0 {
-					return errors.New("test: expected 0 args or 2 (scenario and role)")
-				} else {
+				} else if len(args) == 1 {
+					errs = h.TestOne(args[0])
+				} else if len(args) == 0 {
 					errs = h.Test()
+				} else {
+					return errors.New("test: expected 0 args (run all stand-alone tests), 1 arg (a single stand-alone test) or 2 args (scenario and role)")
 				}
 
 				var s string
@@ -89,7 +92,7 @@ func setupApp() (app *cli.App) {
 		{
 			Name:      "web",
 			Aliases:   []string{"serve", "w"},
-			ArgsUsage: "holochain-name [port]",
+			ArgsUsage: "[port]",
 			Usage:     fmt.Sprintf("serve a chain to the web on localhost:<port> (defaults to %s)", defaultPort),
 			Action: func(c *cli.Context) error {
 				h, err := getHolochain(c, service)

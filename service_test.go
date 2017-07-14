@@ -128,7 +128,9 @@ func TestCloneNew(t *testing.T) {
 		So(err, ShouldBeNil)
 		So(h.agent.Name(), ShouldEqual, agent.Name())
 		So(ic.KeyEqual(h.agent.PrivKey(), agent.PrivKey()), ShouldBeTrue)
+
 		So(compareFile(orig+"/dna/zySampleZome", h.DNAPath()+"/zySampleZome", "zySampleZome.zy"), ShouldBeTrue)
+
 		So(h.rootPath, ShouldEqual, root)
 		So(h.UIPath(), ShouldEqual, root+"/ui")
 		So(h.DNAPath(), ShouldEqual, root+"/dna")

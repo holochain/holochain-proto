@@ -73,3 +73,24 @@ func TestTest(t *testing.T) {
 		So(err.Error(), ShouldEqual, "bogus error")
 	})
 }
+
+func TestTestOne(t *testing.T) {
+	d, _, h := setupTestChain("test")
+	defer cleanupTestDir(d)
+	if os.Getenv("DEBUG") != "" {
+		h.config.Loggers.TestPassed.Enabled = false
+		h.config.Loggers.TestFailed.Enabled = false
+		h.config.Loggers.TestInfo.Enabled = false
+	}
+	Convey("it should validate on test data", t, func() {
+
+		ShouldLog(&h.config.Loggers.TestInfo, `========================================
+Test: 'test_0' starting...
+========================================
+Test 'test_0.0' t+0ms: { zySampleZome addEven 2 %h%   0s  false}
+`, func() {
+			err := h.TestOne("test_0")
+			So(err, ShouldBeNil)
+		})
+	})
+}

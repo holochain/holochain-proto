@@ -1,0 +1,46 @@
+#!/bin/bash
+
+# get holochain system environment
+. holochain.system.checkInstalled
+
+#check if we are already in a dir/subDir of a holochain app repo
+{ holochain.app.findAppDir > /dev/null && echo "HC: holochain already initialised in $HOLOCHAIN_APPDIR" && exit 1 ; } || :
+
+
+printf "\n\nHC: initialise holochain in $PWD\n"
+
+DIR="."
+# look for empty dir
+if [ "$(ls -A $DIR)" ]; then
+  printf "HC: ls\n\n" && ls && printf "\n" && { holochain.tools.confirm "HC: Directory is not empty. Are you sure this is the right directory? (y/N): " || { echo "HC: terminated by user" && exit 1 ; } ; } && :
+else
+  holochain.tools.confirm.y "HC: This directory is empty. Do you want to copy an existing example to work from? (Y/n)" \
+    &&  { echo "HC: listing example directories" && \
+          exampleDirNames=`ls "$HOLOCHAIN_SYSTEM_BIN/../examples"` && \
+          printf "\n\n$exampleDirNames\n\n" && \
+          read -p "HC: Type the name of the example app you want to copy: " copyAppDir && \
+          { { [ ! -d "$HOLOCHAIN_SYSTEM_BIN/../examples/$copyAppDir" ] || [[ -z $copyAppDir ]] ; } && { echo "HC: example $copyAppDir does not exist. Exiting" && exit 1 ; } ; } \
+        }
+fi
+
+read -r -p "HC: Enter the name of your Holochain App: " readableName && [[ -z $readableName ]] && echo "HC: app name cannot be blank" && exit 1
+machineName=${readableName//[^A-Za-z0-9]/}
+machineName=${machineName,,}
+
+printf "\nHC: All information entered. Check details: \n"
+[[ ! -z $copyAppDir ]] && printf "\nHC:  copy from example: \"$copyAppDir\""
+printf "\nHC:      readable name: \"$readableName\""
+printf "\nHC:       machine name: \"$machineName\""
+
+echo
+holochain.tools.confirm.y "Is this correct? (Y/n)" || { echo "terminated by user" && exit 1 ; } && :
+
+if [ ! -z $copyAppDir ] ; then
+ { cp $HOLOCHAIN_SYSTEM_BIN/../examples/$copyAppDir/* -r . && echo "HC: copied example app from: $copyAppDir" ; } || { echo "HC: failed to copy example app content from $copyAppDir. Exiting" && exit 1 ; }
+else
+  :
+fi
+
+holochain.app.init $readableName $machineName
+
+echo "HC: holochain app initialised"

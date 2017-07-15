@@ -113,12 +113,17 @@ func TestCloneNew(t *testing.T) {
 	root := s.Path + "/" + name
 
 	orig := s.Path + "/test"
-	Convey("it should create a chain from the examples directory", t, func() {
-		h, err := s.Clone(orig, root, true)
-		So(err, ShouldBeNil)
-		So(h.nucleus.dna.Name, ShouldEqual, "test2")
 
-		h, err = s.Load(name) // reload to confirm that it got saved correctly
+	agent, err := LoadAgent(s.Path)
+	if err != nil {
+		panic(err)
+	}
+
+	Convey("it should create a chain from the examples directory", t, func() {
+		err = s.Clone(orig, root, agent, true)
+		So(err, ShouldBeNil)
+
+		h, err := s.Load(name) // reload to confirm that it got saved correctly
 		So(err, ShouldBeNil)
 
 		So(h.nucleus.dna.Name, ShouldEqual, "test2")
@@ -157,12 +162,17 @@ func TestCloneJoin(t *testing.T) {
 	root := s.Path + "/" + name
 
 	orig := s.Path + "/test"
-	Convey("it should create a chain from the examples directory", t, func() {
-		h, err := s.Clone(orig, root, false)
-		So(err, ShouldBeNil)
-		So(h.nucleus.dna.Name, ShouldEqual, "test")
 
-		h, err = s.Load(name) // reload to confirm that it got saved correctly
+	agent, err := LoadAgent(s.Path)
+	if err != nil {
+		panic(err)
+	}
+
+	Convey("it should create a chain from the examples directory", t, func() {
+		err = s.Clone(orig, root, agent, false)
+		So(err, ShouldBeNil)
+
+		h, err := s.Load(name) // reload to confirm that it got saved correctly
 		So(err, ShouldBeNil)
 
 		So(h.nucleus.dna.Name, ShouldEqual, "test")

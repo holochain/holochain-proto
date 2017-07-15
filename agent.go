@@ -125,6 +125,9 @@ func LoadAgent(path string) (agent Agent, err error) {
 	// TODO, make this check also work on windows instead of just bypassing!
 	if runtime.GOOS != "windows" {
 		perms, err = filePerms(path, PrivKeyFileName)
+		if err != nil {
+			return
+		}
 		if perms != OS_USER_R {
 			err = errors.New(path + "/" + PrivKeyFileName + " file not read-only")
 			return

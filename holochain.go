@@ -401,38 +401,6 @@ func (h *Holochain) setupConfig() (err error) {
 	return
 }
 
-func makeConfig(h *Holochain, s *Service) (err error) {
-	h.config = Config{
-		Port:            DefaultPort,
-		PeerModeDHTNode: s.Settings.DefaultPeerModeDHTNode,
-		PeerModeAuthor:  s.Settings.DefaultPeerModeAuthor,
-		BootstrapServer: s.Settings.DefaultBootstrapServer,
-		Loggers: Loggers{
-			App:        Logger{Format: "%{color:cyan}%{message}", Enabled: true},
-			DHT:        Logger{Format: "%{color:yellow}%{time} DHT: %{message}"},
-			Gossip:     Logger{Format: "%{color:blue}%{time} Gossip: %{message}"},
-			TestPassed: Logger{Format: "%{color:green}%{message}", Enabled: true},
-			TestFailed: Logger{Format: "%{color:red}%{message}", Enabled: true},
-			TestInfo:   Logger{Format: "%{message}", Enabled: true},
-		},
-	}
-
-	p := h.rootPath + "/" + ConfigFileName + "." + h.encodingFormat
-	f, err := os.Create(p)
-	if err != nil {
-		return err
-	}
-	defer f.Close()
-
-	if err = Encode(f, h.encodingFormat, &h.config); err != nil {
-		return
-	}
-	if err = h.setupConfig(); err != nil {
-		return
-	}
-	return
-}
-
 // EncodeDNA encodes a holochain's DNA to an io.Writer
 func (h *Holochain) EncodeDNA(writer io.Writer) (err error) {
 	return Encode(writer, h.encodingFormat, &h.nucleus.dna)

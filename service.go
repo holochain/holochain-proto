@@ -479,6 +479,38 @@ func suffixByRibosomeType(ribosomeType string) (suffix string) {
 	return
 }
 
+func makeConfig(h *Holochain, s *Service) (err error) {
+	h.config = Config{
+		Port:            DefaultPort,
+		PeerModeDHTNode: s.Settings.DefaultPeerModeDHTNode,
+		PeerModeAuthor:  s.Settings.DefaultPeerModeAuthor,
+		BootstrapServer: s.Settings.DefaultBootstrapServer,
+		Loggers: Loggers{
+			App:        Logger{Format: "%{color:cyan}%{message}", Enabled: true},
+			DHT:        Logger{Format: "%{color:yellow}%{time} DHT: %{message}"},
+			Gossip:     Logger{Format: "%{color:blue}%{time} Gossip: %{message}"},
+			TestPassed: Logger{Format: "%{color:green}%{message}", Enabled: true},
+			TestFailed: Logger{Format: "%{color:red}%{message}", Enabled: true},
+			TestInfo:   Logger{Format: "%{message}", Enabled: true},
+		},
+	}
+
+	p := h.rootPath + "/" + ConfigFileName + "." + h.encodingFormat
+	f, err := os.Create(p)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+
+	if err = Encode(f, h.encodingFormat, &h.config); err != nil {
+		return
+	}
+	if err = h.setupConfig(); err != nil {
+		return
+	}
+	return
+}
+
 // GenDev generates starter holochain DNA files from which to develop a chain
 func (s *Service) GenDev(root string, format string) (hP *Holochain, err error) {
 	hP, err = gen(root, func(root string) (hP *Holochain, err error) {
@@ -844,8 +876,8 @@ function receive(from,message) {
 
 // Clone copies DNA files from a source directory
 // bool new indicates if this clone should create a new DNA (when true) or act as a Join
-func (s *Service) Clone(srcPath string, root string, new bool) (hP *Holochain, err error) {
-	hP, err = gen(root, func(root string) (hP *Holochain, err error) {
+func (s *Service) Clone(srcPath string, root string, agent Agent, new bool) (err error) {
+	_, err = gen(root, func(root string) (hP *Holochain, err error) {
 		var h Holochain
 		srcDNAPath := srcPath + "/" + ChainDNADir
 		//fmt.Printf("\n%s\n", srcDNAPath)
@@ -868,10 +900,6 @@ func (s *Service) Clone(srcPath string, root string, new bool) (hP *Holochain, e
 			return nil, err
 		}
 
-		agent, err := LoadAgent(filepath.Dir(root))
-		if err != nil {
-			return
-		}
 		//fmt.Printf("dna: agent, err: %s\n", agent, err)
 		h.agent = agent
 

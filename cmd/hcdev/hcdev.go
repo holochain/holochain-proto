@@ -9,11 +9,13 @@ import (
 	"errors"
 	"fmt"
 	holo "github.com/metacurrency/holochain"
+	"github.com/metacurrency/holochain/cmd"
 	"github.com/metacurrency/holochain/ui"
 	"github.com/urfave/cli"
 	"os"
 	"os/user"
 	"path"
+	"path/filepath"
 	"time"
 )
 
@@ -21,7 +23,7 @@ const (
 	defaultPort = "4141"
 )
 
-var debug bool
+var debug, appInitialized bool
 var rootPath, devPath, name string
 
 func setupApp() (app *cli.App) {
@@ -49,7 +51,118 @@ func setupApp() (app *cli.App) {
 			Destination: &devPath,
 		},
 	}
+
+	var interactive bool
+	var clonePath, scaffoldPath string
 	app.Commands = []cli.Command{
+		{
+			Name:    "init",
+			Aliases: []string{"i"},
+			Usage:   "initialize a holochain app directory: interactively, from a scaffold file or clone from another app",
+			Flags: []cli.Flag{
+				cli.BoolFlag{
+					Name:        "interactive",
+					Usage:       "interactive initialization",
+					Destination: &interactive,
+				},
+				cli.StringFlag{
+					Name:        "clone",
+					Usage:       "path to directory from which to clone the app",
+					Destination: &clonePath,
+				},
+				cli.StringFlag{
+					Name:        "scaffold",
+					Usage:       "path to a scaffold file from which to initialize the app",
+					Destination: &scaffoldPath,
+				},
+			},
+			ArgsUsage: "<name>",
+			Action: func(c *cli.Context) error {
+				if appInitialized {
+					return errors.New("current directory is an initialized app, apps shouldn't be nested")
+				}
+
+				args := c.Args()
+				if len(args) != 1 {
+					return errors.New("init: expecting app name as single argument")
+				}
+
+				if (interactive && clonePath != "") || (interactive && scaffoldPath != "") || (clonePath != "" && scaffoldPath != "") {
+					return errors.New("options are mutually exclusive, please choose just one.")
+				}
+				name := args[0]
+				devPath = filepath.Join(devPath, name)
+				if interactive {
+					// make the directory and chdir into it
+
+					// terminates go process
+					cmd.ExecBinScript("holochain.app.init.interactive")
+				} else if clonePath != "" {
+					// build the app by cloning from another app
+					info, err := os.Stat(clonePath)
+					if err != nil {
+						return err
+					}
+					if !info.Mode().IsDir() {
+						return errors.New("expecting a directory to clone from")
+					}
+
+					// TODO this is the bogus dev agent, really it should be someone else
+					agent, err := holo.LoadAgent(rootPath)
+					if err != nil {
+						return err
+					}
+
+					err = service.Clone(clonePath, devPath, agent, true)
+					if err != nil {
+						return err
+					}
+
+					fmt.Printf("cloning %s from %s\n", name, clonePath)
+				} else if scaffoldPath != "" {
+					// build the app from the scaffold
+					info, err := os.Stat(scaffoldPath)
+					if err != nil {
+						return err
+					}
+					if !info.Mode().IsRegular() {
+						return errors.New("expecting a scaffold file")
+					}
+					fmt.Printf("initializing from scaffold:%s\n", scaffoldPath)
+					fmt.Printf("WARNING: NOT IMPLEMENTED\n")
+				} else {
+					// build empty app directory template
+					err := os.MkdirAll(devPath, os.ModePerm)
+					if err != nil {
+						return err
+					}
+					err = os.MkdirAll(filepath.Join(devPath, holo.ChainDNADir), os.ModePerm)
+					if err != nil {
+						return err
+					}
+					err = os.MkdirAll(filepath.Join(devPath, holo.ChainUIDir), os.ModePerm)
+					if err != nil {
+						return err
+					}
+					err = os.MkdirAll(filepath.Join(devPath, holo.ChainTestDir), os.ModePerm)
+					if err != nil {
+						return err
+					}
+					fmt.Printf("initializing empty application template\n")
+				}
+
+				err := os.Chdir(devPath)
+				if err != nil {
+					return err
+				}
+
+				// finish by creating the .hc directory
+				// terminates go process
+				cmd.ExecBinScript("holochain.app.init", name, name)
+
+				return nil
+			},
+		},
 		{
 			Name:      "test",
 			Aliases:   []string{"t"},
@@ -92,11 +205,32 @@ func setupApp() (app *cli.App) {
 			},
 		},
 		{
+			Name:      "scenario",
+			Aliases:   []string{"s"},
+			Usage:     "run a scenario test",
+			ArgsUsage: "scenario-name",
+			Action: func(c *cli.Context) error {
+				if !appInitialized {
+					return errors.New("please initialize this app with 'hcdev init'")
+				}
+
+				args := c.Args()
+				if len(args) != 1 {
+					return errors.New("missing scenario name argument")
+				}
+
+				// terminates go process
+				cmd.ExecBinScript("holochain.app.testScenario", args[0])
+				return nil
+			},
+		},
+		{
 			Name:      "web",
 			Aliases:   []string{"serve", "w"},
 			ArgsUsage: "[port]",
 			Usage:     fmt.Sprintf("serve a chain to the web on localhost:<port> (defaults to %s)", defaultPort),
 			Action: func(c *cli.Context) error {
+
 				h, err := getHolochain(c, service)
 				if err != nil {
 					return err
@@ -140,7 +274,10 @@ func setupApp() (app *cli.App) {
 			}
 		}
 		name = path.Base(devPath)
-		// TODO confirm devPath is actually a holochain app directory
+
+		if cmd.IsAppDir(devPath) == nil {
+			appInitialized = true
+		}
 
 		if rootPath == "" {
 			rootPath = os.Getenv("HOLOPATH")
@@ -195,7 +332,12 @@ func getHolochain(c *cli.Context, service *holo.Service) (h *holo.Holochain, err
 	if err != nil {
 		return
 	}
-	h, err = service.Clone(devPath, rootPath+"/"+name, false)
+	var agent holo.Agent
+	agent, err = holo.LoadAgent(rootPath)
+	if err != nil {
+		return
+	}
+	err = service.Clone(devPath, rootPath+"/"+name, agent, false)
 	if err != nil {
 		return
 	}

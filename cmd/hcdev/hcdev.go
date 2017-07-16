@@ -291,7 +291,20 @@ func setupApp() (app *cli.App) {
 			}
 		}
 		if !holo.IsInitialized(rootPath) {
-			service, err = holo.Init(rootPath, holo.AgentName("test@example.com"))
+			u, err := user.Current()
+			var agent string
+			if err == nil {
+				var host string
+				host, err = os.Hostname()
+				if err == nil {
+					agent = u.Username + "@" + host
+				}
+			}
+
+			if err != nil {
+				agent = "test@example.com"
+			}
+			service, err = holo.Init(rootPath, holo.AgentName(agent))
 			if err != nil {
 				return err
 			}
@@ -299,7 +312,7 @@ func setupApp() (app *cli.App) {
 			fmt.Printf("    %s directory created\n", rootPath)
 			fmt.Printf("    defaults stored to %s\n", holo.SysFileName)
 			fmt.Println("    key-pair generated")
-			fmt.Printf("    default agent stored to %s\n", holo.AgentFileName)
+			fmt.Printf("    using %s as default agent (stored to %s)\n", agent, holo.AgentFileName)
 
 		} else {
 			service, err = holo.LoadService(rootPath)

@@ -52,7 +52,7 @@ func setupApp() (app *cli.App) {
 		},
 	}
 
-	var interactive bool
+	var interactive, dumpChain, dumpDHT bool
 	var clonePath, scaffoldPath string
 	app.Commands = []cli.Command{
 		{
@@ -258,7 +258,48 @@ func setupApp() (app *cli.App) {
 				ui.NewWebServer(h, port).Start()
 				return err
 			},
-		}}
+		},
+		{
+			Name:      "dump",
+			Aliases:   []string{"d"},
+			ArgsUsage: "holochain-name",
+			Usage:     "display a text dump of a chain after last test",
+			Flags: []cli.Flag{
+				cli.BoolFlag{
+					Name:        "chain",
+					Destination: &dumpChain,
+				},
+				cli.BoolFlag{
+					Name:        "dht",
+					Destination: &dumpDHT,
+				},
+			},
+			Action: func(c *cli.Context) error {
+
+				if !dumpChain && !dumpDHT {
+					dumpChain = true
+				}
+				h, err := service.Load(name)
+				if err != nil {
+					return err
+				}
+
+				if !h.Started() {
+					return errors.New("No data to dump, chain not yet initialized.")
+				}
+
+				dnaHash := h.DNAHash()
+				if dumpChain {
+					fmt.Printf("Chain for: %s\n%v", dnaHash, h.Chain())
+				}
+				if dumpDHT {
+					fmt.Printf("DHT for: %s\n%v", dnaHash, h.DHT())
+				}
+
+				return nil
+			},
+		},
+	}
 
 	app.Before = func(c *cli.Context) error {
 		if debug {

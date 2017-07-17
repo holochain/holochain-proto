@@ -6,6 +6,7 @@
 package main
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	holo "github.com/metacurrency/holochain"
@@ -30,7 +31,7 @@ func setupApp() (app *cli.App) {
 	app = cli.NewApp()
 	app.Name = "hcdev"
 	app.Usage = "holochain dev command line tool"
-	app.Version = fmt.Sprintf("0.0.0 (holochain %s)", holo.VersionStr)
+	app.Version = fmt.Sprintf("0.0.1 (holochain %s)", holo.VersionStr)
 
 	var service *holo.Service
 
@@ -107,7 +108,7 @@ func setupApp() (app *cli.App) {
 						return errors.New("expecting a directory to clone from")
 					}
 
-					// TODO this is the bogus dev agent, really it should be someone else
+					// TODO this is the bogus dev agent, really it should probably be someone else
 					agent, err := holo.LoadAgent(rootPath)
 					if err != nil {
 						return err
@@ -128,27 +129,46 @@ func setupApp() (app *cli.App) {
 					if !info.Mode().IsRegular() {
 						return errors.New("expecting a scaffold file")
 					}
-					fmt.Printf("initializing from scaffold:%s\n", scaffoldPath)
-					fmt.Printf("WARNING: NOT IMPLEMENTED\n")
+
+					sf, err := os.Open(scaffoldPath)
+					if err != nil {
+						return err
+					}
+					defer sf.Close()
+
+					dna, err := holo.LoadDNAScaffold(sf)
+					if err != nil {
+						return err
+					}
+
+					err = makeDirs(devPath)
+					if err != nil {
+						return err
+					}
+
+					err = service.SaveDNAFile(devPath, dna, "json", false)
+					if err != nil {
+						return err
+					}
+					fmt.Printf("initialized %s from scaffold:%s\n", devPath, scaffoldPath)
+
 				} else {
-					// build empty app directory template
-					err := os.MkdirAll(devPath, os.ModePerm)
+					// build empty app template
+					err := makeDirs(devPath)
 					if err != nil {
 						return err
 					}
-					err = os.MkdirAll(filepath.Join(devPath, holo.ChainDNADir), os.ModePerm)
+					scaffold := bytes.NewBuffer([]byte(holo.BasicTemplateScaffold))
+					dna, err := holo.LoadDNAScaffold(scaffold)
 					if err != nil {
 						return err
 					}
-					err = os.MkdirAll(filepath.Join(devPath, holo.ChainUIDir), os.ModePerm)
+					dna.NewUUID()
+					err = service.SaveDNAFile(devPath, dna, "json", false)
 					if err != nil {
 						return err
 					}
-					err = os.MkdirAll(filepath.Join(devPath, holo.ChainTestDir), os.ModePerm)
-					if err != nil {
-						return err
-					}
-					fmt.Printf("initializing empty application template\n")
+					fmt.Printf("initialized empty application to %s with new UUID:%v\n", devPath, dna.UUID)
 				}
 
 				err := os.Chdir(devPath)
@@ -400,4 +420,24 @@ func getHolochain(c *cli.Context, service *holo.Service) (h *holo.Holochain, err
 		return
 	}
 	return
+}
+
+func makeDirs(devPath string) error {
+	err := os.MkdirAll(devPath, os.ModePerm)
+	if err != nil {
+		return err
+	}
+	err = os.MkdirAll(filepath.Join(devPath, holo.ChainDNADir), os.ModePerm)
+	if err != nil {
+		return err
+	}
+	err = os.MkdirAll(filepath.Join(devPath, holo.ChainUIDir), os.ModePerm)
+	if err != nil {
+		return err
+	}
+	err = os.MkdirAll(filepath.Join(devPath, holo.ChainTestDir), os.ModePerm)
+	if err != nil {
+		return err
+	}
+	return nil
 }

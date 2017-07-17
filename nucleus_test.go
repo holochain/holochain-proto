@@ -47,3 +47,13 @@ func TestAppMessages(t *testing.T) {
 		So(fmt.Sprintf("%v", r), ShouldEqual, `{jsSampleZome {"pong":"foobar"}}`)
 	})
 }
+
+func TestNewUUID(t *testing.T) {
+	var dna DNA
+	Convey("It should initialize dna's UUID", t, func() {
+		So(fmt.Sprintf("%v", dna.UUID), ShouldEqual, "00000000-0000-0000-0000-000000000000")
+		err := dna.NewUUID()
+		So(err, ShouldBeNil)
+		So(fmt.Sprintf("%v", dna.UUID), ShouldNotEqual, "00000000-0000-0000-0000-000000000000")
+	})
+}

@@ -100,42 +100,49 @@ func Infof(m string, args ...interface{}) {
 	infoLog.Logf(m, args...)
 }
 
-// Initialize function that must be called once at startup by any peered app
-func Initialize() {
-	gob.Register(Header{})
-	gob.Register(AgentEntry{})
-	gob.Register(Hash{})
-	gob.Register(PutReq{})
-	gob.Register(GetReq{})
-	gob.Register(GetResp{})
-	gob.Register(ModReq{})
-	gob.Register(DelReq{})
-	gob.Register(LinkReq{})
-	gob.Register(LinkQuery{})
-	gob.Register(GossipReq{})
-	gob.Register(Gossip{})
-	gob.Register(ValidateQuery{})
-	gob.Register(ValidateResponse{})
-	gob.Register(Put{})
-	gob.Register(GobEntry{})
-	gob.Register(LinkQueryResp{})
-	gob.Register(TaggedHash{})
-	gob.Register(ErrorResponse{})
-	gob.Register(DelEntry{})
-	gob.Register(StatusChange{})
-	gob.Register(Package{})
-	gob.Register(AppMsg{})
+var _holochainInitialized bool
 
-	RegisterBultinRibosomes()
+// InitializeHolochain setup function that must be called once at startup
+// by the application that uses this holochain library
+func InitializeHolochain() {
+	// this should only run once
+	if !_holochainInitialized {
+		gob.Register(Header{})
+		gob.Register(AgentEntry{})
+		gob.Register(Hash{})
+		gob.Register(PutReq{})
+		gob.Register(GetReq{})
+		gob.Register(GetResp{})
+		gob.Register(ModReq{})
+		gob.Register(DelReq{})
+		gob.Register(LinkReq{})
+		gob.Register(LinkQuery{})
+		gob.Register(GossipReq{})
+		gob.Register(Gossip{})
+		gob.Register(ValidateQuery{})
+		gob.Register(ValidateResponse{})
+		gob.Register(Put{})
+		gob.Register(GobEntry{})
+		gob.Register(LinkQueryResp{})
+		gob.Register(TaggedHash{})
+		gob.Register(ErrorResponse{})
+		gob.Register(DelEntry{})
+		gob.Register(StatusChange{})
+		gob.Register(Package{})
+		gob.Register(AppMsg{})
 
-	infoLog.New(nil)
-	debugLog.New(nil)
+		RegisterBultinRibosomes()
 
-	rand.Seed(time.Now().Unix()) // initialize global pseudo random generator
+		infoLog.New(nil)
+		debugLog.New(nil)
 
-	ValidateProtocol = Protocol{protocol.ID("/hc-validate/0.0.0"), ValidateReceiver}
-	GossipProtocol = Protocol{protocol.ID("/hc-gossip/0.0.0"), GossipReceiver}
-	ActionProtocol = Protocol{protocol.ID("/hc-action/0.0.0"), ActionReceiver}
+		rand.Seed(time.Now().Unix()) // initialize global pseudo random generator
+
+		ValidateProtocol = Protocol{protocol.ID("/hc-validate/0.0.0"), ValidateReceiver}
+		GossipProtocol = Protocol{protocol.ID("/hc-gossip/0.0.0"), GossipReceiver}
+		ActionProtocol = Protocol{protocol.ID("/hc-action/0.0.0"), ActionReceiver}
+		_holochainInitialized = true
+	}
 }
 
 // ZomePath returns the path to the zome dna data

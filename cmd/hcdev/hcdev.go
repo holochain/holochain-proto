@@ -141,7 +141,7 @@ func setupApp() (app *cli.App) {
 						return err
 					}
 
-					err = makeDirs(devPath)
+					err = cmd.MakeDirs(devPath)
 					if err != nil {
 						return err
 					}
@@ -154,7 +154,7 @@ func setupApp() (app *cli.App) {
 
 				} else {
 					// build empty app template
-					err := makeDirs(devPath)
+					err := cmd.MakeDirs(devPath)
 					if err != nil {
 						return err
 					}
@@ -325,7 +325,7 @@ func setupApp() (app *cli.App) {
 		if debug {
 			os.Setenv("DEBUG", "1")
 		}
-		holo.Initialize()
+		holo.InitializeHolochain()
 
 		var err error
 		if devPath == "" {
@@ -420,24 +420,4 @@ func getHolochain(c *cli.Context, service *holo.Service) (h *holo.Holochain, err
 		return
 	}
 	return
-}
-
-func makeDirs(devPath string) error {
-	err := os.MkdirAll(devPath, os.ModePerm)
-	if err != nil {
-		return err
-	}
-	err = os.MkdirAll(filepath.Join(devPath, holo.ChainDNADir), os.ModePerm)
-	if err != nil {
-		return err
-	}
-	err = os.MkdirAll(filepath.Join(devPath, holo.ChainUIDir), os.ModePerm)
-	if err != nil {
-		return err
-	}
-	err = os.MkdirAll(filepath.Join(devPath, holo.ChainTestDir), os.ModePerm)
-	if err != nil {
-		return err
-	}
-	return nil
 }

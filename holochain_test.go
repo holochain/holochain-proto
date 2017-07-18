@@ -15,7 +15,7 @@ import (
 )
 
 func TestMain(m *testing.M) {
-	Initialize()
+	InitializeHolochain()
 	os.Exit(m.Run())
 }
 

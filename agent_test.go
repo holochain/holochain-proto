@@ -10,8 +10,8 @@ import (
 )
 
 func TestLibP2PAgent(t *testing.T) {
-	d := setupTestDir()
-	defer cleanupTestDir(d)
+	d := SetupTestDir()
+	defer CleanupTestDir(d)
 	a := AgentName("zippy@someemail.com")
 
 	Convey("it should fail to create an agent with an unknown key type", t, func() {

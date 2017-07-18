@@ -8,8 +8,8 @@ import (
 )
 
 func TestNewNucleus(t *testing.T) {
-	d := setupTestDir()
-	defer cleanupTestDir(d)
+	d := SetupTestDir()
+	defer CleanupTestDir(d)
 	var h Holochain
 	h.rootPath = d
 	os.MkdirAll(h.DBPath(), os.ModePerm)
@@ -22,8 +22,8 @@ func TestNewNucleus(t *testing.T) {
 }
 
 func TestAppMessages(t *testing.T) {
-	d, _, h := prepareTestChain("test")
-	defer cleanupTestDir(d)
+	d, _, h := PrepareTestChain("test")
+	defer CleanupTestDir(d)
 
 	// no need to activate DHT protocols for this test
 	h.config.PeerModeDHTNode = false

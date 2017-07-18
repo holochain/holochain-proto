@@ -1,33 +1,30 @@
 package cmd
 
 import (
-	"bytes"
 	"fmt"
 	holo "github.com/metacurrency/holochain"
 	. "github.com/smartystreets/goconvey/convey"
 	"os"
-	"strconv"
 	"testing"
-	"time"
 )
 
 func TestIsAppDir(t *testing.T) {
 	Convey("it should test to see if dir is a holochain app", t, func() {
 
-		d := mkTestDirName()
+		d := holo.MakeTestDirName()
 		So(IsAppDir(d).Error(), ShouldEqual, "directory missing .hc subdirectory")
 		err := os.MkdirAll(d+"/.hc", os.ModePerm)
 		if err != nil {
 			panic(err)
 		}
-		defer os.RemoveAll(d)
+		defer holo.CleanupTestDir(d)
 		So(IsAppDir(d), ShouldBeNil)
 	})
 }
 
 func TestGetService(t *testing.T) {
-	d := mkTestDirName()
-	defer os.RemoveAll(d)
+	d := holo.MakeTestDirName()
+	defer holo.CleanupTestDir(d)
 	Convey("it should fail to make a service if not initialized", t, func() {
 		service, err := GetService(d)
 		So(service, ShouldBeNil)
@@ -42,8 +39,8 @@ func TestGetService(t *testing.T) {
 }
 
 func TestGetHolochain(t *testing.T) {
-	d := mkTestDirName()
-	defer os.RemoveAll(d)
+	d := holo.MakeTestDirName()
+	defer holo.CleanupTestDir(d)
 
 	Convey("it should fail when service not initialized", t, func() {
 		h, err := GetHolochain("foobar", nil, "some-cmd")
@@ -60,39 +57,12 @@ func TestGetHolochain(t *testing.T) {
 	})
 
 	Convey("it should get an installed holochain", t, func() {
-		// build empty app template
-		devPath := d + "/testdev"
-		err := MakeDirs(devPath)
-		if err != nil {
-			panic(err)
-		}
-		scaffold := bytes.NewBuffer([]byte(holo.BasicTemplateScaffold))
-		dna, err := holo.LoadDNAScaffold(scaffold)
-		if err != nil {
-			panic(err)
-		}
-		err = service.SaveDNAFile(devPath, dna, "json", false)
-		if err != nil {
-			panic(err)
-		}
-
-		// clone the template to be a real installed app
-		var agent holo.Agent
-		agent, err = holo.LoadAgent(d)
-		err = service.Clone(devPath, d+"/test", agent, false)
-		if err != nil {
-			panic(err)
-		}
+		d, service, h := holo.PrepareTestChain("test")
+		defer holo.CleanupTestDir(d)
 
 		// finally run the test.
 		h, err := GetHolochain("test", service, "some-cmd")
 		So(err, ShouldBeNil)
-		So(h.Nucleus().DNA().Name, ShouldEqual, "templateApp")
+		So(h.Nucleus().DNA().Name, ShouldEqual, "test")
 	})
-}
-
-func mkTestDirName() string {
-	t := time.Now()
-	d := "/tmp/holochain_test" + strconv.FormatInt(t.Unix(), 10) + "." + strconv.Itoa(t.Nanosecond())
-	return d
 }

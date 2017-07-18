@@ -8,8 +8,8 @@ import (
 )
 
 func TestInit(t *testing.T) {
-	d := setupTestDir()
-	defer cleanupTestDir(d)
+	d := SetupTestDir()
+	defer CleanupTestDir(d)
 
 	Convey("we can detect an uninitialized directory", t, func() {
 		So(IsInitialized(d+"/"+DefaultDirectoryName), ShouldBeFalse)
@@ -48,7 +48,7 @@ func TestInit(t *testing.T) {
 func TestLoadService(t *testing.T) {
 	d, service := setupTestService()
 	root := service.Path
-	defer cleanupTestDir(d)
+	defer CleanupTestDir(d)
 	Convey("loading service from disk should set up the struct", t, func() {
 		s, err := LoadService(root)
 		So(err, ShouldEqual, nil)
@@ -79,7 +79,7 @@ func TestValidateServiceConfig(t *testing.T) {
 
 func TestConfiguredChains(t *testing.T) {
 	d, s, h := setupTestChain("test")
-	defer cleanupTestDir(d)
+	defer CleanupTestDir(d)
 
 	Convey("Configured chains should return a hash of all the chains in the Service", t, func() {
 		chains, err := s.ConfiguredChains()
@@ -90,7 +90,7 @@ func TestConfiguredChains(t *testing.T) {
 
 func TestServiceGenChain(t *testing.T) {
 	d, s, h := setupTestChain("test")
-	defer cleanupTestDir(d)
+	defer CleanupTestDir(d)
 
 	Convey("it should return a list of the chains", t, func() {
 		list := s.ListChains()
@@ -107,7 +107,7 @@ func TestServiceGenChain(t *testing.T) {
 
 func TestCloneNew(t *testing.T) {
 	d, s, h0 := setupTestChain("test")
-	defer cleanupTestDir(d)
+	defer CleanupTestDir(d)
 
 	name := "test2"
 	root := s.Path + "/" + name
@@ -156,7 +156,7 @@ func TestCloneNew(t *testing.T) {
 
 func TestCloneJoin(t *testing.T) {
 	d, s, h0 := setupTestChain("test")
-	defer cleanupTestDir(d)
+	defer CleanupTestDir(d)
 
 	name := "test2"
 	root := s.Path + "/" + name
@@ -198,7 +198,7 @@ func TestCloneJoin(t *testing.T) {
 
 func TestGenDev(t *testing.T) {
 	d, s := setupTestService()
-	defer cleanupTestDir(d)
+	defer CleanupTestDir(d)
 	name := "test"
 	root := s.Path + "/" + name
 

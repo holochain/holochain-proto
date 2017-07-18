@@ -22,8 +22,8 @@ func TestNewZygoRibosome(t *testing.T) {
 	})
 
 	Convey("it should have an App structure:", t, func() {
-		d, _, h := prepareTestChain("test")
-		defer cleanupTestDir(d)
+		d, _, h := PrepareTestChain("test")
+		defer CleanupTestDir(d)
 
 		v, err := NewZygoRibosome(h, &Zome{RibosomeType: ZygoRibosomeType, Code: ""})
 		So(err, ShouldBeNil)
@@ -54,8 +54,8 @@ func TestNewZygoRibosome(t *testing.T) {
 	})
 
 	Convey("it should have an HC structure:", t, func() {
-		d, _, h := prepareTestChain("test")
-		defer cleanupTestDir(d)
+		d, _, h := PrepareTestChain("test")
+		defer CleanupTestDir(d)
 
 		v, err := NewZygoRibosome(h, &Zome{RibosomeType: ZygoRibosomeType})
 		So(err, ShouldBeNil)
@@ -93,8 +93,8 @@ func TestNewZygoRibosome(t *testing.T) {
 	})
 
 	Convey("should have the built in functions:", t, func() {
-		d, _, h := prepareTestChain("test")
-		defer cleanupTestDir(d)
+		d, _, h := PrepareTestChain("test")
+		defer CleanupTestDir(d)
 
 		zome, _ := h.GetZome("zySampleZome")
 		v, err := NewZygoRibosome(h, zome)
@@ -217,8 +217,8 @@ func TestZyReceive(t *testing.T) {
 }
 
 func TestZybuildValidate(t *testing.T) {
-	d, _, h := prepareTestChain("test")
-	defer cleanupTestDir(d)
+	d, _, h := PrepareTestChain("test")
+	defer CleanupTestDir(d)
 
 	e := GobEntry{C: "3"}
 	a := NewCommitAction("oddNumbers", &e)
@@ -366,8 +366,8 @@ func TestZySanitize(t *testing.T) {
 }
 
 func TestZygoExposeCall(t *testing.T) {
-	d, _, h := prepareTestChain("test")
-	defer cleanupTestDir(d)
+	d, _, h := PrepareTestChain("test")
+	defer CleanupTestDir(d)
 
 	v, zome, err := h.MakeRibosome("zySampleZome")
 	if err != nil {
@@ -401,8 +401,8 @@ func TestZygoExposeCall(t *testing.T) {
 }
 
 func TestZygoDHT(t *testing.T) {
-	d, _, h := prepareTestChain("test")
-	defer cleanupTestDir(d)
+	d, _, h := PrepareTestChain("test")
+	defer CleanupTestDir(d)
 
 	hash, _ := NewHash("QmY8Mzg9F69e5P9AoQPYat6x5HEhc1TVGs11tmfNSzkqh2")
 	Convey("get should return hash not found if it doesn't exist", t, func() {
@@ -632,8 +632,8 @@ func TestZyProcessArgs(t *testing.T) {
 		So(args[0].value.(bool), ShouldEqual, true)
 	})
 
-	d, _, h := prepareTestChain("test")
-	defer cleanupTestDir(d)
+	d, _, h := PrepareTestChain("test")
+	defer CleanupTestDir(d)
 
 	Convey("it should convert EntryArg from string or hash", t, func() {
 		args := []Arg{{Name: "foo", Type: EntryArg}}

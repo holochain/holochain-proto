@@ -9,8 +9,8 @@ import (
 )
 
 func TestValidateAction(t *testing.T) {
-	d, _, h := prepareTestChain("test")
-	defer cleanupTestDir(d)
+	d, _, h := PrepareTestChain("test")
+	defer CleanupTestDir(d)
 	var err error
 
 	// these test the generic properties of ValidateAction using a commit action as an example
@@ -38,8 +38,8 @@ func TestValidateAction(t *testing.T) {
 }
 
 func TestSysValidateEntry(t *testing.T) {
-	d, _, h := prepareTestChain("test")
-	defer cleanupTestDir(d)
+	d, _, h := PrepareTestChain("test")
+	defer CleanupTestDir(d)
 
 	Convey("a nil entry is invalid", t, func() {
 		err := sysValidateEntry(h, nil, nil)
@@ -84,8 +84,8 @@ func TestSysValidateEntry(t *testing.T) {
 }
 
 func TestSysValidateMod(t *testing.T) {
-	d, _, h := prepareTestChain("test")
-	defer cleanupTestDir(d)
+	d, _, h := PrepareTestChain("test")
+	defer CleanupTestDir(d)
 	hash := commit(h, "evenNumbers", "2")
 	_, def, _ := h.GetEntryDef("evenNumbers")
 
@@ -110,8 +110,8 @@ func TestSysValidateMod(t *testing.T) {
 }
 
 func TestSysValidateDel(t *testing.T) {
-	d, _, h := prepareTestChain("test")
-	defer cleanupTestDir(d)
+	d, _, h := PrepareTestChain("test")
+	defer CleanupTestDir(d)
 	hash := commit(h, "evenNumbers", "2")
 	_, def, _ := h.GetEntryDef("evenNumbers")
 
@@ -152,8 +152,8 @@ func TestCheckArgCount(t *testing.T) {
 }
 
 func TestActionGetLocal(t *testing.T) {
-	d, _, h := prepareTestChain("test")
-	defer cleanupTestDir(d)
+	d, _, h := PrepareTestChain("test")
+	defer CleanupTestDir(d)
 	hash := commit(h, "secret", "31415")
 
 	Convey("non local get should fail for private entries", t, func() {

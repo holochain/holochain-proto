@@ -21,8 +21,8 @@ func TestNewChain(t *testing.T) {
 }
 
 func TestNewChainFromFile(t *testing.T) {
-	d := setupTestDir()
-	defer cleanupTestDir(d)
+	d := SetupTestDir()
+	defer CleanupTestDir(d)
 	hashSpec, key, now := chainTestSetup()
 
 	var c *Chain

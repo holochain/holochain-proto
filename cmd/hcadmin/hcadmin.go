@@ -106,7 +106,7 @@ func setupApp() (app *cli.App) {
 		},
 		{
 			Name:      "join",
-			Aliases:   []string{"c"},
+			Aliases:   []string{"j"},
 			ArgsUsage: "src-path holochain-name",
 			Usage:     "joins a holochain by copying an instance from a source and generating genesis blocks",
 			Action: func(c *cli.Context) error {

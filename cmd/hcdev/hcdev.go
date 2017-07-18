@@ -341,7 +341,7 @@ func setupApp() (app *cli.App) {
 		}
 
 		if rootPath == "" {
-			rootPath = os.Getenv("HOLOPATH")
+			rootPath = os.Getenv("HOLOPATHDEV")
 			if rootPath == "" {
 				u, err := user.Current()
 				if err != nil {

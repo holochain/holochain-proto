@@ -72,11 +72,11 @@ var ribosomeFactories = make(map[string]RibosomeFactory)
 // RegisterRibosome sets up a Ribosome to be used by the CreateRibosome function
 func RegisterRibosome(name string, factory RibosomeFactory) {
 	if factory == nil {
-		panic("Ribosome factory for type %s does not exist." + name)
+		panic(fmt.Sprintf("Ribosome factory for type %s does not exist.", name))
 	}
 	_, registered := ribosomeFactories[name]
 	if registered {
-		panic("Ribosome factory for type %s already registered. " + name)
+		panic(fmt.Sprintf("Ribosome factory for type %s already registered. ", name))
 	}
 	ribosomeFactories[name] = factory
 }

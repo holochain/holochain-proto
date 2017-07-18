@@ -36,6 +36,9 @@ endef
 hc: deps
 	go get $(REPO)/cmd/hc
 	gx-go rewrite --undo
+hcd: deps
+	go get $(REPO)/cmd/hcd
+	gx-go rewrite --undo
 hcdev: deps
 	go get $(REPO)/cmd/hcdev
 	gx-go rewrite --undo

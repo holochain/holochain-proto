@@ -670,10 +670,6 @@ func (dht *DHT) DumpIdx(idx int) (str string, err error) {
 }
 
 func (dht *DHT) String() (result string) {
-	dnaHash := dht.h.DNAHash()
-
-	result = fmt.Sprintf("DHT for: %s\n", dnaHash)
-
 	idx, err := dht.GetIdx()
 	if err != nil {
 		return ""

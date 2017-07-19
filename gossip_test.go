@@ -12,15 +12,15 @@ import (
 to gossip about.  Currently test is ActionReceiver test
 
 func TestGossipReceiver(t *testing.T) {
-	d, _, h := prepareTestChain("test")
-	defer cleanupTestDir(d)
+	d, _, h := PrepareTestChain("test")
+	defer CleanupTestDir(d)
 	h.dht.SetupDHT()
 
 }*/
 
 func TestGetFindGossiper(t *testing.T) {
-	d, _, h := prepareTestChain("test")
-	defer cleanupTestDir(d)
+	d, _, h := PrepareTestChain("test")
+	defer CleanupTestDir(d)
 	dht := h.dht
 	Convey("FindGossiper should start empty", t, func() {
 		_, err := dht.FindGossiper()
@@ -97,8 +97,8 @@ func TestGetFindGossiper(t *testing.T) {
 }
 
 func TestGossipData(t *testing.T) {
-	d, _, h := prepareTestChain("test")
-	defer cleanupTestDir(d)
+	d, _, h := PrepareTestChain("test")
+	defer CleanupTestDir(d)
 	dht := h.dht
 	Convey("Idx should be 2 at start (first puts are DNA, Agent & Key but DNA put not stored)", t, func() {
 		var idx int
@@ -189,8 +189,8 @@ func TestGossipData(t *testing.T) {
 }
 
 func TestGossip(t *testing.T) {
-	d, _, h := prepareTestChain("test")
-	defer cleanupTestDir(d)
+	d, _, h := PrepareTestChain("test")
+	defer CleanupTestDir(d)
 	dht := h.dht
 
 	idx, _ := dht.GetIdx()

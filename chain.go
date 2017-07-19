@@ -501,7 +501,7 @@ func (c *Chain) String() string {
 		case DNAEntryType:
 			r += fmt.Sprintf("       %s\n", e.(*GobEntry).C)
 		case AgentEntryType:
-			r += fmt.Sprintf("       %v\n", e.(*GobEntry).C.(string))
+			r += fmt.Sprintf("       %v\n", e.(*GobEntry).C)
 		default:
 			r += fmt.Sprintf("       %v\n", e)
 		}

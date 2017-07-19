@@ -11,8 +11,8 @@ import (
 )
 
 func TestNewDHT(t *testing.T) {
-	d := setupTestDir()
-	defer cleanupTestDir(d)
+	d := SetupTestDir()
+	defer CleanupTestDir(d)
 	var h Holochain
 	h.rootPath = d
 	os.MkdirAll(h.DBPath(), os.ModePerm)
@@ -25,8 +25,8 @@ func TestNewDHT(t *testing.T) {
 }
 
 func TestSetupDHT(t *testing.T) {
-	d, _, h := prepareTestChain("test")
-	defer cleanupTestDir(d)
+	d, _, h := PrepareTestChain("test")
+	defer CleanupTestDir(d)
 
 	err := h.dht.SetupDHT()
 	Convey("it should add the holochain ID to the DHT", t, func() {
@@ -71,8 +71,8 @@ func TestSetupDHT(t *testing.T) {
 }
 
 func TestPutGetModDel(t *testing.T) {
-	d, _, h := prepareTestChain("test")
-	defer cleanupTestDir(d)
+	d, _, h := PrepareTestChain("test")
+	defer CleanupTestDir(d)
 
 	dht := h.dht
 	var id = h.nodeID
@@ -155,8 +155,8 @@ func TestPutGetModDel(t *testing.T) {
 }
 
 func TestLinking(t *testing.T) {
-	d, _, h := prepareTestChain("test")
-	defer cleanupTestDir(d)
+	d, _, h := PrepareTestChain("test")
+	defer CleanupTestDir(d)
 
 	err := h.dht.SetupDHT()
 	dht := h.dht
@@ -248,8 +248,8 @@ func TestLinking(t *testing.T) {
 }
 
 func TestFindNodeForHash(t *testing.T) {
-	d, _, h := prepareTestChain("test")
-	defer cleanupTestDir(d)
+	d, _, h := PrepareTestChain("test")
+	defer CleanupTestDir(d)
 
 	Convey("It should find a node", t, func() {
 
@@ -266,8 +266,8 @@ func TestFindNodeForHash(t *testing.T) {
 }
 
 func TestSend(t *testing.T) {
-	d, _, h := prepareTestChain("test")
-	defer cleanupTestDir(d)
+	d, _, h := PrepareTestChain("test")
+	defer CleanupTestDir(d)
 
 	agent := h.Agent().(*LibP2PAgent)
 	node, err := NewNode("/ip4/127.0.0.1/tcp/1234", agent)
@@ -311,8 +311,8 @@ func TestSend(t *testing.T) {
 }
 
 func TestActionReceiver(t *testing.T) {
-	d, _, h := prepareTestChain("test")
-	defer cleanupTestDir(d)
+	d, _, h := PrepareTestChain("test")
+	defer CleanupTestDir(d)
 
 	Convey("PUT_REQUEST should fail if body isn't a hash", t, func() {
 		m := h.node.NewMessage(PUT_REQUEST, "foo")
@@ -501,8 +501,8 @@ func TestActionReceiver(t *testing.T) {
 }
 
 func TestDHTDump(t *testing.T) {
-	d, _, h := prepareTestChain("test")
-	defer cleanupTestDir(d)
+	d, _, h := PrepareTestChain("test")
+	defer CleanupTestDir(d)
 	Convey("dht dump of index 1 should show the agent put", t, func() {
 		msg, _ := h.dht.GetIdxMessage(1)
 		f, _ := msg.Fingerprint()
@@ -523,8 +523,8 @@ func TestDHTDump(t *testing.T) {
 }
 
 func TestDHT2String(t *testing.T) {
-	d, _, h := prepareTestChain("test")
-	defer cleanupTestDir(d)
+	d, _, h := PrepareTestChain("test")
+	defer CleanupTestDir(d)
 
 	Convey("it dump should show the changes count", t, func() {
 		So(strings.Index(h.dht.String(), "DHT changes:2") >= 0, ShouldBeTrue)
@@ -533,8 +533,8 @@ func TestDHT2String(t *testing.T) {
 
 /*
 func TestHandleChangeReqs(t *testing.T) {
-	d, _, h := prepareTestChain("test")
-	defer cleanupTestDir(d)
+	d, _, h := PrepareTestChain("test")
+	defer CleanupTestDir(d)
 
 	now := time.Unix(1, 1) // pick a constant time so the test will always work
 	e := GobEntry{C: "{\"prime\":7}"}

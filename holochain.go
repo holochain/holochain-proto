@@ -100,42 +100,49 @@ func Infof(m string, args ...interface{}) {
 	infoLog.Logf(m, args...)
 }
 
-// Initialize function that must be called once at startup by any peered app
-func Initialize() {
-	gob.Register(Header{})
-	gob.Register(AgentEntry{})
-	gob.Register(Hash{})
-	gob.Register(PutReq{})
-	gob.Register(GetReq{})
-	gob.Register(GetResp{})
-	gob.Register(ModReq{})
-	gob.Register(DelReq{})
-	gob.Register(LinkReq{})
-	gob.Register(LinkQuery{})
-	gob.Register(GossipReq{})
-	gob.Register(Gossip{})
-	gob.Register(ValidateQuery{})
-	gob.Register(ValidateResponse{})
-	gob.Register(Put{})
-	gob.Register(GobEntry{})
-	gob.Register(LinkQueryResp{})
-	gob.Register(TaggedHash{})
-	gob.Register(ErrorResponse{})
-	gob.Register(DelEntry{})
-	gob.Register(StatusChange{})
-	gob.Register(Package{})
-	gob.Register(AppMsg{})
+var _holochainInitialized bool
 
-	RegisterBultinRibosomes()
+// InitializeHolochain setup function that must be called once at startup
+// by the application that uses this holochain library
+func InitializeHolochain() {
+	// this should only run once
+	if !_holochainInitialized {
+		gob.Register(Header{})
+		gob.Register(AgentEntry{})
+		gob.Register(Hash{})
+		gob.Register(PutReq{})
+		gob.Register(GetReq{})
+		gob.Register(GetResp{})
+		gob.Register(ModReq{})
+		gob.Register(DelReq{})
+		gob.Register(LinkReq{})
+		gob.Register(LinkQuery{})
+		gob.Register(GossipReq{})
+		gob.Register(Gossip{})
+		gob.Register(ValidateQuery{})
+		gob.Register(ValidateResponse{})
+		gob.Register(Put{})
+		gob.Register(GobEntry{})
+		gob.Register(LinkQueryResp{})
+		gob.Register(TaggedHash{})
+		gob.Register(ErrorResponse{})
+		gob.Register(DelEntry{})
+		gob.Register(StatusChange{})
+		gob.Register(Package{})
+		gob.Register(AppMsg{})
 
-	infoLog.New(nil)
-	debugLog.New(nil)
+		RegisterBultinRibosomes()
 
-	rand.Seed(time.Now().Unix()) // initialize global pseudo random generator
+		infoLog.New(nil)
+		debugLog.New(nil)
 
-	ValidateProtocol = Protocol{protocol.ID("/hc-validate/0.0.0"), ValidateReceiver}
-	GossipProtocol = Protocol{protocol.ID("/hc-gossip/0.0.0"), GossipReceiver}
-	ActionProtocol = Protocol{protocol.ID("/hc-action/0.0.0"), ActionReceiver}
+		rand.Seed(time.Now().Unix()) // initialize global pseudo random generator
+
+		ValidateProtocol = Protocol{protocol.ID("/hc-validate/0.0.0"), ValidateReceiver}
+		GossipProtocol = Protocol{protocol.ID("/hc-gossip/0.0.0"), GossipReceiver}
+		ActionProtocol = Protocol{protocol.ID("/hc-action/0.0.0"), ActionReceiver}
+		_holochainInitialized = true
+	}
 }
 
 // ZomePath returns the path to the zome dna data
@@ -396,38 +403,6 @@ func (h *Holochain) setupConfig() (err error) {
 		return
 	}
 	if err = h.config.Loggers.TestInfo.New(nil); err != nil {
-		return
-	}
-	return
-}
-
-func makeConfig(h *Holochain, s *Service) (err error) {
-	h.config = Config{
-		Port:            DefaultPort,
-		PeerModeDHTNode: s.Settings.DefaultPeerModeDHTNode,
-		PeerModeAuthor:  s.Settings.DefaultPeerModeAuthor,
-		BootstrapServer: s.Settings.DefaultBootstrapServer,
-		Loggers: Loggers{
-			App:        Logger{Format: "%{color:cyan}%{message}", Enabled: true},
-			DHT:        Logger{Format: "%{color:yellow}%{time} DHT: %{message}"},
-			Gossip:     Logger{Format: "%{color:blue}%{time} Gossip: %{message}"},
-			TestPassed: Logger{Format: "%{color:green}%{message}", Enabled: true},
-			TestFailed: Logger{Format: "%{color:red}%{message}", Enabled: true},
-			TestInfo:   Logger{Format: "%{message}", Enabled: true},
-		},
-	}
-
-	p := h.rootPath + "/" + ConfigFileName + "." + h.encodingFormat
-	f, err := os.Create(p)
-	if err != nil {
-		return err
-	}
-	defer f.Close()
-
-	if err = Encode(f, h.encodingFormat, &h.config); err != nil {
-		return
-	}
-	if err = h.setupConfig(); err != nil {
 		return
 	}
 	return

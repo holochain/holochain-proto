@@ -107,9 +107,19 @@ func setupApp() (app *cli.App) {
 						return e
 					}
 				}
-				h, err := service.Clone(srcPath, root+"/"+name, true)
+
+				agent, err := holo.LoadAgent(root)
+				if err != nil {
+					return err
+				}
+
+				err = service.Clone(srcPath, root+"/"+name, agent, true)
 				if err == nil {
 					if verbose {
+						h, err := service.Load(name)
+						if err != nil {
+							return err
+						}
 						fmt.Printf("cloned %s from %s with new uuid: %v\n", name, srcPath, h.Nucleus().DNA().UUID)
 					}
 				}
@@ -327,7 +337,11 @@ func setupApp() (app *cli.App) {
 					return errors.New("join: missing required holochain-name argument")
 				}
 				name := c.Args()[1]
-				_, err := service.Clone(srcPath, root+"/"+name, false)
+				agent, err := holo.LoadAgent(root)
+				if err != nil {
+					return err
+				}
+				err = service.Clone(srcPath, root+"/"+name, agent, false)
 				if err == nil {
 					if verbose {
 						fmt.Printf("joined %s from %s\n", name, srcPath)
@@ -428,7 +442,7 @@ func setupApp() (app *cli.App) {
 		if debug {
 			os.Setenv("DEBUG", "1")
 		}
-		holo.Initialize()
+		holo.InitializeHolochain()
 		if verbose {
 			fmt.Printf("hc version %s \n", app.Version)
 		}

@@ -17,14 +17,14 @@ func Panix(on string) {
 	}
 }
 
-func mkTestDirName() string {
+func MakeTestDirName() string {
 	t := time.Now()
 	d := "/tmp/holochain_test" + strconv.FormatInt(t.Unix(), 10) + "." + strconv.Itoa(t.Nanosecond())
 	return d
 }
 
 func setupTestService() (d string, s *Service) {
-	d = mkTestDirName()
+	d = MakeTestDirName()
 	agent := AgentName("Herbert <h@bert.com>")
 	s, err := Init(d+"/"+DefaultDirectoryName, agent)
 	s.Settings.DefaultBootstrapServer = "localhost:3142"
@@ -45,10 +45,6 @@ func setupTestChain(n string) (d string, s *Service, h *Holochain) {
 }
 
 func PrepareTestChain(n string) (d string, s *Service, h *Holochain) {
-	return prepareTestChain(n)
-}
-
-func prepareTestChain(n string) (d string, s *Service, h *Holochain) {
 	d, s, h = setupTestChain("test")
 	_, err := h.GenChain()
 	if err != nil {
@@ -62,8 +58,8 @@ func prepareTestChain(n string) (d string, s *Service, h *Holochain) {
 	return
 }
 
-func setupTestDir() string {
-	d := mkTestDirName()
+func SetupTestDir() string {
+	d := MakeTestDirName()
 	err := os.MkdirAll(d, os.ModePerm)
 	if err != nil {
 		panic(err)
@@ -71,9 +67,7 @@ func setupTestDir() string {
 	return d
 }
 
-func CleanupTestDir(path string) { cleanupTestDir(path) }
-
-func cleanupTestDir(path string) {
+func CleanupTestDir(path string) {
 	err := os.RemoveAll(path)
 	if err != nil {
 		panic(err)

@@ -23,8 +23,8 @@ func TestNewJSRibosome(t *testing.T) {
 	})
 
 	Convey("it should have an App structure:", t, func() {
-		d, _, h := prepareTestChain("test")
-		defer cleanupTestDir(d)
+		d, _, h := PrepareTestChain("test")
+		defer CleanupTestDir(d)
 
 		v, err := NewJSRibosome(h, &Zome{RibosomeType: JSRibosomeType})
 		So(err, ShouldBeNil)
@@ -58,8 +58,8 @@ func TestNewJSRibosome(t *testing.T) {
 	})
 
 	Convey("it should have an HC structure:", t, func() {
-		d, _, h := prepareTestChain("test")
-		defer cleanupTestDir(d)
+		d, _, h := PrepareTestChain("test")
+		defer CleanupTestDir(d)
 
 		v, err := NewJSRibosome(h, &Zome{RibosomeType: JSRibosomeType})
 		So(err, ShouldBeNil)
@@ -97,8 +97,8 @@ func TestNewJSRibosome(t *testing.T) {
 	})
 
 	Convey("should have the built in functions:", t, func() {
-		d, _, h := prepareTestChain("test")
-		defer cleanupTestDir(d)
+		d, _, h := PrepareTestChain("test")
+		defer CleanupTestDir(d)
 
 		zome, _ := h.GetZome("jsSampleZome")
 		v, err := NewJSRibosome(h, zome)
@@ -190,8 +190,8 @@ func TestJSReceive(t *testing.T) {
 }
 
 func TestJSbuildValidate(t *testing.T) {
-	d, _, h := prepareTestChain("test")
-	defer cleanupTestDir(d)
+	d, _, h := PrepareTestChain("test")
+	defer CleanupTestDir(d)
 
 	e := GobEntry{C: "2"}
 	a := NewCommitAction("evenNumbers", &e)
@@ -218,8 +218,8 @@ func TestJSbuildValidate(t *testing.T) {
 }
 
 func TestJSValidateCommit(t *testing.T) {
-	d, _, h := prepareTestChain("test")
-	defer cleanupTestDir(d)
+	d, _, h := PrepareTestChain("test")
+	defer CleanupTestDir(d)
 	//	a, _ := NewAgent(LibP2P, "Joe")
 	//	h := NewHolochain(a, "some/path", "yaml", Zome{RibosomeType:JSRibosomeType,})
 	//	a := h.agent
@@ -348,8 +348,8 @@ func TestJSSanitize(t *testing.T) {
 }
 
 func TestJSExposeCall(t *testing.T) {
-	d, _, h := prepareTestChain("test")
-	defer cleanupTestDir(d)
+	d, _, h := PrepareTestChain("test")
+	defer CleanupTestDir(d)
 
 	v, zome, err := h.MakeRibosome("jsSampleZome")
 	if err != nil {
@@ -394,8 +394,8 @@ func TestJSExposeCall(t *testing.T) {
 }
 
 func TestJSDHT(t *testing.T) {
-	d, _, h := prepareTestChain("test")
-	defer cleanupTestDir(d)
+	d, _, h := PrepareTestChain("test")
+	defer CleanupTestDir(d)
 
 	hash, _ := NewHash("QmY8Mzg9F69e5P9AoQPYat6x5HEhc1TVGs11tmfNSzkqh2")
 	Convey("get should return hash not found if it doesn't exist", t, func() {
@@ -562,8 +562,8 @@ func TestJSDHT(t *testing.T) {
 }
 
 func TestJSProcessArgs(t *testing.T) {
-	d, _, h := prepareTestChain("test")
-	defer cleanupTestDir(d)
+	d, _, h := PrepareTestChain("test")
+	defer CleanupTestDir(d)
 
 	v, _ := NewJSRibosome(h, &Zome{RibosomeType: JSRibosomeType, Code: ""})
 	z := v.(*JSRibosome)

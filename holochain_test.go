@@ -15,7 +15,7 @@ import (
 )
 
 func TestMain(m *testing.M) {
-	Initialize()
+	InitializeHolochain()
 	os.Exit(m.Run())
 }
 
@@ -75,7 +75,7 @@ func TestPrepare(t *testing.T) {
 	})
 	Convey("it should return no err if the requires version is correct", t, func() {
 		d, _, h := setupTestChain("test")
-		defer cleanupTestDir(d)
+		defer CleanupTestDir(d)
 		dna := DNA{DHTConfig: DHTConfig{HashType: "sha1"}, RequiresVersion: Version}
 		h.nucleus = NewNucleus(h, &dna)
 		err := h.Prepare()
@@ -115,7 +115,7 @@ func TestPrepareHashType(t *testing.T) {
 
 func TestNewEntry(t *testing.T) {
 	d, s := setupTestService()
-	defer cleanupTestDir(d)
+	defer CleanupTestDir(d)
 	n := "test"
 	path := s.Path + "/" + n
 	h, err := s.GenDev(path, "toml")
@@ -224,7 +224,7 @@ func TestHeader(t *testing.T) {
 
 func TestGenChain(t *testing.T) {
 	d, _, h := setupTestChain("test")
-	defer cleanupTestDir(d)
+	defer CleanupTestDir(d)
 	var err error
 
 	Convey("before GenChain call DNAHash call should fail", t, func() {
@@ -276,8 +276,8 @@ func TestGenChain(t *testing.T) {
 }
 
 func TestWalk(t *testing.T) {
-	d, _, h := prepareTestChain("test")
-	defer cleanupTestDir(d)
+	d, _, h := PrepareTestChain("test")
+	defer CleanupTestDir(d)
 
 	// add an extra link onto the chain
 	entryTypeFoo := `(message (from "art") (to "eric") (contents "test"))`
@@ -308,7 +308,7 @@ func TestWalk(t *testing.T) {
 
 func TestGetZome(t *testing.T) {
 	d, _, h := setupTestChain("test")
-	defer cleanupTestDir(d)
+	defer CleanupTestDir(d)
 	Convey("it should fail if the zome isn't defined in the DNA", t, func() {
 		_, err := h.GetZome("bogusZome")
 		So(err.Error(), ShouldEqual, "unknown zome: bogusZome")
@@ -322,7 +322,7 @@ func TestGetZome(t *testing.T) {
 
 func TestMakeRibosome(t *testing.T) {
 	d, _, h := setupTestChain("test")
-	defer cleanupTestDir(d)
+	defer CleanupTestDir(d)
 	Convey("it should fail if the zome isn't defined in the DNA", t, func() {
 		_, _, err := h.MakeRibosome("bogusZome")
 		So(err.Error(), ShouldEqual, "unknown zome: bogusZome")
@@ -338,8 +338,8 @@ func TestMakeRibosome(t *testing.T) {
 }
 
 func TestCall(t *testing.T) {
-	d, _, h := prepareTestChain("test")
-	defer cleanupTestDir(d)
+	d, _, h := PrepareTestChain("test")
+	defer CleanupTestDir(d)
 	Convey("it should call the exposed function", t, func() {
 		result, err := h.Call("zySampleZome", "testStrFn1", "arg1 arg2", ZOME_EXPOSURE)
 		So(err, ShouldBeNil)
@@ -362,7 +362,7 @@ func TestCall(t *testing.T) {
 
 func TestLoadTestFiles(t *testing.T) {
 	d, _, h := setupTestChain("test")
-	defer cleanupTestDir(d)
+	defer CleanupTestDir(d)
 
 	Convey("it should fail if there's no test data", t, func() {
 		tests, err := LoadTestFiles(d)
@@ -380,8 +380,8 @@ func TestLoadTestFiles(t *testing.T) {
 }
 
 func TestCommit(t *testing.T) {
-	d, _, h := prepareTestChain("test")
-	defer cleanupTestDir(d)
+	d, _, h := PrepareTestChain("test")
+	defer CleanupTestDir(d)
 
 	// add an entry onto the chain
 	hash := commit(h, "oddNumbers", "7")

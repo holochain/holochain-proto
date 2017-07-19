@@ -8,8 +8,8 @@ import (
 )
 
 func TestInit(t *testing.T) {
-	d := setupTestDir()
-	defer cleanupTestDir(d)
+	d := SetupTestDir()
+	defer CleanupTestDir(d)
 
 	Convey("we can detect an uninitialized directory", t, func() {
 		So(IsInitialized(d+"/"+DefaultDirectoryName), ShouldBeFalse)
@@ -48,7 +48,7 @@ func TestInit(t *testing.T) {
 func TestLoadService(t *testing.T) {
 	d, service := setupTestService()
 	root := service.Path
-	defer cleanupTestDir(d)
+	defer CleanupTestDir(d)
 	Convey("loading service from disk should set up the struct", t, func() {
 		s, err := LoadService(root)
 		So(err, ShouldEqual, nil)
@@ -79,7 +79,7 @@ func TestValidateServiceConfig(t *testing.T) {
 
 func TestConfiguredChains(t *testing.T) {
 	d, s, h := setupTestChain("test")
-	defer cleanupTestDir(d)
+	defer CleanupTestDir(d)
 
 	Convey("Configured chains should return a hash of all the chains in the Service", t, func() {
 		chains, err := s.ConfiguredChains()
@@ -90,7 +90,7 @@ func TestConfiguredChains(t *testing.T) {
 
 func TestServiceGenChain(t *testing.T) {
 	d, s, h := setupTestChain("test")
-	defer cleanupTestDir(d)
+	defer CleanupTestDir(d)
 
 	Convey("it should return a list of the chains", t, func() {
 		list := s.ListChains()
@@ -107,18 +107,23 @@ func TestServiceGenChain(t *testing.T) {
 
 func TestCloneNew(t *testing.T) {
 	d, s, h0 := setupTestChain("test")
-	defer cleanupTestDir(d)
+	defer CleanupTestDir(d)
 
 	name := "test2"
 	root := s.Path + "/" + name
 
 	orig := s.Path + "/test"
-	Convey("it should create a chain from the examples directory", t, func() {
-		h, err := s.Clone(orig, root, true)
-		So(err, ShouldBeNil)
-		So(h.nucleus.dna.Name, ShouldEqual, "test2")
 
-		h, err = s.Load(name) // reload to confirm that it got saved correctly
+	agent, err := LoadAgent(s.Path)
+	if err != nil {
+		panic(err)
+	}
+
+	Convey("it should create a chain from the examples directory", t, func() {
+		err = s.Clone(orig, root, agent, true)
+		So(err, ShouldBeNil)
+
+		h, err := s.Load(name) // reload to confirm that it got saved correctly
 		So(err, ShouldBeNil)
 
 		So(h.nucleus.dna.Name, ShouldEqual, "test2")
@@ -151,18 +156,23 @@ func TestCloneNew(t *testing.T) {
 
 func TestCloneJoin(t *testing.T) {
 	d, s, h0 := setupTestChain("test")
-	defer cleanupTestDir(d)
+	defer CleanupTestDir(d)
 
 	name := "test2"
 	root := s.Path + "/" + name
 
 	orig := s.Path + "/test"
-	Convey("it should create a chain from the examples directory", t, func() {
-		h, err := s.Clone(orig, root, false)
-		So(err, ShouldBeNil)
-		So(h.nucleus.dna.Name, ShouldEqual, "test")
 
-		h, err = s.Load(name) // reload to confirm that it got saved correctly
+	agent, err := LoadAgent(s.Path)
+	if err != nil {
+		panic(err)
+	}
+
+	Convey("it should create a chain from the examples directory", t, func() {
+		err = s.Clone(orig, root, agent, false)
+		So(err, ShouldBeNil)
+
+		h, err := s.Load(name) // reload to confirm that it got saved correctly
 		So(err, ShouldBeNil)
 
 		So(h.nucleus.dna.Name, ShouldEqual, "test")
@@ -188,7 +198,7 @@ func TestCloneJoin(t *testing.T) {
 
 func TestGenDev(t *testing.T) {
 	d, s := setupTestService()
-	defer cleanupTestDir(d)
+	defer CleanupTestDir(d)
 	name := "test"
 	root := s.Path + "/" + name
 

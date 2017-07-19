@@ -6,14 +6,17 @@
 package main
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	holo "github.com/metacurrency/holochain"
+	"github.com/metacurrency/holochain/cmd"
 	"github.com/metacurrency/holochain/ui"
 	"github.com/urfave/cli"
 	"os"
 	"os/user"
 	"path"
+	"path/filepath"
 	"time"
 )
 
@@ -21,14 +24,14 @@ const (
 	defaultPort = "4141"
 )
 
-var debug bool
+var debug, appInitialized bool
 var rootPath, devPath, name string
 
 func setupApp() (app *cli.App) {
 	app = cli.NewApp()
 	app.Name = "hcdev"
 	app.Usage = "holochain dev command line tool"
-	app.Version = fmt.Sprintf("0.0.0 (holochain %s)", holo.VersionStr)
+	app.Version = fmt.Sprintf("0.0.1 (holochain %s)", holo.VersionStr)
 
 	var service *holo.Service
 
@@ -49,7 +52,137 @@ func setupApp() (app *cli.App) {
 			Destination: &devPath,
 		},
 	}
+
+	var interactive, dumpChain, dumpDHT bool
+	var clonePath, scaffoldPath string
 	app.Commands = []cli.Command{
+		{
+			Name:    "init",
+			Aliases: []string{"i"},
+			Usage:   "initialize a holochain app directory: interactively, from a scaffold file or clone from another app",
+			Flags: []cli.Flag{
+				cli.BoolFlag{
+					Name:        "interactive",
+					Usage:       "interactive initialization",
+					Destination: &interactive,
+				},
+				cli.StringFlag{
+					Name:        "clone",
+					Usage:       "path to directory from which to clone the app",
+					Destination: &clonePath,
+				},
+				cli.StringFlag{
+					Name:        "scaffold",
+					Usage:       "path to a scaffold file from which to initialize the app",
+					Destination: &scaffoldPath,
+				},
+			},
+			ArgsUsage: "<name>",
+			Action: func(c *cli.Context) error {
+				if appInitialized {
+					return errors.New("current directory is an initialized app, apps shouldn't be nested")
+				}
+
+				args := c.Args()
+				if len(args) != 1 {
+					return errors.New("init: expecting app name as single argument")
+				}
+
+				if (interactive && clonePath != "") || (interactive && scaffoldPath != "") || (clonePath != "" && scaffoldPath != "") {
+					return errors.New("options are mutually exclusive, please choose just one.")
+				}
+				name := args[0]
+				devPath = filepath.Join(devPath, name)
+				if interactive {
+					// make the directory and chdir into it
+
+					// terminates go process
+					cmd.ExecBinScript("holochain.app.init.interactive")
+				} else if clonePath != "" {
+					// build the app by cloning from another app
+					info, err := os.Stat(clonePath)
+					if err != nil {
+						return err
+					}
+					if !info.Mode().IsDir() {
+						return errors.New("expecting a directory to clone from")
+					}
+
+					// TODO this is the bogus dev agent, really it should probably be someone else
+					agent, err := holo.LoadAgent(rootPath)
+					if err != nil {
+						return err
+					}
+
+					err = service.Clone(clonePath, devPath, agent, true)
+					if err != nil {
+						return err
+					}
+
+					fmt.Printf("cloning %s from %s\n", name, clonePath)
+				} else if scaffoldPath != "" {
+					// build the app from the scaffold
+					info, err := os.Stat(scaffoldPath)
+					if err != nil {
+						return err
+					}
+					if !info.Mode().IsRegular() {
+						return errors.New("expecting a scaffold file")
+					}
+
+					sf, err := os.Open(scaffoldPath)
+					if err != nil {
+						return err
+					}
+					defer sf.Close()
+
+					dna, err := holo.LoadDNAScaffold(sf)
+					if err != nil {
+						return err
+					}
+
+					err = cmd.MakeDirs(devPath)
+					if err != nil {
+						return err
+					}
+
+					err = service.SaveDNAFile(devPath, dna, "json", false)
+					if err != nil {
+						return err
+					}
+					fmt.Printf("initialized %s from scaffold:%s\n", devPath, scaffoldPath)
+
+				} else {
+					// build empty app template
+					err := cmd.MakeDirs(devPath)
+					if err != nil {
+						return err
+					}
+					scaffold := bytes.NewBuffer([]byte(holo.BasicTemplateScaffold))
+					dna, err := holo.LoadDNAScaffold(scaffold)
+					if err != nil {
+						return err
+					}
+					dna.NewUUID()
+					err = service.SaveDNAFile(devPath, dna, "json", false)
+					if err != nil {
+						return err
+					}
+					fmt.Printf("initialized empty application to %s with new UUID:%v\n", devPath, dna.UUID)
+				}
+
+				err := os.Chdir(devPath)
+				if err != nil {
+					return err
+				}
+
+				// finish by creating the .hc directory
+				// terminates go process
+				cmd.ExecBinScript("holochain.app.init", name, name)
+
+				return nil
+			},
+		},
 		{
 			Name:      "test",
 			Aliases:   []string{"t"},
@@ -92,11 +225,32 @@ func setupApp() (app *cli.App) {
 			},
 		},
 		{
+			Name:      "scenario",
+			Aliases:   []string{"s"},
+			Usage:     "run a scenario test",
+			ArgsUsage: "scenario-name",
+			Action: func(c *cli.Context) error {
+				if !appInitialized {
+					return errors.New("please initialize this app with 'hcdev init'")
+				}
+
+				args := c.Args()
+				if len(args) != 1 {
+					return errors.New("missing scenario name argument")
+				}
+
+				// terminates go process
+				cmd.ExecBinScript("holochain.app.testScenario", args[0])
+				return nil
+			},
+		},
+		{
 			Name:      "web",
 			Aliases:   []string{"serve", "w"},
 			ArgsUsage: "[port]",
 			Usage:     fmt.Sprintf("serve a chain to the web on localhost:<port> (defaults to %s)", defaultPort),
 			Action: func(c *cli.Context) error {
+
 				h, err := getHolochain(c, service)
 				if err != nil {
 					return err
@@ -124,13 +278,54 @@ func setupApp() (app *cli.App) {
 				ui.NewWebServer(h, port).Start()
 				return err
 			},
-		}}
+		},
+		{
+			Name:      "dump",
+			Aliases:   []string{"d"},
+			ArgsUsage: "holochain-name",
+			Usage:     "display a text dump of a chain after last test",
+			Flags: []cli.Flag{
+				cli.BoolFlag{
+					Name:        "chain",
+					Destination: &dumpChain,
+				},
+				cli.BoolFlag{
+					Name:        "dht",
+					Destination: &dumpDHT,
+				},
+			},
+			Action: func(c *cli.Context) error {
+
+				if !dumpChain && !dumpDHT {
+					dumpChain = true
+				}
+				h, err := service.Load(name)
+				if err != nil {
+					return err
+				}
+
+				if !h.Started() {
+					return errors.New("No data to dump, chain not yet initialized.")
+				}
+
+				dnaHash := h.DNAHash()
+				if dumpChain {
+					fmt.Printf("Chain for: %s\n%v", dnaHash, h.Chain())
+				}
+				if dumpDHT {
+					fmt.Printf("DHT for: %s\n%v", dnaHash, h.DHT())
+				}
+
+				return nil
+			},
+		},
+	}
 
 	app.Before = func(c *cli.Context) error {
 		if debug {
 			os.Setenv("DEBUG", "1")
 		}
-		holo.Initialize()
+		holo.InitializeHolochain()
 
 		var err error
 		if devPath == "" {
@@ -140,10 +335,13 @@ func setupApp() (app *cli.App) {
 			}
 		}
 		name = path.Base(devPath)
-		// TODO confirm devPath is actually a holochain app directory
+
+		if cmd.IsAppDir(devPath) == nil {
+			appInitialized = true
+		}
 
 		if rootPath == "" {
-			rootPath = os.Getenv("HOLOPATH")
+			rootPath = os.Getenv("HOLOPATHDEV")
 			if rootPath == "" {
 				u, err := user.Current()
 				if err != nil {
@@ -154,7 +352,20 @@ func setupApp() (app *cli.App) {
 			}
 		}
 		if !holo.IsInitialized(rootPath) {
-			service, err = holo.Init(rootPath, holo.AgentName("test@example.com"))
+			u, err := user.Current()
+			var agent string
+			if err == nil {
+				var host string
+				host, err = os.Hostname()
+				if err == nil {
+					agent = u.Username + "@" + host
+				}
+			}
+
+			if err != nil {
+				agent = "test@example.com"
+			}
+			service, err = holo.Init(rootPath, holo.AgentName(agent))
 			if err != nil {
 				return err
 			}
@@ -162,7 +373,7 @@ func setupApp() (app *cli.App) {
 			fmt.Printf("    %s directory created\n", rootPath)
 			fmt.Printf("    defaults stored to %s\n", holo.SysFileName)
 			fmt.Println("    key-pair generated")
-			fmt.Printf("    default agent stored to %s\n", holo.AgentFileName)
+			fmt.Printf("    using %s as default agent (stored to %s)\n", agent, holo.AgentFileName)
 
 		} else {
 			service, err = holo.LoadService(rootPath)
@@ -195,7 +406,12 @@ func getHolochain(c *cli.Context, service *holo.Service) (h *holo.Holochain, err
 	if err != nil {
 		return
 	}
-	h, err = service.Clone(devPath, rootPath+"/"+name, false)
+	var agent holo.Agent
+	agent, err = holo.LoadAgent(rootPath)
+	if err != nil {
+		return
+	}
+	err = service.Clone(devPath, rootPath+"/"+name, agent, false)
 	if err != nil {
 		return
 	}

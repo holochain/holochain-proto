@@ -59,7 +59,7 @@ func testValidateJSON(ed EntryDef, err error) {
 
 func TestJSONSchemaValidator(t *testing.T) {
 	d, _ := setupTestService()
-	defer cleanupTestDir(d)
+	defer CleanupTestDir(d)
 
 	schema := `{
 	"title": "Profile Schema",

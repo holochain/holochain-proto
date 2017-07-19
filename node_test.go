@@ -114,8 +114,8 @@ func TestNewMessage(t *testing.T) {
 }
 
 func TestNodeSend(t *testing.T) {
-	d, _, h := prepareTestChain("test")
-	defer cleanupTestDir(d)
+	d, _, h := PrepareTestChain("test")
+	defer CleanupTestDir(d)
 
 	node1, err := makeNode(1234, "node1")
 	if err != nil {

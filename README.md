@@ -30,17 +30,16 @@ In other words, a holochain functions very much **like a blockchain without bott
 	- [Docker Based Install](#docker-based-install)
 - [Usage](#usage)
 	- [Getting Started](#getting-started)
-	- [Initializing the Holochain environment](#initializing-the-holochain-environment)
-	- [Setting up a Holochain](#setting-up-a-holochain)
-	- [Cloning Application DNA](#cloning-application-dna)
-	- [Testing your Application](#testing-your-application)
-	- [Generate New Chain From DNA](#generate-new-chain-from-dna)
-	- [Accessing the Web UI](#accessing-the-web-ui)
-	- [File Locations](#file-locations)
-	- [Logging](#logging)
+	  - [Initializing the Holochain environment](#initializing-the-holochain-environment)
+	  - [Joining a Holochain](#joining-a-holochain)
+	  - [Running a Holochain](#running-a-holochain)
+	- [Developing a Holochain](#developing-a-holochain)
+	  - [Test-driven Application Development Locations](#test-driven-application-development)
+	  - [File Locations](#file-locations)
+	  - [Logging](#logging)
 	- [Multi-instance Integration Testing](#multi-instance-integration-testing)
 - [Architecture Overview and Documentation](#architecture-overview-and-documentation)
-- [Development](#development)
+- [Holochain Core Development](#development)
 	- [Contribute](#contribute)
 	- [Dependencies](#dependencies)
 	- [Tests](#tests)
@@ -61,7 +60,7 @@ Which you choose depends on your preference and your purpose.  If you intend to 
 ### Go Based Install
 
 1. [Install Go](https://golang.org/doc/install) on your system.  See platform specific instructions and hints below for making this work.
-2. Install the hc command line tool with:
+2. Install the command line tool suite with:
 
 ```bash
 $ go get -d github.com/metacurrency/holochain
@@ -72,8 +71,8 @@ $ make
 3. Test that it works (should look something like this):
 
 ```bash
-$ hc -v
-hc version 0.0.x (holochain y)
+$ hcadmin -v
+hcadmin version 0.0.x (holochain y)
 ```
 
 #### Unix
@@ -134,89 +133,80 @@ $ docker/run
 6. This will put you into an new command shell that may behave differently than what you're used to. To exit this holochain (Alpine) shell, press `Ctrl-D` or type `exit`
 
 ## Usage
-These instructions are for using `hc` the holochain command line interface.  They should work equally well for Go based or docker based installation.
+These instructions are for using the holochain command line tool suite: `hcadmin`, `hcdev` and `hcd`.  They should work equally well for Go based or docker based installation.
 
-(Note that since Holochain is intended to be used behind distributed applications, end users should not have to do much through the command or may not have it installed at all, as the application will have wrapped up the holochain library internally.)
+(Note that since Holochain is intended to be used behind distributed applications, end users should not have to do much through the command or may not have it installed at all, as the application will probably have wrapped up the holochain library internally.)
 
-For detailed information on how to use `hc`, run `hc help` or for sub-commands run `hc <COMMAND> help`. For more detailed information, see [the wiki page](https://github.com/metacurrency/holochain/wiki/hc-Command)
+Each of the tools includes a help command, e.g., run `hcadmin help` or for sub-commands run `hcadmin <COMMAND> help`. For more detailed information, see [the wiki page](https://github.com/metacurrency/holochain/wiki/command-line-tools)
+
+The tool suite include these commands:
+
+- `hcadmin` for administering your installed holochain applications
+- `hcd` for running and serving a holochain application
+- `hcdev` for developing and testing holochain applications
 
 ### Getting Started
 
-The instructions below walk you through the basic steps necessary to run a new holochain application.  Full application development will require multi-instance integration tests, the harness for which is [still in development](#multi-instance-integration-testing).
+The instructions below walk you through the basic steps necessary to run a holochain application.
 
-### Initializing the Holochain environment
+#### Initializing the Holochain environment
 
 ```bash
-$ hc init 'your@emailaddress.here'
+$ hcadmin init 'your@emailaddress.here'
 ```
 This command creates a `~/.holochain` directory for storing all chain data, along with initial public/private key pairs based on the identity string provided as the second argument.
 
-### Setting up a Holochain
-The basic flow involved in getting a chain running looks like this:
+#### Joining a Holochain
 
-1. `hc clone`
-2. `hc test`
-3. `hc gen chain`
-4. `hc web`
+You can use the `hcadmin` tool to join a pre-existing Holochain application by running the following command (replacing SOURCE_PATH with a path to an application's DNA and CHAIN_NAME with the name you'd like it to be stored as).
 
-Instructions for each of these steps are below...
+For example: `hcadmin join ./examples/chat chat`
 
-### Cloning Application DNA
-You can load a pre-existing Holochain application DNA by running the following command (replacing SOURCE_PATH with a path to an application's DNA and CHAIN_NAME with the name you'd like it to be stored as).
+Note: this command will be replaced by a package management command still in development.
+
+#### Running a Holochain
+Holochains run and serve their UI via local web sockets. This let's interface developers have a lot of freedom to build HTML/JavaScript files and drop them in that chain's UI directory. You start a holochain and activate it's UI with the `hcd` command:
+
 ```bash
-$ hc clone <SOURCE_PATH> <CHAIN_NAME>
+$ hcd <CHAIN_NAME> [PORT]
 ```
-For example: `hc clone ./examples/sample sample`
 
-You can source from files anywhere; such as a git repo you've cloned, a live chain you're already running in your `.holochain` directory, or one of the examples included in this repository.
+### Developing a Holochain
 
-Before you launch your chain, this is the chance for you to customize the application settings like the NAME, and the UUID
+The `hcdev` tool allows you to:
 
-### Testing your Application
-We have designed Holochain around test-driven development, so the DNA should contain tests to confirm that the rest of the DNA is functional.
+1. generate new holochain application source files by cloning from an existing application, from the a [scaffold file](https://github.com/metacurrency/hc-scaffold), or a simple empty template.
+2. run stand-alone or multi-node scenario tests
+3. run a holochain and serve it's UI for testing purposes
+4. dump out chain and dht data for inspection
 
-You can run a chain's tests with:
-```bash
-$ hc test <CHAIN_NAME>
-```
-If you're a developer, you should be running this command as you make changes to your DNA files to leverage test-driven development. If the tests fail, then you know your application DNA is broken and you shouldn't think that your chain is going to work. And obviously, please do not send out applications that don't pass their own tests.
+Please see the wiki for more [detailed documentation](https://github.com/metacurrency/holochain/wiki/hcdev-Command).
 
-### Generate New Chain From DNA
-After you have cloned a chain, you need to generate the genesis entries which start your new chain in order to use it.
-```bash
-$ hc gen chain <CHAIN_NAME>
-```
-The first entry is the DNA which is the hash of all the application code which confirms every person's chain starts with the the same code/DNA. The second block registers your keys so you have an address, identity, and signing keys for communicating on the chain.
+Note that the `hcdev` command creates a separate ~/.holochaindev directory for serving and managing chains, so your dev work won't interfere with any running holochain apps you may be using.
 
-### Accessing the Web UI
-Holochains serve their UI via local web sockets. This let's interface developers have a lot of freedom to build HTML/JavaScript files and drop them in that chain's UI directory. You launch the web UI with:
-```bash
-$ hc web <CHAIN_NAME> [PORT]
-```
-In a web browser you can go to `localhost:<port>` (defaults to `3141`) to access UI files and send and receive JSON with exposed application functions.
-
-### File Locations
-By default `hc` stores all holochain data and configuration files to the `~/.holochain` directory.  You can override this with the `-path` flag or by setting the `HOLOPATH` environment variable, e.g.:
-```bash
-$ hc -path ~/mychains init '<my@other.identity>'
-$ HOLOPATH=~/mychains hc
-```
-You can use the form: `hc -path=/your/path/here` but you must use the absolute path, as shell substitutions will not happen.
-
-### Logging
-The `--debug` flag will turn on a number of different kinds of debugging. You can also control exactly which of these logging types you wish to see in the chain's config.json file. You can also set the DEBUG environment variable to 0 or 1 to temporarily override your settings to turn everything on or off.
-
-### Multi-instance Integration Testing
-Building a distributed application requires being able to spin up many instances of it and have them interact. Our docker cluster testing harness automates that process, and enables app developers to specify scenarios and roles and test instructions to run on multiple docker containers.
+#### Test-driven Application Development
+We have designed Holochain around test-driven development, so the DNA should contain tests to confirm that the rest of the DNA is functional.  Our testing harness includes two types of testing, stand-alone and multi-instance scenarios.  Stand-alone tests allow you to tests the functions you create in your application.  However, testing a distributed application requires being able to spin up many instances of it and have them interact. Our docker cluster testing harness automates that process, and enables app developers to specify scenarios and roles and test instructions to run on multiple docker containers.
 
 Please see the [App-Testing](https://github.com/metacurrency/holochain/wiki/App-Testing) documentation for details.
+
+
+#### File Locations
+By default holochain data and configuration files are assumed to be stored in the `~/.holochain` directory.  You can override this with the `-path` flag or by setting the `HOLOPATH` environment variable, e.g.:
+```bash
+$ hcadmin -path ~/mychains init '<my@other.identity>'
+$ HOLOPATH=~/mychains hcadmin
+```
+You can use the form: `hcadmin -path=/your/path/here` but you must use the absolute path, as shell substitutions will not happen.
+
+#### Logging
+All the commands take a `--debug` flag which will turn on a number of different kinds of debugging. For running chains, you can also control exactly which of these logging types you wish to see in the chain's config.json file. You can also set the DEBUG environment variable to 0 or 1 to temporarily override your settings to turn everything on or off.
 
 ## Architecture Overview and Documentation
 Architecture information and application developer documentation is in our [Holochain Wiki](https://github.com/metacurrency/holochain/wiki/).
 
 You can also look through auto-generated [reference API on GoDocs](https://godoc.org/github.com/metacurrency/holochain)
 
-## Development
+## Holochain Core Development
 We accept Pull Requests and welcome your participation.
 
 Some helpful links: [![In Progress](https://img.shields.io/waffle/label/metacurrency/holochain/in%20progress.svg)](http://waffle.io/metacurrency/holochain)

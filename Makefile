@@ -7,7 +7,7 @@ REPO = $(CURDIR:$(GOPATH)/src/%=%)
 # Remove a $(GOPATH)/src/ from the beginning of the current directory.
 # Likely to be github.com/metacurrency/holochain
 
-go_packages = . ./ui $(wildcard ./cmd/*)
+go_packages = . ./ui $(sort $(dir $(wildcard ./cmd/*/)))
 # List of directories containing go packages
 
 ifndef HOME
@@ -36,8 +36,14 @@ endef
 hc: deps
 	go get $(REPO)/cmd/hc
 	gx-go rewrite --undo
+hcd: deps
+	go get $(REPO)/cmd/hcd
+	gx-go rewrite --undo
 hcdev: deps
 	go get $(REPO)/cmd/hcdev
+	gx-go rewrite --undo
+hcadmin: deps
+	go get $(REPO)/cmd/hcadmin
 	gx-go rewrite --undo
 bs: deps
 	go get $(REPO)/cmd/bs

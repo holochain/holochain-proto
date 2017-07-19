@@ -95,3 +95,12 @@ func ActionReceiver(h *Holochain, msg *Message) (response interface{}, err error
 	}
 	return
 }
+
+// NewUUID generates a new UUID for the DNA
+func (dna *DNA) NewUUID() (err error) {
+	dna.UUID, err = uuid.NewUUID()
+	if err != nil {
+		return
+	}
+	return
+}

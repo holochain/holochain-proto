@@ -45,7 +45,7 @@ func TestNewZygoRibosome(t *testing.T) {
 		_, err = z.Run("App_Agent_String")
 		So(err, ShouldBeNil)
 		s = z.lastResult.(*zygo.SexpStr).S
-		So(s, ShouldEqual, h.Agent().Name())
+		So(s, ShouldEqual, h.Agent().Identity())
 
 		_, err = z.Run("App_Key_Hash")
 		So(err, ShouldBeNil)

@@ -51,8 +51,8 @@ type Config struct {
 
 // Progenitor holds data on the creator of the DNA
 type Progenitor struct {
-	Name   string
-	PubKey []byte
+	Identity string
+	PubKey   []byte
 }
 
 // Holochain struct holds the full "DNA" of the holochain (all your app code for managing distributed data integrity)
@@ -180,7 +180,7 @@ func NewHolochain(agent Agent, root string, format string, zomes ...Zome) Holoch
 		UUID:            u,
 		RequiresVersion: Version,
 		DHTConfig:       DHTConfig{HashType: "sha2-256"},
-		Progenitor:      Progenitor{Name: string(agent.Name()), PubKey: pk},
+		Progenitor:      Progenitor{Identity: string(agent.Identity()), PubKey: pk},
 		Zomes:           zomes,
 	}
 
@@ -319,6 +319,30 @@ func (h *Holochain) Started() bool {
 	return h.DNAHash().String() != ""
 }
 
+func (h *Holochain) AddAgentEntry(revocation string) (headerHash, agentHash Hash, err error) {
+	k := AgentEntry{
+		Identity:   h.agent.Identity(),
+		AgentType:  h.agent.AgentType(),
+		Revocation: revocation,
+	}
+
+	pk := h.agent.PubKey()
+
+	k.Key, err = ic.MarshalPublicKey(pk)
+	if err != nil {
+		return
+	}
+	e := GobEntry{C: k}
+
+	var agentHeader *Header
+	headerHash, agentHeader, err = h.NewEntry(time.Now(), AgentEntryType, &e)
+	if err != nil {
+		return
+	}
+	agentHash = agentHeader.EntryLink
+	return
+}
+
 // GenChain establishes a holochain instance by creating the initial genesis entries in the chain
 // It assumes a properly set up .holochain sub-directory with a config file and
 // keys for signing.  See GenDev()
@@ -352,25 +376,13 @@ func (h *Holochain) GenChain() (headerHash Hash, err error) {
 
 	h.dnaHash = dnaHeader.EntryLink.Clone()
 
-	var k AgentEntry
-	k.Name = h.agent.Name()
-	k.KeyType = h.agent.KeyType()
-
-	pk := h.agent.PubKey()
-
-	k.Key, err = ic.MarshalPublicKey(pk)
+	var agentHash Hash
+	headerHash, agentHash, err = h.AddAgentEntry("") // revocation string is empty on initial Gen
 	if err != nil {
 		return
 	}
 
-	e.C = k
-	var agentHeader *Header
-	headerHash, agentHeader, err = h.NewEntry(time.Now(), AgentEntryType, &e)
-	if err != nil {
-		return
-	}
-
-	h.agentHash = agentHeader.EntryLink
+	h.agentHash = agentHash
 
 	if err = writeFile(h.rootPath, DNAHashFileName, []byte(h.dnaHash.String())); err != nil {
 		return

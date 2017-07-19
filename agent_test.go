@@ -12,7 +12,7 @@ import (
 func TestLibP2PAgent(t *testing.T) {
 	d := SetupTestDir()
 	defer CleanupTestDir(d)
-	a := AgentName("zippy@someemail.com")
+	a := AgentIdentity("zippy@someemail.com")
 
 	Convey("it should fail to create an agent with an unknown key type", t, func() {
 		_, err := NewAgent(99, a)
@@ -25,9 +25,9 @@ func TestLibP2PAgent(t *testing.T) {
 		So(err, ShouldBeNil)
 		a2, err := LoadAgent(d)
 		So(err, ShouldBeNil)
-		So(a2.Name(), ShouldEqual, a1.Name())
+		So(a2.Identity(), ShouldEqual, a1.Identity())
 		So(ic.KeyEqual(a1.PrivKey(), a2.PrivKey()), ShouldBeTrue)
-		So(a1.KeyType(), ShouldEqual, LibP2P)
+		So(a1.AgentType(), ShouldEqual, LibP2P)
 
 		nodeID, nodeIDStr, err := a1.NodeID()
 		So(nodeIDStr, ShouldEqual, peer.IDB58Encode(nodeID))

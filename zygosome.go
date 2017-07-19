@@ -881,7 +881,7 @@ func NewZygoRibosome(h *Holochain, zome *Zome) (n Ribosome, err error) {
 
 	l := ZygoLibrary
 	if h != nil {
-		l += fmt.Sprintf(`(def App_Name "%s")(def App_DNA_Hash "%s")(def App_Agent_Hash "%s")(def App_Agent_String "%s")(def App_Key_Hash "%s")`, h.nucleus.dna.Name, h.dnaHash, h.agentHash, h.Agent().Name(), h.nodeIDStr)
+		l += fmt.Sprintf(`(def App_Name "%s")(def App_DNA_Hash "%s")(def App_Agent_Hash "%s")(def App_Agent_String "%s")(def App_Key_Hash "%s")`, h.nucleus.dna.Name, h.dnaHash, h.agentHash, h.Agent().Identity(), h.nodeIDStr)
 	}
 	z.library = l
 

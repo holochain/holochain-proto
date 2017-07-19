@@ -95,7 +95,7 @@ func IsInitialized(root string) bool {
 // Init initializes service defaults including a signing key pair for an agent
 // and writes them out to configuration files in the root path (making the
 // directory if necessary)
-func Init(root string, agent AgentName) (service *Service, err error) {
+func Init(root string, agent AgentIdentity) (service *Service, err error) {
 	err = os.MkdirAll(root, os.ModePerm)
 	if err != nil {
 		return
@@ -926,7 +926,7 @@ func (s *Service) Clone(srcPath string, root string, agent Agent, new bool) (err
 			if err != nil {
 				return
 			}
-			h.nucleus.dna.Progenitor = Progenitor{Name: string(agent.Name()), PubKey: pk}
+			h.nucleus.dna.Progenitor = Progenitor{Identity: string(agent.Identity()), PubKey: pk}
 		}
 
 		// save out the DNA file

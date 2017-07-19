@@ -48,7 +48,7 @@ func TestNewJSRibosome(t *testing.T) {
 		_, err = z.Run("App.Agent.String")
 		So(err, ShouldBeNil)
 		s, _ = z.lastResult.ToString()
-		So(s, ShouldEqual, h.Agent().Name())
+		So(s, ShouldEqual, h.Agent().Identity())
 
 		_, err = z.Run("App.Key.Hash")
 		So(err, ShouldBeNil)

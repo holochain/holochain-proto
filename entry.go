@@ -37,9 +37,10 @@ const (
 
 // AgentEntry structure for building KeyEntryType entries
 type AgentEntry struct {
-	Name    AgentName
-	KeyType KeytypeType
-	Key     []byte // marshaled public key
+	Identity   AgentIdentity
+	AgentType  AgentType
+	Revocation string
+	Key        []byte // marshaled public key
 }
 
 // LinksEntry holds one or more links

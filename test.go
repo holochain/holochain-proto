@@ -25,7 +25,7 @@ func MakeTestDirName() string {
 
 func setupTestService() (d string, s *Service) {
 	d = MakeTestDirName()
-	agent := AgentName("Herbert <h@bert.com>")
+	agent := AgentIdentity("Herbert <h@bert.com>")
 	s, err := Init(d+"/"+DefaultDirectoryName, agent)
 	s.Settings.DefaultBootstrapServer = "localhost:3142"
 	if err != nil {

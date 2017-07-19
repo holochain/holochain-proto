@@ -16,10 +16,11 @@ import (
 	"runtime"
 )
 
-// AgentName is the user's unique identifier in context of this holochain.
-type AgentName string
+// AgentIdentity is the user's unique identity information in context of this holochain.
+// it follows AgentIdentitySchema in DNA
+type AgentIdentity string
 
-type KeytypeType int
+type AgentType int
 
 const (
 	LibP2P = iota
@@ -30,8 +31,8 @@ const (
 // to complete the abstraction so we could use other libraries for p2p2 network transaction we
 // would need to also abstract a matching NodeID type
 type Agent interface {
-	Name() AgentName
-	KeyType() KeytypeType
+	Identity() AgentIdentity
+	AgentType() AgentType
 	GenKeys(seed io.Reader) error
 	PrivKey() ic.PrivKey
 	PubKey() ic.PubKey
@@ -39,15 +40,16 @@ type Agent interface {
 }
 
 type LibP2PAgent struct {
-	name AgentName
-	priv ic.PrivKey
+	identity AgentIdentity
+	priv     ic.PrivKey
+	pub      ic.PubKey // cached so as not to recalculate all the time
 }
 
-func (a *LibP2PAgent) Name() AgentName {
-	return a.name
+func (a *LibP2PAgent) Identity() AgentIdentity {
+	return a.identity
 }
 
-func (a *LibP2PAgent) KeyType() KeytypeType {
+func (a *LibP2PAgent) AgentType() AgentType {
 	return LibP2P
 }
 
@@ -56,7 +58,7 @@ func (a *LibP2PAgent) PrivKey() ic.PrivKey {
 }
 
 func (a *LibP2PAgent) PubKey() ic.PubKey {
-	return a.priv.GetPublic()
+	return a.pub
 }
 
 func (a *LibP2PAgent) GenKeys(seed io.Reader) (err error) {
@@ -69,6 +71,7 @@ func (a *LibP2PAgent) GenKeys(seed io.Reader) (err error) {
 		return
 	}
 	a.priv = priv
+	a.pub = priv.GetPublic()
 	return
 }
 
@@ -82,11 +85,11 @@ func (a *LibP2PAgent) NodeID() (nodeID peer.ID, nodeIDStr string, err error) {
 
 // NewAgent creates an agent structure of the given type
 // Note: currently only IPFS agents are implemented
-func NewAgent(keyType KeytypeType, name AgentName) (agent Agent, err error) {
-	switch keyType {
+func NewAgent(agentType AgentType, identity AgentIdentity) (agent Agent, err error) {
+	switch agentType {
 	case LibP2P:
 		a := LibP2PAgent{
-			name: name,
+			identity: identity,
 		}
 		err = a.GenKeys(nil)
 		if err != nil {
@@ -94,14 +97,14 @@ func NewAgent(keyType KeytypeType, name AgentName) (agent Agent, err error) {
 		}
 		agent = &a
 	default:
-		err = fmt.Errorf("unknown key type: %d", keyType)
+		err = fmt.Errorf("unknown key type: %d", agentType)
 	}
 	return
 }
 
 // SaveAgent saves out the keys and agent name to the given directory
 func SaveAgent(path string, agent Agent) (err error) {
-	writeFile(path, AgentFileName, []byte(agent.Name()))
+	writeFile(path, AgentFileName, []byte(agent.Identity()))
 	if err != nil {
 		return
 	}
@@ -118,7 +121,8 @@ func SaveAgent(path string, agent Agent) (err error) {
 	return
 }
 
-// LoadAgent gets the agent and signing key from the specified directory
+// LoadAgent gets the agent identity and private key from the specified directory
+// TODO confirm against chain?
 func LoadAgent(path string) (agent Agent, err error) {
 	var perms os.FileMode
 
@@ -133,13 +137,14 @@ func LoadAgent(path string) (agent Agent, err error) {
 			return
 		}
 	}
-	var name []byte
-	name, err = readFile(path, AgentFileName)
+	var identity []byte
+	identity, err = readFile(path, AgentFileName)
 	if err != nil {
 		return
 	}
+	// TODO verify identity against schema
 	a := LibP2PAgent{
-		name: AgentName(name),
+		identity: AgentIdentity(identity),
 	}
 	k, err := readFile(path, PrivKeyFileName)
 	if err != nil {
@@ -149,6 +154,7 @@ func LoadAgent(path string) (agent Agent, err error) {
 	if err != nil {
 		return
 	}
+	a.pub = a.priv.GetPublic()
 	agent = &a
 	return
 }

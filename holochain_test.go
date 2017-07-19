@@ -27,7 +27,7 @@ func TestNewHolochain(t *testing.T) {
 		h := NewHolochain(a, "some/path", "json")
 		nUUID := string(uuid.NodeID())
 		So(nUUID, ShouldEqual, string(h.nucleus.dna.UUID.NodeID())) // this nodeID is from UUID code, i.e the machine's host (not the LibP2P nodeID below)
-		So(h.agent.Name(), ShouldEqual, "Joe")
+		So(h.agent.Identity(), ShouldEqual, "Joe")
 		So(h.agent.PrivKey(), ShouldEqual, a.PrivKey())
 		So(h.encodingFormat, ShouldEqual, "json")
 		So(h.rootPath, ShouldEqual, "some/path")
@@ -39,7 +39,7 @@ func TestNewHolochain(t *testing.T) {
 		So(h.nodeIDStr, ShouldEqual, nodeIDStr)
 		So(h.nodeIDStr, ShouldEqual, peer.IDB58Encode(h.nodeID))
 
-		So(h.nucleus.dna.Progenitor.Name, ShouldEqual, "Joe")
+		So(h.nucleus.dna.Progenitor.Identity, ShouldEqual, "Joe")
 		pk, _ := a.PubKey().Bytes()
 		So(string(h.nucleus.dna.Progenitor.PubKey), ShouldEqual, string(pk))
 	})
@@ -222,6 +222,30 @@ func TestHeader(t *testing.T) {
 	})
 }
 
+func TestAddAgentEntry(t *testing.T) {
+	d, _, h := setupTestChain("test")
+	defer CleanupTestDir(d)
+
+	Convey("it should add an agent entry to the chain", t, func() {
+		headerHash, agentHash, err := h.AddAgentEntry("some revocation data")
+		So(err, ShouldBeNil)
+
+		hdr, err := h.chain.Get(headerHash)
+		So(err, ShouldBeNil)
+
+		So(hdr.EntryLink.String(), ShouldEqual, agentHash.String())
+
+		entry, _, err := h.chain.GetEntry(agentHash)
+		So(err, ShouldBeNil)
+
+		var a = entry.Content().(AgentEntry)
+		So(a.Identity, ShouldEqual, h.agent.Identity())
+		pk, _ := h.agent.PubKey().Bytes()
+		So(string(a.Key), ShouldEqual, string(pk))
+		So(a.Revocation, ShouldEqual, "some revocation data")
+	})
+}
+
 func TestGenChain(t *testing.T) {
 	d, _, h := setupTestChain("test")
 	defer CleanupTestDir(d)
@@ -246,8 +270,10 @@ func TestGenChain(t *testing.T) {
 		So(err, ShouldBeNil)
 		header = *hdr
 		var a = entry.Content().(AgentEntry)
-		So(a.Name, ShouldEqual, h.agent.Name())
-		//So(k.Key,ShouldEqual,"something?") // test that key got correctly retrieved
+		So(a.Identity, ShouldEqual, h.agent.Identity())
+		pk, _ := h.agent.PubKey().Bytes()
+		So(string(a.Key), ShouldEqual, string(pk))
+		So(a.Revocation, ShouldEqual, "")
 	})
 
 	var dnaHash Hash

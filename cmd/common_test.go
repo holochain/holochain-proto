@@ -31,7 +31,7 @@ func TestGetService(t *testing.T) {
 		So(err, ShouldEqual, ErrServiceUninitialized)
 	})
 	Convey("it should make a service once initialized", t, func() {
-		holo.Init(d, holo.AgentName("test@example.com"))
+		holo.Init(d, holo.AgentIdentity("test@example.com"))
 		service, err := GetService(d)
 		So(err, ShouldBeNil)
 		So(service.Path, ShouldEqual, d)
@@ -48,7 +48,7 @@ func TestGetHolochain(t *testing.T) {
 		So(h, ShouldBeNil)
 	})
 
-	holo.Init(d, holo.AgentName("test@example.com"))
+	holo.Init(d, holo.AgentIdentity("test@example.com"))
 	service, _ := GetService(d)
 	Convey("it should fail to get an non-existent holochain", t, func() {
 		h, err := GetHolochain("foobar", service, "some-cmd")

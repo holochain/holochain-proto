@@ -2,6 +2,7 @@ package holochain
 
 import (
 	"fmt"
+	ic "github.com/libp2p/go-libp2p-crypto"
 	peer "github.com/libp2p/go-libp2p-peer"
 	. "github.com/smartystreets/goconvey/convey"
 	"os"
@@ -61,12 +62,14 @@ func TestSetupDHT(t *testing.T) {
 		So(err, ShouldBeNil)
 		So(status, ShouldEqual, StatusLive)
 		So(et, ShouldEqual, KeyEntryType)
-		So(string(data), ShouldEqual, string([]byte(h.nodeID)))
+		pubKey, err := ic.MarshalPublicKey(h.agent.PubKey())
+		So(string(data), ShouldEqual, string(pubKey))
 
 		data, et, _, status, err = h.dht.get(keyHash, StatusDefault, GetMaskDefault)
 		So(err, ShouldBeNil)
 		So(status, ShouldEqual, StatusLive)
-		So(string(data), ShouldEqual, string([]byte(h.nodeID)))
+
+		So(string(data), ShouldEqual, string(pubKey))
 	})
 }
 

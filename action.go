@@ -36,6 +36,11 @@ type Arg struct {
 	value    interface{}
 }
 
+type ModAgentOptions struct {
+	Identity   string
+	Revocation string
+}
+
 // Action provides an abstraction for grouping all the aspects of a nucleus function, i.e.
 // the initiating actions, receiving them, validation, ribosome generation etc
 type Action interface {
@@ -838,7 +843,7 @@ func (a *ActionMod) Receive(dht *DHT, msg *Message) (response interface{}, err e
 	err = RunValidationPhase(dht.h, msg.From, VALIDATE_MOD_REQUEST, t.N, func(resp ValidateResponse) error {
 		a := NewModAction(resp.Type, &resp.Entry, t.H)
 		a.header = &resp.Header
-		//@TODO what comes back from Validate Del
+		//@TODO what comes back from Validate Mod
 		_, err = dht.h.ValidateAction(a, resp.Type, &resp.Package, []peer.ID{from})
 		if err != nil {
 			// how do we record an invalid Mod?
@@ -853,6 +858,87 @@ func (a *ActionMod) Receive(dht *DHT, msg *Message) (response interface{}, err e
 }
 
 func (a *ActionMod) CheckValidationRequest(def *EntryDef) (err error) {
+	return
+}
+
+//------------------------------------------------------------
+// ModAgent
+
+type ActionModAgent struct {
+	Identity   AgentIdentity
+	Revocation string
+}
+
+func NewModAgentAction(identity AgentIdentity) *ActionModAgent {
+	a := ActionModAgent{Identity: identity}
+	return &a
+}
+
+func (a *ActionModAgent) Args() []Arg {
+	return []Arg{{Name: "options", Type: MapArg, MapType: reflect.TypeOf(ModAgentOptions{})}}
+}
+
+func (a *ActionModAgent) Name() string {
+	return "udpateAgent"
+}
+func (a *ActionModAgent) Do(h *Holochain) (response interface{}, err error) {
+	var ok bool
+	var newAgent LibP2PAgent = *h.agent.(*LibP2PAgent)
+	if a.Identity != "" {
+		newAgent.identity = a.Identity
+		ok = true
+	}
+	if a.Revocation != "" {
+		err = newAgent.GenKeys(nil)
+		if err != nil {
+			return
+		}
+		ok = true
+	}
+	if !ok {
+		err = errors.New("expecting identity and/or revocation option")
+	} else {
+		h.agent = &newAgent
+		// add a new agent entry and update
+		var agentHash Hash
+		_, agentHash, err = h.AddAgentEntry(a.Revocation)
+		if err != nil {
+			return
+		}
+		h.agentHash = agentHash
+
+		// if there was a revocation put the new key to the DHT and then reset the node ID data
+		// TODO make sure this doesn't introduce race conditions in the DHT between new and old identity #284
+		if a.Revocation != "" {
+			err = h.dht.putKey(a.Revocation, &newAgent)
+			if err != nil {
+				return
+			}
+
+			// send the modification request for the old key
+			var oldKey, newKey Hash
+			oldKey, err = NewHash(h.nodeIDStr)
+			if err != nil {
+				panic(err)
+			}
+
+			h.nodeID, h.nodeIDStr, err = h.agent.NodeID()
+			if err != nil {
+				return
+			}
+
+			newKey, err = NewHash(h.nodeIDStr)
+			if err != nil {
+				panic(err)
+			}
+
+			//_, err = h.dht.Send(oldKey, MOD_REQUEST, ModReq{H: oldKey, N: newKey})
+			err = h.dht.mod(h.node.NewMessage(MOD_REQUEST, ModReq{H: oldKey, N: newKey}), oldKey, newKey)
+
+		}
+
+		response = agentHash
+	}
 	return
 }
 

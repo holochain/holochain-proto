@@ -429,15 +429,6 @@ func TestZygoDHT(t *testing.T) {
 		So(r.(*zygo.SexpStr).S, ShouldEqual, `"2"`)
 	})
 
-	Convey("get should return sources", t, func() {
-		v, err := NewZygoRibosome(h, &Zome{RibosomeType: ZygoRibosomeType, Code: fmt.Sprintf(`(get "%s" (hash GetMask:HC_GetMask_Sources))`, hash.String())})
-		So(err, ShouldBeNil)
-		z := v.(*ZygoRibosome)
-		r, err := z.lastResult.(*zygo.SexpHash).HashGet(z.env, z.env.MakeSymbol("result"))
-		So(err, ShouldBeNil)
-		So(r.(*zygo.SexpArray).Val[0].(*zygo.SexpStr).S, ShouldEqual, h.nodeIDStr)
-	})
-
 	Convey("get should return entry type", t, func() {
 		v, err := NewZygoRibosome(h, &Zome{RibosomeType: ZygoRibosomeType, Code: fmt.Sprintf(`(get "%s" (hash GetMask:HC_GetMask_EntryType))`, hash.String())})
 		So(err, ShouldBeNil)
@@ -447,7 +438,16 @@ func TestZygoDHT(t *testing.T) {
 		So(r.(*zygo.SexpStr).S, ShouldEqual, "evenNumbers")
 	})
 
-	Convey("get should return entry type", t, func() {
+	Convey("get should return sources", t, func() {
+		v, err := NewZygoRibosome(h, &Zome{RibosomeType: ZygoRibosomeType, Code: fmt.Sprintf(`(get "%s" (hash GetMask:HC_GetMask_Sources))`, hash.String())})
+		So(err, ShouldBeNil)
+		z := v.(*ZygoRibosome)
+		r, err := z.lastResult.(*zygo.SexpHash).HashGet(z.env, z.env.MakeSymbol("result"))
+		So(err, ShouldBeNil)
+		So(r.(*zygo.SexpArray).Val[0].(*zygo.SexpStr).S, ShouldEqual, h.nodeIDStr)
+	})
+
+	Convey("get should return collection", t, func() {
 		v, err := NewZygoRibosome(h, &Zome{RibosomeType: ZygoRibosomeType, Code: fmt.Sprintf(`(get "%s" (hash GetMask:HC_GetMask_All))`, hash.String())})
 		So(err, ShouldBeNil)
 		z := v.(*ZygoRibosome)

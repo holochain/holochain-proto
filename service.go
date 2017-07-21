@@ -377,6 +377,7 @@ func (s *Service) load(name string, format string) (hP *Holochain, err error) {
 		// if not specified for this app, get the default from the Agent.txt file for all apps
 		agent, err = LoadAgent(filepath.Dir(root))
 	}
+	// TODO verify Agent identity against schema
 	if err != nil {
 		return
 	}
@@ -901,6 +902,7 @@ func (s *Service) Clone(srcPath string, root string, agent Agent, new bool) (err
 		}
 
 		//fmt.Printf("dna: agent, err: %s\n", agent, err)
+		// TODO verify identity against schema?
 		h.agent = agent
 
 		// once the agent is set up we can calculate the id

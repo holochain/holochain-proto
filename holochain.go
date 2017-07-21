@@ -12,15 +12,13 @@ import (
 	"errors"
 	"fmt"
 	"github.com/google/uuid"
+	peer "github.com/libp2p/go-libp2p-peer"
+	protocol "github.com/libp2p/go-libp2p-protocol"
+	mh "github.com/multiformats/go-multihash"
 	"io"
 	"math/rand"
 	"os"
 	"time"
-
-	ic "github.com/libp2p/go-libp2p-crypto"
-	peer "github.com/libp2p/go-libp2p-peer"
-	protocol "github.com/libp2p/go-libp2p-protocol"
-	mh "github.com/multiformats/go-multihash"
 )
 
 // Version is the numeric version number of the holochain library
@@ -319,20 +317,14 @@ func (h *Holochain) Started() bool {
 	return h.DNAHash().String() != ""
 }
 
+// AddAgentEntry adds a new sys entry type setting the current agent data (identity and key)
 func (h *Holochain) AddAgentEntry(revocation string) (headerHash, agentHash Hash, err error) {
-	k := AgentEntry{
-		Identity:   h.agent.Identity(),
-		AgentType:  h.agent.AgentType(),
-		Revocation: revocation,
-	}
-
-	pk := h.agent.PubKey()
-
-	k.Key, err = ic.MarshalPublicKey(pk)
+	var entry AgentEntry
+	entry, err = h.agent.AgentEntry(revocation)
 	if err != nil {
 		return
 	}
-	e := GobEntry{C: k}
+	e := GobEntry{C: entry}
 
 	var agentHeader *Header
 	headerHash, agentHeader, err = h.NewEntry(time.Now(), AgentEntryType, &e)

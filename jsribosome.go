@@ -752,6 +752,40 @@ func NewJSRibosome(h *Holochain, zome *Zome) (n Ribosome, err error) {
 		return nil, err
 	}
 
+	err = jsr.vm.Set("updateAgent", func(call otto.FunctionCall) (result otto.Value) {
+		a := &ActionModAgent{}
+		//		var a Action = &ActionModAgent{}
+		args := a.Args()
+		err := jsProcessArgs(&jsr, args, call.ArgumentList)
+		if err != nil {
+			return mkOttoErr(&jsr, err.Error())
+		}
+		opts := args[0].value.(map[string]interface{})
+		id, ok := opts["Identity"]
+		if ok {
+			a.Identity = AgentIdentity(id.(string))
+		}
+		id, ok = opts["Revocation"]
+		if ok {
+			a.Revocation = id.(string)
+		}
+
+		resp, err := a.Do(h)
+		if err != nil {
+			return mkOttoErr(&jsr, err.Error())
+		}
+		var agentEntryHash Hash
+		if resp != nil {
+			agentEntryHash = resp.(Hash)
+		}
+		result, _ = jsr.vm.ToValue(agentEntryHash.String())
+
+		return
+	})
+	if err != nil {
+		return nil, err
+	}
+
 	err = jsr.vm.Set("remove", func(call otto.FunctionCall) (result otto.Value) {
 		var a Action = &ActionDel{}
 		args := a.Args()

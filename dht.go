@@ -9,6 +9,7 @@ package holochain
 import (
 	"errors"
 	"fmt"
+	ic "github.com/libp2p/go-libp2p-crypto"
 	peer "github.com/libp2p/go-libp2p-peer"
 	"github.com/tidwall/buntdb"
 	"strconv"
@@ -217,6 +218,32 @@ func NewDHT(h *Holochain) *DHT {
 	return &dht
 }
 
+// putKey implements the special case for adding the KeyEntry system type to the DHT
+// note that the Contents of this key are the same as the contents of the agent entry on the
+// chain.  The keyEntry is a virtual entry that's NOT actually on the chain
+func (dht *DHT) putKey(revocation string, agent Agent) (err error) {
+	var nodeID peer.ID
+	var nodeIDStr string
+	nodeID, nodeIDStr, err = agent.NodeID()
+	if err != nil {
+		return
+	}
+	keyHash, err := NewHash(nodeIDStr)
+	if err != nil {
+		return
+	}
+
+	var pubKey []byte
+	pubKey, err = ic.MarshalPublicKey(agent.PubKey())
+	if err != nil {
+		return
+	}
+	if err = dht.put(dht.h.node.NewMessage(PUT_REQUEST, PutReq{H: keyHash}), KeyEntryType, keyHash, nodeID, pubKey, StatusLive); err != nil {
+		return
+	}
+	return
+}
+
 // SetupDHT prepares a DHT for use by putting the genesis entries that are added by GenChain
 func (dht *DHT) SetupDHT() (err error) {
 	x := ""
@@ -228,13 +255,7 @@ func (dht *DHT) SetupDHT() (err error) {
 	}
 
 	// put the KeyEntry so it always exists for retrieving the public key
-	kh, err := NewHash(peer.IDB58Encode(dht.h.nodeID))
-	if err != nil {
-		return
-	}
-	if err = dht.put(dht.h.node.NewMessage(PUT_REQUEST, PutReq{H: kh}), KeyEntryType, kh, dht.h.nodeID, []byte(dht.h.nodeID), StatusLive); err != nil {
-		return
-	}
+	err = dht.putKey("", dht.h.agent) // first time so revocation is empty
 
 	// put the AgentEntry so it always exists for linking
 	a := dht.h.AgentHash()

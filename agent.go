@@ -37,6 +37,7 @@ type Agent interface {
 	PrivKey() ic.PrivKey
 	PubKey() ic.PubKey
 	NodeID() (peer.ID, string, error)
+	AgentEntry(revocation string) (AgentEntry, error)
 }
 
 type LibP2PAgent struct {
@@ -80,6 +81,20 @@ func (a *LibP2PAgent) NodeID() (nodeID peer.ID, nodeIDStr string, err error) {
 	if err == nil {
 		nodeIDStr = peer.IDB58Encode(nodeID)
 	}
+	return
+}
+
+func (a *LibP2PAgent) AgentEntry(revocation string) (entry AgentEntry, err error) {
+	entry = AgentEntry{
+		Identity:   a.Identity(),
+		Revocation: revocation,
+	}
+
+	entry.Key, err = ic.MarshalPublicKey(a.PubKey())
+	if err != nil {
+		return
+	}
+
 	return
 }
 
@@ -142,7 +157,6 @@ func LoadAgent(path string) (agent Agent, err error) {
 	if err != nil {
 		return
 	}
-	// TODO verify identity against schema
 	a := LibP2PAgent{
 		identity: AgentIdentity(identity),
 	}

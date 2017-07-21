@@ -412,7 +412,7 @@ func TestJSDHT(t *testing.T) {
 		panic(err)
 	}
 
-	Convey("get should return entry type", t, func() {
+	Convey("get should return entry", t, func() {
 		v, err := NewJSRibosome(h, &Zome{RibosomeType: JSRibosomeType, Code: fmt.Sprintf(`get("%s");`, hash.String())})
 		So(err, ShouldBeNil)
 		z := v.(*JSRibosome)
@@ -558,6 +558,69 @@ func TestJSDHT(t *testing.T) {
 		x, err := z.lastResult.Export()
 		So(err, ShouldBeNil)
 		So(fmt.Sprintf("%v", x.(Entry).Content()), ShouldEqual, `7`)
+	})
+
+	Convey("updateAgent function without options should fail", t, func() {
+		v, err := NewJSRibosome(h, &Zome{RibosomeType: JSRibosomeType,
+			Code: fmt.Sprintf(`updateAgent({})`)})
+		So(err, ShouldBeNil)
+		z := v.(*JSRibosome)
+		x := z.lastResult.String()
+		So(x, ShouldEqual, "HolochainError: expecting identity and/or revocation option")
+	})
+
+	Convey("updateAgent function should commit a new agent entry", t, func() {
+		oldPubKey, _ := h.agent.PubKey().Bytes()
+		v, err := NewJSRibosome(h, &Zome{RibosomeType: JSRibosomeType,
+			Code: fmt.Sprintf(`updateAgent({Identity:"new identity"})`)})
+		So(err, ShouldBeNil)
+		z := v.(*JSRibosome)
+		newAgentHash := z.lastResult.String()
+		So(h.agentHash.String(), ShouldEqual, newAgentHash)
+		header := h.chain.Top()
+		So(header.Type, ShouldEqual, AgentEntryType)
+		So(newAgentHash, ShouldEqual, header.EntryLink.String())
+		So(h.agent.Identity(), ShouldEqual, "new identity")
+		newPubKey, _ := h.agent.PubKey().Bytes()
+		So(fmt.Sprintf("%v", newPubKey), ShouldEqual, fmt.Sprintf("%v", oldPubKey))
+		entry, _, _ := h.chain.GetEntry(header.EntryLink)
+		So(entry.Content().(AgentEntry).Identity, ShouldEqual, "new identity")
+		So(fmt.Sprintf("%v", entry.Content().(AgentEntry).Key), ShouldEqual, fmt.Sprintf("%v", oldPubKey))
+	})
+
+	Convey("updateAgent function with revoke option should commit a new agent entry and mark key as modified on DHT", t, func() {
+		oldPubKey, _ := h.agent.PubKey().Bytes()
+		oldKey, _ := NewHash(h.nodeIDStr)
+		oldAgentHash := h.agentHash
+
+		v, err := NewJSRibosome(h, &Zome{RibosomeType: JSRibosomeType,
+			Code: fmt.Sprintf(`updateAgent({Revocation:"some revocation data"})`)})
+		So(err, ShouldBeNil)
+		z := v.(*JSRibosome)
+		newAgentHash := z.lastResult.String()
+		So(newAgentHash, ShouldEqual, h.agentHash.String())
+		So(oldAgentHash.String(), ShouldNotEqual, h.agentHash.String())
+
+		header := h.chain.Top()
+		So(header.Type, ShouldEqual, AgentEntryType)
+		So(newAgentHash, ShouldEqual, header.EntryLink.String())
+		newPubKey, _ := h.agent.PubKey().Bytes()
+		So(fmt.Sprintf("%v", newPubKey), ShouldNotEqual, fmt.Sprintf("%v", oldPubKey))
+		entry, _, _ := h.chain.GetEntry(header.EntryLink)
+		So(entry.Content().(AgentEntry).Revocation, ShouldEqual, "some revocation data")
+		So(fmt.Sprintf("%v", entry.Content().(AgentEntry).Key), ShouldEqual, fmt.Sprintf("%v", newPubKey))
+
+		// the new Key should be available on the DHT
+		newKey, _ := NewHash(h.nodeIDStr)
+		data, _, _, _, err := h.dht.get(newKey, StatusDefault, GetMaskDefault)
+		So(err, ShouldBeNil)
+		So(string(data), ShouldEqual, string(newPubKey))
+
+		// the old key should be marked as Modifed and we should get the new hash as the data
+		data, _, _, _, err = h.dht.get(oldKey, StatusDefault, GetMaskDefault)
+		So(err, ShouldEqual, ErrHashModified)
+		So(string(data), ShouldEqual, h.nodeIDStr)
+
 	})
 }
 

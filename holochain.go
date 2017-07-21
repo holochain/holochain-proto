@@ -218,6 +218,13 @@ func (h *Holochain) PrepareHashType() (err error) {
 	return
 }
 
+// createNode creates a network node based on the current agent and port data
+func (h *Holochain) createNode() (err error) {
+	listenaddr := fmt.Sprintf("/ip4/0.0.0.0/tcp/%d", h.config.Port)
+	h.node, err = NewNode(listenaddr, h.Agent().(*LibP2PAgent))
+	return
+}
+
 // Prepare sets up a holochain to run by:
 // loading the schema validators, setting up a Network node and setting up the DHT
 func (h *Holochain) Prepare() (err error) {
@@ -231,8 +238,7 @@ func (h *Holochain) Prepare() (err error) {
 		return
 	}
 
-	listenaddr := fmt.Sprintf("/ip4/0.0.0.0/tcp/%d", h.config.Port)
-	h.node, err = NewNode(listenaddr, h.Agent().(*LibP2PAgent))
+	err = h.createNode()
 	if err != nil {
 		return
 	}

@@ -932,6 +932,11 @@ func (a *ActionModAgent) Do(h *Holochain) (response interface{}, err error) {
 				panic(err)
 			}
 
+			// close the old node and add the new node
+			// TODO currently ignoring the error from node.Close() is this OK?
+			h.node.Close()
+			h.createNode()
+
 			//_, err = h.dht.Send(oldKey, MOD_REQUEST, ModReq{H: oldKey, N: newKey})
 			err = h.dht.mod(h.node.NewMessage(MOD_REQUEST, ModReq{H: oldKey, N: newKey}), oldKey, newKey)
 

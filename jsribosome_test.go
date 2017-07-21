@@ -3,6 +3,7 @@ package holochain
 import (
 	"encoding/json"
 	"fmt"
+	peer "github.com/libp2p/go-libp2p-peer"
 	"github.com/robertkrimen/otto"
 	. "github.com/smartystreets/goconvey/convey"
 	"testing"
@@ -621,6 +622,19 @@ func TestJSDHT(t *testing.T) {
 		So(err, ShouldEqual, ErrHashModified)
 		So(string(data), ShouldEqual, h.nodeIDStr)
 
+		// the new key should be a peerID in the node
+		peers := h.node.Host.Peerstore().Peers()
+		var found bool
+
+		for _, p := range peers {
+			pStr := peer.IDB58Encode(p)
+			if pStr == h.nodeIDStr {
+
+				found = true
+				break
+			}
+		}
+		So(found, ShouldBeTrue)
 	})
 }
 

@@ -11,6 +11,7 @@ import (
 	"fmt"
 	holo "github.com/metacurrency/holochain"
 	"os"
+  exec "os/exec"
 	"os/user"
 	"path/filepath"
 	"syscall"
@@ -28,12 +29,34 @@ func syscallExec(binaryFile string, args ...string) error {
 }
 
 func ExecBinScript(script string, args ...string) error {
-	path := filepath.Join(
-		os.Getenv("GOPATH"),
-		"src/github.com/metacurrency/holochain",
-		"bin",
-		script)
+	path := GolangHolochainDir("bin", script)
+  fmt.Printf("HC: common.go: ExecBinScript: %v (%v)", path, args)
 	return syscallExec(path, args...)
+}
+
+func OsExecSilent(args ...string) error {
+  cmd := exec.Command(args[0], args[1:]...)
+  fmt.Printf("common.go: OsExecSilent: %v", cmd)
+  output, err := cmd.CombinedOutput()
+  if err != nil {
+    return err
+  }
+  fmt.Printf("HC: common.go: OsExecSilent: %v", output)
+
+  return nil
+}
+
+func OsExecPipes(args ...string) error {
+  cmd := exec.Command(args[0], args[1:]...)
+  fmt.Printf("common.go: OsExecSilent: %v", cmd)
+  
+  cmd.Stdout = os.Stdout
+  cmd.Stderr = os.Stderr
+  cmd.Stdin  = os.Stdin
+
+  cmd.Run()
+
+  return nil
 }
 
 // IsAppDir tests path to see if it's a properly set up holochain app
@@ -110,4 +133,29 @@ func MakeDirs(devPath string) error {
 		return err
 	}
 	return nil
+}
+
+func Die(message string) { 
+  fmt.Printf(message)
+  os.Exit(1)
+}
+
+func GolangHolochainDir(subPath ...string) string {
+  joinable := append([]string{os.Getenv("GOPATH"), "src/github.com/metacurrency/holochain", }, subPath...)
+  return  filepath.Join(joinable...)
+}
+
+func IsFile(path string) bool {
+  // toReturn := true
+
+  info, err := os.Stat(path)
+  if err != nil {
+    return false
+  } else {
+    if !info.Mode().IsRegular() {
+      return false
+    }
+  }
+
+  return true
 }

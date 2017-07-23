@@ -1,11 +1,11 @@
 package main
 
 import (
-	"fmt"
-  "os"
-  "path/filepath"
+	_ "fmt"
+  _ "os"
+  _ "path/filepath"
 
-  "github.com/metacurrency/holochain/cmd"
+  _ "github.com/metacurrency/holochain/cmd"
 
   . "github.com/smartystreets/goconvey/convey"
 	_ "github.com/urfave/cli"

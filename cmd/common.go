@@ -17,6 +17,8 @@ import (
 	"syscall"
 )
 
+var debug bool = false
+
 var ErrServiceUninitialized = errors.New("service not initialized, run 'hcdev init'")
 
 func GetCurrentDirectory() (dir string, err error) {
@@ -30,13 +32,17 @@ func syscallExec(binaryFile string, args ...string) error {
 
 func ExecBinScript(script string, args ...string) error {
 	path := GolangHolochainDir("bin", script)
-  fmt.Printf("HC: common.go: ExecBinScript: %v (%v)", path, args)
+  if debug {
+    fmt.Printf("HC: common.go: ExecBinScript: %v (%v)", path, args)
+  }
 	return syscallExec(path, args...)
 }
 
 func OsExecSilent(args ...string) error {
   cmd := exec.Command(args[0], args[1:]...)
-  fmt.Printf("common.go: OsExecSilent: %v", cmd)
+  if debug {
+    fmt.Printf("common.go: OsExecSilent: %v", cmd)
+  }
   output, err := cmd.CombinedOutput()
   if err != nil {
     return err
@@ -48,7 +54,9 @@ func OsExecSilent(args ...string) error {
 
 func OsExecPipes(args ...string) error {
   cmd := exec.Command(args[0], args[1:]...)
-  fmt.Printf("common.go: OsExecSilent: %v", cmd)
+  if debug {
+    fmt.Printf("HC: common.go: OsExecSilent: %v", cmd)
+  }
   
   cmd.Stdout = os.Stdout
   cmd.Stderr = os.Stderr
@@ -84,7 +92,7 @@ func GetService(root string) (service *holo.Service, err error) {
 				return nil, err
 			}
 			userPath := u.HomeDir
-			root = userPath + "/" + holo.DefaultDirectoryName
+			root = filepath.Join(userPath, holo.DefaultDirectoryName)
 		}
 	}
 	if initialized := holo.IsInitialized(root); !initialized {
@@ -120,11 +128,11 @@ func MakeDirs(devPath string) error {
 	if err != nil {
 		return err
 	}
-	err = os.MkdirAll(filepath.Join(devPath, holo.ChainDNADir), os.ModePerm)
+	err = os.MkdirAll(filepath.Join(devPath, holo.ChainDNADir),  os.ModePerm)
 	if err != nil {
 		return err
 	}
-	err = os.MkdirAll(filepath.Join(devPath, holo.ChainUIDir), os.ModePerm)
+	err = os.MkdirAll(filepath.Join(devPath, holo.ChainUIDir),   os.ModePerm)
 	if err != nil {
 		return err
 	}
@@ -146,8 +154,6 @@ func GolangHolochainDir(subPath ...string) string {
 }
 
 func IsFile(path string) bool {
-  // toReturn := true
-
   info, err := os.Stat(path)
   if err != nil {
     return false

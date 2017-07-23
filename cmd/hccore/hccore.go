@@ -15,6 +15,7 @@ import (
   "github.com/metacurrency/holochain/cmd"
   "github.com/urfave/cli"
   "os"
+  "os/exec"
 
   "bytes"
 )
@@ -34,8 +35,10 @@ func getCurrentDirectoryOrExit() (string) {
 
 var debug bool
 var rootPath, devPath, name string
-var fromWhichSourceDirectory string
-  var noQuestions, compile bool
+
+var fromWhichSourceDirectory, toWhatTargetDirectory string
+  var noQuestions     bool
+  var compileTargets  string
 
 func setupApp() (app *cli.App) {
   app           = cli.NewApp()
@@ -47,6 +50,24 @@ func setupApp() (app *cli.App) {
   }
 
   app.Commands  = []cli.Command{
+  {
+      Name:           "paradigm",
+      // Aliases:    []string{"branch"},
+      Usage:          "jump into the $GOPATH directory to do stuff like compile and test",
+      Flags:          []cli.Flag{
+        cli.StringFlag {
+          Name:          "subDirectory,d",
+          Usage:         "navigate to a sub directory to run tests or whatever",
+          Value:         getCurrentDirectoryOrExit(),
+          Destination:   &toWhatTargetDirectory,
+        },
+      },
+      Action:         func(c *cli.Context) error {
+          action_paradigm()
+
+          return nil
+      },
+    },
     {
       Name:               "fromLocalFilesystem",
       // Aliases:    []string{"branch"},
@@ -70,7 +91,7 @@ func setupApp() (app *cli.App) {
                 Usage:         "once the files are made available to Golang, should we compile them?",
                 Destination:   &noQuestions,
               },
-              cli.BoolFlag{
+              cli.StringFlag{
                 Name:          "compile",
                 Usage:         "once the files are made available to Golang, should we compile them?",
                 Destination:   &compile,
@@ -106,8 +127,6 @@ func setupApp() (app *cli.App) {
               //   // swaps current go process for a(bash)nother process
               //   cmd.ExecBinScript(scriptStringBuffer.String())  
               // }
-              
-              
 
               return nil
           },
@@ -123,6 +142,11 @@ func setupApp() (app *cli.App) {
   }
 
   return app
+}
+
+func action_paradigm() *exec.Cmd { 
+  os.Chdir(cmd.GolangHolochainDir(os.Args[2]))
+  return cmd.OsExecPipes("bash")
 }
 
 func main() {

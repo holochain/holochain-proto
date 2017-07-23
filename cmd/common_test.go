@@ -1,11 +1,14 @@
 package cmd
 
 import (
-	"fmt"
-	holo "github.com/metacurrency/holochain"
+  "fmt"
+  "os"
+  "path/filepath"
+
 	. "github.com/smartystreets/goconvey/convey"
-	"os"
 	"testing"
+
+  holo "github.com/metacurrency/holochain"
 )
 
 func TestIsAppDir(t *testing.T) {
@@ -65,4 +68,23 @@ func TestGetHolochain(t *testing.T) {
 		So(err, ShouldBeNil)
 		So(h.Nucleus().DNA().Name, ShouldEqual, "test")
 	})
+}
+
+func Test_OsExecFunctions_IsFile(t *testing.T) {
+  d  := holo.MakeTestDirName()
+  os.MkdirAll(d, 0770)
+  defer holo.CleanupTestDir(d)
+
+  testFile := filepath.Join(d, "common_test.go.Test_OsExecPipes.aFile")
+
+  Convey("it should when there is no touched file", t, func() {
+    So(IsFile(testFile), ShouldEqual, false)
+  })
+
+  Convey("it should when there is a touched file",  t, func () {
+    OsExecPipes("touch",  testFile )
+    So(IsFile(testFile), ShouldEqual, true) 
+    OsExecSilent("rm",    testFile )
+    So(IsFile(testFile), ShouldEqual, false)
+  })
 }

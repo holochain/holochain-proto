@@ -47,12 +47,15 @@ func OsExecSilent(args ...string) error {
   if err != nil {
     return err
   }
-  fmt.Printf("HC: common.go: OsExecSilent: %v", output)
+  if debug {
+    fmt.Printf("HC: common.go: OsExecSilent: %v", output)
+  }
 
   return nil
 }
 
-func OsExecPipes(args ...string) error {
+// OsExecPipes executes a command as if we are in a shell, including user input
+func OsExecPipes(args ...string) *exec.Cmd {
   cmd := exec.Command(args[0], args[1:]...)
   if debug {
     fmt.Printf("HC: common.go: OsExecSilent: %v", cmd)
@@ -64,7 +67,7 @@ func OsExecPipes(args ...string) error {
 
   cmd.Run()
 
-  return nil
+  return cmd
 }
 
 // IsAppDir tests path to see if it's a properly set up holochain app
@@ -76,9 +79,22 @@ func IsAppDir(path string) error {
 	} else {
 		if !info.Mode().IsDir() {
 			err = fmt.Errorf(".hc is not a directory")
-		}
+		
 	}
 	return err
+}
+// IsCoreDir tests path to see if it is contains Holochain Core source files
+// returns nil on success or an error describing the problem
+func IsCoreDir(path string) error {
+  info, err := os.Stat(filepath.Join(path, ".hc"))
+  if err != nil {
+    err = fmt.Errorf("directory missing .hc subdirectory")
+  } else {
+    if !info.Mode().IsDir() {
+      err = fmt.Errorf(".hc is not a directory")
+    
+  }
+  return err
 }
 
 // GetService is a helper function to load the holochain service from default locations or a given path
@@ -144,7 +160,7 @@ func MakeDirs(devPath string) error {
 }
 
 func Die(message string) { 
-  fmt.Printf(message)
+  fmt.Println(message)
   os.Exit(1)
 }
 
@@ -153,15 +169,15 @@ func GolangHolochainDir(subPath ...string) string {
   return  filepath.Join(joinable...)
 }
 
-func IsFile(path string) bool {
+func IsFile(path string) (bool, err error) {
   info, err := os.Stat(path)
   if err != nil {
-    return false
+    return false, err
   } else {
     if !info.Mode().IsRegular() {
-      return false
+      return false, err
     }
   }
 
-  return true
+  return true, err
 }

@@ -79,23 +79,17 @@ func IsAppDir(path string) error {
 	} else {
 		if !info.Mode().IsDir() {
 			err = fmt.Errorf(".hc is not a directory")
-		
-	}
+    }
+  }
 	return err
 }
 // IsCoreDir tests path to see if it is contains Holochain Core source files
 // returns nil on success or an error describing the problem
-func IsCoreDir(path string) error {
-  info, err := os.Stat(filepath.Join(path, ".hc"))
-  if err != nil {
-    err = fmt.Errorf("directory missing .hc subdirectory")
-  } else {
-    if !info.Mode().IsDir() {
-      err = fmt.Errorf(".hc is not a directory")
-    
-  }
-  return err
-}
+// func IsCoreDir(path string) error {
+  // check for the existance of package.json
+  // 
+  // return IsFile(filepath.Join(path, "package.json")
+// }
 
 // GetService is a helper function to load the holochain service from default locations or a given path
 func GetService(root string) (service *holo.Service, err error) {
@@ -169,15 +163,15 @@ func GolangHolochainDir(subPath ...string) string {
   return  filepath.Join(joinable...)
 }
 
-func IsFile(path string) (bool, err error) {
+func IsFile(path string) bool {
   info, err := os.Stat(path)
   if err != nil {
-    return false, err
+    return false
   } else {
     if !info.Mode().IsRegular() {
-      return false, err
+      return false
     }
   }
 
-  return true, err
+  return true
 }

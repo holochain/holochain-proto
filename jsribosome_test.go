@@ -591,6 +591,7 @@ func TestJSDHT(t *testing.T) {
 
 	Convey("updateAgent function with revoke option should commit a new agent entry and mark key as modified on DHT", t, func() {
 		oldPubKey, _ := h.agent.PubKey().Bytes()
+		oldPeer := h.nodeID
 		oldKey, _ := NewHash(h.nodeIDStr)
 		oldAgentHash := h.agentHash
 
@@ -641,6 +642,13 @@ func TestJSDHT(t *testing.T) {
 			}
 		}
 		So(found, ShouldBeTrue)
+
+		// the old peerID should now be in the blacklist
+		peerList, err := h.dht.getList(BlackList)
+		So(err, ShouldBeNil)
+		So(len(peerList.Records), ShouldEqual, 1)
+		So(peerList.Records[0].ID, ShouldEqual, oldPeer)
+
 	})
 }
 

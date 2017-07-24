@@ -215,6 +215,9 @@ func MakeActionFromMessage(msg *Message) (a Action, err error) {
 	case GETLINK_REQUEST:
 		a = &ActionGetLink{}
 		t = reflect.TypeOf(LinkQuery{})
+	case LISTADD_REQUEST:
+		a = &ActionListAdd{}
+		t = reflect.TypeOf(ListAddReq{})
 	default:
 		err = fmt.Errorf("message type %d not in holochain-action protocol", int(msg.Type))
 	}
@@ -923,6 +926,7 @@ func (a *ActionModAgent) Do(h *Holochain) (response interface{}, err error) {
 
 			// send the modification request for the old key
 			var oldKey, newKey Hash
+			oldPeer := h.nodeID
 			oldKey, err = NewHash(h.nodeIDStr)
 			if err != nil {
 				panic(err)
@@ -943,8 +947,10 @@ func (a *ActionModAgent) Do(h *Holochain) (response interface{}, err error) {
 			h.node.Close()
 			h.createNode()
 
-			//_, err = h.dht.Send(oldKey, MOD_REQUEST, ModReq{H: oldKey, N: newKey})
-			err = h.dht.mod(h.node.NewMessage(MOD_REQUEST, ModReq{H: oldKey, N: newKey}), oldKey, newKey)
+			_, err = h.dht.Send(oldKey, MOD_REQUEST, ModReq{H: oldKey, N: newKey})
+
+			// TODO, this isn't really a DHT send, but a management send, so the key is bogus.  have to work this out...
+			_, err = h.dht.Send(oldKey, LISTADD_REQUEST, ListAddReq{ListType: BlackList, Peers: []string{peer.IDB58Encode(oldPeer)}})
 
 		}
 
@@ -1225,5 +1231,54 @@ func (a *ActionGetLink) Receive(dht *DHT, msg *Message) (response interface{}, e
 	r.Links, err = dht.getLink(lq.Base, lq.T, lq.StatusMask)
 	response = &r
 
+	return
+}
+
+//------------------------------------------------------------
+// ListAdd
+
+type ActionListAdd struct {
+	list PeerList
+}
+
+func NewListAddAction(peerList PeerList) *ActionListAdd {
+	a := ActionListAdd{list: peerList}
+	return &a
+}
+
+func (a *ActionListAdd) Name() string {
+	return "put"
+}
+
+func (a *ActionListAdd) Args() []Arg {
+	return nil
+}
+
+func (a *ActionListAdd) Do(h *Holochain) (response interface{}, err error) {
+	err = NonCallableAction
+	return
+}
+
+func (a *ActionListAdd) Receive(dht *DHT, msg *Message) (response interface{}, err error) {
+	//dht.puts <- *m  TODO add back in queueing
+	t := msg.Body.(ListAddReq)
+	a.list.Type = PeerListType(t.ListType)
+	a.list.Records = make([]PeerRecord, 0)
+	var pid peer.ID
+	for _, pStr := range t.Peers {
+		pid, err = peer.IDB58Decode(pStr)
+		if err != nil {
+			return
+		}
+		r := PeerRecord{ID: pid}
+		a.list.Records = append(a.list.Records, r)
+	}
+
+	// TODO: Validation!!!!
+	err = dht.addToList(msg, a.list)
+	if err != nil {
+		return
+	}
+	response = "queued"
 	return
 }

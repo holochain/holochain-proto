@@ -61,6 +61,10 @@ const (
 	// Application Messages
 
 	APP_MESSAGE
+
+	// Peer messages
+
+	LISTADD_REQUEST
 )
 
 // Message represents data that can be sent to node in the network
@@ -226,6 +230,10 @@ func (m Message) String() string {
 		typeStr = "VALIDATE_DEL_REQUEST"
 	case VALIDATE_MOD_REQUEST:
 		typeStr = "VALIDATE_MOD_REQUEST"
+	case APP_MESSAGE:
+		typeStr = "APP_MESSAGE"
+	case LISTADD_REQUEST:
+		typeStr = "LISTADD_REQUEST"
 	}
 	return fmt.Sprintf("%s @ %v From:%v Body:%v", typeStr, m.Time, m.From, m.Body)
 }

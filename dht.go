@@ -187,6 +187,11 @@ type LinkQueryResp struct {
 	Links []TaggedHash
 }
 
+type ListAddReq struct {
+	ListType string
+	Peers    []string
+}
+
 var ErrLinkNotFound = errors.New("link not found")
 var ErrHashDeleted = errors.New("hash deleted")
 var ErrHashModified = errors.New("hash modified")
@@ -208,6 +213,7 @@ func NewDHT(h *Holochain) *DHT {
 	db.CreateIndex("link", "link:*", buntdb.IndexString)
 	db.CreateIndex("idx", "idx:*", buntdb.IndexInt)
 	db.CreateIndex("peer", "peer:*", buntdb.IndexString)
+	db.CreateIndex("list", "list:*", buntdb.IndexString)
 
 	dht.db = db
 	dht.puts = make(chan Message, 10)

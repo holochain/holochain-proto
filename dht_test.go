@@ -501,6 +501,21 @@ func TestActionReceiver(t *testing.T) {
 		So(entryType, ShouldEqual, "evenNumbers")
 		So(status, ShouldEqual, StatusDeleted)
 	})
+
+	Convey("LISTADD_REEQUEST should add peers to list", t, func() {
+
+		pid, _ := makePeer("testPeer")
+		m := h.node.NewMessage(LISTADD_REQUEST, ListAddReq{ListType: BlackList, Peers: []string{peer.IDB58Encode(pid)}})
+		r, err := ActionReceiver(h, m)
+		So(err, ShouldBeNil)
+		So(r, ShouldEqual, "queued")
+
+		peerList, err := h.dht.getList(BlackList)
+		So(err, ShouldBeNil)
+		So(len(peerList.Records), ShouldEqual, 1)
+		So(peerList.Records[0].ID, ShouldEqual, pid)
+	})
+
 }
 
 func TestDHTDump(t *testing.T) {

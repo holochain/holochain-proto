@@ -17,6 +17,7 @@ import (
 	"github.com/lestrrat/go-jsval/builder"
 	"io"
 	"io/ioutil"
+  "path/filepath"
 	"os"
 	"strings"
 )
@@ -55,7 +56,7 @@ const (
 )
 
 func writeToml(path string, file string, data interface{}, overwrite bool) error {
-	p := path + "/" + file
+	p := filepath.Join(path, file)
 	if !overwrite && fileExists(p) {
 		return mkErr(path + " already exists")
 	}
@@ -71,7 +72,7 @@ func writeToml(path string, file string, data interface{}, overwrite bool) error
 }
 
 func writeFile(path string, file string, data []byte) error {
-	p := path + "/" + file
+	p := filepath.Join(path, file)
 	if fileExists(p) {
 		return mkErr(p + " already exists")
 	}
@@ -94,7 +95,7 @@ func writeFile(path string, file string, data []byte) error {
 }
 
 func readFile(path string, file string) (data []byte, err error) {
-	p := path + "/" + file
+	p := filepath.Join(path, file)
 	data, err = ioutil.ReadFile(p)
 	return data, err
 }
@@ -118,7 +119,7 @@ func fileExists(path string) bool {
 
 func filePerms(path string, file string) (perms os.FileMode, err error) {
 	var fi os.FileInfo
-	fi, err = os.Stat(path + "/" + file)
+	fi, err = os.Stat(filepath.Join(path, file) )
 	if err != nil {
 		return
 	}

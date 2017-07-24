@@ -888,8 +888,14 @@ func (a *ActionModAgent) Do(h *Holochain) (response interface{}, err error) {
 		newAgent.identity = a.Identity
 		ok = true
 	}
+
+	var revocation Revocation
 	if a.Revocation != "" {
 		err = newAgent.GenKeys(nil)
+		if err != nil {
+			return
+		}
+		revocation, err = NewSelfRevocation(h.agent.PrivKey(), newAgent.PrivKey(), []byte(a.Revocation))
 		if err != nil {
 			return
 		}
@@ -901,7 +907,7 @@ func (a *ActionModAgent) Do(h *Holochain) (response interface{}, err error) {
 		h.agent = &newAgent
 		// add a new agent entry and update
 		var agentHash Hash
-		_, agentHash, err = h.AddAgentEntry(a.Revocation)
+		_, agentHash, err = h.AddAgentEntry(revocation)
 		if err != nil {
 			return
 		}
@@ -909,8 +915,8 @@ func (a *ActionModAgent) Do(h *Holochain) (response interface{}, err error) {
 
 		// if there was a revocation put the new key to the DHT and then reset the node ID data
 		// TODO make sure this doesn't introduce race conditions in the DHT between new and old identity #284
-		if a.Revocation != "" {
-			err = h.dht.putKey(a.Revocation, &newAgent)
+		if revocation != nil {
+			err = h.dht.putKey(&newAgent)
 			if err != nil {
 				return
 			}

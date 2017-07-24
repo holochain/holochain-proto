@@ -227,7 +227,7 @@ func TestAddAgentEntry(t *testing.T) {
 	defer CleanupTestDir(d)
 
 	Convey("it should add an agent entry to the chain", t, func() {
-		headerHash, agentHash, err := h.AddAgentEntry("some revocation data")
+		headerHash, agentHash, err := h.AddAgentEntry(&FakeRevocation{data: "some revocation data"})
 		So(err, ShouldBeNil)
 
 		hdr, err := h.chain.Get(headerHash)
@@ -242,7 +242,7 @@ func TestAddAgentEntry(t *testing.T) {
 		So(a.Identity, ShouldEqual, h.agent.Identity())
 		pk, _ := h.agent.PubKey().Bytes()
 		So(string(a.Key), ShouldEqual, string(pk))
-		So(a.Revocation, ShouldEqual, "some revocation data")
+		So(string(a.Revocation), ShouldEqual, "some revocation data")
 	})
 }
 
@@ -273,7 +273,7 @@ func TestGenChain(t *testing.T) {
 		So(a.Identity, ShouldEqual, h.agent.Identity())
 		pk, _ := h.agent.PubKey().Bytes()
 		So(string(a.Key), ShouldEqual, string(pk))
-		So(a.Revocation, ShouldEqual, "")
+		So(string(a.Revocation), ShouldEqual, "")
 	})
 
 	var dnaHash Hash

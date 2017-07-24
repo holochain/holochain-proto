@@ -37,7 +37,7 @@ type Agent interface {
 	PrivKey() ic.PrivKey
 	PubKey() ic.PubKey
 	NodeID() (peer.ID, string, error)
-	AgentEntry(revocation string) (AgentEntry, error)
+	AgentEntry(revocation Revocation) (AgentEntry, error)
 }
 
 type LibP2PAgent struct {
@@ -84,17 +84,21 @@ func (a *LibP2PAgent) NodeID() (nodeID peer.ID, nodeIDStr string, err error) {
 	return
 }
 
-func (a *LibP2PAgent) AgentEntry(revocation string) (entry AgentEntry, err error) {
-	entry = AgentEntry{
-		Identity:   a.Identity(),
-		Revocation: revocation,
-	}
+func (a *LibP2PAgent) AgentEntry(revocation Revocation) (entry AgentEntry, err error) {
 
+	entry = AgentEntry{
+		Identity: a.Identity(),
+	}
+	if revocation != nil {
+		entry.Revocation, err = revocation.Marshal()
+		if err != nil {
+			return
+		}
+	}
 	entry.Key, err = ic.MarshalPublicKey(a.PubKey())
 	if err != nil {
 		return
 	}
-
 	return
 }
 

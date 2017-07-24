@@ -221,7 +221,7 @@ func NewDHT(h *Holochain) *DHT {
 // putKey implements the special case for adding the KeyEntry system type to the DHT
 // note that the Contents of this key are the same as the contents of the agent entry on the
 // chain.  The keyEntry is a virtual entry that's NOT actually on the chain
-func (dht *DHT) putKey(revocation string, agent Agent) (err error) {
+func (dht *DHT) putKey(agent Agent) (err error) {
 	var nodeID peer.ID
 	var nodeIDStr string
 	nodeID, nodeIDStr, err = agent.NodeID()
@@ -255,7 +255,7 @@ func (dht *DHT) SetupDHT() (err error) {
 	}
 
 	// put the KeyEntry so it always exists for retrieving the public key
-	err = dht.putKey("", dht.h.agent) // first time so revocation is empty
+	err = dht.putKey(dht.h.agent) // first time so revocation is empty
 
 	// put the AgentEntry so it always exists for linking
 	a := dht.h.AgentHash()
@@ -690,6 +690,7 @@ func (dht *DHT) DumpIdx(idx int) (str string, err error) {
 	return
 }
 
+// String converts a DHT into a human readable string
 func (dht *DHT) String() (result string) {
 	idx, err := dht.GetIdx()
 	if err != nil {

@@ -9,6 +9,23 @@ import (
 	"testing"
 )
 
+type FakeRevocation struct {
+	data string
+}
+
+func (r *FakeRevocation) Verify() (err error) {
+	return
+}
+func (r *FakeRevocation) Marshal() (bytes []byte, err error) {
+	bytes = []byte(r.data)
+	return
+}
+
+func (r *FakeRevocation) Unmarshal(data []byte) (err error) {
+	r.data = string(data)
+	return
+}
+
 func TestLibP2PAgent(t *testing.T) {
 	d := SetupTestDir()
 	defer CleanupTestDir(d)
@@ -32,7 +49,16 @@ func TestLibP2PAgent(t *testing.T) {
 		nodeID, nodeIDStr, err := a1.NodeID()
 		So(nodeIDStr, ShouldEqual, peer.IDB58Encode(nodeID))
 		So(nodeID.MatchesPublicKey(a1.PubKey()), ShouldBeTrue)
-
+	})
+	Convey("it should be able to create an AgentEntry for a chain", t, func() {
+		a1, _ := NewAgent(LibP2P, a)
+		revocation := FakeRevocation{data: "fake revocation"}
+		entry, err := a1.AgentEntry(&revocation)
+		So(err, ShouldBeNil)
+		So(entry.Identity, ShouldEqual, a)
+		So(string(entry.Revocation), ShouldEqual, "fake revocation")
+		pk, _ := ic.MarshalPublicKey(a1.PubKey())
+		So(string(entry.Key), ShouldEqual, string(pk))
 	})
 	Convey("it should fail to load an agent file that has bad permissions", t, func() {
 		os.Chmod(d+"/"+PrivKeyFileName, OS_USER_RW)
@@ -46,7 +72,6 @@ func TestLibP2PAgent(t *testing.T) {
 		_, n2, _ := agent.NodeID()
 		So(n1, ShouldNotEqual, n2)
 	})
-
 	Convey("genkeys with fixed seed should generate the same key", t, func() {
 		agent, err := NewAgent(LibP2P, a)
 		So(err, ShouldBeNil)

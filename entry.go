@@ -38,7 +38,7 @@ const (
 // AgentEntry structure for building AgentEntryType entries
 type AgentEntry struct {
 	Identity   AgentIdentity
-	Revocation string
+	Revocation []byte // marshaled revocation
 	Key        []byte // marshaled public key
 }
 

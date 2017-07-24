@@ -324,8 +324,9 @@ func (h *Holochain) Started() bool {
 }
 
 // AddAgentEntry adds a new sys entry type setting the current agent data (identity and key)
-func (h *Holochain) AddAgentEntry(revocation string) (headerHash, agentHash Hash, err error) {
+func (h *Holochain) AddAgentEntry(revocation Revocation) (headerHash, agentHash Hash, err error) {
 	var entry AgentEntry
+
 	entry, err = h.agent.AgentEntry(revocation)
 	if err != nil {
 		return
@@ -375,7 +376,7 @@ func (h *Holochain) GenChain() (headerHash Hash, err error) {
 	h.dnaHash = dnaHeader.EntryLink.Clone()
 
 	var agentHash Hash
-	headerHash, agentHash, err = h.AddAgentEntry("") // revocation string is empty on initial Gen
+	headerHash, agentHash, err = h.AddAgentEntry(nil) // revocation is empty on initial Gen
 	if err != nil {
 		return
 	}

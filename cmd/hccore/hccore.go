@@ -94,7 +94,7 @@ func setupApp() (app *cli.App) {
               cli.StringFlag{
                 Name:          "compile",
                 Usage:         "once the files are made available to Golang, should we compile them?",
-                Destination:   &compile,
+                Destination:   &compileTargets,
               },
           },
           Action:         func(c *cli.Context) error {
@@ -107,13 +107,13 @@ func setupApp() (app *cli.App) {
               }
               fmt.Printf  ("HC: core.fromLocalFilesystem.install: changed directory to   : %v\n",     fromWhichSourceDirectory)
 
-              fmt.Printf  ("HC: core.fromLocalFilesystem.install: noQuestions, compile   : %v, %v\n", noQuestions, compile)
+              fmt.Printf  ("HC: core.fromLocalFilesystem.install: noQuestions, compile   : %v, %v\n", noQuestions, compileTargets)
               // build the script name from the options
               var scriptStringBuffer bytes.Buffer
               scriptStringBuffer.WriteString("holochain.core.fromLocalFilesystem.install")
               if noQuestions { 
                 scriptStringBuffer.WriteString(".noQuestions")
-                if compile {
+                if compileTargets != "" {
                   scriptStringBuffer.WriteString(".withCompile")
                 } else {
                   scriptStringBuffer.WriteString(".noCompile")
@@ -122,11 +122,12 @@ func setupApp() (app *cli.App) {
 
               // if silent {
                 // maintains the existing go process, and waits for the script to complete
-                cmd.OsExecPipes(cmd.GolangHolochainDir("bin", scriptStringBuffer.String()))  
+              cmd.OsExecPipes(cmd.GolangHolochainDir("bin", scriptStringBuffer.String()), compileTargets)  
               // } else {
               //   // swaps current go process for a(bash)nother process
               //   cmd.ExecBinScript(scriptStringBuffer.String())  
               // }
+
 
               return nil
           },

@@ -14,10 +14,6 @@ cp $myDir $targetDir -r
 
 #$holochainBinDir/holochain.tools.confirm "Do you want to compile bs, hc and hcdev? (y/N)" || { echo "HC: exiting" && exit 1 ; }
 cd $targetDir
-make bs
-make hc
-make hcdev
-make hccore
-make hcd
-make hcadmin
-
+for makeTarget in $1; do
+ make $makeTarget
+done

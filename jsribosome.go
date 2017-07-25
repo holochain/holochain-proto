@@ -778,6 +778,14 @@ func NewJSRibosome(h *Holochain, zome *Zome) (n Ribosome, err error) {
 		if resp != nil {
 			agentEntryHash = resp.(Hash)
 		}
+		if ok {
+			// TODO there should be a better way to set a variable inside that vm.
+			// also worried about the re-entrancy here...
+			_, err = jsr.vm.Run(`App.Key.Hash="` + h.nodeIDStr + `"`)
+			if err != nil {
+				return mkOttoErr(&jsr, err.Error())
+			}
+		}
 		result, _ = jsr.vm.ToValue(agentEntryHash.String())
 
 		return

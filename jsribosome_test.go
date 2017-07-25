@@ -650,6 +650,16 @@ func TestJSDHT(t *testing.T) {
 		So(peerList.Records[0].ID, ShouldEqual, oldPeer)
 
 	})
+
+	Convey("updateAgent function with revoke option should update the App.Key.Hash value", t, func() {
+		v, err := NewJSRibosome(h, &Zome{RibosomeType: JSRibosomeType,
+			Code: fmt.Sprintf(`updateAgent({Revocation:"some revocation data"});App.Key.Hash`)})
+		So(err, ShouldBeNil)
+		z := v.(*JSRibosome)
+		newKeyHash := z.lastResult.String()
+		So(h.nodeIDStr, ShouldEqual, newKeyHash)
+
+	})
 }
 
 func TestJSProcessArgs(t *testing.T) {

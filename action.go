@@ -1279,6 +1279,13 @@ func (a *ActionListAdd) Receive(dht *DHT, msg *Message) (response interface{}, e
 	if err != nil {
 		return
 	}
+
+	// special case to add blockedlist peers
+	if a.list.Type == BlockedList {
+		for _, peer := range a.list.Records {
+			dht.h.node.Block(peer.ID)
+		}
+	}
 	response = "queued"
 	return
 }

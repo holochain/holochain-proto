@@ -467,18 +467,3 @@ func (dht *DHT) addToList(m *Message, list PeerList) (err error) {
 	})
 	return
 }
-
-// IsBlockedListed checks to see if a node is on the blockedlist
-func (dht *DHT) IsBlockedListed(node peer.ID) bool {
-	// TODO convert this to looking in a hash that has cached the items
-	peerList, err := dht.getList(BlockedList)
-	if err != nil {
-		panic(err)
-	}
-	for _, r := range peerList.Records {
-		if node == r.ID {
-			return true
-		}
-	}
-	return false
-}

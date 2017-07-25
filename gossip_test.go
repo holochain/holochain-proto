@@ -234,25 +234,3 @@ func TestPeerLists(t *testing.T) {
 		So(peerList.Records[1].ID, ShouldEqual, pid2)
 	})
 }
-
-func TestIsBlockedListed(t *testing.T) {
-	d, _, h := PrepareTestChain("test")
-	defer CleanupTestDir(d)
-	dht := h.dht
-
-	idx, _ := dht.GetIdx()
-	dht.UpdateGossiper(h.node.HashAddr, idx)
-
-	Convey("our own node should not be blockedlisted", t, func() {
-		So(dht.IsBlockedListed(h.nodeID), ShouldBeFalse)
-	})
-
-	Convey("a revoked node should be blockedlisted", t, func() {
-		oldNode := h.nodeID
-		_, err := NewJSRibosome(h, &Zome{RibosomeType: JSRibosomeType,
-			Code: fmt.Sprintf(`updateAgent({Revocation:"some revocation data"})`)})
-		So(err, ShouldBeNil)
-		So(dht.IsBlockedListed(oldNode), ShouldBeTrue)
-	})
-
-}

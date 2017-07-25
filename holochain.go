@@ -247,6 +247,13 @@ func (h *Holochain) Prepare() (err error) {
 	h.dht = NewDHT(h)
 	h.nucleus.h = h
 
+	var peerList PeerList
+	peerList, err = h.dht.getList(BlockedList)
+	if err != nil {
+		return err
+	}
+
+	h.node.InitBlockedList(peerList)
 	return
 }
 

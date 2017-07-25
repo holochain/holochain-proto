@@ -649,6 +649,8 @@ func TestJSDHT(t *testing.T) {
 		So(len(peerList.Records), ShouldEqual, 1)
 		So(peerList.Records[0].ID, ShouldEqual, oldPeer)
 
+		So(h.node.IsBlocked(oldPeer), ShouldBeTrue)
+
 	})
 
 	Convey("updateAgent function with revoke option should update the App.Key.Hash value", t, func() {

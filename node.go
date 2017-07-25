@@ -79,10 +79,11 @@ type Message struct {
 
 // Node represents a node in the network
 type Node struct {
-	HashAddr peer.ID
-	NetAddr  ma.Multiaddr
-	Host     *rhost.RoutedHost
-	mdnsSvc  discovery.Service
+	HashAddr    peer.ID
+	NetAddr     ma.Multiaddr
+	Host        *rhost.RoutedHost
+	mdnsSvc     discovery.Service
+	blockedlist map[peer.ID]bool
 }
 
 // Protocol encapsulates data for our different protocols
@@ -105,10 +106,14 @@ func (r *Router) FindPeer(context.Context, peer.ID) (peer pstore.PeerInfo, err e
 // implement peer found function for mdns discovery
 func (h *Holochain) HandlePeerFound(pi pstore.PeerInfo) {
 	h.dht.dlog.Logf("discovered peer via mdns: %v", pi)
-	h.node.Host.Connect(context.Background(), pi)
-	err := h.dht.UpdateGossiper(pi.ID, 0)
-	if err != nil {
-		h.dht.dlog.Logf("error when updating gossiper: %v", pi)
+	if h.node.IsBlocked(pi.ID) {
+		h.dht.dlog.Logf("peer in blockedlist, ignoring")
+	} else {
+		h.node.Host.Connect(context.Background(), pi)
+		err := h.dht.UpdateGossiper(pi.ID, 0)
+		if err != nil {
+			h.dht.dlog.Logf("error when updating gossiper: %v", pi)
+		}
 	}
 }
 
@@ -271,7 +276,7 @@ func (node *Node) StartProtocol(h *Holochain, proto Protocol) (err error) {
 			// @todo other sanity checks on From?
 			err = errors.New("message must have a source")
 		} else {
-			if h.dht.IsBlockedListed(s.Conn().RemotePeer()) {
+			if node.IsBlocked(s.Conn().RemotePeer()) {
 				err = ErrBlockedListed
 			}
 
@@ -291,6 +296,12 @@ func (node *Node) Close() error {
 
 // Send delivers a message to a node via the given protocol
 func (node *Node) Send(proto Protocol, addr peer.ID, m *Message) (response Message, err error) {
+
+	if node.IsBlocked(addr) {
+		err = ErrBlockedListed
+		return
+	}
+
 	s, err := node.Host.NewStream(context.Background(), addr, proto.ID)
 	if err != nil {
 		return
@@ -324,6 +335,35 @@ func (node *Node) NewMessage(t MsgType, body interface{}) (msg *Message) {
 	m := Message{Type: t, Time: time.Now(), Body: body, From: node.HashAddr}
 	msg = &m
 	return
+}
+
+// IsBlockedListed checks to see if a node is on the blockedlist
+func (node *Node) IsBlocked(addr peer.ID) (ok bool) {
+	ok = node.blockedlist[addr]
+	return
+}
+
+// InitBlockedList sets up the blockedlist from a PeerList
+func (node *Node) InitBlockedList(list PeerList) {
+	node.blockedlist = make(map[peer.ID]bool)
+	for _, r := range list.Records {
+		node.Block(r.ID)
+	}
+}
+
+// Block adds a peer to the blocklist
+func (node *Node) Block(addr peer.ID) {
+	if node.blockedlist == nil {
+		node.blockedlist = make(map[peer.ID]bool)
+	}
+	node.blockedlist[addr] = true
+}
+
+// Unblock removes a peer from the blocklist
+func (node *Node) Unblock(addr peer.ID) {
+	if node.blockedlist != nil {
+		delete(node.blockedlist, addr)
+	}
 }
 
 type ErrorResponse struct {

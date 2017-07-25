@@ -57,8 +57,8 @@ func TestTest(t *testing.T) {
 	})
 
 	Convey("it should fail the test on incorrect input types", t, func() {
-		os.Remove(d + "/.holochain/test/test/test_0.json")
-		err := writeFile(d+"/.holochain/test/test", "test_0.json", []byte(`[{"Zome":"zySampleZome","FnName":"addEven","Input":2,"Output":"%h%","Err":""}]`))
+		os.Remove(filepath.Join(d, ".holochain", "test", "test", "test_0.json"))
+		err := writeFile([]byte(`[{"Zome":"zySampleZome","FnName":"addEven","Input":2,"Output":"%h%","Err":""}]`), d, ".holochain", "test", "test", "test_0.json")
 		So(err, ShouldBeNil)
 		err = h.Test()[0]
 		So(err, ShouldNotBeNil)
@@ -66,7 +66,7 @@ func TestTest(t *testing.T) {
 	})
 	Convey("it should fail the test on incorrect data", t, func() {
 		os.Remove(filepath.Join(d, ".holochain", "test", "test", "test_0.json"))
-		err := writeFile(filepath.Join(d, ".holochain", "test", "test"), "test_0.json", []byte(`[{"Zome":"zySampleZome","FnName":"addEven","Input":"2","Output":"","Err":"bogus error"}]`))
+		err := writeFile([]byte(`[{"Zome":"zySampleZome","FnName":"addEven","Input":"2","Output":"","Err":"bogus error"}]`), d, ".holochain", "test", "test", "test_0.json")
 		So(err, ShouldBeNil)
 		err = h.Test()[0]
 		So(err, ShouldNotBeNil)

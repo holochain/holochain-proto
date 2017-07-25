@@ -625,7 +625,7 @@ func (s *Service) GenDev(root string, format string) (hP *Holochain, err error) 
 	}
 }`
 
-		if err = writeFile(h.DNAPath(), propertiesSchemaFile, []byte(propertiesSchema)); err != nil {
+		if err = writeFile([]byte(propertiesSchema), h.DNAPath(), propertiesSchemaFile); err != nil {
 			return
 		}
 
@@ -690,13 +690,13 @@ func (s *Service) GenDev(root string, format string) (hP *Holochain, err error) 
 		if err = os.MkdirAll(filepath.Join(h.DNAPath(), zygoZomeName), os.ModePerm); err != nil {
 			return nil, err
 		}
-		if err = writeFile(filepath.Join(h.DNAPath(), zygoZomeName), zygoZomeName+".zy", []byte(zygoCode)); err != nil {
+		if err = writeFile([]byte(zygoCode), h.DNAPath(), zygoZomeName, zygoZomeName+".zy"); err != nil {
 			return
 		}
-		if err = writeFile(filepath.Join(h.DNAPath(), zygoZomeName), "profile.json", []byte(profileSchema)); err != nil {
+		if err = writeFile([]byte(profileSchema), h.DNAPath(), zygoZomeName, "profile.json"); err != nil {
 			return
 		}
-		if err = writeFile(filepath.Join(h.DNAPath(), zygoZomeName), "primes.json", []byte(primesSchema)); err != nil {
+		if err = writeFile([]byte(primesSchema), h.DNAPath(), zygoZomeName, "primes.json"); err != nil {
 			return
 		}
 
@@ -757,10 +757,10 @@ function receive(from,message) {
 		if err = os.MkdirAll(filepath.Join(h.DNAPath(), jsZomeName), os.ModePerm); err != nil {
 			return nil, err
 		}
-		if err = writeFile(filepath.Join(h.DNAPath(), jsZomeName), jsZomeName+".js", []byte(jsCode)); err != nil {
+		if err = writeFile([]byte(jsCode), h.DNAPath(), jsZomeName, jsZomeName+".js"); err != nil {
 			return
 		}
-		if err = writeFile(filepath.Join(h.DNAPath(), jsZomeName), "profile.json", []byte(profileSchema)); err != nil {
+		if err = writeFile([]byte(profileSchema), h.DNAPath(), jsZomeName, "profile.json"); err != nil {
 			return
 		}
 
@@ -829,7 +829,7 @@ function receive(from,message) {
 		}
 
 		for fileName, fileText := range SampleUI {
-			if err = writeFile(h.UIPath(), fileName, []byte(fileText)); err != nil {
+			if err = writeFile([]byte(fileText), h.UIPath(), fileName); err != nil {
 				return
 			}
 		}
@@ -848,7 +848,7 @@ function receive(from,message) {
 			if err != nil {
 				return
 			}
-			if err = writeFile(testPath, fn, j); err != nil {
+			if err = writeFile(j, testPath, fn); err != nil {
 				return
 			}
 		}
@@ -860,7 +860,7 @@ function receive(from,message) {
 		if err != nil {
 			return
 		}
-		if err = writeFile(testPath, fn, j); err != nil {
+		if err = writeFile(j, testPath, fn); err != nil {
 			return
 		}
 
@@ -1033,7 +1033,7 @@ func (s *Service) SaveDNAFile(root string, dna *DNA, encodingFormat string, over
 		if err = os.MkdirAll(zpath, os.ModePerm); err != nil {
 			return
 		}
-		if err = writeFile(zpath, z.Name+suffixByRibosomeType(z.RibosomeType), []byte(z.Code)); err != nil {
+		if err = writeFile([]byte(z.Code), zpath, z.Name+suffixByRibosomeType(z.RibosomeType)); err != nil {
 			return
 		}
 
@@ -1052,7 +1052,7 @@ func (s *Service) SaveDNAFile(root string, dna *DNA, encodingFormat string, over
 			}
 			if e.DataFormat == DataFormatJSON && e.Schema != "" {
 				entryDefFile.SchemaFile = e.Name + ".json"
-				if err = writeFile(zpath, e.Name+".json", []byte(e.Schema)); err != nil {
+				if err = writeFile([]byte(e.Schema), zpath, e.Name+".json"); err != nil {
 					return
 				}
 			}
@@ -1063,7 +1063,7 @@ func (s *Service) SaveDNAFile(root string, dna *DNA, encodingFormat string, over
 	}
 
 	if dna.PropertiesSchema != "" {
-		if err = writeFile(dnaPath, "properties_schema.json", []byte(dna.PropertiesSchema)); err != nil {
+		if err = writeFile([]byte(dna.PropertiesSchema), dnaPath, "properties_schema.json"); err != nil {
 			return
 		}
 	}

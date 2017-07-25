@@ -82,7 +82,7 @@ func TestJSONSchemaValidator(t *testing.T) {
 }`
 	edf := EntryDefFile{SchemaFile: "schema_profile.json"}
 
-	if err := writeFile(d, edf.SchemaFile, []byte(schema)); err != nil {
+	if err := writeFile([]byte(schema), d, edf.SchemaFile); err != nil {
 		panic(err)
 	}
 

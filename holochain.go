@@ -372,7 +372,7 @@ func (h *Holochain) GenChain() (headerHash Hash, err error) {
 
 	h.agentHash = agentHeader.EntryLink
 
-	if err = writeFile(h.rootPath, DNAHashFileName, []byte(h.dnaHash.String())); err != nil {
+	if err = writeFile([]byte(h.dnaHash.String()), h.rootPath, DNAHashFileName); err != nil {
 		return
 	}
 

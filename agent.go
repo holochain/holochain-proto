@@ -102,7 +102,7 @@ func NewAgent(keyType KeytypeType, name AgentName) (agent Agent, err error) {
 
 // SaveAgent saves out the keys and agent name to the given directory
 func SaveAgent(path string, agent Agent) (err error) {
-	writeFile(path, AgentFileName, []byte(agent.Name()))
+	writeFile([]byte(agent.Name()), path, AgentFileName)
 	if err != nil {
 		return
 	}
@@ -114,7 +114,7 @@ func SaveAgent(path string, agent Agent) (err error) {
 	if err != nil {
 		return
 	}
-	err = writeFile(path, PrivKeyFileName, k)
+	err = writeFile(k, path, PrivKeyFileName)
 	os.Chmod(filepath.Join(path, PrivKeyFileName), OS_USER_R)
 	return
 }

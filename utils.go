@@ -71,8 +71,8 @@ func writeToml(path string, file string, data interface{}, overwrite bool) error
 	return err
 }
 
-func writeFile(path string, file string, data []byte) error {
-	p := filepath.Join(path, file)
+func writeFile(data []byte, pathParts ...string) error {
+	p := filepath.Join(pathParts...)
 	if fileExists(p) {
 		return mkErr(p + " already exists")
 	}
@@ -104,8 +104,9 @@ func mkErr(err string) error {
 	return errors.New("holochain: " + err)
 }
 
-func dirExists(name string) bool {
-	info, err := os.Stat(name)
+func dirExists(pathParts ...string) bool {
+	path := filepath.Join(pathParts...)
+	info, err := os.Stat(path)
 	return err == nil && info.Mode().IsDir()
 }
 
@@ -118,9 +119,9 @@ func fileExists(pathParts ...string) bool {
 	return info.Mode().IsRegular()
 }
 
-func filePerms(path string, file string) (perms os.FileMode, err error) {
+func filePerms(pathParts ...string) (perms os.FileMode, err error) {
 	var fi os.FileInfo
-	fi, err = os.Stat(filepath.Join(path, file))
+	fi, err = os.Stat(filepath.Join(pathParts...))
 	if err != nil {
 		return
 	}

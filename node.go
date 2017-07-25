@@ -67,6 +67,8 @@ const (
 	LISTADD_REQUEST
 )
 
+var ErrBlackListed = errors.New("node blacklisted")
+
 // Message represents data that can be sent to node in the network
 type Message struct {
 	Type MsgType
@@ -269,6 +271,10 @@ func (node *Node) StartProtocol(h *Holochain, proto Protocol) (err error) {
 			// @todo other sanity checks on From?
 			err = errors.New("message must have a source")
 		} else {
+			if h.dht.IsBlackListed(s.Conn().RemotePeer()) {
+				err = ErrBlackListed
+			}
+
 			if err == nil {
 				response, err = proto.Receiver(h, &m)
 			}
@@ -334,6 +340,7 @@ const (
 	ErrHashRejectedCode
 	ErrLinkNotFoundCode
 	ErrEntryTypeMismatchCode
+	ErrBlackListedCode
 )
 
 // NewErrorResponse encodes standard errors for transmitting
@@ -351,6 +358,8 @@ func NewErrorResponse(err error) (errResp ErrorResponse) {
 		errResp.Code = ErrLinkNotFoundCode
 	case ErrEntryTypeMismatch:
 		errResp.Code = ErrEntryTypeMismatchCode
+	case ErrBlackListed:
+		errResp.Code = ErrBlackListedCode
 	default:
 		errResp.Message = err.Error() //Code will be set to ErrUnknown by default cus it's 0
 	}
@@ -372,6 +381,8 @@ func (errResp ErrorResponse) DecodeResponseError() (err error) {
 		err = ErrLinkNotFound
 	case ErrEntryTypeMismatchCode:
 		err = ErrEntryTypeMismatch
+	case ErrBlackListedCode:
+		err = ErrBlackListed
 	default:
 		err = errors.New(errResp.Message)
 	}

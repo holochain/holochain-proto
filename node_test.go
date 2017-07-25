@@ -206,6 +206,17 @@ func TestNodeSend(t *testing.T) {
 		So(fmt.Sprintf("%T", r.Body), ShouldEqual, "holochain.Gossip")
 	})
 
+	Convey("it should respond with err on messages from nodes on the blacklist", t, func() {
+		pids := []PeerRecord{PeerRecord{ID: node2.HashAddr}}
+		err := h.dht.addToList(h.node.NewMessage(LISTADD_REQUEST, ListAddReq{ListType: BlackList, Peers: []string{peer.IDB58Encode(node2.HashAddr)}}), PeerList{BlackList, pids})
+
+		m := node2.NewMessage(GOSSIP_REQUEST, GossipReq{})
+		r, err := node2.Send(GossipProtocol, node1.HashAddr, m)
+		So(err, ShouldBeNil)
+		So(r.Type, ShouldEqual, ERROR_RESPONSE)
+		So(r.From, ShouldEqual, node1.HashAddr) // response comes from who we sent to
+		So(r.Body.(ErrorResponse).Code, ShouldEqual, ErrBlackListedCode)
+	})
 }
 
 func TestMessageCoding(t *testing.T) {

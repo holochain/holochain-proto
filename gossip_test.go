@@ -234,3 +234,25 @@ func TestPeerLists(t *testing.T) {
 		So(peerList.Records[1].ID, ShouldEqual, pid2)
 	})
 }
+
+func TestIsBlackListed(t *testing.T) {
+	d, _, h := PrepareTestChain("test")
+	defer CleanupTestDir(d)
+	dht := h.dht
+
+	idx, _ := dht.GetIdx()
+	dht.UpdateGossiper(h.node.HashAddr, idx)
+
+	Convey("our own node should not be blacklisted", t, func() {
+		So(dht.IsBlackListed(h.nodeID), ShouldBeFalse)
+	})
+
+	Convey("a revoked node should be blacklisted", t, func() {
+		oldNode := h.nodeID
+		_, err := NewJSRibosome(h, &Zome{RibosomeType: JSRibosomeType,
+			Code: fmt.Sprintf(`updateAgent({Revocation:"some revocation data"})`)})
+		So(err, ShouldBeNil)
+		So(dht.IsBlackListed(oldNode), ShouldBeTrue)
+	})
+
+}

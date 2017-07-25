@@ -609,18 +609,18 @@ func TestJSDHT(t *testing.T) {
 		newPubKey, _ := h.agent.PubKey().Bytes()
 		So(fmt.Sprintf("%v", newPubKey), ShouldNotEqual, fmt.Sprintf("%v", oldPubKey))
 		entry, _, _ := h.chain.GetEntry(header.EntryLink)
-		newR := &SelfRevocation{}
-		newR.Unmarshal(entry.Content().(AgentEntry).Revocation)
-		data := newR.Data
-		l := int(data[0])
-		value := data[l*2+1 : len(data)]
+		revocation := &SelfRevocation{}
+		revocation.Unmarshal(entry.Content().(AgentEntry).Revocation)
 
-		So(string(value), ShouldEqual, "some revocation data")
+		w, _ := NewSelfRevocationWarrant(revocation)
+		payload, _ := w.Property("payload")
+
+		So(string(payload.([]byte)), ShouldEqual, "some revocation data")
 		So(fmt.Sprintf("%v", entry.Content().(AgentEntry).Key), ShouldEqual, fmt.Sprintf("%v", newPubKey))
 
 		// the new Key should be available on the DHT
 		newKey, _ := NewHash(h.nodeIDStr)
-		data, _, _, _, err = h.dht.get(newKey, StatusDefault, GetMaskDefault)
+		data, _, _, _, err := h.dht.get(newKey, StatusDefault, GetMaskDefault)
 		So(err, ShouldBeNil)
 		So(string(data), ShouldEqual, string(newPubKey))
 

@@ -3,7 +3,9 @@ package holochain
 import (
 	"bytes"
 	. "github.com/smartystreets/goconvey/convey"
+	"io/ioutil"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -19,14 +21,14 @@ func Panix(on string) {
 
 func MakeTestDirName() string {
 	t := time.Now()
-	d := "/tmp/holochain_test" + strconv.FormatInt(t.Unix(), 10) + "." + strconv.Itoa(t.Nanosecond())
+	d := "holochain_test" + strconv.FormatInt(t.Unix(), 10) + "." + strconv.Itoa(t.Nanosecond())
 	return d
 }
 
 func setupTestService() (d string, s *Service) {
-	d = MakeTestDirName()
+	d = SetupTestDir()
 	agent := AgentName("Herbert <h@bert.com>")
-	s, err := Init(d+"/"+DefaultDirectoryName, agent)
+	s, err := Init(filepath.Join(d, DefaultDirectoryName), agent)
 	s.Settings.DefaultBootstrapServer = "localhost:3142"
 	if err != nil {
 		panic(err)
@@ -36,7 +38,7 @@ func setupTestService() (d string, s *Service) {
 
 func setupTestChain(n string) (d string, s *Service, h *Holochain) {
 	d, s = setupTestService()
-	path := s.Path + "/" + n
+	path := filepath.Join(s.Path, n)
 	h, err := s.GenDev(path, "toml")
 	if err != nil {
 		panic(err)
@@ -59,8 +61,8 @@ func PrepareTestChain(n string) (d string, s *Service, h *Holochain) {
 }
 
 func SetupTestDir() string {
-	d := MakeTestDirName()
-	err := os.MkdirAll(d, os.ModePerm)
+	n := MakeTestDirName()
+	d, err := ioutil.TempDir("", n)
 	if err != nil {
 		panic(err)
 	}

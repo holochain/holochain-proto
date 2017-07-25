@@ -61,7 +61,7 @@ func GetService(root string) (service *holo.Service, err error) {
 				return nil, err
 			}
 			userPath := u.HomeDir
-			root = userPath + "/" + holo.DefaultDirectoryName
+			root = filepath.Join(userPath, holo.DefaultDirectoryName)
 		}
 	}
 	if initialized := holo.IsInitialized(root); !initialized {

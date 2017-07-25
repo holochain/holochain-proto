@@ -12,15 +12,15 @@ import (
 	"errors"
 	"fmt"
 	"github.com/google/uuid"
-	"io"
-	"math/rand"
-	"os"
-	"time"
-
 	ic "github.com/libp2p/go-libp2p-crypto"
 	peer "github.com/libp2p/go-libp2p-peer"
 	protocol "github.com/libp2p/go-libp2p-protocol"
 	mh "github.com/multiformats/go-multihash"
+	"io"
+	"math/rand"
+	"os"
+	"path/filepath"
+	"time"
 )
 
 // Version is the numeric version number of the holochain library
@@ -148,7 +148,7 @@ func InitializeHolochain() {
 // ZomePath returns the path to the zome dna data
 // @todo sanitize the name value
 func (h *Holochain) ZomePath(z *Zome) string {
-	return h.DNAPath() + "/" + z.Name
+	return filepath.Join(h.DNAPath(), z.Name)
 }
 
 // if the directories don't exist, make the place to store chains
@@ -279,22 +279,22 @@ func (h *Holochain) Activate() (err error) {
 
 // UIPath returns a holochain UI path
 func (h *Holochain) UIPath() string {
-	return h.rootPath + "/" + ChainUIDir
+	return filepath.Join(h.rootPath, ChainUIDir)
 }
 
 // DBPath returns a holochain DB path
 func (h *Holochain) DBPath() string {
-	return h.rootPath + "/" + ChainDataDir
+	return filepath.Join(h.rootPath, ChainDataDir)
 }
 
 // DNAPath returns a holochain DNA path
 func (h *Holochain) DNAPath() string {
-	return h.rootPath + "/" + ChainDNADir
+	return filepath.Join(h.rootPath, ChainDNADir)
 }
 
 // TestPath returns the path to a holochain's test directory
 func (h *Holochain) TestPath() string {
-	return h.rootPath + "/" + ChainTestDir
+	return filepath.Join(h.rootPath, ChainTestDir)
 }
 
 // DNAHash returns the hash of the DNA entry which is also the holochain ID
@@ -372,7 +372,7 @@ func (h *Holochain) GenChain() (headerHash Hash, err error) {
 
 	h.agentHash = agentHeader.EntryLink
 
-	if err = writeFile(h.rootPath, DNAHashFileName, []byte(h.dnaHash.String())); err != nil {
+	if err = writeFile([]byte(h.dnaHash.String()), h.rootPath, DNAHashFileName); err != nil {
 		return
 	}
 
@@ -526,12 +526,12 @@ func (h *Holochain) Reset() (err error) {
 	if err = os.MkdirAll(h.DBPath(), os.ModePerm); err != nil {
 		return
 	}
-	h.chain, err = NewChainFromFile(h.hashSpec, h.DBPath()+"/"+StoreFileName)
+	h.chain, err = NewChainFromFile(h.hashSpec, filepath.Join(h.DBPath(), StoreFileName))
 	if err != nil {
 		return
 	}
 
-	err = os.RemoveAll(h.rootPath + "/" + DNAHashFileName)
+	err = os.RemoveAll(filepath.Join(h.rootPath, DNAHashFileName))
 	if err != nil {
 		panic(err)
 	}

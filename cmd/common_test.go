@@ -11,7 +11,7 @@ import (
 func TestIsAppDir(t *testing.T) {
 	Convey("it should test to see if dir is a holochain app", t, func() {
 
-		d := holo.MakeTestDirName()
+		d := holo.SetupTestDir()
 		So(IsAppDir(d).Error(), ShouldEqual, "directory missing .hc subdirectory")
 		err := os.MkdirAll(d+"/.hc", os.ModePerm)
 		if err != nil {
@@ -23,7 +23,7 @@ func TestIsAppDir(t *testing.T) {
 }
 
 func TestGetService(t *testing.T) {
-	d := holo.MakeTestDirName()
+	d := holo.SetupTestDir()
 	defer holo.CleanupTestDir(d)
 	Convey("it should fail to make a service if not initialized", t, func() {
 		service, err := GetService(d)
@@ -39,7 +39,7 @@ func TestGetService(t *testing.T) {
 }
 
 func TestGetHolochain(t *testing.T) {
-	d := holo.MakeTestDirName()
+	d := holo.SetupTestDir()
 	defer holo.CleanupTestDir(d)
 
 	Convey("it should fail when service not initialized", t, func() {

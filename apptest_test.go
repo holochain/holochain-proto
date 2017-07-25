@@ -3,6 +3,7 @@ package holochain
 import (
 	. "github.com/smartystreets/goconvey/convey"
 	"os"
+	"path/filepath"
 	"testing"
 )
 
@@ -27,7 +28,7 @@ func TestTestStringReplacements(t *testing.T) {
 
 func TestTest(t *testing.T) {
 	d, _, h := setupTestChain("test")
-	CleanupTestDir(d + "/.holochain/test/test/") // delete the test data created by gen dev
+	CleanupTestDir(filepath.Join(d, ".holochain", "test", "test")) // delete the test data created by gen dev
 	if os.Getenv("DEBUG") != "1" {
 		h.config.Loggers.TestPassed.Enabled = false
 		h.config.Loggers.TestFailed.Enabled = false
@@ -35,7 +36,7 @@ func TestTest(t *testing.T) {
 	}
 	Convey("it should fail if there's no test data", t, func() {
 		err := h.Test()
-		So(err[0].Error(), ShouldEqual, "open "+h.rootPath+"/"+ChainTestDir+": no such file or directory")
+		So(err[0].Error(), ShouldEqual, "open "+filepath.Join(h.rootPath, ChainTestDir)+": no such file or directory")
 	})
 	CleanupTestDir(d)
 
@@ -64,8 +65,8 @@ func TestTest(t *testing.T) {
 		So(err.Error(), ShouldEqual, "Input was not an expected type: float64")
 	})
 	Convey("it should fail the test on incorrect data", t, func() {
-		os.Remove(d + "/.holochain/test/test/test_0.json")
-		err := writeFile(d+"/.holochain/test/test", "test_0.json", []byte(`[{"Zome":"zySampleZome","FnName":"addEven","Input":"2","Output":"","Err":"bogus error"}]`))
+		os.Remove(filepath.Join(d, ".holochain", "test", "test", "test_0.json"))
+		err := writeFile(filepath.Join(d, ".holochain", "test", "test"), "test_0.json", []byte(`[{"Zome":"zySampleZome","FnName":"addEven","Input":"2","Output":"","Err":"bogus error"}]`))
 		So(err, ShouldBeNil)
 		err = h.Test()[0]
 		So(err, ShouldNotBeNil)

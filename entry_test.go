@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	. "github.com/smartystreets/goconvey/convey"
+	"path/filepath"
 	"testing"
 )
 
@@ -88,7 +89,7 @@ func TestJSONSchemaValidator(t *testing.T) {
 	ed := EntryDef{Name: "schema_profile.json"}
 
 	Convey("it should validate JSON entries from schema file", t, func() {
-		err := ed.BuildJSONSchemaValidator(d + "/" + ed.Name)
+		err := ed.BuildJSONSchemaValidator(filepath.Join(d, ed.Name))
 		testValidateJSON(ed, err)
 	})
 

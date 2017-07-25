@@ -10,6 +10,7 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
+	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
@@ -61,7 +62,7 @@ func LoadTestConfig(dir string) (config *TestConfig, err error) {
 	c := TestConfig{GossipInterval: 2 * time.Second, Duration: 0}
 	config = &c
 	// if no config file return default values
-	if !fileExists(dir + "/" + TestConfigFileName) {
+	if !fileExists(dir, TestConfigFileName) {
 		return
 	}
 	var v []byte
@@ -405,7 +406,7 @@ func (h *Holochain) test(one string) []error {
 		return []error{err}
 	}
 
-	path := h.rootPath + "/" + ChainTestDir
+	path := filepath.Join(h.rootPath, ChainTestDir)
 
 	// load up the test files into the tests array
 	var tests, errorLoad = LoadTestFiles(path)

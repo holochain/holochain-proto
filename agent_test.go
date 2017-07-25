@@ -6,6 +6,7 @@ import (
 	peer "github.com/libp2p/go-libp2p-peer"
 	. "github.com/smartystreets/goconvey/convey"
 	"os"
+	"path/filepath"
 	"testing"
 )
 
@@ -35,9 +36,9 @@ func TestLibP2PAgent(t *testing.T) {
 
 	})
 	Convey("it should fail to load an agent file that has bad permissions", t, func() {
-		os.Chmod(d+"/"+PrivKeyFileName, OS_USER_RW)
+		os.Chmod(filepath.Join(d, PrivKeyFileName), OS_USER_RW)
 		_, err := LoadAgent(d)
-		So(err.Error(), ShouldEqual, d+"/"+PrivKeyFileName+" file not read-only")
+		So(err.Error(), ShouldEqual, filepath.Join(d, PrivKeyFileName)+" file not read-only")
 	})
 	Convey("genkeys with with nil reader should use random seed", t, func() {
 		agent, _ := NewAgent(LibP2P, a)

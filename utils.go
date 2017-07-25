@@ -17,8 +17,8 @@ import (
 	"github.com/lestrrat/go-jsval/builder"
 	"io"
 	"io/ioutil"
-  "path/filepath"
 	"os"
+	"path/filepath"
 	"strings"
 )
 
@@ -94,8 +94,8 @@ func writeFile(path string, file string, data []byte) error {
 	return err
 }
 
-func readFile(path string, file string) (data []byte, err error) {
-	p := filepath.Join(path, file)
+func readFile(pathParts ...string) (data []byte, err error) {
+	p := filepath.Join(pathParts...)
 	data, err = ioutil.ReadFile(p)
 	return data, err
 }
@@ -109,7 +109,8 @@ func dirExists(name string) bool {
 	return err == nil && info.Mode().IsDir()
 }
 
-func fileExists(path string) bool {
+func fileExists(pathParts ...string) bool {
+	path := filepath.Join(pathParts...)
 	info, err := os.Stat(path)
 	if err != nil {
 		return false
@@ -119,7 +120,7 @@ func fileExists(path string) bool {
 
 func filePerms(path string, file string) (perms os.FileMode, err error) {
 	var fi os.FileInfo
-	fi, err = os.Stat(filepath.Join(path, file) )
+	fi, err = os.Stat(filepath.Join(path, file))
 	if err != nil {
 		return
 	}
@@ -159,8 +160,8 @@ func CopyDir(source string, dest string) (err error) {
 
 	for _, entry := range entries {
 
-		sfp := source + "/" + entry.Name()
-		dfp := dest + "/" + entry.Name()
+		sfp := filepath.Join(source, entry.Name())
+		dfp := filepath.Join(dest, entry.Name())
 		if entry.IsDir() {
 			err = CopyDir(sfp, dfp)
 			if err != nil {

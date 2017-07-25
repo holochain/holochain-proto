@@ -13,6 +13,7 @@ import (
 	peer "github.com/libp2p/go-libp2p-peer"
 	"io"
 	"os"
+	"path/filepath"
 	"runtime"
 )
 
@@ -105,7 +106,7 @@ func SaveAgent(path string, agent Agent) (err error) {
 	if err != nil {
 		return
 	}
-	if fileExists(path + "/" + PrivKeyFileName) {
+	if fileExists(path, PrivKeyFileName) {
 		return errors.New("keys already exist")
 	}
 	var k []byte
@@ -114,7 +115,7 @@ func SaveAgent(path string, agent Agent) (err error) {
 		return
 	}
 	err = writeFile(path, PrivKeyFileName, k)
-	os.Chmod(path+"/"+PrivKeyFileName, OS_USER_R)
+	os.Chmod(filepath.Join(path, PrivKeyFileName), OS_USER_R)
 	return
 }
 
@@ -129,7 +130,7 @@ func LoadAgent(path string) (agent Agent, err error) {
 			return
 		}
 		if perms != OS_USER_R {
-			err = errors.New(path + "/" + PrivKeyFileName + " file not read-only")
+			err = errors.New(filepath.Join(path, PrivKeyFileName) + " file not read-only")
 			return
 		}
 	}

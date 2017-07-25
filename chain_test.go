@@ -5,6 +5,7 @@ import (
 	"fmt"
 	ic "github.com/libp2p/go-libp2p-crypto"
 	. "github.com/smartystreets/goconvey/convey"
+	"path/filepath"
 	"reflect"
 	"testing"
 	"time"
@@ -27,7 +28,7 @@ func TestNewChainFromFile(t *testing.T) {
 
 	var c *Chain
 	var err error
-	path := d + "/chain.dat"
+	path := filepath.Join(d, "chain.dat")
 	Convey("it should make an empty chain with encoder", t, func() {
 		c, err = NewChainFromFile(hashSpec, path)
 		So(err, ShouldBeNil)

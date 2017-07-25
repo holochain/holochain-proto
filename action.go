@@ -950,7 +950,7 @@ func (a *ActionModAgent) Do(h *Holochain) (response interface{}, err error) {
 			_, err = h.dht.Send(oldKey, MOD_REQUEST, ModReq{H: oldKey, N: newKey})
 
 			// TODO, this isn't really a DHT send, but a management send, so the key is bogus.  have to work this out...
-			_, err = h.dht.Send(oldKey, LISTADD_REQUEST, ListAddReq{ListType: BlackList, Peers: []string{peer.IDB58Encode(oldPeer)}})
+			_, err = h.dht.Send(oldKey, LISTADD_REQUEST, ListAddReq{ListType: BlockedList, Peers: []string{peer.IDB58Encode(oldPeer)}})
 
 		}
 

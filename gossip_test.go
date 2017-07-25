@@ -208,8 +208,8 @@ func TestPeerLists(t *testing.T) {
 	d, _, h := PrepareTestChain("test")
 	defer CleanupTestDir(d)
 
-	Convey("it should start with an empty blacklist", t, func() {
-		peerList, err := h.dht.getList(BlackList)
+	Convey("it should start with an empty blockedlist", t, func() {
+		peerList, err := h.dht.getList(BlockedList)
 		So(err, ShouldBeNil)
 		So(len(peerList.Records), ShouldEqual, 0)
 	})
@@ -220,22 +220,22 @@ func TestPeerLists(t *testing.T) {
 		pids := []PeerRecord{PeerRecord{ID: pid1}, PeerRecord{ID: pid2}}
 
 		idx, _ := h.dht.GetIdx()
-		err := h.dht.addToList(h.node.NewMessage(LISTADD_REQUEST, ListAddReq{ListType: BlackList, Peers: []string{peer.IDB58Encode(pid1), peer.IDB58Encode(pid2)}}), PeerList{BlackList, pids})
+		err := h.dht.addToList(h.node.NewMessage(LISTADD_REQUEST, ListAddReq{ListType: BlockedList, Peers: []string{peer.IDB58Encode(pid1), peer.IDB58Encode(pid2)}}), PeerList{BlockedList, pids})
 		So(err, ShouldBeNil)
 
 		afterIdx, _ := h.dht.GetIdx()
 		So(afterIdx-idx, ShouldEqual, 1)
 
-		peerList, err := h.dht.getList(BlackList)
+		peerList, err := h.dht.getList(BlockedList)
 		So(err, ShouldBeNil)
-		So(peerList.Type, ShouldEqual, BlackList)
+		So(peerList.Type, ShouldEqual, BlockedList)
 		So(len(peerList.Records), ShouldEqual, 2)
 		So(peerList.Records[0].ID, ShouldEqual, pid1)
 		So(peerList.Records[1].ID, ShouldEqual, pid2)
 	})
 }
 
-func TestIsBlackListed(t *testing.T) {
+func TestIsBlockedListed(t *testing.T) {
 	d, _, h := PrepareTestChain("test")
 	defer CleanupTestDir(d)
 	dht := h.dht
@@ -243,16 +243,16 @@ func TestIsBlackListed(t *testing.T) {
 	idx, _ := dht.GetIdx()
 	dht.UpdateGossiper(h.node.HashAddr, idx)
 
-	Convey("our own node should not be blacklisted", t, func() {
-		So(dht.IsBlackListed(h.nodeID), ShouldBeFalse)
+	Convey("our own node should not be blockedlisted", t, func() {
+		So(dht.IsBlockedListed(h.nodeID), ShouldBeFalse)
 	})
 
-	Convey("a revoked node should be blacklisted", t, func() {
+	Convey("a revoked node should be blockedlisted", t, func() {
 		oldNode := h.nodeID
 		_, err := NewJSRibosome(h, &Zome{RibosomeType: JSRibosomeType,
 			Code: fmt.Sprintf(`updateAgent({Revocation:"some revocation data"})`)})
 		So(err, ShouldBeNil)
-		So(dht.IsBlackListed(oldNode), ShouldBeTrue)
+		So(dht.IsBlockedListed(oldNode), ShouldBeTrue)
 	})
 
 }

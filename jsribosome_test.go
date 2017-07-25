@@ -643,8 +643,8 @@ func TestJSDHT(t *testing.T) {
 		}
 		So(found, ShouldBeTrue)
 
-		// the old peerID should now be in the blacklist
-		peerList, err := h.dht.getList(BlackList)
+		// the old peerID should now be in the blockedlist
+		peerList, err := h.dht.getList(BlockedList)
 		So(err, ShouldBeNil)
 		So(len(peerList.Records), ShouldEqual, 1)
 		So(peerList.Records[0].ID, ShouldEqual, oldPeer)

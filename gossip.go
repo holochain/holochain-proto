@@ -35,11 +35,11 @@ type GossipReq struct {
 	YourIdx int
 }
 
-// we also gossip about peers too, keeping lists of different peers e.g. black list etc
+// we also gossip about peers too, keeping lists of different peers e.g. blockedlist etc
 type PeerListType string
 
 const (
-	BlackList = "blacklist"
+	BlockedList = "blockedlist"
 )
 
 type PeerRecord struct {
@@ -468,10 +468,10 @@ func (dht *DHT) addToList(m *Message, list PeerList) (err error) {
 	return
 }
 
-// IsBlackListed checks to see if a node is on the blacklist
-func (dht *DHT) IsBlackListed(node peer.ID) bool {
+// IsBlockedListed checks to see if a node is on the blockedlist
+func (dht *DHT) IsBlockedListed(node peer.ID) bool {
 	// TODO convert this to looking in a hash that has cached the items
-	peerList, err := dht.getList(BlackList)
+	peerList, err := dht.getList(BlockedList)
 	if err != nil {
 		panic(err)
 	}

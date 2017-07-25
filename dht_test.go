@@ -505,12 +505,12 @@ func TestActionReceiver(t *testing.T) {
 	Convey("LISTADD_REEQUEST should add peers to list", t, func() {
 
 		pid, _ := makePeer("testPeer")
-		m := h.node.NewMessage(LISTADD_REQUEST, ListAddReq{ListType: BlackList, Peers: []string{peer.IDB58Encode(pid)}})
+		m := h.node.NewMessage(LISTADD_REQUEST, ListAddReq{ListType: BlockedList, Peers: []string{peer.IDB58Encode(pid)}})
 		r, err := ActionReceiver(h, m)
 		So(err, ShouldBeNil)
 		So(r, ShouldEqual, "queued")
 
-		peerList, err := h.dht.getList(BlackList)
+		peerList, err := h.dht.getList(BlockedList)
 		So(err, ShouldBeNil)
 		So(len(peerList.Records), ShouldEqual, 1)
 		So(peerList.Records[0].ID, ShouldEqual, pid)

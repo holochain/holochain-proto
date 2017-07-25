@@ -42,6 +42,15 @@ func TestGetFindGossiper(t *testing.T) {
 		So(g, ShouldEqual, fooAddr)
 	})
 
+	Convey("DeleteGossiper should remove a gossiper from the database", t, func() {
+		err := dht.DeleteGossiper(fooAddr)
+		So(err, ShouldBeNil)
+		_, err = dht.FindGossiper()
+		So(err, ShouldEqual, ErrDHTErrNoGossipersAvailable)
+		err = dht.DeleteGossiper(fooAddr)
+		So(err.Error(), ShouldEqual, "not found")
+	})
+
 	Convey("GetGossiper should return the gossiper idx", t, func() {
 		idx, err := dht.GetGossiper(fooAddr)
 		So(err, ShouldBeNil)

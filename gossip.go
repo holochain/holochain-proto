@@ -248,6 +248,11 @@ func (dht *DHT) FindGossiper() (g peer.ID, err error) {
 
 // UpdateGossiper updates a gossiper
 func (dht *DHT) UpdateGossiper(id peer.ID, newIdx int) (err error) {
+	if dht.h.node.IsBlocked(id) {
+		dht.glog.Logf("gossiper %v on blocklist, deleting", id)
+		dht.DeleteGossiper(id) // ignore error
+		return
+	}
 	dht.glog.Logf("updaing %v to %d", id, newIdx)
 	err = dht.db.Update(func(tx *buntdb.Tx) error {
 		key := "peer:" + peer.IDB58Encode(id)
@@ -264,6 +269,17 @@ func (dht *DHT) UpdateGossiper(id peer.ID, newIdx int) (err error) {
 			return err
 		}
 		return nil
+	})
+	return
+}
+
+// DeleteGossiper removes a gossiper from the database
+func (dht *DHT) DeleteGossiper(id peer.ID) (err error) {
+	dht.glog.Logf("deleting %v", id)
+	err = dht.db.Update(func(tx *buntdb.Tx) error {
+		key := "peer:" + peer.IDB58Encode(id)
+		_, e := tx.Delete(key)
+		return e
 	})
 	return
 }

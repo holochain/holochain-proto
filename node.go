@@ -107,7 +107,7 @@ func (r *Router) FindPeer(context.Context, peer.ID) (peer pstore.PeerInfo, err e
 func (h *Holochain) HandlePeerFound(pi pstore.PeerInfo) {
 	h.dht.dlog.Logf("discovered peer via mdns: %v", pi)
 	if h.node.IsBlocked(pi.ID) {
-		h.dht.dlog.Logf("peer in blockedlist, ignoring")
+		h.dht.dlog.Logf("peer %v in blockedlist, ignoring", pi.ID)
 	} else {
 		h.node.Host.Connect(context.Background(), pi)
 		err := h.dht.UpdateGossiper(pi.ID, 0)

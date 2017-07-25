@@ -1280,10 +1280,11 @@ func (a *ActionListAdd) Receive(dht *DHT, msg *Message) (response interface{}, e
 		return
 	}
 
-	// special case to add blockedlist peers
+	// special case to add blockedlist peers to node cache and delete them from the gossipers list
 	if a.list.Type == BlockedList {
-		for _, peer := range a.list.Records {
-			dht.h.node.Block(peer.ID)
+		for _, node := range a.list.Records {
+			dht.h.node.Block(node.ID)
+			dht.DeleteGossiper(node.ID) // ignore error
 		}
 	}
 	response = "queued"

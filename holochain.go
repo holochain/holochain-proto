@@ -60,6 +60,7 @@ type Holochain struct {
 	nodeIDStr      string  // this is just a cached version of the nodeID B58 string encoded
 	dnaHash        Hash
 	agentHash      Hash
+	agentTopHash   Hash
 	rootPath       string
 	agent          Agent
 	encodingFormat string
@@ -390,6 +391,7 @@ func (h *Holochain) GenChain() (headerHash Hash, err error) {
 	}
 
 	h.agentHash = agentHash
+	h.agentTopHash = agentHash
 
 	if err = writeFile(h.rootPath, DNAHashFileName, []byte(h.dnaHash.String())); err != nil {
 		return
@@ -532,6 +534,7 @@ func (h *Holochain) Reset() (err error) {
 
 	h.dnaHash = Hash{}
 	h.agentHash = Hash{}
+	h.agentTopHash = Hash{}
 
 	if h.chain.s != nil {
 		h.chain.s.Close()

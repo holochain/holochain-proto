@@ -6,6 +6,7 @@ import (
 	peer "github.com/libp2p/go-libp2p-peer"
 	"github.com/robertkrimen/otto"
 	. "github.com/smartystreets/goconvey/convey"
+	"strings"
 	"testing"
 )
 
@@ -44,6 +45,12 @@ func TestNewJSRibosome(t *testing.T) {
 		_, err = z.Run("App.Agent.Hash")
 		So(err, ShouldBeNil)
 		s, _ = z.lastResult.ToString()
+		So(s, ShouldEqual, h.agentHash.String())
+
+		_, err = z.Run("App.Agent.TopHash")
+		So(err, ShouldBeNil)
+		s, _ = z.lastResult.ToString()
+		So(s, ShouldEqual, h.agentTopHash.String()) // top an agent are the same at startup
 		So(s, ShouldEqual, h.agentHash.String())
 
 		_, err = z.Run("App.Agent.String")
@@ -577,7 +584,7 @@ func TestJSDHT(t *testing.T) {
 		So(err, ShouldBeNil)
 		z := v.(*JSRibosome)
 		newAgentHash := z.lastResult.String()
-		So(h.agentHash.String(), ShouldEqual, newAgentHash)
+		So(h.agentTopHash.String(), ShouldEqual, newAgentHash)
 		header := h.chain.Top()
 		So(header.Type, ShouldEqual, AgentEntryType)
 		So(newAgentHash, ShouldEqual, header.EntryLink.String())
@@ -600,8 +607,8 @@ func TestJSDHT(t *testing.T) {
 		So(err, ShouldBeNil)
 		z := v.(*JSRibosome)
 		newAgentHash := z.lastResult.String()
-		So(newAgentHash, ShouldEqual, h.agentHash.String())
-		So(oldAgentHash.String(), ShouldNotEqual, h.agentHash.String())
+		So(newAgentHash, ShouldEqual, h.agentTopHash.String())
+		So(oldAgentHash.String(), ShouldNotEqual, h.agentTopHash.String())
 
 		header := h.chain.Top()
 		So(header.Type, ShouldEqual, AgentEntryType)
@@ -652,13 +659,17 @@ func TestJSDHT(t *testing.T) {
 
 	})
 
-	Convey("updateAgent function with revoke option should update the App.Key.Hash value", t, func() {
+	Convey("updateAgent function should update library values", t, func() {
 		v, err := NewJSRibosome(h, &Zome{RibosomeType: JSRibosomeType,
-			Code: fmt.Sprintf(`updateAgent({Revocation:"some revocation data"});App.Key.Hash`)})
+			Code: fmt.Sprintf(`updateAgent({Identity:"new id",Revocation:"some revocation data"});App.Key.Hash+"."+App.Agent.TopHash+"."+App.Agent.String`)})
 		So(err, ShouldBeNil)
 		z := v.(*JSRibosome)
-		newKeyHash := z.lastResult.String()
-		So(h.nodeIDStr, ShouldEqual, newKeyHash)
+		libVals := z.lastResult.String()
+		s := strings.Split(libVals, ".")
+
+		So(s[0], ShouldEqual, h.nodeIDStr)
+		So(s[1], ShouldEqual, h.agentTopHash.String())
+		So(s[2], ShouldEqual, "new id")
 
 	})
 }

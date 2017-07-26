@@ -914,7 +914,7 @@ func (a *ActionModAgent) Do(h *Holochain) (response interface{}, err error) {
 		if err != nil {
 			return
 		}
-		h.agentHash = agentHash
+		h.agentTopHash = agentHash
 
 		// if there was a revocation put the new key to the DHT and then reset the node ID data
 		// TODO make sure this doesn't introduce race conditions in the DHT between new and old identity #284

@@ -412,6 +412,8 @@ func (s *Service) load(name string, format string) (hP *Holochain, err error) {
 
 	if h.chain.Length() > 0 {
 		h.agentHash = h.chain.Headers[1].EntryLink
+		_, topHeader := h.chain.TopType(AgentEntryType)
+		h.agentTopHash = topHeader.EntryLink
 	}
 	if err = h.Prepare(); err != nil {
 		return

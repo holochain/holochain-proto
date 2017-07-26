@@ -42,6 +42,9 @@ hcd: deps
 hcdev: deps
 	go get $(REPO)/cmd/hcdev
 	gx-go rewrite --undo
+hccore: deps
+	go get $(REPO)/cmd/hccore
+	gx-go rewrite --undo
 hcadmin: deps
 	go get $(REPO)/cmd/hcadmin
 	gx-go rewrite --undo

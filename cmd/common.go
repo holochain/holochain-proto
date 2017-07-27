@@ -11,10 +11,13 @@ import (
 	"fmt"
 	holo "github.com/metacurrency/holochain"
 	"os"
+  exec "os/exec"
 	"os/user"
 	"path/filepath"
 	"syscall"
 )
+
+var debug bool = false
 
 var ErrServiceUninitialized = errors.New("service not initialized, run 'hcdev init'")
 
@@ -28,12 +31,43 @@ func syscallExec(binaryFile string, args ...string) error {
 }
 
 func ExecBinScript(script string, args ...string) error {
-	path := filepath.Join(
-		os.Getenv("GOPATH"),
-		"src/github.com/metacurrency/holochain",
-		"bin",
-		script)
+	path := GolangHolochainDir("bin", script)
+  if debug {
+    fmt.Printf("HC: common.go: ExecBinScript: %v (%v)", path, args)
+  }
 	return syscallExec(path, args...)
+}
+
+func OsExecSilent(args ...string) error {
+  cmd := exec.Command(args[0], args[1:]...)
+  if debug {
+    fmt.Printf("common.go: OsExecSilent: %v", cmd)
+  }
+  output, err := cmd.CombinedOutput()
+  if err != nil {
+    return err
+  }
+  if debug {
+    fmt.Printf("HC: common.go: OsExecSilent: %v", output)
+  }
+
+  return nil
+}
+
+// OsExecPipes executes a command as if we are in a shell, including user input
+func OsExecPipes(args ...string) *exec.Cmd {
+  cmd := exec.Command(args[0], args[1:]...)
+  if debug {
+    fmt.Printf("HC: common.go: OsExecSilent: %v", cmd)
+  }
+  
+  cmd.Stdout = os.Stdout
+  cmd.Stderr = os.Stderr
+  cmd.Stdin  = os.Stdin
+
+  cmd.Run()
+
+  return cmd
 }
 
 // IsAppDir tests path to see if it's a properly set up holochain app
@@ -45,10 +79,17 @@ func IsAppDir(path string) error {
 	} else {
 		if !info.Mode().IsDir() {
 			err = fmt.Errorf(".hc is not a directory")
-		}
-	}
+    }
+  }
 	return err
 }
+// IsCoreDir tests path to see if it is contains Holochain Core source files
+// returns nil on success or an error describing the problem
+// func IsCoreDir(path string) error {
+  // check for the existance of package.json
+  // 
+  // return IsFile(filepath.Join(path, "package.json")
+// }
 
 // GetService is a helper function to load the holochain service from default locations or a given path
 func GetService(root string) (service *holo.Service, err error) {
@@ -97,11 +138,11 @@ func MakeDirs(devPath string) error {
 	if err != nil {
 		return err
 	}
-	err = os.MkdirAll(filepath.Join(devPath, holo.ChainDNADir), os.ModePerm)
+	err = os.MkdirAll(filepath.Join(devPath, holo.ChainDNADir),  os.ModePerm)
 	if err != nil {
 		return err
 	}
-	err = os.MkdirAll(filepath.Join(devPath, holo.ChainUIDir), os.ModePerm)
+	err = os.MkdirAll(filepath.Join(devPath, holo.ChainUIDir),   os.ModePerm)
 	if err != nil {
 		return err
 	}
@@ -110,4 +151,30 @@ func MakeDirs(devPath string) error {
 		return err
 	}
 	return nil
+}
+
+func Die(message string) { 
+  fmt.Println(message)
+  os.Exit(1)
+}
+
+func GolangHolochainDir(subPath ...string) string {
+  joinable := append([]string{os.Getenv("GOPATH"), "src/github.com/metacurrency/holochain", }, subPath...)
+  return  filepath.Join(joinable...)
+}
+
+func IsFile(path ...string) bool {
+  return IsFileFromString(filepath.Join(path...) )
+}
+func IsFileFromString(path string) bool {
+  info, err := os.Stat(path)
+  if err != nil {
+    return false
+  } else {
+    if !info.Mode().IsRegular() {
+      return false
+    }
+  }
+
+  return true
 }

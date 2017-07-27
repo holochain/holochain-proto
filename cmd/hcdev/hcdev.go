@@ -55,6 +55,7 @@ func setupApp() (app *cli.App) {
 
 	var interactive, dumpChain, dumpDHT bool
 	var clonePath, scaffoldPath string
+  var ranScript bool
 	app.Commands = []cli.Command{
 		{
 			Name:    "init",
@@ -93,12 +94,7 @@ func setupApp() (app *cli.App) {
 				}
 				name := args[0]
 				devPath = filepath.Join(devPath, name)
-				if interactive {
-					// make the directory and chdir into it
-
-					// terminates go process
-					cmd.ExecBinScript("holochain.app.init.interactive")
-				} else if clonePath != "" {
+        if clonePath != "" {
 					// build the app by cloning from another app
 					info, err := os.Stat(clonePath)
 					if err != nil {
@@ -152,8 +148,12 @@ func setupApp() (app *cli.App) {
 					}
 					fmt.Printf("initialized %s from scaffold:%s\n", devPath, scaffoldPath)
 
-				} else {
-					// build empty app template
+				} else if cmd.IsFile(filepath.Join(devPath, "dna", "dna.json")) {
+          cmd.OsExecPipes(cmd.GolangHolochainDir("bin", "holochain.app.init.interactive"))
+          ranScript = true
+        } else {
+
+          // build empty app template
 					err := cmd.MakeDirs(devPath)
 					if err != nil {
 						return err
@@ -178,7 +178,9 @@ func setupApp() (app *cli.App) {
 
 				// finish by creating the .hc directory
 				// terminates go process
-				cmd.ExecBinScript("holochain.app.init", name, name)
+				if ! ranScript {
+          cmd.ExecBinScript("holochain.app.init", name, name)
+        }
 
 				return nil
 			},

@@ -111,3 +111,29 @@ func MakeDirs(devPath string) error {
 	}
 	return nil
 }
+
+func Die(message string) { 
+  fmt.Println(message)
+  os.Exit(1)
+}
+
+func GolangHolochainDir(subPath ...string) string {
+  joinable := append([]string{os.Getenv("GOPATH"), "src/github.com/metacurrency/holochain", }, subPath...)
+  return  filepath.Join(joinable...)
+}
+
+func IsFile(path ...string) bool {
+  return IsFileFromString(filepath.Join(path...) )
+}
+func IsFileFromString(path string) bool {
+  info, err := os.Stat(path)
+  if err != nil {
+    return false
+  } else {
+    if !info.Mode().IsRegular() {
+      return false
+    }
+  }
+
+  return true
+}

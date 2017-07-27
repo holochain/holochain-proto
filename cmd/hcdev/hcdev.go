@@ -94,13 +94,7 @@ func setupApp() (app *cli.App) {
 				}
 				name := args[0]
 				devPath = filepath.Join(devPath, name)
-				if interactive {
-					// make the directory and chdir into it
-
-					// terminates go process
-					cmd.OsExecPipes("holochain.app.init.interactive")
-          ranScript = true
-				} else if clonePath != "" {
+        if clonePath != "" {
 					// build the app by cloning from another app
 					info, err := os.Stat(clonePath)
 					if err != nil {

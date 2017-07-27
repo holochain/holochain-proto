@@ -163,7 +163,6 @@ func GolangHolochainDir(subPath ...string) string {
   return  filepath.Join(joinable...)
 }
 
-
 func IsFile(path ...string) bool {
   return IsFileFromString(filepath.Join(path...) )
 }
@@ -179,4 +178,3 @@ func IsFileFromString(path string) bool {
 
   return true
 }
-

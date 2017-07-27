@@ -188,8 +188,10 @@ type LinkQueryResp struct {
 }
 
 type ListAddReq struct {
-	ListType string
-	Peers    []string
+	ListType    string
+	Peers       []string
+	WarrantType int
+	Warrant     []byte
 }
 
 var ErrLinkNotFound = errors.New("link not found")

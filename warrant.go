@@ -13,15 +13,15 @@ import (
 )
 
 const (
-	SelfRevocationName = "SelfRevocation"
+	SelfRevocationType = iota
 )
 
 // Warrant abstracts the notion of a multi-party cryptographically verifiable signed claim
 // the meaning of the warrant is understood by the warrant name an/or by properties contained in it
 type Warrant interface {
 
-	// Name returns the warrant name
-	Name() string
+	// Int returns the warrant type
+	Type() int
 
 	// Parties returns the hashes of the public keys of the signers of the warrant
 	Parties() ([]Hash, error)
@@ -31,15 +31,19 @@ type Warrant interface {
 	// verfies or an error
 	Verify(h *Holochain) error
 
-	// Content returns the raw content of the warrant
-	Content() []byte
-
 	// Property returns a value of a property attested to by the warrant
-	// returns a WarrantPropertyNotFoundErr if the warrant doesn't have
+	// returns a WarrantPropertyNotFoundErr if the warrant doesn't have that property
 	Property(key string) (value interface{}, err error)
+
+	// Encode marshals the warrant into bytes for sending over the wire
+	Encode() (data []byte, err error)
+
+	// Decode unmarshals a warrant from bytes
+	Decode(data []byte) (err error)
 }
 
 var WarrantPropertyNotFoundErr = errors.New("warrant property not found")
+var UnknownWarrantTypeErr = errors.New("unknown warrant type")
 
 // SelfRevocationWarrant warrants that the first party revoked its own key in favor of the second
 type SelfRevocationWarrant struct {
@@ -52,8 +56,19 @@ func NewSelfRevocationWarrant(revocation *SelfRevocation) (wP *SelfRevocationWar
 	return
 }
 
-func (w *SelfRevocationWarrant) Name() string {
-	return SelfRevocationName
+func DecodeWarrant(warrantType int, data []byte) (w Warrant, err error) {
+	switch warrantType {
+	case SelfRevocationType:
+		w = &SelfRevocationWarrant{}
+		err = w.Decode(data)
+	default:
+		err = UnknownWarrantTypeErr
+	}
+	return
+}
+
+func (w *SelfRevocationWarrant) Type() int {
+	return SelfRevocationType
 }
 
 func (w *SelfRevocationWarrant) Parties() (parties []Hash, err error) {
@@ -126,5 +141,15 @@ func (w *SelfRevocationWarrant) Property(key string) (value interface{}, err err
 		return
 	}
 	err = WarrantPropertyNotFoundErr
+	return
+}
+
+func (w *SelfRevocationWarrant) Encode() (data []byte, err error) {
+	data, err = w.Revocation.Marshal()
+	return
+}
+
+func (w *SelfRevocationWarrant) Decode(data []byte) (err error) {
+	err = w.Revocation.Unmarshal(data)
 	return
 }

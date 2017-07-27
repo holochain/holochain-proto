@@ -892,7 +892,7 @@ func (a *ActionModAgent) Do(h *Holochain) (response interface{}, err error) {
 		ok = true
 	}
 
-	var revocation Revocation
+	var revocation *SelfRevocation
 	if a.Revocation != "" {
 		err = newAgent.GenKeys(nil)
 		if err != nil {
@@ -949,8 +949,21 @@ func (a *ActionModAgent) Do(h *Holochain) (response interface{}, err error) {
 
 			_, err = h.dht.Send(oldKey, MOD_REQUEST, ModReq{H: oldKey, N: newKey})
 
+			warrant, _ := NewSelfRevocationWarrant(revocation)
+			var data []byte
+			data, err = warrant.Encode()
+			if err != nil {
+				return
+			}
+
 			// TODO, this isn't really a DHT send, but a management send, so the key is bogus.  have to work this out...
-			_, err = h.dht.Send(oldKey, LISTADD_REQUEST, ListAddReq{ListType: BlockedList, Peers: []string{peer.IDB58Encode(oldPeer)}})
+			_, err = h.dht.Send(oldKey, LISTADD_REQUEST,
+				ListAddReq{
+					ListType:    BlockedList,
+					Peers:       []string{peer.IDB58Encode(oldPeer)},
+					WarrantType: SelfRevocationType,
+					Warrant:     data,
+				})
 
 		}
 
@@ -1259,6 +1272,8 @@ func (a *ActionListAdd) Do(h *Holochain) (response interface{}, err error) {
 	return
 }
 
+var prefix string = "List add request rejected on warrant failure"
+
 func (a *ActionListAdd) Receive(dht *DHT, msg *Message) (response interface{}, err error) {
 	//dht.puts <- *m  TODO add back in queueing
 	t := msg.Body.(ListAddReq)
@@ -1274,7 +1289,22 @@ func (a *ActionListAdd) Receive(dht *DHT, msg *Message) (response interface{}, e
 		a.list.Records = append(a.list.Records, r)
 	}
 
-	// TODO: Validation!!!!
+	// validate the warrant sent with the list add request
+	var w Warrant
+	w, err = DecodeWarrant(t.WarrantType, t.Warrant)
+	if err != nil {
+		err = fmt.Errorf("%s: unable to decode warrant (%v)", prefix, err)
+		return
+	}
+
+	err = w.Verify(dht.h)
+	if err != nil {
+		err = fmt.Errorf("%s: %v", prefix, err)
+		return
+	}
+
+	// TODO verify that the warrant, if valid, is sufficient to allow list addition #300
+
 	err = dht.addToList(msg, a.list)
 	if err != nil {
 		return

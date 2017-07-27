@@ -502,19 +502,63 @@ func TestActionReceiver(t *testing.T) {
 		So(status, ShouldEqual, StatusDeleted)
 	})
 
-	Convey("LISTADD_REEQUEST should add peers to list", t, func() {
-
+	Convey("LISTADD_REQUEST with bad warrant should return error", t, func() {
 		pid, _ := makePeer("testPeer")
-		m := h.node.NewMessage(LISTADD_REQUEST, ListAddReq{ListType: BlockedList, Peers: []string{peer.IDB58Encode(pid)}})
-		r, err := ActionReceiver(h, m)
-		So(err, ShouldBeNil)
-		So(r, ShouldEqual, "queued")
-
-		peerList, err := h.dht.getList(BlockedList)
-		So(err, ShouldBeNil)
-		So(len(peerList.Records), ShouldEqual, 1)
-		So(peerList.Records[0].ID, ShouldEqual, pid)
+		m := h.node.NewMessage(LISTADD_REQUEST,
+			ListAddReq{
+				ListType:    BlockedList,
+				Peers:       []string{peer.IDB58Encode(pid)},
+				WarrantType: SelfRevocationType,
+				Warrant:     []byte("bad warrant!"),
+			})
+		_, err := ActionReceiver(h, m)
+		So(err.Error(), ShouldEqual, "List add request rejected on warrant failure: unable to decode warrant (invalid character 'b' looking for beginning of value)")
 	})
+
+	Convey("LISTADD_REQUEST with warrant out of context should return error", t, func() {
+		pid, oldPrivKey := makePeer("testPeer")
+		_, newPrivKey := makePeer("peer1")
+		revocation, _ := NewSelfRevocation(oldPrivKey, newPrivKey, []byte("extra data"))
+		w, _ := NewSelfRevocationWarrant(revocation)
+		data, _ := w.Encode()
+		m := h.node.NewMessage(LISTADD_REQUEST,
+			ListAddReq{
+				ListType:    BlockedList,
+				Peers:       []string{peer.IDB58Encode(pid)},
+				WarrantType: SelfRevocationType,
+				Warrant:     data,
+			})
+		_, err := ActionReceiver(h, m)
+		So(err.Error(), ShouldEqual, "List add request rejected on warrant failure: expected old key to be modified on DHT")
+
+	})
+
+	/*
+		getting a good warrant without also having already had the addToList happen is hard,
+		 so not quite sure how to test this
+				Convey("LISTADD_REQUEST with good warrant should add to list", t, func() {
+					pid, oldPrivKey := makePeer("testPeer")
+					_, newPrivKey := makePeer("peer1")
+					revocation, _ := NewSelfRevocation(oldPrivKey, newPrivKey, []byte("extra data"))
+					w, _ := NewSelfRevocationWarrant(revocation)
+					data, _ := w.Encode()
+					m := h.node.NewMessage(LISTADD_REQUEST,
+						ListAddReq{
+							ListType:    BlockedList,
+							Peers:       []string{peer.IDB58Encode(pid)},
+							WarrantType: SelfRevocationType,
+							Warrant:     data,
+						})
+					r, err := ActionReceiver(h, m)
+					So(err, ShouldBeNil)
+					So(r, ShouldEqual, "queued")
+
+					peerList, err := h.dht.getList(BlockedList)
+					So(err, ShouldBeNil)
+					So(len(peerList.Records), ShouldEqual, 1)
+					So(peerList.Records[0].ID, ShouldEqual, pid)
+				})
+	*/
 
 }
 

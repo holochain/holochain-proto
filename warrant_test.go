@@ -22,7 +22,7 @@ func TestSelfRevocationWarrant(t *testing.T) {
 	})
 
 	Convey("it should have a type", t, func() {
-		So(w.Name(), ShouldEqual, SelfRevocationName)
+		So(w.Type(), ShouldEqual, SelfRevocationType)
 	})
 
 	Convey("it should have the two revocation parties", t, func() {
@@ -67,5 +67,23 @@ func TestSelfRevocationWarrant(t *testing.T) {
 
 		err = w.Verify(h)
 		So(err, ShouldBeNil)
+	})
+
+	Convey("it should encode and decode warrants", t, func() {
+		encoded, err := w.Encode()
+		So(err, ShouldBeNil)
+		w1 := &SelfRevocationWarrant{}
+		err = w1.Decode(encoded)
+		So(err, ShouldBeNil)
+		So(fmt.Sprintf("%v", w1), ShouldEqual, fmt.Sprintf("%v", w))
+
+		w2, err := DecodeWarrant(SelfRevocationType, encoded)
+		So(err, ShouldBeNil)
+		So(fmt.Sprintf("%v", w2), ShouldEqual, fmt.Sprintf("%v", w))
+
+		w2, err = DecodeWarrant(99, encoded)
+		So(w2, ShouldBeNil)
+		So(err, ShouldEqual, UnknownWarrantTypeErr)
+
 	})
 }

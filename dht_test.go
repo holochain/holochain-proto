@@ -21,7 +21,7 @@ func TestNewDHT(t *testing.T) {
 	dht := NewDHT(&h)
 	Convey("It should initialize the DHT struct", t, func() {
 		So(dht.h, ShouldEqual, &h)
-		So(fileExists(h.DBPath()+"/"+DHTStoreFileName), ShouldBeTrue)
+		So(fileExists(h.DBPath(), DHTStoreFileName), ShouldBeTrue)
 	})
 }
 

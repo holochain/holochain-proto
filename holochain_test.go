@@ -10,6 +10,7 @@ import (
 	. "github.com/smartystreets/goconvey/convey"
 	"os"
 	// "strings"
+	"path/filepath"
 	"testing"
 	"time"
 )
@@ -117,7 +118,7 @@ func TestNewEntry(t *testing.T) {
 	d, s := setupTestService()
 	defer CleanupTestDir(d)
 	n := "test"
-	path := s.Path + "/" + n
+	path := filepath.Join(s.Path, n)
 	h, err := s.GenDev(path, "toml")
 	if err != nil {
 		panic(err)
@@ -397,7 +398,7 @@ func TestLoadTestFiles(t *testing.T) {
 	})
 
 	Convey("it should load test files", t, func() {
-		path := h.rootPath + "/" + ChainTestDir
+		path := filepath.Join(h.rootPath, ChainTestDir)
 		tests, err := LoadTestFiles(path)
 		So(err, ShouldBeNil)
 		So(len(tests), ShouldEqual, 9)

@@ -55,6 +55,7 @@ func setupApp() (app *cli.App) {
 
 	var interactive, dumpChain, dumpDHT bool
 	var clonePath, scaffoldPath string
+  var ranScript bool
 	app.Commands = []cli.Command{
 		{
 			Name:    "init",
@@ -93,12 +94,7 @@ func setupApp() (app *cli.App) {
 				}
 				name := args[0]
 				devPath = filepath.Join(devPath, name)
-				if interactive {
-					// make the directory and chdir into it
-
-					// terminates go process
-					cmd.ExecBinScript("holochain.app.init.interactive")
-				} else if clonePath != "" {
+        if clonePath != "" {
 					// build the app by cloning from another app
 					info, err := os.Stat(clonePath)
 					if err != nil {
@@ -152,8 +148,12 @@ func setupApp() (app *cli.App) {
 					}
 					fmt.Printf("initialized %s from scaffold:%s\n", devPath, scaffoldPath)
 
-				} else {
-					// build empty app template
+				} else if cmd.IsFile(filepath.Join(devPath, "dna", "dna.json")) {
+          cmd.OsExecPipes(cmd.GolangHolochainDir("bin", "holochain.app.init.interactive"))
+          ranScript = true
+        } else {
+
+          // build empty app template
 					err := cmd.MakeDirs(devPath)
 					if err != nil {
 						return err
@@ -178,7 +178,9 @@ func setupApp() (app *cli.App) {
 
 				// finish by creating the .hc directory
 				// terminates go process
-				cmd.ExecBinScript("holochain.app.init", name, name)
+				if ! ranScript {
+          cmd.ExecBinScript("holochain.app.init", name, name)
+        }
 
 				return nil
 			},
@@ -199,7 +201,7 @@ func setupApp() (app *cli.App) {
 				var errs []error
 
 				if len(args) == 2 {
-					dir := h.TestPath() + "/" + args[0]
+					dir := filepath.Join(h.TestPath(), args[0])
 					role := args[1]
 
 					err, errs = h.TestScenario(dir, role)
@@ -348,7 +350,7 @@ func setupApp() (app *cli.App) {
 					return err
 				}
 				userPath := u.HomeDir
-				rootPath = userPath + "/" + holo.DefaultDirectoryName + "dev"
+				rootPath = filepath.Join(userPath, holo.DefaultDirectoryName+"dev")
 			}
 		}
 		if !holo.IsInitialized(rootPath) {
@@ -402,7 +404,7 @@ func main() {
 
 func getHolochain(c *cli.Context, service *holo.Service) (h *holo.Holochain, err error) {
 	fmt.Printf("Copying chain to: %s\n", rootPath)
-	err = os.RemoveAll(rootPath + "/" + name)
+	err = os.RemoveAll(filepath.Join(rootPath, name))
 	if err != nil {
 		return
 	}
@@ -411,7 +413,7 @@ func getHolochain(c *cli.Context, service *holo.Service) (h *holo.Holochain, err
 	if err != nil {
 		return
 	}
-	err = service.Clone(devPath, rootPath+"/"+name, agent, false)
+	err = service.Clone(devPath, filepath.Join(rootPath, name), agent, false)
 	if err != nil {
 		return
 	}

@@ -1,4 +1,6 @@
 #!/bin/bash
+holochainBinDir="$GOPATH/src/github.com/metacurrency/holochain/bin"
+
 
 FILE=".hc/immutable"
 if [ ! -d $FILE ]; then
@@ -8,7 +10,7 @@ if [ ! -d $FILE ]; then
    
   # check up a directory
    cd ..
-   . holochain.app.findAppDir
+   . $holochainBinDir/holochain.app.findAppDir
 else
   { [[ -f ".hc/immutable/readableName" ]] && [[ -f ".hc/immutable/machineName" ]] ; } || { echo "HC .hc is corrupt. Please try to re-init maybe? Or fix!" && exit 1 ; }
 

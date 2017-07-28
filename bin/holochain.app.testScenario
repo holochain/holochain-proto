@@ -1,12 +1,14 @@
 #!/bin/bash
 echo "HC: $0"
 
+holochainBinDir="$GOPATH/src/github.com/metacurrency/holochain/bin"
+
 scenarioName=$1
 
 #set the HOLOCHAIN_SYSTEM_BIN variable
-. holochain.system.checkInstalled || { echo "HC: cannot find holochain bin directory. exiting" && exit 1 ; }
+. $holochainBinDir/holochain.system.checkInstalled || { echo "HC: cannot find holochain bin directory. exiting" && exit 1 ; }
 #set the HOLOCHAIN_APPNAME and HOLOCHAIN_APPDIR variables
-. holochain.app.findAppDir ||  exit 1
+. $holochainBinDir/holochain.app.findAppDir ||  exit 1
 
 
 export dockerBaseRun=" -e LOCAL_USER_ID=`id -u $USER` "

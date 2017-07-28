@@ -192,7 +192,7 @@ func setupApp() (app *cli.App) {
 				// finish by creating the .hc directory
 				// terminates go process
 				if !ranScript {
-					//			cmd.ExecBinScript("holochain.app.init", name, name)
+					cmd.OsExecPipes("holochain.app.init", name)
 				}
 				return nil
 			},

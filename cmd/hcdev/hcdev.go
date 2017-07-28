@@ -32,7 +32,7 @@ func setupApp() (app *cli.App) {
 	app = cli.NewApp()
 	app.Name = "hcdev"
 	app.Usage = "holochain dev command line tool"
-	app.Version = fmt.Sprintf("0.0.1 (holochain %s)", holo.VersionStr)
+	app.Version = fmt.Sprintf("0.0.2 (holochain %s)", holo.VersionStr)
 
 	var service *holo.Service
 

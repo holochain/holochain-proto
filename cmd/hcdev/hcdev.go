@@ -31,7 +31,7 @@ func setupApp() (app *cli.App) {
 	app = cli.NewApp()
 	app.Name = "hcdev"
 	app.Usage = "holochain dev command line tool"
-	app.Version = fmt.Sprintf("0.0.1 (holochain %s)", holo.VersionStr)
+	app.Version = fmt.Sprintf("0.0.2 (holochain %s)", holo.VersionStr)
 
 	var service *holo.Service
 
@@ -55,7 +55,7 @@ func setupApp() (app *cli.App) {
 
 	var interactive, dumpChain, dumpDHT bool
 	var clonePath, scaffoldPath string
-  var ranScript bool
+	var ranScript bool
 	app.Commands = []cli.Command{
 		{
 			Name:    "init",
@@ -94,7 +94,7 @@ func setupApp() (app *cli.App) {
 				}
 				name := args[0]
 				devPath = filepath.Join(devPath, name)
-        if clonePath != "" {
+				if clonePath != "" {
 					// build the app by cloning from another app
 					info, err := os.Stat(clonePath)
 					if err != nil {
@@ -149,11 +149,11 @@ func setupApp() (app *cli.App) {
 					fmt.Printf("initialized %s from scaffold:%s\n", devPath, scaffoldPath)
 
 				} else if cmd.IsFile(filepath.Join(devPath, "dna", "dna.json")) {
-          cmd.OsExecPipes(cmd.GolangHolochainDir("bin", "holochain.app.init.interactive"))
-          ranScript = true
-        } else {
+					cmd.OsExecPipes(cmd.GolangHolochainDir("bin", "holochain.app.init.interactive"))
+					ranScript = true
+				} else {
 
-          // build empty app template
+					// build empty app template
 					err := cmd.MakeDirs(devPath)
 					if err != nil {
 						return err
@@ -178,9 +178,9 @@ func setupApp() (app *cli.App) {
 
 				// finish by creating the .hc directory
 				// terminates go process
-				if ! ranScript {
-          cmd.ExecBinScript("holochain.app.init", name, name)
-        }
+				if !ranScript {
+					cmd.ExecBinScript("holochain.app.init", name, name)
+				}
 
 				return nil
 			},

@@ -34,6 +34,26 @@ func TestInit(t *testing.T) {
 		os.Args = []string{"hcdev", "init", "foo"}
 		err = app.Run(os.Args)
 		So(err, ShouldBeNil)
-		So(cmd.IsFile(filepath.Join(tmpTestDir, "foo")), ShouldBeTrue)
+		So(cmd.IsFile(filepath.Join(tmpTestDir, "foo", "dna", "dna.json")), ShouldBeTrue)
 	})
+
+	Convey("'init bar --clone foo' should copy files from foo to bar", t, func() {
+		p := filepath.Join(tmpTestDir, "foo", "ui", "foo.js")
+		f, err := os.Create(p)
+		if err != nil {
+			panic(err)
+		}
+		defer f.Close()
+		err = os.Chdir(tmpTestDir)
+		if err != nil {
+			panic(err)
+		}
+
+		os.Args = []string{"hcdev", "init", "-clone", "foo", "bar"}
+
+		err = app.Run(os.Args)
+		So(err, ShouldBeNil)
+		So(cmd.IsFile(filepath.Join(tmpTestDir, "bar", "ui", "foo.js")), ShouldBeTrue)
+	})
+
 }

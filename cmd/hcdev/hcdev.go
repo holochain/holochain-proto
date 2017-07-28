@@ -27,6 +27,17 @@ const (
 var debug, appInitialized bool
 var rootPath, devPath, name string
 
+// TODO: move these into cmd module
+func makeErr(prefix string, text string, code int) error {
+	errText := fmt.Sprintf("%s: %s", prefix, text)
+	fmt.Printf("CLI Error: %s\n", errText)
+	return cli.NewExitError(errText, 1)
+}
+
+func makeErrFromError(prefix string, err error, code int) error {
+	return makeErr(prefix, err.Error(), code)
+}
+
 func setupApp() (app *cli.App) {
 	app = cli.NewApp()
 	app.Name = "hcdev"
@@ -81,16 +92,16 @@ func setupApp() (app *cli.App) {
 			ArgsUsage: "<name>",
 			Action: func(c *cli.Context) error {
 				if appInitialized {
-					return errors.New("current directory is an initialized app, apps shouldn't be nested")
+					return makeErr("init", "current directory is an initialized app, apps shouldn't be nested", 1)
 				}
 
 				args := c.Args()
 				if len(args) != 1 {
-					return errors.New("init: expecting app name as single argument")
+					return makeErr("init", "expecting app name as single argument", 1)
 				}
 
 				if (interactive && clonePath != "") || (interactive && scaffoldPath != "") || (clonePath != "" && scaffoldPath != "") {
-					return errors.New("options are mutually exclusive, please choose just one.")
+					return makeErr("init", " options are mutually exclusive, please choose just one.", 1)
 				}
 				name := args[0]
 				devPath = filepath.Join(devPath, name)
@@ -98,21 +109,23 @@ func setupApp() (app *cli.App) {
 					// build the app by cloning from another app
 					info, err := os.Stat(clonePath)
 					if err != nil {
-						return err
+						dir, _ := cmd.GetCurrentDirectory()
+						return makeErrFromError(fmt.Sprintf("ClonePath:%s/'%s'", dir, clonePath), err, 1)
 					}
+
 					if !info.Mode().IsDir() {
-						return errors.New("expecting a directory to clone from")
+						return makeErr("init", "-clone flag expects a directory to clone from", 1)
 					}
 
 					// TODO this is the bogus dev agent, really it should probably be someone else
 					agent, err := holo.LoadAgent(rootPath)
 					if err != nil {
-						return err
+						return makeErrFromError("init", err, 1)
 					}
 
 					err = service.Clone(clonePath, devPath, agent, true)
 					if err != nil {
-						return err
+						return makeErrFromError("init", err, 1)
 					}
 
 					fmt.Printf("cloning %s from %s\n", name, clonePath)
@@ -120,31 +133,31 @@ func setupApp() (app *cli.App) {
 					// build the app from the scaffold
 					info, err := os.Stat(scaffoldPath)
 					if err != nil {
-						return err
+						return makeErrFromError("init", err, 1)
 					}
 					if !info.Mode().IsRegular() {
-						return errors.New("expecting a scaffold file")
+						return makeErr("init", "-scaffold flag expectings a scaffold file", 1)
 					}
 
 					sf, err := os.Open(scaffoldPath)
 					if err != nil {
-						return err
+						return makeErrFromError("init", err, 1)
 					}
 					defer sf.Close()
 
 					dna, err := holo.LoadDNAScaffold(sf)
 					if err != nil {
-						return err
+						return makeErrFromError("init", err, 1)
 					}
 
 					err = cmd.MakeDirs(devPath)
 					if err != nil {
-						return err
+						return makeErrFromError("init", err, 1)
 					}
 
 					err = service.SaveDNAFile(devPath, dna, "json", false)
 					if err != nil {
-						return err
+						return makeErrFromError("init", err, 1)
 					}
 					fmt.Printf("initialized %s from scaffold:%s\n", devPath, scaffoldPath)
 
@@ -156,32 +169,31 @@ func setupApp() (app *cli.App) {
 					// build empty app template
 					err := cmd.MakeDirs(devPath)
 					if err != nil {
-						return err
+						return makeErrFromError("init", err, 1)
 					}
 					scaffold := bytes.NewBuffer([]byte(holo.BasicTemplateScaffold))
 					dna, err := holo.LoadDNAScaffold(scaffold)
 					if err != nil {
-						return err
+						return makeErrFromError("init", err, 1)
 					}
 					dna.NewUUID()
 					err = service.SaveDNAFile(devPath, dna, "json", false)
 					if err != nil {
-						return err
+						return makeErrFromError("init", err, 1)
 					}
 					fmt.Printf("initialized empty application to %s with new UUID:%v\n", devPath, dna.UUID)
 				}
 
 				err := os.Chdir(devPath)
 				if err != nil {
-					return err
+					return makeErrFromError("", err, 1)
 				}
 
 				// finish by creating the .hc directory
 				// terminates go process
 				if !ranScript {
-					cmd.ExecBinScript("holochain.app.init", name, name)
+					//			cmd.ExecBinScript("holochain.app.init", name, name)
 				}
-
 				return nil
 			},
 		},

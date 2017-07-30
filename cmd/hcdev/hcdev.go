@@ -145,17 +145,7 @@ func setupApp() (app *cli.App) {
 					}
 					defer sf.Close()
 
-					dna, err := holo.LoadDNAScaffold(sf)
-					if err != nil {
-						return makeErrFromError("init", err, 1)
-					}
-
-					err = cmd.MakeDirs(devPath)
-					if err != nil {
-						return makeErrFromError("init", err, 1)
-					}
-
-					err = service.SaveDNAFile(devPath, dna, "json", false)
+					_, err = service.SaveScaffold(sf, devPath, false)
 					if err != nil {
 						return makeErrFromError("init", err, 1)
 					}
@@ -167,21 +157,18 @@ func setupApp() (app *cli.App) {
 				} else {
 
 					// build empty app template
-					err := cmd.MakeDirs(devPath)
+					err := holo.MakeDirs(devPath)
 					if err != nil {
 						return makeErrFromError("init", err, 1)
 					}
-					scaffold := bytes.NewBuffer([]byte(holo.BasicTemplateScaffold))
-					dna, err := holo.LoadDNAScaffold(scaffold)
+					scaffoldReader := bytes.NewBuffer([]byte(holo.BasicTemplateScaffold))
+
+					var scaffold *holo.Scaffold
+					scaffold, err = service.SaveScaffold(scaffoldReader, devPath, true)
 					if err != nil {
 						return makeErrFromError("init", err, 1)
 					}
-					dna.NewUUID()
-					err = service.SaveDNAFile(devPath, dna, "json", false)
-					if err != nil {
-						return makeErrFromError("init", err, 1)
-					}
-					fmt.Printf("initialized empty application to %s with new UUID:%v\n", devPath, dna.UUID)
+					fmt.Printf("initialized empty application to %s with new UUID:%v\n", devPath, scaffold.DNA.UUID)
 				}
 
 				err := os.Chdir(devPath)

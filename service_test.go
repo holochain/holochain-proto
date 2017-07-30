@@ -1,6 +1,7 @@
 package holochain
 
 import (
+	"bytes"
 	"fmt"
 	ic "github.com/libp2p/go-libp2p-crypto"
 	. "github.com/smartystreets/goconvey/convey"
@@ -241,5 +242,31 @@ func TestGenDev(t *testing.T) {
 			_, err = s.GenDev(root, "json")
 			So(err.Error(), ShouldEqual, "holochain: "+root+" already exists")
 		})
+	})
+}
+
+func TestSaveScaffold(t *testing.T) {
+	d, s := setupTestService()
+	defer CleanupTestDir(d)
+	name := "test"
+	root := filepath.Join(s.Path, name)
+
+	Convey("it should write out a scaffold file to a directory tree", t, func() {
+		scaffoldBlob := bytes.NewBuffer([]byte(BasicTemplateScaffold))
+
+		scaffold, err := s.SaveScaffold(scaffoldBlob, root, false)
+		So(err, ShouldBeNil)
+		So(scaffold, ShouldNotBeNil)
+		So(scaffold.ScaffoldVersion, ShouldEqual, ScaffoldVersion)
+		So(dirExists(root), ShouldBeTrue)
+		So(dirExists(root, ChainDNADir), ShouldBeTrue)
+		So(dirExists(root, ChainUIDir), ShouldBeTrue)
+		So(dirExists(root, ChainTestDir), ShouldBeTrue)
+		So(dirExists(root, ChainDNADir, "sampleZome"), ShouldBeTrue)
+		So(fileExists(root, ChainDNADir, "sampleZome", "sampleEntry.json"), ShouldBeTrue)
+		So(fileExists(root, ChainDNADir, "sampleZome", "sampleZome.js"), ShouldBeTrue)
+		So(fileExists(root, ChainDNADir, "dna.json"), ShouldBeTrue)
+		So(fileExists(root, ChainDNADir, "properties_schema.json"), ShouldBeTrue)
+		So(fileExists(root, ChainTestDir, "sample.json"), ShouldBeTrue)
 	})
 }

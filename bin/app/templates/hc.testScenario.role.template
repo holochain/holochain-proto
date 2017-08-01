@@ -22,5 +22,5 @@ bsip=`cat /chain.seeded/bs.ip`
 sed -i "s/bootstrap.holochain.net:10000/$bsip:3142/" ~/.holochain/devchain/config.json
 
 #echo "hc -debug test devchain $scenario $role"
-hc -debug test devchain $scenario $role
+hcdev -debug test devchain $scenario $role
 #echo

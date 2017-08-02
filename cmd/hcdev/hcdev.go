@@ -27,7 +27,12 @@ const (
 var debug, appInitialized bool
 var rootPath, devPath, name string
 
+var mutableContext map[string]string
+var lastRunContext *cli.Context
+
 func setupApp() (app *cli.App) {
+  mutableContext = make(map[string]string)
+
 	app = cli.NewApp()
 	app.Name = "hcdev"
 	app.Usage = "holochain dev command line tool"
@@ -246,6 +251,26 @@ func setupApp() (app *cli.App) {
 				return nil
 			},
 		},
+    {
+      Name:      "goScenario",
+      Aliases:   []string{"S"},
+      Usage:     "run a scenario test",
+      ArgsUsage: "scenario-name",
+      Action: func(c *cli.Context) error {
+        mutableContext["command"] = "goScenario"
+
+        if !appInitialized {
+          return errors.New("please initialize this app with 'hcdev init'")
+        }
+
+        args := c.Args()
+        if len(args) != 1 {
+          return errors.New("missing scenario name argument")
+        }
+
+        return nil
+      },
+    },
 		{
 			Name:      "web",
 			Aliases:   []string{"serve", "w"},
@@ -324,7 +349,9 @@ func setupApp() (app *cli.App) {
 	}
 
 	app.Before = func(c *cli.Context) error {
-		if debug {
+		lastRunContext = c
+
+    if debug {
 			os.Setenv("DEBUG", "1")
 		}
 		holo.InitializeHolochain()
@@ -422,4 +449,8 @@ func getHolochain(c *cli.Context, service *holo.Service) (h *holo.Holochain, err
 		return
 	}
 	return
+}
+
+func GetLastRunContext () (map[string]string, *cli.Context) {
+  return mutableContext, lastRunContext
 }

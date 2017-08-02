@@ -589,7 +589,7 @@ func (s *Service) GenDev(root string, format string) (hP *Holochain, err error) 
 					{Name: "secret", DataFormat: DataFormatString},
 				},
 				Functions: []FunctionDef{
-					{Name: "getProperty", CallingType: STRING_CALLING},
+					{Name: "getProperty", CallingType: STRING_CALLING, Exposure: PUBLIC_EXPOSURE},
 					{Name: "addOdd", CallingType: STRING_CALLING, Exposure: PUBLIC_EXPOSURE},
 					{Name: "addProfile", CallingType: JSON_CALLING, Exposure: PUBLIC_EXPOSURE},
 					{Name: "testStrFn1", CallingType: STRING_CALLING},

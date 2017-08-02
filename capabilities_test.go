@@ -21,8 +21,8 @@ func TestCapabilitiesGeneral(t *testing.T) {
 	c, err = NewCapability(db, capabilityType, nil)
 	Convey("it should create a general capability", t, func() {
 		So(err, ShouldBeNil)
-		So(c.Type, ShouldEqual, capabilityType)
 		So(c.db, ShouldEqual, db)
+		So(c.Token, ShouldNotEqual, "")
 	})
 
 	Convey("it should validate a general capability", t, func() {
@@ -31,8 +31,8 @@ func TestCapabilitiesGeneral(t *testing.T) {
 		So(capType, ShouldEqual, capabilityType)
 	})
 
-	Convey("it should not validate a manufactured bogus capability", t, func() {
-		badC := Capability{Type: capabilityType, Token: "bogus", db: db}
+	Convey("it should not validate a manufactured bogus token", t, func() {
+		badC := Capability{Token: "bogus", db: db}
 		_, err = badC.Validate(nil)
 		So(err, ShouldEqual, CapabilityInvalidErr)
 	})

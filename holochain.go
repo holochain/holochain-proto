@@ -9,12 +9,14 @@ package holochain
 import (
 	"bytes"
 	"encoding/gob"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"github.com/google/uuid"
 	peer "github.com/libp2p/go-libp2p-peer"
 	protocol "github.com/libp2p/go-libp2p-protocol"
 	mh "github.com/multiformats/go-multihash"
+	"github.com/tidwall/buntdb"
 	"io"
 	"math/rand"
 	"os"
@@ -72,6 +74,7 @@ type Holochain struct {
 	nucleus        *Nucleus
 	node           *Node
 	chain          *Chain // This node's local source chain
+	bridgeDB       *buntdb.DB
 }
 
 func (h *Holochain) Nucleus() (n *Nucleus) {
@@ -616,4 +619,64 @@ func (h *Holochain) Send(proto Protocol, to peer.ID, t MsgType, body interface{}
 
 func (h *Holochain) Chain() *Chain {
 	return h.chain
+}
+
+// NewBridge registers creates a token for allowing bridged calls from an app
+func (h *Holochain) NewBridge(bridgeSpec map[string]map[string]bool) (token string, err error) {
+	if h.bridgeDB == nil {
+		h.bridgeDB, err = buntdb.Open(filepath.Join(h.DBPath(), BridgeDBFileName))
+		if err != nil {
+			return
+		}
+	}
+	var capability *Capability
+	var bridgeSpecJSON []byte
+
+	bridgeSpecJSON, err = json.Marshal(bridgeSpec)
+	if err != nil {
+		return
+	}
+	capability, err = NewCapability(h.bridgeDB, string(bridgeSpecJSON), nil)
+	if err != nil {
+		return
+	}
+	token = capability.Token
+	return
+}
+
+func checkBridgeSpec(spec map[string]map[string]bool, zomeType string, function string) bool {
+	f, ok := spec[zomeType]
+	if ok {
+		_, ok = f[function]
+	}
+	return ok
+}
+
+// BridgeCall executes a function exposed through a bridge
+func (h *Holochain) BridgeCall(zomeType string, function string, arguments interface{}, token string) (result interface{}, err error) {
+	if h.bridgeDB == nil {
+		err = errors.New("no active bridge")
+		return
+	}
+	c := Capability{Token: token, db: h.bridgeDB}
+	var bridgeSpecStr string
+	bridgeSpecStr, err = c.Validate(nil)
+	if err == nil {
+		bridgeSpec := make(map[string]map[string]bool)
+		err = json.Unmarshal([]byte(bridgeSpecStr), &bridgeSpec)
+		if err == nil {
+			if !checkBridgeSpec(bridgeSpec, zomeType, function) {
+				err = errors.New("function not bridged")
+				return
+			}
+			result, err = h.Call(zomeType, function, arguments, ZOME_EXPOSURE)
+		}
+	}
+
+	if err != nil {
+		err = errors.New("bridging error: " + err.Error())
+
+	}
+
+	return
 }

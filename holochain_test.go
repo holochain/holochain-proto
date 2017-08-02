@@ -387,6 +387,51 @@ func TestCall(t *testing.T) {
 	})
 }
 
+func TestBridgeCall(t *testing.T) {
+	d, _, h := PrepareTestChain("test")
+	defer CleanupTestDir(d)
+	token := "bogus token"
+	Convey("it should fail calls to functions when there's no brided", t, func() {
+		_, err := h.BridgeCall("zySampleZome", "testStrFn1", "arg1 arg2", token)
+		So(err.Error(), ShouldEqual, "no active bridge")
+	})
+	spec := map[string]map[string]bool{
+		"zySampleZome": {"testStrFn1": true},
+	}
+	Convey("it should call the bridged function", t, func() {
+		token, err := h.NewBridge(spec)
+		So(err, ShouldBeNil)
+		result, err := h.BridgeCall("zySampleZome", "testStrFn1", "arg1 arg2", token)
+		So(err, ShouldBeNil)
+		So(result.(string), ShouldEqual, "result: arg1 arg2")
+	})
+
+	spec = map[string]map[string]bool{
+		"zySampleZome": {"testStrFnx": true},
+	}
+	Convey("it should fail calls to functions not included in the bridge", t, func() {
+		token, err := h.NewBridge(spec)
+		So(err, ShouldBeNil)
+		_, err = h.BridgeCall("zySampleZome", "testStrFn1", "arg1 arg2", token)
+		So(err, ShouldNotBeNil)
+		So(err.Error(), ShouldEqual, "function not bridged")
+	})
+}
+
+func TestBridgeSpec(t *testing.T) {
+	spec := map[string]map[string]bool{
+		"bridgedZome": {"bridgedFunc": true},
+	}
+	Convey("it should fail functions not in the spec", t, func() {
+		So(checkBridgeSpec(spec, "someZome", "someFunc"), ShouldBeFalse)
+		So(checkBridgeSpec(spec, "bridgedZome", "someFunc"), ShouldBeFalse)
+		So(checkBridgeSpec(spec, "someZome", "bridgedFunc"), ShouldBeFalse)
+	})
+	Convey("it should not fail functions in the spec", t, func() {
+		So(checkBridgeSpec(spec, "bridgedZome", "bridgedFunc"), ShouldBeTrue)
+	})
+}
+
 func TestLoadTestFiles(t *testing.T) {
 	d, _, h := setupTestChain("test")
 	defer CleanupTestDir(d)

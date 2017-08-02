@@ -34,6 +34,7 @@ const (
 	StoreFileName        string = "chain.db"    // Filename for local data store
 	DNAHashFileName      string = "dna.hash"    // Filename for storing the hash of the holochain
 	DHTStoreFileName     string = "dht.db"      // Filname for storing the dht
+	BridgeDBFileName     string = "bridge.db"   // Filname for storing bridge keys
 
 	DefaultPort            = 6283
 	DefaultBootstrapServer = "bootstrap.holochain.net:10000"

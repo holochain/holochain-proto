@@ -15,7 +15,6 @@ import (
 )
 
 type Capability struct {
-	Type  string
 	Token string
 	db    *buntdb.DB
 	//Who list of public keys for whom this it valid
@@ -23,16 +22,16 @@ type Capability struct {
 
 var CapabilityInvalidErr = errors.New("invalid capability")
 
-func makeToken(id string) (token string) {
+func makeToken(capability string) (token string) {
 	return fmt.Sprintf("%d", rand.Int63())
 }
 
 // NewCapability returns and registers a capability of a type, for a specific or anyone if who is nil
-func NewCapability(db *buntdb.DB, id string, who interface{}) (c *Capability, err error) {
-	c = &Capability{Type: id, db: db}
-	c.Token = makeToken(id)
+func NewCapability(db *buntdb.DB, capability string, who interface{}) (c *Capability, err error) {
+	c = &Capability{db: db}
+	c.Token = makeToken(capability)
 	err = db.Update(func(tx *buntdb.Tx) error {
-		_, _, err = tx.Set("tok:"+c.Token, id, nil)
+		_, _, err = tx.Set("tok:"+c.Token, capability, nil)
 		if err != nil {
 			return err
 		}
@@ -53,7 +52,7 @@ func (c *Capability) Validate(who interface{}) (capability string, err error) {
 	return
 }
 
-// Revoke revokes the capability for a peer
+// Revoke unregisters the capability for a peer
 func (c *Capability) Revoke(who interface{}) (err error) {
 	err = c.db.Update(func(tx *buntdb.Tx) (e error) {
 		_, e = tx.Get("tok:" + c.Token)

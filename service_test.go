@@ -4,6 +4,7 @@ import (
 	"fmt"
 	ic "github.com/libp2p/go-libp2p-crypto"
 	. "github.com/smartystreets/goconvey/convey"
+	"os"
 	"path/filepath"
 	"testing"
 )
@@ -245,5 +246,32 @@ func TestGenDev(t *testing.T) {
 			_, err = s.GenDev(root, "json")
 			So(err.Error(), ShouldEqual, "holochain: "+root+" already exists")
 		})
+	})
+}
+
+func TestMakeConfig(t *testing.T) {
+	d, s := setupTestService()
+	defer CleanupTestDir(d)
+	h := &Holochain{encodingFormat: "json", rootPath: d}
+	Convey("make config should produce default values", t, func() {
+		err := makeConfig(h, s)
+		So(err, ShouldBeNil)
+		So(h.config.Port, ShouldEqual, DefaultPort)
+		So(h.config.EnableMDNS, ShouldBeFalse)
+		So(h.config.BootstrapServer, ShouldNotEqual, "")
+		So(h.config.Loggers.App.Format, ShouldEqual, "%{color:cyan}%{message}")
+
+	})
+	Convey("make config should produce default config from OS env overridden values", t, func() {
+		os.Setenv("HOLOCHAINCONFIG_PORT", "12345")
+		os.Setenv("HOLOCHAINCONFIG_ENABLEMDNS", "true")
+		os.Setenv("HOLOCHAINCONFIG_LOGPREFIX", "prefix:")
+		os.Setenv("HOLOCHAINCONFIG_BOOTSTRAP", "_")
+		err := makeConfig(h, s)
+		So(err, ShouldBeNil)
+		So(h.config.Port, ShouldEqual, 12345)
+		So(h.config.EnableMDNS, ShouldBeTrue)
+		So(h.config.Loggers.App.Format, ShouldEqual, "prefix:%{color:cyan}%{message}")
+		So(h.config.BootstrapServer, ShouldEqual, "")
 	})
 }

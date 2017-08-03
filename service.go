@@ -513,6 +513,9 @@ func makeConfig(h *Holochain, s *Service) (err error) {
 	}
 	val = os.Getenv("HOLOCHAINCONFIG_BOOTSTRAP")
 	if val != "" {
+		if val == "_" {
+			val = ""
+		}
 		h.config.BootstrapServer = val
 	}
 	val = os.Getenv("HOLOCHAINCONFIG_ENABLEMDNS")

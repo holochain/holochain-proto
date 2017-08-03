@@ -73,14 +73,14 @@ func OsExecPipes(args ...string) *exec.Cmd {
 // IsAppDir tests path to see if it's a properly set up holochain app
 // returns nil on success or error describing the problem
 func IsAppDir(path string) error {
-	return nil
+	// return fmt.Errorf("this isnt of any use at the moment")
 
-  info, err := os.Stat(filepath.Join(path, ".hc"))
+  info, err := os.Stat(filepath.Join(path, "dna", "dna.json"))
 	if err != nil {
-		err = fmt.Errorf("directory missing .hc subdirectory")
+		err = fmt.Errorf("directory missing dna/dna.json file")
 	} else {
-		if !info.Mode().IsDir() {
-			err = fmt.Errorf(".hc is not a directory")
+		if !info.Mode().IsRegular() {
+			err = fmt.Errorf("dna/dna.json is not a file")
     }
   }
 	return err

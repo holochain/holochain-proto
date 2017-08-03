@@ -287,7 +287,7 @@ func setupApp() (app *cli.App) {
         if err != nil {
           return err
         }
-        mutableContext.obj["testScenarioList"] = testScenarioList
+        mutableContext.obj["testScenarioList"] = &testScenarioList
 
         // confirm the user chosen scenario name
         //   TODO add this to code completion
@@ -301,7 +301,7 @@ func setupApp() (app *cli.App) {
         if err != nil {
           return err
         }
-        mutableContext.obj["testScenarioRoleList"] = roleList
+        mutableContext.obj["testScenarioRoleList"] = &roleList
 
         // run a bunch of hcdev test processes
         rootExecDir, err := cmd.MakeTmpDir("hcdev_test.go/$NOW")
@@ -324,7 +324,7 @@ func setupApp() (app *cli.App) {
               },
               os.Environ()...,
           )
-          mutableContext.obj["testCommand."+roleName] = testCommand
+          mutableContext.obj["testCommand."+roleName] = &testCommand
 
           testCommand.Run()
         }

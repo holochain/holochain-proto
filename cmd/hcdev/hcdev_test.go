@@ -71,8 +71,6 @@ func TestGoScenario_ReadScenarioDirectory(t *testing.T) {
 		// check that followAndShare directory is confirmed
 		So(mutableContext.str["testScenarioName"], ShouldEqual, "followAndShare")
 
-
-
 		if debug {
 			fmt.Printf("HC: hcdev_test.go: TestGoScenario_ReadScenarioDirectory: mutableContext\n\n%v", spew.Sdump(mutableContext))
 		}

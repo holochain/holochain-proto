@@ -56,13 +56,11 @@ func TestGoScenario_ReadScenarioDirectory(t *testing.T) {
 		clutterDir 		:= filepath.Join(currentDir, "../..", "examples", "clutter")
 		So(cmd.DirExists(clutterDir), ShouldEqual, true)
 
-		// initIntoDir, err := cmd.MakeTmpDir("hcdev_test.go/")
-		// So(err, ShouldBeNil)
-		// initialiseExampleAppCommand := []string{"hcdev", "-debug", "-path", initIntoDir, "init", "-clone", clutterDir, "clutter"}
-		// err = app.Run(initialiseExampleAppCommand)
-		// So(err, ShouldBeNil)
+		execDir, err := cmd.MakeTmpDir("hcdev_test.go/")
+		So(err, ShouldBeNil)
 
-		testCommand := []string{"hcdev", "-debug", "-path", clutterDir, "goScenario"}
+		// point goScenario some app (clutterDir) and set up a working directory for the test (execDir)
+		testCommand := []string{"hcdev", "-debug", "-path", clutterDir, "-execpath", execDir, "goScenario", "followAndShare"}
 		So(err, ShouldBeNil)
 		err = app.Run(testCommand )
 		So(err, ShouldBeNil)

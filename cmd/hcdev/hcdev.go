@@ -273,6 +273,18 @@ func setupApp() (app *cli.App) {
           return errors.New("missing scenario name argument")
         }
 
+        // get the holochain from the source that we are supposed to be testing
+        h, err := getHolochain(c, service)
+        if err != nil {
+          return err
+        }
+        mutableContext.obj["initialHolochain"] = h
+        testScenarioList, err := h.TestScenarioList()
+        if err != nil {
+          return err
+        }
+        mutableContext.obj["testScenarioList"] = testScenarioList
+
         return nil
       },
     },

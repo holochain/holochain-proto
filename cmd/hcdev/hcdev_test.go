@@ -59,6 +59,9 @@ func TestGoScenario_ReadScenarioDirectory(t *testing.T) {
 		execDir, err := cmd.MakeTmpDir("hcdev_test.go/initialise")
 		So(err, ShouldBeNil)
 
+		
+		os.Setenv("DEBUG", "true")
+
 		// point goScenario some app (clutterDir) and set up a working directory for the test (execDir)
 		testCommand := []string{"hcdev", "-debug", "-path", clutterDir, "-execpath", execDir, "goScenario", "followAndShare"}
 		So(err, ShouldBeNil)

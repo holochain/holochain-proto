@@ -9,15 +9,18 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	holo "github.com/metacurrency/holochain"
+	"os"
+  "os/user"
+  "path"
+  "path/filepath"
+  "strconv"
+  "time"
+
+  holo "github.com/metacurrency/holochain"
 	"github.com/metacurrency/holochain/cmd"
 	"github.com/metacurrency/holochain/ui"
-	"github.com/urfave/cli"
-	"os"
-	"os/user"
-	"path"
-	"path/filepath"
-	"time"
+	
+  "github.com/urfave/cli"
 )
 
 const (
@@ -299,6 +302,32 @@ func setupApp() (app *cli.App) {
           return err
         }
         mutableContext.obj["testScenarioRoleList"] = roleList
+
+        // run a bunch of hcdev test processes
+        rootExecDir, err := cmd.MakeTmpDir("hcdev_test.go/$NOW")
+        for _, roleName := range(roleList) {
+          // HOLOCHAINCONFIG_PORT = FindSomeAvailablePort
+          // HOLOCHAINCONFIG_ENABLEMDNS = "true" or HOLOCHAINCONFIG_BOOTSTRAP = "ip[localhost]:port[3142]
+          // HOLOCHAINCONFIG_LOGPREFIX = role
+
+          testCommand := cmd.OsExecPipes("hcdev", "-path", devPath, "-execpath", filepath.Join(rootExecDir, roleName), "test", scenarioName, roleName )
+
+          freePort, err := cmd.GetFreePort()
+          if err != nil {
+            return err
+          }
+          testCommand.Env = append(
+              []string {
+                  "HOLOCHAINCONFIG_PORT="+strconv.Itoa(freePort), 
+                  "HOLOCHAINCONFIG_ENABLEMDNS=true", 
+                  "HOLOCHAINCONFIG_LOGPREFIX="+roleName,
+              },
+              os.Environ()...,
+          )
+          mutableContext.obj["testCommand."+roleName] = testCommand
+
+          testCommand.Run()
+        }
 
         return nil
       },

@@ -8,13 +8,15 @@ package cmd
 
 import (
 	"errors"
-	"fmt"
-	holo "github.com/metacurrency/holochain"
+	exec "os/exec"
+  "fmt"
+  "net"
 	"os"
-  exec "os/exec"
 	"os/user"
 	"path/filepath"
 	"syscall"
+
+  holo "github.com/metacurrency/holochain"
 )
 
 var debug bool = false
@@ -66,6 +68,19 @@ func OsExecPipes(args ...string) *exec.Cmd {
   cmd.Stdin  = os.Stdin
 
   cmd.Run()
+
+  return cmd
+}
+// OsExecPipes executes a command as if we are in a shell, including user input
+func OsExecPipes_noRun(args ...string) *exec.Cmd {
+  cmd := exec.Command(args[0], args[1:]...)
+  if debug {
+    fmt.Printf("HC: common.go: OsExecPipes_noRun: %v", cmd)
+  }
+  
+  cmd.Stdout = os.Stdout
+  cmd.Stderr = os.Stderr
+  cmd.Stdin  = os.Stdin
 
   return cmd
 }
@@ -203,5 +218,24 @@ func MakeTmpDir(name string) (tmpHolochainCopyDir string, err error) {
   if err != nil {
     return "", err
   }
+  return
+}
+
+// Ask the kernel for a free open port that is ready to use
+func GetFreePort() (port int, err error) {
+  port  = -1
+  err   = nil
+
+  addr, err := net.ResolveTCPAddr("tcp", "localhost:0")
+  if err != nil {
+    return
+  }
+
+  l, err := net.ListenTCP("tcp", addr)
+  if err != nil {
+    return
+  }
+  defer l.Close()
+  port = l.Addr().(*net.TCPAddr).Port
   return
 }

@@ -122,7 +122,11 @@ func setupApp() (app *cli.App) {
 
               // if silent {
                 // maintains the existing go process, and waits for the script to complete
-              cmd.OsExecPipes(cmd.GolangHolochainDir("bin", scriptStringBuffer.String()), compileTargets)  
+              binpath, err := cmd.GolangHolochainDir("bin", scriptStringBuffer.String()) 
+              if err != nil {
+                return err
+              }
+              cmd.OsExecPipes(binpath, compileTargets)  
               // } else {
               //   // swaps current go process for a(bash)nother process
               //   cmd.ExecBinScript(scriptStringBuffer.String())  
@@ -146,7 +150,11 @@ func setupApp() (app *cli.App) {
 }
 
 func action_paradigm() *exec.Cmd { 
-  os.Chdir(cmd.GolangHolochainDir(os.Args[2]))
+  targetDirecgtory, err := cmd.GolangHolochainDir(os.Args[2])
+  if err != nil {
+    panic("could not find target directory")
+  }
+  os.Chdir(targetDirecgtory)
   return cmd.OsExecPipes("bash")
 }
 

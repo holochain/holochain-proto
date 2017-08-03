@@ -220,7 +220,8 @@ func setupApp() (app *cli.App) {
 						return err
 					}
           if debug {
-            fmt.Printf("HC: hcdev.go: test: testScenario: h: %v", spew.Sdump(h) )
+            fmt.Printf("\n\nHC: hcdev.go: test: testScenario: h: %v\n", spew.Sdump(h) )
+            fmt.Printf("\nHC: hcdev.go: test: testScenario: h: %v\n", spew.Sdump(h) )
           }
 				} else if len(args) == 1 {
 					errs = h.TestOne(args[0])

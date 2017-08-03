@@ -162,10 +162,7 @@ func setupApp() (app *cli.App) {
 					}
 					fmt.Printf("initialized %s from scaffold:%s\n", devPath, scaffoldPath)
 
-				} else if cmd.IsFile(filepath.Join(devPath, "dna", "dna.json")) {
-          cmd.OsExecPipes(cmd.GolangHolochainDir("bin", "holochain.app.init.interactive"))
-          ranScript = true
-        } else {
+				} else {
 
           // build empty app template
 					err := cmd.MakeDirs(devPath)
@@ -310,11 +307,11 @@ func setupApp() (app *cli.App) {
         // run a bunch of hcdev test processes
         rootExecDir, err := cmd.MakeTmpDir("hcdev_test.go/$NOW")
         for _, roleName := range(roleList) {
-          // HOLOCHAINCONFIG_PORT = FindSomeAvailablePort
+          // HOLOCHAINCONFIG_PORT       = FindSomeAvailablePort
           // HOLOCHAINCONFIG_ENABLEMDNS = "true" or HOLOCHAINCONFIG_BOOTSTRAP = "ip[localhost]:port[3142]
-          // HOLOCHAINCONFIG_LOGPREFIX = role
+          // HOLOCHAINCONFIG_LOGPREFIX  = role
 
-          testCommand := cmd.OsExecPipes("hcdev", "-path", devPath, "-execpath", filepath.Join(rootExecDir, roleName), "test", scenarioName, roleName )
+          testCommand := cmd.OsExecPipes("hcdev", "-debug", "-path", devPath, "-execpath", filepath.Join(rootExecDir, roleName), "test", scenarioName, roleName )
 
           freePort, err := cmd.GetFreePort()
           if err != nil {

@@ -2,7 +2,7 @@ package main
 
 import (
 	// flag     "flag"
-	filepath 	"path/filepath"
+	// filepath 	"path/filepath"
 	fmt			 	"fmt"
 	os 				"os"
 	spew			"github.com/davecgh/go-spew/spew"
@@ -51,15 +51,15 @@ func TestGoScenario_ReadScenarioDirectory(t *testing.T) {
 
 	Convey("get the scenario directory listing for one of the example apps", t, func() {
 		// connect to an actual app to work with
-		currentDir, err := filepath.Abs(filepath.Dir(os.Args[0]))
+		clutterDir, err	:= cmd.GolangHolochainDir("examples", "clutter")
 		So(err, ShouldBeNil)
-		clutterDir 		:= filepath.Join(currentDir, "../..", "examples", "clutter")
-		So(cmd.DirExists(clutterDir), ShouldEqual, true)
+		if debug { 
+			fmt.Printf("HC: hcdev_test.go: TestGoScenario_ReadScenarioDirectory: clutterDir: %v", clutterDir)
+		}
 
-		execDir, err := cmd.MakeTmpDir("hcdev_test.go/initialise")
+		execDir, err 		:= cmd.MakeTmpDir("hcdev_test.go/initialise")
 		So(err, ShouldBeNil)
 
-		
 		os.Setenv("DEBUG", "true")
 
 		// point goScenario some app (clutterDir) and set up a working directory for the test (execDir)

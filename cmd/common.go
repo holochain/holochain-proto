@@ -32,8 +32,8 @@ func syscallExec(binaryFile string, args ...string) error {
 	return syscall.Exec(binaryFile, append([]string{binaryFile}, args...), os.Environ())
 }
 
-func ExecBinScript(script string, args ...string) error {
-	path := GolangHolochainDir("bin", script)
+func ExecBinScript(script string, args ...string) (err error) {
+	path, err := GolangHolochainDir("bin", script)
   if debug {
     fmt.Printf("HC: common.go: ExecBinScript: %v (%v)", path, args)
   }
@@ -175,9 +175,15 @@ func Die(message string) {
   os.Exit(1)
 }
 
-func GolangHolochainDir(subPath ...string) string {
+func GolangHolochainDir(subPath ...string) (path string, err error) {
+  err = nil
+
   joinable := append([]string{os.Getenv("GOPATH"), "src/github.com/metacurrency/holochain", }, subPath...)
-  return  filepath.Join(joinable...)
+  path = filepath.Join(joinable...)
+  if ! DirExists(path) {
+    err = errors.New("HC: hcdev.go: goScenario: source argument is not directory in /test. scenario name must match directory name")
+  }
+  return  
 }
 
 func IsFile(path ...string) bool {

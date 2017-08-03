@@ -26,6 +26,7 @@ const (
 
 var debug, appInitialized bool
 var rootPath, devPath, bridgeToPath, bridgeFromPath, name string
+var bridgeFromH, bridgeToH *holo.Holochain
 
 func setupApp() (app *cli.App) {
 	app = cli.NewApp()
@@ -412,8 +413,8 @@ func main() {
 	}
 }
 
-func bridge(service *holo.Service, h *holo.Holochain, agent holo.Agent, path string, isFrom bool) (err error) {
-	var hFrom, hTo, h2 *holo.Holochain
+func bridge(service *holo.Service, h *holo.Holochain, agent holo.Agent, path string, isFrom bool) (bridgeH *holo.Holochain, err error) {
+	var hFrom, hTo *holo.Holochain
 	bridgeName := filepath.Base(path)
 	fmt.Printf("Copying bridge chain %s to: %s\n", bridgeName, rootPath)
 	err = os.RemoveAll(filepath.Join(rootPath, bridgeName))
@@ -424,17 +425,17 @@ func bridge(service *holo.Service, h *holo.Holochain, agent holo.Agent, path str
 	if err != nil {
 		return
 	}
-	h2, err = service.Load(bridgeName)
+	bridgeH, err = service.Load(bridgeName)
 	if err != nil {
 		return
 	}
 
 	if isFrom {
-		hFrom = h2
+		hFrom = bridgeH
 		hTo = h
 	} else {
 		hFrom = h
-		hTo = h2
+		hTo = bridgeH
 	}
 
 	var token string
@@ -443,7 +444,7 @@ func bridge(service *holo.Service, h *holo.Holochain, agent holo.Agent, path str
 		return
 	}
 
-	err = hFrom.AddBridge(hTo.DNAHash(), token, fmt.Sprintf("http://localhost:%s", hTo.Config().Port))
+	err = hFrom.AddBridge(hTo.DNAHash(), token, fmt.Sprintf("http://localhost:%d", hTo.Config().Port))
 	if err != nil {
 		return
 	}
@@ -470,15 +471,14 @@ func getHolochain(c *cli.Context, service *holo.Service) (h *holo.Holochain, err
 	if err != nil {
 		return
 	}
-
 	if bridgeToPath != "" {
-		err = bridge(service, h, agent, bridgeToPath, true)
+		bridgeToH, err = bridge(service, h, agent, bridgeToPath, true)
 		if err != nil {
 			return
 		}
 	}
 	if bridgeFromPath != "" {
-		err = bridge(service, h, agent, bridgeFromPath, false)
+		bridgeFromH, err = bridge(service, h, agent, bridgeFromPath, false)
 		if err != nil {
 			return
 		}

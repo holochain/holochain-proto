@@ -73,7 +73,9 @@ func OsExecPipes(args ...string) *exec.Cmd {
 // IsAppDir tests path to see if it's a properly set up holochain app
 // returns nil on success or error describing the problem
 func IsAppDir(path string) error {
-	info, err := os.Stat(filepath.Join(path, ".hc"))
+	return nil
+
+  info, err := os.Stat(filepath.Join(path, ".hc"))
 	if err != nil {
 		err = fmt.Errorf("directory missing .hc subdirectory")
 	} else {
@@ -177,4 +179,29 @@ func IsFileFromString(path string) bool {
   }
 
   return true
+}
+
+func DirExists(pathParts ...string) bool {
+  path := filepath.Join(pathParts...)
+  info, err := os.Stat(path)
+  return err == nil && info.Mode().IsDir()
+}
+
+func FileExists(pathParts ...string) bool {
+  path := filepath.Join(pathParts...)
+  info, err := os.Stat(path)
+  if err != nil {
+    return false
+  }
+  return info.Mode().IsRegular()
+}
+
+func MakeTmpDir(name string) (tmpHolochainCopyDir string, err error) {
+  tmpHolochainCopyDir = filepath.Join("/", "tmp", name)
+  os.RemoveAll(tmpHolochainCopyDir)
+  err = os.Mkdir(tmpHolochainCopyDir, 0770)
+  if err != nil {
+    return "", err
+  }
+  return
 }

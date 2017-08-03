@@ -16,6 +16,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strconv"
 	"strings"
 )
 
@@ -501,6 +502,31 @@ func makeConfig(h *Holochain, s *Service) (err error) {
 			TestFailed: Logger{Format: "%{color:red}%{message}", Enabled: true},
 			TestInfo:   Logger{Format: "%{message}", Enabled: true},
 		},
+	}
+
+	val := os.Getenv("HOLOCHAINCONFIG_PORT")
+	if val != "" {
+		h.config.Port, err = strconv.Atoi(val)
+		if err != nil {
+			return err
+		}
+	}
+	val = os.Getenv("HOLOCHAINCONFIG_BOOTSTRAP")
+	if val != "" {
+		h.config.BootstrapServer = val
+	}
+	val = os.Getenv("HOLOCHAINCONFIG_ENABLEMDNS")
+	if val != "" {
+		h.config.EnableMDNS = val == "true"
+	}
+	val = os.Getenv("HOLOCHAINCONFIG_LOGPREFIX")
+	if val != "" {
+		h.config.Loggers.App.Format = val + h.config.Loggers.App.Format
+		h.config.Loggers.DHT.Format = val + h.config.Loggers.DHT.Format
+		h.config.Loggers.Gossip.Format = val + h.config.Loggers.Gossip.Format
+		h.config.Loggers.TestPassed.Format = val + h.config.Loggers.TestPassed.Format
+		h.config.Loggers.TestFailed.Format = val + h.config.Loggers.TestFailed.Format
+		h.config.Loggers.TestInfo.Format = val + h.config.Loggers.TestInfo.Format
 	}
 
 	p := filepath.Join(h.rootPath, ConfigFileName+"."+h.encodingFormat)

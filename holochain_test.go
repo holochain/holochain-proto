@@ -395,6 +395,14 @@ func TestBridgeCall(t *testing.T) {
 		_, err := h.BridgeCall("zySampleZome", "testStrFn1", "arg1 arg2", token)
 		So(err.Error(), ShouldEqual, "no active bridge")
 	})
+	Convey("it should call the bridged function with no spec", t, func() {
+		token, err := h.NewBridge(nil)
+		So(err, ShouldBeNil)
+		result, err := h.BridgeCall("zySampleZome", "testStrFn1", "arg1 arg2", token)
+		So(err, ShouldBeNil)
+		So(result.(string), ShouldEqual, "result: arg1 arg2")
+	})
+
 	spec := map[string]map[string]bool{
 		"zySampleZome": {"testStrFn1": true},
 	}
@@ -416,6 +424,7 @@ func TestBridgeCall(t *testing.T) {
 		So(err, ShouldNotBeNil)
 		So(err.Error(), ShouldEqual, "function not bridged")
 	})
+
 }
 
 func TestBridgeSpec(t *testing.T) {
@@ -429,6 +438,23 @@ func TestBridgeSpec(t *testing.T) {
 	})
 	Convey("it should not fail functions in the spec", t, func() {
 		So(checkBridgeSpec(spec, "bridgedZome", "bridgedFunc"), ShouldBeTrue)
+	})
+}
+
+func TestBridgeStore(t *testing.T) {
+	d, _, h := setupTestChain("test")
+	defer CleanupTestDir(d)
+
+	hash, _ := NewHash("QmVGtdTZdTFaLsaj2RwdVG8jcjNNcp1DE914DKZ2kHmXHw")
+	token := "some token"
+	url := "http://localhost:31415"
+	Convey("it should add a token to the bridged apps list", t, func() {
+		err := h.AddBridge(hash, token, url)
+		So(err, ShouldBeNil)
+		t, u, err := h.GetBridgeToken(hash)
+		So(err, ShouldBeNil)
+		So(t, ShouldEqual, token)
+		So(u, ShouldEqual, url)
 	})
 }
 

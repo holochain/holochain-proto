@@ -608,6 +608,37 @@ func NewJSRibosome(h *Holochain, zome *Zome) (n Ribosome, err error) {
 		return result
 	})
 
+	err = jsr.vm.Set("bridge", func(call otto.FunctionCall) otto.Value {
+		a := &ActionBridge{}
+		args := a.Args()
+		err := jsProcessArgs(&jsr, args, call.ArgumentList)
+		if err != nil {
+			return mkOttoErr(&jsr, err.Error())
+		}
+		hash := args[0].value.(Hash)
+		a.token, a.url, err = h.GetBridgeToken(hash)
+		if err != nil {
+			return mkOttoErr(&jsr, err.Error())
+		}
+
+		a.zome = args[1].value.(string)
+		a.function = args[2].value.(string)
+		a.args = args[3].value.(string)
+
+		var r interface{}
+		r, err = a.Do(h)
+		if err != nil {
+			return mkOttoErr(&jsr, err.Error())
+		}
+		var result otto.Value
+		result, err = jsr.vm.ToValue(r)
+
+		if err != nil {
+			return mkOttoErr(&jsr, err.Error())
+		}
+		return result
+	})
+
 	err = jsr.vm.Set("commit", func(call otto.FunctionCall) otto.Value {
 		var a Action = &ActionCommit{}
 		args := a.Args()

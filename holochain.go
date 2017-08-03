@@ -623,24 +623,31 @@ func (h *Holochain) Chain() *Chain {
 
 // NewBridge registers creates a token for allowing bridged calls from an app
 func (h *Holochain) NewBridge(bridgeSpec map[string]map[string]bool) (token string, err error) {
-	if h.bridgeDB == nil {
-		h.bridgeDB, err = buntdb.Open(filepath.Join(h.DBPath(), BridgeDBFileName))
-		if err != nil {
-			return
-		}
+	err = h.initBridgeDB()
+	if err != nil {
+		return
 	}
 	var capability *Capability
 	var bridgeSpecJSON []byte
 
-	bridgeSpecJSON, err = json.Marshal(bridgeSpec)
-	if err != nil {
-		return
+	if bridgeSpec != nil {
+		bridgeSpecJSON, err = json.Marshal(bridgeSpec)
+		if err != nil {
+			return
+		}
 	}
 	capability, err = NewCapability(h.bridgeDB, string(bridgeSpecJSON), nil)
 	if err != nil {
 		return
 	}
 	token = capability.Token
+	return
+}
+
+func (h *Holochain) initBridgeDB() (err error) {
+	if h.bridgeDB == nil {
+		h.bridgeDB, err = buntdb.Open(filepath.Join(h.DBPath(), BridgeDBFileName))
+	}
 	return
 }
 
@@ -662,13 +669,17 @@ func (h *Holochain) BridgeCall(zomeType string, function string, arguments inter
 	var bridgeSpecStr string
 	bridgeSpecStr, err = c.Validate(nil)
 	if err == nil {
-		bridgeSpec := make(map[string]map[string]bool)
-		err = json.Unmarshal([]byte(bridgeSpecStr), &bridgeSpec)
-		if err == nil {
-			if !checkBridgeSpec(bridgeSpec, zomeType, function) {
-				err = errors.New("function not bridged")
-				return
+		if bridgeSpecStr != "" {
+			bridgeSpec := make(map[string]map[string]bool)
+			err = json.Unmarshal([]byte(bridgeSpecStr), &bridgeSpec)
+			if err == nil {
+				if !checkBridgeSpec(bridgeSpec, zomeType, function) {
+					err = errors.New("function not bridged")
+					return
+				}
 			}
+		}
+		if err == nil {
 			result, err = h.Call(zomeType, function, arguments, ZOME_EXPOSURE)
 		}
 	}
@@ -679,4 +690,50 @@ func (h *Holochain) BridgeCall(zomeType string, function string, arguments inter
 	}
 
 	return
+}
+
+// AddBridge associates a token with an an application DNA hash
+func (h *Holochain) AddBridge(hash Hash, token string, url string) (err error) {
+	err = h.initBridgeDB()
+	if err != nil {
+		return
+	}
+	err = h.bridgeDB.Update(func(tx *buntdb.Tx) error {
+		_, _, err = tx.Set("app:"+hash.String(), token, nil)
+		if err != nil {
+			return err
+		}
+		_, _, err = tx.Set("url:"+hash.String(), url, nil)
+		if err != nil {
+			return err
+		}
+		return nil
+	})
+	return
+}
+
+var BridgeAppNotFoundErr = errors.New("bridge app not found")
+
+// GetBridgeToken returns a token given the a hash
+func (h *Holochain) GetBridgeToken(hash Hash) (token string, url string, err error) {
+	if h.bridgeDB == nil {
+		err = errors.New("no active bridge")
+		return
+	}
+	err = h.bridgeDB.View(func(tx *buntdb.Tx) (e error) {
+		token, e = tx.Get("app:" + hash.String())
+		if e == buntdb.ErrNotFound {
+			e = BridgeAppNotFoundErr
+		}
+		url, e = tx.Get("url:" + hash.String())
+		if e == buntdb.ErrNotFound {
+			e = BridgeAppNotFoundErr
+		}
+		return
+	})
+	return
+}
+
+func (h *Holochain) Config() *Config {
+	return &h.config
 }

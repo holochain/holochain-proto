@@ -166,6 +166,11 @@ func TestNewJSRibosome(t *testing.T) {
 			So(entry.Content(), ShouldEqual, `{"prime":7}`)
 
 		})
+		SkipConvey("bridge", func() {
+			// hard to test because we need to fire up a separate app someplace else
+			_, err := z.Run(`bridge("QmVGtdTZdTFaLsaj2RwdVG8jcjNNcp1DE914DKZ2kHmXHw","zySampleZome","addEven","432")`)
+			So(err, ShouldBeNil)
+		})
 		Convey("send", func() {
 			ShouldLog(h.nucleus.alog, `result was: "{\"pong\":\"foobar\"}"`, func() {
 				_, err := z.Run(`debug("result was: "+JSON.stringify(send(App.Key.Hash,{ping:"foobar"})))`)

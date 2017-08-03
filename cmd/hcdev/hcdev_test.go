@@ -56,7 +56,7 @@ func TestGoScenario_ReadScenarioDirectory(t *testing.T) {
 		clutterDir 		:= filepath.Join(currentDir, "../..", "examples", "clutter")
 		So(cmd.DirExists(clutterDir), ShouldEqual, true)
 
-		execDir, err := cmd.MakeTmpDir("hcdev_test.go/")
+		execDir, err := cmd.MakeTmpDir("hcdev_test.go/initialise")
 		So(err, ShouldBeNil)
 
 		// point goScenario some app (clutterDir) and set up a working directory for the test (execDir)
@@ -65,8 +65,16 @@ func TestGoScenario_ReadScenarioDirectory(t *testing.T) {
 		err = app.Run(testCommand )
 		So(err, ShouldBeNil)
 
+		// check that followAndShare directory is confirmed
+		So(mutableContext.str["testScenarioName"], ShouldEqual, "followAndShare")
+
+
+
 		if debug {
 			fmt.Printf("HC: hcdev_test.go: TestGoScenario_ReadScenarioDirectory: mutableContext\n\n%v", spew.Sdump(mutableContext))
 		}
 	})
+
+	Convey("test incorrect user inputs", t, func() {
+  })
 }

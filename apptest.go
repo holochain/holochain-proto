@@ -78,6 +78,28 @@ func LoadTestConfig(dir string) (config *TestConfig, err error) {
 	return
 }
 
+
+func GetAllTestRoles(path string) (roleNameList []string, err error) {
+  roleNameList = []string{}
+
+  files, err := ioutil.ReadDir(path)
+  if err != nil {
+    return nil, err
+  }
+
+  re := regexp.MustCompile(`(.*)\.json`)
+  for _, f := range files {
+    if f.Mode().IsRegular() {
+      x := re.FindStringSubmatch(f.Name())
+      if len(x) > 0 {
+        if x[1] != "_config" {
+          roleNameList = append(roleNameList, x[1])
+        }
+      }
+    }
+  }
+  return
+}
 // LoadTestFiles searches a path for .json test files and loads them into an array
 func LoadTestFiles(path string) (map[string][]TestData, error) {
 	files, err := ioutil.ReadDir(path)
@@ -107,6 +129,8 @@ func LoadTestFiles(path string) (map[string][]TestData, error) {
 
 	return tests, err
 }
+
+
 
 func toString(input interface{}) string {
 	// @TODO this should probably act according the function schema

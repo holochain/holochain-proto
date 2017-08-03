@@ -313,10 +313,10 @@ func (h *Holochain) TestPath() string {
 	return filepath.Join(h.rootPath, ChainTestDir)
 }
 
-// TestScenarioDirectoryList returns a list of paths to scenario directories
-func (h *Holochain) TestScenarioList() (scenarios []string, err error) {
+// TestScenarioList returns a list of paths to scenario directories
+func (h *Holochain) TestScenarioList() (scenarios map[string]*os.FileInfo, err error) {
   dirContentList := []os.FileInfo{}
-  scenarios      =  []string{}
+  scenarios      =  make(map[string]*os.FileInfo)
  
   dirContentList, err = ioutil.ReadDir(h.TestPath())
   if err != nil {
@@ -324,11 +324,17 @@ func (h *Holochain) TestScenarioList() (scenarios []string, err error) {
   }
   for _, fileOrDir := range dirContentList {
     if fileOrDir.Mode().IsDir() {
-      scenarios = append(scenarios, fileOrDir.Name())
+      scenarios[fileOrDir.Name()] = &fileOrDir
     }
   }
 
   return scenarios, err
+}
+
+// GetScenarioDataMap returns a map of TestData object
+func (h *Holochain) GetTestScenarioRoleList(scenarioName string) (roleNameList []string, err error) {
+ 
+  return GetAllTestRoles(filepath.Join(h.TestPath(), scenarioName) )
 }
 
 // DNAHash returns the hash of the DNA entry which is also the holochain ID

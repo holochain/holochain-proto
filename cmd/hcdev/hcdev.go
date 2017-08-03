@@ -272,18 +272,33 @@ func setupApp() (app *cli.App) {
         if len(args) != 1 {
           return errors.New("missing scenario name argument")
         }
+        scenarioName := args[0]
 
         // get the holochain from the source that we are supposed to be testing
         h, err := getHolochain(c, service)
         if err != nil {
           return err
         }
-        mutableContext.obj["initialHolochain"] = h
+        // mutableContext.obj["initialHolochain"] = h
         testScenarioList, err := h.TestScenarioList()
         if err != nil {
           return err
         }
         mutableContext.obj["testScenarioList"] = testScenarioList
+
+        // confirm the user chosen scenario name
+        //   TODO add this to code completion
+        if _, ok := testScenarioList[scenarioName]; !ok {
+          return errors.New("HC: hcdev.go: goScenario: source argument is not directory in /test. scenario name must match directory name")
+        }
+        mutableContext.str["testScenarioName"] = scenarioName
+
+        // get list of roles
+        roleList, err := h.GetTestScenarioRoleList(scenarioName)
+        if err != nil {
+          return err
+        }
+        mutableContext.obj["testScenarioRoleList"] = roleList
 
         return nil
       },

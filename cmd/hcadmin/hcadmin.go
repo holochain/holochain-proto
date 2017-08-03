@@ -157,7 +157,7 @@ func setupApp() (app *cli.App) {
 					return err
 				}
 
-				token, err := hTo.NewBridge(nil)
+				token, err := hTo.NewBridge()
 				if err != nil {
 					return err
 				}

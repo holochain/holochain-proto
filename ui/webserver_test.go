@@ -52,10 +52,7 @@ func TestWebServer(t *testing.T) {
 		So(string(b), ShouldEqual, "en")
 	})
 
-	spec := map[string]map[string]bool{
-		"jsSampleZome": {"getProperty": true},
-	}
-	token, _ := h.NewBridge(spec)
+	token, _ := h.NewBridge()
 
 	Convey("it should fail bridged functions without a good token", t, func() {
 		body := bytes.NewBuffer([]byte("language"))

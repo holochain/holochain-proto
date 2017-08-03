@@ -73,6 +73,8 @@ type ZomeFile struct {
 	Entries      []EntryDefFile
 	RibosomeType string
 	Functions    []FunctionDef
+	BridgeFuncs  []string // functions in zome that can be bridged to by fromApp
+	BridgeTo     Hash     // dna Hash of toApp for zomes to be included in the fromApp
 }
 
 type DNAFile struct {
@@ -306,6 +308,8 @@ func (s *Service) LoadDNA(path string, filename string, format string) (dnaP *DN
 		dna.Zomes[i].Description = zome.Description
 		dna.Zomes[i].RibosomeType = zome.RibosomeType
 		dna.Zomes[i].Functions = zome.Functions
+		dna.Zomes[i].BridgeFuncs = zome.BridgeFuncs
+		dna.Zomes[i].BridgeTo = zome.BridgeTo
 
 		var code []byte
 		code, err = readFile(zomePath, zome.CodeFile)
@@ -562,6 +566,7 @@ func (s *Service) GenDev(root string, format string) (hP *Holochain, err error) 
 				CodeFile:     zygoZomeName + ".zy",
 				Description:  "this is a zygomas test zome",
 				RibosomeType: ZygoRibosomeType,
+				BridgeFuncs:  []string{"testStrFn1"},
 				Entries: []EntryDefFile{
 					{Name: "evenNumbers", DataFormat: DataFormatRawZygo, Sharing: Public},
 					{Name: "primes", DataFormat: DataFormatJSON, Sharing: Public, SchemaFile: "primes.json"},
@@ -582,6 +587,7 @@ func (s *Service) GenDev(root string, format string) (hP *Holochain, err error) 
 				CodeFile:     jsZomeName + ".js",
 				Description:  "this is a javascript test zome",
 				RibosomeType: JSRibosomeType,
+				BridgeFuncs:  []string{"getProperty"},
 				Entries: []EntryDefFile{
 					{Name: "oddNumbers", DataFormat: DataFormatRawJS, Sharing: Public},
 					{Name: "profile", DataFormat: DataFormatJSON, Sharing: Public, SchemaFile: "profile.json"},
@@ -1047,6 +1053,8 @@ func (s *Service) SaveDNAFile(root string, dna *DNA, encodingFormat string, over
 			CodeFile:     z.CodeFileName(),
 			RibosomeType: z.RibosomeType,
 			Functions:    z.Functions,
+			BridgeFuncs:  z.BridgeFuncs,
+			BridgeTo:     z.BridgeTo,
 		}
 
 		for _, e := range z.Entries {

@@ -2,7 +2,8 @@ package holochain
 
 import (
 	"bytes"
-	gob "encoding/gob"
+	"encoding/gob"
+	"encoding/json"
 	"fmt"
 	// toml "github.com/BurntSushi/toml"
 	"github.com/google/uuid"
@@ -395,32 +396,18 @@ func TestBridgeCall(t *testing.T) {
 		_, err := h.BridgeCall("zySampleZome", "testStrFn1", "arg1 arg2", token)
 		So(err.Error(), ShouldEqual, "no active bridge")
 	})
-	Convey("it should call the bridged function with no spec", t, func() {
-		token, err := h.NewBridge(nil)
-		So(err, ShouldBeNil)
-		result, err := h.BridgeCall("zySampleZome", "testStrFn1", "arg1 arg2", token)
-		So(err, ShouldBeNil)
-		So(result.(string), ShouldEqual, "result: arg1 arg2")
-	})
-
-	spec := map[string]map[string]bool{
-		"zySampleZome": {"testStrFn1": true},
-	}
 	Convey("it should call the bridged function", t, func() {
-		token, err := h.NewBridge(spec)
+		token, err := h.NewBridge()
 		So(err, ShouldBeNil)
 		result, err := h.BridgeCall("zySampleZome", "testStrFn1", "arg1 arg2", token)
 		So(err, ShouldBeNil)
 		So(result.(string), ShouldEqual, "result: arg1 arg2")
 	})
 
-	spec = map[string]map[string]bool{
-		"zySampleZome": {"testStrFnx": true},
-	}
 	Convey("it should fail calls to functions not included in the bridge", t, func() {
-		token, err := h.NewBridge(spec)
+		token, err := h.NewBridge()
 		So(err, ShouldBeNil)
-		_, err = h.BridgeCall("zySampleZome", "testStrFn1", "arg1 arg2", token)
+		_, err = h.BridgeCall("zySampleZome", "testStrFn2", "arg1 arg2", token)
 		So(err, ShouldNotBeNil)
 		So(err.Error(), ShouldEqual, "function not bridged")
 	})
@@ -428,7 +415,7 @@ func TestBridgeCall(t *testing.T) {
 }
 
 func TestBridgeSpec(t *testing.T) {
-	spec := map[string]map[string]bool{
+	spec := BridgeSpec{
 		"bridgedZome": {"bridgedFunc": true},
 	}
 	Convey("it should fail functions not in the spec", t, func() {
@@ -441,6 +428,17 @@ func TestBridgeSpec(t *testing.T) {
 	})
 }
 
+func TestBridgeSpecMake(t *testing.T) {
+	d, _, h := PrepareTestChain("test")
+	defer CleanupTestDir(d)
+
+	Convey("it should make spec from the dna", t, func() {
+		spec := h.makeBridgeSpec()
+		bridgeSpecB, _ := json.Marshal(spec)
+
+		So(fmt.Sprintf("%s", string(bridgeSpecB)), ShouldEqual, `{"jsSampleZome":{"getProperty":true},"zySampleZome":{"testStrFn1":true}}`)
+	})
+}
 func TestBridgeStore(t *testing.T) {
 	d, _, h := setupTestChain("test")
 	defer CleanupTestDir(d)

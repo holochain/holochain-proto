@@ -621,22 +621,26 @@ func (h *Holochain) Chain() *Chain {
 	return h.chain
 }
 
-// NewBridge registers creates a token for allowing bridged calls from an app
-func (h *Holochain) NewBridge(bridgeSpec map[string]map[string]bool) (token string, err error) {
+type BridgeSpec map[string]map[string]bool
+
+// NewBridge registers a token for allowing bridged calls from some other app
+func (h *Holochain) NewBridge() (token string, err error) {
 	err = h.initBridgeDB()
 	if err != nil {
 		return
 	}
 	var capability *Capability
-	var bridgeSpecJSON []byte
+
+	bridgeSpec := h.makeBridgeSpec()
+	var bridgeSpecB []byte
 
 	if bridgeSpec != nil {
-		bridgeSpecJSON, err = json.Marshal(bridgeSpec)
+		bridgeSpecB, err = json.Marshal(bridgeSpec)
 		if err != nil {
 			return
 		}
 	}
-	capability, err = NewCapability(h.bridgeDB, string(bridgeSpecJSON), nil)
+	capability, err = NewCapability(h.bridgeDB, string(bridgeSpecB), nil)
 	if err != nil {
 		return
 	}
@@ -651,12 +655,31 @@ func (h *Holochain) initBridgeDB() (err error) {
 	return
 }
 
-func checkBridgeSpec(spec map[string]map[string]bool, zomeType string, function string) bool {
+func checkBridgeSpec(spec BridgeSpec, zomeType string, function string) bool {
 	f, ok := spec[zomeType]
 	if ok {
 		_, ok = f[function]
 	}
 	return ok
+}
+
+func (h *Holochain) makeBridgeSpec() (spec BridgeSpec) {
+	var funcs map[string]bool
+	for _, z := range h.nucleus.dna.Zomes {
+		for _, f := range z.BridgeFuncs {
+			if spec == nil {
+				spec = make(BridgeSpec)
+			}
+			_, ok := spec[z.Name]
+			if !ok {
+				funcs = make(map[string]bool)
+				spec[z.Name] = funcs
+
+			}
+			funcs[f] = true
+		}
+	}
+	return
 }
 
 // BridgeCall executes a function exposed through a bridge
@@ -669,8 +692,8 @@ func (h *Holochain) BridgeCall(zomeType string, function string, arguments inter
 	var bridgeSpecStr string
 	bridgeSpecStr, err = c.Validate(nil)
 	if err == nil {
-		if bridgeSpecStr != "" {
-			bridgeSpec := make(map[string]map[string]bool)
+		if bridgeSpecStr != "*" {
+			bridgeSpec := make(BridgeSpec)
 			err = json.Unmarshal([]byte(bridgeSpecStr), &bridgeSpec)
 			if err == nil {
 				if !checkBridgeSpec(bridgeSpec, zomeType, function) {

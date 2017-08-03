@@ -18,6 +18,7 @@ import (
 
   holo "github.com/metacurrency/holochain"
 	"github.com/metacurrency/holochain/cmd"
+  spew "github.com/davecgh/go-spew/spew"
 	"github.com/metacurrency/holochain/ui"
 	
   "github.com/urfave/cli"
@@ -221,6 +222,9 @@ func setupApp() (app *cli.App) {
 					if err != nil {
 						return err
 					}
+          if debug {
+            fmt.Printf("HC: hcdev.go: test: testScenario: h: %v", spew.Sdump(h) )
+          }
 				} else if len(args) == 1 {
 					errs = h.TestOne(args[0])
 				} else if len(args) == 0 {

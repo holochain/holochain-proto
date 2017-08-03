@@ -16,6 +16,7 @@ import (
 	protocol "github.com/libp2p/go-libp2p-protocol"
 	mh "github.com/multiformats/go-multihash"
 	"io"
+  ioutil "io/ioutil"
 	"math/rand"
 	"os"
 	"path/filepath"
@@ -310,6 +311,18 @@ func (h *Holochain) DNAPath() string {
 // TestPath returns the path to a holochain's test directory
 func (h *Holochain) TestPath() string {
 	return filepath.Join(h.rootPath, ChainTestDir)
+}
+
+// TestScenarioDirectoryList returns a list of paths to scenario directories
+func (h *Holochain) TestScenarioList() (dirList []os.FileInfo, err error) {
+  dirList = []os.FileInfo{}
+  
+  dirList, err = ioutil.ReadDir(h.TestPath())
+  if err != nil {
+    return dirList, err
+  }
+
+  return dirList, err
 }
 
 // DNAHash returns the hash of the DNA entry which is also the holochain ID

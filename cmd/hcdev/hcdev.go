@@ -27,11 +27,16 @@ const (
 var debug, appInitialized bool
 var rootPath, devPath, name string
 
-var mutableContext map[string]string
+type MutableContext struct {
+  str map[string]string
+  obj map[string]interface{}
+}
+var mutableContext MutableContext
+
 var lastRunContext *cli.Context
 
 func setupApp() (app *cli.App) {
-  mutableContext = make(map[string]string)
+  mutableContext = MutableContext{map[string]string{}, map[string]interface{}{} }
 
 	app = cli.NewApp()
 	app.Name = "hcdev"
@@ -74,7 +79,7 @@ func setupApp() (app *cli.App) {
 				},
 				cli.StringFlag{
 					Name:        "clone",
-					Usage:       "path to directory from which to clone the app",
+					Usage:       "path from which to clone the app",
 					Destination: &clonePath,
 				},
 				cli.StringFlag{
@@ -257,7 +262,7 @@ func setupApp() (app *cli.App) {
       Usage:     "run a scenario test",
       ArgsUsage: "scenario-name",
       Action: func(c *cli.Context) error {
-        mutableContext["command"] = "goScenario"
+        mutableContext.str["command"] = "goScenario"
 
         if !appInitialized {
           return errors.New("please initialize this app with 'hcdev init'")
@@ -451,6 +456,6 @@ func getHolochain(c *cli.Context, service *holo.Service) (h *holo.Holochain, err
 	return
 }
 
-func GetLastRunContext () (map[string]string, *cli.Context) {
+func GetLastRunContext () (MutableContext, *cli.Context) {
   return mutableContext, lastRunContext
 }

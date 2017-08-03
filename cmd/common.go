@@ -220,7 +220,7 @@ func FileExists(pathParts ...string) bool {
 func MakeTmpDir(name string) (tmpHolochainCopyDir string, err error) {
   tmpHolochainCopyDir = filepath.Join("/", "tmp", name)
   os.RemoveAll(tmpHolochainCopyDir)
-  err = os.Mkdir(tmpHolochainCopyDir, 0770)
+  err = os.MkdirAll(tmpHolochainCopyDir, 0770)
   if err != nil {
     return "", err
   }

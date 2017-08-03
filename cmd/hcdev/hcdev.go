@@ -25,7 +25,7 @@ const (
 )
 
 var debug, appInitialized bool
-var rootPath, devPath, name string
+var rootPath, devPath, bridgeToPath, bridgeFromPath, name string
 
 func setupApp() (app *cli.App) {
 	app = cli.NewApp()
@@ -51,11 +51,21 @@ func setupApp() (app *cli.App) {
 			Usage:       "path to chain source definition directory (default: current working dir)",
 			Destination: &devPath,
 		},
+		cli.StringFlag{
+			Name:        "bridgeTo",
+			Usage:       "path to dev directory of app to bridge to",
+			Destination: &bridgeToPath,
+		},
+		cli.StringFlag{
+			Name:        "bridgeFrom",
+			Usage:       "path to dev directory of app to bridge from",
+			Destination: &bridgeFromPath,
+		},
 	}
 
 	var interactive, dumpChain, dumpDHT bool
 	var clonePath, scaffoldPath string
-  var ranScript bool
+	var ranScript bool
 	app.Commands = []cli.Command{
 		{
 			Name:    "init",
@@ -94,7 +104,7 @@ func setupApp() (app *cli.App) {
 				}
 				name := args[0]
 				devPath = filepath.Join(devPath, name)
-        if clonePath != "" {
+				if clonePath != "" {
 					// build the app by cloning from another app
 					info, err := os.Stat(clonePath)
 					if err != nil {
@@ -149,11 +159,11 @@ func setupApp() (app *cli.App) {
 					fmt.Printf("initialized %s from scaffold:%s\n", devPath, scaffoldPath)
 
 				} else if cmd.IsFile(filepath.Join(devPath, "dna", "dna.json")) {
-          cmd.OsExecPipes(cmd.GolangHolochainDir("bin", "holochain.app.init.interactive"))
-          ranScript = true
-        } else {
+					cmd.OsExecPipes(cmd.GolangHolochainDir("bin", "holochain.app.init.interactive"))
+					ranScript = true
+				} else {
 
-          // build empty app template
+					// build empty app template
 					err := cmd.MakeDirs(devPath)
 					if err != nil {
 						return err
@@ -178,9 +188,9 @@ func setupApp() (app *cli.App) {
 
 				// finish by creating the .hc directory
 				// terminates go process
-				if ! ranScript {
-          cmd.ExecBinScript("holochain.app.init", name, name)
-        }
+				if !ranScript {
+					cmd.ExecBinScript("holochain.app.init", name, name)
+				}
 
 				return nil
 			},
@@ -402,6 +412,44 @@ func main() {
 	}
 }
 
+func bridge(service *holo.Service, h *holo.Holochain, agent holo.Agent, path string, isFrom bool) (err error) {
+	var hFrom, hTo, h2 *holo.Holochain
+	bridgeName := filepath.Base(path)
+	fmt.Printf("Copying bridge chain %s to: %s\n", bridgeName, rootPath)
+	err = os.RemoveAll(filepath.Join(rootPath, bridgeName))
+	if err != nil {
+		return
+	}
+	err = service.Clone(path, filepath.Join(rootPath, bridgeName), agent, false)
+	if err != nil {
+		return
+	}
+	h2, err = service.Load(bridgeName)
+	if err != nil {
+		return
+	}
+
+	if isFrom {
+		hFrom = h2
+		hTo = h
+	} else {
+		hFrom = h
+		hTo = h2
+	}
+
+	var token string
+	token, err = hTo.NewBridge()
+	if err != nil {
+		return
+	}
+
+	err = hFrom.AddBridge(hTo.DNAHash(), token, fmt.Sprintf("http://localhost:%s", hTo.Config().Port))
+	if err != nil {
+		return
+	}
+	return
+}
+
 func getHolochain(c *cli.Context, service *holo.Service) (h *holo.Holochain, err error) {
 	fmt.Printf("Copying chain to: %s\n", rootPath)
 	err = os.RemoveAll(filepath.Join(rootPath, name))
@@ -417,9 +465,23 @@ func getHolochain(c *cli.Context, service *holo.Service) (h *holo.Holochain, err
 	if err != nil {
 		return
 	}
+
 	h, err = service.Load(name)
 	if err != nil {
 		return
+	}
+
+	if bridgeToPath != "" {
+		err = bridge(service, h, agent, bridgeToPath, true)
+		if err != nil {
+			return
+		}
+	}
+	if bridgeFromPath != "" {
+		err = bridge(service, h, agent, bridgeFromPath, false)
+		if err != nil {
+			return
+		}
 	}
 	return
 }

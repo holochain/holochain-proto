@@ -612,15 +612,25 @@ func (h *Holochain) Send(proto Protocol, to peer.ID, t MsgType, body interface{}
 	return
 }
 
-func (h *Holochain) Sign(entry []byte) (b []byte) {
+func (h *Holochain) Sign(doc []byte) (sig []byte, err error) {
 	privKey := h.agent.PrivKey()
-	sig, err := privKey.Sign(entry)
+	sig, err = privKey.Sign(doc)
 	if err != nil {
 		return
 	}
-	return sig
+	return
 }
 
+/*
+//TODO need to pass 'who' as (key ic.PubKey, err error)
+func (h *Holochain) VerifySignature(signature string,data string,who ic.PubKey) (matches bool, err error) {
+	matches, err = who.Verify(data, signature)
+	if err != nil {
+		return
+	}
+	return
+}
+*/
 func (h *Holochain) Chain() *Chain {
 	return h.chain
 }

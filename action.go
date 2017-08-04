@@ -349,7 +349,7 @@ func (a *ActionSign) Args() []Arg {
 func (a *ActionSign) Do(h *Holochain) (response interface{}, err error) {
 	var b []byte
 	//hash, err = a.entry.Sum(h.hashSpec)
-	b = h.Sign(a.doc)
+	b, err = h.Sign(a.doc)
 	if err != nil {
 		return
 	}
@@ -359,7 +359,7 @@ func (a *ActionSign) Do(h *Holochain) (response interface{}, err error) {
 
 //------------------------------------------------------------
 // VerifySignature
-
+/*
 type ActionVerifySignature struct {
 	signature string
 	data      string
@@ -377,14 +377,20 @@ func (a *ActionVerifySignature) Name() string {
 }
 
 func (a *ActionVerifySignature) Args() []Arg {
-	return []Arg{{Name: "signature", Type: StringArg}, {Name: "data", Type: StringArg}, {Name: "who", Type: StringArg}}
+	return []Arg{{Name: "signature", Type: StringArg}, {Name: "data", Type: StringArg}, {Name: "who", Type: HashArg}}
 }
 
-func (a *ActionVerifySignature) Do(h *Holochain) (response interface{}, err error) {
-	response, err = h.Call(a.signature, a.data, a.who, ZOME_EXPOSURE)
+func (a *ActionVerifySignature) Do(h *Holochain) (response bool, err error) {
+	var b bool
+	//hash, err = a.entry.Sum(h.hashSpec)
+	b,err = h.VerifySignature(a.signature,a.data,a.who)
+	if err != nil {
+		return
+	}
+	response = b
 	return
 }
-
+*/
 //------------------------------------------------------------
 // Call
 

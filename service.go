@@ -893,6 +893,21 @@ function receive(from,message) {
 			return
 		}
 
+		// also write out some scenarios
+		var scenarioPath string
+		for _, scenario := range []string{"authorize", "fail"} {
+			scenarioPath = filepath.Join(testPath, scenario)
+			if err = os.MkdirAll(scenarioPath, os.ModePerm); err != nil {
+				return nil, err
+			}
+			if err = writeFile([]byte(`{"bogus":"bogus test!"}`), scenarioPath, "requester.json"); err != nil {
+				return
+			}
+			if err = writeFile([]byte(`{"bogus":"bogus test!"}`), scenarioPath, "responder.json"); err != nil {
+				return
+			}
+		}
+
 		//fmt.Printf("\nGenDev done generating. Loading now..")
 
 		hP, err = s.Load(dnaFile.Name)

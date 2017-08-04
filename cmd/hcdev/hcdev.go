@@ -10,18 +10,18 @@ import (
 	"errors"
 	"fmt"
 	"os"
-  "os/user"
-  "path"
-  "path/filepath"
-  "strconv"
-  "time"
+	"os/user"
+	"path"
+	"path/filepath"
+	"strconv"
+	"time"
 
-  holo "github.com/metacurrency/holochain"
+	spew "github.com/davecgh/go-spew/spew"
+	holo "github.com/metacurrency/holochain"
 	"github.com/metacurrency/holochain/cmd"
-  spew "github.com/davecgh/go-spew/spew"
 	"github.com/metacurrency/holochain/ui"
-	
-  "github.com/urfave/cli"
+
+	"github.com/urfave/cli"
 )
 
 const (
@@ -32,15 +32,16 @@ var debug, appInitialized bool
 var rootPath, devPath, name string
 
 type MutableContext struct {
-  str map[string]string
-  obj map[string]interface{}
+	str map[string]string
+	obj map[string]interface{}
 }
+
 var mutableContext MutableContext
 
 var lastRunContext *cli.Context
 
 func setupApp() (app *cli.App) {
-  mutableContext = MutableContext{map[string]string{}, map[string]interface{}{} }
+	mutableContext = MutableContext{map[string]string{}, map[string]interface{}{}}
 
 	app = cli.NewApp()
 	app.Name = "hcdev"
@@ -69,7 +70,7 @@ func setupApp() (app *cli.App) {
 
 	var interactive, dumpChain, dumpDHT bool
 	var clonePath, scaffoldPath string
-  var ranScript bool
+	var ranScript bool
 	app.Commands = []cli.Command{
 		{
 			Name:    "init",
@@ -108,7 +109,7 @@ func setupApp() (app *cli.App) {
 				}
 				name := args[0]
 				devPath = filepath.Join(devPath, name)
-        if clonePath != "" {
+				if clonePath != "" {
 					// build the app by cloning from another app
 					info, err := os.Stat(clonePath)
 					if err != nil {
@@ -164,7 +165,7 @@ func setupApp() (app *cli.App) {
 
 				} else {
 
-          // build empty app template
+					// build empty app template
 					err := cmd.MakeDirs(devPath)
 					if err != nil {
 						return err
@@ -189,9 +190,9 @@ func setupApp() (app *cli.App) {
 
 				// finish by creating the .hc directory
 				// terminates go process
-				if ! ranScript {
-          cmd.ExecBinScript("holochain.app.init", name, name)
-        }
+				if !ranScript {
+					cmd.ExecBinScript("holochain.app.init", name, name)
+				}
 
 				return nil
 			},
@@ -219,10 +220,10 @@ func setupApp() (app *cli.App) {
 					if err != nil {
 						return err
 					}
-          if debug {
-            fmt.Printf("\n\nHC: hcdev.go: test: testScenario: h: %v\n", spew.Sdump(h) )
-            fmt.Printf("\nHC: hcdev.go: test: testScenario: h: %v\n", spew.Sdump(h) )
-          }
+					if debug {
+						fmt.Printf("\n\nHC: hcdev.go: test: testScenario: h: %v\n", spew.Sdump(h))
+						fmt.Printf("\nHC: hcdev.go: test: testScenario: h: %v\n", spew.Sdump(h))
+					}
 				} else if len(args) == 1 {
 					errs = h.TestOne(args[0])
 				} else if len(args) == 0 {
@@ -261,79 +262,79 @@ func setupApp() (app *cli.App) {
 				return nil
 			},
 		},
-    {
-      Name:      "goScenario",
-      Aliases:   []string{"S"},
-      Usage:     "run a scenario test",
-      ArgsUsage: "scenario-name",
-      Action: func(c *cli.Context) error {
-        mutableContext.str["command"] = "goScenario"
+		{
+			Name:      "goScenario",
+			Aliases:   []string{"S"},
+			Usage:     "run a scenario test",
+			ArgsUsage: "scenario-name",
+			Action: func(c *cli.Context) error {
+				mutableContext.str["command"] = "goScenario"
 
-        if !appInitialized {
-          return errors.New("please initialize this app with 'hcdev init'")
-        }
+				if !appInitialized {
+					return errors.New("please initialize this app with 'hcdev init'")
+				}
 
-        args := c.Args()
-        if len(args) != 1 {
-          return errors.New("missing scenario name argument")
-        }
-        scenarioName := args[0]
+				args := c.Args()
+				if len(args) != 1 {
+					return errors.New("missing scenario name argument")
+				}
+				scenarioName := args[0]
 
-        // get the holochain from the source that we are supposed to be testing
-        h, err := getHolochain(c, service)
-        if err != nil {
-          return err
-        }
-        // mutableContext.obj["initialHolochain"] = h
-        testScenarioList, err := h.TestScenarioList()
-        if err != nil {
-          return err
-        }
-        mutableContext.obj["testScenarioList"] = &testScenarioList
+				// get the holochain from the source that we are supposed to be testing
+				h, err := getHolochain(c, service)
+				if err != nil {
+					return err
+				}
+				// mutableContext.obj["initialHolochain"] = h
+				testScenarioList, err := h.GetTestScenarios()
+				if err != nil {
+					return err
+				}
+				mutableContext.obj["testScenarioList"] = &testScenarioList
 
-        // confirm the user chosen scenario name
-        //   TODO add this to code completion
-        if _, ok := testScenarioList[scenarioName]; !ok {
-          return errors.New("HC: hcdev.go: goScenario: source argument is not directory in /test. scenario name must match directory name")
-        }
-        mutableContext.str["testScenarioName"] = scenarioName
+				// confirm the user chosen scenario name
+				//   TODO add this to code completion
+				if _, ok := testScenarioList[scenarioName]; !ok {
+					return errors.New("HC: hcdev.go: goScenario: source argument is not directory in /test. scenario name must match directory name")
+				}
+				mutableContext.str["testScenarioName"] = scenarioName
 
-        // get list of roles
-        roleList, err := h.GetTestScenarioRoleList(scenarioName)
-        if err != nil {
-          return err
-        }
-        mutableContext.obj["testScenarioRoleList"] = &roleList
+				// get list of roles
+				roleList, err := h.GetTestScenarioRoles(scenarioName)
+				if err != nil {
+					return err
+				}
+				mutableContext.obj["testScenarioRoleList"] = &roleList
 
-        // run a bunch of hcdev test processes
-        rootExecDir, err := cmd.MakeTmpDir("hcdev_test.go/$NOW")
-        for _, roleName := range(roleList) {
-          // HOLOCHAINCONFIG_PORT       = FindSomeAvailablePort
-          // HOLOCHAINCONFIG_ENABLEMDNS = "true" or HOLOCHAINCONFIG_BOOTSTRAP = "ip[localhost]:port[3142]
-          // HOLOCHAINCONFIG_LOGPREFIX  = role
+				// run a bunch of hcdev test processes
+				rootExecDir, err := cmd.MakeTmpDir("hcdev_test.go/$NOW")
+				for _, roleName := range roleList {
+					// HOLOCHAINCONFIG_PORT       = FindSomeAvailablePort
+					// HOLOCHAINCONFIG_ENABLEMDNS = "true" or HOLOCHAINCONFIG_BOOTSTRAP = "ip[localhost]:port[3142]
+					// HOLOCHAINCONFIG_LOGPREFIX  = role
 
-          testCommand := cmd.OsExecPipes("hcdev", "-debug", "-path", devPath, "-execpath", filepath.Join(rootExecDir, roleName), "test", scenarioName, roleName )
+					testCommand := cmd.OsExecPipes("hcdev", "-debug", "-path", devPath, "-execpath", filepath.Join(rootExecDir, roleName), "test", scenarioName, roleName)
 
-          freePort, err := cmd.GetFreePort()
-          if err != nil {
-            return err
-          }
-          testCommand.Env = append(
-              []string {
-                  "HOLOCHAINCONFIG_PORT="+strconv.Itoa(freePort), 
-                  "HOLOCHAINCONFIG_ENABLEMDNS=true", 
-                  "HOLOCHAINCONFIG_LOGPREFIX="+roleName,
-              },
-              os.Environ()...,
-          )
-          mutableContext.obj["testCommand."+roleName] = &testCommand
+					freePort, err := cmd.GetFreePort()
+					if err != nil {
+						return err
+					}
+					testCommand.Env = append(
+						[]string{
+							"HOLOCHAINCONFIG_PORT=" + strconv.Itoa(freePort),
+							"HOLOCHAINCONFIG_ENABLEMDNS=true",
+							"HOLOCHAINCONFIG_LOGPREFIX=" + roleName,
+						},
+						os.Environ()...,
+					)
+					mutableContext.obj["testCommand."+roleName] = &testCommand
 
-          testCommand.Run()
-        }
+					testCommand.Run()
+				}
 
-        return nil
-      },
-    },
+				return nil
+			},
+		},
 		{
 			Name:      "web",
 			Aliases:   []string{"serve", "w"},
@@ -414,7 +415,7 @@ func setupApp() (app *cli.App) {
 	app.Before = func(c *cli.Context) error {
 		lastRunContext = c
 
-    if debug {
+		if debug {
 			os.Setenv("DEBUG", "1")
 		}
 		holo.InitializeHolochain()
@@ -514,6 +515,6 @@ func getHolochain(c *cli.Context, service *holo.Service) (h *holo.Holochain, err
 	return
 }
 
-func GetLastRunContext () (MutableContext, *cli.Context) {
-  return mutableContext, lastRunContext
+func GetLastRunContext() (MutableContext, *cli.Context) {
+	return mutableContext, lastRunContext
 }

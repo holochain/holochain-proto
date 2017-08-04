@@ -144,6 +144,71 @@ func TestNewJSRibosome(t *testing.T) {
 			So(err, ShouldBeNil)
 			So(hash1.String(), ShouldEqual, profileHash.String())
 		})
+		//=============================================================================================
+		// Sign - this methord signs the data that is passed with the user's privKey and returns the signed data
+		Convey("sign", func() {
+			d, _, h := PrepareTestChain("test")
+			defer CleanupTestDir(d)
+
+			v, err := NewJSRibosome(h, &Zome{RibosomeType: JSRibosomeType})
+			So(err, ShouldBeNil)
+			z := v.(*JSRibosome)
+			// sig should match the value that is returned
+			privKey := h.agent.PrivKey()
+			sig, err := privKey.Sign([]byte("3"))
+			//test1
+			_, err = z.Run(`sign("3")`)
+			So(err, ShouldBeNil)
+			//z := v.(*JSRibosome)
+			So([]byte(z.lastResult.String()), ShouldEqual, sig)
+			//test2
+			sig, err = privKey.Sign([]byte("{\"firstName\":\"jackT\",\"lastName\":\"hammer\"}"))
+			_, err = z.Run(`sign('{"firstName":"jackT","lastName":"hammer"}')`)
+			So(err, ShouldBeNil)
+			So([]byte(z.lastResult.String()), ShouldEqual, sig)
+		})
+
+		/*	//TODO understand what has to be returned back in verifySignature
+			Convey("verifySignature", func() {
+				// a string verifySignature function SUCESS Condition
+				d, _, h := PrepareTestChain("test")
+				defer CleanupTestDir(d)
+
+				v, err := NewJSRibosome(h, &Zome{RibosomeType: JSRibosomeType})
+				So(err, ShouldBeNil)
+				z := v.(*JSRibosome)
+				// sig should match the value that is returned
+				privKey :=h.agent.PrivKey()
+				pubKey :=privKey.GetPublic()
+				sig, err := privKey.Sign([]byte("31234"))
+
+
+				_, err := z.Run(`verifySignature("Signature","signed_data","public")`)
+				So(err, ShouldBeNil)
+				z := v.(*JSRibosome)
+				So(z.lastResult.String(), ShouldEqual, "true")
+
+				// a string verifySignature function FAILURE Condition
+				_, err = z.Run(`verifySignature("Signature","unSigned_data","public")`)
+				So(err, ShouldBeNil)
+				So(z.lastResult.String(), ShouldEqual, "true")
+
+			/*
+			// a json verifySignature function
+				_, err = z.Run(`verifySignature("zySampleZome","addPrime",{prime:7})`)
+				So(err, ShouldBeNil)
+				So(h.chain.Entries[len(h.chain.Hashes)-1].Content(), ShouldEqual, `{"prime":7}`)
+				hashJSONStr := z.lastResult.String()
+				var hashStr string
+				json.Unmarshal([]byte(hashJSONStr), &hashStr)
+				hash, _ = NewHash(hashStr)
+				entry, _, _ = h.chain.GetEntry(hash)
+				So(entry.Content(), ShouldEqual, `{"prime":7}`)
+		*/
+		//		})
+
+		//=============================================================================================
+
 		Convey("call", func() {
 			// a string calling function
 			_, err := z.Run(`call("zySampleZome","addEven","432")`)

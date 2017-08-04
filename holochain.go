@@ -612,6 +612,15 @@ func (h *Holochain) Send(proto Protocol, to peer.ID, t MsgType, body interface{}
 	return
 }
 
+func (h *Holochain) Sign(entry []byte) (b []byte) {
+	privKey := h.agent.PrivKey()
+	sig, err := privKey.Sign(entry)
+	if err != nil {
+		return
+	}
+	return sig
+}
+
 func (h *Holochain) Chain() *Chain {
 	return h.chain
 }

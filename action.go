@@ -313,7 +313,7 @@ func (a *ActionMakeHash) Name() string {
 }
 
 func (a *ActionMakeHash) Args() []Arg {
-	return []Arg{{Name: "entry", Type: EntryArg}}
+	return []Arg{{Name: "entry", Type: StringArg}}
 }
 
 func (a *ActionMakeHash) Do(h *Holochain) (response interface{}, err error) {
@@ -323,6 +323,65 @@ func (a *ActionMakeHash) Do(h *Holochain) (response interface{}, err error) {
 		return
 	}
 	response = hash
+	return
+}
+
+//------------------------------------------------------------
+// Sign
+
+type ActionSign struct {
+	doc []byte
+}
+
+func NewSignAction(doc []byte) *ActionSign {
+	a := ActionSign{doc: doc}
+	return &a
+}
+
+func (a *ActionSign) Name() string {
+	return "sign"
+}
+
+func (a *ActionSign) Args() []Arg {
+	return []Arg{{Name: "doc", Type: EntryArg}}
+}
+
+func (a *ActionSign) Do(h *Holochain) (response interface{}, err error) {
+	var b []byte
+	//hash, err = a.entry.Sum(h.hashSpec)
+	b = h.Sign(a.doc)
+	if err != nil {
+		return
+	}
+	response = b
+	return
+}
+
+//------------------------------------------------------------
+// VerifySignature
+
+type ActionVerifySignature struct {
+	signature string
+	data      string
+	who       string
+	//args     interface{}
+}
+
+func NewVerifySignatureAction(signature string, data string, who string) *ActionVerifySignature {
+	a := ActionVerifySignature{signature: signature, data: data, who: who}
+	return &a
+}
+
+func (a *ActionVerifySignature) Name() string {
+	return "verifySignature"
+}
+
+func (a *ActionVerifySignature) Args() []Arg {
+	return []Arg{{Name: "signature", Type: StringArg}, {Name: "data", Type: StringArg}, {Name: "who", Type: StringArg}}
+}
+
+func (a *ActionVerifySignature) Do(h *Holochain) (response interface{}, err error) {
+	response, err = h.Call(a.signature, a.data, a.who, ZOME_EXPOSURE)
 	return
 }
 

@@ -59,8 +59,9 @@ Which you choose depends on your preference and your purpose.  If you intend to 
 
 ### Go Based Install
 
-1. [Install Go](https://golang.org/doc/install) on your system.  See platform specific instructions and hints below for making this work.
-2. Install the command line tool suite with:
+1. [Download Go](https://golang.org/dl/). Download the "Archive" or "Installer" for your CPU and OS. The "Source" download does not contain an executable and step 3 will fail.
+2. [Install Go](https://golang.org/doc/install) on your system.  See platform specific instructions and hints below for making this work.
+3. Install the command line tool suite with:
 
 ```bash
 $ go get -d github.com/metacurrency/holochain
@@ -68,7 +69,7 @@ $ cd $GOPATH/src/github.com/metacurrency/holochain
 $ make
 ```
 
-3. Test that it works (should look something like this):
+4. Test that it works (should look something like this):
 
 ```bash
 $ hcadmin -v

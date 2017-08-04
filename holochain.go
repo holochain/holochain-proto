@@ -14,7 +14,6 @@ import (
 	"fmt"
 	"github.com/google/uuid"
 	peer "github.com/libp2p/go-libp2p-peer"
-	protocol "github.com/libp2p/go-libp2p-protocol"
 	mh "github.com/multiformats/go-multihash"
 	"github.com/tidwall/buntdb"
 	"io"
@@ -60,21 +59,24 @@ type Progenitor struct {
 // Holochain struct holds the full "DNA" of the holochain (all your app code for managing distributed data integrity)
 type Holochain struct {
 	//---- lowercase private values not serialized; initialized on Load
-	nodeID         peer.ID // this is hash of the public key of the id and acts as the node address
-	nodeIDStr      string  // this is just a cached version of the nodeID B58 string encoded
-	dnaHash        Hash
-	agentHash      Hash
-	agentTopHash   Hash
-	rootPath       string
-	agent          Agent
-	encodingFormat string
-	hashSpec       HashSpec
-	config         Config
-	dht            *DHT
-	nucleus        *Nucleus
-	node           *Node
-	chain          *Chain // This node's local source chain
-	bridgeDB       *buntdb.DB
+	nodeID           peer.ID // this is hash of the public key of the id and acts as the node address
+	nodeIDStr        string  // this is just a cached version of the nodeID B58 string encoded
+	dnaHash          Hash
+	agentHash        Hash
+	agentTopHash     Hash
+	rootPath         string
+	agent            Agent
+	encodingFormat   string
+	hashSpec         HashSpec
+	config           Config
+	dht              *DHT
+	nucleus          *Nucleus
+	node             *Node
+	chain            *Chain // This node's local source chain
+	bridgeDB         *buntdb.DB
+	validateProtocol *Protocol
+	gossipProtocol   *Protocol
+	actionProtocol   *Protocol
 }
 
 func (h *Holochain) Nucleus() (n *Nucleus) {
@@ -143,9 +145,6 @@ func InitializeHolochain() {
 
 		rand.Seed(time.Now().Unix()) // initialize global pseudo random generator
 
-		ValidateProtocol = Protocol{protocol.ID("/hc-validate/0.0.0"), ValidateReceiver}
-		GossipProtocol = Protocol{protocol.ID("/hc-gossip/0.0.0"), GossipReceiver}
-		ActionProtocol = Protocol{protocol.ID("/hc-action/0.0.0"), ActionReceiver}
 		_holochainInitialized = true
 	}
 }
@@ -228,7 +227,7 @@ func (h *Holochain) PrepareHashType() (err error) {
 // createNode creates a network node based on the current agent and port data
 func (h *Holochain) createNode() (err error) {
 	listenaddr := fmt.Sprintf("/ip4/0.0.0.0/tcp/%d", h.config.Port)
-	h.node, err = NewNode(listenaddr, h.Agent().(*LibP2PAgent))
+	h.node, err = NewNode(listenaddr, h.dnaHash.String(), h.Agent().(*LibP2PAgent))
 	return
 }
 
@@ -582,7 +581,7 @@ func (h *Holochain) HashSpec() HashSpec {
 }
 
 // Send builds a message and either delivers it locally or over the network via node.Send
-func (h *Holochain) Send(proto Protocol, to peer.ID, t MsgType, body interface{}) (response interface{}, err error) {
+func (h *Holochain) Send(proto int, to peer.ID, t MsgType, body interface{}) (response interface{}, err error) {
 	message := h.node.NewMessage(t, body)
 	if err != nil {
 		return
@@ -595,7 +594,7 @@ func (h *Holochain) Send(proto Protocol, to peer.ID, t MsgType, body interface{}
 	// the receiver directly
 	if to == h.node.HashAddr {
 		Debugf("Sending message (local):%v (fingerprint:%s)", message, f)
-		response, err = proto.Receiver(h, message)
+		response, err = h.node.protocols[proto].Receiver(h, message)
 		Debugf("send result (local): %v (fp:%s)error:%v", response, f, err)
 	} else {
 		Debugf("Sending message (net):%v (fingerprint:%s)", message, f)

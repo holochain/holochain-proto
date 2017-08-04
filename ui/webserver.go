@@ -34,11 +34,13 @@ func NewWebServer(h *holo.Holochain, port string) *WebServer {
 
 func (ws *WebServer) Start() {
 
+	mux := http.NewServeMux()
+
 	ws.log.New(nil)
 	ws.errs.New(os.Stderr)
 
 	fs := http.FileServer(http.Dir(ws.h.UIPath()))
-	http.Handle("/", fs)
+	mux.Handle("/", fs)
 
 	var upgrader = websocket.Upgrader{
 		ReadBufferSize:  1024,
@@ -46,7 +48,7 @@ func (ws *WebServer) Start() {
 		CheckOrigin:     func(r *http.Request) bool { return true },
 	}
 
-	http.HandleFunc("/_sock/", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/_sock/", func(w http.ResponseWriter, r *http.Request) {
 		conn, err := upgrader.Upgrade(w, r, nil)
 		if err != nil {
 			ws.errs.Logf(err.Error())
@@ -83,7 +85,7 @@ func (ws *WebServer) Start() {
 		}
 	})
 
-	http.HandleFunc("/fn/", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/fn/", func(w http.ResponseWriter, r *http.Request) {
 
 		var err error
 		var errCode = 400
@@ -133,7 +135,7 @@ func (ws *WebServer) Start() {
 		}
 	})
 
-	http.HandleFunc("/bridge/", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/bridge/", func(w http.ResponseWriter, r *http.Request) {
 
 		var err error
 		var errCode = 400
@@ -181,7 +183,7 @@ func (ws *WebServer) Start() {
 
 	// set router
 	ws.log.Logf("starting server on localhost:%s\n", ws.port)
-	err := http.ListenAndServe(":"+ws.port, nil) // set listen port
+	err := http.ListenAndServe(":"+ws.port, mux) // set listen port
 	if err != nil {
 		ws.errs.Logf("Couldn't start server: %v", err)
 	}

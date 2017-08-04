@@ -37,6 +37,10 @@ func setupTestService() (d string, s *Service) {
 	return
 }
 
+func SetupTestService() (d string, s *Service) {
+	return setupTestService()
+}
+
 func setupTestChain(n string) (d string, s *Service, h *Holochain) {
 	d, s = setupTestService()
 	path := filepath.Join(s.Path, n)

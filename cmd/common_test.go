@@ -1,27 +1,27 @@
 package cmd
 
 import (
-  "fmt"
-  "os"
-  "path/filepath"
+	"fmt"
+	"os"
+	"path/filepath"
 
 	. "github.com/smartystreets/goconvey/convey"
 	"testing"
 
-  holo "github.com/metacurrency/holochain"
+	holo "github.com/metacurrency/holochain"
 )
 
 func TestIsAppDir(t *testing.T) {
 	Convey("it should test to see if dir is a holochain app", t, func() {
 
-		d := holo.SetupTestDir()
-		So(IsAppDir(d).Error(), ShouldEqual, "directory missing .hc subdirectory")
-		err := os.MkdirAll(d+"/.hc", os.ModePerm)
+		d, s := holo.SetupTestService()
+		defer holo.CleanupTestDir(d)
+		So(IsAppDir(d).Error(), ShouldEqual, "directory missing dna/dna.json file")
+		h, err := s.GenDev(filepath.Join(s.Path, "test"), "json")
 		if err != nil {
 			panic(err)
 		}
-		defer holo.CleanupTestDir(d)
-		So(IsAppDir(d), ShouldBeNil)
+		So(IsAppDir(h.RootPath()), ShouldBeNil)
 	})
 }
 
@@ -71,20 +71,20 @@ func TestGetHolochain(t *testing.T) {
 }
 
 func Test_OsExecFunctions_IsFile(t *testing.T) {
-  d  := holo.MakeTestDirName()
-  os.MkdirAll(d, 0770)
-  defer holo.CleanupTestDir(d)
+	d := holo.MakeTestDirName()
+	os.MkdirAll(d, 0770)
+	defer holo.CleanupTestDir(d)
 
-  testFile := filepath.Join(d, "common_test.go.Test_OsExecPipes.aFile")
+	testFile := filepath.Join(d, "common_test.go.Test_OsExecPipes.aFile")
 
-  Convey("it should when there is no touched file", t, func() {
-    So(IsFile(testFile), ShouldEqual, false)
-  })
+	Convey("it should when there is no touched file", t, func() {
+		So(IsFile(testFile), ShouldEqual, false)
+	})
 
-  Convey("it should when there is a touched file",  t, func () {
-    OsExecPipes("touch",  testFile )
-    So(IsFile(testFile), ShouldEqual, true) 
-    OsExecSilent("rm",    testFile )
-    So(IsFile(testFile), ShouldEqual, false)
-  })
+	Convey("it should when there is a touched file", t, func() {
+		OsExecPipes("touch", testFile)
+		So(IsFile(testFile), ShouldEqual, true)
+		OsExecSilent("rm", testFile)
+		So(IsFile(testFile), ShouldEqual, false)
+	})
 }

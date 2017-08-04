@@ -8,15 +8,15 @@ package cmd
 
 import (
 	"errors"
-	exec "os/exec"
-  "fmt"
-  "net"
+	"fmt"
+	"net"
 	"os"
+	exec "os/exec"
 	"os/user"
 	"path/filepath"
 	"syscall"
 
-  holo "github.com/metacurrency/holochain"
+	holo "github.com/metacurrency/holochain"
 )
 
 var debug bool = false
@@ -33,56 +33,61 @@ func syscallExec(binaryFile string, args ...string) error {
 }
 
 func ExecBinScript(script string, args ...string) (err error) {
-	path, err := GolangHolochainDir("bin", script)
-  if debug {
-    fmt.Printf("HC: common.go: ExecBinScript: %v (%v)", path, args)
-  }
+	var path string
+	path, err = GolangHolochainDir("bin", script)
+	if err != nil {
+		return
+	}
+	if debug {
+		fmt.Printf("HC: common.go: ExecBinScript: %v (%v)", path, args)
+	}
 	return syscallExec(path, args...)
 }
 
 func OsExecSilent(args ...string) error {
-  cmd := exec.Command(args[0], args[1:]...)
-  if debug {
-    fmt.Printf("common.go: OsExecSilent: %v", cmd)
-  }
-  output, err := cmd.CombinedOutput()
-  if err != nil {
-    return err
-  }
-  if debug {
-    fmt.Printf("HC: common.go: OsExecSilent: %v", output)
-  }
+	cmd := exec.Command(args[0], args[1:]...)
+	if debug {
+		fmt.Printf("common.go: OsExecSilent: %v", cmd)
+	}
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return err
+	}
+	if debug {
+		fmt.Printf("HC: common.go: OsExecSilent: %v", output)
+	}
 
-  return nil
+	return nil
 }
 
 // OsExecPipes executes a command as if we are in a shell, including user input
 func OsExecPipes(args ...string) *exec.Cmd {
-  cmd := exec.Command(args[0], args[1:]...)
-  if debug {
-    fmt.Printf("HC: common.go: OsExecSilent: %v", cmd)
-  }
-  
-  cmd.Stdout = os.Stdout
-  cmd.Stderr = os.Stderr
-  cmd.Stdin  = os.Stdin
+	cmd := exec.Command(args[0], args[1:]...)
+	if debug {
+		fmt.Printf("HC: common.go: OsExecSilent: %v", cmd)
+	}
 
-  cmd.Run()
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	cmd.Stdin = os.Stdin
 
-  return cmd
+	cmd.Run()
+
+	return cmd
 }
+
 // OsExecPipes executes a command as if we are in a shell, including user input
 func OsExecPipes_noRun(args ...string) *exec.Cmd {
-  cmd := exec.Command(args[0], args[1:]...)
-  if debug {
-    fmt.Printf("HC: common.go: OsExecPipes_noRun: %v", cmd)
-  }
-  
-  cmd.Stdout = os.Stdout
-  cmd.Stderr = os.Stderr
-  cmd.Stdin  = os.Stdin
+	cmd := exec.Command(args[0], args[1:]...)
+	if debug {
+		fmt.Printf("HC: common.go: OsExecPipes_noRun: %v", cmd)
+	}
 
-  return cmd
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	cmd.Stdin = os.Stdin
+
+	return cmd
 }
 
 // IsAppDir tests path to see if it's a properly set up holochain app
@@ -90,22 +95,23 @@ func OsExecPipes_noRun(args ...string) *exec.Cmd {
 func IsAppDir(path string) error {
 	// return fmt.Errorf("this isnt of any use at the moment")
 
-  info, err := os.Stat(filepath.Join(path, "dna", "dna.json"))
+	info, err := os.Stat(filepath.Join(path, "dna", "dna.json"))
 	if err != nil {
 		err = fmt.Errorf("directory missing dna/dna.json file")
 	} else {
 		if !info.Mode().IsRegular() {
 			err = fmt.Errorf("dna/dna.json is not a file")
-    }
-  }
+		}
+	}
 	return err
 }
+
 // IsCoreDir tests path to see if it is contains Holochain Core source files
 // returns nil on success or an error describing the problem
 // func IsCoreDir(path string) error {
-  // check for the existance of package.json
-  // 
-  // return IsFile(filepath.Join(path, "package.json")
+// check for the existance of package.json
+//
+// return IsFile(filepath.Join(path, "package.json")
 // }
 
 // GetService is a helper function to load the holochain service from default locations or a given path
@@ -155,11 +161,11 @@ func MakeDirs(devPath string) error {
 	if err != nil {
 		return err
 	}
-	err = os.MkdirAll(filepath.Join(devPath, holo.ChainDNADir),  os.ModePerm)
+	err = os.MkdirAll(filepath.Join(devPath, holo.ChainDNADir), os.ModePerm)
 	if err != nil {
 		return err
 	}
-	err = os.MkdirAll(filepath.Join(devPath, holo.ChainUIDir),   os.ModePerm)
+	err = os.MkdirAll(filepath.Join(devPath, holo.ChainUIDir), os.ModePerm)
 	if err != nil {
 		return err
 	}
@@ -170,78 +176,76 @@ func MakeDirs(devPath string) error {
 	return nil
 }
 
-func Die(message string) { 
-  fmt.Println(message)
-  os.Exit(1)
+func Die(message string) {
+	fmt.Println(message)
+	os.Exit(1)
 }
 
 func GolangHolochainDir(subPath ...string) (path string, err error) {
-  err = nil
-
-  joinable := append([]string{os.Getenv("GOPATH"), "src/github.com/metacurrency/holochain", }, subPath...)
-  path = filepath.Join(joinable...)
-  if ! DirExists(path) {
-    err = errors.New("HC: hcdev.go: goScenario: source argument is not directory in /test. scenario name must match directory name")
-  }
-  return  
+	joinable := append([]string{os.Getenv("GOPATH"), "src/github.com/metacurrency/holochain"}, subPath...)
+	path = filepath.Join(joinable...)
+	if !DirExists(path) {
+		err = errors.New("HC: hcdev.go: goScenario: source argument is not directory in /test. scenario name must match directory name")
+	}
+	return
 }
 
 func IsFile(path ...string) bool {
-  return IsFileFromString(filepath.Join(path...) )
+	return IsFileFromString(filepath.Join(path...))
 }
 func IsFileFromString(path string) bool {
-  info, err := os.Stat(path)
-  if err != nil {
-    return false
-  } else {
-    if !info.Mode().IsRegular() {
-      return false
-    }
-  }
+	info, err := os.Stat(path)
+	if err != nil {
+		return false
+	} else {
+		if !info.Mode().IsRegular() {
+			return false
+		}
+	}
 
-  return true
+	return true
 }
 
 func DirExists(pathParts ...string) bool {
-  path := filepath.Join(pathParts...)
-  info, err := os.Stat(path)
-  return err == nil && info.Mode().IsDir()
+	path := filepath.Join(pathParts...)
+	info, err := os.Stat(path)
+	return err == nil && info.Mode().IsDir()
 }
 
 func FileExists(pathParts ...string) bool {
-  path := filepath.Join(pathParts...)
-  info, err := os.Stat(path)
-  if err != nil {
-    return false
-  }
-  return info.Mode().IsRegular()
+	path := filepath.Join(pathParts...)
+	info, err := os.Stat(path)
+	if err != nil {
+		return false
+	}
+	return info.Mode().IsRegular()
 }
 
 func MakeTmpDir(name string) (tmpHolochainCopyDir string, err error) {
-  tmpHolochainCopyDir = filepath.Join("/", "tmp", name)
-  os.RemoveAll(tmpHolochainCopyDir)
-  err = os.MkdirAll(tmpHolochainCopyDir, 0770)
-  if err != nil {
-    return "", err
-  }
-  return
+	tmpHolochainCopyDir = filepath.Join("/", "tmp", name)
+	os.RemoveAll(tmpHolochainCopyDir)
+	err = os.MkdirAll(tmpHolochainCopyDir, 0770)
+	if err != nil {
+		return "", err
+	}
+	return
 }
 
 // Ask the kernel for a free open port that is ready to use
 func GetFreePort() (port int, err error) {
-  port  = -1
-  err   = nil
+	port = -1
+	err = nil
 
-  addr, err := net.ResolveTCPAddr("tcp", "localhost:0")
-  if err != nil {
-    return
-  }
+	addr, err := net.ResolveTCPAddr("tcp", "localhost:0")
+	if err != nil {
+		return
+	}
 
-  l, err := net.ListenTCP("tcp", addr)
-  if err != nil {
-    return
-  }
-  defer l.Close()
-  port = l.Addr().(*net.TCPAddr).Port
-  return
+	l, err := net.ListenTCP("tcp", addr)
+	if err != nil {
+		return
+	}
+	defer l.Close()
+	port = l.Addr().(*net.TCPAddr).Port
+	return
 }

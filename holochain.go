@@ -16,7 +16,7 @@ import (
 	protocol "github.com/libp2p/go-libp2p-protocol"
 	mh "github.com/multiformats/go-multihash"
 	"io"
-  ioutil "io/ioutil"
+	ioutil "io/ioutil"
 	"math/rand"
 	"os"
 	"path/filepath"
@@ -293,6 +293,11 @@ func (h *Holochain) Activate() (err error) {
 	return
 }
 
+// RootPath returns a holochain root path
+func (h *Holochain) RootPath() string {
+	return h.rootPath
+}
+
 // UIPath returns a holochain UI path
 func (h *Holochain) UIPath() string {
 	return filepath.Join(h.rootPath, ChainUIDir)
@@ -315,26 +320,26 @@ func (h *Holochain) TestPath() string {
 
 // TestScenarioList returns a list of paths to scenario directories
 func (h *Holochain) TestScenarioList() (scenarios map[string]*os.FileInfo, err error) {
-  dirContentList := []os.FileInfo{}
-  scenarios      =  make(map[string]*os.FileInfo)
- 
-  dirContentList, err = ioutil.ReadDir(h.TestPath())
-  if err != nil {
-    return scenarios, err
-  }
-  for _, fileOrDir := range dirContentList {
-    if fileOrDir.Mode().IsDir() {
-      scenarios[fileOrDir.Name()] = &fileOrDir
-    }
-  }
+	dirContentList := []os.FileInfo{}
+	scenarios = make(map[string]*os.FileInfo)
 
-  return scenarios, err
+	dirContentList, err = ioutil.ReadDir(h.TestPath())
+	if err != nil {
+		return scenarios, err
+	}
+	for _, fileOrDir := range dirContentList {
+		if fileOrDir.Mode().IsDir() {
+			scenarios[fileOrDir.Name()] = &fileOrDir
+		}
+	}
+
+	return scenarios, err
 }
 
 // GetScenarioDataMap returns a map of TestData object
 func (h *Holochain) GetTestScenarioRoleList(scenarioName string) (roleNameList []string, err error) {
- 
-  return GetAllTestRoles(filepath.Join(h.TestPath(), scenarioName) )
+
+	return GetAllTestRoles(filepath.Join(h.TestPath(), scenarioName))
 }
 
 // DNAHash returns the hash of the DNA entry which is also the holochain ID

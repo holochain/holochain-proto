@@ -4,7 +4,9 @@ import (
 	"encoding/json"
 	"fmt"
 	zygo "github.com/glycerine/zygomys/repl"
+	peer "github.com/libp2p/go-libp2p-peer"
 	. "github.com/smartystreets/goconvey/convey"
+	"strings"
 	"testing"
 )
 
@@ -41,11 +43,15 @@ func TestNewZygoRibosome(t *testing.T) {
 		So(err, ShouldBeNil)
 		s = z.lastResult.(*zygo.SexpStr).S
 		So(s, ShouldEqual, h.agentHash.String())
+		_, err = z.Run("App_Agent_TopHash")
+		So(err, ShouldBeNil)
+		s = z.lastResult.(*zygo.SexpStr).S
+		So(s, ShouldEqual, h.agentHash.String())
 
 		_, err = z.Run("App_Agent_String")
 		So(err, ShouldBeNil)
 		s = z.lastResult.(*zygo.SexpStr).S
-		So(s, ShouldEqual, h.Agent().Name())
+		So(s, ShouldEqual, h.Agent().Identity())
 
 		_, err = z.Run("App_Key_Hash")
 		So(err, ShouldBeNil)
@@ -429,15 +435,6 @@ func TestZygoDHT(t *testing.T) {
 		So(r.(*zygo.SexpStr).S, ShouldEqual, `"2"`)
 	})
 
-	Convey("get should return sources", t, func() {
-		v, err := NewZygoRibosome(h, &Zome{RibosomeType: ZygoRibosomeType, Code: fmt.Sprintf(`(get "%s" (hash GetMask:HC_GetMask_Sources))`, hash.String())})
-		So(err, ShouldBeNil)
-		z := v.(*ZygoRibosome)
-		r, err := z.lastResult.(*zygo.SexpHash).HashGet(z.env, z.env.MakeSymbol("result"))
-		So(err, ShouldBeNil)
-		So(r.(*zygo.SexpArray).Val[0].(*zygo.SexpStr).S, ShouldEqual, h.nodeIDStr)
-	})
-
 	Convey("get should return entry type", t, func() {
 		v, err := NewZygoRibosome(h, &Zome{RibosomeType: ZygoRibosomeType, Code: fmt.Sprintf(`(get "%s" (hash GetMask:HC_GetMask_EntryType))`, hash.String())})
 		So(err, ShouldBeNil)
@@ -447,7 +444,16 @@ func TestZygoDHT(t *testing.T) {
 		So(r.(*zygo.SexpStr).S, ShouldEqual, "evenNumbers")
 	})
 
-	Convey("get should return entry type", t, func() {
+	Convey("get should return sources", t, func() {
+		v, err := NewZygoRibosome(h, &Zome{RibosomeType: ZygoRibosomeType, Code: fmt.Sprintf(`(get "%s" (hash GetMask:HC_GetMask_Sources))`, hash.String())})
+		So(err, ShouldBeNil)
+		z := v.(*ZygoRibosome)
+		r, err := z.lastResult.(*zygo.SexpHash).HashGet(z.env, z.env.MakeSymbol("result"))
+		So(err, ShouldBeNil)
+		So(r.(*zygo.SexpArray).Val[0].(*zygo.SexpStr).S, ShouldEqual, h.nodeIDStr)
+	})
+
+	Convey("get should return collection", t, func() {
 		v, err := NewZygoRibosome(h, &Zome{RibosomeType: ZygoRibosomeType, Code: fmt.Sprintf(`(get "%s" (hash GetMask:HC_GetMask_All))`, hash.String())})
 		So(err, ShouldBeNil)
 		z := v.(*ZygoRibosome)
@@ -575,6 +581,107 @@ func TestZygoDHT(t *testing.T) {
 		So(r.(*zygo.SexpStr).S, ShouldEqual, `"2"`)
 	})
 
+	Convey("updateAgent function without options should fail", t, func() {
+		_, err := NewZygoRibosome(h, &Zome{RibosomeType: ZygoRibosomeType,
+			Code: fmt.Sprintf(`(updateAgent (hash))`)})
+		So(err.Error(), ShouldEqual, "Zygomys exec error: Error calling 'updateAgent': expecting identity and/or revocation option")
+	})
+
+	Convey("updateAgent function should commit a new agent entry", t, func() {
+		oldPubKey, _ := h.agent.PubKey().Bytes()
+		v, err := NewZygoRibosome(h, &Zome{RibosomeType: ZygoRibosomeType,
+			Code: fmt.Sprintf(`(updateAgent (hash Identity:"new identity"))`)})
+		So(err, ShouldBeNil)
+		z := v.(*ZygoRibosome)
+		newAgentHash := z.lastResult.(*zygo.SexpStr).S
+		So(h.agentTopHash.String(), ShouldEqual, newAgentHash)
+		header := h.chain.Top()
+		So(header.Type, ShouldEqual, AgentEntryType)
+		So(newAgentHash, ShouldEqual, header.EntryLink.String())
+		So(h.agent.Identity(), ShouldEqual, "new identity")
+		newPubKey, _ := h.agent.PubKey().Bytes()
+		So(fmt.Sprintf("%v", newPubKey), ShouldEqual, fmt.Sprintf("%v", oldPubKey))
+		entry, _, _ := h.chain.GetEntry(header.EntryLink)
+		So(entry.Content().(AgentEntry).Identity, ShouldEqual, "new identity")
+		So(fmt.Sprintf("%v", entry.Content().(AgentEntry).Key), ShouldEqual, fmt.Sprintf("%v", oldPubKey))
+	})
+
+	Convey("updateAgent function with revoke option should commit a new agent entry and mark key as modified on DHT", t, func() {
+		oldPubKey, _ := h.agent.PubKey().Bytes()
+		oldPeer := h.nodeID
+		oldKey, _ := NewHash(h.nodeIDStr)
+		oldAgentHash := h.agentHash
+
+		v, err := NewZygoRibosome(h, &Zome{RibosomeType: ZygoRibosomeType,
+			Code: fmt.Sprintf(`(updateAgent (hash Revocation:"some revocation data"))`)})
+		So(err, ShouldBeNil)
+		z := v.(*ZygoRibosome)
+		newAgentHash := z.lastResult.(*zygo.SexpStr).S
+
+		So(newAgentHash, ShouldEqual, h.agentTopHash.String())
+		So(oldAgentHash.String(), ShouldNotEqual, h.agentTopHash.String())
+
+		header := h.chain.Top()
+		So(header.Type, ShouldEqual, AgentEntryType)
+		So(newAgentHash, ShouldEqual, header.EntryLink.String())
+		newPubKey, _ := h.agent.PubKey().Bytes()
+		So(fmt.Sprintf("%v", newPubKey), ShouldNotEqual, fmt.Sprintf("%v", oldPubKey))
+		entry, _, _ := h.chain.GetEntry(header.EntryLink)
+		revocation := &SelfRevocation{}
+		revocation.Unmarshal(entry.Content().(AgentEntry).Revocation)
+
+		w, _ := NewSelfRevocationWarrant(revocation)
+		payload, _ := w.Property("payload")
+
+		So(string(payload.([]byte)), ShouldEqual, "some revocation data")
+		So(fmt.Sprintf("%v", entry.Content().(AgentEntry).Key), ShouldEqual, fmt.Sprintf("%v", newPubKey))
+
+		// the new Key should be available on the DHT
+		newKey, _ := NewHash(h.nodeIDStr)
+		data, _, _, _, err := h.dht.get(newKey, StatusDefault, GetMaskDefault)
+		So(err, ShouldBeNil)
+		So(string(data), ShouldEqual, string(newPubKey))
+
+		// the old key should be marked as Modifed and we should get the new hash as the data
+		data, _, _, _, err = h.dht.get(oldKey, StatusDefault, GetMaskDefault)
+		So(err, ShouldEqual, ErrHashModified)
+		So(string(data), ShouldEqual, h.nodeIDStr)
+
+		// the new key should be a peerID in the node
+		peers := h.node.Host.Peerstore().Peers()
+		var found bool
+
+		for _, p := range peers {
+			pStr := peer.IDB58Encode(p)
+			if pStr == h.nodeIDStr {
+
+				found = true
+				break
+			}
+		}
+		So(found, ShouldBeTrue)
+
+		// the old peerID should now be in the blockedlist
+		peerList, err := h.dht.getList(BlockedList)
+		So(err, ShouldBeNil)
+		So(len(peerList.Records), ShouldEqual, 1)
+		So(peerList.Records[0].ID, ShouldEqual, oldPeer)
+		So(h.node.IsBlocked(oldPeer), ShouldBeTrue)
+	})
+
+	Convey("updateAgent function should update library values", t, func() {
+		v, err := NewZygoRibosome(h, &Zome{RibosomeType: ZygoRibosomeType,
+			Code: fmt.Sprintf(`(let [x (updateAgent (hash Identity:"new id" evocation:"some revocation data"))] (concat App_Key_Hash "." App_Agent_TopHash "." App_Agent_String))`)})
+		So(err, ShouldBeNil)
+		z := v.(*ZygoRibosome)
+		libVals := z.lastResult.(*zygo.SexpStr).S
+		s := strings.Split(libVals, ".")
+
+		So(s[0], ShouldEqual, h.nodeIDStr)
+		So(s[1], ShouldEqual, h.agentTopHash.String())
+		So(s[2], ShouldEqual, "new id")
+
+	})
 }
 
 func TestZyProcessArgs(t *testing.T) {

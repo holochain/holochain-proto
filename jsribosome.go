@@ -752,6 +752,63 @@ func NewJSRibosome(h *Holochain, zome *Zome) (n Ribosome, err error) {
 		return nil, err
 	}
 
+	err = jsr.vm.Set("updateAgent", func(call otto.FunctionCall) (result otto.Value) {
+		a := &ActionModAgent{}
+		//		var a Action = &ActionModAgent{}
+		args := a.Args()
+		err := jsProcessArgs(&jsr, args, call.ArgumentList)
+		if err != nil {
+			return mkOttoErr(&jsr, err.Error())
+		}
+		opts := args[0].value.(map[string]interface{})
+		id, idok := opts["Identity"]
+		if idok {
+			a.Identity = AgentIdentity(id.(string))
+		}
+		rev, revok := opts["Revocation"]
+		if revok {
+			a.Revocation = rev.(string)
+		}
+
+		resp, err := a.Do(h)
+		if err != nil {
+			return mkOttoErr(&jsr, err.Error())
+		}
+		var agentEntryHash Hash
+		if resp != nil {
+			agentEntryHash = resp.(Hash)
+		}
+		if revok {
+			// TODO there should be a better way to set a variable inside that vm.
+			// also worried about the re-entrancy here...
+			_, err = jsr.vm.Run(`App.Key.Hash="` + h.nodeIDStr + `"`)
+			if err != nil {
+				return mkOttoErr(&jsr, err.Error())
+			}
+		}
+
+		// there's always a new agent entry
+		_, err = jsr.vm.Run(`App.Agent.TopHash="` + h.agentTopHash.String() + `"`)
+		if err != nil {
+			return mkOttoErr(&jsr, err.Error())
+		}
+
+		// but not always a new identity to update
+		if idok {
+			_, err = jsr.vm.Run(`App.Agent.String="` + jsSanitizeString(id.(string)) + `"`)
+			if err != nil {
+				return mkOttoErr(&jsr, err.Error())
+			}
+		}
+
+		result, _ = jsr.vm.ToValue(agentEntryHash.String())
+
+		return
+	})
+	if err != nil {
+		return nil, err
+	}
+
 	err = jsr.vm.Set("remove", func(call otto.FunctionCall) (result otto.Value) {
 		var a Action = &ActionDel{}
 		args := a.Args()
@@ -834,7 +891,7 @@ func NewJSRibosome(h *Holochain, zome *Zome) (n Ribosome, err error) {
 
 	l := JSLibrary
 	if h != nil {
-		l += fmt.Sprintf(`var App = {Name:"%s",DNA:{Hash:"%s"},Agent:{Hash:"%s",String:"%s"},Key:{Hash:"%s"}};`, h.nucleus.dna.Name, h.dnaHash, h.agentHash, h.Agent().Name(), h.nodeIDStr)
+		l += fmt.Sprintf(`var App = {Name:"%s",DNA:{Hash:"%s"},Agent:{Hash:"%s",TopHash:"%s",String:"%s"},Key:{Hash:"%s"}};`, h.nucleus.dna.Name, h.dnaHash, h.agentHash, h.agentTopHash, h.Agent().Identity(), h.nodeIDStr)
 	}
 	_, err = jsr.Run(l + zome.Code)
 	if err != nil {

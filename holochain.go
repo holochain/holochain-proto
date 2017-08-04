@@ -12,7 +12,6 @@ import (
 	"errors"
 	"fmt"
 	"github.com/google/uuid"
-	ic "github.com/libp2p/go-libp2p-crypto"
 	peer "github.com/libp2p/go-libp2p-peer"
 	protocol "github.com/libp2p/go-libp2p-protocol"
 	mh "github.com/multiformats/go-multihash"
@@ -20,14 +19,15 @@ import (
 	"math/rand"
 	"os"
 	"path/filepath"
+
 	"time"
 )
 
 // Version is the numeric version number of the holochain library
-const Version int = 12
+const Version int = 13
 
 // VersionStr is the textual version number of the holochain library
-const VersionStr string = "12"
+const VersionStr string = "13"
 
 // Loggers holds the logging structures for the different parts of the system
 type Loggers struct {
@@ -51,8 +51,8 @@ type Config struct {
 
 // Progenitor holds data on the creator of the DNA
 type Progenitor struct {
-	Name   string
-	PubKey []byte
+	Identity string
+	PubKey   []byte
 }
 
 // Holochain struct holds the full "DNA" of the holochain (all your app code for managing distributed data integrity)
@@ -62,6 +62,7 @@ type Holochain struct {
 	nodeIDStr      string  // this is just a cached version of the nodeID B58 string encoded
 	dnaHash        Hash
 	agentHash      Hash
+	agentTopHash   Hash
 	rootPath       string
 	agent          Agent
 	encodingFormat string
@@ -130,6 +131,7 @@ func InitializeHolochain() {
 		gob.Register(StatusChange{})
 		gob.Register(Package{})
 		gob.Register(AppMsg{})
+		gob.Register(ListAddReq{})
 
 		RegisterBultinRibosomes()
 
@@ -180,7 +182,7 @@ func NewHolochain(agent Agent, root string, format string, zomes ...Zome) Holoch
 		UUID:            u,
 		RequiresVersion: Version,
 		DHTConfig:       DHTConfig{HashType: "sha2-256"},
-		Progenitor:      Progenitor{Name: string(agent.Name()), PubKey: pk},
+		Progenitor:      Progenitor{Identity: string(agent.Identity()), PubKey: pk},
 		Zomes:           zomes,
 	}
 
@@ -220,6 +222,13 @@ func (h *Holochain) PrepareHashType() (err error) {
 	return
 }
 
+// createNode creates a network node based on the current agent and port data
+func (h *Holochain) createNode() (err error) {
+	listenaddr := fmt.Sprintf("/ip4/0.0.0.0/tcp/%d", h.config.Port)
+	h.node, err = NewNode(listenaddr, h.Agent().(*LibP2PAgent))
+	return
+}
+
 // Prepare sets up a holochain to run by:
 // loading the schema validators, setting up a Network node and setting up the DHT
 func (h *Holochain) Prepare() (err error) {
@@ -233,8 +242,7 @@ func (h *Holochain) Prepare() (err error) {
 		return
 	}
 
-	listenaddr := fmt.Sprintf("/ip4/0.0.0.0/tcp/%d", h.config.Port)
-	h.node, err = NewNode(listenaddr, h.Agent().(*LibP2PAgent))
+	err = h.createNode()
 	if err != nil {
 		return
 	}
@@ -242,6 +250,13 @@ func (h *Holochain) Prepare() (err error) {
 	h.dht = NewDHT(h)
 	h.nucleus.h = h
 
+	var peerList PeerList
+	peerList, err = h.dht.getList(BlockedList)
+	if err != nil {
+		return err
+	}
+
+	h.node.InitBlockedList(peerList)
 	return
 }
 
@@ -319,6 +334,25 @@ func (h *Holochain) Started() bool {
 	return h.DNAHash().String() != ""
 }
 
+// AddAgentEntry adds a new sys entry type setting the current agent data (identity and key)
+func (h *Holochain) AddAgentEntry(revocation Revocation) (headerHash, agentHash Hash, err error) {
+	var entry AgentEntry
+
+	entry, err = h.agent.AgentEntry(revocation)
+	if err != nil {
+		return
+	}
+	e := GobEntry{C: entry}
+
+	var agentHeader *Header
+	headerHash, agentHeader, err = h.NewEntry(time.Now(), AgentEntryType, &e)
+	if err != nil {
+		return
+	}
+	agentHash = agentHeader.EntryLink
+	return
+}
+
 // GenChain establishes a holochain instance by creating the initial genesis entries in the chain
 // It assumes a properly set up .holochain sub-directory with a config file and
 // keys for signing.  See GenDev()
@@ -352,25 +386,14 @@ func (h *Holochain) GenChain() (headerHash Hash, err error) {
 
 	h.dnaHash = dnaHeader.EntryLink.Clone()
 
-	var k AgentEntry
-	k.Name = h.agent.Name()
-	k.KeyType = h.agent.KeyType()
-
-	pk := h.agent.PubKey()
-
-	k.Key, err = ic.MarshalPublicKey(pk)
+	var agentHash Hash
+	headerHash, agentHash, err = h.AddAgentEntry(nil) // revocation is empty on initial Gen
 	if err != nil {
 		return
 	}
 
-	e.C = k
-	var agentHeader *Header
-	headerHash, agentHeader, err = h.NewEntry(time.Now(), AgentEntryType, &e)
-	if err != nil {
-		return
-	}
-
-	h.agentHash = agentHeader.EntryLink
+	h.agentHash = agentHash
+	h.agentTopHash = agentHash
 
 	if err = writeFile([]byte(h.dnaHash.String()), h.rootPath, DNAHashFileName); err != nil {
 		return
@@ -513,6 +536,7 @@ func (h *Holochain) Reset() (err error) {
 
 	h.dnaHash = Hash{}
 	h.agentHash = Hash{}
+	h.agentTopHash = Hash{}
 
 	if h.chain.s != nil {
 		h.chain.s.Close()

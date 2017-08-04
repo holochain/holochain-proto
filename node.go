@@ -61,7 +61,13 @@ const (
 	// Application Messages
 
 	APP_MESSAGE
+
+	// Peer messages
+
+	LISTADD_REQUEST
 )
+
+var ErrBlockedListed = errors.New("node blockedlisted")
 
 // Message represents data that can be sent to node in the network
 type Message struct {
@@ -73,10 +79,11 @@ type Message struct {
 
 // Node represents a node in the network
 type Node struct {
-	HashAddr peer.ID
-	NetAddr  ma.Multiaddr
-	Host     *rhost.RoutedHost
-	mdnsSvc  discovery.Service
+	HashAddr    peer.ID
+	NetAddr     ma.Multiaddr
+	Host        *rhost.RoutedHost
+	mdnsSvc     discovery.Service
+	blockedlist map[peer.ID]bool
 }
 
 // Protocol encapsulates data for our different protocols
@@ -99,10 +106,14 @@ func (r *Router) FindPeer(context.Context, peer.ID) (peer pstore.PeerInfo, err e
 // implement peer found function for mdns discovery
 func (h *Holochain) HandlePeerFound(pi pstore.PeerInfo) {
 	h.dht.dlog.Logf("discovered peer via mdns: %v", pi)
-	h.node.Host.Connect(context.Background(), pi)
-	err := h.dht.UpdateGossiper(pi.ID, 0)
-	if err != nil {
-		h.dht.dlog.Logf("error when updating gossiper: %v", pi)
+	if h.node.IsBlocked(pi.ID) {
+		h.dht.dlog.Logf("peer %v in blockedlist, ignoring", pi.ID)
+	} else {
+		h.node.Host.Connect(context.Background(), pi)
+		err := h.dht.UpdateGossiper(pi.ID, 0)
+		if err != nil {
+			h.dht.dlog.Logf("error when updating gossiper: %v", pi)
+		}
 	}
 }
 
@@ -226,6 +237,10 @@ func (m Message) String() string {
 		typeStr = "VALIDATE_DEL_REQUEST"
 	case VALIDATE_MOD_REQUEST:
 		typeStr = "VALIDATE_MOD_REQUEST"
+	case APP_MESSAGE:
+		typeStr = "APP_MESSAGE"
+	case LISTADD_REQUEST:
+		typeStr = "LISTADD_REQUEST"
 	}
 	return fmt.Sprintf("%s @ %v From:%v Body:%v", typeStr, m.Time, m.From, m.Body)
 }
@@ -261,6 +276,10 @@ func (node *Node) StartProtocol(h *Holochain, proto Protocol) (err error) {
 			// @todo other sanity checks on From?
 			err = errors.New("message must have a source")
 		} else {
+			if node.IsBlocked(s.Conn().RemotePeer()) {
+				err = ErrBlockedListed
+			}
+
 			if err == nil {
 				response, err = proto.Receiver(h, &m)
 			}
@@ -277,6 +296,12 @@ func (node *Node) Close() error {
 
 // Send delivers a message to a node via the given protocol
 func (node *Node) Send(proto Protocol, addr peer.ID, m *Message) (response Message, err error) {
+
+	if node.IsBlocked(addr) {
+		err = ErrBlockedListed
+		return
+	}
+
 	s, err := node.Host.NewStream(context.Background(), addr, proto.ID)
 	if err != nil {
 		return
@@ -312,6 +337,35 @@ func (node *Node) NewMessage(t MsgType, body interface{}) (msg *Message) {
 	return
 }
 
+// IsBlockedListed checks to see if a node is on the blockedlist
+func (node *Node) IsBlocked(addr peer.ID) (ok bool) {
+	ok = node.blockedlist[addr]
+	return
+}
+
+// InitBlockedList sets up the blockedlist from a PeerList
+func (node *Node) InitBlockedList(list PeerList) {
+	node.blockedlist = make(map[peer.ID]bool)
+	for _, r := range list.Records {
+		node.Block(r.ID)
+	}
+}
+
+// Block adds a peer to the blocklist
+func (node *Node) Block(addr peer.ID) {
+	if node.blockedlist == nil {
+		node.blockedlist = make(map[peer.ID]bool)
+	}
+	node.blockedlist[addr] = true
+}
+
+// Unblock removes a peer from the blocklist
+func (node *Node) Unblock(addr peer.ID) {
+	if node.blockedlist != nil {
+		delete(node.blockedlist, addr)
+	}
+}
+
 type ErrorResponse struct {
 	Code    int
 	Message string
@@ -326,6 +380,7 @@ const (
 	ErrHashRejectedCode
 	ErrLinkNotFoundCode
 	ErrEntryTypeMismatchCode
+	ErrBlockedListedCode
 )
 
 // NewErrorResponse encodes standard errors for transmitting
@@ -343,6 +398,8 @@ func NewErrorResponse(err error) (errResp ErrorResponse) {
 		errResp.Code = ErrLinkNotFoundCode
 	case ErrEntryTypeMismatch:
 		errResp.Code = ErrEntryTypeMismatchCode
+	case ErrBlockedListed:
+		errResp.Code = ErrBlockedListedCode
 	default:
 		errResp.Message = err.Error() //Code will be set to ErrUnknown by default cus it's 0
 	}
@@ -364,6 +421,8 @@ func (errResp ErrorResponse) DecodeResponseError() (err error) {
 		err = ErrLinkNotFound
 	case ErrEntryTypeMismatchCode:
 		err = ErrEntryTypeMismatch
+	case ErrBlockedListedCode:
+		err = ErrBlockedListed
 	default:
 		err = errors.New(errResp.Message)
 	}

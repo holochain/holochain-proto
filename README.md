@@ -13,7 +13,7 @@
 
 In other words, a holochain functions very much **like a blockchain without bottlenecks** when it comes to enforcing validation rules, but is designed to  be fully distributed with each node only needing to hold a small portion of the data instead of everything needing a full copy of a global ledger. This makes it feasible to run blockchain-like applications on devices as lightweight as mobile phones.
 
-**[Code Status:](https://github.com/metacurrency/holochain/milestones?direction=asc&sort=completeness&state=all)** Pre-alpha. Not for production use. Security and encryption tasks are still in progress and we still expect to destructively restructure code APIs and data chains at this time. Proof-of-concept was unveiled at our first hackathon (March 2017) and we are targeting an **Alpha release in June 2017** when we complete our Security Milestone.
+**[Code Status:](https://github.com/metacurrency/holochain/milestones?direction=asc&sort=completeness&state=all)** Pre-alpha. Not for production use. Security and encryption tasks are still in progress and we still expect to destructively restructure code APIs and data chains at this time. Proof-of-concept was unveiled at our first hackathon (March 2017) and we are targeting an **Alpha release in August 2017** when we complete our Security Milestone.
 <br/>
 
 | Holochain Links: | [FAQ](https://github.com/metacurrency/holochain/wiki/FAQ) | [Developer Wiki](https://github.com/metacurrency/holochain/wiki) | [White Paper](http://ceptr.org/projects/holochain) | [GoDocs](https://godoc.org/github.com/metacurrency/holochain) |
@@ -59,8 +59,9 @@ Which you choose depends on your preference and your purpose.  If you intend to 
 
 ### Go Based Install
 
-1. [Install Go](https://golang.org/doc/install) on your system.  See platform specific instructions and hints below for making this work.
-2. Install the command line tool suite with:
+1. [Download Go](https://golang.org/dl/). Download the "Archive" or "Installer" for version 1.8 or later for your CPU and OS. The "Source" download does not contain an executable and step 3 will fail.
+2. [Install Go](https://golang.org/doc/install) on your system.  See platform specific instructions and hints below for making this work.
+3. Install the command line tool suite with:
 
 ```bash
 $ go get -d github.com/metacurrency/holochain
@@ -68,7 +69,7 @@ $ cd $GOPATH/src/github.com/metacurrency/holochain
 $ make
 ```
 
-3. Test that it works (should look something like this):
+4. Test that it works (should look something like this):
 
 ```bash
 $ hcadmin -v
@@ -90,7 +91,7 @@ For example, add the following to the end of your shell profile (usually `~/.bas
 
 #### Windows
 First you'll need to install some necessary programs if you don't already have them.
-* [Install Go](https://golang.org/dl/) 1.8 or later.
+* [Download Go](https://golang.org/dl/). Download the "Archive" or "Installer" for version 1.8 or later for Windows and your CPU. The "Source" download does not contain an executable.
 * [Install Windows git](https://git-scm.com/downloads). Be sure to select the appropriate options so that git is accessible from the Windows command line.
 * [Install GnuWin32 make](http://gnuwin32.sourceforge.net/packages/make.htm#download).
 

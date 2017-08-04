@@ -2,6 +2,7 @@ package holochain
 
 import (
 	"fmt"
+	ic "github.com/libp2p/go-libp2p-crypto"
 	peer "github.com/libp2p/go-libp2p-peer"
 	. "github.com/smartystreets/goconvey/convey"
 	"os"
@@ -61,12 +62,14 @@ func TestSetupDHT(t *testing.T) {
 		So(err, ShouldBeNil)
 		So(status, ShouldEqual, StatusLive)
 		So(et, ShouldEqual, KeyEntryType)
-		So(string(data), ShouldEqual, string([]byte(h.nodeID)))
+		pubKey, err := ic.MarshalPublicKey(h.agent.PubKey())
+		So(string(data), ShouldEqual, string(pubKey))
 
 		data, et, _, status, err = h.dht.get(keyHash, StatusDefault, GetMaskDefault)
 		So(err, ShouldBeNil)
 		So(status, ShouldEqual, StatusLive)
-		So(string(data), ShouldEqual, string([]byte(h.nodeID)))
+
+		So(string(data), ShouldEqual, string(pubKey))
 	})
 }
 
@@ -498,6 +501,65 @@ func TestActionReceiver(t *testing.T) {
 		So(entryType, ShouldEqual, "evenNumbers")
 		So(status, ShouldEqual, StatusDeleted)
 	})
+
+	Convey("LISTADD_REQUEST with bad warrant should return error", t, func() {
+		pid, _ := makePeer("testPeer")
+		m := h.node.NewMessage(LISTADD_REQUEST,
+			ListAddReq{
+				ListType:    BlockedList,
+				Peers:       []string{peer.IDB58Encode(pid)},
+				WarrantType: SelfRevocationType,
+				Warrant:     []byte("bad warrant!"),
+			})
+		_, err := ActionReceiver(h, m)
+		So(err.Error(), ShouldEqual, "List add request rejected on warrant failure: unable to decode warrant (invalid character 'b' looking for beginning of value)")
+	})
+
+	Convey("LISTADD_REQUEST with warrant out of context should return error", t, func() {
+		pid, oldPrivKey := makePeer("testPeer")
+		_, newPrivKey := makePeer("peer1")
+		revocation, _ := NewSelfRevocation(oldPrivKey, newPrivKey, []byte("extra data"))
+		w, _ := NewSelfRevocationWarrant(revocation)
+		data, _ := w.Encode()
+		m := h.node.NewMessage(LISTADD_REQUEST,
+			ListAddReq{
+				ListType:    BlockedList,
+				Peers:       []string{peer.IDB58Encode(pid)},
+				WarrantType: SelfRevocationType,
+				Warrant:     data,
+			})
+		_, err := ActionReceiver(h, m)
+		So(err.Error(), ShouldEqual, "List add request rejected on warrant failure: expected old key to be modified on DHT")
+
+	})
+
+	/*
+		getting a good warrant without also having already had the addToList happen is hard,
+		 so not quite sure how to test this
+				Convey("LISTADD_REQUEST with good warrant should add to list", t, func() {
+					pid, oldPrivKey := makePeer("testPeer")
+					_, newPrivKey := makePeer("peer1")
+					revocation, _ := NewSelfRevocation(oldPrivKey, newPrivKey, []byte("extra data"))
+					w, _ := NewSelfRevocationWarrant(revocation)
+					data, _ := w.Encode()
+					m := h.node.NewMessage(LISTADD_REQUEST,
+						ListAddReq{
+							ListType:    BlockedList,
+							Peers:       []string{peer.IDB58Encode(pid)},
+							WarrantType: SelfRevocationType,
+							Warrant:     data,
+						})
+					r, err := ActionReceiver(h, m)
+					So(err, ShouldBeNil)
+					So(r, ShouldEqual, "queued")
+
+					peerList, err := h.dht.getList(BlockedList)
+					So(err, ShouldBeNil)
+					So(len(peerList.Records), ShouldEqual, 1)
+					So(peerList.Records[0].ID, ShouldEqual, pid)
+				})
+	*/
+
 }
 
 func TestDHTDump(t *testing.T) {

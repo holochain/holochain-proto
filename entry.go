@@ -35,11 +35,11 @@ const (
 	Partial = "partial"
 )
 
-// AgentEntry structure for building KeyEntryType entries
+// AgentEntry structure for building AgentEntryType entries
 type AgentEntry struct {
-	Name    AgentName
-	KeyType KeytypeType
-	Key     []byte // marshaled public key
+	Identity   AgentIdentity
+	Revocation []byte // marshaled revocation
+	Key        []byte // marshaled public key
 }
 
 // LinksEntry holds one or more links

@@ -9,6 +9,7 @@ package holochain
 import (
 	"errors"
 	"fmt"
+	ic "github.com/libp2p/go-libp2p-crypto"
 	peer "github.com/libp2p/go-libp2p-peer"
 	"github.com/tidwall/buntdb"
 	"path/filepath"
@@ -187,11 +188,17 @@ type LinkQueryResp struct {
 	Links []TaggedHash
 }
 
+type ListAddReq struct {
+	ListType    string
+	Peers       []string
+	WarrantType int
+	Warrant     []byte
+}
+
 var ErrLinkNotFound = errors.New("link not found")
 var ErrHashDeleted = errors.New("hash deleted")
 var ErrHashModified = errors.New("hash modified")
 var ErrHashRejected = errors.New("hash rejected")
-
 var ErrEntryTypeMismatch = errors.New("entry type mismatch")
 
 // NewDHT creates a new DHT structure
@@ -208,6 +215,7 @@ func NewDHT(h *Holochain) *DHT {
 	db.CreateIndex("link", "link:*", buntdb.IndexString)
 	db.CreateIndex("idx", "idx:*", buntdb.IndexInt)
 	db.CreateIndex("peer", "peer:*", buntdb.IndexString)
+	db.CreateIndex("list", "list:*", buntdb.IndexString)
 
 	dht.db = db
 	dht.puts = make(chan Message, 10)
@@ -216,6 +224,32 @@ func NewDHT(h *Holochain) *DHT {
 	dht.gchan = make(chan gossipWithReq, 10)
 
 	return &dht
+}
+
+// putKey implements the special case for adding the KeyEntry system type to the DHT
+// note that the Contents of this key are the same as the contents of the agent entry on the
+// chain.  The keyEntry is a virtual entry that's NOT actually on the chain
+func (dht *DHT) putKey(agent Agent) (err error) {
+	var nodeID peer.ID
+	var nodeIDStr string
+	nodeID, nodeIDStr, err = agent.NodeID()
+	if err != nil {
+		return
+	}
+	keyHash, err := NewHash(nodeIDStr)
+	if err != nil {
+		return
+	}
+
+	var pubKey []byte
+	pubKey, err = ic.MarshalPublicKey(agent.PubKey())
+	if err != nil {
+		return
+	}
+	if err = dht.put(dht.h.node.NewMessage(PUT_REQUEST, PutReq{H: keyHash}), KeyEntryType, keyHash, nodeID, pubKey, StatusLive); err != nil {
+		return
+	}
+	return
 }
 
 // SetupDHT prepares a DHT for use by putting the genesis entries that are added by GenChain
@@ -229,13 +263,7 @@ func (dht *DHT) SetupDHT() (err error) {
 	}
 
 	// put the KeyEntry so it always exists for retrieving the public key
-	kh, err := NewHash(peer.IDB58Encode(dht.h.nodeID))
-	if err != nil {
-		return
-	}
-	if err = dht.put(dht.h.node.NewMessage(PUT_REQUEST, PutReq{H: kh}), KeyEntryType, kh, dht.h.nodeID, []byte(dht.h.nodeID), StatusLive); err != nil {
-		return
-	}
+	err = dht.putKey(dht.h.agent) // first time so revocation is empty
 
 	// put the AgentEntry so it always exists for linking
 	a := dht.h.AgentHash()
@@ -670,6 +698,7 @@ func (dht *DHT) DumpIdx(idx int) (str string, err error) {
 	return
 }
 
+// String converts a DHT into a human readable string
 func (dht *DHT) String() (result string) {
 	idx, err := dht.GetIdx()
 	if err != nil {

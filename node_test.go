@@ -206,6 +206,38 @@ func TestNodeSend(t *testing.T) {
 		So(fmt.Sprintf("%T", r.Body), ShouldEqual, "holochain.Gossip")
 	})
 
+	Convey("it should respond with err on messages from nodes on the blockedlist", t, func() {
+		node1.Block(node2.HashAddr)
+		m := node2.NewMessage(GOSSIP_REQUEST, GossipReq{})
+		r, err := node2.Send(GossipProtocol, node1.HashAddr, m)
+		So(err, ShouldBeNil)
+		So(r.Type, ShouldEqual, ERROR_RESPONSE)
+		So(r.From, ShouldEqual, node1.HashAddr) // response comes from who we sent to
+		So(r.Body.(ErrorResponse).Code, ShouldEqual, ErrBlockedListedCode)
+	})
+
+	Convey("it should respond with err on messages to nodes on the blockedlist", t, func() {
+		node1.Block(node2.HashAddr)
+		m := node1.NewMessage(GOSSIP_REQUEST, GossipReq{})
+		_, err = node1.Send(GossipProtocol, node2.HashAddr, m)
+		So(err, ShouldEqual, ErrBlockedListed)
+	})
+
+}
+
+func TestNodeBlockedList(t *testing.T) {
+	Convey("it should be set up from a peerlist", t, func() {
+		node, _ := makeNode(1234, "node1")
+		node2, _ := makeNode(1235, "node2")
+
+		So(node.IsBlocked(node2.HashAddr), ShouldBeFalse)
+		node.InitBlockedList(PeerList{Records: []PeerRecord{PeerRecord{ID: node2.HashAddr}}})
+		So(node.IsBlocked(node2.HashAddr), ShouldBeTrue)
+		node.Unblock(node2.HashAddr)
+		So(node.IsBlocked(node2.HashAddr), ShouldBeFalse)
+		node.Block(node2.HashAddr)
+		So(node.IsBlocked(node2.HashAddr), ShouldBeTrue)
+	})
 }
 
 func TestMessageCoding(t *testing.T) {
@@ -321,6 +353,6 @@ func makePeer(id string) (pid peer.ID, key ic.PrivKey) {
 func makeNode(port int, id string) (*Node, error) {
 	listenaddr := fmt.Sprintf("/ip4/127.0.0.1/tcp/%d", port)
 	_, key := makePeer(id)
-	agent := LibP2PAgent{AgentName(id), key}
+	agent := LibP2PAgent{identity: AgentIdentity(id), priv: key, pub: key.GetPublic()}
 	return NewNode(listenaddr, &agent)
 }

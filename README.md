@@ -91,7 +91,7 @@ For example, add the following to the end of your shell profile (usually `~/.bas
 
 #### Windows
 First you'll need to install some necessary programs if you don't already have them.
-* [Download Go](https://golang.org/dl/). Download the "Archive" or "Installer" for version 1.8 or later for Windows and your CPU. The "Source" download does not contain an executable and step 3 will fail.
+* [Download Go](https://golang.org/dl/). Download the "Archive" or "Installer" for version 1.8 or later for Windows and your CPU. The "Source" download does not contain an executable.
 * [Install Windows git](https://git-scm.com/downloads). Be sure to select the appropriate options so that git is accessible from the Windows command line.
 * [Install GnuWin32 make](http://gnuwin32.sourceforge.net/packages/make.htm#download).
 

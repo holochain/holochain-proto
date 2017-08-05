@@ -4,6 +4,7 @@ import (
 	"fmt"
 	ic "github.com/libp2p/go-libp2p-crypto"
 	. "github.com/smartystreets/goconvey/convey"
+	"os"
 	"path/filepath"
 	"testing"
 )
@@ -21,7 +22,7 @@ func TestInit(t *testing.T) {
 	s, err := Init(filepath.Join(d, DefaultDirectoryName), AgentIdentity(agent))
 
 	Convey("when initializing service in a directory", t, func() {
-		So(err, ShouldEqual, nil)
+		So(err, ShouldBeNil)
 
 		Convey("it should return a service with default values", func() {
 			So(s.DefaultAgent.Identity(), ShouldEqual, AgentIdentity(agent))
@@ -31,7 +32,7 @@ func TestInit(t *testing.T) {
 		p := filepath.Join(d, DefaultDirectoryName)
 		Convey("it should create agent files", func() {
 			a, err := LoadAgent(p)
-			So(err, ShouldEqual, nil)
+			So(err, ShouldBeNil)
 			So(a.Identity(), ShouldEqual, AgentIdentity(agent))
 		})
 
@@ -41,7 +42,7 @@ func TestInit(t *testing.T) {
 
 		Convey("it should create an agent file", func() {
 			a, err := readFile(p, AgentFileName)
-			So(err, ShouldEqual, nil)
+			So(err, ShouldBeNil)
 			So(string(a), ShouldEqual, agent)
 		})
 	})
@@ -53,7 +54,7 @@ func TestLoadService(t *testing.T) {
 	defer CleanupTestDir(d)
 	Convey("loading service from disk should set up the struct", t, func() {
 		s, err := LoadService(root)
-		So(err, ShouldEqual, nil)
+		So(err, ShouldBeNil)
 		So(s.Path, ShouldEqual, root)
 		So(s.Settings.DefaultPeerModeDHTNode, ShouldEqual, true)
 		So(s.Settings.DefaultPeerModeAuthor, ShouldEqual, true)
@@ -245,5 +246,32 @@ func TestGenDev(t *testing.T) {
 			_, err = s.GenDev(root, "json")
 			So(err.Error(), ShouldEqual, "holochain: "+root+" already exists")
 		})
+	})
+}
+
+func TestMakeConfig(t *testing.T) {
+	d, s := setupTestService()
+	defer CleanupTestDir(d)
+	h := &Holochain{encodingFormat: "json", rootPath: d}
+	Convey("make config should produce default values", t, func() {
+		err := makeConfig(h, s)
+		So(err, ShouldBeNil)
+		So(h.config.Port, ShouldEqual, DefaultPort)
+		So(h.config.EnableMDNS, ShouldBeFalse)
+		So(h.config.BootstrapServer, ShouldNotEqual, "")
+		So(h.config.Loggers.App.Format, ShouldEqual, "%{color:cyan}%{message}")
+
+	})
+	Convey("make config should produce default config from OS env overridden values", t, func() {
+		os.Setenv("HOLOCHAINCONFIG_PORT", "12345")
+		os.Setenv("HOLOCHAINCONFIG_ENABLEMDNS", "true")
+		os.Setenv("HOLOCHAINCONFIG_LOGPREFIX", "prefix:")
+		os.Setenv("HOLOCHAINCONFIG_BOOTSTRAP", "_")
+		err := makeConfig(h, s)
+		So(err, ShouldBeNil)
+		So(h.config.Port, ShouldEqual, 12345)
+		So(h.config.EnableMDNS, ShouldBeTrue)
+		So(h.config.Loggers.App.Format, ShouldEqual, "prefix:%{color:cyan}%{message}")
+		So(h.config.BootstrapServer, ShouldEqual, "")
 	})
 }

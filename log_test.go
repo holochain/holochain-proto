@@ -60,7 +60,7 @@ func TestNewLog(t *testing.T) {
 		}
 
 		c, f := l.setupColor("x")
-		So(c, ShouldEqual, nil)
+		So(c, ShouldBeNil)
 		So(f, ShouldEqual, "x")
 
 		c, f = l.setupColor("prefix%{color:red}%{message}")

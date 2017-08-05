@@ -83,7 +83,7 @@ func TestTop(t *testing.T) {
 	Convey("TopType should return nil for non existent type", t, func() {
 		hash, hd = c.TopType("otherData")
 		So(hd, ShouldBeNil)
-		So(hash, ShouldEqual, nil)
+		So(hash, ShouldBeNil)
 	})
 	Convey("TopType should return header for correct type", t, func() {
 		hash, hd = c.TopType("entryTypeFoo")
@@ -110,7 +110,7 @@ func TestTopType(t *testing.T) {
 	Convey("it should return nil for an empty chain", t, func() {
 		hash, hd := c.TopType("entryTypeFoo")
 		So(hd, ShouldBeNil)
-		So(hash, ShouldEqual, nil)
+		So(hash, ShouldBeNil)
 	})
 	Convey("it should return nil for an chain with no entries of the type", t, func() {
 	})

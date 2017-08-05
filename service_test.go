@@ -22,7 +22,7 @@ func TestInit(t *testing.T) {
 	s, err := Init(filepath.Join(d, DefaultDirectoryName), AgentIdentity(agent))
 
 	Convey("when initializing service in a directory", t, func() {
-		So(err, ShouldEqual, nil)
+		So(err, ShouldBeNil)
 
 		Convey("it should return a service with default values", func() {
 			So(s.DefaultAgent.Identity(), ShouldEqual, AgentIdentity(agent))
@@ -32,7 +32,7 @@ func TestInit(t *testing.T) {
 		p := filepath.Join(d, DefaultDirectoryName)
 		Convey("it should create agent files", func() {
 			a, err := LoadAgent(p)
-			So(err, ShouldEqual, nil)
+			So(err, ShouldBeNil)
 			So(a.Identity(), ShouldEqual, AgentIdentity(agent))
 		})
 
@@ -42,7 +42,7 @@ func TestInit(t *testing.T) {
 
 		Convey("it should create an agent file", func() {
 			a, err := readFile(p, AgentFileName)
-			So(err, ShouldEqual, nil)
+			So(err, ShouldBeNil)
 			So(string(a), ShouldEqual, agent)
 		})
 	})
@@ -54,7 +54,7 @@ func TestLoadService(t *testing.T) {
 	defer CleanupTestDir(d)
 	Convey("loading service from disk should set up the struct", t, func() {
 		s, err := LoadService(root)
-		So(err, ShouldEqual, nil)
+		So(err, ShouldBeNil)
 		So(s.Path, ShouldEqual, root)
 		So(s.Settings.DefaultPeerModeDHTNode, ShouldEqual, true)
 		So(s.Settings.DefaultPeerModeAuthor, ShouldEqual, true)

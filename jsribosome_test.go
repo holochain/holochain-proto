@@ -166,10 +166,12 @@ func TestNewJSRibosome(t *testing.T) {
 			So(entry.Content(), ShouldEqual, `{"prime":7}`)
 
 		})
-		SkipConvey("bridge", func() {
+		Convey("bridge", func() {
 			// hard to test because we need to fire up a separate app someplace else
-			_, err := z.Run(`bridge("QmVGtdTZdTFaLsaj2RwdVG8jcjNNcp1DE914DKZ2kHmXHw","zySampleZome","addEven","432")`)
+			_, err := z.Run(`bridge("QmVGtdTZdTFaLsaj2RwdVG8jcjNNcp1DE914DKZ2kHmXHw","zySampleZome","testStrFn1","foo")`)
 			So(err, ShouldBeNil)
+			result := z.lastResult.String()
+			So(result, ShouldEqual, "HolochainError: no active bridge")
 		})
 		Convey("send", func() {
 			ShouldLog(h.nucleus.alog, `result was: "{\"pong\":\"foobar\"}"`, func() {

@@ -177,6 +177,12 @@ func TestNewZygoRibosome(t *testing.T) {
 			So(entry.Content(), ShouldEqual, `{"firstName":"Jane","lastName":"Jetson"}`)
 
 		})
+		Convey("bridge", func() {
+			// hard to test because we need to fire up a separate app someplace else
+			_, err := z.Run(`(bridge "QmVGtdTZdTFaLsaj2RwdVG8jcjNNcp1DE914DKZ2kHmXHw" "jsSampleZome" "getProperty" "language")`)
+			So(err.Error(), ShouldEqual, "Zygomys exec error: Error calling 'bridge': no active bridge")
+		})
+
 		Convey("send", func() {
 			ShouldLog(h.nucleus.alog, `result was: "{\"pong\":\"foobar\"}"`, func() {
 				_, err := z.Run(`(debug (concat "result was: " (str (hget (send App_Key_Hash (hash ping: "foobar")) %result))))`)

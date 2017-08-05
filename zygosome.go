@@ -662,6 +662,33 @@ func NewZygoRibosome(h *Holochain, zome *Zome) (n Ribosome, err error) {
 			return &zygo.SexpStr{S: r.(string)}, err
 		})
 
+	z.env.AddFunction("bridge",
+		func(env *zygo.Glisp, name string, zyargs []zygo.Sexp) (zygo.Sexp, error) {
+			a := &ActionBridge{}
+			args := a.Args()
+			err := zyProcessArgs(args, zyargs)
+			if err != nil {
+				return zygo.SexpNull, err
+			}
+			hash := args[0].value.(Hash)
+			a.token, a.url, err = h.GetBridgeToken(hash)
+			if err != nil {
+				return zygo.SexpNull, err
+			}
+
+			a.zome = args[1].value.(string)
+			a.function = args[2].value.(string)
+			a.args = args[3].value.(string)
+
+			var r interface{}
+			r, err = a.Do(h)
+			if err != nil {
+				return zygo.SexpNull, err
+			}
+
+			return &zygo.SexpStr{S: r.(string)}, err
+		})
+
 	z.env.AddFunction("commit",
 		func(env *zygo.Glisp, name string, zyargs []zygo.Sexp) (zygo.Sexp, error) {
 			var a Action = &ActionCommit{}

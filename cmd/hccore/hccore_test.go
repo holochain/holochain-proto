@@ -10,6 +10,7 @@ import (
 
 	. "github.com/smartystreets/goconvey/convey"
 	_ "github.com/urfave/cli"
+	"io/ioutil"
 	"testing"
 )
 

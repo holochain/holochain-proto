@@ -125,6 +125,7 @@ func setupApp() (app *cli.App) {
 							return err
 						}
 						cmd.OsExecPipes(binpath, compileTargets)
+
 						// } else {
 						//   // swaps current go process for a(bash)nother process
 						//   cmd.ExecBinScript(scriptStringBuffer.String())

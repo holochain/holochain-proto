@@ -32,9 +32,21 @@ func (jsr *JSRibosome) Type() string { return JSRibosomeType }
 // ChainGenesis runs the application genesis function
 // this function gets called after the genesis entries are added to the chain
 func (jsr *JSRibosome) ChainGenesis() (err error) {
-	v, err := jsr.vm.Run(`genesis()`)
+	err = jsr.boolFn("genesis")
+	return
+}
+
+// BridgeGnesis runs the application genesis function
+// this function gets called after the genesis entries are added to the chain
+func (jsr *JSRibosome) BridgeGenesis() (err error) {
+	err = jsr.boolFn("bridgeGenesis")
+	return
+}
+
+func (jsr *JSRibosome) boolFn(fnName string) (err error) {
+	v, err := jsr.vm.Run(fnName + "()")
 	if err != nil {
-		err = fmt.Errorf("Error executing genesis: %v", err)
+		err = fmt.Errorf("Error executing %s: %v", fnName, err)
 		return
 	}
 	if v.IsBoolean() {
@@ -44,11 +56,11 @@ func (jsr *JSRibosome) ChainGenesis() (err error) {
 			return
 		}
 		if !b {
-			err = fmt.Errorf("genesis failed")
+			err = fmt.Errorf("%s failed", fnName)
 		}
 
 	} else {
-		err = fmt.Errorf("genesis should return boolean, got: %v", v)
+		err = fmt.Errorf("%s should return boolean, got: %v", fnName, v)
 	}
 	return
 }

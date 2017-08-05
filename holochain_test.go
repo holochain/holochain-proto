@@ -392,21 +392,31 @@ func TestBridgeCall(t *testing.T) {
 	d, _, h := PrepareTestChain("test")
 	defer CleanupTestDir(d)
 	token := "bogus token"
+	var err error
 	Convey("it should fail calls to functions when there's no brided", t, func() {
-		_, err := h.BridgeCall("zySampleZome", "testStrFn1", "arg1 arg2", token)
+		_, err = h.BridgeCall("zySampleZome", "testStrFn1", "arg1 arg2", token)
 		So(err.Error(), ShouldEqual, "no active bridge")
 	})
-	Convey("it should call the bridged function", t, func() {
-		token, err := h.NewBridge()
+
+	Convey("it should call the bridgeGenesis function on bridging", t, func() {
+		ShouldLog(h.nucleus.alog, `bridge genesis debug output`, func() {
+			token, err = h.NewBridge()
+			So(err, ShouldBeNil)
+		})
+		c := Capability{Token: token, db: h.bridgeDB}
+		bridgeSpecStr, err := c.Validate(nil)
 		So(err, ShouldBeNil)
-		result, err := h.BridgeCall("zySampleZome", "testStrFn1", "arg1 arg2", token)
+		So(bridgeSpecStr, ShouldEqual, `{"jsSampleZome":{"getProperty":true},"zySampleZome":{"testStrFn1":true}}`)
+	})
+
+	Convey("it should call the bridged function", t, func() {
+		var result interface{}
+		result, err = h.BridgeCall("zySampleZome", "testStrFn1", "arg1 arg2", token)
 		So(err, ShouldBeNil)
 		So(result.(string), ShouldEqual, "result: arg1 arg2")
 	})
 
 	Convey("it should fail calls to functions not included in the bridge", t, func() {
-		token, err := h.NewBridge()
-		So(err, ShouldBeNil)
 		_, err = h.BridgeCall("zySampleZome", "testStrFn2", "arg1 arg2", token)
 		So(err, ShouldNotBeNil)
 		So(err.Error(), ShouldEqual, "function not bridged")

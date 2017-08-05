@@ -205,6 +205,19 @@ func TestZygoGenesis(t *testing.T) {
 	})
 }
 
+func TestZygoBridgeGenesis(t *testing.T) {
+	Convey("it should fail if the bridge genesis function returns false", t, func() {
+		z, _ := NewZygoRibosome(nil, &Zome{RibosomeType: ZygoRibosomeType, Code: `(defn bridgeGenesis [] false)`})
+		err := z.BridgeGenesis()
+		So(err.Error(), ShouldEqual, "bridgeGenesis failed")
+	})
+	Convey("it should work if the bridge genesis function returns true", t, func() {
+		z, _ := NewZygoRibosome(nil, &Zome{RibosomeType: ZygoRibosomeType, Code: `(defn bridgeGenesis [] true)`})
+		err := z.BridgeGenesis()
+		So(err, ShouldBeNil)
+	})
+}
+
 func TestZyReceive(t *testing.T) {
 	Convey("it should call a receive function that returns a hash", t, func() {
 		z, _ := NewZygoRibosome(nil, &Zome{RibosomeType: ZygoRibosomeType, Code: `(defn receive [from msg] (hash %foo (hget msg %bar)))`})

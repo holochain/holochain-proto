@@ -723,6 +723,7 @@ func (s *Service) GenDev(root string, format string) (hP *Holochain, err error) 
 (defn validateDelPkg [entryType] nil)
 (defn validateLinkPkg [entryType] nil)
 (defn genesis [] true)
+(defn bridgeGenesis [] (begin (debug "bridge genesis debug output")  true))
 (defn receive [from message]
 	(hash pong: (hget message %ping)))
 `
@@ -785,6 +786,7 @@ function validateDelPkg(entry_type) { return null}
 function validateLinkPkg(entry_type) { return null}
 
 function genesis() {return true}
+function bridgeGenesis() {return true}
 
 function receive(from,message) {
   // send back a pong message of what came in the ping message!

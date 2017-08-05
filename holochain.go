@@ -623,6 +623,7 @@ func (h *Holochain) Chain() *Chain {
 type BridgeSpec map[string]map[string]bool
 
 // NewBridge registers a token for allowing bridged calls from some other app
+// and calls bridgeGenesis in any zomes with bridge functions
 func (h *Holochain) NewBridge() (token string, err error) {
 	err = h.initBridgeDB()
 	if err != nil {
@@ -639,10 +640,24 @@ func (h *Holochain) NewBridge() (token string, err error) {
 			return
 		}
 	}
+
+	for zomeName, _ := range bridgeSpec {
+		var r Ribosome
+		r, _, err = h.MakeRibosome(zomeName)
+		if err != nil {
+			return
+		}
+		err = r.BridgeGenesis()
+		if err != nil {
+			return
+		}
+	}
+
 	capability, err = NewCapability(h.bridgeDB, string(bridgeSpecB), nil)
 	if err != nil {
 		return
 	}
+
 	token = capability.Token
 	return
 }

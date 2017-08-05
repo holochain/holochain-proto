@@ -36,26 +36,38 @@ func (z *ZygoRibosome) Type() string { return ZygoRibosomeType }
 // ChainGenesis runs the application genesis function
 // this function gets called after the genesis entries are added to the chain
 func (z *ZygoRibosome) ChainGenesis() (err error) {
-	err = z.env.LoadString(`(genesis)`)
+	err = z.boolFn("genesis")
+	return
+}
+
+// BridgeGenesis runs the bridging genesis function
+// this function gets called after the genesis entries are added to the chain
+func (z *ZygoRibosome) BridgeGenesis() (err error) {
+	err = z.boolFn("bridgeGenesis")
+	return
+}
+
+func (z *ZygoRibosome) boolFn(fnName string) (err error) {
+	err = z.env.LoadString("(" + fnName + ")")
 	if err != nil {
 		return
 	}
 	result, err := z.env.Run()
 	if err != nil {
-		err = fmt.Errorf("Error executing genesis: %v", err)
+		err = fmt.Errorf("Error executing %s: %v", fnName, err)
 		return
 	}
 	switch result.(type) {
 	case *zygo.SexpBool:
 		r := result.(*zygo.SexpBool).Val
 		if !r {
-			err = fmt.Errorf("genesis failed")
+			err = fmt.Errorf("%s failed", fnName)
 		}
 	case *zygo.SexpSentinel:
-		err = errors.New("genesis should return boolean, got nil")
+		err = fmt.Errorf("%s should return boolean, got nil", fnName)
 
 	default:
-		err = errors.New("genesis should return boolean, got: " + fmt.Sprintf("%v", result))
+		err = fmt.Errorf("%s should return boolean, got: %v", fnName, result)
 	}
 	return
 

@@ -35,6 +35,23 @@ type GossipReq struct {
 	YourIdx int
 }
 
+// we also gossip about peers too, keeping lists of different peers e.g. blockedlist etc
+type PeerListType string
+
+const (
+	BlockedList = "blockedlist"
+)
+
+type PeerRecord struct {
+	ID      peer.ID
+	Warrant string // evidence, reasons, documentation of why peer is in this list
+}
+
+type PeerList struct {
+	Type    PeerListType
+	Records []PeerRecord
+}
+
 var ErrDHTErrNoGossipersAvailable error = errors.New("no gossipers available")
 var ErrDHTExpectedGossipReqInBody error = errors.New("expected gossip request")
 var ErrNoSuchIdx error = errors.New("no such change index")
@@ -231,6 +248,11 @@ func (dht *DHT) FindGossiper() (g peer.ID, err error) {
 
 // UpdateGossiper updates a gossiper
 func (dht *DHT) UpdateGossiper(id peer.ID, newIdx int) (err error) {
+	if dht.h.node.IsBlocked(id) {
+		dht.glog.Logf("gossiper %v on blocklist, deleting", id)
+		dht.DeleteGossiper(id) // ignore error
+		return
+	}
 	dht.glog.Logf("updaing %v to %d", id, newIdx)
 	err = dht.db.Update(func(tx *buntdb.Tx) error {
 		key := "peer:" + peer.IDB58Encode(id)
@@ -247,6 +269,17 @@ func (dht *DHT) UpdateGossiper(id peer.ID, newIdx int) (err error) {
 			return err
 		}
 		return nil
+	})
+	return
+}
+
+// DeleteGossiper removes a gossiper from the database
+func (dht *DHT) DeleteGossiper(id peer.ID) (err error) {
+	dht.glog.Logf("deleting %v", id)
+	err = dht.db.Update(func(tx *buntdb.Tx) error {
+		key := "peer:" + peer.IDB58Encode(id)
+		_, e := tx.Delete(key)
+		return e
 	})
 	return
 }
@@ -406,4 +439,47 @@ func (dht *DHT) HandleGossipWiths() (err error) {
 		}
 	}
 	return nil
+}
+
+// getList returns the peer list of the given type
+func (dht *DHT) getList(listType PeerListType) (result PeerList, err error) {
+	result.Type = listType
+	result.Records = make([]PeerRecord, 0)
+	err = dht.db.View(func(tx *buntdb.Tx) error {
+		err = tx.Ascend("list", func(key, value string) bool {
+			x := strings.Split(key, ":")
+
+			if x[1] == string(listType) {
+				pid, e := peer.IDB58Decode(x[2])
+				if e != nil {
+					return false
+				}
+				r := PeerRecord{ID: pid, Warrant: value}
+				result.Records = append(result.Records, r)
+			}
+			return true
+		})
+		return nil
+	})
+	return
+}
+
+// addToList adds the peers to a list
+func (dht *DHT) addToList(m *Message, list PeerList) (err error) {
+	dht.dlog.Logf("addToList %s=>%v", list.Type, list.Records)
+	err = dht.db.Update(func(tx *buntdb.Tx) error {
+		_, err = incIdx(tx, m)
+		if err != nil {
+			return err
+		}
+		for _, r := range list.Records {
+			k := peer.IDB58Encode(r.ID)
+			_, _, err = tx.Set("list:"+string(list.Type)+":"+k, r.Warrant, nil)
+			if err != nil {
+				return err
+			}
+		}
+		return err
+	})
+	return
 }

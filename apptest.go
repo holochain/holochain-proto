@@ -153,7 +153,8 @@ func (h *Holochain) TestStringReplacements(input, r1, r2, r3 string, lastMatches
 	output = strings.Replace(output, "%r3%", r3, -1)
 	output = strings.Replace(output, "%dna%", h.dnaHash.String(), -1)
 	output = strings.Replace(output, "%agent%", h.agentHash.String(), -1)
-	output = strings.Replace(output, "%agentstr%", string(h.Agent().Name()), -1)
+	output = strings.Replace(output, "%agenttop%", h.agentTopHash.String(), -1)
+	output = strings.Replace(output, "%agentstr%", string(h.Agent().Identity()), -1)
 	output = strings.Replace(output, "%key%", h.nodeIDStr, -1)
 
 	// look for %mx.y% in the string and do the replacements from last matches

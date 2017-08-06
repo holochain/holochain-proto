@@ -524,6 +524,14 @@ func NewZygoRibosome(h *Holochain, zome *Zome) (n Ribosome, err error) {
 
 	addExtras(&z)
 
+	var appKeyHash, appAgentStr, appAgentHash, appAgentTopHash zygo.SexpStr
+	if h != nil {
+		appKeyHash = zygo.SexpStr{S: h.nodeIDStr}
+		appAgentStr = zygo.SexpStr{S: string(h.Agent().Identity())}
+		appAgentHash = zygo.SexpStr{S: h.agentHash.String()}
+		appAgentTopHash = zygo.SexpStr{S: h.agentTopHash.String()}
+	}
+
 	// use a closure so that the registered zygo function can call Expose on the correct ZygoRibosome obj
 
 	z.env.AddFunction("property",
@@ -803,6 +811,50 @@ func NewZygoRibosome(h *Holochain, zome *Zome) (n Ribosome, err error) {
 			return &result, nil
 		})
 
+	z.env.AddFunction("updateAgent",
+		func(env *zygo.Glisp, name string, zyargs []zygo.Sexp) (zygo.Sexp, error) {
+			a := &ActionModAgent{}
+			//		var a Action = &ActionModAgent{}
+			args := a.Args()
+			err := zyProcessArgs(args, zyargs)
+			if err != nil {
+				return zygo.SexpNull, err
+			}
+
+			opts := args[0].value.(map[string]interface{})
+			id, idok := opts["Identity"]
+			if idok {
+				a.Identity = AgentIdentity(id.(string))
+			}
+			rev, revok := opts["Revocation"]
+			if revok {
+				a.Revocation = rev.(string)
+			}
+
+			resp, err := a.Do(h)
+			if err != nil {
+				return zygo.SexpNull, err
+			}
+			var agentEntryHash Hash
+			if resp != nil {
+				agentEntryHash = resp.(Hash)
+			}
+
+			if revok {
+				appKeyHash.S = h.nodeIDStr
+			}
+
+			// there's always a new agent entry
+			appAgentTopHash.S = h.agentTopHash.String()
+
+			// but not always a new identity to update
+			if idok {
+				appAgentStr.S = string(a.Identity)
+			}
+			var result = zygo.SexpStr{S: agentEntryHash.String()}
+			return &result, nil
+		})
+
 	z.env.AddFunction("remove",
 		func(env *zygo.Glisp, name string, zyargs []zygo.Sexp) (zygo.Sexp, error) {
 			var a Action = &ActionDel{}
@@ -881,7 +933,12 @@ func NewZygoRibosome(h *Holochain, zome *Zome) (n Ribosome, err error) {
 
 	l := ZygoLibrary
 	if h != nil {
-		l += fmt.Sprintf(`(def App_Name "%s")(def App_DNA_Hash "%s")(def App_Agent_Hash "%s")(def App_Agent_String "%s")(def App_Key_Hash "%s")`, h.nucleus.dna.Name, h.dnaHash, h.agentHash, h.Agent().Name(), h.nodeIDStr)
+		z.env.AddGlobal("App_Name", &zygo.SexpStr{S: h.nucleus.dna.Name})
+		z.env.AddGlobal("App_DNA_Hash", &zygo.SexpStr{S: h.dnaHash.String()})
+		z.env.AddGlobal("App_Key_Hash", &appKeyHash)
+		z.env.AddGlobal("App_Agent_String", &appAgentStr)
+		z.env.AddGlobal("App_Agent_Hash", &appAgentHash)
+		z.env.AddGlobal("App_Agent_TopHash", &appAgentTopHash)
 	}
 	z.library = l
 

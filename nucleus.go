@@ -15,7 +15,8 @@ type DNA struct {
 	Name                      string
 	Properties                map[string]string
 	PropertiesSchema          string
-	BasedOn                   Hash // references hash of another holochain that these schemas and code are derived from
+	AgentIdentitySchema       string // defines what must go in the Indentity field of a key/agent entry
+	BasedOn                   Hash   // references hash of another holochain that these schemas and code are derived from
 	RequiresVersion           int
 	DHTConfig                 DHTConfig
 	Progenitor                Progenitor

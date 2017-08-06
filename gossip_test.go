@@ -2,6 +2,7 @@ package holochain
 
 import (
 	"fmt"
+	peer "github.com/libp2p/go-libp2p-peer"
 	. "github.com/smartystreets/goconvey/convey"
 	"testing"
 	"time"
@@ -39,6 +40,15 @@ func TestGetFindGossiper(t *testing.T) {
 		g, err := dht.FindGossiper()
 		So(err, ShouldBeNil)
 		So(g, ShouldEqual, fooAddr)
+	})
+
+	Convey("DeleteGossiper should remove a gossiper from the database", t, func() {
+		err := dht.DeleteGossiper(fooAddr)
+		So(err, ShouldBeNil)
+		_, err = dht.FindGossiper()
+		So(err, ShouldEqual, ErrDHTErrNoGossipersAvailable)
+		err = dht.DeleteGossiper(fooAddr)
+		So(err.Error(), ShouldEqual, "not found")
 	})
 
 	Convey("GetGossiper should return the gossiper idx", t, func() {
@@ -200,5 +210,36 @@ func TestGossip(t *testing.T) {
 		var err error
 		err = dht.gossip()
 		So(err, ShouldBeNil)
+	})
+}
+
+func TestPeerLists(t *testing.T) {
+	d, _, h := PrepareTestChain("test")
+	defer CleanupTestDir(d)
+
+	Convey("it should start with an empty blockedlist", t, func() {
+		peerList, err := h.dht.getList(BlockedList)
+		So(err, ShouldBeNil)
+		So(len(peerList.Records), ShouldEqual, 0)
+	})
+
+	Convey("it should have peers after they're added", t, func() {
+		pid1, _ := makePeer("testPeer1")
+		pid2, _ := makePeer("testPeer2")
+		pids := []PeerRecord{PeerRecord{ID: pid1}, PeerRecord{ID: pid2}}
+
+		idx, _ := h.dht.GetIdx()
+		err := h.dht.addToList(h.node.NewMessage(LISTADD_REQUEST, ListAddReq{ListType: BlockedList, Peers: []string{peer.IDB58Encode(pid1), peer.IDB58Encode(pid2)}}), PeerList{BlockedList, pids})
+		So(err, ShouldBeNil)
+
+		afterIdx, _ := h.dht.GetIdx()
+		So(afterIdx-idx, ShouldEqual, 1)
+
+		peerList, err := h.dht.getList(BlockedList)
+		So(err, ShouldBeNil)
+		So(peerList.Type, ShouldEqual, BlockedList)
+		So(len(peerList.Records), ShouldEqual, 2)
+		So(peerList.Records[0].ID, ShouldEqual, pid1)
+		So(peerList.Records[1].ID, ShouldEqual, pid2)
 	})
 }

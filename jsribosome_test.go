@@ -3,8 +3,10 @@ package holochain
 import (
 	"encoding/json"
 	"fmt"
+	peer "github.com/libp2p/go-libp2p-peer"
 	"github.com/robertkrimen/otto"
 	. "github.com/smartystreets/goconvey/convey"
+	"strings"
 	"testing"
 )
 
@@ -45,10 +47,16 @@ func TestNewJSRibosome(t *testing.T) {
 		s, _ = z.lastResult.ToString()
 		So(s, ShouldEqual, h.agentHash.String())
 
+		_, err = z.Run("App.Agent.TopHash")
+		So(err, ShouldBeNil)
+		s, _ = z.lastResult.ToString()
+		So(s, ShouldEqual, h.agentTopHash.String()) // top an agent are the same at startup
+		So(s, ShouldEqual, h.agentHash.String())
+
 		_, err = z.Run("App.Agent.String")
 		So(err, ShouldBeNil)
 		s, _ = z.lastResult.ToString()
-		So(s, ShouldEqual, h.Agent().Name())
+		So(s, ShouldEqual, h.Agent().Identity())
 
 		_, err = z.Run("App.Key.Hash")
 		So(err, ShouldBeNil)
@@ -412,7 +420,7 @@ func TestJSDHT(t *testing.T) {
 		panic(err)
 	}
 
-	Convey("get should return entry type", t, func() {
+	Convey("get should return entry", t, func() {
 		v, err := NewJSRibosome(h, &Zome{RibosomeType: JSRibosomeType, Code: fmt.Sprintf(`get("%s");`, hash.String())})
 		So(err, ShouldBeNil)
 		z := v.(*JSRibosome)
@@ -558,6 +566,111 @@ func TestJSDHT(t *testing.T) {
 		x, err := z.lastResult.Export()
 		So(err, ShouldBeNil)
 		So(fmt.Sprintf("%v", x.(Entry).Content()), ShouldEqual, `7`)
+	})
+
+	Convey("updateAgent function without options should fail", t, func() {
+		v, err := NewJSRibosome(h, &Zome{RibosomeType: JSRibosomeType,
+			Code: fmt.Sprintf(`updateAgent({})`)})
+		So(err, ShouldBeNil)
+		z := v.(*JSRibosome)
+		x := z.lastResult.String()
+		So(x, ShouldEqual, "HolochainError: expecting identity and/or revocation option")
+	})
+
+	Convey("updateAgent function should commit a new agent entry", t, func() {
+		oldPubKey, _ := h.agent.PubKey().Bytes()
+		v, err := NewJSRibosome(h, &Zome{RibosomeType: JSRibosomeType,
+			Code: fmt.Sprintf(`updateAgent({Identity:"new identity"})`)})
+		So(err, ShouldBeNil)
+		z := v.(*JSRibosome)
+		newAgentHash := z.lastResult.String()
+		So(h.agentTopHash.String(), ShouldEqual, newAgentHash)
+		header := h.chain.Top()
+		So(header.Type, ShouldEqual, AgentEntryType)
+		So(newAgentHash, ShouldEqual, header.EntryLink.String())
+		So(h.agent.Identity(), ShouldEqual, "new identity")
+		newPubKey, _ := h.agent.PubKey().Bytes()
+		So(fmt.Sprintf("%v", newPubKey), ShouldEqual, fmt.Sprintf("%v", oldPubKey))
+		entry, _, _ := h.chain.GetEntry(header.EntryLink)
+		So(entry.Content().(AgentEntry).Identity, ShouldEqual, "new identity")
+		So(fmt.Sprintf("%v", entry.Content().(AgentEntry).Key), ShouldEqual, fmt.Sprintf("%v", oldPubKey))
+	})
+
+	Convey("updateAgent function with revoke option should commit a new agent entry and mark key as modified on DHT", t, func() {
+		oldPubKey, _ := h.agent.PubKey().Bytes()
+		oldPeer := h.nodeID
+		oldKey, _ := NewHash(h.nodeIDStr)
+		oldAgentHash := h.agentHash
+
+		v, err := NewJSRibosome(h, &Zome{RibosomeType: JSRibosomeType,
+			Code: fmt.Sprintf(`updateAgent({Revocation:"some revocation data"})`)})
+		So(err, ShouldBeNil)
+		z := v.(*JSRibosome)
+		newAgentHash := z.lastResult.String()
+		So(newAgentHash, ShouldEqual, h.agentTopHash.String())
+		So(oldAgentHash.String(), ShouldNotEqual, h.agentTopHash.String())
+
+		header := h.chain.Top()
+		So(header.Type, ShouldEqual, AgentEntryType)
+		So(newAgentHash, ShouldEqual, header.EntryLink.String())
+		newPubKey, _ := h.agent.PubKey().Bytes()
+		So(fmt.Sprintf("%v", newPubKey), ShouldNotEqual, fmt.Sprintf("%v", oldPubKey))
+		entry, _, _ := h.chain.GetEntry(header.EntryLink)
+		revocation := &SelfRevocation{}
+		revocation.Unmarshal(entry.Content().(AgentEntry).Revocation)
+
+		w, _ := NewSelfRevocationWarrant(revocation)
+		payload, _ := w.Property("payload")
+
+		So(string(payload.([]byte)), ShouldEqual, "some revocation data")
+		So(fmt.Sprintf("%v", entry.Content().(AgentEntry).Key), ShouldEqual, fmt.Sprintf("%v", newPubKey))
+
+		// the new Key should be available on the DHT
+		newKey, _ := NewHash(h.nodeIDStr)
+		data, _, _, _, err := h.dht.get(newKey, StatusDefault, GetMaskDefault)
+		So(err, ShouldBeNil)
+		So(string(data), ShouldEqual, string(newPubKey))
+
+		// the old key should be marked as Modifed and we should get the new hash as the data
+		data, _, _, _, err = h.dht.get(oldKey, StatusDefault, GetMaskDefault)
+		So(err, ShouldEqual, ErrHashModified)
+		So(string(data), ShouldEqual, h.nodeIDStr)
+
+		// the new key should be a peerID in the node
+		peers := h.node.Host.Peerstore().Peers()
+		var found bool
+
+		for _, p := range peers {
+			pStr := peer.IDB58Encode(p)
+			if pStr == h.nodeIDStr {
+
+				found = true
+				break
+			}
+		}
+		So(found, ShouldBeTrue)
+
+		// the old peerID should now be in the blockedlist
+		peerList, err := h.dht.getList(BlockedList)
+		So(err, ShouldBeNil)
+		So(len(peerList.Records), ShouldEqual, 1)
+		So(peerList.Records[0].ID, ShouldEqual, oldPeer)
+		So(h.node.IsBlocked(oldPeer), ShouldBeTrue)
+
+	})
+
+	Convey("updateAgent function should update library values", t, func() {
+		v, err := NewJSRibosome(h, &Zome{RibosomeType: JSRibosomeType,
+			Code: fmt.Sprintf(`updateAgent({Identity:"new id",Revocation:"some revocation data"});App.Key.Hash+"."+App.Agent.TopHash+"."+App.Agent.String`)})
+		So(err, ShouldBeNil)
+		z := v.(*JSRibosome)
+		libVals := z.lastResult.String()
+		s := strings.Split(libVals, ".")
+
+		So(s[0], ShouldEqual, h.nodeIDStr)
+		So(s[1], ShouldEqual, h.agentTopHash.String())
+		So(s[2], ShouldEqual, "new id")
+
 	})
 }
 

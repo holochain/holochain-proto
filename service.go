@@ -18,6 +18,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strconv"
 	"strings"
 )
 
@@ -97,7 +98,7 @@ func IsInitialized(root string) bool {
 // Init initializes service defaults including a signing key pair for an agent
 // and writes them out to configuration files in the root path (making the
 // directory if necessary)
-func Init(root string, agent AgentName) (service *Service, err error) {
+func Init(root string, agent AgentIdentity) (service *Service, err error) {
 	err = os.MkdirAll(root, os.ModePerm)
 	if err != nil {
 		return
@@ -379,6 +380,7 @@ func (s *Service) load(name string, format string) (hP *Holochain, err error) {
 		// if not specified for this app, get the default from the Agent.txt file for all apps
 		agent, err = LoadAgent(filepath.Dir(root))
 	}
+	// TODO verify Agent identity against schema
 	if err != nil {
 		return
 	}
@@ -413,6 +415,8 @@ func (s *Service) load(name string, format string) (hP *Holochain, err error) {
 
 	if h.chain.Length() > 0 {
 		h.agentHash = h.chain.Headers[1].EntryLink
+		_, topHeader := h.chain.TopType(AgentEntryType)
+		h.agentTopHash = topHeader.EntryLink
 	}
 	if err = h.Prepare(); err != nil {
 		return
@@ -495,6 +499,34 @@ func makeConfig(h *Holochain, s *Service) (err error) {
 			TestFailed: Logger{Format: "%{color:red}%{message}", Enabled: true},
 			TestInfo:   Logger{Format: "%{message}", Enabled: true},
 		},
+	}
+
+	val := os.Getenv("HOLOCHAINCONFIG_PORT")
+	if val != "" {
+		h.config.Port, err = strconv.Atoi(val)
+		if err != nil {
+			return err
+		}
+	}
+	val = os.Getenv("HOLOCHAINCONFIG_BOOTSTRAP")
+	if val != "" {
+		if val == "_" {
+			val = ""
+		}
+		h.config.BootstrapServer = val
+	}
+	val = os.Getenv("HOLOCHAINCONFIG_ENABLEMDNS")
+	if val != "" {
+		h.config.EnableMDNS = val == "true"
+	}
+	val = os.Getenv("HOLOCHAINCONFIG_LOGPREFIX")
+	if val != "" {
+		h.config.Loggers.App.Format = val + h.config.Loggers.App.Format
+		h.config.Loggers.DHT.Format = val + h.config.Loggers.DHT.Format
+		h.config.Loggers.Gossip.Format = val + h.config.Loggers.Gossip.Format
+		h.config.Loggers.TestPassed.Format = val + h.config.Loggers.TestPassed.Format
+		h.config.Loggers.TestFailed.Format = val + h.config.Loggers.TestFailed.Format
+		h.config.Loggers.TestInfo.Format = val + h.config.Loggers.TestInfo.Format
 	}
 
 	p := filepath.Join(h.rootPath, ConfigFileName+"."+h.encodingFormat)
@@ -901,6 +933,7 @@ func (s *Service) Clone(srcPath string, root string, agent Agent, new bool) (err
 		}
 
 		//fmt.Printf("dna: agent, err: %s\n", agent, err)
+		// TODO verify identity against schema?
 		h.agent = agent
 
 		// once the agent is set up we can calculate the id
@@ -926,7 +959,7 @@ func (s *Service) Clone(srcPath string, root string, agent Agent, new bool) (err
 			if err != nil {
 				return
 			}
-			h.nucleus.dna.Progenitor = Progenitor{Name: string(agent.Name()), PubKey: pk}
+			h.nucleus.dna.Progenitor = Progenitor{Identity: string(agent.Identity()), PubKey: pk}
 		}
 
 		// save out the DNA file

@@ -36,6 +36,11 @@ type Arg struct {
 	value    interface{}
 }
 
+type ModAgentOptions struct {
+	Identity   string
+	Revocation string
+}
+
 // Action provides an abstraction for grouping all the aspects of a nucleus function, i.e.
 // the initiating actions, receiving them, validation, ribosome generation etc
 type Action interface {
@@ -210,6 +215,9 @@ func MakeActionFromMessage(msg *Message) (a Action, err error) {
 	case GETLINK_REQUEST:
 		a = &ActionGetLink{}
 		t = reflect.TypeOf(LinkQuery{})
+	case LISTADD_REQUEST:
+		a = &ActionListAdd{}
+		t = reflect.TypeOf(ListAddReq{})
 	default:
 		err = fmt.Errorf("message type %d not in holochain-action protocol", int(msg.Type))
 	}
@@ -838,7 +846,7 @@ func (a *ActionMod) Receive(dht *DHT, msg *Message) (response interface{}, err e
 	err = RunValidationPhase(dht.h, msg.From, VALIDATE_MOD_REQUEST, t.N, func(resp ValidateResponse) error {
 		a := NewModAction(resp.Type, &resp.Entry, t.H)
 		a.header = &resp.Header
-		//@TODO what comes back from Validate Del
+		//@TODO what comes back from Validate Mod
 		_, err = dht.h.ValidateAction(a, resp.Type, &resp.Package, []peer.ID{from})
 		if err != nil {
 			// how do we record an invalid Mod?
@@ -853,6 +861,114 @@ func (a *ActionMod) Receive(dht *DHT, msg *Message) (response interface{}, err e
 }
 
 func (a *ActionMod) CheckValidationRequest(def *EntryDef) (err error) {
+	return
+}
+
+//------------------------------------------------------------
+// ModAgent
+
+type ActionModAgent struct {
+	Identity   AgentIdentity
+	Revocation string
+}
+
+func NewModAgentAction(identity AgentIdentity) *ActionModAgent {
+	a := ActionModAgent{Identity: identity}
+	return &a
+}
+
+func (a *ActionModAgent) Args() []Arg {
+	return []Arg{{Name: "options", Type: MapArg, MapType: reflect.TypeOf(ModAgentOptions{})}}
+}
+
+func (a *ActionModAgent) Name() string {
+	return "udpateAgent"
+}
+func (a *ActionModAgent) Do(h *Holochain) (response interface{}, err error) {
+	var ok bool
+	var newAgent LibP2PAgent = *h.agent.(*LibP2PAgent)
+	if a.Identity != "" {
+		newAgent.identity = a.Identity
+		ok = true
+	}
+
+	var revocation *SelfRevocation
+	if a.Revocation != "" {
+		err = newAgent.GenKeys(nil)
+		if err != nil {
+			return
+		}
+		revocation, err = NewSelfRevocation(h.agent.PrivKey(), newAgent.PrivKey(), []byte(a.Revocation))
+		if err != nil {
+			return
+		}
+		ok = true
+	}
+	if !ok {
+		err = errors.New("expecting identity and/or revocation option")
+	} else {
+		h.agent = &newAgent
+		// add a new agent entry and update
+		var agentHash Hash
+		_, agentHash, err = h.AddAgentEntry(revocation)
+		if err != nil {
+			return
+		}
+		h.agentTopHash = agentHash
+
+		// if there was a revocation put the new key to the DHT and then reset the node ID data
+		// TODO make sure this doesn't introduce race conditions in the DHT between new and old identity #284
+		if revocation != nil {
+			err = h.dht.putKey(&newAgent)
+			if err != nil {
+				return
+			}
+
+			// send the modification request for the old key
+			var oldKey, newKey Hash
+			oldPeer := h.nodeID
+			oldKey, err = NewHash(h.nodeIDStr)
+			if err != nil {
+				panic(err)
+			}
+
+			h.nodeID, h.nodeIDStr, err = h.agent.NodeID()
+			if err != nil {
+				return
+			}
+
+			newKey, err = NewHash(h.nodeIDStr)
+			if err != nil {
+				panic(err)
+			}
+
+			// close the old node and add the new node
+			// TODO currently ignoring the error from node.Close() is this OK?
+			h.node.Close()
+			h.createNode()
+
+			_, err = h.dht.Send(oldKey, MOD_REQUEST, ModReq{H: oldKey, N: newKey})
+
+			warrant, _ := NewSelfRevocationWarrant(revocation)
+			var data []byte
+			data, err = warrant.Encode()
+			if err != nil {
+				return
+			}
+
+			// TODO, this isn't really a DHT send, but a management send, so the key is bogus.  have to work this out...
+			_, err = h.dht.Send(oldKey, LISTADD_REQUEST,
+				ListAddReq{
+					ListType:    BlockedList,
+					Peers:       []string{peer.IDB58Encode(oldPeer)},
+					WarrantType: SelfRevocationType,
+					Warrant:     data,
+				})
+
+		}
+
+		response = agentHash
+	}
 	return
 }
 
@@ -1128,5 +1244,79 @@ func (a *ActionGetLink) Receive(dht *DHT, msg *Message) (response interface{}, e
 	r.Links, err = dht.getLink(lq.Base, lq.T, lq.StatusMask)
 	response = &r
 
+	return
+}
+
+//------------------------------------------------------------
+// ListAdd
+
+type ActionListAdd struct {
+	list PeerList
+}
+
+func NewListAddAction(peerList PeerList) *ActionListAdd {
+	a := ActionListAdd{list: peerList}
+	return &a
+}
+
+func (a *ActionListAdd) Name() string {
+	return "put"
+}
+
+func (a *ActionListAdd) Args() []Arg {
+	return nil
+}
+
+func (a *ActionListAdd) Do(h *Holochain) (response interface{}, err error) {
+	err = NonCallableAction
+	return
+}
+
+var prefix string = "List add request rejected on warrant failure"
+
+func (a *ActionListAdd) Receive(dht *DHT, msg *Message) (response interface{}, err error) {
+	//dht.puts <- *m  TODO add back in queueing
+	t := msg.Body.(ListAddReq)
+	a.list.Type = PeerListType(t.ListType)
+	a.list.Records = make([]PeerRecord, 0)
+	var pid peer.ID
+	for _, pStr := range t.Peers {
+		pid, err = peer.IDB58Decode(pStr)
+		if err != nil {
+			return
+		}
+		r := PeerRecord{ID: pid}
+		a.list.Records = append(a.list.Records, r)
+	}
+
+	// validate the warrant sent with the list add request
+	var w Warrant
+	w, err = DecodeWarrant(t.WarrantType, t.Warrant)
+	if err != nil {
+		err = fmt.Errorf("%s: unable to decode warrant (%v)", prefix, err)
+		return
+	}
+
+	err = w.Verify(dht.h)
+	if err != nil {
+		err = fmt.Errorf("%s: %v", prefix, err)
+		return
+	}
+
+	// TODO verify that the warrant, if valid, is sufficient to allow list addition #300
+
+	err = dht.addToList(msg, a.list)
+	if err != nil {
+		return
+	}
+
+	// special case to add blockedlist peers to node cache and delete them from the gossipers list
+	if a.list.Type == BlockedList {
+		for _, node := range a.list.Records {
+			dht.h.node.Block(node.ID)
+			dht.DeleteGossiper(node.ID) // ignore error
+		}
+	}
+	response = "queued"
 	return
 }

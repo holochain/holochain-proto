@@ -182,11 +182,9 @@ func Die(message string) {
 }
 
 func GolangHolochainDir(subPath ...string) (path string, err error) {
-	joinable := append([]string{os.Getenv("GOPATH"), "src/github.com/metacurrency/holochain"}, subPath...)
+	err = nil
+  joinable := append([]string{os.Getenv("GOPATH"), "src/github.com/metacurrency/holochain"}, subPath...)
 	path = filepath.Join(joinable...)
-	if !DirExists(path) {
-		err = errors.New("HC: hcdev.go: goScenario: source argument is not directory in /test. scenario name must match directory name")
-	}
 	return
 }
 

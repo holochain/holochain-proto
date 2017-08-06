@@ -118,13 +118,16 @@ func setupApp() (app *cli.App) {
 							}
 						}
 
+            // fmt.Printf("HC: core.fromLocalFilesystem.install: running command: %v\n", scriptStringBuffer.String())
 						// if silent {
 						// maintains the existing go process, and waits for the script to complete
 						binpath, err := cmd.GolangHolochainDir("bin", scriptStringBuffer.String())
 						if err != nil {
 							return err
 						}
-						cmd.OsExecPipes(binpath, compileTargets)
+						fmt.Printf("HC: core.fromLocalFilesystem.install: running command: %v\n", binpath)
+            cmd.OsExecPipes(binpath, compileTargets)
+            
 
 						// } else {
 						//   // swaps current go process for a(bash)nother process

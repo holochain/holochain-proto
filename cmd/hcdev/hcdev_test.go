@@ -36,7 +36,11 @@ func TestGoScenario_cliCommand(t *testing.T) {
 	})
 }
 
-func TestGoScenario_ReadScenarioDirectory(t *testing.T) {
+func Test_testScenarioWriteEnvironment(t * testing.T) {
+
+}
+
+func TestGoScenario_RunScenarioTest(t *testing.T) {
 	app := setupApp()
 
 	Convey("try to build holochain without actual source", t, func() {
@@ -50,7 +54,7 @@ func TestGoScenario_ReadScenarioDirectory(t *testing.T) {
 	Convey("get the scenario directory listing for one of the example apps", t, func() {
 		// connect to an actual app to work with
 		clutterDir, err := cmd.GolangHolochainDir("examples", "clutter")
-		So(err, ShouldBeNil)
+		So(cmd.DirExists(clutterDir), ShouldEqual, true )
 		if debug {
 			fmt.Printf("HC: hcdev_test.go: TestGoScenario_ReadScenarioDirectory: clutterDir: %v", clutterDir)
 		}
@@ -63,7 +67,6 @@ func TestGoScenario_ReadScenarioDirectory(t *testing.T) {
 		// point goScenario some app (clutterDir) and set up a working directory for the test (execDir)
 		testCommand := []string{"hcdev", "-debug", "-path", clutterDir, "-execpath", execDir, "goScenario", "followAndShare"}
 		//testCommand := []string{"hcdev", "-debug", "-path", clutterDir, "-execpath", execDir, "test"}
-
 		So(err, ShouldBeNil)
 		err = app.Run(testCommand)
 		So(err, ShouldBeNil)
@@ -74,6 +77,8 @@ func TestGoScenario_ReadScenarioDirectory(t *testing.T) {
 		if debug {
 			fmt.Printf("HC: hcdev_test.go: TestGoScenario_ReadScenarioDirectory: mutableContext\n\n%v", spew.Sdump(mutableContext))
 		}
+
+
 	})
 
 	Convey("test incorrect user inputs", t, func() {

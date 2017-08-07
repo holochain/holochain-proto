@@ -38,10 +38,9 @@ const (
 
 	DefaultPort            = 6283
 	DefaultBootstrapServer = "bootstrap.holochain.net:10000"
-	//DefaultBootstrapPort				= 10000
 
 	HC_BOOTSTRAPSERVER = "HC_BOOTSTRAPSERVER"
-	//HC_BOOTSTRAPPORT						= "HC_BOOTSTRAPPORT"
+	HC_ENABLEMDNS      = "HC_DEFAULT_ENABLEMDNS"
 )
 
 // ServiceConfig holds the service settings
@@ -49,6 +48,7 @@ type ServiceConfig struct {
 	DefaultPeerModeAuthor  bool
 	DefaultPeerModeDHTNode bool
 	DefaultBootstrapServer string
+	DefaultEnableMDNS      bool
 }
 
 // A Service is a Holochain service data structure
@@ -106,15 +106,20 @@ func Init(root string, agent AgentIdentity) (service *Service, err error) {
 			DefaultPeerModeDHTNode: true,
 			DefaultPeerModeAuthor:  true,
 			DefaultBootstrapServer: DefaultBootstrapServer,
+			DefaultEnableMDNS:      false,
 		},
 		Path: root,
 	}
 
 	if os.Getenv(HC_BOOTSTRAPSERVER) != "" {
 		s.Settings.DefaultBootstrapServer = os.Getenv(HC_BOOTSTRAPSERVER)
+		Infof("Using %s--configuring default bootstrap server as: %s\n", HC_BOOTSTRAPSERVER, s.Settings.DefaultBootstrapServer)
 	}
 
-	Infof("Configured to connect to bootstrap server at: %s\n", s.Settings.DefaultBootstrapServer)
+	if os.Getenv(HC_ENABLEMDNS) != "" && os.Getenv(HC_ENABLEMDNS) != "false" {
+		s.Settings.DefaultEnableMDNS = true
+		Infof("Using %s--configuring default MDNS use as: %v.\n", HC_ENABLEMDNS, s.Settings.DefaultEnableMDNS)
+	}
 
 	err = writeToml(root, SysFileName, s.Settings, false)
 	if err != nil {

@@ -12,7 +12,6 @@ import (
 	"errors"
 	"fmt"
 	"github.com/google/uuid"
-	b58 "github.com/jbenet/go-base58"
 	ic "github.com/libp2p/go-libp2p-crypto"
 	peer "github.com/libp2p/go-libp2p-peer"
 	protocol "github.com/libp2p/go-libp2p-protocol"
@@ -614,6 +613,7 @@ func (h *Holochain) Send(proto Protocol, to peer.ID, t MsgType, body interface{}
 	return
 }
 
+//Sign uses the agent' private key to sign the contents of doc
 func (h *Holochain) Sign(doc []byte) (sig []byte, err error) {
 	privKey := h.agent.PrivKey()
 	sig, err = privKey.Sign(doc)
@@ -623,18 +623,10 @@ func (h *Holochain) Sign(doc []byte) (sig []byte, err error) {
 	return
 }
 
-//TODO
-func (h *Holochain) VerifySignature(signature string, data string, pubKey string) (matches bool, err error) {
-	var pubKeyIC ic.PubKey
-	var sig []byte
-	sig = b58.Decode(signature)
-	var pubKeyBytes []byte
-	pubKeyBytes = b58.Decode(pubKey)
-	pubKeyIC, err = ic.UnmarshalPublicKey(pubKeyBytes)
-	if err != nil {
-		return
-	}
-	matches, err = pubKeyIC.Verify([]byte(data), sig)
+//VerifySignature uses the signature, data(doc) and signatory's public key to Verify the sign in contents of doc
+func (h *Holochain) VerifySignature(signature []byte, data string, pubKey ic.PubKey) (matches bool, err error) {
+
+	matches, err = pubKey.Verify([]byte(data), signature)
 	if err != nil {
 		return
 	}

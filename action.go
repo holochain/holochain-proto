@@ -8,6 +8,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	b58 "github.com/jbenet/go-base58"
+	ic "github.com/libp2p/go-libp2p-crypto"
 	peer "github.com/libp2p/go-libp2p-peer"
 	"reflect"
 	"time"
@@ -348,7 +350,6 @@ func (a *ActionSign) Args() []Arg {
 
 func (a *ActionSign) Do(h *Holochain) (response interface{}, err error) {
 	var b []byte
-	//hash, err = a.entry.Sum(h.hashSpec)
 	b, err = h.Sign(a.doc)
 	if err != nil {
 		return
@@ -380,8 +381,17 @@ func (a *ActionVerifySignature) Args() []Arg {
 
 func (a *ActionVerifySignature) Do(h *Holochain) (response bool, err error) {
 	var b bool
-	//hash, err = a.entry.Sum(h.hashSpec)
-	b, err = h.VerifySignature(a.signature, a.data, a.pubKey)
+	var pubKeyIC ic.PubKey
+	var sig []byte
+	sig = b58.Decode(a.signature)
+	var pubKeyBytes []byte
+	pubKeyBytes = b58.Decode(a.pubKey)
+	pubKeyIC, err = ic.UnmarshalPublicKey(pubKeyBytes)
+	if err != nil {
+		return
+	}
+
+	b, err = h.VerifySignature(sig, a.data, pubKeyIC)
 	if err != nil {
 		return
 	}

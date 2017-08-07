@@ -3,6 +3,8 @@ package holochain
 import (
 	"encoding/json"
 	"fmt"
+	b58 "github.com/jbenet/go-base58"
+	ic "github.com/libp2p/go-libp2p-crypto"
 	peer "github.com/libp2p/go-libp2p-peer"
 	"github.com/robertkrimen/otto"
 	. "github.com/smartystreets/goconvey/convey"
@@ -166,35 +168,32 @@ func TestNewJSRibosome(t *testing.T) {
 			So(err, ShouldBeNil)
 			So(z.lastResult.String(), ShouldEqual, string(sig))
 		})
-		//=============================================================================================
-		/*
-			//TODO understand what has to be returned back in verifySignature
-			Convey("verifySignature", func() {
-				// a string verifySignature function SUCESS Condition
-				d, _, h := PrepareTestChain("test")
-				defer CleanupTestDir(d)
 
-				v, err := NewJSRibosome(h, &Zome{RibosomeType: JSRibosomeType})
-				So(err, ShouldBeNil)
-				z := v.(*JSRibosome)
-				// sig should match the value that is returned
-				privKey := h.agent.PrivKey()
-				//pubKey := privKey.GetPublic()
-				sig, err := privKey.Sign([]byte("31234"))
-
-				_, err = z.Run("verifySignature("+string(sig)+",3,App.Key.Hash)")
-				So(err, ShouldBeNil)
-				//z := v.(*JSRibosome)
-				So(z.lastResult.String(), ShouldEqual, "true")
-
-				// a string verifySignature function FAILURE Condition
-				_, err = z.Run("verifySignature("+string(sig)+",34,App.Key.Hash)")
-				So(err, ShouldBeNil)
-				So(z.lastResult.String(), ShouldEqual, "true")
-
-			})
-		*/
-		//=============================================================================================
+		//Verifying signature of a perticular user
+		// sig will be signed by the user and We will verifySignature i.e verify if the uses we know signed it
+		Convey("verifySignature", func() {
+			d, _, h := PrepareTestChain("test")
+			defer CleanupTestDir(d)
+			v, err := NewJSRibosome(h, &Zome{RibosomeType: JSRibosomeType})
+			So(err, ShouldBeNil)
+			z := v.(*JSRibosome)
+			privKey := h.agent.PrivKey()
+			pubKey := privKey.GetPublic()
+			var pubKeyBytes []byte
+			pubKeyBytes, err = ic.MarshalPublicKey(pubKey)
+			if err != nil {
+				panic(err)
+			}
+			//verifySignature function SUCESS Condition
+			sig, err := privKey.Sign([]byte("3"))
+			_, err = z.Run(fmt.Sprintf(`verifySignature("%s","%s","%s")`, b58.Encode((sig)), "3", b58.Encode(pubKeyBytes)))
+			So(err, ShouldBeNil)
+			So(z.lastResult.String(), ShouldEqual, "true")
+			//verifySignature function FAILURE Condition
+			_, err = z.Run(fmt.Sprintf(`verifySignature("%s","%s","%s")`, b58.Encode(sig), "34", b58.Encode(pubKeyBytes)))
+			So(err, ShouldBeNil)
+			So(z.lastResult.String(), ShouldEqual, "false")
+		})
 
 		Convey("call", func() {
 			// a string calling function

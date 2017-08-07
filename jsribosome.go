@@ -553,39 +553,19 @@ func NewJSRibosome(h *Holochain, zome *Zome) (n Ribosome, err error) {
 		result, _ := jsr.vm.ToValue(string(signature))
 		return result
 	})
-	/*
-		err = jsr.vm.Set("verifySignature", func(call otto.FunctionCall) otto.Value {
-			a := &ActionVerifySignature{}
-			args := a.Args()
-			err := jsProcessArgs(&jsr, args, call.ArgumentList)
-			if err != nil {
-				return mkOttoErr(&jsr, err.Error())
-			}
-			/*
-				a.zome = args[0].value.(string)
-				var zome *Zome
-				zome, err = h.GetZome(a.zome)
-				if err != nil {
-					return mkOttoErr(&jsr, err.Error())
-				}
-				a.function = args[1].value.(string)
-				var fn *FunctionDef
-				fn, err = zome.GetFunctionDef(a.function)
-				if err != nil {
-					return mkOttoErr(&jsr, err.Error())
-				}*/
-	/*	a.signature = args[0].value.(string)
-		a.data = args[1].value.(string)
-		a.who = args[2].value.(string)
-	*/ /*//Dont need the code to check the type of input cause all are string
-	if fn.CallingType == JSON_CALLING {
-		if !call.ArgumentList[2].IsObject() {
-			return mkOttoErr(&jsr, "function calling type requires object argument type")
-		}
-	}*/
-	//a.args = args[2].value.(string)
 
-	/*		var r interface{}
+	err = jsr.vm.Set("verifySignature", func(call otto.FunctionCall) otto.Value {
+
+		a := &ActionVerifySignature{}
+		args := a.Args()
+		err := jsProcessArgs(&jsr, args, call.ArgumentList)
+		if err != nil {
+			return mkOttoErr(&jsr, err.Error())
+		}
+		a.signature = args[0].value.(string)
+		a.data = args[1].value.(string)
+		a.pubKey = args[2].value.(string)
+		var r bool
 		r, err = a.Do(h)
 		if err != nil {
 			return mkOttoErr(&jsr, err.Error())
@@ -598,7 +578,7 @@ func NewJSRibosome(h *Holochain, zome *Zome) (n Ribosome, err error) {
 		}
 		return result
 	})
-	*/
+
 	//============================================================================
 
 	err = jsr.vm.Set("send", func(call otto.FunctionCall) otto.Value {

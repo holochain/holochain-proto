@@ -12,6 +12,8 @@ import (
 	"errors"
 	"fmt"
 	"github.com/google/uuid"
+	b58 "github.com/jbenet/go-base58"
+	ic "github.com/libp2p/go-libp2p-crypto"
 	peer "github.com/libp2p/go-libp2p-peer"
 	protocol "github.com/libp2p/go-libp2p-protocol"
 	mh "github.com/multiformats/go-multihash"
@@ -621,16 +623,24 @@ func (h *Holochain) Sign(doc []byte) (sig []byte, err error) {
 	return
 }
 
-/*
-//TODO need to pass 'who' as (key ic.PubKey, err error)
-func (h *Holochain) VerifySignature(signature string,data string,who ic.PubKey) (matches bool, err error) {
-	matches, err = who.Verify(data, signature)
+//TODO
+func (h *Holochain) VerifySignature(signature string, data string, pubKey string) (matches bool, err error) {
+	var pubKeyIC ic.PubKey
+	var sig []byte
+	sig = b58.Decode(signature)
+	var pubKeyBytes []byte
+	pubKeyBytes = b58.Decode(pubKey)
+	pubKeyIC, err = ic.UnmarshalPublicKey(pubKeyBytes)
+	if err != nil {
+		return
+	}
+	matches, err = pubKeyIC.Verify([]byte(data), sig)
 	if err != nil {
 		return
 	}
 	return
 }
-*/
+
 func (h *Holochain) Chain() *Chain {
 	return h.chain
 }

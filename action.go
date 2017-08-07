@@ -359,16 +359,14 @@ func (a *ActionSign) Do(h *Holochain) (response interface{}, err error) {
 
 //------------------------------------------------------------
 // VerifySignature
-/*
 type ActionVerifySignature struct {
 	signature string
 	data      string
-	who       string
-	//args     interface{}
+	pubKey    string
 }
 
-func NewVerifySignatureAction(signature string, data string, who string) *ActionVerifySignature {
-	a := ActionVerifySignature{signature: signature, data: data, who: who}
+func NewVerifySignatureAction(signature string, data string, pubKey string) *ActionVerifySignature {
+	a := ActionVerifySignature{signature: signature, data: data, pubKey: pubKey}
 	return &a
 }
 
@@ -377,20 +375,20 @@ func (a *ActionVerifySignature) Name() string {
 }
 
 func (a *ActionVerifySignature) Args() []Arg {
-	return []Arg{{Name: "signature", Type: StringArg}, {Name: "data", Type: StringArg}, {Name: "who", Type: HashArg}}
+	return []Arg{{Name: "signature", Type: StringArg}, {Name: "data", Type: StringArg}, {Name: "pubKey", Type: StringArg}}
 }
 
 func (a *ActionVerifySignature) Do(h *Holochain) (response bool, err error) {
 	var b bool
 	//hash, err = a.entry.Sum(h.hashSpec)
-	b,err = h.VerifySignature(a.signature,a.data,a.who)
+	b, err = h.VerifySignature(a.signature, a.data, a.pubKey)
 	if err != nil {
 		return
 	}
 	response = b
 	return
 }
-*/
+
 //------------------------------------------------------------
 // Call
 

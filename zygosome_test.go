@@ -177,6 +177,12 @@ func TestNewZygoRibosome(t *testing.T) {
 			So(entry.Content(), ShouldEqual, `{"firstName":"Jane","lastName":"Jetson"}`)
 
 		})
+		Convey("bridge", func() {
+			// hard to test because we need to fire up a separate app someplace else
+			_, err := z.Run(`(bridge "QmVGtdTZdTFaLsaj2RwdVG8jcjNNcp1DE914DKZ2kHmXHw" "jsSampleZome" "getProperty" "language")`)
+			So(err.Error(), ShouldEqual, "Zygomys exec error: Error calling 'bridge': no active bridge")
+		})
+
 		Convey("send", func() {
 			ShouldLog(h.nucleus.alog, `result was: "{\"pong\":\"foobar\"}"`, func() {
 				_, err := z.Run(`(debug (concat "result was: " (str (hget (send App_Key_Hash (hash ping: "foobar")) %result))))`)
@@ -195,6 +201,19 @@ func TestZygoGenesis(t *testing.T) {
 	Convey("it should work if the genesis function returns true", t, func() {
 		z, _ := NewZygoRibosome(nil, &Zome{RibosomeType: ZygoRibosomeType, Code: `(defn genesis [] true)`})
 		err := z.ChainGenesis()
+		So(err, ShouldBeNil)
+	})
+}
+
+func TestZygoBridgeGenesis(t *testing.T) {
+	Convey("it should fail if the bridge genesis function returns false", t, func() {
+		z, _ := NewZygoRibosome(nil, &Zome{RibosomeType: ZygoRibosomeType, Code: `(defn bridgeGenesis [] false)`})
+		err := z.BridgeGenesis()
+		So(err.Error(), ShouldEqual, "bridgeGenesis failed")
+	})
+	Convey("it should work if the bridge genesis function returns true", t, func() {
+		z, _ := NewZygoRibosome(nil, &Zome{RibosomeType: ZygoRibosomeType, Code: `(defn bridgeGenesis [] true)`})
+		err := z.BridgeGenesis()
 		So(err, ShouldBeNil)
 	})
 }

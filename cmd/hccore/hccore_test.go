@@ -21,7 +21,6 @@ func TestSetupApp(t *testing.T) {
 }
 
 // OK. Im not sure how to get the pipe to the stdin of the thing. This might work no idea
-
 func Test_paradigm(t *testing.T) {
 	if false {
 		Convey("it should open a terminal in the development space, and then exit it, and check that that all happened", t, func() {

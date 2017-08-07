@@ -506,6 +506,7 @@ func makeConfig(h *Holochain, s *Service) (err error) {
 
 	val := os.Getenv("HOLOCHAINCONFIG_PORT")
 	if val != "" {
+		Debugf("makeConfig: using environment variable to set port to: %s", val)
 		h.config.Port, err = strconv.Atoi(val)
 		if err != nil {
 			return err
@@ -516,14 +517,17 @@ func makeConfig(h *Holochain, s *Service) (err error) {
 		if val == "_" {
 			val = ""
 		}
+		Debugf("makeConfig: using environment variable to set bootstrap server to: %s", val)
 		h.config.BootstrapServer = val
 	}
 	val = os.Getenv("HOLOCHAINCONFIG_ENABLEMDNS")
 	if val != "" {
+		Debugf("makeConfig: using environment variable to set enableMDNS to: %s", val)
 		h.config.EnableMDNS = val == "true"
 	}
 	val = os.Getenv("HOLOCHAINCONFIG_LOGPREFIX")
 	if val != "" {
+		Debugf("makeConfig: using environment variable to set log prefix to: %s", val)
 		h.config.Loggers.App.Format = val + h.config.Loggers.App.Format
 		h.config.Loggers.DHT.Format = val + h.config.Loggers.DHT.Format
 		h.config.Loggers.Gossip.Format = val + h.config.Loggers.Gossip.Format

@@ -195,6 +195,18 @@ func (h *Holochain) TestScenario(dir string, role string) (err error, testErrs [
 	if err != nil {
 		return
 	}
+
+	// setup the genesis entries
+	err = h.Reset()
+	if err != nil {
+		panic("reset err")
+	}
+
+	_, err = h.GenChain()
+	if err != nil {
+		panic("gen err " + err.Error())
+	}
+
 	err = h.Activate()
 	if err != nil {
 		return

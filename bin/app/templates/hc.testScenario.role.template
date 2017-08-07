@@ -20,7 +20,7 @@ hcdev -v
 #echo "joined: $dnahash"
 
 bsip=`cat /chain.seeded/bs.ip`
-#echo "setting boostrap to $bsip:3142"
+#echo "setting bootstrap to $bsip:3142"
 HOLOCHAINCONFIG_BOOTSTRAP=$bsip:3142
 
 #echo "hc -debug test devchain $scenario $role"

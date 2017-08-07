@@ -32,7 +32,7 @@ var debug, appInitialized bool
 var rootPath, devPath, name string
 
 // more flags
-var port, logPrefix string
+var port, logPrefix, bootstrapServer string
 var mdns bool
 
 type MutableContext struct {
@@ -88,21 +88,26 @@ func setupApp() (app *cli.App) {
 			Usage:       "path to chain source definition directory (default: current working dir)",
 			Destination: &devPath,
 		},
-    cli.StringFlag{
-      Name:        "port",
-      Usage:       "port on which to run the... something",
-      Destination: &port,
-    },
-    cli.BoolFlag{
-      Name:        "mdns",
-      Usage:       "whether to use mdns for local peer discovery",
-      Destination: &mdns,
-    },
-    cli.StringFlag{
-      Name:        "logPrefix",
-      Usage:       "the prefix to put at the front of log messages",
-      Destination: &logPrefix,
-    },
+		cli.StringFlag{
+			Name:        "port",
+			Usage:       "port on which to run the... something",
+			Destination: &port,
+		},
+		cli.BoolFlag{
+			Name:        "mdns",
+			Usage:       "whether to use mdns for local peer discovery",
+			Destination: &mdns,
+		},
+		cli.StringFlag{
+			Name:        "logPrefix",
+			Usage:       "the prefix to put at the front of log messages",
+			Destination: &logPrefix,
+		},
+		cli.StringFlag{
+			Name:        "bootstrapServer",
+			Usage:       "url of bootstrap server or '_' for none",
+			Destination: &bootstrapServer,
+		},
 	}
 
 	var interactive, dumpChain, dumpDHT bool
@@ -240,12 +245,11 @@ func setupApp() (app *cli.App) {
 			ArgsUsage: "no args run's all stand-alone | [test file prefix] | [scenario] [role]",
 			Usage:     "run chain's stand-alone or scenario tests",
 			Action: func(c *cli.Context) error {
-        if debug {
-            fmt.Printf("\nHC: hcdev.go: test: testScenario: h: %v\n", spew.Sdump(os.Environ()) )
-        }
-        
+				if debug {
+					fmt.Printf("\nHC: hcdev.go: test: testScenario: h: %v\n", spew.Sdump(os.Environ()))
+				}
 
-        var err error
+				var err error
 				var h *holo.Holochain
 				h, err = getHolochain(c, service)
 				if err != nil {
@@ -264,7 +268,7 @@ func setupApp() (app *cli.App) {
 					}
 					if debug {
 						fmt.Printf("\n\nHC: hcdev.go: test: testScenario: h: %v\n", spew.Sdump(h))
-						
+
 					}
 				} else if len(args) == 1 {
 					errs = h.TestOne(args[0])
@@ -367,18 +371,19 @@ func setupApp() (app *cli.App) {
 						},
 						os.Environ()...,
 					)
-          env = env
+					env = env
 
-          testCommand := cmd.OsExecPipes(
-              "hcdev", 
-              "-debug", 
-              "-path="+devPath, 
-              "-execpath="+filepath.Join(rootExecDir, roleName), 
-              "-port="+strconv.Itoa(freePort),
-              "-mdns=true",
-              "-logPrefix="+roleName,
-              "test", scenarioName, roleName,
-          )
+					testCommand := cmd.OsExecPipes(
+						"hcdev",
+						"-debug",
+						"-path="+devPath,
+						"-execpath="+filepath.Join(rootExecDir, roleName),
+						"-port="+strconv.Itoa(freePort),
+						"-mdns=true",
+						"-logPrefix="+roleName,
+						"-bootstrapServer=_",
+						"test", scenarioName, roleName,
+					)
 
 					mutableContext.obj["testCommand."+roleName] = &testCommand
 
@@ -468,33 +473,38 @@ func setupApp() (app *cli.App) {
 	app.Before = func(c *cli.Context) error {
 		lastRunContext = c
 
-    var err error
+		var err error
 
-    if port != "" {
-      err = os.Setenv("HOLOCHAINCONFIG_PORT", port)
-      if err != nil {
-        return err
-      }
-    }
-    if mdns != false {
-      err = os.Setenv("HOLOCHAINCONFIG_ENABLEMDNS", "true")
-      if err != nil {
-        return err
-      }
-    }
-    if logPrefix != "" {
-      os.Setenv("HOLOCHAINCONFIG_LOGPREFIX", logPrefix)
-      if err != nil {
-        return err
-      }
-    }
+		if port != "" {
+			err = os.Setenv("HOLOCHAINCONFIG_PORT", port)
+			if err != nil {
+				return err
+			}
+		}
+		if mdns != false {
+			err = os.Setenv("HOLOCHAINCONFIG_ENABLEMDNS", "true")
+			if err != nil {
+				return err
+			}
+		}
+		if logPrefix != "" {
+			os.Setenv("HOLOCHAINCONFIG_LOGPREFIX", logPrefix)
+			if err != nil {
+				return err
+			}
+		}
+		if bootstrapServer != "" {
+			os.Setenv("HOLOCHAINCONFIG_BOOTSTRAP", bootstrapServer)
+			if err != nil {
+				return err
+			}
+		}
 
-
-    if debug {
+		if debug {
 			fmt.Printf("args:%v\n", c.Args())
 			os.Setenv("DEBUG", "1")
 
-      fmt.Printf("hcdev.go: Before: os.Environ: %v\n\n", spew.Sdump(os.Environ()) )
+			fmt.Printf("hcdev.go: Before: os.Environ: %v\n\n", spew.Sdump(os.Environ()))
 		}
 		holo.InitializeHolochain()
 

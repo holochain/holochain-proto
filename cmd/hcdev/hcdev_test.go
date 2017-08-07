@@ -36,7 +36,7 @@ func TestGoScenario_cliCommand(t *testing.T) {
 	})
 }
 
-func Test_testScenarioWriteEnvironment(t * testing.T) {
+func Test_testScenarioWriteEnvironment(t *testing.T) {
 
 }
 
@@ -54,7 +54,7 @@ func TestGoScenario_RunScenarioTest(t *testing.T) {
 	Convey("get the scenario directory listing for one of the example apps", t, func() {
 		// connect to an actual app to work with
 		clutterDir, err := cmd.GolangHolochainDir("examples", "clutter")
-		So(cmd.DirExists(clutterDir), ShouldEqual, true )
+		So(cmd.DirExists(clutterDir), ShouldEqual, true)
 		if debug {
 			fmt.Printf("HC: hcdev_test.go: TestGoScenario_ReadScenarioDirectory: clutterDir: %v", clutterDir)
 		}
@@ -77,7 +77,6 @@ func TestGoScenario_RunScenarioTest(t *testing.T) {
 		if debug {
 			fmt.Printf("HC: hcdev_test.go: TestGoScenario_ReadScenarioDirectory: mutableContext\n\n%v", spew.Sdump(mutableContext))
 		}
-
 
 	})
 

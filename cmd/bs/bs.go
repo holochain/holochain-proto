@@ -53,7 +53,7 @@ func setupApp() (app *cli.App) {
 					return err
 				}
 				userPath := u.HomeDir
-				dbpath = userPath + "/.hcboostrapdb"
+				dbpath = userPath + "/.hcbootstrapdb"
 			}
 		}
 		store, err = buntdb.Open(dbpath)

@@ -12,6 +12,8 @@ import (
 	"fmt"
 	"github.com/BurntSushi/toml"
 	"github.com/google/uuid"
+
+	"io"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -1114,4 +1116,55 @@ func (s *Service) SaveDNAFile(root string, dna *DNA, encodingFormat string, over
 
 	err = Encode(f, encodingFormat, dnaFile)
 	return
+}
+
+// SaveScaffold writes out a holochain application based on scaffold file to path
+func (service *Service) SaveScaffold(reader io.Reader, path string, newUUID bool) (scaffold *Scaffold, err error) {
+	scaffold, err = LoadScaffold(reader)
+	if err != nil {
+		return
+	}
+
+	dna := &scaffold.DNA
+	err = MakeDirs(path)
+	if err != nil {
+		return
+	}
+	if newUUID {
+		dna.NewUUID()
+	}
+	err = service.SaveDNAFile(path, dna, "json", false)
+	if err != nil {
+		return
+	}
+
+	testPath := filepath.Join(path, ChainTestDir)
+	for _, test := range scaffold.Tests {
+		if err = writeFile([]byte(test.Value), testPath, test.Name+".json"); err != nil {
+			return
+		}
+	}
+	return
+}
+
+//MakeDirs creates the directory structure of an application
+func MakeDirs(devPath string) error {
+	err := os.MkdirAll(devPath, os.ModePerm)
+	if err != nil {
+		return err
+	}
+	err = os.MkdirAll(filepath.Join(devPath, ChainDNADir), os.ModePerm)
+	if err != nil {
+		return err
+	}
+	err = os.MkdirAll(filepath.Join(devPath, ChainUIDir), os.ModePerm)
+	if err != nil {
+		return err
+	}
+	err = os.MkdirAll(filepath.Join(devPath, ChainTestDir), os.ModePerm)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }

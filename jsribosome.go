@@ -543,6 +543,55 @@ func NewJSRibosome(h *Holochain, zome *Zome) (n Ribosome, err error) {
 		result, _ := jsr.vm.ToValue(entryHash.String())
 		return result
 	})
+	//===========================================================================
+	err = jsr.vm.Set("sign", func(call otto.FunctionCall) otto.Value {
+		a := &ActionSign{}
+		args := a.Args()
+		err := jsProcessArgs(&jsr, args, call.ArgumentList)
+		if err != nil {
+			return mkOttoErr(&jsr, err.Error())
+		}
+
+		a.doc = []byte(args[0].value.(string))
+		var r interface{}
+		r, err = a.Do(h)
+		if err != nil {
+			return mkOttoErr(&jsr, err.Error())
+		}
+		var signature []byte
+		if r != nil {
+			signature = r.([]byte)
+		}
+		result, _ := jsr.vm.ToValue(string(signature))
+		return result
+	})
+
+	err = jsr.vm.Set("verifySignature", func(call otto.FunctionCall) otto.Value {
+
+		a := &ActionVerifySignature{}
+		args := a.Args()
+		err := jsProcessArgs(&jsr, args, call.ArgumentList)
+		if err != nil {
+			return mkOttoErr(&jsr, err.Error())
+		}
+		a.signature = args[0].value.(string)
+		a.data = args[1].value.(string)
+		a.pubKey = args[2].value.(string)
+		var r bool
+		r, err = a.Do(h)
+		if err != nil {
+			return mkOttoErr(&jsr, err.Error())
+		}
+		var result otto.Value
+		result, err = jsr.vm.ToValue(r)
+
+		if err != nil {
+			return mkOttoErr(&jsr, err.Error())
+		}
+		return result
+	})
+
+	//============================================================================
 
 	err = jsr.vm.Set("send", func(call otto.FunctionCall) otto.Value {
 		a := &ActionSend{}

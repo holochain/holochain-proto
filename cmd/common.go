@@ -183,7 +183,7 @@ func Die(message string) {
 
 func GolangHolochainDir(subPath ...string) (path string, err error) {
 	err = nil
-  joinable := append([]string{os.Getenv("GOPATH"), "src/github.com/metacurrency/holochain"}, subPath...)
+	joinable := append([]string{os.Getenv("GOPATH"), "src/github.com/metacurrency/holochain"}, subPath...)
 	path = filepath.Join(joinable...)
 	return
 }
@@ -247,3 +247,66 @@ func GetFreePort() (port int, err error) {
 	port = l.Addr().(*net.TCPAddr).Port
 	return
 }
+
+
+// var syncWatcher fsnotify.Watcher
+// var created_syncWatcher bool
+
+// func SyncStart(syncName string) err error {
+//   err = nil
+
+//   syncDir := filepath.Join("/tmp", "hc.sync")
+//   if !DirExists(syncDir) {
+//     err = os.MkdirAll(syncDir, "0666")
+//     if err != nil {
+//       return err
+//     }
+//   }
+
+//   syncFile := filepath.Join(syncDir, syncName)
+//   if FileExists(syncPath) {
+//     return errors.New("HC: common.go: SyncStart(%v): file already exists", syncFile)
+//   }
+
+//   os.OpenFile(syncFile, os.O_RDONLY|os.O_CREATE, 0666)
+// }
+
+// func SyncOnRM(syncName string) (err error) {
+//   syncFile := filepath.Join("/tmp", "hc.sync", syncName)
+//   if !FileExists(syncFile) {
+//     return errors.New("HC: common.go: SyncOnRM(%v)", syncFile)
+//   }
+
+//   if ! created_syncWatcher {
+//     watcher, err := fsnotify.NewWatcher()
+//     if err != nil {
+//       log.Fatal(err)
+//     }
+//     defer watcher.Close()
+
+//     done := make(chan bool)
+//     go func() {
+//       for {
+//         select {
+//         case event := <-watcher.Events:
+//           log.Println("event:", event)
+//           if event.Op&fsnotify.Remove == fsnotify.Remove {
+//             log.Println("modified file:", event.Name)
+//           }
+//         case err := <-watcher.Errors:
+//           log.Println("error:", err)
+//         }
+//       }
+//     }()
+//     created_syncWatcher = true
+//   }
+
+//   err = watcher.Add(syncPath)
+//   if err != nil {
+//     return err
+//   }
+//   <-done
+// }
+
+// func 
+

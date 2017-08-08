@@ -16,12 +16,16 @@ import (
 	"strconv"
 	"time"
 
-	spew "github.com/davecgh/go-spew/spew"
+	cli 			"github.com/urfave/cli"
+	// fsnotify	"github.com/fsnotify/fsnotify"
+	spew 			"github.com/davecgh/go-spew/spew"
+	
+	
 	holo "github.com/metacurrency/holochain"
 	"github.com/metacurrency/holochain/cmd"
 	"github.com/metacurrency/holochain/ui"
 
-	"github.com/urfave/cli"
+	
 )
 
 const (
@@ -31,9 +35,12 @@ const (
 var debug, appInitialized bool
 var rootPath, devPath, name string
 
-// more flags
+// flags for holochain config generation
 var port, logPrefix, bootstrapServer string
 var mdns bool
+
+// meta flags for program flow control
+var syncPausePath string
 
 type MutableContext struct {
 	str map[string]string
@@ -244,6 +251,13 @@ func setupApp() (app *cli.App) {
 			Aliases:   []string{"t"},
 			ArgsUsage: "no args run's all stand-alone | [test file prefix] | [scenario] [role]",
 			Usage:     "run chain's stand-alone or scenario tests",
+			Flags: []cli.Flag{
+				cli.StringFlag{
+					Name:        "syncPausePath",
+					Usage:       "path to wait for multinode test sync",
+					Destination: &syncPausePath,
+				},
+			},
 			Action: func(c *cli.Context) error {
 				if debug {
 					fmt.Printf("\nHC: hcdev.go: test: testScenario: h: %v\n", spew.Sdump(os.Environ()))
@@ -261,6 +275,9 @@ func setupApp() (app *cli.App) {
 				if len(args) == 2 {
 					dir := filepath.Join(h.TestPath(), args[0])
 					role := args[1]
+
+					// if syncPause != "" {
+					// }
 
 					err, errs = h.TestScenario(dir, role)
 					if err != nil {
@@ -387,7 +404,10 @@ func setupApp() (app *cli.App) {
 
 					mutableContext.obj["testCommand."+roleName] = &testCommand
 
-					testCommand.Start()
+					if debug {
+						fmt.Println("HC: hcdev.go: goScenario: running testCommand now")
+					}
+					go testCommand.Start()
 				}
 
 				return nil

@@ -511,6 +511,11 @@ func makeConfig(h *Holochain, s *Service) (err error) {
 		if err != nil {
 			return err
 		}
+
+		if IsDebugging() {
+			fmt.Printf("HC: service.go: makeConfig: using environment variable to set port to:            %v\n", val)
+		}
+
 	}
 	val = os.Getenv("HOLOCHAINCONFIG_BOOTSTRAP")
 	if val != "" {
@@ -519,11 +524,23 @@ func makeConfig(h *Holochain, s *Service) (err error) {
 		}
 		Debugf("makeConfig: using environment variable to set bootstrap server to: %s", val)
 		h.config.BootstrapServer = val
+
+		if val == "" {
+			val = "NO BOOTSTRAP SERVER"
+		}
+		if IsDebugging() {
+			fmt.Printf("HC: service.go: makeConfig: using environment variable to set bootstrapServer to: %v\n", val)
+		}
+
 	}
 	val = os.Getenv("HOLOCHAINCONFIG_ENABLEMDNS")
 	if val != "" {
 		Debugf("makeConfig: using environment variable to set enableMDNS to: %s", val)
 		h.config.EnableMDNS = val == "true"
+
+		if IsDebugging() {
+			fmt.Printf("HC: service.go: makeConfig: using environment variable to set enableMDNS to:      %v\n", val)
+		}
 	}
 	val = os.Getenv("HOLOCHAINCONFIG_LOGPREFIX")
 	if val != "" {
@@ -534,6 +551,10 @@ func makeConfig(h *Holochain, s *Service) (err error) {
 		h.config.Loggers.TestPassed.Format = val + h.config.Loggers.TestPassed.Format
 		h.config.Loggers.TestFailed.Format = val + h.config.Loggers.TestFailed.Format
 		h.config.Loggers.TestInfo.Format = val + h.config.Loggers.TestInfo.Format
+
+		if IsDebugging() {
+			fmt.Printf("HC: service.go: makeConfig: using environment variable to set logPrefix to:       %v\n", val)
+		}
 	}
 
 	p := filepath.Join(h.rootPath, ConfigFileName+"."+h.encodingFormat)
@@ -1127,4 +1148,8 @@ func (s *Service) SaveDNAFile(root string, dna *DNA, encodingFormat string, over
 
 	err = Encode(f, encodingFormat, dnaFile)
 	return
+}
+
+func IsDebugging() bool {
+	return strings.ToLower(os.Getenv("DEBUG")) == "true" || os.Getenv("DEBUG") == "1"
 }

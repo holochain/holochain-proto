@@ -35,6 +35,7 @@ const (
 	StoreFileName        string = "chain.db"    // Filename for local data store
 	DNAHashFileName      string = "dna.hash"    // Filename for storing the hash of the holochain
 	DHTStoreFileName     string = "dht.db"      // Filname for storing the dht
+	BridgeDBFileName     string = "bridge.db"   // Filname for storing bridge keys
 
 	DefaultPort            = 6283
 	DefaultBootstrapServer = "bootstrap.holochain.net:10000"
@@ -73,6 +74,8 @@ type ZomeFile struct {
 	Entries      []EntryDefFile
 	RibosomeType string
 	Functions    []FunctionDef
+	BridgeFuncs  []string // functions in zome that can be bridged to by fromApp
+	BridgeTo     Hash     // dna Hash of toApp for zomes to be included in the fromApp
 }
 
 type DNAFile struct {
@@ -311,6 +314,8 @@ func (s *Service) LoadDNA(path string, filename string, format string) (dnaP *DN
 		dna.Zomes[i].Description = zome.Description
 		dna.Zomes[i].RibosomeType = zome.RibosomeType
 		dna.Zomes[i].Functions = zome.Functions
+		dna.Zomes[i].BridgeFuncs = zome.BridgeFuncs
+		dna.Zomes[i].BridgeTo = zome.BridgeTo
 
 		var code []byte
 		code, err = readFile(zomePath, zome.CodeFile)
@@ -620,6 +625,7 @@ func (s *Service) GenDev(root string, format string) (hP *Holochain, err error) 
 				CodeFile:     zygoZomeName + ".zy",
 				Description:  "this is a zygomas test zome",
 				RibosomeType: ZygoRibosomeType,
+				BridgeFuncs:  []string{"testStrFn1"},
 				Entries: []EntryDefFile{
 					{Name: "evenNumbers", DataFormat: DataFormatRawZygo, Sharing: Public},
 					{Name: "primes", DataFormat: DataFormatJSON, Sharing: Public, SchemaFile: "primes.json"},
@@ -640,6 +646,7 @@ func (s *Service) GenDev(root string, format string) (hP *Holochain, err error) 
 				CodeFile:     jsZomeName + ".js",
 				Description:  "this is a javascript test zome",
 				RibosomeType: JSRibosomeType,
+				BridgeFuncs:  []string{"getProperty"},
 				Entries: []EntryDefFile{
 					{Name: "oddNumbers", DataFormat: DataFormatRawJS, Sharing: Public},
 					{Name: "profile", DataFormat: DataFormatJSON, Sharing: Public, SchemaFile: "profile.json"},
@@ -647,7 +654,7 @@ func (s *Service) GenDev(root string, format string) (hP *Holochain, err error) 
 					{Name: "secret", DataFormat: DataFormatString},
 				},
 				Functions: []FunctionDef{
-					{Name: "getProperty", CallingType: STRING_CALLING},
+					{Name: "getProperty", CallingType: STRING_CALLING, Exposure: PUBLIC_EXPOSURE},
 					{Name: "addOdd", CallingType: STRING_CALLING, Exposure: PUBLIC_EXPOSURE},
 					{Name: "addProfile", CallingType: JSON_CALLING, Exposure: PUBLIC_EXPOSURE},
 					{Name: "testStrFn1", CallingType: STRING_CALLING},
@@ -746,6 +753,7 @@ func (s *Service) GenDev(root string, format string) (hP *Holochain, err error) 
 (defn validateDelPkg [entryType] nil)
 (defn validateLinkPkg [entryType] nil)
 (defn genesis [] true)
+(defn bridgeGenesis [] (begin (debug "bridge genesis debug output")  true))
 (defn receive [from message]
 	(hash pong: (hget message %ping)))
 `
@@ -808,6 +816,7 @@ function validateDelPkg(entry_type) { return null}
 function validateLinkPkg(entry_type) { return null}
 
 function genesis() {return true}
+function bridgeGenesis() {return true}
 
 function receive(from,message) {
   // send back a pong message of what came in the ping message!
@@ -1120,6 +1129,8 @@ func (s *Service) SaveDNAFile(root string, dna *DNA, encodingFormat string, over
 			CodeFile:     z.CodeFileName(),
 			RibosomeType: z.RibosomeType,
 			Functions:    z.Functions,
+			BridgeFuncs:  z.BridgeFuncs,
+			BridgeTo:     z.BridgeTo,
 		}
 
 		for _, e := range z.Entries {

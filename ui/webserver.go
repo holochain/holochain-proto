@@ -34,11 +34,13 @@ func NewWebServer(h *holo.Holochain, port string) *WebServer {
 
 func (ws *WebServer) Start() {
 
+	mux := http.NewServeMux()
+
 	ws.log.New(nil)
 	ws.errs.New(os.Stderr)
 
 	fs := http.FileServer(http.Dir(ws.h.UIPath()))
-	http.Handle("/", fs)
+	mux.Handle("/", fs)
 
 	var upgrader = websocket.Upgrader{
 		ReadBufferSize:  1024,
@@ -46,7 +48,7 @@ func (ws *WebServer) Start() {
 		CheckOrigin:     func(r *http.Request) bool { return true },
 	}
 
-	http.HandleFunc("/_sock/", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/_sock/", func(w http.ResponseWriter, r *http.Request) {
 		conn, err := upgrader.Upgrade(w, r, nil)
 		if err != nil {
 			ws.errs.Logf(err.Error())
@@ -83,7 +85,7 @@ func (ws *WebServer) Start() {
 		}
 	})
 
-	http.HandleFunc("/fn/", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/fn/", func(w http.ResponseWriter, r *http.Request) {
 
 		var err error
 		var errCode = 400
@@ -108,7 +110,10 @@ func (ws *WebServer) Start() {
 		ws.log.Logf("processing req:%s\n  Body:%v\n", r.URL.Path, string(body))
 
 		path := strings.Split(r.URL.Path, "/")
-
+		if len(path) != 4 {
+			errCode, err = mkErr("bad request", 400)
+			return
+		}
 		zome := path[2]
 		function := path[3]
 		args := string(body)
@@ -128,9 +133,57 @@ func (ws *WebServer) Start() {
 		default:
 			err = fmt.Errorf("Unknown type from Call of %s:%s", zome, function)
 		}
-	}) // set router
+	})
+
+	mux.HandleFunc("/bridge/", func(w http.ResponseWriter, r *http.Request) {
+
+		var err error
+		var errCode = 400
+		defer func() {
+			if err != nil {
+				ws.log.Logf("ERROR:%s,code:%d", err.Error(), errCode)
+				http.Error(w, err.Error(), errCode)
+			}
+		}()
+
+		body, err := ioutil.ReadAll(r.Body)
+		if err != nil {
+			errCode, err = mkErr("unable to read body", 500)
+			return
+		}
+		ws.log.Logf("processing req:%s\n  Body:%v\n", r.URL.Path, string(body))
+
+		path := strings.Split(r.URL.Path, "/")
+		if len(path) != 5 {
+			errCode, err = mkErr("bad request", 400)
+			return
+		}
+		token := path[2]
+		zome := path[3]
+		function := path[4]
+		args := string(body)
+
+		ws.log.Logf("bridge calling %s:%s(%s)\n", zome, function, args)
+		result, err := ws.h.BridgeCall(zome, function, args, token)
+		if err != nil {
+			ws.log.Logf("call of %s:%s resulted in error: %v\n", zome, function, err)
+			errCode, err = mkErr(err.Error(), 400)
+			return
+		}
+		ws.log.Logf(" result: %v\n", result)
+		switch t := result.(type) {
+		case string:
+			fmt.Fprintf(w, t)
+		case []byte:
+			fmt.Fprintf(w, string(t))
+		default:
+			err = fmt.Errorf("Unknown type from Call of %s:%s", zome, function)
+		}
+	})
+
+	// set router
 	ws.log.Logf("starting server on localhost:%s\n", ws.port)
-	err := http.ListenAndServe(":"+ws.port, nil) // set listen port
+	err := http.ListenAndServe(":"+ws.port, mux) // set listen port
 	if err != nil {
 		ws.errs.Logf("Couldn't start server: %v", err)
 	}

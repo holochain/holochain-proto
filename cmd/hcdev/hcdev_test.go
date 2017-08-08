@@ -58,6 +58,20 @@ func TestInit(t *testing.T) {
 		So(err, ShouldBeNil)
 		So(cmd.IsFile(filepath.Join(tmpTestDir, "bar", "ui", "foo.js")), ShouldBeTrue)
 	})
+
+	Convey("'init bar --cloneExample=clutter myClutter' should copy files from github", t, func() {
+		err = os.Chdir(tmpTestDir)
+		if err != nil {
+			panic(err)
+		}
+
+		os.Args = []string{"hcdev", "init", "-cloneExample=clutter", "myClutter"}
+
+		err = app.Run(os.Args)
+		So(err, ShouldBeNil)
+		So(cmd.IsFile(filepath.Join(tmpTestDir, "myClutter", "dna", "clutter", "clutter.js")), ShouldBeTrue)
+	})
+
 }
 
 func TestWeb(t *testing.T) {

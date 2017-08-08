@@ -2,7 +2,8 @@ package holochain
 
 import (
 	"bytes"
-	gob "encoding/gob"
+	"encoding/gob"
+	"encoding/json"
 	"fmt"
 	// toml "github.com/BurntSushi/toml"
 	"github.com/google/uuid"
@@ -10,6 +11,7 @@ import (
 	. "github.com/smartystreets/goconvey/convey"
 	"os"
 	// "strings"
+	"path/filepath"
 	"testing"
 	"time"
 )
@@ -117,7 +119,7 @@ func TestNewEntry(t *testing.T) {
 	d, s := setupTestService()
 	defer CleanupTestDir(d)
 	n := "test"
-	path := s.Path + "/" + n
+	path := filepath.Join(s.Path, n)
 	h, err := s.GenDev(path, "toml")
 	if err != nil {
 		panic(err)
@@ -386,6 +388,84 @@ func TestCall(t *testing.T) {
 	})
 }
 
+func TestBridgeCall(t *testing.T) {
+	d, _, h := PrepareTestChain("test")
+	defer CleanupTestDir(d)
+	token := "bogus token"
+	var err error
+	Convey("it should fail calls to functions when there's no brided", t, func() {
+		_, err = h.BridgeCall("zySampleZome", "testStrFn1", "arg1 arg2", token)
+		So(err.Error(), ShouldEqual, "no active bridge")
+	})
+
+	Convey("it should call the bridgeGenesis function on bridging", t, func() {
+		ShouldLog(h.nucleus.alog, `bridge genesis debug output`, func() {
+			token, err = h.NewBridge()
+			So(err, ShouldBeNil)
+		})
+		c := Capability{Token: token, db: h.bridgeDB}
+		bridgeSpecStr, err := c.Validate(nil)
+		So(err, ShouldBeNil)
+		So(bridgeSpecStr, ShouldEqual, `{"jsSampleZome":{"getProperty":true},"zySampleZome":{"testStrFn1":true}}`)
+	})
+
+	Convey("it should call the bridged function", t, func() {
+		var result interface{}
+		result, err = h.BridgeCall("zySampleZome", "testStrFn1", "arg1 arg2", token)
+		So(err, ShouldBeNil)
+		So(result.(string), ShouldEqual, "result: arg1 arg2")
+	})
+
+	Convey("it should fail calls to functions not included in the bridge", t, func() {
+		_, err = h.BridgeCall("zySampleZome", "testStrFn2", "arg1 arg2", token)
+		So(err, ShouldNotBeNil)
+		So(err.Error(), ShouldEqual, "function not bridged")
+	})
+
+}
+
+func TestBridgeSpec(t *testing.T) {
+	spec := BridgeSpec{
+		"bridgedZome": {"bridgedFunc": true},
+	}
+	Convey("it should fail functions not in the spec", t, func() {
+		So(checkBridgeSpec(spec, "someZome", "someFunc"), ShouldBeFalse)
+		So(checkBridgeSpec(spec, "bridgedZome", "someFunc"), ShouldBeFalse)
+		So(checkBridgeSpec(spec, "someZome", "bridgedFunc"), ShouldBeFalse)
+	})
+	Convey("it should not fail functions in the spec", t, func() {
+		So(checkBridgeSpec(spec, "bridgedZome", "bridgedFunc"), ShouldBeTrue)
+	})
+}
+
+func TestBridgeSpecMake(t *testing.T) {
+	d, _, h := PrepareTestChain("test")
+	defer CleanupTestDir(d)
+
+	Convey("it should make spec from the dna", t, func() {
+		spec := h.makeBridgeSpec()
+		bridgeSpecB, _ := json.Marshal(spec)
+
+		So(fmt.Sprintf("%s", string(bridgeSpecB)), ShouldEqual, `{"jsSampleZome":{"getProperty":true},"zySampleZome":{"testStrFn1":true}}`)
+	})
+}
+func TestBridgeStore(t *testing.T) {
+	d, _, h := setupTestChain("test")
+	defer CleanupTestDir(d)
+
+	hash, _ := NewHash("QmVGtdTZdTFaLsaj2RwdVG8jcjNNcp1DE914DKZ2kHmXHw")
+	token := "some token"
+	url := "http://localhost:31415"
+	Convey("it should add a token to the bridged apps list", t, func() {
+		err := h.AddBridge(hash, token, url)
+		So(err, ShouldBeNil)
+		t, u, err := h.GetBridgeToken(hash)
+		So(err, ShouldBeNil)
+		So(t, ShouldEqual, token)
+		So(u, ShouldEqual, url)
+	})
+}
+
 func TestLoadTestFiles(t *testing.T) {
 	d, _, h := setupTestChain("test")
 	defer CleanupTestDir(d)
@@ -397,7 +477,7 @@ func TestLoadTestFiles(t *testing.T) {
 	})
 
 	Convey("it should load test files", t, func() {
-		path := h.rootPath + "/" + ChainTestDir
+		path := filepath.Join(h.rootPath, ChainTestDir)
 		tests, err := LoadTestFiles(path)
 		So(err, ShouldBeNil)
 		So(len(tests), ShouldEqual, 9)

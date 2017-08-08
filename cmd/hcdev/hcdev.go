@@ -13,7 +13,9 @@ import (
 	"github.com/metacurrency/holochain/cmd"
 	"github.com/metacurrency/holochain/ui"
 	"github.com/urfave/cli"
+	"io/ioutil"
 	"os"
+	"os/exec"
 	"os/user"
 	"path"
 	"path/filepath"
@@ -25,13 +27,25 @@ const (
 )
 
 var debug, appInitialized bool
-var rootPath, devPath, name string
+var rootPath, devPath, bridgeToPath, bridgeToName, bridgeFromPath, bridgeFromName, name string
+var bridgeFromH, bridgeToH *holo.Holochain
+
+// TODO: move these into cmd module
+func makeErr(prefix string, text string, code int) error {
+	errText := fmt.Sprintf("%s: %s", prefix, text)
+	fmt.Printf("CLI Error: %s\n", errText)
+	return cli.NewExitError(errText, 1)
+}
+
+func makeErrFromError(prefix string, err error, code int) error {
+	return makeErr(prefix, err.Error(), code)
+}
 
 func setupApp() (app *cli.App) {
 	app = cli.NewApp()
 	app.Name = "hcdev"
 	app.Usage = "holochain dev command line tool"
-	app.Version = fmt.Sprintf("0.0.1 (holochain %s)", holo.VersionStr)
+	app.Version = fmt.Sprintf("0.0.2 (holochain %s)", holo.VersionStr)
 
 	var service *holo.Service
 
@@ -51,10 +65,21 @@ func setupApp() (app *cli.App) {
 			Usage:       "path to chain source definition directory (default: current working dir)",
 			Destination: &devPath,
 		},
+		cli.StringFlag{
+			Name:        "bridgeTo",
+			Usage:       "path to dev directory of app to bridge to",
+			Destination: &bridgeToPath,
+		},
+		cli.StringFlag{
+			Name:        "bridgeFrom",
+			Usage:       "path to dev directory of app to bridge from",
+			Destination: &bridgeFromPath,
+		},
 	}
 
 	var interactive, dumpChain, dumpDHT bool
-	var clonePath, scaffoldPath string
+	var clonePath, scaffoldPath, cloneExample string
+	var ranScript bool
 	app.Commands = []cli.Command{
 		{
 			Name:    "init",
@@ -76,110 +101,130 @@ func setupApp() (app *cli.App) {
 					Usage:       "path to a scaffold file from which to initialize the app",
 					Destination: &scaffoldPath,
 				},
+				cli.StringFlag{
+					Name:        "cloneExample",
+					Usage:       "example from github.com/holochain to clone from",
+					Destination: &cloneExample,
+				},
 			},
 			ArgsUsage: "<name>",
 			Action: func(c *cli.Context) error {
 				if appInitialized {
-					return errors.New("current directory is an initialized app, apps shouldn't be nested")
+					return makeErr("init", "current directory is an initialized app, apps shouldn't be nested", 1)
 				}
 
 				args := c.Args()
 				if len(args) != 1 {
-					return errors.New("init: expecting app name as single argument")
+					return makeErr("init", "expecting app name as single argument", 1)
 				}
 
 				if (interactive && clonePath != "") || (interactive && scaffoldPath != "") || (clonePath != "" && scaffoldPath != "") {
-					return errors.New("options are mutually exclusive, please choose just one.")
+					return makeErr("init", " options are mutually exclusive, please choose just one.", 1)
 				}
 				name := args[0]
 				devPath = filepath.Join(devPath, name)
-				if interactive {
-					// make the directory and chdir into it
-
-					// terminates go process
-					cmd.ExecBinScript("holochain.app.init.interactive")
-				} else if clonePath != "" {
+				if clonePath != "" {
 					// build the app by cloning from another app
 					info, err := os.Stat(clonePath)
 					if err != nil {
-						return err
+						dir, _ := cmd.GetCurrentDirectory()
+						return makeErrFromError(fmt.Sprintf("ClonePath:%s/'%s'", dir, clonePath), err, 1)
 					}
+
 					if !info.Mode().IsDir() {
-						return errors.New("expecting a directory to clone from")
+						return makeErr("init", "-clone flag expects a directory to clone from", 1)
 					}
-
-					// TODO this is the bogus dev agent, really it should probably be someone else
-					agent, err := holo.LoadAgent(rootPath)
-					if err != nil {
-						return err
-					}
-
-					err = service.Clone(clonePath, devPath, agent, true)
-					if err != nil {
-						return err
-					}
-
 					fmt.Printf("cloning %s from %s\n", name, clonePath)
+					err = doClone(service, clonePath, devPath)
+					if err != nil {
+						return makeErrFromError("init", err, 1)
+					}
+
+				} else if cloneExample != "" {
+					tmpCopyDir, err := ioutil.TempDir("", fmt.Sprintf("holochain.example.%s", cloneExample))
+					if err != nil {
+						return makeErrFromError("init", err, 1)
+					}
+					defer os.RemoveAll(tmpCopyDir)
+					err = os.Chdir(tmpCopyDir)
+					if err != nil {
+						return makeErrFromError("init", err, 1)
+					}
+					cmd := exec.Command("git", "clone", fmt.Sprintf("git://github.com/Holochain/%s.git", cloneExample))
+					out, err := cmd.CombinedOutput()
+					fmt.Printf("git: %s\n", string(out))
+					if err != nil {
+						return makeErrFromError("init", err, 1)
+					}
+					clonePath := filepath.Join(tmpCopyDir, cloneExample)
+					fmt.Printf("cloning %s from github.com/Holochain/%s\n", name, cloneExample)
+					err = doClone(service, clonePath, devPath)
+
 				} else if scaffoldPath != "" {
 					// build the app from the scaffold
 					info, err := os.Stat(scaffoldPath)
 					if err != nil {
-						return err
+						return makeErrFromError("init", err, 1)
 					}
 					if !info.Mode().IsRegular() {
-						return errors.New("expecting a scaffold file")
+						return makeErr("init", "-scaffold flag expectings a scaffold file", 1)
 					}
 
 					sf, err := os.Open(scaffoldPath)
 					if err != nil {
-						return err
+						return makeErrFromError("init", err, 1)
 					}
 					defer sf.Close()
 
 					dna, err := holo.LoadDNAScaffold(sf)
 					if err != nil {
-						return err
+						return makeErrFromError("init", err, 1)
 					}
 
 					err = cmd.MakeDirs(devPath)
 					if err != nil {
-						return err
+						return makeErrFromError("init", err, 1)
 					}
 
 					err = service.SaveDNAFile(devPath, dna, "json", false)
 					if err != nil {
-						return err
+						return makeErrFromError("init", err, 1)
 					}
 					fmt.Printf("initialized %s from scaffold:%s\n", devPath, scaffoldPath)
 
+				} else if cmd.IsFile(filepath.Join(devPath, "dna", "dna.json")) {
+					cmd.OsExecPipes(cmd.GolangHolochainDir("bin", "holochain.app.init.interactive"))
+					ranScript = true
 				} else {
+
 					// build empty app template
 					err := cmd.MakeDirs(devPath)
 					if err != nil {
-						return err
+						return makeErrFromError("init", err, 1)
 					}
 					scaffold := bytes.NewBuffer([]byte(holo.BasicTemplateScaffold))
 					dna, err := holo.LoadDNAScaffold(scaffold)
 					if err != nil {
-						return err
+						return makeErrFromError("init", err, 1)
 					}
 					dna.NewUUID()
 					err = service.SaveDNAFile(devPath, dna, "json", false)
 					if err != nil {
-						return err
+						return makeErrFromError("init", err, 1)
 					}
 					fmt.Printf("initialized empty application to %s with new UUID:%v\n", devPath, dna.UUID)
 				}
 
 				err := os.Chdir(devPath)
 				if err != nil {
-					return err
+					return makeErrFromError("", err, 1)
 				}
 
 				// finish by creating the .hc directory
 				// terminates go process
-				cmd.ExecBinScript("holochain.app.init", name, name)
-
+				if !ranScript {
+					cmd.OsExecPipes("holochain.app.init", name)
+				}
 				return nil
 			},
 		},
@@ -195,11 +240,17 @@ func setupApp() (app *cli.App) {
 				if err != nil {
 					return err
 				}
+
+				err = activateBridgedApps(service)
+				if err != nil {
+					return err
+				}
+
 				args := c.Args()
 				var errs []error
 
 				if len(args) == 2 {
-					dir := h.TestPath() + "/" + args[0]
+					dir := filepath.Join(h.TestPath(), args[0])
 					role := args[1]
 
 					err, errs = h.TestScenario(dir, role)
@@ -239,6 +290,10 @@ func setupApp() (app *cli.App) {
 					return errors.New("missing scenario name argument")
 				}
 
+				err := activateBridgedApps(service)
+				if err != nil {
+					return err
+				}
 				// terminates go process
 				cmd.ExecBinScript("holochain.app.testScenario", args[0])
 				return nil
@@ -259,6 +314,10 @@ func setupApp() (app *cli.App) {
 				if err != nil {
 					return err
 				}
+				err = activateBridgedApps(service)
+				if err != nil {
+					return err
+				}
 
 				var port string
 				if len(c.Args()) == 0 {
@@ -266,16 +325,8 @@ func setupApp() (app *cli.App) {
 				} else {
 					port = c.Args()[0]
 				}
-				fmt.Printf("Serving holochain with DNA hash:%v on port:%s\n", h.DNAHash(), port)
 
-				err = h.Activate()
-				if err != nil {
-					return err
-				}
-				//				go h.DHT().HandleChangeReqs()
-				go h.DHT().HandleGossipWiths()
-				go h.DHT().Gossip(2 * time.Second)
-				ui.NewWebServer(h, port).Start()
+				err = activate(h, port)
 				return err
 			},
 		},
@@ -348,7 +399,7 @@ func setupApp() (app *cli.App) {
 					return err
 				}
 				userPath := u.HomeDir
-				rootPath = userPath + "/" + holo.DefaultDirectoryName + "dev"
+				rootPath = filepath.Join(userPath, holo.DefaultDirectoryName+"dev")
 			}
 		}
 		if !holo.IsInitialized(rootPath) {
@@ -402,7 +453,7 @@ func main() {
 
 func getHolochain(c *cli.Context, service *holo.Service) (h *holo.Holochain, err error) {
 	fmt.Printf("Copying chain to: %s\n", rootPath)
-	err = os.RemoveAll(rootPath + "/" + name)
+	err = os.RemoveAll(filepath.Join(rootPath, name))
 	if err != nil {
 		return
 	}
@@ -411,11 +462,127 @@ func getHolochain(c *cli.Context, service *holo.Service) (h *holo.Holochain, err
 	if err != nil {
 		return
 	}
-	err = service.Clone(devPath, rootPath+"/"+name, agent, false)
+	err = service.Clone(devPath, filepath.Join(rootPath, name), agent, false)
 	if err != nil {
 		return
 	}
+
 	h, err = service.Load(name)
+	if err != nil {
+		return
+	}
+	if bridgeToPath != "" {
+		bridgeToH, err = bridge(service, h, agent, bridgeToPath, true)
+		if err != nil {
+			return
+		}
+	}
+	if bridgeFromPath != "" {
+		bridgeFromH, err = bridge(service, h, agent, bridgeFromPath, false)
+		if err != nil {
+			return
+		}
+	}
+	return
+}
+
+func bridge(service *holo.Service, h *holo.Holochain, agent holo.Agent, path string, isFrom bool) (bridgeH *holo.Holochain, err error) {
+
+	bridgeName := filepath.Base(path)
+
+	os.Setenv("HOLOCHAINCONFIG_ENABLEMDNS", "true")
+	os.Setenv("HOLOCHAINCONFIG_BOOTSTRAP", "_")
+	os.Setenv("HOLOCHAINCONFIG_LOGPREFIX", bridgeName+":")
+	if isFrom {
+		os.Setenv("HOLOCHAINCONFIG_PORT", "9991")
+	} else {
+		os.Setenv("HOLOCHAINCONFIG_PORT", "9992")
+	}
+	var hFrom, hTo *holo.Holochain
+	fmt.Printf("Copying bridge chain %s to: %s\n", bridgeName, rootPath)
+	err = os.RemoveAll(filepath.Join(rootPath, bridgeName))
+	if err != nil {
+		return
+	}
+	err = service.Clone(path, filepath.Join(rootPath, bridgeName), agent, false)
+	if err != nil {
+		return
+	}
+	bridgeH, err = service.Load(bridgeName)
+	if err != nil {
+		return
+	}
+
+	if isFrom {
+		bridgeToName = bridgeName
+		hFrom = bridgeH
+		hTo = h
+	} else {
+		bridgeFromName = bridgeName
+		hFrom = h
+		hTo = bridgeH
+	}
+
+	var token string
+	token, err = hTo.NewBridge()
+	if err != nil {
+		return
+	}
+
+	err = hFrom.AddBridge(hTo.DNAHash(), token, fmt.Sprintf("http://localhost:%d", hTo.Config().Port))
+	if err != nil {
+		return
+	}
+	return
+}
+
+func activateBridgedApp(s *holo.Service, h *holo.Holochain, name string, port string) (err error) {
+	h, err = s.GenChain(name)
+	if err != nil {
+		return
+	}
+	go activate(h, port)
+	return
+}
+
+func activateBridgedApps(s *holo.Service) (err error) {
+	if bridgeFromH != nil {
+		err = activateBridgedApp(s, bridgeFromH, bridgeFromName, "12346")
+		if err != nil {
+			return
+		}
+	}
+	if bridgeToH != nil {
+		err = activateBridgedApp(s, bridgeToH, bridgeToName, "12345")
+		if err != nil {
+			return
+		}
+	}
+	return
+}
+
+func activate(h *holo.Holochain, port string) (err error) {
+	fmt.Printf("Serving holochain with DNA hash:%v on port:%s\n", h.DNAHash(), port)
+	err = h.Activate()
+	if err != nil {
+		return
+	}
+	//				go h.DHT().HandleChangeReqs()
+	go h.DHT().HandleGossipWiths()
+	go h.DHT().Gossip(2 * time.Second)
+	ui.NewWebServer(h, port).Start()
+	return
+}
+
+func doClone(s *holo.Service, clonePath, devPath string) (err error) {
+
+	// TODO this is the bogus dev agent, really it should probably be someone else
+	agent, err := holo.LoadAgent(rootPath)
+	if err != nil {
+		return
+	}
+
+	err = s.Clone(clonePath, devPath, agent, true)
 	if err != nil {
 		return
 	}

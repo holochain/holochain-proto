@@ -1,17 +1,20 @@
 package cmd
 
 import (
-	"fmt"
-	holo "github.com/metacurrency/holochain"
+  "fmt"
+  "os"
+  "path/filepath"
+
 	. "github.com/smartystreets/goconvey/convey"
-	"os"
 	"testing"
+
+  holo "github.com/metacurrency/holochain"
 )
 
 func TestIsAppDir(t *testing.T) {
 	Convey("it should test to see if dir is a holochain app", t, func() {
 
-		d := holo.MakeTestDirName()
+		d := holo.SetupTestDir()
 		So(IsAppDir(d).Error(), ShouldEqual, "directory missing .hc subdirectory")
 		err := os.MkdirAll(d+"/.hc", os.ModePerm)
 		if err != nil {
@@ -23,7 +26,7 @@ func TestIsAppDir(t *testing.T) {
 }
 
 func TestGetService(t *testing.T) {
-	d := holo.MakeTestDirName()
+	d := holo.SetupTestDir()
 	defer holo.CleanupTestDir(d)
 	Convey("it should fail to make a service if not initialized", t, func() {
 		service, err := GetService(d)
@@ -39,7 +42,7 @@ func TestGetService(t *testing.T) {
 }
 
 func TestGetHolochain(t *testing.T) {
-	d := holo.MakeTestDirName()
+	d := holo.SetupTestDir()
 	defer holo.CleanupTestDir(d)
 
 	Convey("it should fail when service not initialized", t, func() {
@@ -65,4 +68,23 @@ func TestGetHolochain(t *testing.T) {
 		So(err, ShouldBeNil)
 		So(h.Nucleus().DNA().Name, ShouldEqual, "test")
 	})
+}
+
+func Test_OsExecFunctions_IsFile(t *testing.T) {
+  d  := holo.MakeTestDirName()
+  os.MkdirAll(d, 0770)
+  defer holo.CleanupTestDir(d)
+
+  testFile := filepath.Join(d, "common_test.go.Test_OsExecPipes.aFile")
+
+  Convey("it should when there is no touched file", t, func() {
+    So(IsFile(testFile), ShouldEqual, false)
+  })
+
+  Convey("it should when there is a touched file",  t, func () {
+    OsExecPipes("touch",  testFile )
+    So(IsFile(testFile), ShouldEqual, true) 
+    OsExecSilent("rm",    testFile )
+    So(IsFile(testFile), ShouldEqual, false)
+  })
 }

@@ -12,6 +12,7 @@ import (
 	ic "github.com/libp2p/go-libp2p-crypto"
 	peer "github.com/libp2p/go-libp2p-peer"
 	"github.com/tidwall/buntdb"
+	"path/filepath"
 	"strconv"
 	"strings"
 )
@@ -188,8 +189,10 @@ type LinkQueryResp struct {
 }
 
 type ListAddReq struct {
-	ListType string
-	Peers    []string
+	ListType    string
+	Peers       []string
+	WarrantType int
+	Warrant     []byte
 }
 
 var ErrLinkNotFound = errors.New("link not found")
@@ -205,7 +208,7 @@ func NewDHT(h *Holochain) *DHT {
 		glog: &h.config.Loggers.Gossip,
 		dlog: &h.config.Loggers.DHT,
 	}
-	db, err := buntdb.Open(h.DBPath() + "/" + DHTStoreFileName)
+	db, err := buntdb.Open(filepath.Join(h.DBPath(), DHTStoreFileName))
 	if err != nil {
 		panic(err)
 	}

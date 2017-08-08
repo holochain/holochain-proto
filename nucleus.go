@@ -68,10 +68,11 @@ func (n *Nucleus) RunGenesis() {
 }
 
 func (n *Nucleus) Start() (err error) {
-	if err = n.h.node.StartProtocol(n.h, ValidateProtocol); err != nil {
+	h := n.h
+	if err = h.node.StartProtocol(h, ValidateProtocol); err != nil {
 		return
 	}
-	if err = n.h.node.StartProtocol(n.h, ActionProtocol); err != nil {
+	if err = h.node.StartProtocol(h, ActionProtocol); err != nil {
 		return
 	}
 	return

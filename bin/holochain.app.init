@@ -1,13 +1,17 @@
 #!/bin/bash
+holochainBinDir="$GOPATH/src/github.com/metacurrency/holochain/bin"
+
 
 # get holochain system environment
-. holochain.system.checkInstalled
+. $holochainBinDir/holochain.system.checkInstalled
 
 #check if we are already in a dir/subDir of a holochain app repo
-{ holochain.app.findAppDir > /dev/null && echo "HC: holochain already initialised in $HOLOCHAIN_APPDIR" && exit 1 ; } || :
+{ $holochainBinDir/holochain.app.findAppDir > /dev/null && echo "HC: holochain already initialised in $HOLOCHAIN_APPDIR" && exit 1 ; } || :
 
 readableName=$1
-machineName=$2
+
+machineName=${readableName//[^A-Za-z0-9]/}
+machineName=${machineName,,}
 
 mkdir .hc
 cd .hc

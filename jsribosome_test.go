@@ -217,6 +217,13 @@ func TestNewJSRibosome(t *testing.T) {
 			So(entry.Content(), ShouldEqual, `{"prime":7}`)
 
 		})
+		Convey("bridge", func() {
+			// hard to test because we need to fire up a separate app someplace else
+			_, err := z.Run(`bridge("QmVGtdTZdTFaLsaj2RwdVG8jcjNNcp1DE914DKZ2kHmXHw","zySampleZome","testStrFn1","foo")`)
+			So(err, ShouldBeNil)
+			result := z.lastResult.String()
+			So(result, ShouldEqual, "HolochainError: no active bridge")
+		})
 		Convey("send", func() {
 			ShouldLog(h.nucleus.alog, `result was: "{\"pong\":\"foobar\"}"`, func() {
 				_, err := z.Run(`debug("result was: "+JSON.stringify(send(App.Key.Hash,{ping:"foobar"})))`)
@@ -227,7 +234,7 @@ func TestNewJSRibosome(t *testing.T) {
 }
 
 func TestJSGenesis(t *testing.T) {
-	Convey("it should fail if the init function returns false", t, func() {
+	Convey("it should fail if the genesis function returns false", t, func() {
 		z, _ := NewJSRibosome(nil, &Zome{RibosomeType: JSRibosomeType, Code: `function genesis() {return false}`})
 		err := z.ChainGenesis()
 		So(err.Error(), ShouldEqual, "genesis failed")
@@ -235,6 +242,19 @@ func TestJSGenesis(t *testing.T) {
 	Convey("it should work if the genesis function returns true", t, func() {
 		z, _ := NewJSRibosome(nil, &Zome{RibosomeType: JSRibosomeType, Code: `function genesis() {return true}`})
 		err := z.ChainGenesis()
+		So(err, ShouldBeNil)
+	})
+}
+
+func TestJSBridgeGenesis(t *testing.T) {
+	Convey("it should fail if the bridge genesis function returns false", t, func() {
+		z, _ := NewJSRibosome(nil, &Zome{RibosomeType: JSRibosomeType, Code: `function bridgeGenesis() {return false}`})
+		err := z.BridgeGenesis()
+		So(err.Error(), ShouldEqual, "bridgeGenesis failed")
+	})
+	Convey("it should work if the genesis function returns true", t, func() {
+		z, _ := NewJSRibosome(nil, &Zome{RibosomeType: JSRibosomeType, Code: `function bridgeGenesis() {return true}`})
+		err := z.BridgeGenesis()
 		So(err, ShouldBeNil)
 	})
 }
@@ -471,13 +491,13 @@ func TestJSDHT(t *testing.T) {
 		panic(err)
 	}
 
-	Convey("get should return entry", t, func() {
+	Convey("get should return entry's", t, func() {
 		v, err := NewJSRibosome(h, &Zome{RibosomeType: JSRibosomeType, Code: fmt.Sprintf(`get("%s");`, hash.String())})
 		So(err, ShouldBeNil)
 		z := v.(*JSRibosome)
 		x, err := z.lastResult.Export()
 		So(err, ShouldBeNil)
-		So(fmt.Sprintf("%v", x.(Entry).Content()), ShouldEqual, `7`)
+		So(fmt.Sprintf("%v", x), ShouldEqual, `7`)
 	})
 
 	Convey("get should return entry type", t, func() {
@@ -505,7 +525,7 @@ func TestJSDHT(t *testing.T) {
 		x, err := z.lastResult.Export()
 		So(err, ShouldBeNil)
 		obj := x.(map[string]interface{})
-		So(obj["Entry"].(Entry).Content(), ShouldEqual, `7`)
+		So(obj["Entry"], ShouldEqual, `7`)
 		So(obj["EntryType"].(string), ShouldEqual, `oddNumbers`)
 		So(fmt.Sprintf("%v", obj["Sources"]), ShouldEqual, fmt.Sprintf("[%v]", h.nodeIDStr))
 	})
@@ -594,7 +614,7 @@ func TestJSDHT(t *testing.T) {
 		z = v.(*JSRibosome)
 		x, err := z.lastResult.Export()
 		So(err, ShouldBeNil)
-		So(fmt.Sprintf("%v", x.(Entry).Content()), ShouldEqual, `{"firstName":"Zippy","lastName":"ThePinhead"}`)
+		So(fmt.Sprintf("%v", x), ShouldEqual, `{"firstName":"Zippy","lastName":"ThePinhead"}`)
 	})
 
 	Convey("remove function should mark item deleted", t, func() {
@@ -616,7 +636,7 @@ func TestJSDHT(t *testing.T) {
 
 		x, err := z.lastResult.Export()
 		So(err, ShouldBeNil)
-		So(fmt.Sprintf("%v", x.(Entry).Content()), ShouldEqual, `7`)
+		So(fmt.Sprintf("%v", x), ShouldEqual, `7`)
 	})
 
 	Convey("updateAgent function without options should fail", t, func() {

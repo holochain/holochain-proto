@@ -32,9 +32,21 @@ func (jsr *JSRibosome) Type() string { return JSRibosomeType }
 // ChainGenesis runs the application genesis function
 // this function gets called after the genesis entries are added to the chain
 func (jsr *JSRibosome) ChainGenesis() (err error) {
-	v, err := jsr.vm.Run(`genesis()`)
+	err = jsr.boolFn("genesis")
+	return
+}
+
+// BridgeGnesis runs the application genesis function
+// this function gets called after the genesis entries are added to the chain
+func (jsr *JSRibosome) BridgeGenesis() (err error) {
+	err = jsr.boolFn("bridgeGenesis")
+	return
+}
+
+func (jsr *JSRibosome) boolFn(fnName string) (err error) {
+	v, err := jsr.vm.Run(fnName + "()")
 	if err != nil {
-		err = fmt.Errorf("Error executing genesis: %v", err)
+		err = fmt.Errorf("Error executing %s: %v", fnName, err)
 		return
 	}
 	if v.IsBoolean() {
@@ -44,11 +56,11 @@ func (jsr *JSRibosome) ChainGenesis() (err error) {
 			return
 		}
 		if !b {
-			err = fmt.Errorf("genesis failed")
+			err = fmt.Errorf("%s failed", fnName)
 		}
 
 	} else {
-		err = fmt.Errorf("genesis should return boolean, got: %v", v)
+		err = fmt.Errorf("%s should return boolean, got: %v", fnName, v)
 	}
 	return
 }
@@ -657,6 +669,37 @@ func NewJSRibosome(h *Holochain, zome *Zome) (n Ribosome, err error) {
 		return result
 	})
 
+	err = jsr.vm.Set("bridge", func(call otto.FunctionCall) otto.Value {
+		a := &ActionBridge{}
+		args := a.Args()
+		err := jsProcessArgs(&jsr, args, call.ArgumentList)
+		if err != nil {
+			return mkOttoErr(&jsr, err.Error())
+		}
+		hash := args[0].value.(Hash)
+		a.token, a.url, err = h.GetBridgeToken(hash)
+		if err != nil {
+			return mkOttoErr(&jsr, err.Error())
+		}
+
+		a.zome = args[1].value.(string)
+		a.function = args[2].value.(string)
+		a.args = args[3].value.(string)
+
+		var r interface{}
+		r, err = a.Do(h)
+		if err != nil {
+			return mkOttoErr(&jsr, err.Error())
+		}
+		var result otto.Value
+		result, err = jsr.vm.ToValue(r)
+
+		if err != nil {
+			return mkOttoErr(&jsr, err.Error())
+		}
+		return result
+	})
+
 	err = jsr.vm.Set("commit", func(call otto.FunctionCall) otto.Value {
 		var a Action = &ActionCommit{}
 		args := a.Args()
@@ -732,7 +775,7 @@ func NewJSRibosome(h *Holochain, zome *Zome) (n Ribosome, err error) {
 			if mask&GetMaskEntry != 0 {
 				if GetMaskEntry == mask {
 					singleValueReturn = true
-					result, err = jsr.vm.ToValue(getResp.Entry)
+					result, err = jsr.vm.ToValue(getResp.Entry.Content())
 				}
 			}
 			if mask&GetMaskEntryType != 0 {
@@ -750,7 +793,7 @@ func NewJSRibosome(h *Holochain, zome *Zome) (n Ribosome, err error) {
 			if err == nil && !singleValueReturn {
 				respObj := make(map[string]interface{})
 				if mask&GetMaskEntry != 0 {
-					respObj["Entry"] = getResp.Entry
+					respObj["Entry"] = getResp.Entry.Content()
 				}
 				if mask&GetMaskEntryType != 0 {
 					respObj["EntryType"] = getResp.EntryType

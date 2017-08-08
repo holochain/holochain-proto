@@ -12,6 +12,7 @@ import (
 	"github.com/metacurrency/holochain/cmd"
 	"github.com/urfave/cli"
 	"os"
+	"path/filepath"
 )
 
 var debug bool
@@ -122,12 +123,51 @@ func setupApp() (app *cli.App) {
 				if err != nil {
 					return err
 				}
-				err = service.Clone(srcPath, root+"/"+name, agent, false)
+				err = service.Clone(srcPath, filepath.Join(root, name), agent, false)
 				if err == nil {
 					if verbose {
 						fmt.Printf("joined %s from %s\n", name, srcPath)
 					}
 					err = genChain(service, name)
+				}
+				return err
+			},
+		},
+		{
+			Name:      "bridge",
+			Aliases:   []string{"j"},
+			ArgsUsage: "from-chain to-chain",
+			Usage:     "allows to-chain to make calls to functions in from-chain",
+			Action: func(c *cli.Context) error {
+				fromChain := c.Args().First()
+				if fromChain == "" {
+					return errors.New("bridge: missing required from-chain argument")
+				}
+				if len(c.Args()) == 1 {
+					return errors.New("bridge: missing required to-chain argument")
+				}
+				toChain := c.Args()[1]
+
+				hFrom, err := cmd.GetHolochain(fromChain, service, "bridge")
+				if err != nil {
+					return err
+				}
+				hTo, err := cmd.GetHolochain(toChain, service, "bridge")
+				if err != nil {
+					return err
+				}
+
+				token, err := hTo.NewBridge()
+				if err != nil {
+					return err
+				}
+
+				err = hFrom.AddBridge(hTo.DNAHash(), token, fmt.Sprintf("http://localhost:%d", hTo.Config().Port))
+
+				if err == nil {
+					if verbose {
+						fmt.Printf("bridge from %s to %s\n", fromChain, toChain)
+					}
 				}
 				return err
 			},

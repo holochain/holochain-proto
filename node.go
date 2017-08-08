@@ -84,6 +84,7 @@ type Node struct {
 	Host        *rhost.RoutedHost
 	mdnsSvc     discovery.Service
 	blockedlist map[peer.ID]bool
+	protocols   [_protocolCount]*Protocol
 }
 
 // Protocol encapsulates data for our different protocols
@@ -92,7 +93,12 @@ type Protocol struct {
 	Receiver ReceiverFn
 }
 
-var ValidateProtocol, GossipProtocol, ActionProtocol Protocol
+const (
+	ActionProtocol = iota
+	ValidateProtocol
+	GossipProtocol
+	_protocolCount
+)
 
 type Router struct {
 	dummy int
@@ -130,7 +136,7 @@ func (n *Node) EnableMDNSDiscovery(notifee discovery.Notifee, interval time.Dura
 }
 
 // NewNode creates a new ipfs basichost node with given identity
-func NewNode(listenAddr string, agent *LibP2PAgent) (node *Node, err error) {
+func NewNode(listenAddr string, protoMux string, agent *LibP2PAgent) (node *Node, err error) {
 
 	nodeID, _, err := agent.NodeID()
 	if err != nil {
@@ -149,6 +155,10 @@ func NewNode(listenAddr string, agent *LibP2PAgent) (node *Node, err error) {
 	priv := agent.PrivKey()
 	ps.AddPrivKey(nodeID, priv)
 	ps.AddPubKey(nodeID, priv.GetPublic())
+
+	n.protocols[ValidateProtocol] = &Protocol{protocol.ID("/hc-validate-" + protoMux + "/0.0.0"), ValidateReceiver}
+	n.protocols[GossipProtocol] = &Protocol{protocol.ID("/hc-gossip-" + protoMux + "/0.0.0"), GossipReceiver}
+	n.protocols[ActionProtocol] = &Protocol{protocol.ID("/hc-action-" + protoMux + "/0.0.0"), ActionReceiver}
 
 	ctx := context.Background()
 
@@ -267,8 +277,8 @@ func (node *Node) respondWith(s net.Stream, err error, body interface{}) {
 }
 
 // StartProtocol initiates listening for a protocol on the node
-func (node *Node) StartProtocol(h *Holochain, proto Protocol) (err error) {
-	node.Host.SetStreamHandler(proto.ID, func(s net.Stream) {
+func (node *Node) StartProtocol(h *Holochain, proto int) (err error) {
+	node.Host.SetStreamHandler(node.protocols[proto].ID, func(s net.Stream) {
 		var m Message
 		err := m.Decode(s)
 		var response interface{}
@@ -281,7 +291,7 @@ func (node *Node) StartProtocol(h *Holochain, proto Protocol) (err error) {
 			}
 
 			if err == nil {
-				response, err = proto.Receiver(h, &m)
+				response, err = node.protocols[proto].Receiver(h, &m)
 			}
 		}
 		node.respondWith(s, err, response)
@@ -295,14 +305,14 @@ func (node *Node) Close() error {
 }
 
 // Send delivers a message to a node via the given protocol
-func (node *Node) Send(proto Protocol, addr peer.ID, m *Message) (response Message, err error) {
+func (node *Node) Send(proto int, addr peer.ID, m *Message) (response Message, err error) {
 
 	if node.IsBlocked(addr) {
 		err = ErrBlockedListed
 		return
 	}
 
-	s, err := node.Host.NewStream(context.Background(), addr, proto.ID)
+	s, err := node.Host.NewStream(context.Background(), addr, node.protocols[proto].ID)
 	if err != nil {
 		return
 	}

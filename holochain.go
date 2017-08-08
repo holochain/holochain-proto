@@ -9,12 +9,13 @@ package holochain
 import (
 	"bytes"
 	"encoding/gob"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"github.com/google/uuid"
 	peer "github.com/libp2p/go-libp2p-peer"
-	protocol "github.com/libp2p/go-libp2p-protocol"
 	mh "github.com/multiformats/go-multihash"
+	"github.com/tidwall/buntdb"
 	"io"
 	"math/rand"
 	"os"
@@ -24,10 +25,10 @@ import (
 )
 
 // Version is the numeric version number of the holochain library
-const Version int = 13
+const Version int = 14
 
 // VersionStr is the textual version number of the holochain library
-const VersionStr string = "13"
+const VersionStr string = "14"
 
 // Loggers holds the logging structures for the different parts of the system
 type Loggers struct {
@@ -58,20 +59,24 @@ type Progenitor struct {
 // Holochain struct holds the full "DNA" of the holochain (all your app code for managing distributed data integrity)
 type Holochain struct {
 	//---- lowercase private values not serialized; initialized on Load
-	nodeID         peer.ID // this is hash of the public key of the id and acts as the node address
-	nodeIDStr      string  // this is just a cached version of the nodeID B58 string encoded
-	dnaHash        Hash
-	agentHash      Hash
-	agentTopHash   Hash
-	rootPath       string
-	agent          Agent
-	encodingFormat string
-	hashSpec       HashSpec
-	config         Config
-	dht            *DHT
-	nucleus        *Nucleus
-	node           *Node
-	chain          *Chain // This node's local source chain
+	nodeID           peer.ID // this is hash of the public key of the id and acts as the node address
+	nodeIDStr        string  // this is just a cached version of the nodeID B58 string encoded
+	dnaHash          Hash
+	agentHash        Hash
+	agentTopHash     Hash
+	rootPath         string
+	agent            Agent
+	encodingFormat   string
+	hashSpec         HashSpec
+	config           Config
+	dht              *DHT
+	nucleus          *Nucleus
+	node             *Node
+	chain            *Chain // This node's local source chain
+	bridgeDB         *buntdb.DB
+	validateProtocol *Protocol
+	gossipProtocol   *Protocol
+	actionProtocol   *Protocol
 }
 
 func (h *Holochain) Nucleus() (n *Nucleus) {
@@ -140,9 +145,6 @@ func InitializeHolochain() {
 
 		rand.Seed(time.Now().Unix()) // initialize global pseudo random generator
 
-		ValidateProtocol = Protocol{protocol.ID("/hc-validate/0.0.0"), ValidateReceiver}
-		GossipProtocol = Protocol{protocol.ID("/hc-gossip/0.0.0"), GossipReceiver}
-		ActionProtocol = Protocol{protocol.ID("/hc-action/0.0.0"), ActionReceiver}
 		_holochainInitialized = true
 	}
 }
@@ -225,7 +227,7 @@ func (h *Holochain) PrepareHashType() (err error) {
 // createNode creates a network node based on the current agent and port data
 func (h *Holochain) createNode() (err error) {
 	listenaddr := fmt.Sprintf("/ip4/0.0.0.0/tcp/%d", h.config.Port)
-	h.node, err = NewNode(listenaddr, h.Agent().(*LibP2PAgent))
+	h.node, err = NewNode(listenaddr, h.dnaHash.String(), h.Agent().(*LibP2PAgent))
 	return
 }
 
@@ -579,7 +581,7 @@ func (h *Holochain) HashSpec() HashSpec {
 }
 
 // Send builds a message and either delivers it locally or over the network via node.Send
-func (h *Holochain) Send(proto Protocol, to peer.ID, t MsgType, body interface{}) (response interface{}, err error) {
+func (h *Holochain) Send(proto int, to peer.ID, t MsgType, body interface{}) (response interface{}, err error) {
 	message := h.node.NewMessage(t, body)
 	if err != nil {
 		return
@@ -592,7 +594,7 @@ func (h *Holochain) Send(proto Protocol, to peer.ID, t MsgType, body interface{}
 	// the receiver directly
 	if to == h.node.HashAddr {
 		Debugf("Sending message (local):%v (fingerprint:%s)", message, f)
-		response, err = proto.Receiver(h, message)
+		response, err = h.node.protocols[proto].Receiver(h, message)
 		Debugf("send result (local): %v (fp:%s)error:%v", response, f, err)
 	} else {
 		Debugf("Sending message (net):%v (fingerprint:%s)", message, f)
@@ -616,4 +618,159 @@ func (h *Holochain) Send(proto Protocol, to peer.ID, t MsgType, body interface{}
 
 func (h *Holochain) Chain() *Chain {
 	return h.chain
+}
+
+type BridgeSpec map[string]map[string]bool
+
+// NewBridge registers a token for allowing bridged calls from some other app
+// and calls bridgeGenesis in any zomes with bridge functions
+func (h *Holochain) NewBridge() (token string, err error) {
+	err = h.initBridgeDB()
+	if err != nil {
+		return
+	}
+	var capability *Capability
+
+	bridgeSpec := h.makeBridgeSpec()
+	var bridgeSpecB []byte
+
+	if bridgeSpec != nil {
+		bridgeSpecB, err = json.Marshal(bridgeSpec)
+		if err != nil {
+			return
+		}
+	}
+
+	for zomeName, _ := range bridgeSpec {
+		var r Ribosome
+		r, _, err = h.MakeRibosome(zomeName)
+		if err != nil {
+			return
+		}
+		err = r.BridgeGenesis()
+		if err != nil {
+			return
+		}
+	}
+
+	capability, err = NewCapability(h.bridgeDB, string(bridgeSpecB), nil)
+	if err != nil {
+		return
+	}
+
+	token = capability.Token
+	return
+}
+
+func (h *Holochain) initBridgeDB() (err error) {
+	if h.bridgeDB == nil {
+		h.bridgeDB, err = buntdb.Open(filepath.Join(h.DBPath(), BridgeDBFileName))
+	}
+	return
+}
+
+func checkBridgeSpec(spec BridgeSpec, zomeType string, function string) bool {
+	f, ok := spec[zomeType]
+	if ok {
+		_, ok = f[function]
+	}
+	return ok
+}
+
+func (h *Holochain) makeBridgeSpec() (spec BridgeSpec) {
+	var funcs map[string]bool
+	for _, z := range h.nucleus.dna.Zomes {
+		for _, f := range z.BridgeFuncs {
+			if spec == nil {
+				spec = make(BridgeSpec)
+			}
+			_, ok := spec[z.Name]
+			if !ok {
+				funcs = make(map[string]bool)
+				spec[z.Name] = funcs
+
+			}
+			funcs[f] = true
+		}
+	}
+	return
+}
+
+// BridgeCall executes a function exposed through a bridge
+func (h *Holochain) BridgeCall(zomeType string, function string, arguments interface{}, token string) (result interface{}, err error) {
+	if h.bridgeDB == nil {
+		err = errors.New("no active bridge")
+		return
+	}
+	c := Capability{Token: token, db: h.bridgeDB}
+	var bridgeSpecStr string
+	bridgeSpecStr, err = c.Validate(nil)
+	if err == nil {
+		if bridgeSpecStr != "*" {
+			bridgeSpec := make(BridgeSpec)
+			err = json.Unmarshal([]byte(bridgeSpecStr), &bridgeSpec)
+			if err == nil {
+				if !checkBridgeSpec(bridgeSpec, zomeType, function) {
+					err = errors.New("function not bridged")
+					return
+				}
+			}
+		}
+		if err == nil {
+			result, err = h.Call(zomeType, function, arguments, ZOME_EXPOSURE)
+		}
+	}
+
+	if err != nil {
+		err = errors.New("bridging error: " + err.Error())
+
+	}
+
+	return
+}
+
+// AddBridge associates a token with an an application DNA hash
+func (h *Holochain) AddBridge(hash Hash, token string, url string) (err error) {
+	err = h.initBridgeDB()
+	if err != nil {
+		return
+	}
+	err = h.bridgeDB.Update(func(tx *buntdb.Tx) error {
+		_, _, err = tx.Set("app:"+hash.String(), token, nil)
+		if err != nil {
+			return err
+		}
+		_, _, err = tx.Set("url:"+hash.String(), url, nil)
+		if err != nil {
+			return err
+		}
+		return nil
+	})
+	return
+}
+
+var BridgeAppNotFoundErr = errors.New("bridge app not found")
+
+// GetBridgeToken returns a token given the a hash
+func (h *Holochain) GetBridgeToken(hash Hash) (token string, url string, err error) {
+	if h.bridgeDB == nil {
+		err = errors.New("no active bridge")
+		return
+	}
+	err = h.bridgeDB.View(func(tx *buntdb.Tx) (e error) {
+		token, e = tx.Get("app:" + hash.String())
+		if e == buntdb.ErrNotFound {
+			e = BridgeAppNotFoundErr
+		}
+		url, e = tx.Get("url:" + hash.String())
+		if e == buntdb.ErrNotFound {
+			e = BridgeAppNotFoundErr
+		}
+		return
+	})
+	return
+}
+
+func (h *Holochain) Config() *Config {
+	return &h.config
 }

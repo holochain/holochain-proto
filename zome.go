@@ -12,10 +12,12 @@ import (
 type Zome struct {
 	Name         string
 	Description  string
-	Code         string // file name of DNA code
+	Code         string
 	Entries      []EntryDef
 	RibosomeType string
 	Functions    []FunctionDef
+	BridgeFuncs  []string // functions in zome that can be bridged to by fromApp
+	BridgeTo     Hash     // dna Hash of toApp for zomes to be included in the fromApp
 }
 
 // GetEntryDef returns the entry def structure

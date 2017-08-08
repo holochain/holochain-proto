@@ -62,6 +62,7 @@ type Ribosome interface {
 	ValidateAction(action Action, def *EntryDef, pkg *ValidationPackage, sources []string) (err error)
 	ValidatePackagingRequest(action ValidatingAction, def *EntryDef) (req PackagingReq, err error)
 	ChainGenesis() error
+	BridgeGenesis() error
 	Receive(from string, msg string) (response string, err error)
 	Call(fn *FunctionDef, params interface{}) (interface{}, error)
 	Run(code string) (result interface{}, err error)

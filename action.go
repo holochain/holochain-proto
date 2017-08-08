@@ -5,10 +5,12 @@
 package holochain
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
 	peer "github.com/libp2p/go-libp2p-peer"
+	"net/http"
 	"reflect"
 	"time"
 )
@@ -350,6 +352,37 @@ func (a *ActionCall) Args() []Arg {
 
 func (a *ActionCall) Do(h *Holochain) (response interface{}, err error) {
 	response, err = h.Call(a.zome, a.function, a.args, ZOME_EXPOSURE)
+	return
+}
+
+//------------------------------------------------------------
+// Bridge
+
+type ActionBridge struct {
+	token    string
+	url      string
+	zome     string
+	function string
+	args     interface{}
+}
+
+func NewBridgeAction(zome string, function string, args interface{}) *ActionBridge {
+	a := ActionBridge{zome: zome, function: function, args: args}
+	return &a
+}
+
+func (a *ActionBridge) Name() string {
+	return "call"
+}
+
+func (a *ActionBridge) Args() []Arg {
+	return []Arg{{Name: "app", Type: HashArg}, {Name: "zome", Type: StringArg}, {Name: "function", Type: StringArg}, {Name: "args", Type: ArgsArg}}
+}
+
+func (a *ActionBridge) Do(h *Holochain) (response interface{}, err error) {
+	body := bytes.NewBuffer([]byte(a.args.(string)))
+	response, err = http.Post(fmt.Sprintf("%s/bridge/%s/%s/%s", a.url, a.token, a.zome, a.function), "", body)
+	response, err = h.BridgeCall(a.zome, a.function, a.args, a.token)
 	return
 }
 

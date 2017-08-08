@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"bytes"
 	. "github.com/metacurrency/holochain"
 	. "github.com/smartystreets/goconvey/convey"
 	"io/ioutil"
@@ -20,7 +21,7 @@ func TestWebServer(t *testing.T) {
 	defer CleanupTestDir(d)
 	go NewWebServer(h, "31415").Start()
 	time.Sleep(time.Second * 1)
-	Convey("it should should get nothing", t, func() {
+	Convey("it should should return the index page", t, func() {
 		resp, err := http.Get("http://0.0.0.0:31415")
 		So(err, ShouldBeNil)
 		defer resp.Body.Close()
@@ -29,4 +30,50 @@ func TestWebServer(t *testing.T) {
 		So(err, ShouldBeNil)
 		So(string(b), ShouldEqual, SampleHTML)
 	})
+
+	Convey("it should should fail on bad function calls", t, func() {
+		resp, err := http.Get("http://0.0.0.0:31415/fn/bogus")
+		So(err, ShouldBeNil)
+		defer resp.Body.Close()
+		var b []byte
+		b, err = ioutil.ReadAll(resp.Body)
+		So(err, ShouldBeNil)
+		So(string(b), ShouldEqual, "bad request\n")
+	})
+
+	Convey("it should call functions", t, func() {
+		body := bytes.NewBuffer([]byte("language"))
+		resp, err := http.Post("http://0.0.0.0:31415/fn/jsSampleZome/getProperty", "", body)
+		So(err, ShouldBeNil)
+		defer resp.Body.Close()
+		var b []byte
+		b, err = ioutil.ReadAll(resp.Body)
+		So(err, ShouldBeNil)
+		So(string(b), ShouldEqual, "en")
+	})
+
+	token, _ := h.NewBridge()
+
+	Convey("it should fail bridged functions without a good token", t, func() {
+		body := bytes.NewBuffer([]byte("language"))
+		resp, err := http.Post("http://0.0.0.0:31415/bridge/bogus_token/jsSampleZome/getProperty", "", body)
+		So(err, ShouldBeNil)
+		defer resp.Body.Close()
+		var b []byte
+		b, err = ioutil.ReadAll(resp.Body)
+		So(err, ShouldBeNil)
+		So(string(b), ShouldEqual, "bridging error: invalid capability\n")
+	})
+
+	Convey("it should called bridged functions", t, func() {
+		body := bytes.NewBuffer([]byte("language"))
+		resp, err := http.Post("http://0.0.0.0:31415/bridge/"+token+"/jsSampleZome/getProperty", "", body)
+		So(err, ShouldBeNil)
+		defer resp.Body.Close()
+		var b []byte
+		b, err = ioutil.ReadAll(resp.Body)
+		So(err, ShouldBeNil)
+		So(string(b), ShouldEqual, "en")
+	})
+
 }

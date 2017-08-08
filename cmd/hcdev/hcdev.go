@@ -25,7 +25,8 @@ const (
 )
 
 var debug, appInitialized bool
-var rootPath, devPath, name string
+var rootPath, devPath, bridgeToPath, bridgeToName, bridgeFromPath, bridgeFromName, name string
+var bridgeFromH, bridgeToH *holo.Holochain
 
 // TODO: move these into cmd module
 func makeErr(prefix string, text string, code int) error {
@@ -61,6 +62,16 @@ func setupApp() (app *cli.App) {
 			Name:        "path",
 			Usage:       "path to chain source definition directory (default: current working dir)",
 			Destination: &devPath,
+		},
+		cli.StringFlag{
+			Name:        "bridgeTo",
+			Usage:       "path to dev directory of app to bridge to",
+			Destination: &bridgeToPath,
+		},
+		cli.StringFlag{
+			Name:        "bridgeFrom",
+			Usage:       "path to dev directory of app to bridge from",
+			Destination: &bridgeFromPath,
 		},
 	}
 
@@ -149,6 +160,7 @@ func setupApp() (app *cli.App) {
 					if err != nil {
 						return makeErrFromError("init", err, 1)
 					}
+
 					fmt.Printf("initialized %s from scaffold:%s\n", devPath, scaffoldPath)
 
 				} else if cmd.IsFile(filepath.Join(devPath, "dna", "dna.json")) {
@@ -196,6 +208,12 @@ func setupApp() (app *cli.App) {
 				if err != nil {
 					return err
 				}
+
+				err = activateBridgedApps(service)
+				if err != nil {
+					return err
+				}
+
 				args := c.Args()
 				var errs []error
 
@@ -240,6 +258,10 @@ func setupApp() (app *cli.App) {
 					return errors.New("missing scenario name argument")
 				}
 
+				err := activateBridgedApps(service)
+				if err != nil {
+					return err
+				}
 				// terminates go process
 				cmd.ExecBinScript("holochain.app.testScenario", args[0])
 				return nil
@@ -260,6 +282,10 @@ func setupApp() (app *cli.App) {
 				if err != nil {
 					return err
 				}
+				err = activateBridgedApps(service)
+				if err != nil {
+					return err
+				}
 
 				var port string
 				if len(c.Args()) == 0 {
@@ -267,16 +293,8 @@ func setupApp() (app *cli.App) {
 				} else {
 					port = c.Args()[0]
 				}
-				fmt.Printf("Serving holochain with DNA hash:%v on port:%s\n", h.DNAHash(), port)
 
-				err = h.Activate()
-				if err != nil {
-					return err
-				}
-				//				go h.DHT().HandleChangeReqs()
-				go h.DHT().HandleGossipWiths()
-				go h.DHT().Gossip(2 * time.Second)
-				ui.NewWebServer(h, port).Start()
+				err = activate(h, port)
 				return err
 			},
 		},
@@ -416,9 +434,110 @@ func getHolochain(c *cli.Context, service *holo.Service) (h *holo.Holochain, err
 	if err != nil {
 		return
 	}
+
 	h, err = service.Load(name)
 	if err != nil {
 		return
 	}
+	if bridgeToPath != "" {
+		bridgeToH, err = bridge(service, h, agent, bridgeToPath, true)
+		if err != nil {
+			return
+		}
+	}
+	if bridgeFromPath != "" {
+		bridgeFromH, err = bridge(service, h, agent, bridgeFromPath, false)
+		if err != nil {
+			return
+		}
+	}
+	return
+}
+
+func bridge(service *holo.Service, h *holo.Holochain, agent holo.Agent, path string, isFrom bool) (bridgeH *holo.Holochain, err error) {
+
+	bridgeName := filepath.Base(path)
+
+	os.Setenv("HOLOCHAINCONFIG_ENABLEMDNS", "true")
+	os.Setenv("HOLOCHAINCONFIG_BOOTSTRAP", "_")
+	os.Setenv("HOLOCHAINCONFIG_LOGPREFIX", bridgeName+":")
+	if isFrom {
+		os.Setenv("HOLOCHAINCONFIG_PORT", "9991")
+	} else {
+		os.Setenv("HOLOCHAINCONFIG_PORT", "9992")
+	}
+	var hFrom, hTo *holo.Holochain
+	fmt.Printf("Copying bridge chain %s to: %s\n", bridgeName, rootPath)
+	err = os.RemoveAll(filepath.Join(rootPath, bridgeName))
+	if err != nil {
+		return
+	}
+	err = service.Clone(path, filepath.Join(rootPath, bridgeName), agent, false)
+	if err != nil {
+		return
+	}
+	bridgeH, err = service.Load(bridgeName)
+	if err != nil {
+		return
+	}
+
+	if isFrom {
+		bridgeToName = bridgeName
+		hFrom = bridgeH
+		hTo = h
+	} else {
+		bridgeFromName = bridgeName
+		hFrom = h
+		hTo = bridgeH
+	}
+
+	var token string
+	token, err = hTo.NewBridge()
+	if err != nil {
+		return
+	}
+
+	err = hFrom.AddBridge(hTo.DNAHash(), token, fmt.Sprintf("http://localhost:%d", hTo.Config().Port))
+	if err != nil {
+		return
+	}
+	return
+}
+
+func activateBridgedApp(s *holo.Service, h *holo.Holochain, name string, port string) (err error) {
+	h, err = s.GenChain(name)
+	if err != nil {
+		return
+	}
+	go activate(h, port)
+	return
+}
+
+func activateBridgedApps(s *holo.Service) (err error) {
+	if bridgeFromH != nil {
+		err = activateBridgedApp(s, bridgeFromH, bridgeFromName, "12346")
+		if err != nil {
+			return
+		}
+	}
+	if bridgeToH != nil {
+		err = activateBridgedApp(s, bridgeToH, bridgeToName, "12345")
+		if err != nil {
+			return
+		}
+	}
+	return
+}
+
+func activate(h *holo.Holochain, port string) (err error) {
+	fmt.Printf("Serving holochain with DNA hash:%v on port:%s\n", h.DNAHash(), port)
+	err = h.Activate()
+	if err != nil {
+		return
+	}
+	//				go h.DHT().HandleChangeReqs()
+	go h.DHT().HandleGossipWiths()
+	go h.DHT().Gossip(2 * time.Second)
+	ui.NewWebServer(h, port).Start()
 	return
 }

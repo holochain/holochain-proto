@@ -36,26 +36,38 @@ func (z *ZygoRibosome) Type() string { return ZygoRibosomeType }
 // ChainGenesis runs the application genesis function
 // this function gets called after the genesis entries are added to the chain
 func (z *ZygoRibosome) ChainGenesis() (err error) {
-	err = z.env.LoadString(`(genesis)`)
+	err = z.boolFn("genesis")
+	return
+}
+
+// BridgeGenesis runs the bridging genesis function
+// this function gets called after the genesis entries are added to the chain
+func (z *ZygoRibosome) BridgeGenesis() (err error) {
+	err = z.boolFn("bridgeGenesis")
+	return
+}
+
+func (z *ZygoRibosome) boolFn(fnName string) (err error) {
+	err = z.env.LoadString("(" + fnName + ")")
 	if err != nil {
 		return
 	}
 	result, err := z.env.Run()
 	if err != nil {
-		err = fmt.Errorf("Error executing genesis: %v", err)
+		err = fmt.Errorf("Error executing %s: %v", fnName, err)
 		return
 	}
 	switch result.(type) {
 	case *zygo.SexpBool:
 		r := result.(*zygo.SexpBool).Val
 		if !r {
-			err = fmt.Errorf("genesis failed")
+			err = fmt.Errorf("%s failed", fnName)
 		}
 	case *zygo.SexpSentinel:
-		err = errors.New("genesis should return boolean, got nil")
+		err = fmt.Errorf("%s should return boolean, got nil", fnName)
 
 	default:
-		err = errors.New("genesis should return boolean, got: " + fmt.Sprintf("%v", result))
+		err = fmt.Errorf("%s should return boolean, got: %v", fnName, result)
 	}
 	return
 
@@ -659,6 +671,33 @@ func NewZygoRibosome(h *Holochain, zome *Zome) (n Ribosome, err error) {
 			if err != nil {
 				return zygo.SexpNull, err
 			}
+			return &zygo.SexpStr{S: r.(string)}, err
+		})
+
+	z.env.AddFunction("bridge",
+		func(env *zygo.Glisp, name string, zyargs []zygo.Sexp) (zygo.Sexp, error) {
+			a := &ActionBridge{}
+			args := a.Args()
+			err := zyProcessArgs(args, zyargs)
+			if err != nil {
+				return zygo.SexpNull, err
+			}
+			hash := args[0].value.(Hash)
+			a.token, a.url, err = h.GetBridgeToken(hash)
+			if err != nil {
+				return zygo.SexpNull, err
+			}
+
+			a.zome = args[1].value.(string)
+			a.function = args[2].value.(string)
+			a.args = args[3].value.(string)
+
+			var r interface{}
+			r, err = a.Do(h)
+			if err != nil {
+				return zygo.SexpNull, err
+			}
+
 			return &zygo.SexpStr{S: r.(string)}, err
 		})
 

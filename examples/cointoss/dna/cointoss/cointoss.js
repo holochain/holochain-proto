@@ -117,11 +117,11 @@ function receive(from,msg) {
         // make sure I committed toss and the seed hash is one of the seeds in the commit
         var rsp = get(msg.toss,{Local:true,GetMask:HC.GetMask.EntryType+HC.GetMask.Entry});
         if (!isErr(rsp) && rsp.EntryType == "toss") {
-            var entry = JSON.parse(rsp.Entry.C);
+            var entry = JSON.parse(rsp.Entry);
             if (entry.initiatorSeedHash == msg.seedHash || entry.responderSeedHash == msg.seedHash) {
                 // if so then I can reveal the seed
                 var seed = get(msg.seedHash,{Local:true,GetMask:HC.GetMask.Entry});
-                return seed.C;
+                return seed;
             }
         }
     }
@@ -140,7 +140,7 @@ function confirmToss(toss) {
     var rsp = get(toss,{GetMask:HC.GetMask.Sources+HC.GetMask.Entry+HC.GetMask.EntryType});
     if (!isErr(rsp) && rsp.EntryType == "toss") {
         var sources = rsp.Sources;
-        var entry = JSON.parse(rsp.Entry.C);
+        var entry = JSON.parse(rsp.Entry);
         // check with the actual players in the record to get their seed values now that the
         // toss has been recorded publicly
 

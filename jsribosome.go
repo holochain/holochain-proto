@@ -726,7 +726,7 @@ func NewJSRibosome(h *Holochain, zome *Zome) (n Ribosome, err error) {
 			if mask&GetMaskEntry != 0 {
 				if GetMaskEntry == mask {
 					singleValueReturn = true
-					result, err = jsr.vm.ToValue(getResp.Entry)
+					result, err = jsr.vm.ToValue(getResp.Entry.Content())
 				}
 			}
 			if mask&GetMaskEntryType != 0 {
@@ -744,7 +744,7 @@ func NewJSRibosome(h *Holochain, zome *Zome) (n Ribosome, err error) {
 			if err == nil && !singleValueReturn {
 				respObj := make(map[string]interface{})
 				if mask&GetMaskEntry != 0 {
-					respObj["Entry"] = getResp.Entry
+					respObj["Entry"] = getResp.Entry.Content()
 				}
 				if mask&GetMaskEntryType != 0 {
 					respObj["EntryType"] = getResp.EntryType

@@ -440,13 +440,13 @@ func TestJSDHT(t *testing.T) {
 		panic(err)
 	}
 
-	Convey("get should return entry", t, func() {
+	Convey("get should return entry's", t, func() {
 		v, err := NewJSRibosome(h, &Zome{RibosomeType: JSRibosomeType, Code: fmt.Sprintf(`get("%s");`, hash.String())})
 		So(err, ShouldBeNil)
 		z := v.(*JSRibosome)
 		x, err := z.lastResult.Export()
 		So(err, ShouldBeNil)
-		So(fmt.Sprintf("%v", x.(Entry).Content()), ShouldEqual, `7`)
+		So(fmt.Sprintf("%v", x), ShouldEqual, `7`)
 	})
 
 	Convey("get should return entry type", t, func() {
@@ -474,7 +474,7 @@ func TestJSDHT(t *testing.T) {
 		x, err := z.lastResult.Export()
 		So(err, ShouldBeNil)
 		obj := x.(map[string]interface{})
-		So(obj["Entry"].(Entry).Content(), ShouldEqual, `7`)
+		So(obj["Entry"], ShouldEqual, `7`)
 		So(obj["EntryType"].(string), ShouldEqual, `oddNumbers`)
 		So(fmt.Sprintf("%v", obj["Sources"]), ShouldEqual, fmt.Sprintf("[%v]", h.nodeIDStr))
 	})
@@ -563,7 +563,7 @@ func TestJSDHT(t *testing.T) {
 		z = v.(*JSRibosome)
 		x, err := z.lastResult.Export()
 		So(err, ShouldBeNil)
-		So(fmt.Sprintf("%v", x.(Entry).Content()), ShouldEqual, `{"firstName":"Zippy","lastName":"ThePinhead"}`)
+		So(fmt.Sprintf("%v", x), ShouldEqual, `{"firstName":"Zippy","lastName":"ThePinhead"}`)
 	})
 
 	Convey("remove function should mark item deleted", t, func() {
@@ -585,7 +585,7 @@ func TestJSDHT(t *testing.T) {
 
 		x, err := z.lastResult.Export()
 		So(err, ShouldBeNil)
-		So(fmt.Sprintf("%v", x.(Entry).Content()), ShouldEqual, `7`)
+		So(fmt.Sprintf("%v", x), ShouldEqual, `7`)
 	})
 
 	Convey("updateAgent function without options should fail", t, func() {

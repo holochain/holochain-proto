@@ -9,6 +9,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	b58 "github.com/jbenet/go-base58"
+	ic "github.com/libp2p/go-libp2p-crypto"
 	peer "github.com/libp2p/go-libp2p-peer"
 	"net/http"
 	"reflect"
@@ -315,7 +317,7 @@ func (a *ActionMakeHash) Name() string {
 }
 
 func (a *ActionMakeHash) Args() []Arg {
-	return []Arg{{Name: "entry", Type: EntryArg}}
+	return []Arg{{Name: "entry", Type: StringArg}}
 }
 
 func (a *ActionMakeHash) Do(h *Holochain) (response interface{}, err error) {
@@ -325,6 +327,77 @@ func (a *ActionMakeHash) Do(h *Holochain) (response interface{}, err error) {
 		return
 	}
 	response = hash
+	return
+}
+
+//------------------------------------------------------------
+// Sign
+
+type ActionSign struct {
+	doc []byte
+}
+
+func NewSignAction(doc []byte) *ActionSign {
+	a := ActionSign{doc: doc}
+	return &a
+}
+
+func (a *ActionSign) Name() string {
+	return "sign"
+}
+
+func (a *ActionSign) Args() []Arg {
+	return []Arg{{Name: "doc", Type: EntryArg}}
+}
+
+func (a *ActionSign) Do(h *Holochain) (response interface{}, err error) {
+	var b []byte
+	b, err = h.Sign(a.doc)
+	if err != nil {
+		return
+	}
+	response = b
+	return
+}
+
+//------------------------------------------------------------
+// VerifySignature
+type ActionVerifySignature struct {
+	signature string
+	data      string
+	pubKey    string
+}
+
+func NewVerifySignatureAction(signature string, data string, pubKey string) *ActionVerifySignature {
+	a := ActionVerifySignature{signature: signature, data: data, pubKey: pubKey}
+	return &a
+}
+
+func (a *ActionVerifySignature) Name() string {
+	return "verifySignature"
+}
+
+func (a *ActionVerifySignature) Args() []Arg {
+	return []Arg{{Name: "signature", Type: StringArg}, {Name: "data", Type: StringArg}, {Name: "pubKey", Type: StringArg}}
+}
+
+func (a *ActionVerifySignature) Do(h *Holochain) (response bool, err error) {
+	var b bool
+	var pubKeyIC ic.PubKey
+	var sig []byte
+	sig = b58.Decode(a.signature)
+	var pubKeyBytes []byte
+	pubKeyBytes = b58.Decode(a.pubKey)
+	pubKeyIC, err = ic.UnmarshalPublicKey(pubKeyBytes)
+	if err != nil {
+		return
+	}
+
+	b, err = h.VerifySignature(sig, a.data, pubKeyIC)
+	if err != nil {
+		return
+	}
+	response = b
 	return
 }
 

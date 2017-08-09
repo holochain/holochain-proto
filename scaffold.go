@@ -9,15 +9,32 @@ import (
 	"io"
 )
 
-// LoadDNA decodes a DNA from scaffold file (via an io.reader)
-func LoadDNAScaffold(reader io.Reader) (dnaP *DNA, err error) {
-	var scaffold DNA
+const (
+	ScaffoldVersion = "0.0.2"
+)
+
+type ScaffoldPair struct {
+	Name  string
+	Value string
+}
+
+type Scaffold struct {
+	ScaffoldVersion string
+	Generator       string
+	DNA             DNA
+	Tests           []ScaffoldPair
+	UI              []ScaffoldPair
+}
+
+// LoadScaffold decodes DNA and other scaffold data from scaffold file (via an io.reader)
+func LoadScaffold(reader io.Reader) (scaffoldP *Scaffold, err error) {
+	var scaffold Scaffold
 	err = Decode(reader, "yml", &scaffold)
 	if err != nil {
 		return
 	}
-	dnaP = &scaffold
-	scaffold.PropertiesSchema = `{
+	scaffoldP = &scaffold
+	scaffold.DNA.PropertiesSchema = `{
 	"title": "Properties Schema",
 	"type": "object",
 	"properties": {
@@ -34,12 +51,13 @@ func LoadDNAScaffold(reader io.Reader) (dnaP *DNA, err error) {
 }
 
 var BasicTemplateScaffold string = `{
-  # This is a holochain scaffold yaml definition. http://ceptr.org/projects/holochain
+ # Scaffold Version
+ # The hc-scaffold schema version of this file.
+"ScaffoldVersion": "0.0.2",
+"Generator": "holochain",
 
-  # Scaffold Version
-  # The hc-scaffold schema version of this file.
-  "scaffoldVersion": "0.0.1",
-  "generator": "hc-scaffold:0.0.2+d8b4ed4",
+"DNA": {
+  # This is a holochain scaffold yaml definition. http://ceptr.org/projects/holochain
 
   # DNA File Version
   # Version indicator for changes to DNA
@@ -83,29 +101,25 @@ var BasicTemplateScaffold string = `{
 
       # Zome Name
       # The name of this code module.
-      "Name": "testZome",
+      "Name": "sampleZome",
 
       # Zome Description
       # What is the purpose of this module?
-      "Description": "provide an template zome",
+      "Description": "provide a sample zome",
 
       # Ribosome Type
       # What scripting language will you code in?
       "RibosomeType": "js",
 
-      # Code File
-      # Points to the main script file for this Zome.
-      "CodeFile": "testZomezome.js",
-
       # Zome Entries
       # Data stored and tracked by your Zome.
       "Entries": [
         {
-          "Name": "testEntry", # The name of this entry.
+          "Name": "sampleEntry", # The name of this entry.
           "Required": true, # Is this entry required?
           "DataFormat": "json", # What type of data should this entry store?
           "Sharing": "public", # Should this entry be publicly accessible?
-          "SchemaFile": "testEntry.json",
+          "Schema": "{\n	\"title\": \"sampleEntry Schema\",\n	\"type\": \"object\",\n	\"properties\": {\n		\"content\": {\n			\"type\": \"string\"\n		},\n		\"timestamp\": {\n			\"type\": \"integer\"\n		}\n	},\n    \"required\": [\"body\", \"timestamp\"]\n}",
           "_": "cr"
         }
       ],
@@ -114,19 +128,19 @@ var BasicTemplateScaffold string = `{
       # Functions which can be called in your Zome's API.
       "Functions": [
         {
-          "Name": "testEntryCreate", # The name of this function.
+          "Name": "sampleEntryCreate", # The name of this function.
           "CallingType": "json", # Data format for parameters passed to this function.
           "Exposure": "public", # Level to which is this function exposed.
-          "_": "c:testEntry"
+          "_": "c:sampleEntry"
         },
         {
-          "Name": "testEntryRead", # The name of this function.
+          "Name": "sampleEntryRead", # The name of this function.
           "CallingType": "json", # Data format for parameters passed to this function.
           "Exposure": "public", # Level to which is this function exposed.
-          "_": "r:testEntry"
+          "_": "r:sampleEntry"
         },
         {
-          "Name": "doTestAction", # The name of this function.
+          "Name": "doSampleAction", # The name of this function.
           "CallingType": "json", # Data format for parameters passed to this function.
           "Exposure": "public", # Level to which is this function exposed.
         }
@@ -134,8 +148,13 @@ var BasicTemplateScaffold string = `{
 
       # Zome Source Code
       # The logic that will control Zome behavior
-      "Code": "'use strict';\n\n// -----------------------------------------------------------------\n//  This stub Zome code file was auto-generated\n// -----------------------------------------------------------------\n\n/**\n * Called only when your source chain is generated\n * @return {boolean} success\n */\nfunction genesis () {\n  // any genesis code here\n  return true;\n}\n\n// -----------------------------------------------------------------\n//  validation functions for every DHT entry change\n// -----------------------------------------------------------------\n\n/**\n * Called to validate any changes to the DHT\n * @param {string} entryName - the name of entry being modified\n * @param {*} entry - the entry data to be set\n * @param {?} header - ?\n * @param {?} pkg - ?\n * @param {?} sources - ?\n * @return {boolean} is valid?\n */\nfunction validateCommit (entryName, entry, header, pkg, sources) {\n  switch (entryName) {\n    case \"testEntry\":\n      // validation code here\n      return false;\n    default:\n      // invalid entry name!!\n      return false;\n  }\n}\n\n/**\n * Called to validate any changes to the DHT\n * @param {string} entryName - the name of entry being modified\n * @param {*}entry - the entry data to be set\n * @param {?} header - ?\n * @param {?} pkg - ?\n * @param {?} sources - ?\n * @return {boolean} is valid?\n */\nfunction validatePut (entryName, entry, header, pkg, sources) {\n  switch (entryName) {\n    case \"testEntry\":\n      // validation code here\n      return false;\ndefault:\n      // invalid entry name!!\n      return false;\n  }\n}\n\n/**\n * Called to validate any changes to the DHT\n * @param {string} entryName - the name of entry being modified\n * @param {*} entry- the entry data to be set\n * @param {?} header - ?\n * @param {*} replaces - the old entry data\n * @param {?} pkg - ?\n * @param {?} sources - ?\n * @return {boolean} is valid?\n */\nfunction validateMod (entryName, entry, header, replaces, pkg, sources) {\n  switch (entryName) {\n    case \"testEntry\":\n      // validation code here\n      return false;\n    default:\n      // invalid entry name!!\n      return false;\n  }\n}\n\n/**\n * Called to validate any changes to the DHT\n * @param {string} entryName - the name of entry being modified\n * @param {string} hash - the hash of the entry to remove\n * @param {?} pkg - ?\n * @param {?} sources - ?\n * @return {boolean} is valid?\n */\nfunction validateDel (entryName,hash, pkg, sources) {\n  switch (entryName) {\n    case \"testEntry\":\n      // validation code here\nreturn false;\n    default:\n      // invalid entry name!!\n      return false;\n  }\n}\n\n/**\n * Called to get the data needed to validate\n * @param {string} entryName - the name of entry to validate\n * @return {*} the data required for validation\n */\nfunction validatePutPkg (entryName) {\n  return null;\n}\n\n/**\n * Called to get the data needed to validate\n * @param {string} entryName - the name of entry to validate\n * @return {*} the data required for validation\n */\nfunction validateModPkg (entryName) {\n  return null;\n}\n\n/**\n * Called to get the data needed to validate\n * @param {string} entryName - the name of entry to validate\n * @return {*} the data required for validation\n */\nfunction validateDelPkg (entryName) {\n  return null;\n}"
+      "Code": "x'use strict';\n\n// -----------------------------------------------------------------\n//  This stub Zome code file was auto-generated\n// -----------------------------------------------------------------\n\n/**\n * Called only when your source chain is generated\n * @return {boolean} success\n */\nfunction genesis () {\n  // any genesis code here\n  return true;\n}\n\n// -----------------------------------------------------------------\n//  validation functions for every DHT entry change\n// -----------------------------------------------------------------\n\n/**\n * Called to validate any changes to the DHT\n * @param {string} entryName - the name of entry being modified\n * @param {*} entry - the entry data to be set\n * @param {?} header - ?\n * @param {?} pkg - ?\n * @param {?} sources - ?\n * @return {boolean} is valid?\n */\nfunction validateCommit (entryName, entry, header, pkg, sources) {\n  switch (entryName) {\n    case \"sampleEntry\":\n      // validation code here\n      return false;\n    default:\n      // invalid entry name!!\n      return false;\n  }\n}\n\n/**\n * Called to validate any changes to the DHT\n * @param {string} entryName - the name of entry being modified\n * @param {*}entry - the entry data to be set\n * @param {?} header - ?\n * @param {?} pkg - ?\n * @param {?} sources - ?\n * @return {boolean} is valid?\n */\nfunction validatePut (entryName, entry, header, pkg, sources) {\n  switch (entryName) {\n    case \"sampleEntry\":\n      // validation code here\n      return false;\ndefault:\n      // invalid entry name!!\n      return false;\n  }\n}\n\n/**\n * Called to validate any changes to the DHT\n * @param {string} entryName - the name of entry being modified\n * @param {*} entry- the entry data to be set\n * @param {?} header - ?\n * @param {*} replaces - the old entry data\n * @param {?} pkg - ?\n * @param {?} sources - ?\n * @return {boolean} is valid?\n */\nfunction validateMod (entryName, entry, header, replaces, pkg, sources) {\n  switch (entryName) {\n    case \"sampleEntry\":\n      // validation code here\n      return false;\n    default:\n      // invalid entry name!!\n      return false;\n  }\n}\n\n/**\n * Called to validate any changes to the DHT\n * @param {string} entryName - the name of entry being modified\n * @param {string} hash - the hash of the entry to remove\n * @param {?} pkg - ?\n * @param {?} sources - ?\n * @return {boolean} is valid?\n */\nfunction validateDel (entryName,hash, pkg, sources) {\n  switch (entryName) {\n    case \"sampleEntry\":\n      // validation code here\nreturn false;\n    default:\n      // invalid entry name!!\n      return false;\n  }\n}\n\n/**\n * Called to get the data needed to validate\n * @param {string} entryName - the name of entry to validate\n * @return {*} the data required for validation\n */\nfunction validatePutPkg (entryName) {\n  return null;\n}\n\n/**\n * Called to get the data needed to validate\n * @param {string} entryName - the name of entry to validate\n * @return {*} the data required for validation\n */\nfunction validateModPkg (entryName) {\n  return null;\n}\n\n/**\n * Called to get the data needed to validate\n * @param {string} entryName - the name of entry to validate\n * @return {*} the data required for validation\n */\nfunction validateDelPkg (entryName) {\n  return null;\n}"
     }
-  ]
+  ]},
+"Tests":[{
+  "Name":"sample",
+  "Value":"[\n  {\n        \"Convey\":\"We can create a new sampleEntry\",\n        \"FnName\": \"sampleEntryCreate\",\n        \"Input\": {\"body\": \"this is the entry body\",\n                  \"stamp\":12345},\n        \"Output\": \"\\\"%h1%\\\"\",\n        \"Exposure\":\"public\"\n    }\n]"}
+   ],
+"UI":[]
 }
 `

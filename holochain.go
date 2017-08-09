@@ -13,6 +13,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/google/uuid"
+	ic "github.com/libp2p/go-libp2p-crypto"
 	peer "github.com/libp2p/go-libp2p-peer"
 	mh "github.com/multiformats/go-multihash"
 	"github.com/tidwall/buntdb"
@@ -616,6 +617,26 @@ func (h *Holochain) Send(proto int, to peer.ID, t MsgType, body interface{}) (re
 		} else {
 			response = r.Body
 		}
+	}
+	return
+}
+
+//Sign uses the agent' private key to sign the contents of doc
+func (h *Holochain) Sign(doc []byte) (sig []byte, err error) {
+	privKey := h.agent.PrivKey()
+	sig, err = privKey.Sign(doc)
+	if err != nil {
+		return
+	}
+	return
+}
+
+//VerifySignature uses the signature, data(doc) and signatory's public key to Verify the sign in contents of doc
+func (h *Holochain) VerifySignature(signature []byte, data string, pubKey ic.PubKey) (matches bool, err error) {
+
+	matches, err = pubKey.Verify([]byte(data), signature)
+	if err != nil {
+		return
 	}
 	return
 }

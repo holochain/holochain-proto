@@ -9,23 +9,21 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	holo "github.com/metacurrency/holochain"
+	"github.com/metacurrency/holochain/cmd"
+	"github.com/metacurrency/holochain/ui"
+	"github.com/urfave/cli"
+	"io/ioutil"
 	"os"
+	"os/exec"
 	"os/user"
 	"path"
 	"path/filepath"
 	"strconv"
 	"time"
 
-	cli 			"github.com/urfave/cli"
 	// fsnotify	"github.com/fsnotify/fsnotify"
-	spew 			"github.com/davecgh/go-spew/spew"
-	
-	
-	holo "github.com/metacurrency/holochain"
-	"github.com/metacurrency/holochain/cmd"
-	"github.com/metacurrency/holochain/ui"
-
-	
+	spew "github.com/davecgh/go-spew/spew"
 )
 
 const (
@@ -129,7 +127,7 @@ func setupApp() (app *cli.App) {
 	}
 
 	var interactive, dumpChain, dumpDHT bool
-	var clonePath, scaffoldPath string
+	var clonePath, scaffoldPath, cloneExample string
 	var ranScript bool
 	app.Commands = []cli.Command{
 		{
@@ -151,6 +149,11 @@ func setupApp() (app *cli.App) {
 					Name:        "scaffold",
 					Usage:       "path to a scaffold file from which to initialize the app",
 					Destination: &scaffoldPath,
+				},
+				cli.StringFlag{
+					Name:        "cloneExample",
+					Usage:       "example from github.com/holochain to clone from",
+					Destination: &cloneExample,
 				},
 			},
 			ArgsUsage: "<name>",
@@ -180,19 +183,32 @@ func setupApp() (app *cli.App) {
 					if !info.Mode().IsDir() {
 						return makeErr("init", "-clone flag expects a directory to clone from", 1)
 					}
-
-					// TODO this is the bogus dev agent, really it should probably be someone else
-					agent, err := holo.LoadAgent(rootPath)
-					if err != nil {
-						return makeErrFromError("init", err, 1)
-					}
-
-					err = service.Clone(clonePath, devPath, agent, true)
-					if err != nil {
-						return makeErrFromError("init", err, 1)
-					}
-
 					fmt.Printf("cloning %s from %s\n", name, clonePath)
+					err = doClone(service, clonePath, devPath)
+					if err != nil {
+						return makeErrFromError("init", err, 1)
+					}
+
+				} else if cloneExample != "" {
+					tmpCopyDir, err := ioutil.TempDir("", fmt.Sprintf("holochain.example.%s", cloneExample))
+					if err != nil {
+						return makeErrFromError("init", err, 1)
+					}
+					defer os.RemoveAll(tmpCopyDir)
+					err = os.Chdir(tmpCopyDir)
+					if err != nil {
+						return makeErrFromError("init", err, 1)
+					}
+					cmd := exec.Command("git", "clone", fmt.Sprintf("git://github.com/Holochain/%s.git", cloneExample))
+					out, err := cmd.CombinedOutput()
+					fmt.Printf("git: %s\n", string(out))
+					if err != nil {
+						return makeErrFromError("init", err, 1)
+					}
+					clonePath := filepath.Join(tmpCopyDir, cloneExample)
+					fmt.Printf("cloning %s from github.com/Holochain/%s\n", name, cloneExample)
+					err = doClone(service, clonePath, devPath)
+
 				} else if scaffoldPath != "" {
 					// build the app from the scaffold
 					info, err := os.Stat(scaffoldPath)
@@ -209,39 +225,27 @@ func setupApp() (app *cli.App) {
 					}
 					defer sf.Close()
 
-					dna, err := holo.LoadDNAScaffold(sf)
+					_, err = service.SaveScaffold(sf, devPath, false)
 					if err != nil {
 						return makeErrFromError("init", err, 1)
 					}
 
-					err = cmd.MakeDirs(devPath)
-					if err != nil {
-						return makeErrFromError("init", err, 1)
-					}
-
-					err = service.SaveDNAFile(devPath, dna, "json", false)
-					if err != nil {
-						return makeErrFromError("init", err, 1)
-					}
 					fmt.Printf("initialized %s from scaffold:%s\n", devPath, scaffoldPath)
 				} else {
 
 					// build empty app template
-					err := cmd.MakeDirs(devPath)
+					err := holo.MakeDirs(devPath)
 					if err != nil {
 						return makeErrFromError("init", err, 1)
 					}
-					scaffold := bytes.NewBuffer([]byte(holo.BasicTemplateScaffold))
-					dna, err := holo.LoadDNAScaffold(scaffold)
+					scaffoldReader := bytes.NewBuffer([]byte(holo.BasicTemplateScaffold))
+
+					var scaffold *holo.Scaffold
+					scaffold, err = service.SaveScaffold(scaffoldReader, devPath, true)
 					if err != nil {
 						return makeErrFromError("init", err, 1)
 					}
-					dna.NewUUID()
-					err = service.SaveDNAFile(devPath, dna, "json", false)
-					if err != nil {
-						return makeErrFromError("init", err, 1)
-					}
-					fmt.Printf("initialized empty application to %s with new UUID:%v\n", devPath, dna.UUID)
+					fmt.Printf("initialized empty application to %s with new UUID:%v\n", devPath, scaffold.DNA.UUID)
 				}
 
 				err := os.Chdir(devPath)
@@ -742,4 +746,19 @@ func activate(h *holo.Holochain, port string) (err error) {
 
 func GetLastRunContext() (MutableContext, *cli.Context) {
 	return mutableContext, lastRunContext
+}
+
+func doClone(s *holo.Service, clonePath, devPath string) (err error) {
+
+	// TODO this is the bogus dev agent, really it should probably be someone else
+	agent, err := holo.LoadAgent(rootPath)
+	if err != nil {
+		return
+	}
+
+	err = s.Clone(clonePath, devPath, agent, true)
+	if err != nil {
+		return
+	}
+	return
 }

@@ -155,27 +155,6 @@ func GetHolochain(name string, service *holo.Service, cmd string) (h *holo.Holoc
 	return
 }
 
-//MakeDirs creates the directory structure of an application
-func MakeDirs(devPath string) error {
-	err := os.MkdirAll(devPath, os.ModePerm)
-	if err != nil {
-		return err
-	}
-	err = os.MkdirAll(filepath.Join(devPath, holo.ChainDNADir), os.ModePerm)
-	if err != nil {
-		return err
-	}
-	err = os.MkdirAll(filepath.Join(devPath, holo.ChainUIDir), os.ModePerm)
-	if err != nil {
-		return err
-	}
-	err = os.MkdirAll(filepath.Join(devPath, holo.ChainTestDir), os.ModePerm)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
 func Die(message string) {
 	fmt.Println(message)
 	os.Exit(1)
@@ -248,7 +227,6 @@ func GetFreePort() (port int, err error) {
 	return
 }
 
-
 // var syncWatcher fsnotify.Watcher
 // var created_syncWatcher bool
 
@@ -308,5 +286,4 @@ func GetFreePort() (port int, err error) {
 //   <-done
 // }
 
-// func 
-
+// func

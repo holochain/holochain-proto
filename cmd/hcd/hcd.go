@@ -69,17 +69,13 @@ func setupApp() (app *cli.App) {
 
 	app.Action = func(c *cli.Context) error {
 		args := len(c.Args())
-		if args == 1 {
+		if args == 1 || args == 2 {
 			h, err := cmd.GetHolochain(c.Args().First(), service, "serve")
 			if err != nil {
 				return err
 			}
 			if !h.Started() {
 				return fmt.Errorf("Can't serve an un-started chain!\n")
-			}
-
-			if verbose {
-				fmt.Printf("Serving holochain with DNA hash:%v\n", h.DNAHash())
 			}
 
 			var port string
@@ -95,12 +91,17 @@ func setupApp() (app *cli.App) {
 			//				go h.DHT().HandleChangeReqs()
 			go h.DHT().HandleGossipWiths()
 			go h.DHT().Gossip(2 * time.Second)
+
+			if verbose {
+				fmt.Printf("Serving holochain with DNA hash:%v on port %s\n", h.DNAHash(), port)
+			}
+
 			ui.NewWebServer(h, port).Start()
 			return err
 		} else if args == 0 {
 			fmt.Println(service.ListChains())
 		} else {
-			return fmt.Errorf("Expected single holochain-name argument.\n")
+			return fmt.Errorf("Expected single holochain-name argument with optional port argument.\n")
 		}
 		return nil
 	}

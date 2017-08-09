@@ -512,12 +512,12 @@ func bridge(service *holo.Service, h *holo.Holochain, agent holo.Agent, path str
 	}
 
 	var token string
-	token, err = hTo.NewBridge()
+	token, err = hTo.NewBridge(hFrom.DNAHash(), "")
 	if err != nil {
 		return
 	}
 
-	err = hFrom.AddBridge(hTo.DNAHash(), token, fmt.Sprintf("http://localhost:%d", hTo.Config().Port))
+	err = hFrom.AddBridge(hTo.DNAHash(), token, fmt.Sprintf("http://localhost:%d", hTo.Config().Port), "")
 	if err != nil {
 		return
 	}

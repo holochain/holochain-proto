@@ -206,15 +206,25 @@ func TestZygoGenesis(t *testing.T) {
 }
 
 func TestZygoBridgeGenesis(t *testing.T) {
+	d, _, h := PrepareTestChain("test")
+	defer CleanupTestDir(d)
+
+	fakeToApp, _ := NewHash("QmVGtdTZdTFaLsaj2RwdVG8jcjNNcp1DE914DKZ2kHmXHx")
 	Convey("it should fail if the bridge genesis function returns false", t, func() {
-		z, _ := NewZygoRibosome(nil, &Zome{RibosomeType: ZygoRibosomeType, Code: `(defn bridgeGenesis [] false)`})
-		err := z.BridgeGenesis()
-		So(err.Error(), ShouldEqual, "bridgeGenesis failed")
+		ShouldLog(&h.config.Loggers.App, h.dnaHash.String()+" test data", func() {
+			z, err := NewZygoRibosome(h, &Zome{RibosomeType: ZygoRibosomeType, Code: `(defn bridgeGenesis [side app data] (begin (debug (concat app " " data)) false))`})
+			So(err, ShouldBeNil)
+			err = z.BridgeGenesis(BridgeFrom, h.dnaHash, "test data")
+			So(err.Error(), ShouldEqual, "bridgeGenesis failed")
+		})
 	})
 	Convey("it should work if the bridge genesis function returns true", t, func() {
-		z, _ := NewZygoRibosome(nil, &Zome{RibosomeType: ZygoRibosomeType, Code: `(defn bridgeGenesis [] true)`})
-		err := z.BridgeGenesis()
-		So(err, ShouldBeNil)
+		ShouldLog(&h.config.Loggers.App, fakeToApp.String()+" test data", func() {
+			z, err := NewZygoRibosome(h, &Zome{RibosomeType: ZygoRibosomeType, Code: `(defn bridgeGenesis [side app data] (begin (debug (concat app " " data)) true))`})
+			So(err, ShouldBeNil)
+			err = z.BridgeGenesis(BridgeTo, fakeToApp, "test data")
+			So(err, ShouldBeNil)
+		})
 	})
 }
 

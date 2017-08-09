@@ -645,7 +645,7 @@ type BridgeSpec map[string]map[string]bool
 
 // NewBridge registers a token for allowing bridged calls from some other app
 // and calls bridgeGenesis in any zomes with bridge functions
-func (h *Holochain) NewBridge() (token string, err error) {
+func (h *Holochain) NewBridge(fromDNA Hash, appData string) (token string, err error) {
 	err = h.initBridgeDB()
 	if err != nil {
 		return
@@ -668,7 +668,7 @@ func (h *Holochain) NewBridge() (token string, err error) {
 		if err != nil {
 			return
 		}
-		err = r.BridgeGenesis()
+		err = r.BridgeGenesis(BridgeTo, fromDNA, appData)
 		if err != nil {
 			return
 		}
@@ -750,23 +750,45 @@ func (h *Holochain) BridgeCall(zomeType string, function string, arguments inter
 	return
 }
 
-// AddBridge associates a token with an an application DNA hash
-func (h *Holochain) AddBridge(hash Hash, token string, url string) (err error) {
+// AddBridge associates a token with an an application DNA hash and url for accessing it
+// it also runs BridgeGenesis for the From side
+func (h *Holochain) AddBridge(toDNA Hash, token string, url string, appData string) (err error) {
 	err = h.initBridgeDB()
 	if err != nil {
 		return
 	}
+	toDNAStr := toDNA.String()
 	err = h.bridgeDB.Update(func(tx *buntdb.Tx) error {
-		_, _, err = tx.Set("app:"+hash.String(), token, nil)
+		_, _, err = tx.Set("app:"+toDNAStr, token, nil)
 		if err != nil {
 			return err
 		}
-		_, _, err = tx.Set("url:"+hash.String(), url, nil)
+		_, _, err = tx.Set("url:"+toDNAStr, url, nil)
 		if err != nil {
 			return err
 		}
 		return nil
 	})
+	if err != nil {
+		return
+	}
+
+	// TODO  possible that we shouldn't add the bridge unless the there is some Zome with BridgeTo?
+	// the way this is is just that the only way to get the from genesis to run is if it's set
+	for _, z := range h.nucleus.dna.Zomes {
+		if z.BridgeTo.String() == toDNAStr {
+			var r Ribosome
+			r, _, err = h.MakeRibosome(z.Name)
+			if err != nil {
+				return
+			}
+			err = r.BridgeGenesis(BridgeFrom, toDNA, appData)
+			if err != nil {
+				return
+			}
+
+		}
+	}
 	return
 }
 

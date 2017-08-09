@@ -398,15 +398,27 @@ func TestBridgeCall(t *testing.T) {
 		So(err.Error(), ShouldEqual, "no active bridge")
 	})
 
-	Convey("it should call the bridgeGenesis function on bridging", t, func() {
-		ShouldLog(h.nucleus.alog, `bridge genesis debug output`, func() {
-			token, err = h.NewBridge()
+	fakeFromApp, _ := NewHash("QmVGtdTZdTFaLsaj2RwdVG8jcjNNcp1DE914DKZ2kHmXHx")
+	Convey("it should call the bridgeGenesis function when bridging on the to side", t, func() {
+		ShouldLog(h.nucleus.alog, `bridge genesis to: other side is:`+fakeFromApp.String()+` bridging data:app data`, func() {
+			token, err = h.NewBridge(fakeFromApp, "app data")
 			So(err, ShouldBeNil)
 		})
 		c := Capability{Token: token, db: h.bridgeDB}
 		bridgeSpecStr, err := c.Validate(nil)
 		So(err, ShouldBeNil)
 		So(bridgeSpecStr, ShouldEqual, `{"jsSampleZome":{"getProperty":true},"zySampleZome":{"testStrFn1":true}}`)
+	})
+
+	fakeToApp, _ := NewHash("QmVGtdTZdTFaLsaj2RwdVG8jcjNNcp1DE914DKZ2kHmXHy")
+	Convey("it should call the bridgeGenesis function when bridging on the from side", t, func() {
+		h.nucleus.dna.Zomes[0].BridgeTo = fakeToApp
+		h.nucleus.dna.Zomes[0].BridgeTo = fakeToApp
+		ShouldLog(h.nucleus.alog, `bridge genesis from: other side is:`+fakeToApp.String()+` bridging data:app data`, func() {
+			url := "http://localhost:31415"
+			err := h.AddBridge(fakeToApp, token, url, "app data")
+			So(err, ShouldBeNil)
+		})
 	})
 
 	Convey("it should call the bridged function", t, func() {
@@ -449,6 +461,7 @@ func TestBridgeSpecMake(t *testing.T) {
 		So(fmt.Sprintf("%s", string(bridgeSpecB)), ShouldEqual, `{"jsSampleZome":{"getProperty":true},"zySampleZome":{"testStrFn1":true}}`)
 	})
 }
+
 func TestBridgeStore(t *testing.T) {
 	d, _, h := setupTestChain("test")
 	defer CleanupTestDir(d)
@@ -457,7 +470,7 @@ func TestBridgeStore(t *testing.T) {
 	token := "some token"
 	url := "http://localhost:31415"
 	Convey("it should add a token to the bridged apps list", t, func() {
-		err := h.AddBridge(hash, token, url)
+		err := h.AddBridge(hash, token, url, "")
 		So(err, ShouldBeNil)
 		t, u, err := h.GetBridgeToken(hash)
 		So(err, ShouldBeNil)

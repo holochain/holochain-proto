@@ -104,6 +104,17 @@ func TestNewJSRibosome(t *testing.T) {
 		So(err, ShouldBeNil)
 		i, _ = z.lastResult.ToInteger()
 		So(i, ShouldEqual, StatusAny)
+
+		_, err = z.Run("HC.Bridge.From")
+		So(err, ShouldBeNil)
+		i, _ = z.lastResult.ToInteger()
+		So(i, ShouldEqual, BridgeFrom)
+
+		_, err = z.Run("HC.Bridge.To")
+		So(err, ShouldBeNil)
+		i, _ = z.lastResult.ToInteger()
+		So(i, ShouldEqual, BridgeTo)
+
 	})
 
 	Convey("should have the built in functions:", t, func() {
@@ -247,15 +258,25 @@ func TestJSGenesis(t *testing.T) {
 }
 
 func TestJSBridgeGenesis(t *testing.T) {
+	d, _, h := PrepareTestChain("test")
+	defer CleanupTestDir(d)
+
+	fakeToApp, _ := NewHash("QmVGtdTZdTFaLsaj2RwdVG8jcjNNcp1DE914DKZ2kHmXHx")
 	Convey("it should fail if the bridge genesis function returns false", t, func() {
-		z, _ := NewJSRibosome(nil, &Zome{RibosomeType: JSRibosomeType, Code: `function bridgeGenesis() {return false}`})
-		err := z.BridgeGenesis()
-		So(err.Error(), ShouldEqual, "bridgeGenesis failed")
+
+		ShouldLog(&h.config.Loggers.App, h.dnaHash.String()+" test data", func() {
+			z, err := NewJSRibosome(h, &Zome{RibosomeType: JSRibosomeType, Code: `function bridgeGenesis(side,app,data) {debug(app+" "+data);if (side==HC.Bridge.From) {return false;} return true;}`})
+			So(err, ShouldBeNil)
+			err = z.BridgeGenesis(BridgeFrom, h.dnaHash, "test data")
+			So(err.Error(), ShouldEqual, "bridgeGenesis failed")
+		})
 	})
 	Convey("it should work if the genesis function returns true", t, func() {
-		z, _ := NewJSRibosome(nil, &Zome{RibosomeType: JSRibosomeType, Code: `function bridgeGenesis() {return true}`})
-		err := z.BridgeGenesis()
-		So(err, ShouldBeNil)
+		ShouldLog(&h.config.Loggers.App, fakeToApp.String()+" test data", func() {
+			z, _ := NewJSRibosome(h, &Zome{RibosomeType: JSRibosomeType, Code: `function bridgeGenesis(side,app,data) {debug(app+" "+data);if (side==HC.Bridge.From) {return false;} return true;}`})
+			err := z.BridgeGenesis(BridgeTo, fakeToApp, "test data")
+			So(err, ShouldBeNil)
+		})
 	})
 }
 

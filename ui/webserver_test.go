@@ -52,7 +52,8 @@ func TestWebServer(t *testing.T) {
 		So(string(b), ShouldEqual, "en")
 	})
 
-	token, _ := h.NewBridge()
+	fakeFromApp, _ := NewHash("QmVGtdTZdTFaLsaj2RwdVG8jcjNNcp1DE914DKZ2kHmXHx")
+	token, _ := h.NewBridge(fakeFromApp, "")
 
 	Convey("it should fail bridged functions without a good token", t, func() {
 		body := bytes.NewBuffer([]byte("language"))

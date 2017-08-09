@@ -17,7 +17,7 @@ type Zome struct {
 	RibosomeType string
 	Functions    []FunctionDef
 	BridgeFuncs  []string // functions in zome that can be bridged to by fromApp
-	BridgeTo     Hash     // dna Hash of toApp for zomes to be included in the fromApp
+	BridgeTo     Hash     // dna Hash of toApp that this zome is a client of
 }
 
 // GetEntryDef returns the entry def structure

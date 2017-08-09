@@ -725,7 +725,7 @@ func (s *Service) GenDev(root string, format string) (hP *Holochain, err error) 
 (defn validateDelPkg [entryType] nil)
 (defn validateLinkPkg [entryType] nil)
 (defn genesis [] true)
-(defn bridgeGenesis [] (begin (debug "bridge genesis debug output")  true))
+(defn bridgeGenesis [side app data] (begin (debug (concat "bridge genesis " (cond (== side HC_Bridge_From) "from" "to") ": other side is:" app " bridging data:" data))  true))
 (defn receive [from message]
 	(hash pong: (hget message %ping)))
 `
@@ -788,7 +788,7 @@ function validateDelPkg(entry_type) { return null}
 function validateLinkPkg(entry_type) { return null}
 
 function genesis() {return true}
-function bridgeGenesis() {return true}
+function bridgeGenesis(side,app,data) {return true}
 
 function receive(from,message) {
   // send back a pong message of what came in the ping message!

@@ -14,7 +14,9 @@ import (
 	exec "os/exec"
 	"os/user"
 	"path/filepath"
+  // "strconv"
 	"syscall"
+  "time"
 
 	holo "github.com/metacurrency/holochain"
 )
@@ -227,6 +229,15 @@ func GetFreePort() (port int, err error) {
 	return
 }
 
+func GetUnixTimestamp_secondsFromNow(seconds int) int64 {
+  return time.Now().Add(10 * time.Second).Unix()
+}
+func GetDuration_fromUnixTimestamp(timestamp int64) (duration time.Duration) {
+  duration = 0 * time.Second
+  targetTime := time.Unix(timestamp, 0)
+  duration = targetTime.Sub(time.Now())
+  return 
+}
 // var syncWatcher fsnotify.Watcher
 // var created_syncWatcher bool
 

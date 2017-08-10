@@ -33,8 +33,13 @@ var bridgeFromH, bridgeToH *holo.Holochain
 // TODO: move these into cmd module
 func makeErr(prefix string, text string, code int) error {
 	errText := fmt.Sprintf("%s: %s", prefix, text)
-	fmt.Printf("CLI Error: %s\n", errText)
-	return cli.NewExitError(errText, 1)
+
+	if os.Getenv("HCDEV_TESTING") != "" {
+		os.Setenv("HCDEV_TESTING_EXITERR", fmt.Sprintf("%d", code))
+		return errors.New(errText)
+	} else {
+		return cli.NewExitError(errText, 1)
+	}
 }
 
 func makeErrFromError(prefix string, err error, code int) error {
@@ -113,16 +118,29 @@ func setupApp() (app *cli.App) {
 					return makeErr("init", "current directory is an initialized app, apps shouldn't be nested", 1)
 				}
 
+				var name string
 				args := c.Args()
 				if len(args) != 1 {
-					return makeErr("init", "expecting app name as single argument", 1)
+					if cloneExample != "" {
+						name = cloneExample
+					} else {
+						return makeErr("init", "expecting app name as single argument", 1)
+					}
 				}
 
 				if (interactive && clonePath != "") || (interactive && scaffoldPath != "") || (clonePath != "" && scaffoldPath != "") {
 					return makeErr("init", " options are mutually exclusive, please choose just one.", 1)
 				}
-				name := args[0]
+				if name == "" {
+					name = args[0]
+				}
 				devPath = filepath.Join(devPath, name)
+
+				info, err := os.Stat(devPath)
+				if err == nil && info.Mode().IsDir() {
+					return makeErr("init", fmt.Sprintf("%s already exists", devPath), 1)
+				}
+
 				if clonePath != "" {
 					// build the app by cloning from another app
 					info, err := os.Stat(clonePath)
@@ -203,7 +221,7 @@ func setupApp() (app *cli.App) {
 					fmt.Printf("initialized empty application to %s with new UUID:%v\n", devPath, scaffold.DNA.UUID)
 				}
 
-				err := os.Chdir(devPath)
+				err = os.Chdir(devPath)
 				if err != nil {
 					return makeErrFromError("", err, 1)
 				}
@@ -431,12 +449,7 @@ func setupApp() (app *cli.App) {
 
 func main() {
 	app := setupApp()
-
-	err := app.Run(os.Args)
-	if err != nil {
-		fmt.Printf("Error: %v\n", err)
-		os.Exit(1)
-	}
+	app.Run(os.Args)
 }
 
 func getHolochain(c *cli.Context, service *holo.Service) (h *holo.Holochain, err error) {

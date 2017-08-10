@@ -593,6 +593,11 @@ func (h *Holochain) DHT() *DHT {
 	return h.dht
 }
 
+// DHT exposes the Node structure
+func (h *Holochain) Node() *Node {
+	return h.node
+}
+
 // HashSpec exposes the hashSpec structure
 func (h *Holochain) HashSpec() HashSpec {
 	return h.hashSpec

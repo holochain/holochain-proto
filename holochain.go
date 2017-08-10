@@ -753,6 +753,7 @@ func (h *Holochain) BridgeCall(zomeType string, function string, arguments inter
 // AddBridge associates a token with an an application DNA hash and url for accessing it
 // it also runs BridgeGenesis for the From side
 func (h *Holochain) AddBridge(toDNA Hash, token string, url string, appData string) (err error) {
+	Debugf("Adding bridge to: %v", toDNA)
 	err = h.initBridgeDB()
 	if err != nil {
 		return
@@ -782,6 +783,7 @@ func (h *Holochain) AddBridge(toDNA Hash, token string, url string, appData stri
 			if err != nil {
 				return
 			}
+			Debugf("Running BridgeFrom Genesis for %s", z.Name)
 			err = r.BridgeGenesis(BridgeFrom, toDNA, appData)
 			if err != nil {
 				return

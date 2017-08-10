@@ -34,23 +34,13 @@ var debug, appInitialized bool
 var rootPath, devPath, bridgeToPath, bridgeToName, bridgeFromPath, bridgeFromName, name string
 var bridgeFromH, bridgeToH *holo.Holochain
 
-// TODO: move these into cmd module
-func makeErr(prefix string, text string, code int) error {
-	errText := fmt.Sprintf("%s: %s", prefix, text)
-	fmt.Printf("CLI Error: %s\n", errText)
-	return cli.NewExitError(errText, 1)
-}
-
-func makeErrFromError(prefix string, err error, code int) error {
-	return makeErr(prefix, err.Error(), code)
-}
-
 // flags for holochain config generation
 var port, logPrefix, bootstrapServer string
 var mdns bool
 
 // meta flags for program flow control
 var syncPausePath string
+var syncPauseUntil int
 
 type MutableContext struct {
 	str map[string]string
@@ -60,6 +50,18 @@ type MutableContext struct {
 var mutableContext MutableContext
 
 var lastRunContext *cli.Context
+
+// TODO: move these into cmd module
+func makeErr(prefix string, text string, code int) error {
+  errText := fmt.Sprintf("%s: %s", prefix, text)
+  fmt.Printf("CLI Error: %s\n", errText)
+  return cli.NewExitError(errText, 1)
+}
+
+func makeErrFromError(prefix string, err error, code int) error {
+  return makeErr(prefix, err.Error(), code)
+}
+
 
 func setupApp() (app *cli.App) {
 
@@ -272,6 +274,11 @@ func setupApp() (app *cli.App) {
 					Usage:       "path to wait for multinode test sync",
 					Destination: &syncPausePath,
 				},
+        cli.IntFlag{
+          Name:        "syncPauseUntil",
+          Usage:       "unix timestamp - sync tests to run at this time",
+          Destination: &syncPauseUntil,
+        },
 			},
 			Action: func(c *cli.Context) error {
 				if debug {
@@ -297,8 +304,10 @@ func setupApp() (app *cli.App) {
 					dir := filepath.Join(h.TestPath(), args[0])
 					role := args[1]
 
-					// if syncPause != "" {
-					// }
+          if syncPauseUntil != 0 {
+            // IntFlag converts the string into int64 anyway. This explicit conversion is valid
+            time.Sleep(cmd.GetDuration_fromUnixTimestamp(int64(syncPauseUntil)))
+          }
 
 					err, errs = h.TestScenario(dir, role)
 					if err != nil {
@@ -424,7 +433,10 @@ func setupApp() (app *cli.App) {
 						"-mdns=true",
 						"-logPrefix="+roleName,
 						"-bootstrapServer=_",
-						"test", scenarioName, roleName,
+						"test", 
+              fmt.Sprintf("-syncPauseUntil=%v", cmd.GetUnixTimestamp_secondsFromNow(10)) , 
+              scenarioName, 
+              roleName,
 					)
 
 					mutableContext.obj["testCommand."+roleName] = &testCommand

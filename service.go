@@ -77,7 +77,7 @@ type ZomeFile struct {
 	RibosomeType string
 	Functions    []FunctionDef
 	BridgeFuncs  []string // functions in zome that can be bridged to by fromApp
-	BridgeTo     Hash     // dna Hash of toApp for zomes to be included in the fromApp
+	BridgeTo     string   // dna Hash of toApp that this zome is a client of
 }
 
 type DNAFile struct {
@@ -312,8 +312,12 @@ func (s *Service) LoadDNA(path string, filename string, format string) (dnaP *DN
 		dna.Zomes[i].RibosomeType = zome.RibosomeType
 		dna.Zomes[i].Functions = zome.Functions
 		dna.Zomes[i].BridgeFuncs = zome.BridgeFuncs
-		dna.Zomes[i].BridgeTo = zome.BridgeTo
-
+		if zome.BridgeTo != "" {
+			dna.Zomes[i].BridgeTo, err = NewHash(zome.BridgeTo)
+			if err != nil {
+				return
+			}
+		}
 		var code []byte
 		code, err = readFile(zomePath, zome.CodeFile)
 		if err != nil {
@@ -1087,7 +1091,7 @@ func (s *Service) SaveDNAFile(root string, dna *DNA, encodingFormat string, over
 			RibosomeType: z.RibosomeType,
 			Functions:    z.Functions,
 			BridgeFuncs:  z.BridgeFuncs,
-			BridgeTo:     z.BridgeTo,
+			BridgeTo:     z.BridgeTo.String(),
 		}
 
 		for _, e := range z.Entries {

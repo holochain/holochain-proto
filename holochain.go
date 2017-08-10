@@ -546,7 +546,9 @@ func (h *Holochain) Close() {
 		close(h.dht.puts)
 		close(h.dht.gchan)
 	}
-	h.node.Close()
+	if h.node != nil {
+		h.node.Close()
+	}
 }
 
 // Reset deletes all chain and dht data and resets data structures

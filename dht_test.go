@@ -220,6 +220,11 @@ func TestLinking(t *testing.T) {
 		So(data[0].H, ShouldEqual, linkHash1Str)
 	})
 
+	Convey("It should work to put a link a second time", t, func() {
+		err = dht.putLink(fakeMsg, baseStr, linkHash1Str, "tag foo")
+		So(err, ShouldBeNil)
+	})
+
 	Convey("It should fail delete links non existent links bases and tags", t, func() {
 		badHashStr := "QmY8Mzg9F69e5P9AoQPYat655HEhc1TVGs11tmfNSzkqhX"
 
@@ -248,6 +253,12 @@ func TestLinking(t *testing.T) {
 		data, err = dht.getLink(base, "tag foo", StatusLive)
 		So(err.Error(), ShouldEqual, "No links for tag foo")
 	})
+
+	Convey("It should fail to put a link over a deleted link", t, func() {
+		err = dht.putLink(fakeMsg, baseStr, linkHash1Str, "tag foo")
+		So(err, ShouldEqual, ErrPutLinkOverDeleted)
+	})
+
 }
 
 func TestFindNodeForHash(t *testing.T) {

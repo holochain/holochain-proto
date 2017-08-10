@@ -196,6 +196,7 @@ type ListAddReq struct {
 }
 
 var ErrLinkNotFound = errors.New("link not found")
+var ErrPutLinkOverDeleted = errors.New("putlink over deleted link")
 var ErrHashDeleted = errors.New("hash deleted")
 var ErrHashModified = errors.New("hash modified")
 var ErrHashRejected = errors.New("hash rejected")
@@ -501,11 +502,12 @@ func _putLink(tx *buntdb.Tx, base string, link string, tag string) (err error) {
 			return
 		}
 	} else {
-		//TODO what do we do if there's already something there?
-		//		if val != StatusLiveVal {
-		Debugf("putlink when %v has status %v", key, val)
-		panic("putLink over existing link not implemented")
-		//		}
+		// if the status is already live then just exit silently
+		// if the status isn't live then return an error.
+		if val != StatusLiveVal {
+			err = ErrPutLinkOverDeleted
+			return
+		}
 	}
 	return
 }

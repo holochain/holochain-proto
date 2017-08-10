@@ -646,6 +646,7 @@ type BridgeSpec map[string]map[string]bool
 // NewBridge registers a token for allowing bridged calls from some other app
 // and calls bridgeGenesis in any zomes with bridge functions
 func (h *Holochain) NewBridge(fromDNA Hash, appData string) (token string, err error) {
+	Debugf("Adding bridge to %s from: %v", h.nucleus.dna.Name, fromDNA)
 	err = h.initBridgeDB()
 	if err != nil {
 		return
@@ -668,6 +669,7 @@ func (h *Holochain) NewBridge(fromDNA Hash, appData string) (token string, err e
 		if err != nil {
 			return
 		}
+		Debugf("Running BridgeTo Genesis for %s", zomeName)
 		err = r.BridgeGenesis(BridgeTo, fromDNA, appData)
 		if err != nil {
 			return
@@ -753,7 +755,7 @@ func (h *Holochain) BridgeCall(zomeType string, function string, arguments inter
 // AddBridge associates a token with an an application DNA hash and url for accessing it
 // it also runs BridgeGenesis for the From side
 func (h *Holochain) AddBridge(toDNA Hash, token string, url string, appData string) (err error) {
-	Debugf("Adding bridge to: %v", toDNA)
+	Debugf("Adding bridge from %s to: %v", h.nucleus.dna.Name, toDNA)
 	err = h.initBridgeDB()
 	if err != nil {
 		return

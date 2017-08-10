@@ -460,13 +460,13 @@ func getHolochain(c *cli.Context, service *holo.Service) (h *holo.Holochain, err
 		return
 	}
 	if bridgeToPath != "" {
-		bridgeToH, err = bridge(service, h, agent, bridgeToPath, true)
+		bridgeToH, err = bridge(service, h, agent, bridgeToPath, holo.BridgeFrom)
 		if err != nil {
 			return
 		}
 	}
 	if bridgeFromPath != "" {
-		bridgeFromH, err = bridge(service, h, agent, bridgeFromPath, false)
+		bridgeFromH, err = bridge(service, h, agent, bridgeFromPath, holo.BridgeTo)
 		if err != nil {
 			return
 		}
@@ -474,14 +474,14 @@ func getHolochain(c *cli.Context, service *holo.Service) (h *holo.Holochain, err
 	return
 }
 
-func bridge(service *holo.Service, h *holo.Holochain, agent holo.Agent, path string, isFrom bool) (bridgeH *holo.Holochain, err error) {
+func bridge(service *holo.Service, h *holo.Holochain, agent holo.Agent, path string, side int) (bridgeH *holo.Holochain, err error) {
 
 	bridgeName := filepath.Base(path)
 
 	os.Setenv("HOLOCHAINCONFIG_ENABLEMDNS", "true")
 	os.Setenv("HOLOCHAINCONFIG_BOOTSTRAP", "_")
 	os.Setenv("HOLOCHAINCONFIG_LOGPREFIX", bridgeName+":")
-	if isFrom {
+	if side == holo.BridgeFrom {
 		os.Setenv("HOLOCHAINCONFIG_PORT", "9991")
 	} else {
 		os.Setenv("HOLOCHAINCONFIG_PORT", "9992")
@@ -496,19 +496,21 @@ func bridge(service *holo.Service, h *holo.Holochain, agent holo.Agent, path str
 	if err != nil {
 		return
 	}
-	bridgeH, err = service.Load(bridgeName)
+
+	bridgeH, err = service.GenChain(bridgeName)
 	if err != nil {
 		return
 	}
 
-	if isFrom {
+	// side is the this node
+	if side == holo.BridgeFrom {
 		bridgeToName = bridgeName
-		hFrom = bridgeH
-		hTo = h
-	} else {
-		bridgeFromName = bridgeName
 		hFrom = h
 		hTo = bridgeH
+	} else {
+		bridgeFromName = bridgeName
+		hFrom = bridgeH
+		hTo = h
 	}
 
 	var token string
@@ -525,10 +527,6 @@ func bridge(service *holo.Service, h *holo.Holochain, agent holo.Agent, path str
 }
 
 func activateBridgedApp(s *holo.Service, h *holo.Holochain, name string, port string) (err error) {
-	h, err = s.GenChain(name)
-	if err != nil {
-		return
-	}
 	go activate(h, port)
 	return
 }

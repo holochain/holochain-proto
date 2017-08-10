@@ -412,14 +412,17 @@ func (s *Service) load(name string, format string) (hP *Holochain, err error) {
 
 	// if the chain has been started there should be a DNAHashFile which
 	// we can load to check against the actual hash of the DNA entry
-	var b []byte
-	b, err = readFile(h.rootPath, DNAHashFileName)
-	if err == nil {
-		h.dnaHash, err = NewHash(string(b))
-		if err != nil {
-			return
+	if len(h.chain.Headers) > 0 {
+		h.dnaHash = h.chain.Headers[0].EntryLink.Clone()
+
+		var b []byte
+		b, err = readFile(h.rootPath, DNAHashFileName)
+		if err == nil {
+			if h.dnaHash.String() != string(b) {
+				err = errors.New("DNA doesn't match file!")
+				return
+			}
 		}
-		// @TODO compare value from file to actual hash
 	}
 
 	if h.chain.Length() > 0 {

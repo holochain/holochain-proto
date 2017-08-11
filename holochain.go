@@ -372,10 +372,6 @@ func (h *Holochain) GenChain() (headerHash Hash, err error) {
 		}
 	}()
 
-	if err = h.Prepare(); err != nil {
-		return
-	}
-
 	var buf bytes.Buffer
 	err = h.EncodeDNA(&buf)
 
@@ -402,12 +398,19 @@ func (h *Holochain) GenChain() (headerHash Hash, err error) {
 		return
 	}
 
+	if err = h.Prepare(); err != nil {
+		return
+	}
+
 	err = h.dht.SetupDHT()
 	if err != nil {
 		return
 	}
 
-	h.nucleus.RunGenesis()
+	err = h.nucleus.RunGenesis()
+	if err != nil {
+		return
+	}
 
 	return
 }
@@ -534,6 +537,20 @@ func (h *Holochain) GetZome(zName string) (z *Zome, err error) {
 	return
 }
 
+// Close releases the resources associated with a holochain
+func (h *Holochain) Close() {
+	if h.chain.s != nil {
+		h.chain.s.Close()
+	}
+	if h.dht != nil {
+		close(h.dht.puts)
+		close(h.dht.gchan)
+	}
+	if h.node != nil {
+		h.node.Close()
+	}
+}
+
 // Reset deletes all chain and dht data and resets data structures
 func (h *Holochain) Reset() (err error) {
 
@@ -574,6 +591,11 @@ func (h *Holochain) Reset() (err error) {
 // DHT exposes the DHT structure
 func (h *Holochain) DHT() *DHT {
 	return h.dht
+}
+
+// DHT exposes the Node structure
+func (h *Holochain) Node() *Node {
+	return h.node
 }
 
 // HashSpec exposes the hashSpec structure

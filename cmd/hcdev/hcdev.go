@@ -298,6 +298,7 @@ func setupApp() (app *cli.App) {
 				if err != nil {
 					return err
 				}
+				h.Close()
 				h, err = service.GenChain(name)
 				if err != nil {
 					return err

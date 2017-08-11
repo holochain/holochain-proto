@@ -53,10 +53,11 @@ func NewNucleus(h *Holochain, dna *DNA) *Nucleus {
 	return &nucleus
 }
 
-func (n *Nucleus) RunGenesis() {
+func (n *Nucleus) RunGenesis() (err error) {
+	var ribosome Ribosome
 	// run the init functions of each zome
 	for _, zome := range n.dna.Zomes {
-		ribosome, err := zome.MakeRibosome(n.h)
+		ribosome, err = zome.MakeRibosome(n.h)
 		if err == nil {
 			err = ribosome.ChainGenesis()
 			if err != nil {
@@ -65,6 +66,7 @@ func (n *Nucleus) RunGenesis() {
 			}
 		}
 	}
+	return
 }
 
 func (n *Nucleus) Start() (err error) {

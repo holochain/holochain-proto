@@ -410,23 +410,21 @@ func (s *Service) load(name string, format string) (hP *Holochain, err error) {
 	// we can load to check against the actual hash of the DNA entry
 	var b []byte
 	b, err = readFile(h.rootPath, DNAHashFileName)
-	if err == nil {
+	if err != nil {
+		err = nil
+	} else {
 		h.dnaHash, err = NewHash(string(b))
 		if err != nil {
 			return
 		}
-		// @TODO compare value from file to actual hash
 	}
+	// @TODO compare value from file to actual hash
 
 	if h.chain.Length() > 0 {
 		h.agentHash = h.chain.Headers[1].EntryLink
 		_, topHeader := h.chain.TopType(AgentEntryType)
 		h.agentTopHash = topHeader.EntryLink
 	}
-	if err = h.Prepare(); err != nil {
-		return
-	}
-
 	hP = &h
 	return
 }
@@ -1004,10 +1002,6 @@ func (s *Service) Clone(srcPath string, root string, agent Agent, new bool) (err
 // GenChain adds the genesis entries to a newly cloned or joined chain
 func (s *Service) GenChain(name string) (h *Holochain, err error) {
 	h, err = s.Load(name)
-	if err != nil {
-		return
-	}
-	err = h.Activate()
 	if err != nil {
 		return
 	}

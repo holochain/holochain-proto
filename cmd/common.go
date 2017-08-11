@@ -64,16 +64,12 @@ func OsExecSilent(args ...string) error {
 
 // OsExecPipes executes a command as if we are in a shell, including user input
 func OsExecPipes(args ...string) *exec.Cmd {
-	cmd := exec.Command(args[0], args[1:]...)
+	cmd := OsExecPipes_noRun(args...)
+
 	if debug {
-		fmt.Printf("HC: common.go: OsExecSilent: %v", cmd)
-	}
-
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	cmd.Stdin = os.Stdin
-
-	cmd.Run()
+    fmt.Printf("HC: common.go: OsExecPipes: %v", cmd)
+  }
+  cmd.Run()
 
 	return cmd
 }
@@ -87,7 +83,7 @@ func OsExecPipes_noRun(args ...string) *exec.Cmd {
 
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
-	cmd.Stdin = os.Stdin
+	// cmd.Stdin = os.Stdin
 
 	return cmd
 }

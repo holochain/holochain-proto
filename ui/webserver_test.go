@@ -53,7 +53,7 @@ func TestWebServer(t *testing.T) {
 	})
 
 	fakeFromApp, _ := NewHash("QmVGtdTZdTFaLsaj2RwdVG8jcjNNcp1DE914DKZ2kHmXHx")
-	token, _ := h.NewBridge(fakeFromApp, "")
+	token, _ := h.AddBridgeAsCallee(fakeFromApp, "")
 
 	Convey("it should fail bridged functions without a good token", t, func() {
 		body := bytes.NewBuffer([]byte("language"))

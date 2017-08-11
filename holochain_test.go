@@ -401,7 +401,7 @@ func TestBridgeCall(t *testing.T) {
 	fakeFromApp, _ := NewHash("QmVGtdTZdTFaLsaj2RwdVG8jcjNNcp1DE914DKZ2kHmXHx")
 	Convey("it should call the bridgeGenesis function when bridging on the to side", t, func() {
 		ShouldLog(h.nucleus.alog, `bridge genesis to: other side is:`+fakeFromApp.String()+` bridging data:app data`, func() {
-			token, err = h.NewBridge(fakeFromApp, "app data")
+			token, err = h.AddBridgeAsCallee(fakeFromApp, "app data")
 			So(err, ShouldBeNil)
 		})
 		c := Capability{Token: token, db: h.bridgeDB}
@@ -416,7 +416,7 @@ func TestBridgeCall(t *testing.T) {
 		h.nucleus.dna.Zomes[0].BridgeTo = fakeToApp
 		ShouldLog(h.nucleus.alog, `bridge genesis from: other side is:`+fakeToApp.String()+` bridging data:app data`, func() {
 			url := "http://localhost:31415"
-			err := h.AddBridge(fakeToApp, token, url, "app data")
+			err := h.AddBridgeAsCaller(fakeToApp, token, url, "app data")
 			So(err, ShouldBeNil)
 		})
 	})
@@ -470,7 +470,7 @@ func TestBridgeStore(t *testing.T) {
 	token := "some token"
 	url := "http://localhost:31415"
 	Convey("it should add a token to the bridged apps list", t, func() {
-		err := h.AddBridge(hash, token, url, "")
+		err := h.AddBridgeAsCaller(hash, token, url, "")
 		So(err, ShouldBeNil)
 		t, u, err := h.GetBridgeToken(hash)
 		So(err, ShouldBeNil)

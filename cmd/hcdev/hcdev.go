@@ -23,12 +23,15 @@ import (
 )
 
 const (
-	defaultPort = "4141"
+	defaultPort    = "4141"
+	bridgeFromPort = "21111"
+	bridgeToPort   = "21112"
 )
 
 var debug, appInitialized bool
 var rootPath, devPath, bridgeToPath, bridgeToName, bridgeFromPath, bridgeFromName, name string
 var bridgeFromH, bridgeToH *holo.Holochain
+var bridgeFromAppData, bridgeToAppData string
 
 // TODO: move these into cmd module
 func makeErr(prefix string, text string, code int) error {
@@ -74,6 +77,16 @@ func setupApp() (app *cli.App) {
 			Name:        "bridgeFrom",
 			Usage:       "path to dev directory of app to bridge from",
 			Destination: &bridgeFromPath,
+		},
+		cli.StringFlag{
+			Name:        "bridgeToAppData",
+			Usage:       "application data to pass to the bridged to app",
+			Destination: &bridgeToAppData,
+		},
+		cli.StringFlag{
+			Name:        "bridgeFromAppData",
+			Usage:       "application data to pass to the bridging from app",
+			Destination: &bridgeFromAppData,
 		},
 	}
 
@@ -298,7 +311,7 @@ func setupApp() (app *cli.App) {
 				if err != nil {
 					return err
 				}
-				h, err = service.GenChain(name)
+
 				if err != nil {
 					return err
 				}
@@ -514,12 +527,13 @@ func bridge(service *holo.Service, h *holo.Holochain, agent holo.Agent, path str
 	}
 
 	var token string
-	token, err = hTo.NewBridge(hFrom.DNAHash(), "")
+	token, err = hTo.AddBridgeAsCallee(hFrom.DNAHash(), bridgeToAppData)
 	if err != nil {
 		return
 	}
 
-	err = hFrom.AddBridge(hTo.DNAHash(), token, fmt.Sprintf("http://localhost:%d", hTo.Config().Port), "")
+	// the url is through the webserver
+	err = hFrom.AddBridgeAsCaller(hTo.DNAHash(), token, fmt.Sprintf("http://localhost:%s", bridgeToPort), bridgeFromAppData)
 	if err != nil {
 		return
 	}
@@ -533,13 +547,13 @@ func activateBridgedApp(s *holo.Service, h *holo.Holochain, name string, port st
 
 func activateBridgedApps(s *holo.Service) (err error) {
 	if bridgeFromH != nil {
-		err = activateBridgedApp(s, bridgeFromH, bridgeFromName, "12346")
+		err = activateBridgedApp(s, bridgeFromH, bridgeFromName, bridgeFromPort)
 		if err != nil {
 			return
 		}
 	}
 	if bridgeToH != nil {
-		err = activateBridgedApp(s, bridgeToH, bridgeToName, "12345")
+		err = activateBridgedApp(s, bridgeToH, bridgeToName, bridgeToPort)
 		if err != nil {
 			return
 		}

@@ -643,10 +643,10 @@ func (h *Holochain) Chain() *Chain {
 
 type BridgeSpec map[string]map[string]bool
 
-// NewBridge registers a token for allowing bridged calls from some other app
+// AddBridgeAsCallee registers a token for allowing bridged calls from some other app
 // and calls bridgeGenesis in any zomes with bridge functions
-func (h *Holochain) NewBridge(fromDNA Hash, appData string) (token string, err error) {
-	Debugf("Adding bridge to %s from: %v", h.nucleus.dna.Name, fromDNA)
+func (h *Holochain) AddBridgeAsCallee(fromDNA Hash, appData string) (token string, err error) {
+	Debugf("Adding bridge to %s from %v with appData: %s", h.nucleus.dna.Name, fromDNA, appData)
 	err = h.initBridgeDB()
 	if err != nil {
 		return
@@ -663,6 +663,11 @@ func (h *Holochain) NewBridge(fromDNA Hash, appData string) (token string, err e
 		}
 	}
 
+	capability, err = NewCapability(h.bridgeDB, string(bridgeSpecB), nil)
+	if err != nil {
+		return
+	}
+
 	for zomeName, _ := range bridgeSpec {
 		var r Ribosome
 		r, _, err = h.MakeRibosome(zomeName)
@@ -676,12 +681,8 @@ func (h *Holochain) NewBridge(fromDNA Hash, appData string) (token string, err e
 		}
 	}
 
-	capability, err = NewCapability(h.bridgeDB, string(bridgeSpecB), nil)
-	if err != nil {
-		return
-	}
-
 	token = capability.Token
+
 	return
 }
 
@@ -752,10 +753,10 @@ func (h *Holochain) BridgeCall(zomeType string, function string, arguments inter
 	return
 }
 
-// AddBridge associates a token with an an application DNA hash and url for accessing it
+// AddBridgeAsCaller associates a token with an application DNA hash and url for accessing it
 // it also runs BridgeGenesis for the From side
-func (h *Holochain) AddBridge(toDNA Hash, token string, url string, appData string) (err error) {
-	Debugf("Adding bridge from %s to: %v", h.nucleus.dna.Name, toDNA)
+func (h *Holochain) AddBridgeAsCaller(toDNA Hash, token string, url string, appData string) (err error) {
+	Debugf("Adding bridge from %s to %v with appData: %s", h.nucleus.dna.Name, toDNA, appData)
 	err = h.initBridgeDB()
 	if err != nil {
 		return

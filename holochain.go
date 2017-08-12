@@ -21,7 +21,6 @@ import (
 	"math/rand"
 	"os"
 	"path/filepath"
-
 	"time"
 )
 
@@ -293,6 +292,11 @@ func (h *Holochain) Activate() (err error) {
 		}
 	}
 	return
+}
+
+// RootPath returns a holochain root path
+func (h *Holochain) RootPath() string {
+	return h.rootPath
 }
 
 // UIPath returns a holochain UI path

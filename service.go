@@ -41,10 +41,9 @@ const (
 
 	DefaultPort            = 6283
 	DefaultBootstrapServer = "bootstrap.holochain.net:10000"
-	//DefaultBootstrapPort				= 10000
 
 	HC_BOOTSTRAPSERVER = "HC_BOOTSTRAPSERVER"
-	//HC_BOOTSTRAPPORT						= "HC_BOOTSTRAPPORT"
+	HC_ENABLEMDNS      = "HC_DEFAULT_ENABLEMDNS"
 )
 
 // ServiceConfig holds the service settings
@@ -52,6 +51,7 @@ type ServiceConfig struct {
 	DefaultPeerModeAuthor  bool
 	DefaultPeerModeDHTNode bool
 	DefaultBootstrapServer string
+	DefaultEnableMDNS      bool
 }
 
 // A Service is a Holochain service data structure
@@ -111,15 +111,20 @@ func Init(root string, agent AgentIdentity) (service *Service, err error) {
 			DefaultPeerModeDHTNode: true,
 			DefaultPeerModeAuthor:  true,
 			DefaultBootstrapServer: DefaultBootstrapServer,
+			DefaultEnableMDNS:      false,
 		},
 		Path: root,
 	}
 
 	if os.Getenv(HC_BOOTSTRAPSERVER) != "" {
 		s.Settings.DefaultBootstrapServer = os.Getenv(HC_BOOTSTRAPSERVER)
+		Infof("Using %s--configuring default bootstrap server as: %s\n", HC_BOOTSTRAPSERVER, s.Settings.DefaultBootstrapServer)
 	}
 
-	Infof("Configured to connect to bootstrap server at: %s\n", s.Settings.DefaultBootstrapServer)
+	if os.Getenv(HC_ENABLEMDNS) != "" && os.Getenv(HC_ENABLEMDNS) != "false" {
+		s.Settings.DefaultEnableMDNS = true
+		Infof("Using %s--configuring default MDNS use as: %v.\n", HC_ENABLEMDNS, s.Settings.DefaultEnableMDNS)
+	}
 
 	err = writeToml(root, SysFileName, s.Settings, false)
 	if err != nil {
@@ -506,30 +511,55 @@ func makeConfig(h *Holochain, s *Service) (err error) {
 
 	val := os.Getenv("HOLOCHAINCONFIG_PORT")
 	if val != "" {
+		Debugf("makeConfig: using environment variable to set port to: %s", val)
 		h.config.Port, err = strconv.Atoi(val)
 		if err != nil {
 			return err
 		}
+
+		if IsDebugging() {
+			fmt.Printf("HC: service.go: makeConfig: using environment variable to set port to:            %v\n", val)
+		}
+
 	}
 	val = os.Getenv("HOLOCHAINCONFIG_BOOTSTRAP")
 	if val != "" {
 		if val == "_" {
 			val = ""
 		}
+		Debugf("makeConfig: using environment variable to set bootstrap server to: %s", val)
 		h.config.BootstrapServer = val
+
+		if val == "" {
+			val = "NO BOOTSTRAP SERVER"
+		}
+		if IsDebugging() {
+			fmt.Printf("HC: service.go: makeConfig: using environment variable to set bootstrapServer to: %v\n", val)
+		}
+
 	}
 	val = os.Getenv("HOLOCHAINCONFIG_ENABLEMDNS")
 	if val != "" {
+		Debugf("makeConfig: using environment variable to set enableMDNS to: %s", val)
 		h.config.EnableMDNS = val == "true"
+
+		if IsDebugging() {
+			fmt.Printf("HC: service.go: makeConfig: using environment variable to set enableMDNS to:      %v\n", val)
+		}
 	}
 	val = os.Getenv("HOLOCHAINCONFIG_LOGPREFIX")
 	if val != "" {
+		Debugf("makeConfig: using environment variable to set log prefix to: %s", val)
 		h.config.Loggers.App.Format = val + h.config.Loggers.App.Format
 		h.config.Loggers.DHT.Format = val + h.config.Loggers.DHT.Format
 		h.config.Loggers.Gossip.Format = val + h.config.Loggers.Gossip.Format
 		h.config.Loggers.TestPassed.Format = val + h.config.Loggers.TestPassed.Format
 		h.config.Loggers.TestFailed.Format = val + h.config.Loggers.TestFailed.Format
 		h.config.Loggers.TestInfo.Format = val + h.config.Loggers.TestInfo.Format
+
+		if IsDebugging() {
+			fmt.Printf("HC: service.go: makeConfig: using environment variable to set logPrefix to:       %v\n", val)
+		}
 	}
 
 	p := filepath.Join(h.rootPath, ConfigFileName+"."+h.encodingFormat)
@@ -905,6 +935,21 @@ function receive(from,message) {
 			return
 		}
 
+		// also write out some scenarios
+		var scenarioPath string
+		for _, scenario := range []string{"authorize", "fail"} {
+			scenarioPath = filepath.Join(testPath, scenario)
+			if err = os.MkdirAll(scenarioPath, os.ModePerm); err != nil {
+				return nil, err
+			}
+			if err = writeFile([]byte(`{"bogus":"bogus test!"}`), scenarioPath, "requester.json"); err != nil {
+				return
+			}
+			if err = writeFile([]byte(`{"bogus":"bogus test!"}`), scenarioPath, "responder.json"); err != nil {
+				return
+			}
+		}
+
 		//fmt.Printf("\nGenDev done generating. Loading now..")
 
 		hP, err = s.Load(dnaFile.Name)
@@ -1110,6 +1155,10 @@ func (s *Service) SaveDNAFile(root string, dna *DNA, encodingFormat string, over
 
 	err = Encode(f, encodingFormat, dnaFile)
 	return
+}
+
+func IsDebugging() bool {
+	return strings.ToLower(os.Getenv("DEBUG")) == "true" || os.Getenv("DEBUG") == "1"
 }
 
 // SaveScaffold writes out a holochain application based on scaffold file to path

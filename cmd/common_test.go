@@ -14,14 +14,14 @@ import (
 func TestIsAppDir(t *testing.T) {
 	Convey("it should test to see if dir is a holochain app", t, func() {
 
-		d := holo.SetupTestDir()
-		So(IsAppDir(d).Error(), ShouldEqual, "directory missing .hc subdirectory")
-		err := os.MkdirAll(d+"/.hc", os.ModePerm)
+		d, s := holo.SetupTestService()
+		defer holo.CleanupTestDir(d)
+		So(IsAppDir(d).Error(), ShouldEqual, "directory missing dna/dna.json file")
+		h, err := s.GenDev(filepath.Join(s.Path, "test"), "json")
 		if err != nil {
 			panic(err)
 		}
-		defer holo.CleanupTestDir(d)
-		So(IsAppDir(d), ShouldBeNil)
+		So(IsAppDir(h.RootPath()), ShouldBeNil)
 	})
 }
 

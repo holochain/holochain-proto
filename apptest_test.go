@@ -1,6 +1,7 @@
 package holochain
 
 import (
+	"fmt"
 	. "github.com/smartystreets/goconvey/convey"
 	"os"
 	"path/filepath"
@@ -93,5 +94,23 @@ Test 'test_0.0' t+0ms: { zySampleZome addEven 2 %h%   0s  false}
 			err := h.TestOne("test_0")
 			So(err, ShouldBeNil)
 		})
+	})
+}
+
+func TestScenarios(t *testing.T) {
+	d, _, h := setupTestChain("test")
+	defer CleanupTestDir(d)
+	Convey("it should return list of scenarios", t, func() {
+		scenarios, err := h.GetTestScenarios()
+		So(err, ShouldBeNil)
+		_, ok := scenarios["authorize"]
+		So(ok, ShouldBeTrue)
+		_, ok = scenarios["fail"]
+		So(ok, ShouldBeTrue)
+	})
+	Convey("it should return list of scenarios in a role", t, func() {
+		scenarios, err := h.GetTestScenarioRoles("authorize")
+		So(err, ShouldBeNil)
+		So(fmt.Sprintf("%v", scenarios), ShouldEqual, `[requester responder]`)
 	})
 }

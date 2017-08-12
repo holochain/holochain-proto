@@ -10,6 +10,7 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
+	"os"
 	"path/filepath"
 	"regexp"
 	"strconv"
@@ -194,6 +195,18 @@ func (h *Holochain) TestScenario(dir string, role string) (err error, testErrs [
 	if err != nil {
 		return
 	}
+
+	// setup the genesis entries
+	err = h.Reset()
+	if err != nil {
+		panic("reset err")
+	}
+
+	_, err = h.GenChain()
+	if err != nil {
+		panic("gen err " + err.Error())
+	}
+
 	err = h.Activate()
 	if err != nil {
 		return
@@ -455,4 +468,51 @@ func (h *Holochain) test(one string) []error {
 		failed.pf(fmt.Sprintf("\n==================================================================\n\t\t+++++ %d test(s) failed :( +++++\n==================================================================", len(errs)))
 	}
 	return errs
+}
+
+// TestScenarioList returns a list of paths to scenario directories
+func (h *Holochain) GetTestScenarios() (scenarios map[string]*os.FileInfo, err error) {
+	dirContentList := []os.FileInfo{}
+	scenarios = make(map[string]*os.FileInfo)
+
+	dirContentList, err = ioutil.ReadDir(h.TestPath())
+	if err != nil {
+		return scenarios, err
+	}
+	for _, fileOrDir := range dirContentList {
+		if fileOrDir.Mode().IsDir() {
+			scenarios[fileOrDir.Name()] = &fileOrDir
+		}
+	}
+
+	return scenarios, err
+}
+
+// GetScenarioDataMap returns a map of TestData object
+func (h *Holochain) GetTestScenarioRoles(scenarioName string) (roleNameList []string, err error) {
+
+	return GetAllTestRoles(filepath.Join(h.TestPath(), scenarioName))
+}
+
+// GetAllTestRoles  retuns a list of the roles in a scenario
+func GetAllTestRoles(path string) (roleNameList []string, err error) {
+	roleNameList = []string{}
+
+	files, err := ioutil.ReadDir(path)
+	if err != nil {
+		return nil, err
+	}
+
+	re := regexp.MustCompile(`(.*)\.json`)
+	for _, f := range files {
+		if f.Mode().IsRegular() {
+			x := re.FindStringSubmatch(f.Name())
+			if len(x) > 0 {
+				if x[1] != "_config" {
+					roleNameList = append(roleNameList, x[1])
+				}
+			}
+		}
+	}
+	return
 }

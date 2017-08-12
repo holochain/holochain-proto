@@ -317,7 +317,7 @@ func (a *ActionMakeHash) Name() string {
 }
 
 func (a *ActionMakeHash) Args() []Arg {
-	return []Arg{{Name: "entry", Type: StringArg}}
+	return []Arg{{Name: "entry", Type: EntryArg}}
 }
 
 func (a *ActionMakeHash) Do(h *Holochain) (response interface{}, err error) {

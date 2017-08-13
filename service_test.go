@@ -296,6 +296,11 @@ func TestSaveScaffold(t *testing.T) {
 		So(dirExists(root, ChainDNADir), ShouldBeTrue)
 		So(dirExists(root, ChainUIDir), ShouldBeTrue)
 		So(dirExists(root, ChainTestDir), ShouldBeTrue)
+		So(dirExists(root, ChainTestDir, scaffold.Scenarios[0].Name), ShouldBeTrue)
+		So(fileExists(root, ChainTestDir, scaffold.Scenarios[0].Name, scaffold.Scenarios[0].Roles[0].Name+".json"), ShouldBeTrue)
+		So(fileExists(root, ChainTestDir, scaffold.Scenarios[0].Name, scaffold.Scenarios[0].Roles[1].Name+".json"), ShouldBeTrue)
+		So(fileExists(root, ChainTestDir, scaffold.Scenarios[0].Name, "_config.json"), ShouldBeTrue)
+
 		So(dirExists(root, ChainDNADir, "sampleZome"), ShouldBeTrue)
 		So(fileExists(root, ChainDNADir, "sampleZome", "sampleEntry.json"), ShouldBeTrue)
 		So(fileExists(root, ChainDNADir, "sampleZome", "sampleZome.js"), ShouldBeTrue)

@@ -18,12 +18,19 @@ type ScaffoldPair struct {
 	Value string
 }
 
+type ScaffoldScenario struct {
+	Name   string
+	Roles  []ScaffoldPair
+	Config TestConfig
+}
+
 type Scaffold struct {
 	ScaffoldVersion string
 	Generator       string
 	DNA             DNA
 	Tests           []ScaffoldPair
 	UI              []ScaffoldPair
+	Scenarios       []ScaffoldScenario
 }
 
 // LoadScaffold decodes DNA and other scaffold data from scaffold file (via an io.reader)
@@ -155,6 +162,7 @@ var BasicTemplateScaffold string = `{
   "Name":"sample",
   "Value":"[\n  {\n        \"Convey\":\"We can create a new sampleEntry\",\n        \"FnName\": \"sampleEntryCreate\",\n        \"Input\": {\"body\": \"this is the entry body\",\n                  \"stamp\":12345},\n        \"Output\": \"\\\"%h1%\\\"\",\n        \"Exposure\":\"public\"\n    }\n]"}
    ],
-"UI":[]
+"UI":[],
+"Scenarios":[{"Name":"sampleScenario","Roles":[{"Name":"listener","Value":"[\n  {\n    \"Convey\":\"add listener test here\"}]"},{"Name":"speaker","Value":"[\n  {\n    \"Convey\":\"add speaker test here\"}]"}],"Config":{"Duration":5,"GossipInterval":100}}]
 }
 `

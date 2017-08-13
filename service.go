@@ -1135,6 +1135,30 @@ func (service *Service) SaveScaffold(reader io.Reader, path string, newUUID bool
 			return
 		}
 	}
+
+	for _, scenario := range scaffold.Scenarios {
+		scenarioPath := filepath.Join(testPath, scenario.Name)
+		err = os.MkdirAll(scenarioPath, os.ModePerm)
+		if err != nil {
+			return
+		}
+		for _, role := range scenario.Roles {
+			if err = writeFile([]byte(role.Value), scenarioPath, role.Name+".json"); err != nil {
+				return
+			}
+		}
+		if scenario.Config.Duration != 0 {
+			p := filepath.Join(scenarioPath, "_config.json")
+			var f *os.File
+			f, err = os.Create(p)
+			if err != nil {
+				return
+			}
+			defer f.Close()
+			err = Encode(f, "json", &scenario.Config)
+		}
+	}
+
 	return
 }
 

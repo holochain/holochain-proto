@@ -8,10 +8,10 @@ import (
 	"testing"
 )
 
-func TestLoadDNAScaffold(t *testing.T) {
+func TestLoadScaffold(t *testing.T) {
 	scaffoldBlob := bytes.NewBuffer([]byte(BasicTemplateScaffold))
 	scaffold, err := LoadScaffold(scaffoldBlob)
-	Convey("we can load dna from a scaffold blob", t, func() {
+	Convey("it should load dna from a scaffold blob", t, func() {
 		So(err, ShouldBeNil)
 		dna := scaffold.DNA
 		So(dna.Name, ShouldEqual, "templateApp")
@@ -26,8 +26,16 @@ func TestLoadDNAScaffold(t *testing.T) {
 		So(dna.Zomes[0].Functions[0].Name, ShouldEqual, "sampleEntryCreate")
 	})
 
-	Convey("we can load tests from a scaffold blob", t, func() {
+	Convey("it should load tests from a scaffold blob", t, func() {
 		So(scaffold.Tests[0].Name, ShouldEqual, "sample")
 		So(scaffold.Tests[0].Value, ShouldEqual, "[\n  {\n        \"Convey\":\"We can create a new sampleEntry\",\n        \"FnName\": \"sampleEntryCreate\",\n        \"Input\": {\"body\": \"this is the entry body\",\n                  \"stamp\":12345},\n        \"Output\": \"\\\"%h1%\\\"\",\n        \"Exposure\":\"public\"\n    }\n]")
+	})
+
+	Convey("it should load scenarios from a scaffold blob", t, func() {
+		So(scaffold.Scenarios[0].Name, ShouldEqual, "sampleScenario")
+		So(scaffold.Scenarios[0].Roles[0].Name, ShouldEqual, "listener")
+		So(scaffold.Scenarios[0].Roles[1].Name, ShouldEqual, "speaker")
+		So(scaffold.Scenarios[0].Config.Duration, ShouldEqual, 5)
+		So(scaffold.Scenarios[0].Config.GossipInterval, ShouldEqual, 100)
 	})
 }

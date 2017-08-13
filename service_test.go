@@ -124,8 +124,11 @@ func TestCloneNew(t *testing.T) {
 	}
 
 	Convey("it should create a chain from the examples directory", t, func() {
-		err = s.Clone(orig, root, agent, true)
+		err = s.Clone(orig, root, agent, CloneWithNewUUID, InitializeDB)
 		So(err, ShouldBeNil)
+
+		So(dirExists(root, ChainDataDir), ShouldBeTrue)
+		So(fileExists(root, ChainDataDir, StoreFileName), ShouldBeTrue)
 
 		h, err := s.Load(name) // reload to confirm that it got saved correctly
 		So(err, ShouldBeNil)
@@ -174,8 +177,11 @@ func TestCloneJoin(t *testing.T) {
 	}
 
 	Convey("it should create a chain from the examples directory", t, func() {
-		err = s.Clone(orig, root, agent, false)
+		err = s.Clone(orig, root, agent, CloneWithSameUUID, InitializeDB)
 		So(err, ShouldBeNil)
+
+		So(dirExists(root, ChainDataDir), ShouldBeTrue)
+		So(fileExists(root, ChainDataDir, StoreFileName), ShouldBeTrue)
 
 		h, err := s.Load(name) // reload to confirm that it got saved correctly
 		So(err, ShouldBeNil)
@@ -203,6 +209,29 @@ func TestCloneJoin(t *testing.T) {
 	})
 }
 
+func TestCloneNoDB(t *testing.T) {
+	d, s, _ := setupTestChain("test")
+	defer CleanupTestDir(d)
+
+	name := "test2"
+	root := filepath.Join(s.Path, name)
+
+	orig := filepath.Join(s.Path, "test")
+
+	agent, err := LoadAgent(s.Path)
+	if err != nil {
+		panic(err)
+	}
+
+	Convey("it should create a chain from the examples directory", t, func() {
+		err = s.Clone(orig, root, agent, CloneWithNewUUID, SkipInitializeDB)
+		So(err, ShouldBeNil)
+
+		So(dirExists(root, ChainDataDir), ShouldBeFalse)
+		So(fileExists(root, ChainDNADir, "zySampleZome", "profile.json"), ShouldBeTrue)
+	})
+}
+
 func TestGenDev(t *testing.T) {
 	d, s := setupTestService()
 	defer CleanupTestDir(d)
@@ -219,7 +248,7 @@ func TestGenDev(t *testing.T) {
 	})
 
 	Convey("when generating a dev holochain", t, func() {
-		h, err := s.GenDev(root, "json")
+		h, err := s.GenDev(root, "json", InitializeDB)
 		So(err, ShouldBeNil)
 
 		f, err := s.IsConfigured(name)
@@ -244,7 +273,7 @@ func TestGenDev(t *testing.T) {
 		So(fileExists(h.rootPath, ConfigFileName+".json"), ShouldBeTrue)
 
 		Convey("we should not be able re generate it", func() {
-			_, err = s.GenDev(root, "json")
+			_, err = s.GenDev(root, "json", SkipInitializeDB)
 			So(err.Error(), ShouldEqual, "holochain: "+root+" already exists")
 		})
 	})

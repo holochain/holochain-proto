@@ -77,7 +77,7 @@ func setupApp() (app *cli.App) {
 		},
 	}
 
-	var interactive, dumpChain, dumpDHT bool
+	var interactive, dumpChain, dumpDHT, initTest bool
 	var clonePath, scaffoldPath, cloneExample string
 	var ranScript bool
 	app.Commands = []cli.Command{
@@ -90,6 +90,11 @@ func setupApp() (app *cli.App) {
 					Name:        "interactive",
 					Usage:       "interactive initialization",
 					Destination: &interactive,
+				},
+				cli.BoolFlag{
+					Name:        "test",
+					Usage:       "initialize built-in testing app",
+					Destination: &initTest,
 				},
 				cli.StringFlag{
 					Name:        "clone",
@@ -117,13 +122,39 @@ func setupApp() (app *cli.App) {
 				if len(args) != 1 {
 					return makeErr("init", "expecting app name as single argument", 1)
 				}
-
-				if (interactive && clonePath != "") || (interactive && scaffoldPath != "") || (clonePath != "" && scaffoldPath != "") {
+				flags := 0
+				if interactive {
+					flags += 1
+				}
+				if clonePath != "" {
+					flags += 1
+				}
+				if scaffoldPath != "" {
+					flags += 1
+				}
+				if initTest {
+					flags += 1
+				}
+				if flags > 1 {
 					return makeErr("init", " options are mutually exclusive, please choose just one.", 1)
 				}
 				name := args[0]
 				devPath = filepath.Join(devPath, name)
-				if clonePath != "" {
+				if initTest {
+					fmt.Printf("initializing test app as %s\n", name)
+					format := "json"
+					if len(c.Args()) == 2 {
+						format = c.Args()[1]
+						if !(format == "json" || format == "yaml" || format == "toml") {
+							return makeErr("init", "format must be one of yaml,toml,json", 1)
+
+						}
+					}
+					_, err := service.GenDev(devPath, "json", holo.SkipInitializeDB)
+					if err != nil {
+						return makeErrFromError("init", err, 1)
+					}
+				} else if clonePath != "" {
 					// build the app by cloning from another app
 					info, err := os.Stat(clonePath)
 					if err != nil {
@@ -139,7 +170,6 @@ func setupApp() (app *cli.App) {
 					if err != nil {
 						return makeErrFromError("init", err, 1)
 					}
-
 				} else if cloneExample != "" {
 					tmpCopyDir, err := ioutil.TempDir("", fmt.Sprintf("holochain.example.%s", cloneExample))
 					if err != nil {
@@ -451,7 +481,7 @@ func getHolochain(c *cli.Context, service *holo.Service) (h *holo.Holochain, err
 	if err != nil {
 		return
 	}
-	err = service.Clone(devPath, filepath.Join(rootPath, name), agent, false)
+	err = service.Clone(devPath, filepath.Join(rootPath, name), agent, holo.CloneWithSameUUID, holo.InitializeDB)
 	if err != nil {
 		return
 	}
@@ -493,7 +523,7 @@ func bridge(service *holo.Service, h *holo.Holochain, agent holo.Agent, path str
 	if err != nil {
 		return
 	}
-	err = service.Clone(path, filepath.Join(rootPath, bridgeName), agent, false)
+	err = service.Clone(path, filepath.Join(rootPath, bridgeName), agent, holo.CloneWithSameUUID, holo.InitializeDB)
 	if err != nil {
 		return
 	}
@@ -571,7 +601,7 @@ func doClone(s *holo.Service, clonePath, devPath string) (err error) {
 		return
 	}
 
-	err = s.Clone(clonePath, devPath, agent, true)
+	err = s.Clone(clonePath, devPath, agent, holo.CloneWithSameUUID, holo.SkipInitializeDB)
 	if err != nil {
 		return
 	}

@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	holo "github.com/metacurrency/holochain"
 	"github.com/metacurrency/holochain/cmd"
 	. "github.com/smartystreets/goconvey/convey"
 	_ "github.com/urfave/cli"
@@ -38,6 +39,7 @@ func TestInit(t *testing.T) {
 		err = app.Run(os.Args)
 		So(err, ShouldBeNil)
 		So(cmd.IsFile(filepath.Join(tmpTestDir, "foo", "dna", "dna.json")), ShouldBeTrue)
+		So(cmd.IsDir(tmpTestDir, holo.ChainDataDir), ShouldBeFalse)
 	})
 
 	Convey("'init bar --clone foo' should copy files from foo to bar", t, func() {
@@ -57,6 +59,7 @@ func TestInit(t *testing.T) {
 		err = app.Run(os.Args)
 		So(err, ShouldBeNil)
 		So(cmd.IsFile(filepath.Join(tmpTestDir, "bar", "ui", "foo.js")), ShouldBeTrue)
+		So(cmd.IsDir(tmpTestDir, holo.ChainDataDir), ShouldBeFalse)
 	})
 
 	Convey("'init bar --cloneExample=clutter myClutter' should copy files from github", t, func() {
@@ -70,6 +73,21 @@ func TestInit(t *testing.T) {
 		err = app.Run(os.Args)
 		So(err, ShouldBeNil)
 		So(cmd.IsFile(filepath.Join(tmpTestDir, "myClutter", "dna", "clutter", "clutter.js")), ShouldBeTrue)
+		So(cmd.IsDir(tmpTestDir, holo.ChainDataDir), ShouldBeFalse)
+	})
+
+	Convey("'init -test testingApp' should create the test app", t, func() {
+		err = os.Chdir(tmpTestDir)
+		if err != nil {
+			panic(err)
+		}
+
+		os.Args = []string{"hcdev", "init", "-test", "testingApp"}
+
+		err = app.Run(os.Args)
+		So(err, ShouldBeNil)
+		So(cmd.IsFile(filepath.Join(tmpTestDir, "testingApp", "dna", "jsSampleZome", "jsSampleZome.js")), ShouldBeTrue)
+		So(cmd.IsDir(tmpTestDir, holo.ChainDataDir), ShouldBeFalse)
 	})
 
 }

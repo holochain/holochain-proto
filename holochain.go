@@ -157,9 +157,11 @@ func (h *Holochain) ZomePath(z *Zome) string {
 }
 
 // if the directories don't exist, make the place to store chains
-func (h *Holochain) mkChainDirs() (err error) {
-	if err = os.MkdirAll(h.DBPath(), os.ModePerm); err != nil {
-		return err
+func (h *Holochain) mkChainDirs(initDB bool) (err error) {
+	if initDB {
+		if err = os.MkdirAll(h.DBPath(), os.ModePerm); err != nil {
+			return err
+		}
 	}
 	if err = os.MkdirAll(h.DNAPath(), os.ModePerm); err != nil {
 		return

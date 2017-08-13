@@ -162,3 +162,9 @@ func IsFileFromString(path string) bool {
 
 	return true
 }
+
+func IsDir(pathParts ...string) bool {
+	path := filepath.Join(pathParts...)
+	info, err := os.Stat(path)
+	return err == nil && info.Mode().IsDir()
+}

@@ -45,6 +45,11 @@ const (
 
 	HC_BOOTSTRAPSERVER = "HC_BOOTSTRAPSERVER"
 	//HC_BOOTSTRAPPORT						= "HC_BOOTSTRAPPORT"
+
+	CloneWithNewUUID  = true
+	CloneWithSameUUID = false
+	InitializeDB      = true
+	SkipInitializeDB  = false
 )
 
 // ServiceConfig holds the service settings
@@ -430,7 +435,7 @@ func (s *Service) load(name string, format string) (hP *Holochain, err error) {
 }
 
 // gen calls a make function which should build the holochain structure and supporting files
-func gen(root string, makeH func(root string) (hP *Holochain, err error)) (h *Holochain, err error) {
+func gen(root string, initDB bool, makeH func(root string) (hP *Holochain, err error)) (h *Holochain, err error) {
 	if dirExists(root) {
 		return nil, mkErr(root + " already exists")
 	}
@@ -450,30 +455,20 @@ func gen(root string, makeH func(root string) (hP *Holochain, err error)) (h *Ho
 		return nil, err
 	}
 
-	if err := os.MkdirAll(h.DBPath(), os.ModePerm); err != nil {
-		return nil, err
+	if initDB {
+		if err := os.MkdirAll(h.DBPath(), os.ModePerm); err != nil {
+			return nil, err
+		}
+
+		h.chain, err = NewChainFromFile(h.hashSpec, filepath.Join(h.DBPath(), StoreFileName))
+		if err != nil {
+			return nil, err
+		}
+
+		if err != nil {
+			return nil, err
+		}
 	}
-
-	h.chain, err = NewChainFromFile(h.hashSpec, filepath.Join(h.DBPath(), StoreFileName))
-	if err != nil {
-		return nil, err
-	}
-
-	//p := filepath.Join(root, ChainDNADir, DNAFileName + "." + h.encodingFormat)
-	//if fileExists(p) {
-	//	return nil, mkErr(p + " already exists")
-	//}
-	//f, err := os.Create(p)
-	//if err != nil {
-	//	return nil, err
-	//}
-	//defer f.Close()
-	//err = h.EncodeDNA(f)
-
-	if err != nil {
-		return nil, err
-	}
-
 	return
 }
 
@@ -549,8 +544,8 @@ func makeConfig(h *Holochain, s *Service) (err error) {
 }
 
 // GenDev generates starter holochain DNA files from which to develop a chain
-func (s *Service) GenDev(root string, format string) (hP *Holochain, err error) {
-	hP, err = gen(root, func(root string) (hP *Holochain, err error) {
+func (s *Service) GenDev(root string, format string, initDB bool) (hP *Holochain, err error) {
+	hP, err = gen(root, initDB, func(root string) (hP *Holochain, err error) {
 		var agent Agent
 		agent, err = NewAgent(LibP2P, "Example Agent <example@example.com")
 		if err != nil {
@@ -565,13 +560,14 @@ func (s *Service) GenDev(root string, format string) (hP *Holochain, err error) 
 		var zomes []Zome
 
 		h := NewHolochain(agent, root, format, zomes...)
-		if err = h.mkChainDirs(); err != nil {
+		if err = h.mkChainDirs(initDB); err != nil {
 			return nil, err
 		}
-		if err = makeConfig(&h, s); err != nil {
-			return
+		if initDB {
+			if err = makeConfig(&h, s); err != nil {
+				return
+			}
 		}
-
 		//fmt.Print("\nGenDev creating new holochain in ", h.rootPath)
 
 		propertiesSchemaFile := "properties_schema.json"
@@ -906,8 +902,9 @@ function receive(from,message) {
 		}
 
 		//fmt.Printf("\nGenDev done generating. Loading now..")
-
-		hP, err = s.Load(dnaFile.Name)
+		if initDB {
+			hP, err = s.Load(dnaFile.Name)
+		}
 		return
 	})
 	return
@@ -915,8 +912,8 @@ function receive(from,message) {
 
 // Clone copies DNA files from a source directory
 // bool new indicates if this clone should create a new DNA (when true) or act as a Join
-func (s *Service) Clone(srcPath string, root string, agent Agent, new bool) (err error) {
-	_, err = gen(root, func(root string) (hP *Holochain, err error) {
+func (s *Service) Clone(srcPath string, root string, agent Agent, new bool, initDB bool) (err error) {
+	_, err = gen(root, initDB, func(root string) (hP *Holochain, err error) {
 		var h Holochain
 		srcDNAPath := filepath.Join(srcPath, ChainDNADir)
 		//fmt.Printf("\n%s\n", srcDNAPath)

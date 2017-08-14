@@ -87,7 +87,7 @@ Most importantly you'll need to: (Almost all installation problems that have bee
 For example, add the following to the end of your shell profile (usually `~/.bashrc` or `~/.bash_profile`):
 
     export GOPATH="$HOME/go"
-    export PATH=$GOPATH/bin:$PATH
+    export PATH="$GOPATH/bin:$PATH"
 
 #### Windows
 First you'll need to install some necessary programs if you don't already have them.

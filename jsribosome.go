@@ -44,7 +44,9 @@ func (jsr *JSRibosome) BridgeGenesis(side int, dnaHash Hash, data string) (err e
 }
 
 func (jsr *JSRibosome) boolFn(fnName string, args string) (err error) {
-	v, err := jsr.vm.Run(fnName + "(" + args + ")")
+	var v otto.Value
+	v, err = jsr.vm.Run(fnName + "(" + args + ")")
+
 	if err != nil {
 		err = fmt.Errorf("Error executing %s: %v", fnName, err)
 		return

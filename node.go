@@ -137,7 +137,7 @@ func (n *Node) EnableMDNSDiscovery(notifee discovery.Notifee, interval time.Dura
 
 // NewNode creates a new ipfs basichost node with given identity
 func NewNode(listenAddr string, protoMux string, agent *LibP2PAgent) (node *Node, err error) {
-
+	Debugf("Creating new node with protoMux: %s\n", protoMux)
 	nodeID, _, err := agent.NodeID()
 	if err != nil {
 		return
@@ -156,9 +156,17 @@ func NewNode(listenAddr string, protoMux string, agent *LibP2PAgent) (node *Node
 	ps.AddPrivKey(nodeID, priv)
 	ps.AddPubKey(nodeID, priv.GetPublic())
 
-	n.protocols[ValidateProtocol] = &Protocol{protocol.ID("/hc-validate-" + protoMux + "/0.0.0"), ValidateReceiver}
-	n.protocols[GossipProtocol] = &Protocol{protocol.ID("/hc-gossip-" + protoMux + "/0.0.0"), GossipReceiver}
-	n.protocols[ActionProtocol] = &Protocol{protocol.ID("/hc-action-" + protoMux + "/0.0.0"), ActionReceiver}
+	validateProtocolString := "/hc-validate-" + protoMux + "/0.0.0"
+	gossipProtocolString := "/hc-gossip-" + protoMux + "/0.0.0"
+	actionProtocolString := "/hc-action-" + protoMux + "/0.0.0"
+
+	Debugf("Validate protocol identifier: " + validateProtocolString)
+	Debugf("Gossip protocol identifier: " + gossipProtocolString)
+	Debugf("Action protocol identifier: " + actionProtocolString)
+
+	n.protocols[ValidateProtocol] = &Protocol{protocol.ID(validateProtocolString), ValidateReceiver}
+	n.protocols[GossipProtocol] = &Protocol{protocol.ID(gossipProtocolString), GossipReceiver}
+	n.protocols[ActionProtocol] = &Protocol{protocol.ID(actionProtocolString), ActionReceiver}
 
 	ctx := context.Background()
 

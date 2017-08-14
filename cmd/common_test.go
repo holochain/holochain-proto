@@ -67,6 +67,8 @@ func TestGetHolochain(t *testing.T) {
 		h, err := GetHolochain("test", service, "some-cmd")
 		So(err, ShouldBeNil)
 		So(h.Nucleus().DNA().Name, ShouldEqual, "test")
+		So(h.DHT(), ShouldNotBeNil)
+		So(h.Node(), ShouldNotBeNil)
 	})
 }
 

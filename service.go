@@ -425,15 +425,13 @@ func (s *Service) load(name string, format string) (hP *Holochain, err error) {
 		}
 	}
 
+	// @TODO compare value from file to actual hash
+
 	if h.chain.Length() > 0 {
 		h.agentHash = h.chain.Headers[1].EntryLink
 		_, topHeader := h.chain.TopType(AgentEntryType)
 		h.agentTopHash = topHeader.EntryLink
 	}
-	if err = h.Prepare(); err != nil {
-		return
-	}
-
 	hP = &h
 	return
 }
@@ -1011,10 +1009,6 @@ func (s *Service) Clone(srcPath string, root string, agent Agent, new bool) (err
 // GenChain adds the genesis entries to a newly cloned or joined chain
 func (s *Service) GenChain(name string) (h *Holochain, err error) {
 	h, err = s.Load(name)
-	if err != nil {
-		return
-	}
-	err = h.Activate()
 	if err != nil {
 		return
 	}

@@ -57,19 +57,8 @@ hc: deps
 test: deps
 	$(foreach pkg_path,$(go_packages),go get -d -t $(pkg_path) && go test $(TEST_FLAGS) $(pkg_path)${new_line})
 	gx-go rewrite --undo
-test-sample: hc
-# Init if not already init-ed
-ifeq '$(and \
-$(strip $(wildcard $(HOLOPATH))),\
-$(strip $(wildcard $(HOLOPATH)/system.conf)),\
-$(strip $(wildcard $(HOLOPATH)/agent.txt)))' ''
-# If they all existed, the output of $(and) would be != ''
-	$(warning hc not init-ed. using bogus email.)
-	hc init node@example.com
-endif
-	$(if $(strip $(wildcard $(HOLOPATH)/examples-sample)),$(warning overwriting existing holochain 'examples-sample'))
-	hc --debug --verbose clone --force examples/sample examples-sample
-	hc --debug --verbose test examples-sample
+test-sample: hcdev
+	hcdev --debug -path examples/sample test
 deps: $(GOBIN)/gx $(GOBIN)/gx-go
 	gx-go get $(REPO)
 $(GOBIN)/gx:

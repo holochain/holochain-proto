@@ -507,9 +507,9 @@ func getHolochain(c *cli.Context, service *holo.Service) (h *holo.Holochain, bri
 		bridgeApps = append(bridgeApps,
 			holo.BridgeApp{
 				H:    bridgeFromH,
-				Side: holo.BridgeTo,
-				Data: bridgeToAppData,
-				Port: bridgeToPort})
+				Side: holo.BridgeFrom,
+				Data: bridgeFromAppData,
+				Port: bridgeFromPort})
 	}
 	return
 }

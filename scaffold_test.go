@@ -28,7 +28,7 @@ func TestLoadScaffold(t *testing.T) {
 
 	Convey("it should load tests from a scaffold blob", t, func() {
 		So(scaffold.Tests[0].Name, ShouldEqual, "sample")
-		So(scaffold.Tests[0].Value, ShouldEqual, "[\n  {\n        \"Convey\":\"We can create a new sampleEntry\",\n        \"FnName\": \"sampleEntryCreate\",\n        \"Input\": {\"body\": \"this is the entry body\",\n                  \"stamp\":12345},\n        \"Output\": \"\\\"%h1%\\\"\",\n        \"Exposure\":\"public\"\n    }\n]")
+		So(scaffold.Tests[0].Tests[0].Convey, ShouldEqual, "We can create a new sampleEntry")
 	})
 
 	Convey("it should load scenarios from a scaffold blob", t, func() {

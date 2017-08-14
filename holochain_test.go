@@ -480,7 +480,7 @@ func TestLoadTestFiles(t *testing.T) {
 		path := filepath.Join(h.rootPath, ChainTestDir)
 		tests, err := LoadTestFiles(path)
 		So(err, ShouldBeNil)
-		So(len(tests), ShouldEqual, 9)
+		So(len(tests), ShouldEqual, 2)
 	})
 
 }

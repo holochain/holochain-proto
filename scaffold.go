@@ -10,17 +10,22 @@ import (
 )
 
 const (
-	ScaffoldVersion = "0.0.2"
+	ScaffoldVersion = "0.0.3"
 )
 
-type ScaffoldPair struct {
+type ScaffoldUIPair struct {
+	FileName string
+	Data     string
+}
+
+type ScaffoldTests struct {
 	Name  string
-	Value string
+	Tests []TestData
 }
 
 type ScaffoldScenario struct {
 	Name   string
-	Roles  []ScaffoldPair
+	Roles  []ScaffoldTests
 	Config TestConfig
 }
 
@@ -28,8 +33,8 @@ type Scaffold struct {
 	ScaffoldVersion string
 	Generator       string
 	DNA             DNA
-	Tests           []ScaffoldPair
-	UI              []ScaffoldPair
+	Tests           []ScaffoldTests
+	UI              []ScaffoldUIPair
 	Scenarios       []ScaffoldScenario
 }
 
@@ -60,7 +65,7 @@ func LoadScaffold(reader io.Reader) (scaffoldP *Scaffold, err error) {
 var BasicTemplateScaffold string = `{
  # Scaffold Version
  # The hc-scaffold schema version of this file.
-"ScaffoldVersion": "0.0.2",
+"ScaffoldVersion": "` + ScaffoldVersion + `",
 "Generator": "holochain",
 
 "DNA": {
@@ -77,6 +82,10 @@ var BasicTemplateScaffold string = `{
   # Application Name
   # What would you like to call your holochain app?
   "Name": "templateApp",
+
+  # Requires Holochain Version
+  # Version indicator for which minimal version of holochain is required by this DNA
+  "RequiresVersion": ` + VersionStr + `,
 
   # Properties
   # Properties that you want available across all Zomes.
@@ -149,7 +158,7 @@ var BasicTemplateScaffold string = `{
         {
           "Name": "doSampleAction", # The name of this function.
           "CallingType": "json", # Data format for parameters passed to this function.
-          "Exposure": "public", # Level to which is this function exposed.
+          "Exposure": "public" # Level to which is this function exposed.
         }
       ],
 
@@ -160,9 +169,24 @@ var BasicTemplateScaffold string = `{
   ]},
 "Tests":[{
   "Name":"sample",
-  "Value":"[\n  {\n        \"Convey\":\"We can create a new sampleEntry\",\n        \"FnName\": \"sampleEntryCreate\",\n        \"Input\": {\"body\": \"this is the entry body\",\n                  \"stamp\":12345},\n        \"Output\": \"\\\"%h1%\\\"\",\n        \"Exposure\":\"public\"\n    }\n]"}
+  "Tests":[{"Convey":"We can create a new sampleEntry","FnName": "sampleEntryCreate","Input": {"body": "this is the entry body","stamp":12345},"Output":"\"%h1%\"","Exposure":"public"}]}
    ],
-"UI":[],
-"Scenarios":[{"Name":"sampleScenario","Roles":[{"Name":"listener","Value":"[\n  {\n    \"Convey\":\"add listener test here\"}]"},{"Name":"speaker","Value":"[\n  {\n    \"Convey\":\"add speaker test here\"}]"}],"Config":{"Duration":5,"GossipInterval":100}}]
+"UI":[
+{"FileName":"index.html",
+ "Data":"<html><body>Your UI here!</body></html>"
+},
+{"FileName":"hc.js",
+ "Data":"function yourApp(){alert('your UI code here!')}"
+}],
+"Scenarios":[
+        {"Name":"sampleScenario",
+         "Roles":[
+             {"Name":"listener",
+              "Tests":[
+                  {"Convey":"add listener test here"}]},
+             {"Name":"speaker",
+              "Tests":[
+                  {"Convey":"add speaker test here"}]}],
+         "Config":{"Duration":5,"GossipInterval":100}}]
 }
 `

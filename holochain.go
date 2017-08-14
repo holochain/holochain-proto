@@ -156,22 +156,6 @@ func (h *Holochain) ZomePath(z *Zome) string {
 	return filepath.Join(h.DNAPath(), z.Name)
 }
 
-// if the directories don't exist, make the place to store chains
-func (h *Holochain) mkChainDirs(initDB bool) (err error) {
-	if initDB {
-		if err = os.MkdirAll(h.DBPath(), os.ModePerm); err != nil {
-			return err
-		}
-	}
-	if err = os.MkdirAll(h.DNAPath(), os.ModePerm); err != nil {
-		return
-	}
-	if err = os.MkdirAll(h.UIPath(), os.ModePerm); err != nil {
-		return
-	}
-	return
-}
-
 // NewHolochain creates a new holochain structure with a randomly generated ID and default values
 func NewHolochain(agent Agent, root string, format string, zomes ...Zome) Holochain {
 	u, err := uuid.NewUUID()

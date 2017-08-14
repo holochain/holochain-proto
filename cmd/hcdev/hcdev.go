@@ -140,6 +140,7 @@ func setupApp() (app *cli.App) {
 				}
 				name := args[0]
 				devPath = filepath.Join(devPath, name)
+				encodingFormat := "json"
 				if initTest {
 					fmt.Printf("initializing test app as %s\n", name)
 					format := "json"
@@ -206,7 +207,7 @@ func setupApp() (app *cli.App) {
 					}
 					defer sf.Close()
 
-					_, err = service.SaveScaffold(sf, devPath, false)
+					_, err = service.SaveScaffold(sf, devPath, name, encodingFormat, false)
 					if err != nil {
 						return makeErrFromError("init", err, 1)
 					}
@@ -226,7 +227,7 @@ func setupApp() (app *cli.App) {
 					scaffoldReader := bytes.NewBuffer([]byte(holo.BasicTemplateScaffold))
 
 					var scaffold *holo.Scaffold
-					scaffold, err = service.SaveScaffold(scaffoldReader, devPath, true)
+					scaffold, err = service.SaveScaffold(scaffoldReader, devPath, name, encodingFormat, true)
 					if err != nil {
 						return makeErrFromError("init", err, 1)
 					}

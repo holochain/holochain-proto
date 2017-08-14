@@ -86,11 +86,11 @@ func TestTestOne(t *testing.T) {
 	Convey("it should validate on test data", t, func() {
 
 		ShouldLog(&h.config.Loggers.TestInfo, `========================================
-Test: 'test_0' starting...
+Test: 'testSet1' starting...
 ========================================
-Test 'test_0.0' t+0ms: { zySampleZome addEven 2 %h%   0s  false}
+Test 'testSet1.0' t+0ms: { zySampleZome addEven 2 %h%   0s  false}
 `, func() {
-			err := h.TestOne("test_0")
+			err := h.TestOne("testSet1")
 			So(err, ShouldBeNil)
 		})
 	})

@@ -7,7 +7,6 @@ package holochain
 
 import (
 	"bytes"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"github.com/BurntSushi/toml"
@@ -464,10 +463,6 @@ func gen(root string, initDB bool, makeH func(root string) (hP *Holochain, err e
 		if err != nil {
 			return nil, err
 		}
-
-		if err != nil {
-			return nil, err
-		}
 	}
 	return
 }
@@ -483,8 +478,8 @@ func suffixByRibosomeType(ribosomeType string) (suffix string) {
 	return
 }
 
-func makeConfig(h *Holochain, s *Service) (err error) {
-	h.config = Config{
+func _makeConfig(s *Service) (config Config, err error) {
+	config = Config{
 		Port:            DefaultPort,
 		PeerModeDHTNode: s.Settings.DefaultPeerModeDHTNode,
 		PeerModeAuthor:  s.Settings.DefaultPeerModeAuthor,
@@ -501,9 +496,9 @@ func makeConfig(h *Holochain, s *Service) (err error) {
 
 	val := os.Getenv("HOLOCHAINCONFIG_PORT")
 	if val != "" {
-		h.config.Port, err = strconv.Atoi(val)
+		config.Port, err = strconv.Atoi(val)
 		if err != nil {
-			return err
+			return
 		}
 	}
 	val = os.Getenv("HOLOCHAINCONFIG_BOOTSTRAP")
@@ -511,22 +506,29 @@ func makeConfig(h *Holochain, s *Service) (err error) {
 		if val == "_" {
 			val = ""
 		}
-		h.config.BootstrapServer = val
+		config.BootstrapServer = val
 	}
 	val = os.Getenv("HOLOCHAINCONFIG_ENABLEMDNS")
 	if val != "" {
-		h.config.EnableMDNS = val == "true"
+		config.EnableMDNS = val == "true"
 	}
 	val = os.Getenv("HOLOCHAINCONFIG_LOGPREFIX")
 	if val != "" {
-		h.config.Loggers.App.Format = val + h.config.Loggers.App.Format
-		h.config.Loggers.DHT.Format = val + h.config.Loggers.DHT.Format
-		h.config.Loggers.Gossip.Format = val + h.config.Loggers.Gossip.Format
-		h.config.Loggers.TestPassed.Format = val + h.config.Loggers.TestPassed.Format
-		h.config.Loggers.TestFailed.Format = val + h.config.Loggers.TestFailed.Format
-		h.config.Loggers.TestInfo.Format = val + h.config.Loggers.TestInfo.Format
+		config.Loggers.App.Format = val + config.Loggers.App.Format
+		config.Loggers.DHT.Format = val + config.Loggers.DHT.Format
+		config.Loggers.Gossip.Format = val + config.Loggers.Gossip.Format
+		config.Loggers.TestPassed.Format = val + config.Loggers.TestPassed.Format
+		config.Loggers.TestFailed.Format = val + config.Loggers.TestFailed.Format
+		config.Loggers.TestInfo.Format = val + config.Loggers.TestInfo.Format
 	}
+	return
+}
 
+func makeConfig(h *Holochain, s *Service) (err error) {
+	h.config, err = _makeConfig(s)
+	if err != nil {
+		return
+	}
 	p := filepath.Join(h.rootPath, ConfigFileName+"."+h.encodingFormat)
 	f, err := os.Create(p)
 	if err != nil {
@@ -544,369 +546,74 @@ func makeConfig(h *Holochain, s *Service) (err error) {
 }
 
 // GenDev generates starter holochain DNA files from which to develop a chain
-func (s *Service) GenDev(root string, format string, initDB bool) (hP *Holochain, err error) {
-	hP, err = gen(root, initDB, func(root string) (hP *Holochain, err error) {
-		var agent Agent
-		agent, err = NewAgent(LibP2P, "Example Agent <example@example.com")
+func (s *Service) GenDev(root string, encodingFormat string, initDB bool) (h *Holochain, err error) {
+	if dirExists(root) {
+		return nil, mkErr(root + " already exists")
+	}
+
+	scaffoldReader := bytes.NewBuffer([]byte(TestingAppScaffold()))
+
+	name := filepath.Base(root)
+	_, err = s.SaveScaffold(scaffoldReader, root, name, encodingFormat, initDB)
+	if err != nil {
+		return
+	}
+	if err = mkChainDirs(root, initDB); err != nil {
+		return
+	}
+
+	if initDB {
+		var config Config
+		config, err = _makeConfig(s)
+		if err != nil {
+			return
+		}
+		p := filepath.Join(root, ConfigFileName+"."+encodingFormat)
+		var f, f1 *os.File
+		f, err = os.Create(p)
+		if err != nil {
+			return
+		}
+		defer f.Close()
+
+		if err = Encode(f, encodingFormat, &config); err != nil {
+			return
+		}
+
+		f1, err = os.Create(filepath.Join(root, ChainDataDir, StoreFileName))
+		if err != nil {
+			return
+		}
+		defer f1.Close()
+
+		h, err = s.Load(name)
 		if err != nil {
 			return
 		}
 
-		err = agent.GenKeys(bytes.NewBuffer([]byte("fixed seed 012345678901234567890123456789")))
-		if err != nil {
+		if err = h.setupConfig(); err != nil {
 			return
-		}
-
-		var zomes []Zome
-
-		h := NewHolochain(agent, root, format, zomes...)
-		if err = h.mkChainDirs(initDB); err != nil {
-			return nil, err
-		}
-		if initDB {
-			if err = makeConfig(&h, s); err != nil {
-				return
-			}
-		}
-		//fmt.Print("\nGenDev creating new holochain in ", h.rootPath)
-
-		propertiesSchemaFile := "properties_schema.json"
-
-		dna := h.nucleus.dna
-		dnaFile := DNAFile{
-			Name:                 filepath.Base(root),
-			UUID:                 dna.UUID,
-			RequiresVersion:      dna.Version,
-			DHTConfig:            dna.DHTConfig,
-			Progenitor:           dna.Progenitor,
-			PropertiesSchemaFile: propertiesSchemaFile,
-		}
-
-		zygoZomeName := "zySampleZome"
-		jsZomeName := "jsSampleZome"
-
-		dnaFile.Zomes = []ZomeFile{
-			{
-				Name:         zygoZomeName,
-				CodeFile:     zygoZomeName + ".zy",
-				Description:  "this is a zygomas test zome",
-				RibosomeType: ZygoRibosomeType,
-				BridgeFuncs:  []string{"testStrFn1"},
-				Entries: []EntryDefFile{
-					{Name: "evenNumbers", DataFormat: DataFormatRawZygo, Sharing: Public},
-					{Name: "primes", DataFormat: DataFormatJSON, Sharing: Public, SchemaFile: "primes.json"},
-					{Name: "profile", DataFormat: DataFormatJSON, Sharing: Public, SchemaFile: "profile.json"},
-				},
-				Functions: []FunctionDef{
-					{Name: "getDNA", CallingType: STRING_CALLING},
-					{Name: "addEven", CallingType: STRING_CALLING, Exposure: PUBLIC_EXPOSURE},
-					{Name: "addPrime", CallingType: JSON_CALLING, Exposure: PUBLIC_EXPOSURE},
-					{Name: "testStrFn1", CallingType: STRING_CALLING},
-					{Name: "testStrFn2", CallingType: STRING_CALLING},
-					{Name: "testJsonFn1", CallingType: JSON_CALLING},
-					{Name: "testJsonFn2", CallingType: JSON_CALLING},
-				},
-			},
-			{
-				Name:         jsZomeName,
-				CodeFile:     jsZomeName + ".js",
-				Description:  "this is a javascript test zome",
-				RibosomeType: JSRibosomeType,
-				BridgeFuncs:  []string{"getProperty"},
-				Entries: []EntryDefFile{
-					{Name: "oddNumbers", DataFormat: DataFormatRawJS, Sharing: Public},
-					{Name: "profile", DataFormat: DataFormatJSON, Sharing: Public, SchemaFile: "profile.json"},
-					{Name: "rating", DataFormat: DataFormatLinks},
-					{Name: "secret", DataFormat: DataFormatString},
-				},
-				Functions: []FunctionDef{
-					{Name: "getProperty", CallingType: STRING_CALLING, Exposure: PUBLIC_EXPOSURE},
-					{Name: "addOdd", CallingType: STRING_CALLING, Exposure: PUBLIC_EXPOSURE},
-					{Name: "addProfile", CallingType: JSON_CALLING, Exposure: PUBLIC_EXPOSURE},
-					{Name: "testStrFn1", CallingType: STRING_CALLING},
-					{Name: "testStrFn2", CallingType: STRING_CALLING},
-					{Name: "testJsonFn1", CallingType: JSON_CALLING},
-					{Name: "testJsonFn2", CallingType: JSON_CALLING},
-				}},
-		}
-
-		dnaFile.Properties = map[string]string{
-			"description": "a bogus test holochain",
-			"language":    "en"}
-
-		dnaPath := filepath.Join(h.DNAPath(), "dna."+format)
-		//fmt.Printf("\nGenDev writing new DNA to: %s", dnaPath)
-		var f *os.File
-		f, err = os.Create(dnaPath)
-		if err != nil {
-			return
-		}
-		err = Encode(f, format, &dnaFile)
-		f.Close()
-		if err != nil {
-			return
-		}
-
-		propertiesSchema := `{
-	"title": "Properties Schema",
-	"type": "object",
-	"properties": {
-		"description": {
-			"type": "string"
-		},
-		"language": {
-			"type": "string"
 		}
 	}
-}`
-
-		if err = writeFile([]byte(propertiesSchema), h.DNAPath(), propertiesSchemaFile); err != nil {
-			return
-		}
-
-		profileSchema := `{
-	"title": "Profile Schema",
-	"type": "object",
-	"properties": {
-		"firstName": {
-			"type": "string"
-		},
-		"lastName": {
-			"type": "string"
-		},
-		"age": {
-			"description": "Age in years",
-			"type": "integer",
-			"minimum": 0
-		}
-	},
-	"required": ["firstName", "lastName"]
-}`
-
-		primesSchema := `{
-	"title": "Prime Schema",
-	"type": "object",
-	"properties": {
-		"prime": {
-			"type": "integer"
-		}
-	},
-	"required": ["prime"]
-}`
-
-		zygoCode := `
-(defn testStrFn1 [x] (concat "result: " x))
-(defn testStrFn2 [x] (+ (atoi x) 2))
-(defn testJsonFn1 [x] (begin (hset x output: (* (-> x input:) 2)) x))
-(defn testJsonFn2 [x] (unjson (raw "[{\"a\":\"b\"}]"))) (defn getDNA [x] App_DNA_Hash)
-(defn addEven [x] (commit "evenNumbers" x))
-(defn addPrime [x] (commit "primes" x))
-(defn validateCommit [entryType entry header pkg sources]
-  (validate entryType entry header sources))
-(defn validatePut [entryType entry header pkg sources]
-  (validate entryType entry header sources))
-(defn validateMod [entryType entry header replaces pkg sources] true)
-(defn validateDel [entryType hash pkg sources] true)
-(defn validate [entryType entry header sources]
-  (cond (== entryType "evenNumbers")  (cond (== (mod entry 2) 0) true false)
-        (== entryType "primes")  (isprime (hget entry %prime))
-        (== entryType "profile") true
-        false)
-)
-(defn validateLink [linkEntryType baseHash links pkg sources] true)
-(defn validatePutPkg [entryType] nil)
-(defn validateModPkg [entryType] nil)
-(defn validateDelPkg [entryType] nil)
-(defn validateLinkPkg [entryType] nil)
-(defn genesis [] true)
-(defn bridgeGenesis [] (begin (debug "bridge genesis debug output")  true))
-(defn receive [from message]
-	(hash pong: (hget message %ping)))
-`
-		if err = os.MkdirAll(filepath.Join(h.DNAPath(), zygoZomeName), os.ModePerm); err != nil {
-			return nil, err
-		}
-		if err = writeFile([]byte(zygoCode), h.DNAPath(), zygoZomeName, zygoZomeName+".zy"); err != nil {
-			return
-		}
-		if err = writeFile([]byte(profileSchema), h.DNAPath(), zygoZomeName, "profile.json"); err != nil {
-			return
-		}
-		if err = writeFile([]byte(primesSchema), h.DNAPath(), zygoZomeName, "primes.json"); err != nil {
-			return
-		}
-
-		jsCode := `
-function unexposed(x) {return x+" fish";};
-function testStrFn1(x) {return "result: "+x};
-function testStrFn2(x){ return parseInt(x)+2};
-function testJsonFn1(x){ x.output = x.input*2; return x;};
-function testJsonFn2(x){ return [{a:'b'}] };
-
-function getProperty(x) {return property(x)};
-function addOdd(x) {return commit("oddNumbers",x);}
-function addProfile(x) {return commit("profile",x);}
-function validatePut(entry_type,entry,header,pkg,sources) {
-  return validate(entry_type,entry,header,sources);
-}
-function validateMod(entry_type,entry,header,replaces,pkg,sources) {
-  return true;
-}
-function validateDel(entry_type,hash,pkg,sources) {
-  return true;
-}
-function validateCommit(entry_type,entry,header,pkg,sources) {
-  if (entry_type == "rating") {return true}
-  return validate(entry_type,entry,header,sources);
-}
-function validate(entry_type,entry,header,sources) {
-  if (entry_type=="oddNumbers") {
-    return entry%2 != 0
-  }
-  if (entry_type=="profile") {
-    return true
-  }
-  if (entry_type=="secret") {
-    return true
-  }
-  return false
-}
-function validateLink(linkEntryType,baseHash,linkHash,tag,pkg,sources){return true}
-function validatePutPkg(entry_type) {
-  req = {};
-  req[HC.PkgReq.Chain]=HC.PkgReq.ChainOpt.Full;
-  return req;
-}
-function validateModPkg(entry_type) { return null}
-function validateDelPkg(entry_type) { return null}
-function validateLinkPkg(entry_type) { return null}
-
-function genesis() {return true}
-function bridgeGenesis() {return true}
-
-function receive(from,message) {
-  // send back a pong message of what came in the ping message!
-  return {pong:message.ping}
+	return
 }
 
-`
-
-		if err = os.MkdirAll(filepath.Join(h.DNAPath(), jsZomeName), os.ModePerm); err != nil {
-			return nil, err
+// if the directories don't exist, make the place to store chains
+func mkChainDirs(root string, initDB bool) (err error) {
+	if initDB {
+		if err = os.MkdirAll(filepath.Join(root, ChainDataDir), os.ModePerm); err != nil {
+			return err
 		}
-		if err = writeFile([]byte(jsCode), h.DNAPath(), jsZomeName, jsZomeName+".js"); err != nil {
-			return
-		}
-		if err = writeFile([]byte(profileSchema), h.DNAPath(), jsZomeName, "profile.json"); err != nil {
-			return
-		}
-
-		fixtures := [8]TestData{
-			{
-				Zome:   "zySampleZome",
-				FnName: "addEven",
-				Input:  "2",
-				Output: "%h%"},
-			{
-				Zome:   "zySampleZome",
-				FnName: "addEven",
-				Input:  "4",
-				Output: "%h%"},
-			{
-				Zome:   "zySampleZome",
-				FnName: "addEven",
-				Input:  "5",
-				Err:    "Error calling 'commit': Invalid entry: 5"},
-			{
-				Zome:   "zySampleZome",
-				FnName: "addPrime",
-				Input:  "{\"prime\":7}",
-				Output: "\"%h%\""}, // quoted because return value is json
-			{
-				Zome:   "zySampleZome",
-				FnName: "addPrime",
-				Input:  "{\"prime\":4}",
-				Err:    `Error calling 'commit': Invalid entry: {"prime":4}`},
-			{
-				Zome:   "jsSampleZome",
-				FnName: "addProfile",
-				Input:  `{"firstName":"Art","lastName":"Brock"}`,
-				Output: `"%h%"`},
-			{
-				Zome:   "zySampleZome",
-				FnName: "getDNA",
-				Input:  "",
-				Output: "%dna%"},
-			{
-				Zome:     "zySampleZome",
-				FnName:   "getDNA",
-				Input:    "",
-				Err:      "function not available",
-				Exposure: PUBLIC_EXPOSURE,
-			},
-		}
-
-		fixtures2 := [3]TestData{
-			{
-				Zome:   "jsSampleZome",
-				FnName: "addOdd",
-				Input:  "7",
-				Output: "%h%"},
-			{
-				Zome:   "jsSampleZome",
-				FnName: "addOdd",
-				Input:  "2",
-				Err:    "Invalid entry: 2"},
-			{
-				Zome:   "jsSampleZome",
-				Input:  "unexposed(\"this is a\")",
-				Output: "this is a fish",
-				Raw:    true,
-			},
-		}
-
-		for fileName, fileText := range SampleUI {
-			if err = writeFile([]byte(fileText), h.UIPath(), fileName); err != nil {
-				return
-			}
-		}
-
-		testPath := filepath.Join(root, "test")
-		if err = os.MkdirAll(testPath, os.ModePerm); err != nil {
-			return nil, err
-		}
-
-		// write out the tests
-		for i, d := range fixtures {
-			fn := fmt.Sprintf("test_%d.json", i)
-			var j []byte
-			t := []TestData{d}
-			j, err = json.Marshal(t)
-			if err != nil {
-				return
-			}
-			if err = writeFile(j, testPath, fn); err != nil {
-				return
-			}
-		}
-
-		// also write out some grouped tests
-		fn := "grouped.json"
-		var j []byte
-		j, err = json.Marshal(fixtures2)
-		if err != nil {
-			return
-		}
-		if err = writeFile(j, testPath, fn); err != nil {
-			return
-		}
-
-		//fmt.Printf("\nGenDev done generating. Loading now..")
-		if initDB {
-			hP, err = s.Load(dnaFile.Name)
-		}
+	}
+	if err = os.MkdirAll(filepath.Join(root, ChainUIDir), os.ModePerm); err != nil {
 		return
-	})
+	}
+	if err = os.MkdirAll(filepath.Join(root, ChainUIDir), os.ModePerm); err != nil {
+		return
+	}
+	if err = os.MkdirAll(filepath.Join(root, ChainTestDir), os.ModePerm); err != nil {
+		return
+	}
 	return
 }
 
@@ -1046,6 +753,7 @@ func (s *Service) SaveDNAFile(root string, dna *DNA, encodingFormat string, over
 	if !overwrite && fileExists(p) {
 		return mkErr(p + " already exists")
 	}
+
 	f, err := os.Create(p)
 	if err != nil {
 		return err
@@ -1110,7 +818,7 @@ func (s *Service) SaveDNAFile(root string, dna *DNA, encodingFormat string, over
 }
 
 // SaveScaffold writes out a holochain application based on scaffold file to path
-func (service *Service) SaveScaffold(reader io.Reader, path string, newUUID bool) (scaffold *Scaffold, err error) {
+func (service *Service) SaveScaffold(reader io.Reader, path string, name string, encodingFormat string, newUUID bool) (scaffold *Scaffold, err error) {
 	scaffold, err = LoadScaffold(reader)
 	if err != nil {
 		return
@@ -1124,14 +832,24 @@ func (service *Service) SaveScaffold(reader io.Reader, path string, newUUID bool
 	if newUUID {
 		dna.NewUUID()
 	}
-	err = service.SaveDNAFile(path, dna, "json", false)
+	dna.Name = name
+
+	err = service.SaveDNAFile(path, dna, encodingFormat, false)
 	if err != nil {
 		return
 	}
 
 	testPath := filepath.Join(path, ChainTestDir)
 	for _, test := range scaffold.Tests {
-		if err = writeFile([]byte(test.Value), testPath, test.Name+".json"); err != nil {
+		p := filepath.Join(testPath, test.Name+".json")
+		var f *os.File
+		f, err = os.Create(p)
+		if err != nil {
+			return
+		}
+		defer f.Close()
+		err = Encode(f, "json", test.Tests)
+		if err != nil {
 			return
 		}
 	}
@@ -1143,7 +861,15 @@ func (service *Service) SaveScaffold(reader io.Reader, path string, newUUID bool
 			return
 		}
 		for _, role := range scenario.Roles {
-			if err = writeFile([]byte(role.Value), scenarioPath, role.Name+".json"); err != nil {
+			p := filepath.Join(scenarioPath, role.Name+".json")
+			var f *os.File
+			f, err = os.Create(p)
+			if err != nil {
+				return
+			}
+			defer f.Close()
+			err = Encode(f, "json", &role.Tests)
+			if err != nil {
 				return
 			}
 		}
@@ -1156,6 +882,13 @@ func (service *Service) SaveScaffold(reader io.Reader, path string, newUUID bool
 			}
 			defer f.Close()
 			err = Encode(f, "json", &scenario.Config)
+		}
+	}
+
+	p := filepath.Join(path, ChainUIDir)
+	for _, ui := range scaffold.UI {
+		if err = writeFile([]byte(ui.Data), p, ui.FileName); err != nil {
+			return
 		}
 	}
 
@@ -1183,3 +916,399 @@ func MakeDirs(devPath string) error {
 
 	return nil
 }
+
+func TestingAppScaffold() string {
+	return `{
+"ScaffoldVersion": "` + ScaffoldVersion + `",
+"Generator": "holochain service.go",
+"DNA": {
+  "Version": 1,
+  "UUID": "00000000-0000-0000-0000-000000000000",
+  "Name": "testingApp",
+  "RequiresVersion": ` + VersionStr + `,
+  "Properties": {
+    "description": "a bogus test holochain",
+    "language": "en"
+  },
+  "PropertiesSchemaFile": "properties_schema.json",
+  "DHTConfig": {
+    "HashType": "sha2-256"
+  },
+  "Progenitor": {
+      "Identity": "Progenitor Agent <progenitore@example.com>",
+      "PubKey": [8, 1, 18, 32, 193, 43, 31, 148, 23, 249, 163, 154, 128, 25, 237, 167, 253, 63, 214, 220, 206, 131, 217, 74, 168, 30, 215, 237, 231, 160, 69, 89, 48, 17, 104, 210]
+  },
+  "Zomes": [
+    {
+      "Name": "zySampleZome",
+      "Description": "this is a zygomas test zome",
+      "RibosomeType": "zygo",
+      "BridgeFuncs" :["testStrFn1"],
+            "Entries": [
+                {
+                    "Name": "evenNumbers",
+                    "DataFormat": "zygo",
+                    "Sharing": "public"
+                },
+                {
+                    "Name": "primes",
+                    "DataFormat": "json",
+                    "Schema": "` + jsSanitizeString(primesSchema) + `",
+                    "Sharing": "public"
+                },
+                {
+                    "Name": "profile",
+                    "DataFormat": "json",
+                    "Schema": "` + jsSanitizeString(profileSchema) + `",
+                    "Sharing": "public"
+                }
+            ],
+            "Functions": [
+                {
+                    "Name": "getDNA",
+                    "CallingType": "string",
+                    "Exposure": ""
+                },
+                {
+                    "Name": "addEven",
+                    "CallingType": "string",
+                    "Exposure": "public"
+                },
+                {
+                    "Name": "addPrime",
+                    "CallingType": "json",
+                    "Exposure": "public"
+                },
+                {
+                    "Name": "testStrFn1",
+                    "CallingType": "string",
+                    "Exposure": ""
+                },
+                {
+                    "Name": "testStrFn2",
+                    "CallingType": "string",
+                    "Exposure": ""
+                },
+                {
+                    "Name": "testJsonFn1",
+                    "CallingType": "json",
+                    "Exposure": ""
+                },
+                {
+                    "Name": "testJsonFn2",
+                    "CallingType": "json",
+                    "Exposure": ""
+                }
+            ],
+      "Code": "` + jsSanitizeString(zygoZomeCode) + `"
+    },
+    {
+      "Name": "jsSampleZome",
+      "Description": "this is a javascript test zome",
+      "RibosomeType": "js",
+      "BridgeFuncs" :["getProperty"],
+            "Entries": [
+                {
+                    "Name": "oddNumbers",
+                    "DataFormat": "js",
+                    "Sharing": "public"
+                },
+                {
+                    "Name": "profile",
+                    "DataFormat": "json",
+                    "Schema": "` + jsSanitizeString(profileSchema) + `",
+                    "Sharing": "public"
+                },
+                {
+                    "Name": "rating",
+                    "DataFormat": "links",
+                },
+                {
+                    "Name": "secret",
+                    "DataFormat": "string",
+                }
+            ],
+            "Functions": [
+                {
+                    "Name": "getProperty",
+                    "CallingType": "string",
+                    "Exposure": "public"
+                },
+                {
+                    "Name": "addOdd",
+                    "CallingType": "string",
+                    "Exposure": "public"
+                },
+                {
+                    "Name": "addProfile",
+                    "CallingType": "json",
+                    "Exposure": "public"
+                },
+                {
+                    "Name": "testStrFn1",
+                    "CallingType": "string",
+                    "Exposure": ""
+                },
+                {
+                    "Name": "testStrFn2",
+                    "CallingType": "string",
+                    "Exposure": ""
+                },
+                {
+                    "Name": "testJsonFn1",
+                    "CallingType": "json",
+                    "Exposure": ""
+                },
+                {
+                    "Name": "testJsonFn2",
+                    "CallingType": "json",
+                    "Exposure": ""
+                }
+            ],
+      "Code": "` + jsSanitizeString(jsZomeCode) + `"
+    }
+  ]},
+"Tests":[{"Name":"testSet1","Tests":
+[
+    {
+        "Zome":   "zySampleZome",
+        "FnName": "addEven",
+        "Input":  "2",
+        "Output": "%h%"},
+    {
+        "Zome":   "zySampleZome",
+        "FnName": "addEven",
+        "Input":  "4",
+        "Output": "%h%"},
+    {
+        "Zome":   "zySampleZome",
+        "FnName": "addEven",
+        "Input":  "5",
+        "Err":    "Error calling 'commit': Invalid entry: 5"},
+    {
+        "Zome":   "zySampleZome",
+        "FnName": "addPrime",
+        "Input":  {"prime":7},
+        "Output": "\"%h%\""},
+    {
+        "Zome":   "zySampleZome",
+        "FnName": "addPrime",
+        "Input":  {"prime":4},
+        "Err":    "Error calling 'commit': Invalid entry: {\"prime\":4}"},
+    {
+	"Zome":   "jsSampleZome",
+	"FnName": "addProfile",
+	"Input":  {"firstName":"Art","lastName":"Brock"},
+	"Output": "\"%h%\""},
+    {
+	"Zome":   "zySampleZome",
+	"FnName": "getDNA",
+	"Input":  "",
+	"Output": "%dna%"},
+    {
+	"Zome":     "zySampleZome",
+	"FnName":   "getDNA",
+	"Input":    "",
+	"Err":      "function not available",
+	"Exposure":  "public"
+    }
+]
+},{"Name":"testSet2","Tests":
+[
+    {
+	"Zome":   "jsSampleZome",
+	"FnName": "addOdd",
+	"Input":  "7",
+	"Output": "%h%"},
+    {
+	"Zome":   "jsSampleZome",
+	"FnName": "addOdd",
+	"Input":  "2",
+	"Err":    "Invalid entry: 2"},
+    {
+	"Zome":   "jsSampleZome",
+	"Input":  "unexposed(\"this is a\")",
+	"Output": "this is a fish",
+	"Raw":    true
+    }
+]}],
+"UI":[
+{"FileName":"index.html",
+ "Data":"` + jsSanitizeString(SampleHTML) + `"
+},
+{"FileName":"hc.js",
+ "Data":"` + jsSanitizeString(SampleJS) + `"
+}],
+"Scenarios":[
+        {"Name":"sampleScenario",
+         "Roles":[
+             {"Name":"listener",
+              "Tests":[
+                  {"Convey":"add listener test here"}]},
+             {"Name":"speaker",
+              "Tests":[
+                  {"Convey":"add speaker test here"}]}],
+         "Config":{"Duration":5,"GossipInterval":100}}]
+}
+`
+}
+
+const (
+	profileSchema = `{
+	"title": "Profile Schema",
+	"type": "object",
+	"properties": {
+		"firstName": {
+			"type": "string"
+		},
+		"lastName": {
+			"type": "string"
+		},
+		"age": {
+			"description": "Age in years",
+			"type": "integer",
+			"minimum": 0
+		}
+	},
+	"required": ["firstName", "lastName"]
+}`
+
+	primesSchema = `
+{
+	"title": "Prime Schema",
+	"type": "object",
+	"properties": {
+		"prime": {
+			"type": "integer"
+		}
+	},
+	"required": ["prime"]
+}`
+
+	jsZomeCode = `
+function unexposed(x) {return x+" fish";};
+function testStrFn1(x) {return "result: "+x};
+function testStrFn2(x){ return parseInt(x)+2};
+function testJsonFn1(x){ x.output = x.input*2; return x;};
+function testJsonFn2(x){ return [{a:'b'}] };
+
+function getProperty(x) {return property(x)};
+function addOdd(x) {return commit("oddNumbers",x);}
+function addProfile(x) {return commit("profile",x);}
+function validatePut(entry_type,entry,header,pkg,sources) {
+  return validate(entry_type,entry,header,sources);
+}
+function validateMod(entry_type,entry,header,replaces,pkg,sources) {
+  return true;
+}
+function validateDel(entry_type,hash,pkg,sources) {
+  return true;
+}
+function validateCommit(entry_type,entry,header,pkg,sources) {
+  if (entry_type == "rating") {return true}
+  return validate(entry_type,entry,header,sources);
+}
+function validate(entry_type,entry,header,sources) {
+  if (entry_type=="oddNumbers") {
+    return entry%2 != 0
+  }
+  if (entry_type=="profile") {
+    return true
+  }
+  if (entry_type=="secret") {
+    return true
+  }
+  return false
+}
+function validateLink(linkEntryType,baseHash,linkHash,tag,pkg,sources){return true}
+function validatePutPkg(entry_type) {
+  req = {};
+  req[HC.PkgReq.Chain]=HC.PkgReq.ChainOpt.Full;
+  return req;
+}
+function validateModPkg(entry_type) { return null}
+function validateDelPkg(entry_type) { return null}
+function validateLinkPkg(entry_type) { return null}
+
+function genesis() {return true}
+function bridgeGenesis() {return true}
+
+function receive(from,message) {
+  // send back a pong message of what came in the ping message!
+  return {pong:message.ping}
+}
+
+`
+	zygoZomeCode = `
+(defn testStrFn1 [x] (concat "result: " x))
+(defn testStrFn2 [x] (+ (atoi x) 2))
+(defn testJsonFn1 [x] (begin (hset x output: (* (-> x input:) 2)) x))
+(defn testJsonFn2 [x] (unjson (raw "[{\"a\":\"b\"}]"))) (defn getDNA [x] App_DNA_Hash)
+(defn addEven [x] (commit "evenNumbers" x))
+(defn addPrime [x] (commit "primes" x))
+(defn validateCommit [entryType entry header pkg sources]
+  (validate entryType entry header sources))
+(defn validatePut [entryType entry header pkg sources]
+  (validate entryType entry header sources))
+(defn validateMod [entryType entry header replaces pkg sources] true)
+(defn validateDel [entryType hash pkg sources] true)
+(defn validate [entryType entry header sources]
+  (cond (== entryType "evenNumbers")  (cond (== (mod entry 2) 0) true false)
+        (== entryType "primes")  (isprime (hget entry %prime))
+        (== entryType "profile") true
+        false)
+)
+(defn validateLink [linkEntryType baseHash links pkg sources] true)
+(defn validatePutPkg [entryType] nil)
+(defn validateModPkg [entryType] nil)
+(defn validateDelPkg [entryType] nil)
+(defn validateLinkPkg [entryType] nil)
+(defn genesis [] true)
+(defn bridgeGenesis [] (begin (debug "bridge genesis debug output")  true))
+(defn receive [from message]
+	(hash pong: (hget message %ping)))
+`
+
+	SampleHTML = `
+<html>
+  <head>
+    <title>Test</title>
+    <script type="text/javascript" src="http://code.jquery.com/jquery-latest.js"></script>
+    <script type="text/javascript" src="/hc.js">
+    </script>
+  </head>
+  <body>
+    <select id="zome" name="zome">
+      <option value="zySampleZome">zySampleZome</option>
+      <option value="jsSampleZome">jsSampleZome</option>
+    </select>
+    <select id="fn" name="fn">
+      <option value="addEven">addEven</option>
+      <option value="getProperty">getProperty</option>
+      <option value="addPrime">addPrime</option>
+    </select>
+    <input id="data" name="data">
+    <button onclick="send();">Send</button>
+    send an even number and get back a hash, send and odd end get a error
+
+    <div id="result"></div>
+    <div id="err"></div>
+  </body>
+</html>`
+	SampleJS = `
+     function send() {
+         $.post(
+             "/fn/"+$('select[name=zome]').val()+"/"+$('select[name=fn]').val(),
+             $('#data').val(),
+             function(data) {
+                 $("#result").html("result:"+data)
+                 $("#err").html("")
+             }
+         ).error(function(response) {
+             $("#err").html(response.responseText)
+             $("#result").html("")
+         })
+         ;
+     };
+`
+)

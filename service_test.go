@@ -123,7 +123,7 @@ func TestCloneNew(t *testing.T) {
 		panic(err)
 	}
 
-	Convey("it should create a chain from the examples directory", t, func() {
+	Convey("it should clone a chain by copying and creating an new UUID", t, func() {
 		err = s.Clone(orig, root, agent, CloneWithNewUUID, InitializeDB)
 		So(err, ShouldBeNil)
 
@@ -154,7 +154,7 @@ func TestCloneNew(t *testing.T) {
 		So(compareFile(filepath.Join(orig, "dna"), h.DNAPath(), "properties_schema.json"), ShouldBeTrue)
 		So(compareFile(orig, h.rootPath, ConfigFileName+".toml"), ShouldBeTrue)
 
-		So(compareFile(filepath.Join(orig, ChainTestDir), filepath.Join(h.rootPath, ChainTestDir), "test_0.json"), ShouldBeTrue)
+		So(compareFile(filepath.Join(orig, ChainTestDir), filepath.Join(h.rootPath, ChainTestDir), "testSet1.json"), ShouldBeTrue)
 
 		So(h.nucleus.dna.Progenitor.Identity, ShouldEqual, "Herbert <h@bert.com>")
 		pk, _ := agent.PubKey().Bytes()
@@ -176,7 +176,7 @@ func TestCloneJoin(t *testing.T) {
 		panic(err)
 	}
 
-	Convey("it should create a chain from the examples directory", t, func() {
+	Convey("it should clone a chain by copying and without creating a new UUID", t, func() {
 		err = s.Clone(orig, root, agent, CloneWithSameUUID, InitializeDB)
 		So(err, ShouldBeNil)
 
@@ -202,7 +202,7 @@ func TestCloneJoin(t *testing.T) {
 		So(fileExists(h.DNAPath(), "properties_schema.json"), ShouldBeTrue)
 		So(fileExists(h.rootPath, ConfigFileName+".toml"), ShouldBeTrue)
 
-		So(h.nucleus.dna.Progenitor.Identity, ShouldEqual, "Example Agent <example@example.com")
+		So(h.nucleus.dna.Progenitor.Identity, ShouldEqual, "Progenitor Agent <progenitore@example.com>")
 		pk := []byte{8, 1, 18, 32, 193, 43, 31, 148, 23, 249, 163, 154, 128, 25, 237, 167, 253, 63, 214, 220, 206, 131, 217, 74, 168, 30, 215, 237, 231, 160, 69, 89, 48, 17, 104, 210}
 		So(string(h.nucleus.dna.Progenitor.PubKey), ShouldEqual, string(pk))
 
@@ -267,6 +267,11 @@ func TestGenDev(t *testing.T) {
 		So(h.config.PeerModeAuthor, ShouldEqual, s.Settings.DefaultPeerModeAuthor)
 		So(h.config.BootstrapServer, ShouldEqual, s.Settings.DefaultBootstrapServer)
 
+		So(dirExists(root), ShouldBeTrue)
+		So(dirExists(h.DNAPath()), ShouldBeTrue)
+		So(dirExists(h.TestPath()), ShouldBeTrue)
+		So(dirExists(h.UIPath()), ShouldBeTrue)
+		So(fileExists(h.TestPath(), "sampleScenario", "listener.json"), ShouldBeTrue)
 		So(fileExists(h.DNAPath(), "zySampleZome", "profile.json"), ShouldBeTrue)
 		So(fileExists(h.UIPath(), "index.html"), ShouldBeTrue)
 		So(fileExists(h.UIPath(), "hc.js"), ShouldBeTrue)
@@ -285,13 +290,14 @@ func TestSaveScaffold(t *testing.T) {
 	name := "test"
 	root := filepath.Join(s.Path, name)
 
-	Convey("it should write out a scaffold file to a directory tree", t, func() {
+	Convey("it should write out a scaffold file to a directory tree with JSON encoding", t, func() {
 		scaffoldBlob := bytes.NewBuffer([]byte(BasicTemplateScaffold))
 
-		scaffold, err := s.SaveScaffold(scaffoldBlob, root, false)
+		scaffold, err := s.SaveScaffold(scaffoldBlob, root, "appName", "json", false)
 		So(err, ShouldBeNil)
 		So(scaffold, ShouldNotBeNil)
 		So(scaffold.ScaffoldVersion, ShouldEqual, ScaffoldVersion)
+		So(scaffold.DNA.Name, ShouldEqual, "appName")
 		So(dirExists(root), ShouldBeTrue)
 		So(dirExists(root, ChainDNADir), ShouldBeTrue)
 		So(dirExists(root, ChainUIDir), ShouldBeTrue)
@@ -304,9 +310,25 @@ func TestSaveScaffold(t *testing.T) {
 		So(dirExists(root, ChainDNADir, "sampleZome"), ShouldBeTrue)
 		So(fileExists(root, ChainDNADir, "sampleZome", "sampleEntry.json"), ShouldBeTrue)
 		So(fileExists(root, ChainDNADir, "sampleZome", "sampleZome.js"), ShouldBeTrue)
-		So(fileExists(root, ChainDNADir, "dna.json"), ShouldBeTrue)
+		So(fileExists(root, ChainDNADir, DNAFileName+".json"), ShouldBeTrue)
 		So(fileExists(root, ChainDNADir, "properties_schema.json"), ShouldBeTrue)
 		So(fileExists(root, ChainTestDir, "sample.json"), ShouldBeTrue)
+		So(fileExists(root, ChainUIDir, "index.html"), ShouldBeTrue)
+		So(fileExists(root, ChainUIDir, "hc.js"), ShouldBeTrue)
+	})
+
+	Convey("it should write out a scaffold file to a directory tree with toml encoding", t, func() {
+		scaffoldBlob := bytes.NewBuffer([]byte(BasicTemplateScaffold))
+
+		root2 := filepath.Join(s.Path, name+"2")
+
+		scaffold, err := s.SaveScaffold(scaffoldBlob, root2, "appName", "toml", false)
+		So(err, ShouldBeNil)
+		So(scaffold, ShouldNotBeNil)
+		So(scaffold.ScaffoldVersion, ShouldEqual, ScaffoldVersion)
+		So(dirExists(root2), ShouldBeTrue)
+		So(fileExists(root2, ChainDNADir, DNAFileName+".toml"), ShouldBeTrue)
+		// the reset of the files are still saved as json...
 	})
 }
 

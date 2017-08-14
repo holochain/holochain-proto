@@ -10,7 +10,6 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
-	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
@@ -384,21 +383,44 @@ func (h *Holochain) DoTest(name string, i int, t TestData, startTime time.Time, 
 	return
 }
 
+type BridgeApp struct {
+	H    *Holochain
+	Side int
+	Data string
+	Port string // only used if side == BridgeTo
+}
+
 // Test loops through each of the test files in path calling the functions specified
 // This function is useful only in the context of developing a holochain and will return
 // an error if the chain has already been started (i.e. has genesis entries)
-func (h *Holochain) Test() []error {
-	return h.test("")
+func (h *Holochain) Test(bridgeApps []BridgeApp) []error {
+	return h.test("", bridgeApps)
 }
 
 // TestOne tests a single test file
 // This function is useful only in the context of developing a holochain and will return
 // an error if the chain has already been started (i.e. has genesis entries)
-func (h *Holochain) TestOne(one string) []error {
-	return h.test(one)
+func (h *Holochain) TestOne(one string, bridgeApps []BridgeApp) []error {
+	return h.test(one, bridgeApps)
 }
 
-func (h *Holochain) test(one string) []error {
+func startChainClean(h *Holochain) {
+	var err error
+	err = h.Reset()
+	if err != nil {
+		panic("reset err")
+	}
+	_, err = h.GenChain()
+	if err != nil {
+		panic("gen err " + err.Error())
+	}
+	err = h.Activate()
+	if err != nil {
+		panic("activate err " + err.Error())
+	}
+}
+
+func (h *Holochain) test(one string, bridgeApps []BridgeApp) []error {
 
 	var err error
 	var errs []error
@@ -407,7 +429,7 @@ func (h *Holochain) test(one string) []error {
 		return []error{err}
 	}
 
-	path := filepath.Join(h.rootPath, ChainTestDir)
+	path := h.TestPath()
 
 	// load up the test files into the tests array
 	var tests, errorLoad = LoadTestFiles(path)
@@ -426,17 +448,33 @@ func (h *Holochain) test(one string) []error {
 		info.pf("Test: '%s' starting...", name)
 		info.p("========================================")
 		// setup the genesis entries
-		err = h.Reset()
-		if err != nil {
-			panic("reset err")
-		}
-		_, err = h.GenChain()
-		if err != nil {
-			panic("gen err " + err.Error())
-		}
-		err = h.Activate()
-		if err != nil {
-			panic("activate err " + err.Error())
+		startChainClean(h)
+
+		// setup any bridges
+		for _, app := range bridgeApps {
+			startChainClean(app.H)
+
+			var hFrom, hTo *Holochain
+			if app.Side == BridgeFrom {
+				hFrom = app.H
+				hTo = h
+
+			} else {
+				hTo = app.H
+				hFrom = h
+			}
+
+			var token string
+			token, err = hTo.AddBridgeAsCallee(hFrom.DNAHash(), app.Data)
+			if err != nil {
+				panic(err)
+			}
+
+			// the url is through the webserver
+			err = hFrom.AddBridgeAsCaller(hTo.DNAHash(), token, fmt.Sprintf("http://localhost:%s", app.Port), app.Data)
+			if err != nil {
+				panic(err)
+			}
 		}
 		//	go h.dht.HandleChangeReqs()
 		ers := h.DoTests(name, ts, 0)

@@ -235,6 +235,7 @@ func (h *Holochain) createNode() (err error) {
 // Prepare sets up a holochain to run by:
 // loading the schema validators, setting up a Network node and setting up the DHT
 func (h *Holochain) Prepare() (err error) {
+	Debugf("Preparing %v", h.dnaHash)
 
 	err = h.nucleus.dna.check()
 	if err != nil {
@@ -265,6 +266,8 @@ func (h *Holochain) Prepare() (err error) {
 
 // Activate fires up the holochain node, starting node discovery and protocols
 func (h *Holochain) Activate() (err error) {
+	Debugf("Activating  %v", h.dnaHash)
+
 	if h.config.EnableMDNS {
 		err = h.node.EnableMDNSDiscovery(h, time.Second)
 		if err != nil {

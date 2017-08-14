@@ -167,7 +167,7 @@ func setupApp() (app *cli.App) {
 				} else if len(args) != 1 {
 					return errors.New("test: expected 0 args or 2 (scenario and role)")
 				} else {
-					errs = h.Test()
+					errs = h.Test(nil)
 				}
 
 				var s string

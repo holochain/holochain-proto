@@ -35,7 +35,7 @@ func TestTest(t *testing.T) {
 		h.config.Loggers.TestInfo.Enabled = false
 	}
 	Convey("it should fail if there's no test data", t, func() {
-		err := h.Test()
+		err := h.Test(nil)
 		So(err[0].Error(), ShouldEqual, "open "+filepath.Join(h.rootPath, ChainTestDir)+": no such file or directory")
 	})
 	CleanupTestDir(d)
@@ -48,11 +48,11 @@ func TestTest(t *testing.T) {
 		h.config.Loggers.TestInfo.Enabled = false
 	}
 	Convey("it should validate on test data", t, func() {
-		err := h.Test()
+		err := h.Test(nil)
 		So(err, ShouldBeNil)
 	})
 	Convey("it should reset the database state and thus run correctly twice", t, func() {
-		err := h.Test()
+		err := h.Test(nil)
 		So(err, ShouldBeNil)
 	})
 
@@ -60,7 +60,7 @@ func TestTest(t *testing.T) {
 		os.Remove(filepath.Join(d, ".holochain", "test", "test", "test_0.json"))
 		err := writeFile([]byte(`[{"Zome":"zySampleZome","FnName":"addEven","Input":2,"Output":"%h%","Err":""}]`), d, ".holochain", "test", "test", "test_0.json")
 		So(err, ShouldBeNil)
-		err = h.Test()[0]
+		err = h.Test(nil)[0]
 		So(err, ShouldNotBeNil)
 		So(err.Error(), ShouldEqual, "Input was not an expected type: float64")
 	})
@@ -68,7 +68,7 @@ func TestTest(t *testing.T) {
 		os.Remove(filepath.Join(d, ".holochain", "test", "test", "test_0.json"))
 		err := writeFile([]byte(`[{"Zome":"zySampleZome","FnName":"addEven","Input":"2","Output":"","Err":"bogus error"}]`), d, ".holochain", "test", "test", "test_0.json")
 		So(err, ShouldBeNil)
-		err = h.Test()[0]
+		err = h.Test(nil)[0]
 		So(err, ShouldNotBeNil)
 		//So(err.Error(), ShouldEqual, "Test: test_0:0\n  Expected Error: bogus error\n  Got: nil\n")
 		So(err.Error(), ShouldEqual, "bogus error")
@@ -90,7 +90,7 @@ Test: 'test_0' starting...
 ========================================
 Test 'test_0.0' t+0ms: { zySampleZome addEven 2 %h%   0s  false}
 `, func() {
-			err := h.TestOne("test_0")
+			err := h.TestOne("test_0", nil)
 			So(err, ShouldBeNil)
 		})
 	})

@@ -980,6 +980,11 @@ func TestingAppScaffold() string {
                     "Exposure": "public"
                 },
                 {
+                    "Name": "confirmOdd",
+                    "CallingType": "string",
+                    "Exposure": "public"
+                },
+                {
                     "Name": "testStrFn1",
                     "CallingType": "string",
                     "Exposure": ""
@@ -1126,6 +1131,16 @@ func TestingAppScaffold() string {
 	"Input":  "2",
 	"Err":    "Invalid entry: 2"},
     {
+	"Zome":   "zySampleZome",
+	"FnName": "confirmOdd",
+	"Input":  "9",
+	"Output": "false"},
+    {
+	"Zome":   "zySampleZome",
+	"FnName": "confirmOdd",
+	"Input":  "7",
+	"Output": "true"},
+    {
 	"Zome":   "jsSampleZome",
 	"Input":  "unexposed(\"this is a\")",
 	"Output": "this is a fish",
@@ -1142,13 +1157,27 @@ func TestingAppScaffold() string {
 "Scenarios":[
         {"Name":"sampleScenario",
          "Roles":[
-             {"Name":"listener",
-              "Tests":[
-                  {"Convey":"add listener test here"}]},
              {"Name":"speaker",
               "Tests":[
-                  {"Convey":"add speaker test here"}]}],
-         "Config":{"Duration":5,"GossipInterval":100}}]
+                  {"Convey":"add an odd",
+                   "Zome":   "jsSampleZome",
+	           "FnName": "addOdd",
+	           "Input":  "7",
+	           "Output": "%h%"
+                  }
+               ]},
+             {"Name":"listener",
+              "Tests":[
+                  {"Convey":"confirm prime exists",
+                   "Zome":   "zySampleZome",
+	           "FnName": "confirmOdd",
+	           "Input":  "7",
+	           "Output": "true",
+                   "Time" : 1500
+                  }
+               ]},
+          ],
+         "Config":{"Duration":5,"GossipInterval":300}}]
 }
 `
 }
@@ -1246,6 +1275,13 @@ function receive(from,message) {
 (defn testJsonFn2 [x] (unjson (raw "[{\"a\":\"b\"}]"))) (defn getDNA [x] App_DNA_Hash)
 (defn addEven [x] (commit "evenNumbers" x))
 (defn addPrime [x] (commit "primes" x))
+(defn confirmOdd [x]
+  (letseq [h (makeHash x)
+           r (get h)
+           err (hget r %error "")]
+     (cond (== err "") "true" "false")
+  )
+)
 (defn validateCommit [entryType entry header pkg sources]
   (validate entryType entry header sources))
 (defn validatePut [entryType entry header pkg sources]

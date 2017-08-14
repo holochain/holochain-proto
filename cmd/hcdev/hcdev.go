@@ -130,7 +130,6 @@ func setupApp() (app *cli.App) {
 
 	var interactive, dumpChain, dumpDHT bool
 	var clonePath, scaffoldPath, cloneExample string
-	var ranScript bool
 	app.Commands = []cli.Command{
 		{
 			Name:    "init",
@@ -255,11 +254,6 @@ func setupApp() (app *cli.App) {
 					return makeErrFromError("", err, 1)
 				}
 
-				// finish by creating the .hc directory
-				// terminates go process
-				if !ranScript {
-					cmd.OsExecPipes("holochain.app.init", name)
-				}
 				return nil
 			},
 		},

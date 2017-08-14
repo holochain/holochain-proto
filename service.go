@@ -40,9 +40,10 @@ const (
 
 	DefaultPort            = 6283
 	DefaultBootstrapServer = "bootstrap.holochain.net:10000"
-	//DefaultBootstrapPort				= 10000
 
 	HC_BOOTSTRAPSERVER = "HC_BOOTSTRAPSERVER"
+	HC_ENABLEMDNS      = "HC_DEFAULT_ENABLEMDNS"
+
 	//HC_BOOTSTRAPPORT						= "HC_BOOTSTRAPPORT"
 
 	CloneWithNewUUID  = true
@@ -56,6 +57,7 @@ type ServiceConfig struct {
 	DefaultPeerModeAuthor  bool
 	DefaultPeerModeDHTNode bool
 	DefaultBootstrapServer string
+	DefaultEnableMDNS      bool
 }
 
 // A Service is a Holochain service data structure
@@ -115,15 +117,20 @@ func Init(root string, agent AgentIdentity) (service *Service, err error) {
 			DefaultPeerModeDHTNode: true,
 			DefaultPeerModeAuthor:  true,
 			DefaultBootstrapServer: DefaultBootstrapServer,
+			DefaultEnableMDNS:      false,
 		},
 		Path: root,
 	}
 
 	if os.Getenv(HC_BOOTSTRAPSERVER) != "" {
 		s.Settings.DefaultBootstrapServer = os.Getenv(HC_BOOTSTRAPSERVER)
+		Infof("Using %s--configuring default bootstrap server as: %s\n", HC_BOOTSTRAPSERVER, s.Settings.DefaultBootstrapServer)
 	}
 
-	Infof("Configured to connect to bootstrap server at: %s\n", s.Settings.DefaultBootstrapServer)
+	if os.Getenv(HC_ENABLEMDNS) != "" && os.Getenv(HC_ENABLEMDNS) != "false" {
+		s.Settings.DefaultEnableMDNS = true
+		Infof("Using %s--configuring default MDNS use as: %v.\n", HC_ENABLEMDNS, s.Settings.DefaultEnableMDNS)
+	}
 
 	err = writeToml(root, SysFileName, s.Settings, false)
 	if err != nil {
@@ -485,21 +492,27 @@ func _makeConfig(s *Service) (config Config, err error) {
 		PeerModeAuthor:  s.Settings.DefaultPeerModeAuthor,
 		BootstrapServer: s.Settings.DefaultBootstrapServer,
 		Loggers: Loggers{
-			App:        Logger{Format: "%{color:cyan}%{message}", Enabled: true},
-			DHT:        Logger{Format: "%{color:yellow}%{time} DHT: %{message}"},
-			Gossip:     Logger{Format: "%{color:blue}%{time} Gossip: %{message}"},
-			TestPassed: Logger{Format: "%{color:green}%{message}", Enabled: true},
-			TestFailed: Logger{Format: "%{color:red}%{message}", Enabled: true},
-			TestInfo:   Logger{Format: "%{message}", Enabled: true},
+			App:        Logger{Name: "App", Format: "%{color:cyan}%{message}", Enabled: true},
+			DHT:        Logger{Name: "DHT", Format: "%{color:yellow}%{time} DHT: %{message}"},
+			Gossip:     Logger{Name: "Gossip", Format: "%{color:blue}%{time} Gossip: %{message}"},
+			TestPassed: Logger{Name: "TestPassed", Format: "%{color:green}%{message}", Enabled: true},
+			TestFailed: Logger{Name: "TestFailed", Format: "%{color:red}%{message}", Enabled: true},
+			TestInfo:   Logger{Name: "TestInfo", Format: "%{message}", Enabled: true},
 		},
 	}
 
 	val := os.Getenv("HOLOCHAINCONFIG_PORT")
 	if val != "" {
+		Debugf("makeConfig: using environment variable to set port to: %s", val)
 		config.Port, err = strconv.Atoi(val)
 		if err != nil {
 			return
 		}
+
+		if IsDebugging() {
+			fmt.Printf("HC: service.go: makeConfig: using environment variable to set port to:            %v\n", val)
+		}
+
 	}
 	val = os.Getenv("HOLOCHAINCONFIG_BOOTSTRAP")
 	if val != "" {
@@ -507,19 +520,40 @@ func _makeConfig(s *Service) (config Config, err error) {
 			val = ""
 		}
 		config.BootstrapServer = val
+		if val == "" {
+			val = "NO BOOTSTRAP SERVER"
+		}
+		if IsDebugging() {
+			fmt.Printf("HC: service.go: makeConfig: using environment variable to set bootstrapServer to: %v\n", val)
+		}
+		// Debugf("makeConfig: using environment variable to set bootstrap server to: %s", val)
 	}
 	val = os.Getenv("HOLOCHAINCONFIG_ENABLEMDNS")
 	if val != "" {
 		config.EnableMDNS = val == "true"
 	}
+	val = os.Getenv("HOLOCHAINCONFIG_ENABLEMDNS")
+	if val != "" {
+		Debugf("makeConfig: using environment variable to set enableMDNS to: %s", val)
+		config.EnableMDNS = val == "true"
+
+		if IsDebugging() {
+			fmt.Printf("HC: service.go: makeConfig: using environment variable to set enableMDNS to:      %v\n", val)
+		}
+	}
 	val = os.Getenv("HOLOCHAINCONFIG_LOGPREFIX")
 	if val != "" {
-		config.Loggers.App.Format = val + config.Loggers.App.Format
-		config.Loggers.DHT.Format = val + config.Loggers.DHT.Format
-		config.Loggers.Gossip.Format = val + config.Loggers.Gossip.Format
-		config.Loggers.TestPassed.Format = val + config.Loggers.TestPassed.Format
-		config.Loggers.TestFailed.Format = val + config.Loggers.TestFailed.Format
-		config.Loggers.TestInfo.Format = val + config.Loggers.TestInfo.Format
+		//		Debugf("makeConfig: using environment variable to set log prefix to: %s", val)
+		config.Loggers.App.SetPrefix(val)
+		config.Loggers.DHT.SetPrefix(val)
+		config.Loggers.Gossip.SetPrefix(val)
+		config.Loggers.TestPassed.SetPrefix(val)
+		config.Loggers.TestFailed.SetPrefix(val)
+		config.Loggers.TestInfo.SetPrefix(val)
+
+		if IsDebugging() {
+			fmt.Printf("HC: service.go: makeConfig: using environment variable to set logPrefix to:       %v\n", val)
+		}
 	}
 	return
 }
@@ -604,9 +638,6 @@ func mkChainDirs(root string, initDB bool) (err error) {
 		if err = os.MkdirAll(filepath.Join(root, ChainDataDir), os.ModePerm); err != nil {
 			return err
 		}
-	}
-	if err = os.MkdirAll(filepath.Join(root, ChainUIDir), os.ModePerm); err != nil {
-		return
 	}
 	if err = os.MkdirAll(filepath.Join(root, ChainUIDir), os.ModePerm); err != nil {
 		return
@@ -815,6 +846,10 @@ func (s *Service) SaveDNAFile(root string, dna *DNA, encodingFormat string, over
 
 	err = Encode(f, encodingFormat, dnaFile)
 	return
+}
+
+func IsDebugging() bool {
+	return strings.ToLower(os.Getenv("DEBUG")) == "true" || os.Getenv("DEBUG") == "1"
 }
 
 // SaveScaffold writes out a holochain application based on scaffold file to path

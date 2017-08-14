@@ -27,7 +27,7 @@ func TestInit(t *testing.T) {
 
 		Convey("it should return a service with default values", func() {
 			So(s.DefaultAgent.Identity(), ShouldEqual, AgentIdentity(agent))
-			So(fmt.Sprintf("%v", s.Settings), ShouldEqual, "{true true bootstrap.holochain.net:10000}")
+			So(fmt.Sprintf("%v", s.Settings), ShouldEqual, "{true true bootstrap.holochain.net:10000 false}")
 		})
 
 		p := filepath.Join(d, DefaultDirectoryName)
@@ -266,6 +266,7 @@ func TestGenDev(t *testing.T) {
 		So(h.config.PeerModeDHTNode, ShouldEqual, s.Settings.DefaultPeerModeDHTNode)
 		So(h.config.PeerModeAuthor, ShouldEqual, s.Settings.DefaultPeerModeAuthor)
 		So(h.config.BootstrapServer, ShouldEqual, s.Settings.DefaultBootstrapServer)
+		So(h.config.EnableMDNS, ShouldEqual, s.Settings.DefaultEnableMDNS)
 
 		So(dirExists(root), ShouldBeTrue)
 		So(dirExists(h.DNAPath()), ShouldBeTrue)
@@ -354,7 +355,8 @@ func TestMakeConfig(t *testing.T) {
 		So(err, ShouldBeNil)
 		So(h.config.Port, ShouldEqual, 12345)
 		So(h.config.EnableMDNS, ShouldBeTrue)
-		So(h.config.Loggers.App.Format, ShouldEqual, "prefix:%{color:cyan}%{message}")
+		So(h.config.Loggers.App.Format, ShouldEqual, "%{color:cyan}%{message}")
+		So(h.config.Loggers.App.Prefix, ShouldEqual, "prefix:")
 		So(h.config.BootstrapServer, ShouldEqual, "")
 	})
 }

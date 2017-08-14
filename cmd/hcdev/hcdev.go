@@ -19,7 +19,11 @@ import (
 	"os/user"
 	"path"
 	"path/filepath"
+	"strconv"
 	"time"
+
+	// fsnotify	"github.com/fsnotify/fsnotify"
+	spew "github.com/davecgh/go-spew/spew"
 )
 
 const (
@@ -30,18 +34,45 @@ var debug, appInitialized bool
 var rootPath, devPath, bridgeToPath, bridgeToName, bridgeFromPath, bridgeFromName, name string
 var bridgeFromH, bridgeToH *holo.Holochain
 
+// flags for holochain config generation
+var port, logPrefix, bootstrapServer string
+var mdns bool
+
+// meta flags for program flow control
+var syncPausePath string
+var syncPauseUntil int
+
+type MutableContext struct {
+	str map[string]string
+	obj map[string]interface{}
+}
+
+var mutableContext MutableContext
+
+var lastRunContext *cli.Context
+
 // TODO: move these into cmd module
 func makeErr(prefix string, text string, code int) error {
-	errText := fmt.Sprintf("%s: %s", prefix, text)
-	fmt.Printf("CLI Error: %s\n", errText)
-	return cli.NewExitError(errText, 1)
+  errText := fmt.Sprintf("%s: %s", prefix, text)
+  fmt.Printf("CLI Error: %s\n", errText)
+  return cli.NewExitError(errText, 1)
 }
 
 func makeErrFromError(prefix string, err error, code int) error {
-	return makeErr(prefix, err.Error(), code)
+  return makeErr(prefix, err.Error(), code)
 }
 
+
 func setupApp() (app *cli.App) {
+
+	// clear these values so we can call this multiple time for testing
+	debug = false
+	appInitialized = false
+	rootPath = ""
+	devPath = ""
+	name = ""
+	mutableContext = MutableContext{map[string]string{}, map[string]interface{}{}}
+
 	app = cli.NewApp()
 	app.Name = "hcdev"
 	app.Usage = "holochain dev command line tool"
@@ -64,6 +95,26 @@ func setupApp() (app *cli.App) {
 			Name:        "path",
 			Usage:       "path to chain source definition directory (default: current working dir)",
 			Destination: &devPath,
+		},
+		cli.StringFlag{
+			Name:        "port",
+			Usage:       "port on which to run the... something",
+			Destination: &port,
+		},
+		cli.BoolFlag{
+			Name:        "mdns",
+			Usage:       "whether to use mdns for local peer discovery",
+			Destination: &mdns,
+		},
+		cli.StringFlag{
+			Name:        "logPrefix",
+			Usage:       "the prefix to put at the front of log messages",
+			Destination: &logPrefix,
+		},
+		cli.StringFlag{
+			Name:        "bootstrapServer",
+			Usage:       "url of bootstrap server or '_' for none",
+			Destination: &bootstrapServer,
 		},
 		cli.StringFlag{
 			Name:        "bridgeTo",
@@ -98,7 +149,7 @@ func setupApp() (app *cli.App) {
 				},
 				cli.StringFlag{
 					Name:        "clone",
-					Usage:       "path to directory from which to clone the app",
+					Usage:       "path from which to clone the app",
 					Destination: &clonePath,
 				},
 				cli.StringFlag{
@@ -115,7 +166,7 @@ func setupApp() (app *cli.App) {
 			ArgsUsage: "<name>",
 			Action: func(c *cli.Context) error {
 				if appInitialized {
-					return makeErr("init", "current directory is an initialized app, apps shouldn't be nested", 1)
+					return makeErr("init", fmt.Sprintf("%s is an initialized app, apps shouldn't be nested", devPath), 1)
 				}
 
 				args := c.Args()
@@ -213,10 +264,6 @@ func setupApp() (app *cli.App) {
 					}
 
 					fmt.Printf("initialized %s from scaffold:%s\n", devPath, scaffoldPath)
-
-				} else if cmd.IsFile(filepath.Join(devPath, "dna", "dna.json")) {
-					cmd.OsExecPipes(cmd.GolangHolochainDir("bin", "holochain.app.init.interactive"))
-					ranScript = true
 				} else {
 
 					// build empty app template
@@ -252,29 +299,63 @@ func setupApp() (app *cli.App) {
 			Aliases:   []string{"t"},
 			ArgsUsage: "no args run's all stand-alone | [test file prefix] | [scenario] [role]",
 			Usage:     "run chain's stand-alone or scenario tests",
+			Flags: []cli.Flag{
+				cli.StringFlag{
+					Name:        "syncPausePath",
+					Usage:       "path to wait for multinode test sync",
+					Destination: &syncPausePath,
+				},
+        cli.IntFlag{
+          Name:        "syncPauseUntil",
+          Usage:       "unix timestamp - sync tests to run at this time",
+          Destination: &syncPauseUntil,
+        },
+			},
 			Action: func(c *cli.Context) error {
-				var err error
+				if debug {
+					// fmt.Printf("\nHC: hcdev.go: test: testScenario: h: %v\n", spew.Sdump(os.Environ()))
+          fmt.Printf("\nHC: hcdev.go: test: start\n")
+				}
+
+        var err error
 				var h *holo.Holochain
 				h, err = getHolochain(c, service)
 				if err != nil {
 					return err
 				}
+        fmt.Printf("HC: hcdev.go: test: initialised holochain\n")
 
-				err = activateBridgedApps(service)
+				fmt.Printf("HC: hcdev.go: test: activating bridge apps\n")
+        err = activateBridgedApps(service)
 				if err != nil {
 					return err
 				}
+        fmt.Printf("HC: hcdev.go: test: activated bridge apps\n")
+
 
 				args := c.Args()
 				var errs []error
 
 				if len(args) == 2 {
-					dir := filepath.Join(h.TestPath(), args[0])
+					fmt.Printf("HC: hcdev.go: test: scenario\n")
+
+          dir := filepath.Join(h.TestPath(), args[0])
 					role := args[1]
+          fmt.Printf("HC: hcdev.go: test: scenario(%v, %v)\n", dir, role)
+
+          fmt.Printf("HC: hcdev.go: test: scenario(%v, %v): paused at: %v\n", dir, role, time.Now())
+          if syncPauseUntil != 0 {
+            // IntFlag converts the string into int64 anyway. This explicit conversion is valid
+            time.Sleep(cmd.GetDuration_fromUnixTimestamp(int64(syncPauseUntil)))
+          }
+          fmt.Printf("HC: hcdev.go: test: scenario(%v, %v): continuing at: %v\n", dir, role, time.Now())
 
 					err, errs = h.TestScenario(dir, role)
 					if err != nil {
 						return err
+					}
+					if debug && false {
+						fmt.Printf("\n\nHC: hcdev.go: test: testScenario: h: %v\n", spew.Sdump(h))
 					}
 				} else if len(args) == 1 {
 					errs = h.TestOne(args[0])
@@ -315,6 +396,108 @@ func setupApp() (app *cli.App) {
 				}
 				// terminates go process
 				cmd.ExecBinScript("holochain.app.testScenario", args[0])
+				return nil
+			},
+		},
+		{
+			Name:      "goScenario",
+			Aliases:   []string{"S"},
+			Usage:     "run a scenario test",
+			ArgsUsage: "scenario-name",
+			Action: func(c *cli.Context) error {
+				mutableContext.str["command"] = "goScenario"
+
+				if !appInitialized {
+					return errors.New("please initialize this app with 'hcdev init'")
+				}
+
+				args := c.Args()
+				if len(args) != 1 {
+					return errors.New("missing scenario name argument")
+				}
+				scenarioName := args[0]
+
+				// get the holochain from the source that we are supposed to be testing
+				h, err := getHolochain(c, service)
+				if err != nil {
+					return err
+				}
+				// mutableContext.obj["initialHolochain"] = h
+				testScenarioList, err := h.GetTestScenarios()
+				if err != nil {
+					return err
+				}
+				mutableContext.obj["testScenarioList"] = &testScenarioList
+
+				// confirm the user chosen scenario name
+				//   TODO add this to code completion
+				if _, ok := testScenarioList[scenarioName]; !ok {
+					return errors.New("HC: hcdev.go: goScenario: source argument is not directory in /test. scenario name must match directory name")
+				}
+				mutableContext.str["testScenarioName"] = scenarioName
+
+				// get list of roles
+				roleList, err := h.GetTestScenarioRoles(scenarioName)
+				if err != nil {
+					return err
+				}
+				mutableContext.obj["testScenarioRoleList"] = &roleList
+
+				// run a bunch of hcdev test processes
+				rootExecDir, err := cmd.MakeTmpDir("hcdev_test.go/$NOW")
+				for roleIndex, roleName := range roleList {
+					if debug {
+            fmt.Printf("HC: hcdev.go: goScenario: forRole(%v): start\n\n", roleName)
+          }
+          // HOLOCHAINCONFIG_PORT       = FindSomeAvailablePort
+					// HOLOCHAINCONFIG_ENABLEMDNS = "true" or HOLOCHAINCONFIG_BOOTSTRAP = "ip[localhost]:port[3142]
+					// HOLOCHAINCONFIG_LOGPREFIX  = role
+
+					freePort, err := cmd.GetFreePort()
+					if err != nil {
+						return err
+					}
+          if debug {
+            fmt.Printf("HC: hcdev.go: goScenario: forRole(%v): port: %v\n\n", roleName, freePort)
+          }
+
+          colorByNumbers := []string{"green", "blue", "yellow", "cyan", "magenta", "red"}
+					env := append(
+						[]string{
+							"HOLOCHAINCONFIG_PORT=" + strconv.Itoa(freePort),
+							"HOLOCHAINCONFIG_ENABLEMDNS=true",
+							"HOLOCHAINCONFIG_LOGPREFIX=" + roleName,
+						},
+						os.Environ()...,
+					)
+					env = env
+
+					testCommand := cmd.OsExecPipes_noRun(
+						"hcdev",
+						"-debug",
+						"-path="+devPath,
+						"-execpath="+filepath.Join(rootExecDir, roleName),
+						"-port="+strconv.Itoa(freePort),
+						"-mdns=true",
+						"-logPrefix="+"%{color:"+colorByNumbers[roleIndex]+"}"+roleName+": ",
+						"-bootstrapServer=_",
+						"test", 
+              fmt.Sprintf("-syncPauseUntil=%v", cmd.GetUnixTimestamp_secondsFromNow(10)) , 
+              scenarioName, 
+              roleName,
+					)
+
+					mutableContext.obj["testCommand."+roleName] = &testCommand
+
+					if debug {
+            fmt.Printf("HC: hcdev.go: goScenario: forRole(%v): testCommandPerpared: %v\n", roleName, testCommand)
+          }
+					testCommand.Start()
+          if debug {
+            fmt.Printf("HC: hcdev.go: goScenario: forRole(%v): testCommandStarted\n", roleName)
+          }
+				}
+
 				return nil
 			},
 		},
@@ -393,12 +576,43 @@ func setupApp() (app *cli.App) {
 	}
 
 	app.Before = func(c *cli.Context) error {
+		lastRunContext = c
+
+		var err error
+
+		if port != "" {
+			err = os.Setenv("HOLOCHAINCONFIG_PORT", port)
+			if err != nil {
+				return err
+			}
+		}
+		if mdns != false {
+			err = os.Setenv("HOLOCHAINCONFIG_ENABLEMDNS", "true")
+			if err != nil {
+				return err
+			}
+		}
+		if logPrefix != "" {
+			os.Setenv("HOLOCHAINCONFIG_LOGPREFIX", logPrefix)
+			if err != nil {
+				return err
+			}
+		}
+		if bootstrapServer != "" {
+			os.Setenv("HOLOCHAINCONFIG_BOOTSTRAP", bootstrapServer)
+			if err != nil {
+				return err
+			}
+		}
+
 		if debug {
+			fmt.Printf("args:%v\n", c.Args())
 			os.Setenv("DEBUG", "1")
+
+			// fmt.Printf("hcdev.go: Before: os.Environ: %v\n\n", spew.Sdump(os.Environ()))
 		}
 		holo.InitializeHolochain()
 
-		var err error
 		if devPath == "" {
 			devPath, err = os.Getwd()
 			if err != nil {
@@ -466,7 +680,7 @@ func main() {
 
 	err := app.Run(os.Args)
 	if err != nil {
-		fmt.Printf("Error: %v\n", err)
+		fmt.Printf("Error: hcdev.go: %v\n", err)
 		os.Exit(1)
 	}
 }
@@ -592,6 +806,10 @@ func activate(h *holo.Holochain, port string) (err error) {
 	go h.DHT().Gossip(2 * time.Second)
 	ui.NewWebServer(h, port).Start()
 	return
+}
+
+func GetLastRunContext() (MutableContext, *cli.Context) {
+	return mutableContext, lastRunContext
 }
 
 func doClone(s *holo.Service, clonePath, devPath string) (err error) {

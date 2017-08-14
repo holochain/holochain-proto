@@ -30,6 +30,8 @@ sync post.up
 releaseTime=`date +%s-%N`
 echo "$HOSTNAME > starting hc at: $releaseTime"
 
+# this runs the template that was copied into the location
+#   default at time of writing is hc.testScenario.role.template
 $clusterDir/hc/$HOSTNAME
 
 cnys hc.sync.complete hc.sync.complete.$HOSTNAME

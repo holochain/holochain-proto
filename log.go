@@ -18,12 +18,16 @@ import (
 
 // Logger holds logger configuration
 type Logger struct {
+	Name    string
 	Enabled bool
 	Format  string
 	f       string
 	tf      string
 	color   *color.Color
 	w       io.Writer
+
+	Prefix      string
+	PrefixColor *color.Color
 }
 
 func (l *Logger) setupColor(f string) (colorResult *color.Color, result string) {
@@ -102,6 +106,14 @@ func (l *Logger) New(w io.Writer) (err error) {
 	return
 }
 
+func (l *Logger) SetPrefix(prefixFormat string) {
+	l.PrefixColor, l.Prefix = l.setupColor(prefixFormat)
+
+	if IsDebugging() {
+		fmt.Printf("HC: log.go: name: %v, SetPrefix(%v), prefixColor: %v, prefixFormat: %v\n", l.Name, prefixFormat, l.PrefixColor, l.Prefix)
+	}
+}
+
 func (l *Logger) parse(m string) (output string) {
 	var t *time.Time
 	if l.tf != "" {
@@ -126,12 +138,24 @@ func (l *Logger) p(m interface{}) {
 
 func (l *Logger) pf(m string, args ...interface{}) {
 	if l != nil && l.Enabled {
+		l.prefixPrint()
 		f := l.parse(m)
 		if l.color != nil {
 			l.color.Fprintf(l.w, f+"\n", args...)
 		} else {
 			fmt.Fprintf(l.w, f+"\n", args...)
 		}
+	}
+}
+
+func (l *Logger) prefixPrint(args ...interface{}) {
+	if IsDebugging() {
+		fmt.Printf("HC: log.go: name: %v, prefixPrint: prefixColor: %v, prefix: %v\n", l.Name, l.PrefixColor, l.Prefix)
+	}
+	if l.PrefixColor != nil {
+		l.PrefixColor.Fprintf(l.w, l.Prefix, args...)
+	} else {
+		fmt.Fprintf(l.w, l.Prefix, args...)
 	}
 }
 

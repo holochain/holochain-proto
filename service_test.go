@@ -3,7 +3,6 @@ package holochain
 import (
 	"bytes"
 	"fmt"
-	"github.com/fatih/color"
 	ic "github.com/libp2p/go-libp2p-crypto"
 	. "github.com/smartystreets/goconvey/convey"
 	"os"
@@ -291,7 +290,7 @@ func TestMakeConfig(t *testing.T) {
 		So(h.config.Loggers.App.Format, ShouldEqual, "%{color:cyan}%{message}")
 
 	})
-	cyanColor := color.New(color.FgCyan)
+
 	Convey("make config should produce default config from OS env overridden values", t, func() {
 		os.Setenv("HOLOCHAINCONFIG_PORT", "12345")
 		os.Setenv("HOLOCHAINCONFIG_ENABLEMDNS", "true")
@@ -303,7 +302,7 @@ func TestMakeConfig(t *testing.T) {
 		So(h.config.EnableMDNS, ShouldBeTrue)
 		So(h.config.Loggers.App.Format, ShouldEqual, "%{color:cyan}%{message}")
 		So(h.config.Loggers.App.Prefix, ShouldEqual, "prefix:")
-		So(h.config.Loggers.App.PrefixColor, ShouldEqual, cyanColor)
+		So(h.config.Loggers.App.PrefixColor, ShouldEqual, h.config.Loggers.App.GetColor("cyan"))
 		So(h.config.BootstrapServer, ShouldEqual, "")
 	})
 }

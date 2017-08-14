@@ -502,12 +502,12 @@ func makeConfig(h *Holochain, s *Service) (err error) {
 		PeerModeAuthor:  s.Settings.DefaultPeerModeAuthor,
 		BootstrapServer: s.Settings.DefaultBootstrapServer,
 		Loggers: Loggers{
-			App:        Logger{Format: "%{color:cyan}%{message}", Enabled: true},
-			DHT:        Logger{Format: "%{color:yellow}%{time} DHT: %{message}"},
-			Gossip:     Logger{Format: "%{color:blue}%{time} Gossip: %{message}"},
-			TestPassed: Logger{Format: "%{color:green}%{message}", Enabled: true},
-			TestFailed: Logger{Format: "%{color:red}%{message}", Enabled: true},
-			TestInfo:   Logger{Format: "%{message}", Enabled: true},
+			App:        Logger{Name: "App", Format: "%{color:cyan}%{message}", Enabled: true},
+			DHT:        Logger{Name: "DHT", Format: "%{color:yellow}%{time} DHT: %{message}"},
+			Gossip:     Logger{Name: "Gossip", Format: "%{color:blue}%{time} Gossip: %{message}"},
+			TestPassed: Logger{Name: "TestPassed", Format: "%{color:green}%{message}", Enabled: true},
+			TestFailed: Logger{Name: "TestFailed", Format: "%{color:red}%{message}", Enabled: true},
+			TestInfo:   Logger{Name: "TestInfo", Format: "%{message}", Enabled: true},
 		},
 	}
 
@@ -552,12 +552,12 @@ func makeConfig(h *Holochain, s *Service) (err error) {
 	val = os.Getenv("HOLOCHAINCONFIG_LOGPREFIX")
 	if val != "" {
 		Debugf("makeConfig: using environment variable to set log prefix to: %s", val)
-		h.config.Loggers.App.Format = val + h.config.Loggers.App.Format
-		h.config.Loggers.DHT.Format = val + h.config.Loggers.DHT.Format
-		h.config.Loggers.Gossip.Format = val + h.config.Loggers.Gossip.Format
-		h.config.Loggers.TestPassed.Format = val + h.config.Loggers.TestPassed.Format
-		h.config.Loggers.TestFailed.Format = val + h.config.Loggers.TestFailed.Format
-		h.config.Loggers.TestInfo.Format = val + h.config.Loggers.TestInfo.Format
+		h.config.Loggers.App.SetPrefix(val)
+		h.config.Loggers.DHT.SetPrefix(val)
+		h.config.Loggers.Gossip.SetPrefix(val)
+		h.config.Loggers.TestPassed.SetPrefix(val)
+		h.config.Loggers.TestFailed.SetPrefix(val)
+		h.config.Loggers.TestInfo.SetPrefix(val)
 
 		if IsDebugging() {
 			fmt.Printf("HC: service.go: makeConfig: using environment variable to set logPrefix to:       %v\n", val)

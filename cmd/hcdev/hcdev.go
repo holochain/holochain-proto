@@ -414,7 +414,7 @@ func setupApp() (app *cli.App) {
 
 				// run a bunch of hcdev test processes
 				rootExecDir, err := cmd.MakeTmpDir("hcdev_test.go/$NOW")
-				for _, roleName := range roleList {
+				for roleIndex, roleName := range roleList {
 					if debug {
             fmt.Printf("HC: hcdev.go: goScenario: forRole(%v): start\n\n", roleName)
           }
@@ -430,6 +430,7 @@ func setupApp() (app *cli.App) {
             fmt.Printf("HC: hcdev.go: goScenario: forRole(%v): port: %v\n\n", roleName, freePort)
           }
 
+          colorByNumbers := []string{"green", "blue", "yellow", "cyan", "magenta", "red"}
 					env := append(
 						[]string{
 							"HOLOCHAINCONFIG_PORT=" + strconv.Itoa(freePort),
@@ -447,7 +448,7 @@ func setupApp() (app *cli.App) {
 						"-execpath="+filepath.Join(rootExecDir, roleName),
 						"-port="+strconv.Itoa(freePort),
 						"-mdns=true",
-						"-logPrefix="+roleName,
+						"-logPrefix="+"%{color:"+colorByNumbers[roleIndex]+"}"+roleName+": ",
 						"-bootstrapServer=_",
 						"test", 
               fmt.Sprintf("-syncPauseUntil=%v", cmd.GetUnixTimestamp_secondsFromNow(10)) , 

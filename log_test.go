@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"fmt"
 	. "github.com/smartystreets/goconvey/convey"
-	"strings"
 	"testing"
 	"time"
 )

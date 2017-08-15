@@ -21,6 +21,7 @@ func TestSetupApp(t *testing.T) {
 }
 
 func TestInit(t *testing.T) {
+	os.Setenv("HCDEV_TESTING", "true")
 	tmpTestDir, err := ioutil.TempDir("", "holochain.testing.hcdev")
 	if err != nil {
 		panic(err)
@@ -59,17 +60,38 @@ func TestInit(t *testing.T) {
 		So(cmd.IsFile(filepath.Join(tmpTestDir, "bar", "ui", "foo.js")), ShouldBeTrue)
 	})
 
-	Convey("'init bar --cloneExample=clutter myClutter' should copy files from github", t, func() {
+	Convey("'init bar --cloneExample=clutter' should copy files from github", t, func() {
 		err = os.Chdir(tmpTestDir)
 		if err != nil {
 			panic(err)
 		}
 
-		os.Args = []string{"hcdev", "init", "-cloneExample=clutter", "myClutter"}
+		// it should clone with the same name as the repo
+		os.Args = []string{"hcdev", "init", "-cloneExample=clutter"}
+		err = app.Run(os.Args)
+		So(err, ShouldBeNil)
+		So(cmd.IsFile(filepath.Join(tmpTestDir, "clutter", "dna", "clutter", "clutter.js")), ShouldBeTrue)
 
+		// or with a specified name
+		err = os.Chdir(tmpTestDir)
+		if err != nil {
+			panic(err)
+		}
+		os.Args = []string{"hcdev", "init", "-cloneExample=clutter", "myClutter"}
 		err = app.Run(os.Args)
 		So(err, ShouldBeNil)
 		So(cmd.IsFile(filepath.Join(tmpTestDir, "myClutter", "dna", "clutter", "clutter.js")), ShouldBeTrue)
+
+		// but fail if the directory is already there
+		err = os.Chdir(tmpTestDir)
+		if err != nil {
+			panic(err)
+		}
+		os.Args = []string{"hcdev", "init", "-cloneExample=clutter"}
+		err = app.Run(os.Args)
+		So(err, ShouldNotBeNil)
+		So(os.Getenv("HCDEV_TESTING_EXITERR"), ShouldEqual, "1")
+
 	})
 
 }

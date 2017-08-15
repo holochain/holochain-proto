@@ -33,7 +33,7 @@ func TestNewChainFromFile(t *testing.T) {
 		c, err = NewChainFromFile(hashSpec, path)
 		So(err, ShouldBeNil)
 		So(c.s, ShouldNotBeNil)
-		So(fileExists(path), ShouldBeTrue)
+		So(FileExists(path), ShouldBeTrue)
 	})
 
 	e := GobEntry{C: "some data1"}

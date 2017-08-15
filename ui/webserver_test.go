@@ -19,7 +19,8 @@ func TestMain(m *testing.M) {
 func TestWebServer(t *testing.T) {
 	d, _, h := PrepareTestChain("test")
 	defer CleanupTestDir(d)
-	go NewWebServer(h, "31415").Start()
+	ws := NewWebServer(h, "31415")
+	ws.Start()
 	time.Sleep(time.Second * 1)
 	Convey("it should should return the index page", t, func() {
 		resp, err := http.Get("http://0.0.0.0:31415")
@@ -76,5 +77,6 @@ func TestWebServer(t *testing.T) {
 		So(err, ShouldBeNil)
 		So(string(b), ShouldEqual, "en")
 	})
-
+	ws.Stop()
+	ws.Wait()
 }

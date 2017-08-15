@@ -296,7 +296,7 @@ func (a *ActionDebug) Args() []Arg {
 }
 
 func (a *ActionDebug) Do(h *Holochain) (response interface{}, err error) {
-	h.config.Loggers.App.p(a.msg)
+	h.Config.Loggers.App.p(a.msg)
 	return
 }
 

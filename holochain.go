@@ -69,7 +69,7 @@ type Holochain struct {
 	agent            Agent
 	encodingFormat   string
 	hashSpec         HashSpec
-	config           Config
+	Config           Config
 	dht              *DHT
 	nucleus          *Nucleus
 	node             *Node
@@ -82,6 +82,10 @@ type Holochain struct {
 
 func (h *Holochain) Nucleus() (n *Nucleus) {
 	return h.nucleus
+}
+
+func (h *Holochain) Chain() (n *Chain) {
+	return h.chain
 }
 
 var debugLog Logger
@@ -213,6 +217,11 @@ func (h *Holochain) Agent() Agent {
 	return h.agent
 }
 
+// NodeIDStr exposes the agent element
+func (h *Holochain) NodeIDStr() string {
+	return h.nodeIDStr
+}
+
 // PrepareHashType makes sure the given string is a correct multi-hash and stores
 // the code and length to the Holochain struct
 func (h *Holochain) PrepareHashType() (err error) {
@@ -227,7 +236,7 @@ func (h *Holochain) PrepareHashType() (err error) {
 
 // createNode creates a network node based on the current agent and port data
 func (h *Holochain) createNode() (err error) {
-	listenaddr := fmt.Sprintf("/ip4/0.0.0.0/tcp/%d", h.config.Port)
+	listenaddr := fmt.Sprintf("/ip4/0.0.0.0/tcp/%d", h.Config.Port)
 	h.node, err = NewNode(listenaddr, h.dnaHash.String(), h.Agent().(*LibP2PAgent))
 	return
 }
@@ -268,13 +277,13 @@ func (h *Holochain) Prepare() (err error) {
 func (h *Holochain) Activate() (err error) {
 	Debugf("Activating  %v", h.dnaHash)
 
-	if h.config.EnableMDNS {
+	if h.Config.EnableMDNS {
 		err = h.node.EnableMDNSDiscovery(h, time.Second)
 		if err != nil {
 			return
 		}
 	}
-	if h.config.BootstrapServer != "" {
+	if h.Config.BootstrapServer != "" {
 		e := h.BSpost()
 		if e != nil {
 			h.dht.dlog.Logf("error in BSpost: %s", e.Error())
@@ -284,13 +293,13 @@ func (h *Holochain) Activate() (err error) {
 			h.dht.dlog.Logf("error in BSget: %s", e.Error())
 		}
 	}
-	if h.config.PeerModeDHTNode {
+	if h.Config.PeerModeDHTNode {
 		if err = h.dht.Start(); err != nil {
 			return
 		}
 
 	}
-	if h.config.PeerModeAuthor {
+	if h.Config.PeerModeAuthor {
 		if err = h.nucleus.Start(); err != nil {
 			return
 		}
@@ -326,6 +335,11 @@ func (h *Holochain) DNAHash() (id Hash) {
 // AgentHash returns the hash of the Agent entry
 func (h *Holochain) AgentHash() (id Hash) {
 	return h.agentHash.Clone()
+}
+
+// AgentHash returns the hash of the Agent entry
+func (h *Holochain) AgentTopHash() (id Hash) {
+	return h.agentTopHash.Clone()
 }
 
 // Top returns a hash of top header or err if not yet defined
@@ -397,7 +411,7 @@ func (h *Holochain) GenChain() (headerHash Hash, err error) {
 	h.agentHash = agentHash
 	h.agentTopHash = agentHash
 
-	if err = writeFile([]byte(h.dnaHash.String()), h.rootPath, DNAHashFileName); err != nil {
+	if err = WriteFile([]byte(h.dnaHash.String()), h.rootPath, DNAHashFileName); err != nil {
 		return
 	}
 
@@ -419,22 +433,22 @@ func (h *Holochain) GenChain() (headerHash Hash, err error) {
 }
 
 func (h *Holochain) setupConfig() (err error) {
-	if err = h.config.Loggers.App.New(nil); err != nil {
+	if err = h.Config.Loggers.App.New(nil); err != nil {
 		return
 	}
-	if err = h.config.Loggers.DHT.New(nil); err != nil {
+	if err = h.Config.Loggers.DHT.New(nil); err != nil {
 		return
 	}
-	if err = h.config.Loggers.Gossip.New(nil); err != nil {
+	if err = h.Config.Loggers.Gossip.New(nil); err != nil {
 		return
 	}
-	if err = h.config.Loggers.TestPassed.New(nil); err != nil {
+	if err = h.Config.Loggers.TestPassed.New(nil); err != nil {
 		return
 	}
-	if err = h.config.Loggers.TestFailed.New(nil); err != nil {
+	if err = h.Config.Loggers.TestFailed.New(nil); err != nil {
 		return
 	}
-	if err = h.config.Loggers.TestInfo.New(nil); err != nil {
+	if err = h.Config.Loggers.TestInfo.New(nil); err != nil {
 		return
 	}
 	return
@@ -662,10 +676,6 @@ func (h *Holochain) VerifySignature(signature []byte, data string, pubKey ic.Pub
 	return
 }
 
-func (h *Holochain) Chain() *Chain {
-	return h.chain
-}
-
 type BridgeSpec map[string]map[string]bool
 
 // AddBridgeAsCallee registers a token for allowing bridged calls from some other app
@@ -842,8 +852,4 @@ func (h *Holochain) GetBridgeToken(hash Hash) (token string, url string, err err
 		return
 	})
 	return
-}
-
-func (h *Holochain) Config() *Config {
-	return &h.config
 }

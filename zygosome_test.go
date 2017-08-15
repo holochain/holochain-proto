@@ -211,7 +211,7 @@ func TestZygoBridgeGenesis(t *testing.T) {
 
 	fakeToApp, _ := NewHash("QmVGtdTZdTFaLsaj2RwdVG8jcjNNcp1DE914DKZ2kHmXHx")
 	Convey("it should fail if the bridge genesis function returns false", t, func() {
-		ShouldLog(&h.config.Loggers.App, h.dnaHash.String()+" test data", func() {
+		ShouldLog(&h.Config.Loggers.App, h.dnaHash.String()+" test data", func() {
 			z, err := NewZygoRibosome(h, &Zome{RibosomeType: ZygoRibosomeType, Code: `(defn bridgeGenesis [side app data] (begin (debug (concat app " " data)) false))`})
 			So(err, ShouldBeNil)
 			err = z.BridgeGenesis(BridgeFrom, h.dnaHash, "test data")
@@ -219,7 +219,7 @@ func TestZygoBridgeGenesis(t *testing.T) {
 		})
 	})
 	Convey("it should work if the bridge genesis function returns true", t, func() {
-		ShouldLog(&h.config.Loggers.App, fakeToApp.String()+" test data", func() {
+		ShouldLog(&h.Config.Loggers.App, fakeToApp.String()+" test data", func() {
 			z, err := NewZygoRibosome(h, &Zome{RibosomeType: ZygoRibosomeType, Code: `(defn bridgeGenesis [side app data] (begin (debug (concat app " " data)) true))`})
 			So(err, ShouldBeNil)
 			err = z.BridgeGenesis(BridgeTo, fakeToApp, "test data")
@@ -280,14 +280,14 @@ func TestZybuildValidate(t *testing.T) {
 func TestZyValidateCommit(t *testing.T) {
 	a, _ := NewAgent(LibP2P, "Joe")
 	h := NewHolochain(a, "some/path", "yaml", Zome{RibosomeType: ZygoRibosomeType})
-	h.config.Loggers.App.New(nil)
+	h.Config.Loggers.App.New(nil)
 	hdr := mkTestHeader("evenNumbers")
 
 	Convey("it should be passing in the correct values", t, func() {
 		v, err := NewZygoRibosome(&h, &Zome{RibosomeType: ZygoRibosomeType, Code: `(defn validateCommit [name entry header pkg sources] (debug name) (debug entry) (debug header) (debug sources) (debug pkg) true)`})
 		So(err, ShouldBeNil)
 		d := EntryDef{Name: "evenNumbers", DataFormat: DataFormatString}
-		ShouldLog(&h.config.Loggers.App, `evenNumbers
+		ShouldLog(&h.Config.Loggers.App, `evenNumbers
 foo
 {"EntryLink":"QmNiCwBNA8MWDADTFVq1BonUEJbS2SvjAoNkZZrhEwcuU2", "Type":"evenNumbers", "Time":"1970-01-01T00:00:01Z"}
 ["fakehashvalue"]

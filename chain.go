@@ -71,7 +71,7 @@ func NewChainFromFile(spec HashSpec, path string) (c *Chain, err error) {
 	c = NewChain(spec)
 
 	var f *os.File
-	if fileExists(path) {
+	if FileExists(path) {
 		f, err = os.Open(path)
 		if err != nil {
 			return

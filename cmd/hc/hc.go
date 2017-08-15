@@ -10,6 +10,7 @@ import (
 	"errors"
 	"fmt"
 	holo "github.com/metacurrency/holochain"
+	. "github.com/metacurrency/holochain/apptest"
 	"github.com/metacurrency/holochain/ui"
 	"github.com/urfave/cli"
 	"os"
@@ -160,14 +161,14 @@ func setupApp() (app *cli.App) {
 					dir := h.TestPath() + "/" + args[1]
 					role := args[2]
 
-					err, errs = h.TestScenario(dir, role)
+					err, errs = TestScenario(h, dir, role)
 					if err != nil {
 						return err
 					}
 				} else if len(args) != 1 {
 					return errors.New("test: expected 0 args or 2 (scenario and role)")
 				} else {
-					errs = h.Test(nil)
+					errs = Test(h, nil)
 				}
 
 				var s string
@@ -259,7 +260,9 @@ func setupApp() (app *cli.App) {
 				//				go h.DHT().HandleChangeReqs()
 				go h.DHT().HandleGossipWiths()
 				go h.DHT().Gossip(2 * time.Second)
-				ui.NewWebServer(h, port).Start()
+				ws := ui.NewWebServer(h, port)
+				ws.Start()
+				ws.Wait()
 				return err
 			},
 		},

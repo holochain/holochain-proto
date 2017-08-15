@@ -264,7 +264,7 @@ func TestJSBridgeGenesis(t *testing.T) {
 	fakeToApp, _ := NewHash("QmVGtdTZdTFaLsaj2RwdVG8jcjNNcp1DE914DKZ2kHmXHx")
 	Convey("it should fail if the bridge genesis function returns false", t, func() {
 
-		ShouldLog(&h.config.Loggers.App, h.dnaHash.String()+" test data", func() {
+		ShouldLog(&h.Config.Loggers.App, h.dnaHash.String()+" test data", func() {
 			z, err := NewJSRibosome(h, &Zome{RibosomeType: JSRibosomeType, Code: `function bridgeGenesis(side,app,data) {debug(app+" "+data);if (side==HC.Bridge.From) {return false;} return true;}`})
 			So(err, ShouldBeNil)
 			err = z.BridgeGenesis(BridgeFrom, h.dnaHash, "test data")
@@ -272,7 +272,7 @@ func TestJSBridgeGenesis(t *testing.T) {
 		})
 	})
 	Convey("it should work if the genesis function returns true", t, func() {
-		ShouldLog(&h.config.Loggers.App, fakeToApp.String()+" test data", func() {
+		ShouldLog(&h.Config.Loggers.App, fakeToApp.String()+" test data", func() {
 			z, _ := NewJSRibosome(h, &Zome{RibosomeType: JSRibosomeType, Code: `function bridgeGenesis(side,app,data) {debug(app+" "+data);if (side==HC.Bridge.From) {return false;} return true;}`})
 			err := z.BridgeGenesis(BridgeTo, fakeToApp, "test data")
 			So(err, ShouldBeNil)
@@ -323,8 +323,8 @@ func TestJSValidateCommit(t *testing.T) {
 	//	a, _ := NewAgent(LibP2P, "Joe")
 	//	h := NewHolochain(a, "some/path", "yaml", Zome{RibosomeType:JSRibosomeType,})
 	//	a := h.agent
-	h.config.Loggers.App.Format = ""
-	h.config.Loggers.App.New(nil)
+	h.Config.Loggers.App.Format = ""
+	h.Config.Loggers.App.New(nil)
 	hdr := mkTestHeader("evenNumbers")
 	pkg, _ := MakePackage(h, PackagingReq{PkgReqChain: int64(PkgReqChainOptFull)})
 	vpkg, _ := MakeValidationPackage(h, &pkg)
@@ -333,7 +333,7 @@ func TestJSValidateCommit(t *testing.T) {
 		v, err := NewJSRibosome(h, &Zome{RibosomeType: JSRibosomeType, Code: `function validateCommit(name,entry,header,pkg,sources) {debug(name);debug(entry);debug(JSON.stringify(header));debug(JSON.stringify(sources));debug(JSON.stringify(pkg));return true};`})
 		So(err, ShouldBeNil)
 		d := EntryDef{Name: "evenNumbers", DataFormat: DataFormatString}
-		ShouldLog(&h.config.Loggers.App, `evenNumbers
+		ShouldLog(&h.Config.Loggers.App, `evenNumbers
 foo
 {"EntryLink":"QmNiCwBNA8MWDADTFVq1BonUEJbS2SvjAoNkZZrhEwcuU2","Time":"1970-01-01T00:00:01Z","Type":"evenNumbers"}
 ["fakehashvalue"]

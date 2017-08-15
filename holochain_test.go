@@ -76,7 +76,7 @@ func TestPrepare(t *testing.T) {
 
 	})
 	Convey("it should return no err if the requires version is correct", t, func() {
-		d, _, h := setupTestChain("test")
+		d, _, h := SetupTestChain("test")
 		defer CleanupTestDir(d)
 		dna := DNA{DHTConfig: DHTConfig{HashType: "sha1"}, RequiresVersion: Version}
 		h.nucleus = NewNucleus(h, &dna)
@@ -225,7 +225,7 @@ func TestHeader(t *testing.T) {
 }
 
 func TestAddAgentEntry(t *testing.T) {
-	d, _, h := setupTestChain("test")
+	d, _, h := SetupTestChain("test")
 	defer CleanupTestDir(d)
 
 	Convey("it should add an agent entry to the chain", t, func() {
@@ -249,7 +249,7 @@ func TestAddAgentEntry(t *testing.T) {
 }
 
 func TestGenChain(t *testing.T) {
-	d, _, h := setupTestChain("test")
+	d, _, h := SetupTestChain("test")
 	defer CleanupTestDir(d)
 	var err error
 
@@ -335,7 +335,7 @@ func TestWalk(t *testing.T) {
 }
 
 func TestGetZome(t *testing.T) {
-	d, _, h := setupTestChain("test")
+	d, _, h := SetupTestChain("test")
 	defer CleanupTestDir(d)
 	Convey("it should fail if the zome isn't defined in the DNA", t, func() {
 		_, err := h.GetZome("bogusZome")
@@ -349,7 +349,7 @@ func TestGetZome(t *testing.T) {
 }
 
 func TestMakeRibosome(t *testing.T) {
-	d, _, h := setupTestChain("test")
+	d, _, h := SetupTestChain("test")
 	defer CleanupTestDir(d)
 	Convey("it should fail if the zome isn't defined in the DNA", t, func() {
 		_, _, err := h.MakeRibosome("bogusZome")
@@ -463,7 +463,7 @@ func TestBridgeSpecMake(t *testing.T) {
 }
 
 func TestBridgeStore(t *testing.T) {
-	d, _, h := setupTestChain("test")
+	d, _, h := SetupTestChain("test")
 	defer CleanupTestDir(d)
 
 	hash, _ := NewHash("QmVGtdTZdTFaLsaj2RwdVG8jcjNNcp1DE914DKZ2kHmXHw")
@@ -477,25 +477,6 @@ func TestBridgeStore(t *testing.T) {
 		So(t, ShouldEqual, token)
 		So(u, ShouldEqual, url)
 	})
-}
-
-func TestLoadTestFiles(t *testing.T) {
-	d, _, h := setupTestChain("test")
-	defer CleanupTestDir(d)
-
-	Convey("it should fail if there's no test data", t, func() {
-		tests, err := LoadTestFiles(d)
-		So(tests, ShouldBeNil)
-		So(err.Error(), ShouldEqual, "no test files found in: "+d)
-	})
-
-	Convey("it should load test files", t, func() {
-		path := filepath.Join(h.rootPath, ChainTestDir)
-		tests, err := LoadTestFiles(path)
-		So(err, ShouldBeNil)
-		So(len(tests), ShouldEqual, 9)
-	})
-
 }
 
 func TestCommit(t *testing.T) {

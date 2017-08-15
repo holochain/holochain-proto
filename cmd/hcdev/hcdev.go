@@ -10,6 +10,7 @@ import (
 	"errors"
 	"fmt"
 	holo "github.com/metacurrency/holochain"
+	. "github.com/metacurrency/holochain/apptest"
 	"github.com/metacurrency/holochain/cmd"
 	"github.com/metacurrency/holochain/ui"
 	"github.com/urfave/cli"
@@ -255,7 +256,7 @@ func setupApp() (app *cli.App) {
 			Action: func(c *cli.Context) error {
 				var err error
 				var h *holo.Holochain
-				var bridgeApps []holo.BridgeApp
+				var bridgeApps []BridgeApp
 				h, bridgeApps, err = getHolochain(c, service)
 				if err != nil {
 					return err
@@ -268,14 +269,14 @@ func setupApp() (app *cli.App) {
 					dir := filepath.Join(h.TestPath(), args[0])
 					role := args[1]
 
-					err, errs = h.TestScenario(dir, role)
+					err, errs = TestScenario(h, dir, role)
 					if err != nil {
 						return err
 					}
 				} else if len(args) == 1 {
-					errs = h.TestOne(args[0], bridgeApps)
+					errs = TestOne(h, args[0], bridgeApps)
 				} else if len(args) == 0 {
-					errs = h.Test(bridgeApps)
+					errs = Test(h, bridgeApps)
 				} else {
 					return errors.New("test: expected 0 args (run all stand-alone tests), 1 arg (a single stand-alone test) or 2 args (scenario and role)")
 				}
@@ -464,7 +465,7 @@ func main() {
 	app.Run(os.Args)
 }
 
-func getHolochain(c *cli.Context, service *holo.Service) (h *holo.Holochain, bridgeApps []holo.BridgeApp, err error) {
+func getHolochain(c *cli.Context, service *holo.Service) (h *holo.Holochain, bridgeApps []BridgeApp, err error) {
 	fmt.Printf("Copying chain to: %s\n", rootPath)
 	err = os.RemoveAll(filepath.Join(rootPath, name))
 	if err != nil {
@@ -485,7 +486,7 @@ func getHolochain(c *cli.Context, service *holo.Service) (h *holo.Holochain, bri
 		return
 	}
 
-	bridgeApps = make([]holo.BridgeApp, 0)
+	bridgeApps = make([]BridgeApp, 0)
 
 	if bridgeToPath != "" {
 		bridgeToH, err = bridge(service, h, agent, bridgeToPath, holo.BridgeFrom)
@@ -493,7 +494,7 @@ func getHolochain(c *cli.Context, service *holo.Service) (h *holo.Holochain, bri
 			return
 		}
 		bridgeApps = append(bridgeApps,
-			holo.BridgeApp{
+			BridgeApp{
 				H:    bridgeToH,
 				Side: holo.BridgeTo,
 				Data: bridgeToAppData,
@@ -505,7 +506,7 @@ func getHolochain(c *cli.Context, service *holo.Service) (h *holo.Holochain, bri
 			return
 		}
 		bridgeApps = append(bridgeApps,
-			holo.BridgeApp{
+			BridgeApp{
 				H:    bridgeFromH,
 				Side: holo.BridgeFrom,
 				Data: bridgeFromAppData,
@@ -573,7 +574,9 @@ func activate(h *holo.Holochain, port string) (err error) {
 	//				go h.DHT().HandleChangeReqs()
 	go h.DHT().HandleGossipWiths()
 	go h.DHT().Gossip(2 * time.Second)
-	ui.NewWebServer(h, port).Start()
+	ws := ui.NewWebServer(h, port)
+	ws.Start()
+	ws.Wait()
 	return
 }
 

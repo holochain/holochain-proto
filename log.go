@@ -30,6 +30,26 @@ type Logger struct {
 	PrefixColor *color.Color
 }
 
+var colorMap map[string]*color.Color
+
+func (h *Logger) GetColor(colorName string) *color.Color {
+	if _, ok := colorMap["red"]; !ok {
+		colorMap = make(map[string]*color.Color)
+		colorMap["red"] = color.New(color.FgRed)
+		colorMap["blue"] = color.New(color.FgBlue)
+		colorMap["green"] = color.New(color.FgGreen)
+		colorMap["yellow"] = color.New(color.FgYellow)
+		colorMap["white"] = color.New(color.FgWhite)
+		colorMap["cyan"] = color.New(color.FgCyan)
+		colorMap["magenta"] = color.New(color.FgMagenta)
+	}
+	if val, ok := colorMap[colorName]; ok {
+		return val
+	} else {
+		return colorMap["white"]
+	}
+}
+
 func (l *Logger) setupColor(f string) (colorResult *color.Color, result string) {
 	re := regexp.MustCompile(`(.*)\%\{color:([^\}]+)\}(.*)`)
 	x := re.FindStringSubmatch(f)
@@ -42,24 +62,7 @@ func (l *Logger) setupColor(f string) (colorResult *color.Color, result string) 
 	}
 
 	if txtColor != "" {
-		var c color.Attribute
-		switch txtColor {
-		case "red":
-			c = color.FgRed
-		case "blue":
-			c = color.FgBlue
-		case "green":
-			c = color.FgGreen
-		case "yellow":
-			c = color.FgYellow
-		case "white":
-			c = color.FgWhite
-		case "cyan":
-			c = color.FgCyan
-		case "magenta":
-			c = color.FgMagenta
-		}
-		colorResult = color.New(c)
+		colorResult = l.GetColor(txtColor)
 	}
 	return
 }
@@ -149,9 +152,8 @@ func (l *Logger) pf(m string, args ...interface{}) {
 }
 
 func (l *Logger) prefixPrint(args ...interface{}) {
-	if IsDebugging() {
-		fmt.Printf("HC: log.go: name: %v, prefixPrint: prefixColor: %v, prefix: %v\n", l.Name, l.PrefixColor, l.Prefix)
-	}
+	//Debugf("HC: log.go: name: %v, prefixPrint: prefixColor: %v, prefix: %v\n", l.Name, l.PrefixColor, l.Prefix)
+
 	if l.PrefixColor != nil {
 		l.PrefixColor.Fprintf(l.w, l.Prefix, args...)
 	} else {

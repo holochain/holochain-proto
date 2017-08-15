@@ -528,32 +528,11 @@ func _makeConfig(s *Service) (config Config, err error) {
 		}
 		// Debugf("makeConfig: using environment variable to set bootstrap server to: %s", val)
 	}
-	val = os.Getenv("HOLOCHAINCONFIG_ENABLEMDNS")
-	if val != "" {
-		config.EnableMDNS = val == "true"
-	}
+
 	val = os.Getenv("HOLOCHAINCONFIG_ENABLEMDNS")
 	if val != "" {
 		Debugf("makeConfig: using environment variable to set enableMDNS to: %s", val)
 		config.EnableMDNS = val == "true"
-
-		if IsDebugging() {
-			fmt.Printf("HC: service.go: makeConfig: using environment variable to set enableMDNS to:      %v\n", val)
-		}
-	}
-	val = os.Getenv("HOLOCHAINCONFIG_LOGPREFIX")
-	if val != "" {
-		//		Debugf("makeConfig: using environment variable to set log prefix to: %s", val)
-		config.Loggers.App.SetPrefix(val)
-		config.Loggers.DHT.SetPrefix(val)
-		config.Loggers.Gossip.SetPrefix(val)
-		config.Loggers.TestPassed.SetPrefix(val)
-		config.Loggers.TestFailed.SetPrefix(val)
-		config.Loggers.TestInfo.SetPrefix(val)
-
-		if IsDebugging() {
-			fmt.Printf("HC: service.go: makeConfig: using environment variable to set logPrefix to:       %v\n", val)
-		}
 	}
 	return
 }

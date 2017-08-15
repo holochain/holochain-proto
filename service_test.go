@@ -346,10 +346,11 @@ func TestMakeConfig(t *testing.T) {
 		So(h.config.Loggers.App.Format, ShouldEqual, "%{color:cyan}%{message}")
 
 	})
+
 	Convey("make config should produce default config from OS env overridden values", t, func() {
 		os.Setenv("HOLOCHAINCONFIG_PORT", "12345")
 		os.Setenv("HOLOCHAINCONFIG_ENABLEMDNS", "true")
-		os.Setenv("HOLOCHAINCONFIG_LOGPREFIX", "prefix:")
+		os.Setenv("HOLOCHAINCONFIG_LOGPREFIX", "prefix:%{color:cyan}")
 		os.Setenv("HOLOCHAINCONFIG_BOOTSTRAP", "_")
 		err := makeConfig(h, s)
 		So(err, ShouldBeNil)
@@ -357,6 +358,7 @@ func TestMakeConfig(t *testing.T) {
 		So(h.config.EnableMDNS, ShouldBeTrue)
 		So(h.config.Loggers.App.Format, ShouldEqual, "%{color:cyan}%{message}")
 		So(h.config.Loggers.App.Prefix, ShouldEqual, "prefix:")
+		So(h.config.Loggers.App.PrefixColor, ShouldEqual, h.config.Loggers.App.GetColor("cyan"))
 		So(h.config.BootstrapServer, ShouldEqual, "")
 	})
 }

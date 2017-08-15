@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	. "github.com/smartystreets/goconvey/convey"
+	"strings"
 	"testing"
 	"time"
 )
@@ -71,4 +72,21 @@ func TestNewLog(t *testing.T) {
 		now := time.Unix(1, 1)
 		So(l._parse("fish", &now), ShouldEqual, now.Format(time.Stamp)+":fish")
 	})
+
+	Convey("it should log with a prefix", t, func() {
+		var buf bytes.Buffer
+		l := Logger{
+			Enabled: true,
+		}
+		l.New(&buf)
+
+		l.Log("onefish")
+		l.SetPrefix("[PREFIX]")
+		l.Log("twofish")
+		l.SetPrefix("%{color:red}[COLOR PREFIX]")
+		l.Log("threefish")
+		So(buf.String(), ShouldEqual, "onefish\n[PREFIX]twofish\n\033[31m[COLOR PREFIX]\033[0mthreefish\n")
+
+	})
+
 }

@@ -418,11 +418,23 @@ func (h *Holochain) setupConfig() (err error) {
 	if err = h.config.Loggers.TestPassed.New(nil); err != nil {
 		return
 	}
-	if err = h.config.Loggers.TestFailed.New(nil); err != nil {
+	if err = h.config.Loggers.TestFailed.New(os.Stderr); err != nil {
 		return
 	}
 	if err = h.config.Loggers.TestInfo.New(nil); err != nil {
 		return
+	}
+	val := os.Getenv("HOLOCHAINCONFIG_LOGPREFIX")
+	if val != "" {
+		Debugf("setupConfig: using environment variable to set log prefix to: %s", val)
+		h.config.Loggers.App.SetPrefix(val)
+		h.config.Loggers.DHT.SetPrefix(val)
+		h.config.Loggers.Gossip.SetPrefix(val)
+		h.config.Loggers.TestPassed.SetPrefix(val)
+		h.config.Loggers.TestFailed.SetPrefix(val)
+		h.config.Loggers.TestInfo.SetPrefix(val)
+		debugLog.SetPrefix(val)
+		infoLog.SetPrefix(val)
 	}
 	return
 }

@@ -26,17 +26,17 @@ func TestSetupApp(t *testing.T) {
 func TestGoScenario_cliCommand(t *testing.T) {
 	app := setupApp()
 
-	testCommand := []string{"hcdev", "-debug", "goScenario"}
+	testCommand := []string{"hcdev", "-debug", "scenario"}
 	app.Run(testCommand)
 
 	// collect information about the execution of the command
 	mutableContext, lastRunContext = GetLastRunContext()
 
-	Convey("run the goScenario command", t, func() {
+	Convey("run the scenario command", t, func() {
 		if debug {
 			fmt.Printf("HC: hcdev_test.go: TestGoScenarioCommand: mutableContext\n\n%v", spew.Sdump(mutableContext))
 		}
-		So(mutableContext.str["command"], ShouldEqual, "goScenario")
+		So(mutableContext.str["command"], ShouldEqual, "scenario")
 	})
 }
 
@@ -49,7 +49,7 @@ func TestGoScenario_RunScenarioTest(t *testing.T) {
 
 	Convey("try to build holochain without actual source", t, func() {
 		// fails because there is no holochain app here
-		testCommand := []string{"hcdev", "-debug", "goScenario"}
+		testCommand := []string{"hcdev", "-debug", "scenario"}
 		err := app.Run(testCommand)
 		// collect information about the execution of the command
 		So(err, ShouldBeError)
@@ -69,7 +69,7 @@ func TestGoScenario_RunScenarioTest(t *testing.T) {
 		os.Setenv("DEBUG", "true")
 
 		// point goScenario some app (clutterDir) and set up a working directory for the test (execDir)
-		testCommand := []string{"hcdev", "-debug", "-path", clutterDir, "-execpath", execDir, "goScenario", "followAndShare"}
+		testCommand := []string{"hcdev", "-debug", "-path", clutterDir, "-execpath", execDir, "scenario", "followAndShare"}
 		//testCommand := []string{"hcdev", "-debug", "-path", clutterDir, "-execpath", execDir, "test"}
 		So(err, ShouldBeNil)
 		err = app.Run(testCommand)

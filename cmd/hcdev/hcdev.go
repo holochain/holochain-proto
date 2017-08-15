@@ -62,6 +62,12 @@ func makeErrFromError(prefix string, err error, code int) error {
 	return makeErr(prefix, err.Error(), code)
 }
 
+func appCheck(devPath string) error {
+	if !appInitialized {
+		return fmt.Errorf("%s doesn't look like a holochain app (missing dna).  See 'hcdev init -h' for help on initializing an app.", devPath)
+	}
+	return nil
+}
 func setupApp() (app *cli.App) {
 
 	// clear these values so we can call this multiple time for testing
@@ -163,8 +169,9 @@ func setupApp() (app *cli.App) {
 			},
 			ArgsUsage: "<name>",
 			Action: func(c *cli.Context) error {
-				if appInitialized {
-					return makeErr("init", fmt.Sprintf("%s is an initialized app, apps shouldn't be nested", devPath), 1)
+
+				if err := appCheck(devPath); err != nil {
+					return err
 				}
 
 				args := c.Args()
@@ -309,8 +316,11 @@ func setupApp() (app *cli.App) {
 					// fmt.Printf("\nHC: hcdev.go: test: testScenario: h: %v\n", spew.Sdump(os.Environ()))
 					fmt.Printf("\nHC: hcdev.go: test: start\n")
 				}
-
 				var err error
+				if err = appCheck(devPath); err != nil {
+					return err
+				}
+
 				var h *holo.Holochain
 				h, err = getHolochain(c, service)
 				if err != nil {
@@ -369,38 +379,14 @@ func setupApp() (app *cli.App) {
 		},
 		{
 			Name:      "scenario",
-			Aliases:   []string{"s"},
-			Usage:     "run a scenario test",
-			ArgsUsage: "scenario-name",
-			Action: func(c *cli.Context) error {
-				if !appInitialized {
-					return errors.New("please initialize this app with 'hcdev init'")
-				}
-
-				args := c.Args()
-				if len(args) != 1 {
-					return errors.New("missing scenario name argument")
-				}
-
-				err := activateBridgedApps(service)
-				if err != nil {
-					return err
-				}
-				// terminates go process
-				cmd.ExecBinScript("holochain.app.testScenario", args[0])
-				return nil
-			},
-		},
-		{
-			Name:      "goScenario",
 			Aliases:   []string{"S"},
 			Usage:     "run a scenario test",
 			ArgsUsage: "scenario-name",
 			Action: func(c *cli.Context) error {
-				mutableContext.str["command"] = "goScenario"
+				mutableContext.str["command"] = "scenario"
 
 				if !appInitialized {
-					return errors.New("please initialize this app with 'hcdev init'")
+					return fmt.Errorf("%s doesn't look like a holochain app (missing dna).  See 'hcdev init -h' for help on initializing an app.", devPath)
 				}
 
 				args := c.Args()
@@ -455,16 +441,6 @@ func setupApp() (app *cli.App) {
 
 					colorByNumbers := []string{"green", "blue", "yellow", "cyan", "magenta", "red"}
 					logPrefix := "%{color:" + colorByNumbers[roleIndex] + "}" + roleName + ": "
-					env := append(
-						[]string{
-							"HOLOCHAINCONFIG_PORT=" + strconv.Itoa(freePort),
-							"HOLOCHAINCONFIG_ENABLEMDNS=true",
-							"HOLOCHAINCONFIG_LOGPREFIX=" + logPrefix,
-						},
-						os.Environ()...,
-					)
-					env = env
-
 					testCommand := cmd.OsExecPipes_noRun(
 						"hcdev",
 						"-debug",

@@ -9,16 +9,18 @@ package holochain
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"github.com/tidwall/buntdb"
 	"path/filepath"
 )
 
 // BridgeApp describes an app for bridging, used
 type BridgeApp struct {
-	H    *Holochain
-	Side int
-	Data string
-	Port string // only used if side == BridgeTo
+	H                     *Holochain
+	Side                  int
+	BridgeGenesisDataFrom string
+	BridgeGenesisDataTo   string
+	Port                  string // only used if side == BridgeTo
 }
 
 type BridgeSpec map[string]map[string]bool
@@ -196,5 +198,30 @@ func (h *Holochain) GetBridgeToken(hash Hash) (token string, url string, err err
 		}
 		return
 	})
+	return
+}
+
+// BuildBridge creates the bridge structures on both sides
+// assumes that GenChain has been called for both sides already
+func (h *Holochain) BuildBridge(app *BridgeApp) (err error) {
+	var hFrom, hTo *Holochain
+	if app.Side == BridgeFrom {
+		hFrom = app.H
+		hTo = h
+
+	} else {
+		hTo = app.H
+		hFrom = h
+	}
+
+	var token string
+	token, err = hTo.AddBridgeAsCallee(hFrom.DNAHash(), app.BridgeGenesisDataTo)
+	if err != nil {
+		return
+	}
+
+	// the url is currently through the webserver
+	err = hFrom.AddBridgeAsCaller(hTo.DNAHash(), token, fmt.Sprintf("http://localhost:%s", app.Port), app.BridgeGenesisDataFrom)
+
 	return
 }

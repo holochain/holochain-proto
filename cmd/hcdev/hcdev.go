@@ -306,10 +306,6 @@ func setupApp() (app *cli.App) {
 					return errors.New("missing scenario name argument")
 				}
 
-				err := activateBridgedApps(service)
-				if err != nil {
-					return err
-				}
 				// terminates go process
 				cmd.ExecBinScript("holochain.app.testScenario", args[0])
 				return nil
@@ -322,18 +318,13 @@ func setupApp() (app *cli.App) {
 			Usage:     fmt.Sprintf("serve a chain to the web on localhost:<port> (defaults to %s)", defaultPort),
 			Action: func(c *cli.Context) error {
 
-				h, _, err := getHolochain(c, service)
+				h, bridgeApps, err := getHolochain(c, service)
 				if err != nil {
 					return err
 				}
 
 				h.Close()
 				h, err = service.GenChain(name)
-
-				if err != nil {
-					return err
-				}
-				err = activateBridgedApps(service)
 				if err != nil {
 					return err
 				}
@@ -345,7 +336,22 @@ func setupApp() (app *cli.App) {
 					port = c.Args()[0]
 				}
 
-				err = activate(h, port)
+				var ws *ui.WebServer
+				ws, err = activate(h, port)
+				if err != nil {
+					return err
+				}
+
+				var bridgeAppServers []*ui.WebServer
+				bridgeAppServers, err = BuildBridges(h, bridgeApps)
+				if err != nil {
+					return err
+				}
+				ws.Wait()
+				for _, server := range bridgeAppServers {
+					server.Stop()
+				}
+
 				return err
 			},
 		},
@@ -488,6 +494,15 @@ func getHolochain(c *cli.Context, service *holo.Service) (h *holo.Holochain, bri
 
 	bridgeApps = make([]holo.BridgeApp, 0)
 
+	if bridgeToPath != "" && bridgeFromPath != "" {
+		if bridgeFromAppData != "" || bridgeToAppData != "" {
+			// TODO The reason for this is that we have no way of collecting the
+			// separate to&from app data that would be needed for both apps.
+			err = errors.New("hcdev currently only supports one bridge app if passing in appData")
+			return
+		}
+	}
+
 	if bridgeToPath != "" {
 		bridgeToH, err = bridge(service, h, agent, bridgeToPath, holo.BridgeFrom)
 		if err != nil {
@@ -497,8 +512,9 @@ func getHolochain(c *cli.Context, service *holo.Service) (h *holo.Holochain, bri
 			holo.BridgeApp{
 				H:    bridgeToH,
 				Side: holo.BridgeTo,
-				Data: bridgeToAppData,
-				Port: bridgeToPort})
+				BridgeGenesisDataFrom: bridgeFromAppData,
+				BridgeGenesisDataTo:   bridgeToAppData,
+				Port:                  bridgeToPort})
 	}
 	if bridgeFromPath != "" {
 		bridgeFromH, err = bridge(service, h, agent, bridgeFromPath, holo.BridgeTo)
@@ -509,8 +525,9 @@ func getHolochain(c *cli.Context, service *holo.Service) (h *holo.Holochain, bri
 			holo.BridgeApp{
 				H:    bridgeFromH,
 				Side: holo.BridgeFrom,
-				Data: bridgeFromAppData,
-				Port: bridgeFromPort})
+				BridgeGenesisDataFrom: bridgeFromAppData,
+				BridgeGenesisDataTo:   bridgeToAppData,
+				Port:                  bridgeFromPort})
 	}
 	return
 }
@@ -537,35 +554,14 @@ func bridge(service *holo.Service, h *holo.Holochain, agent holo.Agent, path str
 		return
 	}
 
-	bridgeH, err = service.GenChain(bridgeName)
+	bridgeH, err = service.Load(bridgeName)
 	if err != nil {
 		return
 	}
 	return
 }
 
-func activateBridgedApp(s *holo.Service, h *holo.Holochain, name string, port string) (err error) {
-	go activate(h, port)
-	return
-}
-
-func activateBridgedApps(s *holo.Service) (err error) {
-	if bridgeFromH != nil {
-		err = activateBridgedApp(s, bridgeFromH, bridgeFromName, bridgeFromPort)
-		if err != nil {
-			return
-		}
-	}
-	if bridgeToH != nil {
-		err = activateBridgedApp(s, bridgeToH, bridgeToName, bridgeToPort)
-		if err != nil {
-			return
-		}
-	}
-	return
-}
-
-func activate(h *holo.Holochain, port string) (err error) {
+func activate(h *holo.Holochain, port string) (ws *ui.WebServer, err error) {
 	fmt.Printf("Serving holochain with DNA hash:%v on port:%s\n", h.DNAHash(), port)
 	err = h.Activate()
 	if err != nil {
@@ -574,9 +570,8 @@ func activate(h *holo.Holochain, port string) (err error) {
 	//				go h.DHT().HandleChangeReqs()
 	go h.DHT().HandleGossipWiths()
 	go h.DHT().Gossip(2 * time.Second)
-	ws := ui.NewWebServer(h, port)
+	ws = ui.NewWebServer(h, port)
 	ws.Start()
-	ws.Wait()
 	return
 }
 

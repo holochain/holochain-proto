@@ -386,20 +386,44 @@ func TestOne(h *Holochain, one string, bridgeApps []BridgeApp) []error {
 	return test(h, one, bridgeApps)
 }
 
-func startChainClean(h *Holochain) {
-	var err error
-	err = h.Reset()
-	if err != nil {
-		panic("reset err")
+func InitChain(h *Holochain, reset bool) (err error) {
+	if reset {
+		err = h.Reset()
+		if err != nil {
+			return
+		}
 	}
 	_, err = h.GenChain()
 	if err != nil {
-		panic("gen err " + err.Error())
+		return
 	}
 	err = h.Activate()
 	if err != nil {
-		panic("activate err " + err.Error())
+		return
 	}
+	return
+}
+
+func BuildBridges(h *Holochain, bridgeApps []BridgeApp) (bridgeAppServers []*ui.WebServer, err error) {
+	bridgeAppServers = make([]*ui.WebServer, len(bridgeApps))
+
+	// setup any bridges
+	for i, app := range bridgeApps {
+		InitChain(app.H, true)
+		if err != nil {
+			err = fmt.Errorf("couldn't initialize bridge for %s for test. err:%v", app.H.DNAHash().String(), err.Error())
+			return
+		}
+
+		err = h.BuildBridge(&app)
+		if err != nil {
+			panic(err)
+		}
+
+		bridgeAppServers[i] = ui.NewWebServer(app.H, app.Port)
+		bridgeAppServers[i].Start()
+	}
+	return
 }
 
 func test(h *Holochain, one string, bridgeApps []BridgeApp) []error {
@@ -430,47 +454,24 @@ func test(h *Holochain, one string, bridgeApps []BridgeApp) []error {
 		info.Logf("Test: '%s' starting...", name)
 		info.Log("========================================")
 		// setup the genesis entries
-		startChainClean(h)
-
-		bridgeAppServers := make([]*ui.WebServer, len(bridgeApps))
-
-		// setup any bridges
-		for i, app := range bridgeApps {
-			startChainClean(app.H)
-
-			var hFrom, hTo *Holochain
-			if app.Side == BridgeFrom {
-				hFrom = app.H
-				hTo = h
-
-			} else {
-				hTo = app.H
-				hFrom = h
-			}
-
-			var token string
-			token, err = hTo.AddBridgeAsCallee(hFrom.DNAHash(), app.Data)
-			if err != nil {
-				panic(err)
-			}
-
-			// the url is through the webserver
-			err = hFrom.AddBridgeAsCaller(hTo.DNAHash(), token, fmt.Sprintf("http://localhost:%s", app.Port), app.Data)
-			if err != nil {
-				panic(err)
-			}
-
-			bridgeAppServers[i] = ui.NewWebServer(app.H, app.Port)
-			bridgeAppServers[i].Start()
+		err = InitChain(h, true)
+		if err != nil {
+			panic("couldn't initialize chain for test. err:" + err.Error())
 		}
+
+		var bridgeAppServers []*ui.WebServer
+		bridgeAppServers, err = BuildBridges(h, bridgeApps)
+		if err != nil {
+			panic("couldn't build bridges for test. err:" + err.Error())
+		}
+
 		//	go h.dht.HandleChangeReqs()
 		ers := DoTests(h, name, ts, 0)
 
-		// stop all the bridge server
+		// stop all the bridge web servers
 		for _, server := range bridgeAppServers {
 			server.Stop()
 		}
-
 		// then wait for them to complete
 		for _, server := range bridgeAppServers {
 			server.Wait()

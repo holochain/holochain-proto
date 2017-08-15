@@ -404,7 +404,7 @@ func InitChain(h *Holochain, reset bool) (err error) {
 	return
 }
 
-func BuildBridges(h *Holochain, bridgeApps []BridgeApp) (bridgeAppServers []*ui.WebServer, err error) {
+func BuildBridges(h *Holochain, port string, bridgeApps []BridgeApp) (bridgeAppServers []*ui.WebServer, err error) {
 	bridgeAppServers = make([]*ui.WebServer, len(bridgeApps))
 
 	// setup any bridges
@@ -415,7 +415,7 @@ func BuildBridges(h *Holochain, bridgeApps []BridgeApp) (bridgeAppServers []*ui.
 			return
 		}
 
-		err = h.BuildBridge(&app)
+		err = h.BuildBridge(&app, port)
 		if err != nil {
 			panic(err)
 		}
@@ -460,7 +460,7 @@ func test(h *Holochain, one string, bridgeApps []BridgeApp) []error {
 		}
 
 		var bridgeAppServers []*ui.WebServer
-		bridgeAppServers, err = BuildBridges(h, bridgeApps)
+		bridgeAppServers, err = BuildBridges(h, "", bridgeApps)
 		if err != nil {
 			panic("couldn't build bridges for test. err:" + err.Error())
 		}

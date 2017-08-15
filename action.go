@@ -455,7 +455,6 @@ func (a *ActionBridge) Args() []Arg {
 func (a *ActionBridge) Do(h *Holochain) (response interface{}, err error) {
 	body := bytes.NewBuffer([]byte(a.args.(string)))
 	response, err = http.Post(fmt.Sprintf("%s/bridge/%s/%s/%s", a.url, a.token, a.zome, a.function), "", body)
-	response, err = h.BridgeCall(a.zome, a.function, a.args, a.token)
 	return
 }
 

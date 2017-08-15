@@ -34,7 +34,7 @@ func TestNewZygoRibosome(t *testing.T) {
 		_, err = z.Run("App_Name")
 		So(err, ShouldBeNil)
 		s := z.lastResult.(*zygo.SexpStr).S
-		So(s, ShouldEqual, h.nucleus.dna.Name)
+		So(s, ShouldEqual, h.Name())
 		_, err = z.Run("App_DNA_Hash")
 		So(err, ShouldBeNil)
 		s = z.lastResult.(*zygo.SexpStr).S

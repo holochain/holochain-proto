@@ -130,7 +130,7 @@ func TestCloneNew(t *testing.T) {
 		h, err := s.Load(name) // reload to confirm that it got saved correctly
 		So(err, ShouldBeNil)
 
-		So(h.nucleus.dna.Name, ShouldEqual, "test2")
+		So(h.Name(), ShouldEqual, "test2")
 		So(h.nucleus.dna.UUID, ShouldNotEqual, h0.nucleus.dna.UUID)
 
 		agent, err := LoadAgent(s.Path)
@@ -180,7 +180,7 @@ func TestCloneJoin(t *testing.T) {
 		h, err := s.Load(name) // reload to confirm that it got saved correctly
 		So(err, ShouldBeNil)
 
-		So(h.nucleus.dna.Name, ShouldEqual, "test")
+		So(h.Name(), ShouldEqual, "test")
 		So(h.nucleus.dna.UUID, ShouldEqual, h0.nucleus.dna.UUID)
 		agent, err := LoadAgent(s.Path)
 		So(err, ShouldBeNil)

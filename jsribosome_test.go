@@ -37,7 +37,7 @@ func TestNewJSRibosome(t *testing.T) {
 		_, err = z.Run("App.Name")
 		So(err, ShouldBeNil)
 		s, _ := z.lastResult.ToString()
-		So(s, ShouldEqual, h.nucleus.dna.Name)
+		So(s, ShouldEqual, h.Name())
 
 		_, err = z.Run("App.DNA.Hash")
 		So(err, ShouldBeNil)

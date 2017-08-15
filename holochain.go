@@ -87,6 +87,10 @@ func (h *Holochain) Chain() (n *Chain) {
 	return h.chain
 }
 
+func (h *Holochain) Name() string {
+	return h.nucleus.dna.Name
+}
+
 var debugLog Logger
 var infoLog Logger
 

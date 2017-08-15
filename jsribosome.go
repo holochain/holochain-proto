@@ -988,7 +988,7 @@ func NewJSRibosome(h *Holochain, zome *Zome) (n Ribosome, err error) {
 
 	l := JSLibrary
 	if h != nil {
-		l += fmt.Sprintf(`var App = {Name:"%s",DNA:{Hash:"%s"},Agent:{Hash:"%s",TopHash:"%s",String:"%s"},Key:{Hash:"%s"}};`, h.nucleus.dna.Name, h.dnaHash, h.agentHash, h.agentTopHash, h.Agent().Identity(), h.nodeIDStr)
+		l += fmt.Sprintf(`var App = {Name:"%s",DNA:{Hash:"%s"},Agent:{Hash:"%s",TopHash:"%s",String:"%s"},Key:{Hash:"%s"}};`, h.Name(), h.dnaHash, h.agentHash, h.agentTopHash, h.Agent().Identity(), h.nodeIDStr)
 	}
 	_, err = jsr.Run(l + zome.Code)
 	if err != nil {

@@ -30,7 +30,7 @@ var BridgeAppNotFoundErr = errors.New("bridge app not found")
 // AddBridgeAsCallee registers a token for allowing bridged calls from some other app
 // and calls bridgeGenesis in any zomes with bridge functions
 func (h *Holochain) AddBridgeAsCallee(fromDNA Hash, appData string) (token string, err error) {
-	Debugf("Adding bridge to %s from %v with appData: %s", h.nucleus.dna.Name, fromDNA, appData)
+	Debugf("Adding bridge to %s from %v with appData: %s", h.Name(), fromDNA, appData)
 	err = h.initBridgeDB()
 	if err != nil {
 		return
@@ -111,6 +111,7 @@ func (h *Holochain) BridgeCall(zomeType string, function string, arguments inter
 		return
 	}
 	c := Capability{Token: token, db: h.bridgeDB}
+
 	var bridgeSpecStr string
 	bridgeSpecStr, err = c.Validate(nil)
 	if err == nil {
@@ -140,7 +141,7 @@ func (h *Holochain) BridgeCall(zomeType string, function string, arguments inter
 // AddBridgeAsCaller associates a token with an application DNA hash and url for accessing it
 // it also runs BridgeGenesis for the From side
 func (h *Holochain) AddBridgeAsCaller(toDNA Hash, token string, url string, appData string) (err error) {
-	Debugf("Adding bridge from %s to %v with appData: %s", h.nucleus.dna.Name, toDNA, appData)
+	Debugf("Adding bridge from %s to %v with appData: %s", h.Name(), toDNA, appData)
 	err = h.initBridgeDB()
 	if err != nil {
 		return
@@ -198,20 +199,23 @@ func (h *Holochain) GetBridgeToken(hash Hash) (token string, url string, err err
 		}
 		return
 	})
+	Debugf("found bridge token %s with url %s for %s", token, url, hash.String())
 	return
 }
 
 // BuildBridge creates the bridge structures on both sides
 // assumes that GenChain has been called for both sides already
-func (h *Holochain) BuildBridge(app *BridgeApp) (err error) {
+func (h *Holochain) BuildBridge(app *BridgeApp, port string) (err error) {
 	var hFrom, hTo *Holochain
+	var toPort string
 	if app.Side == BridgeFrom {
 		hFrom = app.H
 		hTo = h
-
+		toPort = port
 	} else {
 		hTo = app.H
 		hFrom = h
+		toPort = app.Port
 	}
 
 	var token string
@@ -219,9 +223,10 @@ func (h *Holochain) BuildBridge(app *BridgeApp) (err error) {
 	if err != nil {
 		return
 	}
+	Debugf("%s received token %s from %s\n", hFrom.Name(), token, hTo.Name())
 
 	// the url is currently through the webserver
-	err = hFrom.AddBridgeAsCaller(hTo.DNAHash(), token, fmt.Sprintf("http://localhost:%s", app.Port), app.BridgeGenesisDataFrom)
+	err = hFrom.AddBridgeAsCaller(hTo.DNAHash(), token, fmt.Sprintf("http://localhost:%s", toPort), app.BridgeGenesisDataFrom)
 
 	return
 }

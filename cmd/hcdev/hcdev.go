@@ -343,7 +343,7 @@ func setupApp() (app *cli.App) {
 				}
 
 				var bridgeAppServers []*ui.WebServer
-				bridgeAppServers, err = BuildBridges(h, bridgeApps)
+				bridgeAppServers, err = BuildBridges(h, port, bridgeApps)
 				if err != nil {
 					return err
 				}

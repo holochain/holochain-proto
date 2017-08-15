@@ -975,7 +975,7 @@ func NewZygoRibosome(h *Holochain, zome *Zome) (n Ribosome, err error) {
 
 	l := ZygoLibrary
 	if h != nil {
-		z.env.AddGlobal("App_Name", &zygo.SexpStr{S: h.nucleus.dna.Name})
+		z.env.AddGlobal("App_Name", &zygo.SexpStr{S: h.Name()})
 		z.env.AddGlobal("App_DNA_Hash", &zygo.SexpStr{S: h.dnaHash.String()})
 		z.env.AddGlobal("App_Key_Hash", &appKeyHash)
 		z.env.AddGlobal("App_Agent_String", &appAgentStr)

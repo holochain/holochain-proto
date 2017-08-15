@@ -372,14 +372,6 @@ func DoTest(h *Holochain, name string, i int, t TestData, startTime time.Time, l
 	return
 }
 
-type BridgeApp struct {
-	H    *Holochain
-	Side int
-	Data string
-	Port string // only used if side == BridgeTo
-	ws   *ui.WebServer
-}
-
 // Test loops through each of the test files in path calling the functions specified
 // This function is useful only in the context of developing a holochain and will return
 // an error if the chain has already been started (i.e. has genesis entries)
@@ -440,6 +432,8 @@ func test(h *Holochain, one string, bridgeApps []BridgeApp) []error {
 		// setup the genesis entries
 		startChainClean(h)
 
+		bridgeAppServers := make([]*ui.WebServer, len(bridgeApps))
+
 		// setup any bridges
 		for i, app := range bridgeApps {
 			startChainClean(app.H)
@@ -465,20 +459,21 @@ func test(h *Holochain, one string, bridgeApps []BridgeApp) []error {
 			if err != nil {
 				panic(err)
 			}
-			bridgeApps[i].ws = ui.NewWebServer(app.H, app.Port)
-			bridgeApps[i].ws.Start()
+
+			bridgeAppServers[i] = ui.NewWebServer(app.H, app.Port)
+			bridgeAppServers[i].Start()
 		}
 		//	go h.dht.HandleChangeReqs()
 		ers := DoTests(h, name, ts, 0)
 
 		// stop all the bridge server
-		for _, app := range bridgeApps {
-			app.ws.Stop()
+		for _, server := range bridgeAppServers {
+			server.Stop()
 		}
 
 		// then wait for them to complete
-		for _, app := range bridgeApps {
-			app.ws.Wait()
+		for _, server := range bridgeAppServers {
+			server.Wait()
 		}
 
 		errs = append(errs, ers...)

@@ -256,7 +256,7 @@ func setupApp() (app *cli.App) {
 			Action: func(c *cli.Context) error {
 				var err error
 				var h *holo.Holochain
-				var bridgeApps []BridgeApp
+				var bridgeApps []holo.BridgeApp
 				h, bridgeApps, err = getHolochain(c, service)
 				if err != nil {
 					return err
@@ -465,7 +465,7 @@ func main() {
 	app.Run(os.Args)
 }
 
-func getHolochain(c *cli.Context, service *holo.Service) (h *holo.Holochain, bridgeApps []BridgeApp, err error) {
+func getHolochain(c *cli.Context, service *holo.Service) (h *holo.Holochain, bridgeApps []holo.BridgeApp, err error) {
 	fmt.Printf("Copying chain to: %s\n", rootPath)
 	err = os.RemoveAll(filepath.Join(rootPath, name))
 	if err != nil {
@@ -486,7 +486,7 @@ func getHolochain(c *cli.Context, service *holo.Service) (h *holo.Holochain, bri
 		return
 	}
 
-	bridgeApps = make([]BridgeApp, 0)
+	bridgeApps = make([]holo.BridgeApp, 0)
 
 	if bridgeToPath != "" {
 		bridgeToH, err = bridge(service, h, agent, bridgeToPath, holo.BridgeFrom)
@@ -494,7 +494,7 @@ func getHolochain(c *cli.Context, service *holo.Service) (h *holo.Holochain, bri
 			return
 		}
 		bridgeApps = append(bridgeApps,
-			BridgeApp{
+			holo.BridgeApp{
 				H:    bridgeToH,
 				Side: holo.BridgeTo,
 				Data: bridgeToAppData,
@@ -506,7 +506,7 @@ func getHolochain(c *cli.Context, service *holo.Service) (h *holo.Holochain, bri
 			return
 		}
 		bridgeApps = append(bridgeApps,
-			BridgeApp{
+			holo.BridgeApp{
 				H:    bridgeFromH,
 				Side: holo.BridgeFrom,
 				Data: bridgeFromAppData,

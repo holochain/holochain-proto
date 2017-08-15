@@ -18,12 +18,36 @@ import (
 
 // Logger holds logger configuration
 type Logger struct {
+	Name    string
 	Enabled bool
 	Format  string
 	f       string
 	tf      string
 	color   *color.Color
 	w       io.Writer
+
+	Prefix      string
+	PrefixColor *color.Color
+}
+
+var colorMap map[string]*color.Color
+
+func (h *Logger) GetColor(colorName string) *color.Color {
+	if _, ok := colorMap["red"]; !ok {
+		colorMap = make(map[string]*color.Color)
+		colorMap["red"] = color.New(color.FgRed)
+		colorMap["blue"] = color.New(color.FgBlue)
+		colorMap["green"] = color.New(color.FgGreen)
+		colorMap["yellow"] = color.New(color.FgYellow)
+		colorMap["white"] = color.New(color.FgWhite)
+		colorMap["cyan"] = color.New(color.FgCyan)
+		colorMap["magenta"] = color.New(color.FgMagenta)
+	}
+	if val, ok := colorMap[colorName]; ok {
+		return val
+	} else {
+		return colorMap["white"]
+	}
 }
 
 func (l *Logger) setupColor(f string) (colorResult *color.Color, result string) {
@@ -38,24 +62,7 @@ func (l *Logger) setupColor(f string) (colorResult *color.Color, result string) 
 	}
 
 	if txtColor != "" {
-		var c color.Attribute
-		switch txtColor {
-		case "red":
-			c = color.FgRed
-		case "blue":
-			c = color.FgBlue
-		case "green":
-			c = color.FgGreen
-		case "yellow":
-			c = color.FgYellow
-		case "white":
-			c = color.FgWhite
-		case "cyan":
-			c = color.FgCyan
-		case "magenta":
-			c = color.FgMagenta
-		}
-		colorResult = color.New(c)
+		colorResult = l.GetColor(txtColor)
 	}
 	return
 }
@@ -102,6 +109,14 @@ func (l *Logger) New(w io.Writer) (err error) {
 	return
 }
 
+func (l *Logger) SetPrefix(prefixFormat string) {
+	l.PrefixColor, l.Prefix = l.setupColor(prefixFormat)
+
+	if IsDebugging() {
+		fmt.Printf("HC: log.go: name: %v, SetPrefix(%v), prefixColor: %v, prefixFormat: %v\n", l.Name, prefixFormat, l.PrefixColor, l.Prefix)
+	}
+}
+
 func (l *Logger) parse(m string) (output string) {
 	var t *time.Time
 	if l.tf != "" {
@@ -126,12 +141,23 @@ func (l *Logger) p(m interface{}) {
 
 func (l *Logger) pf(m string, args ...interface{}) {
 	if l != nil && l.Enabled {
+		l.prefixPrint()
 		f := l.parse(m)
 		if l.color != nil {
 			l.color.Fprintf(l.w, f+"\n", args...)
 		} else {
 			fmt.Fprintf(l.w, f+"\n", args...)
 		}
+	}
+}
+
+func (l *Logger) prefixPrint(args ...interface{}) {
+	//Debugf("HC: log.go: name: %v, prefixPrint: prefixColor: %v, prefix: %v\n", l.Name, l.PrefixColor, l.Prefix)
+
+	if l.PrefixColor != nil {
+		l.PrefixColor.Fprintf(l.w, l.Prefix, args...)
+	} else {
+		fmt.Fprintf(l.w, l.Prefix, args...)
 	}
 }
 

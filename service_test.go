@@ -27,7 +27,7 @@ func TestInit(t *testing.T) {
 
 		Convey("it should return a service with default values", func() {
 			So(s.DefaultAgent.Identity(), ShouldEqual, AgentIdentity(agent))
-			So(fmt.Sprintf("%v", s.Settings), ShouldEqual, "{true true bootstrap.holochain.net:10000}")
+			So(fmt.Sprintf("%v", s.Settings), ShouldEqual, "{true true bootstrap.holochain.net:10000 false}")
 		})
 
 		p := filepath.Join(d, DefaultDirectoryName)
@@ -123,9 +123,12 @@ func TestCloneNew(t *testing.T) {
 		panic(err)
 	}
 
-	Convey("it should create a chain from the examples directory", t, func() {
-		err = s.Clone(orig, root, agent, true)
+	Convey("it should clone a chain by copying and creating an new UUID", t, func() {
+		err = s.Clone(orig, root, agent, CloneWithNewUUID, InitializeDB)
 		So(err, ShouldBeNil)
+
+		So(dirExists(root, ChainDataDir), ShouldBeTrue)
+		So(fileExists(root, ChainDataDir, StoreFileName), ShouldBeTrue)
 
 		h, err := s.Load(name) // reload to confirm that it got saved correctly
 		So(err, ShouldBeNil)
@@ -151,7 +154,7 @@ func TestCloneNew(t *testing.T) {
 		So(compareFile(filepath.Join(orig, "dna"), h.DNAPath(), "properties_schema.json"), ShouldBeTrue)
 		So(compareFile(orig, h.rootPath, ConfigFileName+".toml"), ShouldBeTrue)
 
-		So(compareFile(filepath.Join(orig, ChainTestDir), filepath.Join(h.rootPath, ChainTestDir), "test_0.json"), ShouldBeTrue)
+		So(compareFile(filepath.Join(orig, ChainTestDir), filepath.Join(h.rootPath, ChainTestDir), "testSet1.json"), ShouldBeTrue)
 
 		So(h.nucleus.dna.Progenitor.Identity, ShouldEqual, "Herbert <h@bert.com>")
 		pk, _ := agent.PubKey().Bytes()
@@ -173,9 +176,12 @@ func TestCloneJoin(t *testing.T) {
 		panic(err)
 	}
 
-	Convey("it should create a chain from the examples directory", t, func() {
-		err = s.Clone(orig, root, agent, false)
+	Convey("it should clone a chain by copying and without creating a new UUID", t, func() {
+		err = s.Clone(orig, root, agent, CloneWithSameUUID, InitializeDB)
 		So(err, ShouldBeNil)
+
+		So(dirExists(root, ChainDataDir), ShouldBeTrue)
+		So(fileExists(root, ChainDataDir, StoreFileName), ShouldBeTrue)
 
 		h, err := s.Load(name) // reload to confirm that it got saved correctly
 		So(err, ShouldBeNil)
@@ -196,10 +202,33 @@ func TestCloneJoin(t *testing.T) {
 		So(fileExists(h.DNAPath(), "properties_schema.json"), ShouldBeTrue)
 		So(fileExists(h.rootPath, ConfigFileName+".toml"), ShouldBeTrue)
 
-		So(h.nucleus.dna.Progenitor.Identity, ShouldEqual, "Example Agent <example@example.com")
+		So(h.nucleus.dna.Progenitor.Identity, ShouldEqual, "Progenitor Agent <progenitore@example.com>")
 		pk := []byte{8, 1, 18, 32, 193, 43, 31, 148, 23, 249, 163, 154, 128, 25, 237, 167, 253, 63, 214, 220, 206, 131, 217, 74, 168, 30, 215, 237, 231, 160, 69, 89, 48, 17, 104, 210}
 		So(string(h.nucleus.dna.Progenitor.PubKey), ShouldEqual, string(pk))
 
+	})
+}
+
+func TestCloneNoDB(t *testing.T) {
+	d, s, _ := setupTestChain("test")
+	defer CleanupTestDir(d)
+
+	name := "test2"
+	root := filepath.Join(s.Path, name)
+
+	orig := filepath.Join(s.Path, "test")
+
+	agent, err := LoadAgent(s.Path)
+	if err != nil {
+		panic(err)
+	}
+
+	Convey("it should create a chain from the examples directory", t, func() {
+		err = s.Clone(orig, root, agent, CloneWithNewUUID, SkipInitializeDB)
+		So(err, ShouldBeNil)
+
+		So(dirExists(root, ChainDataDir), ShouldBeFalse)
+		So(fileExists(root, ChainDNADir, "zySampleZome", "profile.json"), ShouldBeTrue)
 	})
 }
 
@@ -219,7 +248,7 @@ func TestGenDev(t *testing.T) {
 	})
 
 	Convey("when generating a dev holochain", t, func() {
-		h, err := s.GenDev(root, "json")
+		h, err := s.GenDev(root, "json", InitializeDB)
 		So(err, ShouldBeNil)
 
 		f, err := s.IsConfigured(name)
@@ -237,14 +266,20 @@ func TestGenDev(t *testing.T) {
 		So(h.config.PeerModeDHTNode, ShouldEqual, s.Settings.DefaultPeerModeDHTNode)
 		So(h.config.PeerModeAuthor, ShouldEqual, s.Settings.DefaultPeerModeAuthor)
 		So(h.config.BootstrapServer, ShouldEqual, s.Settings.DefaultBootstrapServer)
+		So(h.config.EnableMDNS, ShouldEqual, s.Settings.DefaultEnableMDNS)
 
+		So(dirExists(root), ShouldBeTrue)
+		So(dirExists(h.DNAPath()), ShouldBeTrue)
+		So(dirExists(h.TestPath()), ShouldBeTrue)
+		So(dirExists(h.UIPath()), ShouldBeTrue)
+		So(fileExists(h.TestPath(), "sampleScenario", "listener.json"), ShouldBeTrue)
 		So(fileExists(h.DNAPath(), "zySampleZome", "profile.json"), ShouldBeTrue)
 		So(fileExists(h.UIPath(), "index.html"), ShouldBeTrue)
 		So(fileExists(h.UIPath(), "hc.js"), ShouldBeTrue)
 		So(fileExists(h.rootPath, ConfigFileName+".json"), ShouldBeTrue)
 
 		Convey("we should not be able re generate it", func() {
-			_, err = s.GenDev(root, "json")
+			_, err = s.GenDev(root, "json", SkipInitializeDB)
 			So(err.Error(), ShouldEqual, "holochain: "+root+" already exists")
 		})
 	})
@@ -256,23 +291,45 @@ func TestSaveScaffold(t *testing.T) {
 	name := "test"
 	root := filepath.Join(s.Path, name)
 
-	Convey("it should write out a scaffold file to a directory tree", t, func() {
+	Convey("it should write out a scaffold file to a directory tree with JSON encoding", t, func() {
 		scaffoldBlob := bytes.NewBuffer([]byte(BasicTemplateScaffold))
 
-		scaffold, err := s.SaveScaffold(scaffoldBlob, root, false)
+		scaffold, err := s.SaveScaffold(scaffoldBlob, root, "appName", "json", false)
 		So(err, ShouldBeNil)
 		So(scaffold, ShouldNotBeNil)
 		So(scaffold.ScaffoldVersion, ShouldEqual, ScaffoldVersion)
+		So(scaffold.DNA.Name, ShouldEqual, "appName")
 		So(dirExists(root), ShouldBeTrue)
 		So(dirExists(root, ChainDNADir), ShouldBeTrue)
 		So(dirExists(root, ChainUIDir), ShouldBeTrue)
 		So(dirExists(root, ChainTestDir), ShouldBeTrue)
+		So(dirExists(root, ChainTestDir, scaffold.Scenarios[0].Name), ShouldBeTrue)
+		So(fileExists(root, ChainTestDir, scaffold.Scenarios[0].Name, scaffold.Scenarios[0].Roles[0].Name+".json"), ShouldBeTrue)
+		So(fileExists(root, ChainTestDir, scaffold.Scenarios[0].Name, scaffold.Scenarios[0].Roles[1].Name+".json"), ShouldBeTrue)
+		So(fileExists(root, ChainTestDir, scaffold.Scenarios[0].Name, "_config.json"), ShouldBeTrue)
+
 		So(dirExists(root, ChainDNADir, "sampleZome"), ShouldBeTrue)
 		So(fileExists(root, ChainDNADir, "sampleZome", "sampleEntry.json"), ShouldBeTrue)
 		So(fileExists(root, ChainDNADir, "sampleZome", "sampleZome.js"), ShouldBeTrue)
-		So(fileExists(root, ChainDNADir, "dna.json"), ShouldBeTrue)
+		So(fileExists(root, ChainDNADir, DNAFileName+".json"), ShouldBeTrue)
 		So(fileExists(root, ChainDNADir, "properties_schema.json"), ShouldBeTrue)
 		So(fileExists(root, ChainTestDir, "sample.json"), ShouldBeTrue)
+		So(fileExists(root, ChainUIDir, "index.html"), ShouldBeTrue)
+		So(fileExists(root, ChainUIDir, "hc.js"), ShouldBeTrue)
+	})
+
+	Convey("it should write out a scaffold file to a directory tree with toml encoding", t, func() {
+		scaffoldBlob := bytes.NewBuffer([]byte(BasicTemplateScaffold))
+
+		root2 := filepath.Join(s.Path, name+"2")
+
+		scaffold, err := s.SaveScaffold(scaffoldBlob, root2, "appName", "toml", false)
+		So(err, ShouldBeNil)
+		So(scaffold, ShouldNotBeNil)
+		So(scaffold.ScaffoldVersion, ShouldEqual, ScaffoldVersion)
+		So(dirExists(root2), ShouldBeTrue)
+		So(fileExists(root2, ChainDNADir, DNAFileName+".toml"), ShouldBeTrue)
+		// the reset of the files are still saved as json...
 	})
 }
 
@@ -289,16 +346,19 @@ func TestMakeConfig(t *testing.T) {
 		So(h.config.Loggers.App.Format, ShouldEqual, "%{color:cyan}%{message}")
 
 	})
+
 	Convey("make config should produce default config from OS env overridden values", t, func() {
 		os.Setenv("HOLOCHAINCONFIG_PORT", "12345")
 		os.Setenv("HOLOCHAINCONFIG_ENABLEMDNS", "true")
-		os.Setenv("HOLOCHAINCONFIG_LOGPREFIX", "prefix:")
+		os.Setenv("HOLOCHAINCONFIG_LOGPREFIX", "prefix:%{color:cyan}")
 		os.Setenv("HOLOCHAINCONFIG_BOOTSTRAP", "_")
 		err := makeConfig(h, s)
 		So(err, ShouldBeNil)
 		So(h.config.Port, ShouldEqual, 12345)
 		So(h.config.EnableMDNS, ShouldBeTrue)
-		So(h.config.Loggers.App.Format, ShouldEqual, "prefix:%{color:cyan}%{message}")
+		So(h.config.Loggers.App.Format, ShouldEqual, "%{color:cyan}%{message}")
+		So(h.config.Loggers.App.Prefix, ShouldEqual, "prefix:")
+		So(h.config.Loggers.App.PrefixColor, ShouldEqual, h.config.Loggers.App.GetColor("cyan"))
 		So(h.config.BootstrapServer, ShouldEqual, "")
 	})
 }

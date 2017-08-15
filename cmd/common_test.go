@@ -7,6 +7,7 @@ import (
 
 	. "github.com/smartystreets/goconvey/convey"
 	"testing"
+	"time"
 
 	holo "github.com/metacurrency/holochain"
 )
@@ -14,14 +15,14 @@ import (
 func TestIsAppDir(t *testing.T) {
 	Convey("it should test to see if dir is a holochain app", t, func() {
 
-		d := holo.SetupTestDir()
-		So(IsAppDir(d).Error(), ShouldEqual, "directory missing .hc subdirectory")
-		err := os.MkdirAll(d+"/.hc", os.ModePerm)
+		d, s := holo.SetupTestService()
+		defer holo.CleanupTestDir(d)
+		So(IsAppDir(d).Error(), ShouldEqual, "directory missing dna/dna.json file")
+		h, err := s.GenDev(filepath.Join(s.Path, "test"), "json", true)
 		if err != nil {
 			panic(err)
 		}
-		defer holo.CleanupTestDir(d)
-		So(IsAppDir(d), ShouldBeNil)
+		So(IsAppDir(h.RootPath()), ShouldBeNil)
 	})
 }
 
@@ -89,4 +90,19 @@ func Test_OsExecFunctions_IsFile(t *testing.T) {
 		OsExecSilent("rm", testFile)
 		So(IsFile(testFile), ShouldEqual, false)
 	})
+}
+
+func Test_TimestampFunctions(t *testing.T) {
+	Convey("check second adder", t, func() {
+		now := time.Now().Unix()
+		So(GetUnixTimestamp_secondsFromNow(10), ShouldBeGreaterThanOrEqualTo, now+10)
+	})
+	Convey("check duration from now timestamp", t, func() {
+		targetTime := GetUnixTimestamp_secondsFromNow(10)
+		durationUntil := GetDuration_fromUnixTimestamp(targetTime)
+		// fmt.Printf("now, target, durationUntil: %v, %v, %v\n\n", time.Now(), targetTime, durationUntil)
+		So(time.Now().Add(durationUntil).After(time.Now().Add(8*time.Second)), ShouldEqual, true)
+		So(time.Now().Add(durationUntil).Before(time.Now().Add(12*time.Second)), ShouldEqual, true)
+	})
+
 }

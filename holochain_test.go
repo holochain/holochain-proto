@@ -120,7 +120,7 @@ func TestNewEntry(t *testing.T) {
 	defer CleanupTestDir(d)
 	n := "test"
 	path := filepath.Join(s.Path, n)
-	h, err := s.GenDev(path, "toml")
+	h, err := s.GenDev(path, "toml", InitializeDB)
 	if err != nil {
 		panic(err)
 	}
@@ -480,7 +480,7 @@ func TestLoadTestFiles(t *testing.T) {
 		path := filepath.Join(h.rootPath, ChainTestDir)
 		tests, err := LoadTestFiles(path)
 		So(err, ShouldBeNil)
-		So(len(tests), ShouldEqual, 9)
+		So(len(tests), ShouldEqual, 2)
 	})
 
 }

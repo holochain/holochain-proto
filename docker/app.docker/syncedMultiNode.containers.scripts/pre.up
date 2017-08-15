@@ -16,23 +16,27 @@ rm -rf /chain.seeded/devchain
 
 set -x
 
-hc init $HOSTNAME
+# hcdev init $HOSTNAME
 
 ls /chain.source -la
-hc clone /chain.source devchain
+# hcdev clone /chain.source devchain
 
-hc test devchain
+# hcdev test devchain
+hcdev test
 
-hc seed devchain
+# hcdev seed devchain
+devDirectory="/home/user/theDevDirectory"
 
+mkdir $devDirectory -p
+cp . $devDirectory -r
 
-echo "$HOSTNAME" > /home/user/.holochain/devchain/.seedID
-seedID=`cat /home/user/.holochain/devchain/.seedID`
+echo "$HOSTNAME" > $devDirectory/.seedID
+seedID=`cat $devDirectory/.seedID`
 echo "seedID: $seedID" 
 
-clusterDir="/home/user/.holochain/devchain/cluster/$seedID"
-mkdir /home/user/.holochain/devchain/cluster
-mkdir /home/user/.holochain/devchain/cluster/$seedID
+clusterDir="$devDirectory/cluster/$seedID"
+mkdir $devDirectory/cluster
+mkdir $devDirectory/cluster/$seedID
 
 # touch $clusterDir/.cluster.lock
 
@@ -40,11 +44,11 @@ mkdir /home/user/.holochain/devchain/cluster/$seedID
 # echo
 
 
-ls /home/user/.holochain
+ls $devDirectory
 
-cp /home/user/.holochain/devchain /chain.seeded -r
+cp $devDirectory /chain.seeded -r
 
-ls -la /chain.seeded/devchain
+# ls -la /chain.seeded/devchain
 
 cnys pre.up
 

@@ -422,7 +422,8 @@ func TestPrepareJSValidateArgs(t *testing.T) {
 func TestJSSanitize(t *testing.T) {
 	Convey("should strip quotes and returns", t, func() {
 		So(jsSanitizeString(`"`), ShouldEqual, `\"`)
-		So(jsSanitizeString("\"x\ny"), ShouldEqual, "\\\"xy")
+		So(jsSanitizeString(`\"`), ShouldEqual, `\\\"`)
+		So(jsSanitizeString("\"x\ny"), ShouldEqual, "\\\"x\\ny")
 	})
 }
 
@@ -456,13 +457,12 @@ func TestJSExposeCall(t *testing.T) {
 		cater, _ := zome.GetFunctionDef("testStrFn1")
 		result, err := z.Call(cater, "fish \"\nzippy\"")
 		So(err, ShouldBeNil)
-		So(result.(string), ShouldEqual, "result: fish \"zippy\"")
+		So(result.(string), ShouldEqual, "result: fish \"\nzippy\"")
 	})
-	Convey("should sanitize against bad JSON", t, func() {
+	Convey("should fail on bad JSON", t, func() {
 		times2, _ := zome.GetFunctionDef("testJsonFn1")
-		result, err := z.Call(times2, "{\"input\n\": 2}")
-		So(err, ShouldBeNil)
-		So(result.(string), ShouldEqual, `{"input":2,"output":4}`)
+		_, err := z.Call(times2, "{\"input\n\": 2}")
+		So(err, ShouldBeError)
 	})
 	Convey("should allow a function declared with JSON parameter to be called with no parameter", t, func() {
 		emptyParametersJson, _ := zome.GetFunctionDef("testJsonFn2")

@@ -21,7 +21,6 @@ import (
 	"math/rand"
 	"os"
 	"path/filepath"
-
 	"time"
 )
 
@@ -156,20 +155,6 @@ func (h *Holochain) ZomePath(z *Zome) string {
 	return filepath.Join(h.DNAPath(), z.Name)
 }
 
-// if the directories don't exist, make the place to store chains
-func (h *Holochain) mkChainDirs() (err error) {
-	if err = os.MkdirAll(h.DBPath(), os.ModePerm); err != nil {
-		return err
-	}
-	if err = os.MkdirAll(h.DNAPath(), os.ModePerm); err != nil {
-		return
-	}
-	if err = os.MkdirAll(h.UIPath(), os.ModePerm); err != nil {
-		return
-	}
-	return
-}
-
 // NewHolochain creates a new holochain structure with a randomly generated ID and default values
 func NewHolochain(agent Agent, root string, format string, zomes ...Zome) Holochain {
 	u, err := uuid.NewUUID()
@@ -293,6 +278,11 @@ func (h *Holochain) Activate() (err error) {
 		}
 	}
 	return
+}
+
+// RootPath returns a holochain root path
+func (h *Holochain) RootPath() string {
+	return h.rootPath
 }
 
 // UIPath returns a holochain UI path
@@ -428,11 +418,23 @@ func (h *Holochain) setupConfig() (err error) {
 	if err = h.config.Loggers.TestPassed.New(nil); err != nil {
 		return
 	}
-	if err = h.config.Loggers.TestFailed.New(nil); err != nil {
+	if err = h.config.Loggers.TestFailed.New(os.Stderr); err != nil {
 		return
 	}
 	if err = h.config.Loggers.TestInfo.New(nil); err != nil {
 		return
+	}
+	val := os.Getenv("HOLOCHAINCONFIG_LOGPREFIX")
+	if val != "" {
+		Debugf("setupConfig: using environment variable to set log prefix to: %s", val)
+		h.config.Loggers.App.SetPrefix(val)
+		h.config.Loggers.DHT.SetPrefix(val)
+		h.config.Loggers.Gossip.SetPrefix(val)
+		h.config.Loggers.TestPassed.SetPrefix(val)
+		h.config.Loggers.TestFailed.SetPrefix(val)
+		h.config.Loggers.TestInfo.SetPrefix(val)
+		debugLog.SetPrefix(val)
+		infoLog.SetPrefix(val)
 	}
 	return
 }

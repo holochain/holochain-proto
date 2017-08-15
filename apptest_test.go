@@ -1,6 +1,7 @@
 package holochain
 
 import (
+	"fmt"
 	. "github.com/smartystreets/goconvey/convey"
 	"os"
 	"path/filepath"
@@ -86,12 +87,30 @@ func TestTestOne(t *testing.T) {
 	Convey("it should validate on test data", t, func() {
 
 		ShouldLog(&h.config.Loggers.TestInfo, `========================================
-Test: 'test_0' starting...
+Test: 'testSet1' starting...
 ========================================
-Test 'test_0.0' t+0ms: { zySampleZome addEven 2 %h%   0s  false}
+Test 'testSet1.0' t+0ms: { zySampleZome addEven 2 %h%   0s  false}
 `, func() {
-			err := h.TestOne("test_0")
+			err := h.TestOne("testSet1")
 			So(err, ShouldBeNil)
 		})
+	})
+}
+
+func TestScenarios(t *testing.T) {
+	d, _, h := setupTestChain("test")
+	defer CleanupTestDir(d)
+	Convey("it should return list of scenarios", t, func() {
+		scenarios, err := h.GetTestScenarios()
+		So(err, ShouldBeNil)
+		_, ok := scenarios["sampleScenario"]
+		So(ok, ShouldBeTrue)
+		_, ok = scenarios["foo"]
+		So(ok, ShouldBeFalse)
+	})
+	Convey("it should return list of scenarios in a role", t, func() {
+		scenarios, err := h.GetTestScenarioRoles("sampleScenario")
+		So(err, ShouldBeNil)
+		So(fmt.Sprintf("%v", scenarios), ShouldEqual, `[listener speaker]`)
 	})
 }

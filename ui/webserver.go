@@ -187,14 +187,19 @@ func (ws *WebServer) Start() {
 	})
 
 	// set router
-	ws.log.Logf("starting server on localhost:%s\n", ws.port)
+	ws.log.Logf("Starting server on localhost:%s\n", ws.port)
 
 	ws.server = &http.Server{Addr: ":" + ws.port, Handler: mux}
 
 	go func() {
 		if err := ws.server.ListenAndServe(); err != nil {
-			ws.errs.Logf("Couldn't start server: %v", err)
-			ws.stop <- true
+			// when the server is stopped by Shutdown() ListenAndServe returns with ErrServerClosed
+			if err != http.ErrServerClosed {
+				ws.errs.Logf("Couldn't start server: %v", err)
+			} else {
+				ws.log.Logf("Server closed")
+			}
+			ws.stop <- true // set the channel to make sure it unblocks
 		}
 	}()
 }

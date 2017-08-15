@@ -415,13 +415,13 @@ func BuildBridges(h *Holochain, port string, bridgeApps []BridgeApp) (bridgeAppS
 			return
 		}
 
+		bridgeAppServers[i] = ui.NewWebServer(app.H, app.Port)
+		bridgeAppServers[i].Start()
+
 		err = h.BuildBridge(&app, port)
 		if err != nil {
 			panic(err)
 		}
-
-		bridgeAppServers[i] = ui.NewWebServer(app.H, app.Port)
-		bridgeAppServers[i].Start()
 	}
 	return
 }

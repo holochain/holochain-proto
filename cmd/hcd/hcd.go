@@ -96,7 +96,9 @@ func setupApp() (app *cli.App) {
 				fmt.Printf("Serving holochain with DNA hash:%v on port %s\n", h.DNAHash(), port)
 			}
 
-			ui.NewWebServer(h, port).Start()
+			ws := ui.NewWebServer(h, port)
+			ws.Start()
+			ws.Wait()
 			return err
 		} else if args == 0 {
 			fmt.Println(service.ListChains())

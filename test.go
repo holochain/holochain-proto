@@ -41,7 +41,7 @@ func SetupTestService() (d string, s *Service) {
 	return setupTestService()
 }
 
-func setupTestChain(n string) (d string, s *Service, h *Holochain) {
+func SetupTestChain(n string) (d string, s *Service, h *Holochain) {
 	d, s = setupTestService()
 	path := filepath.Join(s.Path, n)
 	h, err := s.GenDev(path, "toml", InitializeDB)
@@ -52,7 +52,7 @@ func setupTestChain(n string) (d string, s *Service, h *Holochain) {
 }
 
 func PrepareTestChain(n string) (d string, s *Service, h *Holochain) {
-	d, s, h = setupTestChain("test")
+	d, s, h = SetupTestChain("test")
 	_, err := h.GenChain()
 	if err != nil {
 		panic(err)
@@ -99,11 +99,11 @@ func ShouldLog(log *Logger, message string, fn func()) {
 }
 
 func compareFile(path1 string, path2 string, fileName string) bool {
-	src, err := readFile(path1, fileName)
+	src, err := ReadFile(path1, fileName)
 	if err != nil {
 		panic(err)
 	}
-	dst, _ := readFile(path2, fileName)
+	dst, _ := ReadFile(path2, fileName)
 	if err != nil {
 		panic(err)
 	}

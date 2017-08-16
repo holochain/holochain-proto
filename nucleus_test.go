@@ -17,7 +17,7 @@ func TestNewNucleus(t *testing.T) {
 	nucleus := NewNucleus(&h, &DNA{})
 	Convey("It should initialize the Nucleus struct", t, func() {
 		So(nucleus.h, ShouldEqual, &h)
-		So(nucleus.alog, ShouldEqual, &h.config.Loggers.App)
+		So(nucleus.alog, ShouldEqual, &h.Config.Loggers.App)
 	})
 }
 
@@ -26,7 +26,7 @@ func TestAppMessages(t *testing.T) {
 	defer CleanupTestDir(d)
 
 	// no need to activate DHT protocols for this test
-	h.config.PeerModeDHTNode = false
+	h.Config.PeerModeDHTNode = false
 
 	if err := h.Activate(); err != nil {
 		panic(err)

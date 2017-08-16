@@ -36,7 +36,7 @@ func (h *Holochain) BSpost() (err error) {
 	}
 	nodeID := h.nodeIDStr
 	req := BSReq{Version: 1, NodeID: nodeID, NodeAddr: h.node.NetAddr.String()}
-	host := h.config.BootstrapServer
+	host := h.Config.BootstrapServer
 	id := h.DNAHash()
 	url := fmt.Sprintf("http://%s/%s/%s", host, id.String(), nodeID)
 	var b []byte
@@ -86,7 +86,7 @@ func (h *Holochain) BSget() (err error) {
 	if h.node == nil {
 		return errors.New("Node hasn't been initialized yet.")
 	}
-	host := h.config.BootstrapServer
+	host := h.Config.BootstrapServer
 	if host == "" {
 		return
 	}

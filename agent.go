@@ -124,11 +124,11 @@ func NewAgent(agentType AgentType, identity AgentIdentity) (agent Agent, err err
 
 // SaveAgent saves out the keys and agent name to the given directory
 func SaveAgent(path string, agent Agent) (err error) {
-	writeFile([]byte(agent.Identity()), path, AgentFileName)
+	WriteFile([]byte(agent.Identity()), path, AgentFileName)
 	if err != nil {
 		return
 	}
-	if fileExists(path, PrivKeyFileName) {
+	if FileExists(path, PrivKeyFileName) {
 		return errors.New("keys already exist")
 	}
 	var k []byte
@@ -136,7 +136,7 @@ func SaveAgent(path string, agent Agent) (err error) {
 	if err != nil {
 		return
 	}
-	err = writeFile(k, path, PrivKeyFileName)
+	err = WriteFile(k, path, PrivKeyFileName)
 	os.Chmod(filepath.Join(path, PrivKeyFileName), OS_USER_R)
 	return
 }
@@ -158,14 +158,14 @@ func LoadAgent(path string) (agent Agent, err error) {
 		}
 	}
 	var identity []byte
-	identity, err = readFile(path, AgentFileName)
+	identity, err = ReadFile(path, AgentFileName)
 	if err != nil {
 		return
 	}
 	a := LibP2PAgent{
 		identity: AgentIdentity(identity),
 	}
-	k, err := readFile(path, PrivKeyFileName)
+	k, err := ReadFile(path, PrivKeyFileName)
 	if err != nil {
 		return nil, err
 	}

@@ -19,6 +19,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"time"
 )
 
 // System settings, directory, and file names
@@ -52,6 +53,12 @@ const (
 	SkipInitializeDB  = false
 )
 
+// TestConfig holds the configuration options for a test
+type TestConfig struct {
+	GossipInterval time.Duration // interval in milliseconds between gossips
+	Duration       int           // if non-zero number of seconds to keep all nodes alive
+}
+
 // ServiceConfig holds the service settings
 type ServiceConfig struct {
 	DefaultPeerModeAuthor  bool
@@ -83,7 +90,7 @@ type ZomeFile struct {
 	RibosomeType string
 	Functions    []FunctionDef
 	BridgeFuncs  []string // functions in zome that can be bridged to by fromApp
-	BridgeTo     Hash     // dna Hash of toApp for zomes to be included in the fromApp
+	BridgeTo     string   // dna Hash of toApp that this zome is a client of
 }
 
 type DNAFile struct {
@@ -99,9 +106,23 @@ type DNAFile struct {
 	Progenitor           Progenitor
 }
 
+// TestData holds a test entry for a chain
+type TestData struct {
+	Convey   string        // a human readable description of the tests intent
+	Zome     string        // the zome in which to find the function
+	FnName   string        // the function to call
+	Input    interface{}   // the function's input
+	Output   string        // the expected output to match against (full match)
+	Err      string        // the expected error to match against
+	Regexp   string        // the expected out to match again (regular expression)
+	Time     time.Duration // offset in milliseconds from the start of the test at which to run this test.
+	Exposure string        // the exposure context for the test call (defaults to ZOME_EXPOSURE)
+	Raw      bool          // set to true if we should ignore fnName and just call input as raw code in the zome, useful for testing helper functions and validation functions
+}
+
 // IsInitialized checks a path for a correctly set up .holochain directory
 func IsInitialized(root string) bool {
-	return dirExists(root) && fileExists(filepath.Join(root, SysFileName)) && fileExists(filepath.Join(root, AgentFileName))
+	return DirExists(root) && FileExists(filepath.Join(root, SysFileName)) && FileExists(filepath.Join(root, AgentFileName))
 }
 
 // Init initializes service defaults including a signing key pair for an agent
@@ -270,7 +291,7 @@ func (s *Service) LoadDNA(path string, filename string, format string) (dnaP *DN
 	var validator SchemaValidator
 	var propertiesSchema []byte
 	if dnaFile.PropertiesSchemaFile != "" {
-		propertiesSchema, err = readFile(path, dnaFile.PropertiesSchemaFile)
+		propertiesSchema, err = ReadFile(path, dnaFile.PropertiesSchemaFile)
 		if err != nil {
 			return
 		}
@@ -313,7 +334,7 @@ func (s *Service) LoadDNA(path string, filename string, format string) (dnaP *DN
 
 		zomePath := filepath.Join(path, zome.Name)
 		codeFilePath := filepath.Join(zomePath, zome.CodeFile)
-		if !fileExists(codeFilePath) {
+		if !FileExists(codeFilePath) {
 			//fmt.Printf("%v", zome)
 			return nil, errors.New("DNA specified code file missing: " + zome.CodeFile)
 		}
@@ -323,10 +344,14 @@ func (s *Service) LoadDNA(path string, filename string, format string) (dnaP *DN
 		dna.Zomes[i].RibosomeType = zome.RibosomeType
 		dna.Zomes[i].Functions = zome.Functions
 		dna.Zomes[i].BridgeFuncs = zome.BridgeFuncs
-		dna.Zomes[i].BridgeTo = zome.BridgeTo
-
+		if zome.BridgeTo != "" {
+			dna.Zomes[i].BridgeTo, err = NewHash(zome.BridgeTo)
+			if err != nil {
+				return
+			}
+		}
 		var code []byte
-		code, err = readFile(zomePath, zome.CodeFile)
+		code, err = ReadFile(zomePath, zome.CodeFile)
 		if err != nil {
 			return
 		}
@@ -340,11 +365,11 @@ func (s *Service) LoadDNA(path string, filename string, format string) (dnaP *DN
 			dna.Zomes[i].Entries[j].Schema = entry.Schema
 			if entry.Schema == "" && entry.SchemaFile != "" {
 				schemaFilePath := filepath.Join(zomePath, entry.SchemaFile)
-				if !fileExists(schemaFilePath) {
+				if !FileExists(schemaFilePath) {
 					return nil, errors.New("DNA specified schema file missing: " + schemaFilePath)
 				}
 				var schema []byte
-				schema, err = readFile(zomePath, entry.SchemaFile)
+				schema, err = ReadFile(zomePath, entry.SchemaFile)
 				if err != nil {
 					return
 				}
@@ -382,7 +407,7 @@ func (s *Service) load(name string, format string) (hP *Holochain, err error) {
 		return
 	}
 	defer f.Close()
-	err = Decode(f, format, &h.config)
+	err = Decode(f, format, &h.Config)
 	if err != nil {
 		return
 	}
@@ -419,16 +444,19 @@ func (s *Service) load(name string, format string) (hP *Holochain, err error) {
 
 	// if the chain has been started there should be a DNAHashFile which
 	// we can load to check against the actual hash of the DNA entry
-	var b []byte
-	b, err = readFile(h.rootPath, DNAHashFileName)
-	if err != nil {
-		err = nil
-	} else {
-		h.dnaHash, err = NewHash(string(b))
-		if err != nil {
-			return
+	if len(h.chain.Headers) > 0 {
+		h.dnaHash = h.chain.Headers[0].EntryLink.Clone()
+
+		var b []byte
+		b, err = ReadFile(h.rootPath, DNAHashFileName)
+		if err == nil {
+			if h.dnaHash.String() != string(b) {
+				err = errors.New("DNA doesn't match file!")
+				return
+			}
 		}
 	}
+
 	// @TODO compare value from file to actual hash
 
 	if h.chain.Length() > 0 {
@@ -442,7 +470,7 @@ func (s *Service) load(name string, format string) (hP *Holochain, err error) {
 
 // gen calls a make function which should build the holochain structure and supporting files
 func gen(root string, initDB bool, makeH func(root string) (hP *Holochain, err error)) (h *Holochain, err error) {
-	if dirExists(root) {
+	if DirExists(root) {
 		return nil, mkErr(root + " already exists")
 	}
 	if err := os.MkdirAll(root, os.ModePerm); err != nil {
@@ -523,10 +551,7 @@ func _makeConfig(s *Service) (config Config, err error) {
 		if val == "" {
 			val = "NO BOOTSTRAP SERVER"
 		}
-		if IsDebugging() {
-			fmt.Printf("HC: service.go: makeConfig: using environment variable to set bootstrapServer to: %v\n", val)
-		}
-		// Debugf("makeConfig: using environment variable to set bootstrap server to: %s", val)
+		Debugf("makeConfig: using environment variable to set bootstrap server to: %s", val)
 	}
 
 	val = os.Getenv("HOLOCHAINCONFIG_ENABLEMDNS")
@@ -538,7 +563,7 @@ func _makeConfig(s *Service) (config Config, err error) {
 }
 
 func makeConfig(h *Holochain, s *Service) (err error) {
-	h.config, err = _makeConfig(s)
+	h.Config, err = _makeConfig(s)
 	if err != nil {
 		return
 	}
@@ -549,7 +574,7 @@ func makeConfig(h *Holochain, s *Service) (err error) {
 	}
 	defer f.Close()
 
-	if err = Encode(f, h.encodingFormat, &h.config); err != nil {
+	if err = Encode(f, h.encodingFormat, &h.Config); err != nil {
 		return
 	}
 	if err = h.setupConfig(); err != nil {
@@ -560,7 +585,7 @@ func makeConfig(h *Holochain, s *Service) (err error) {
 
 // GenDev generates starter holochain DNA files from which to develop a chain
 func (s *Service) GenDev(root string, encodingFormat string, initDB bool) (h *Holochain, err error) {
-	if dirExists(root) {
+	if DirExists(root) {
 		return nil, mkErr(root + " already exists")
 	}
 
@@ -690,7 +715,7 @@ func (s *Service) Clone(srcPath string, root string, agent Agent, new bool, init
 
 		// copy any UI files
 		srcUIPath := filepath.Join(srcPath, ChainUIDir)
-		if dirExists(srcUIPath) {
+		if DirExists(srcUIPath) {
 			if err = CopyDir(srcUIPath, h.UIPath()); err != nil {
 				return
 			}
@@ -698,7 +723,7 @@ func (s *Service) Clone(srcPath string, root string, agent Agent, new bool, init
 
 		// copy any test files
 		srcTestDir := filepath.Join(srcPath, ChainTestDir)
-		if dirExists(srcTestDir) {
+		if DirExists(srcTestDir) {
 			if err = CopyDir(srcTestDir, filepath.Join(root, ChainTestDir)); err != nil {
 				return
 			}
@@ -760,7 +785,7 @@ func (s *Service) ListChains() (list string) {
 func (s *Service) SaveDNAFile(root string, dna *DNA, encodingFormat string, overwrite bool) (err error) {
 	dnaPath := filepath.Join(root, ChainDNADir)
 	p := filepath.Join(dnaPath, DNAFileName+"."+encodingFormat)
-	if !overwrite && fileExists(p) {
+	if !overwrite && FileExists(p) {
 		return mkErr(p + " already exists")
 	}
 
@@ -786,7 +811,7 @@ func (s *Service) SaveDNAFile(root string, dna *DNA, encodingFormat string, over
 		if err = os.MkdirAll(zpath, os.ModePerm); err != nil {
 			return
 		}
-		if err = writeFile([]byte(z.Code), zpath, z.Name+suffixByRibosomeType(z.RibosomeType)); err != nil {
+		if err = WriteFile([]byte(z.Code), zpath, z.Name+suffixByRibosomeType(z.RibosomeType)); err != nil {
 			return
 		}
 
@@ -796,7 +821,7 @@ func (s *Service) SaveDNAFile(root string, dna *DNA, encodingFormat string, over
 			RibosomeType: z.RibosomeType,
 			Functions:    z.Functions,
 			BridgeFuncs:  z.BridgeFuncs,
-			BridgeTo:     z.BridgeTo,
+			BridgeTo:     z.BridgeTo.String(),
 		}
 
 		for _, e := range z.Entries {
@@ -807,7 +832,7 @@ func (s *Service) SaveDNAFile(root string, dna *DNA, encodingFormat string, over
 			}
 			if e.DataFormat == DataFormatJSON && e.Schema != "" {
 				entryDefFile.SchemaFile = e.Name + ".json"
-				if err = writeFile([]byte(e.Schema), zpath, e.Name+".json"); err != nil {
+				if err = WriteFile([]byte(e.Schema), zpath, e.Name+".json"); err != nil {
 					return
 				}
 			}
@@ -818,7 +843,7 @@ func (s *Service) SaveDNAFile(root string, dna *DNA, encodingFormat string, over
 	}
 
 	if dna.PropertiesSchema != "" {
-		if err = writeFile([]byte(dna.PropertiesSchema), dnaPath, "properties_schema.json"); err != nil {
+		if err = WriteFile([]byte(dna.PropertiesSchema), dnaPath, "properties_schema.json"); err != nil {
 			return
 		}
 	}
@@ -901,7 +926,7 @@ func (service *Service) SaveScaffold(reader io.Reader, path string, name string,
 
 	p := filepath.Join(path, ChainUIDir)
 	for _, ui := range scaffold.UI {
-		if err = writeFile([]byte(ui.Data), p, ui.FileName); err != nil {
+		if err = WriteFile([]byte(ui.Data), p, ui.FileName); err != nil {
 			return
 		}
 	}
@@ -1274,7 +1299,7 @@ function validateDelPkg(entry_type) { return null}
 function validateLinkPkg(entry_type) { return null}
 
 function genesis() {return true}
-function bridgeGenesis() {return true}
+function bridgeGenesis(side,app,data) {return true}
 
 function receive(from,message) {
   // send back a pong message of what came in the ping message!
@@ -1314,7 +1339,7 @@ function receive(from,message) {
 (defn validateDelPkg [entryType] nil)
 (defn validateLinkPkg [entryType] nil)
 (defn genesis [] true)
-(defn bridgeGenesis [] (begin (debug "bridge genesis debug output")  true))
+(defn bridgeGenesis [side app data] (begin (debug (concat "bridge genesis " (cond (== side HC_Bridge_From) "from" "to") ": other side is:" app " bridging data:" data))  true))
 (defn receive [from message]
 	(hash pong: (hget message %ping)))
 `

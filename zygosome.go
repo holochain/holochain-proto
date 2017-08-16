@@ -36,19 +36,19 @@ func (z *ZygoRibosome) Type() string { return ZygoRibosomeType }
 // ChainGenesis runs the application genesis function
 // this function gets called after the genesis entries are added to the chain
 func (z *ZygoRibosome) ChainGenesis() (err error) {
-	err = z.boolFn("genesis")
+	err = z.boolFn("genesis", "")
 	return
 }
 
 // BridgeGenesis runs the bridging genesis function
-// this function gets called after the genesis entries are added to the chain
-func (z *ZygoRibosome) BridgeGenesis() (err error) {
-	err = z.boolFn("bridgeGenesis")
+// this function gets called on both sides of the bridging
+func (z *ZygoRibosome) BridgeGenesis(side int, dnaHash Hash, data string) (err error) {
+	err = z.boolFn("bridgeGenesis", fmt.Sprintf(`%d "%s" "%s"`, side, dnaHash.String(), sanitizeZyString(data)))
 	return
 }
 
-func (z *ZygoRibosome) boolFn(fnName string) (err error) {
-	err = z.env.LoadString("(" + fnName + ")")
+func (z *ZygoRibosome) boolFn(fnName string, args string) (err error) {
+	err = z.env.LoadString("(" + fnName + " " + args + ")")
 	if err != nil {
 		return
 	}
@@ -315,7 +315,7 @@ func (z *ZygoRibosome) validateEntry(fnName string, def *EntryDef, entry Entry, 
 	return
 }
 
-// sanatizeZyString makes sure all quotes are quoted
+// sanitizeZyString makes sure all quotes are quoted
 func sanitizeZyString(s string) string {
 	s = strings.Replace(s, "\"", "\\\"", -1)
 	return s
@@ -384,6 +384,9 @@ const (
 		`(def HC_GetMask_EntryType ` + GetMaskEntryTypeStr + ")" +
 		`(def HC_GetMask_Sources ` + GetMaskSourcesStr + ")" +
 		`(def HC_GetMask_All ` + GetMaskAllStr + ")" +
+
+		`(def HC_Bridge_From ` + BridgeFromStr + ")" +
+		`(def HC_Bridge_To ` + BridgeToStr + ")" +
 
 		`(def HC_LinkAction_Add "` + AddAction + "\")" +
 		`(def HC_LinkAction_Del "` + DelAction + "\")" +
@@ -972,7 +975,7 @@ func NewZygoRibosome(h *Holochain, zome *Zome) (n Ribosome, err error) {
 
 	l := ZygoLibrary
 	if h != nil {
-		z.env.AddGlobal("App_Name", &zygo.SexpStr{S: h.nucleus.dna.Name})
+		z.env.AddGlobal("App_Name", &zygo.SexpStr{S: h.Name()})
 		z.env.AddGlobal("App_DNA_Hash", &zygo.SexpStr{S: h.dnaHash.String()})
 		z.env.AddGlobal("App_Key_Hash", &appKeyHash)
 		z.env.AddGlobal("App_Agent_String", &appAgentStr)

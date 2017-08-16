@@ -191,6 +191,9 @@ func setupApp() (app *cli.App) {
 					clonePath := filepath.Join(tmpCopyDir, cloneExample)
 					fmt.Printf("cloning %s from github.com/Holochain/%s\n", name, cloneExample)
 					err = doClone(service, clonePath, devPath)
+					if err != nil {
+						return makeErrFromError("init", err, 1)
+					}
 
 				} else if scaffoldPath != "" {
 					// build the app from the scaffold

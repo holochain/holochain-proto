@@ -229,11 +229,43 @@ func TestNewJSRibosome(t *testing.T) {
 
 		})
 		Convey("bridge", func() {
-			// hard to test because we need to fire up a separate app someplace else
 			_, err := z.Run(`bridge("QmVGtdTZdTFaLsaj2RwdVG8jcjNNcp1DE914DKZ2kHmXHw","zySampleZome","testStrFn1","foo")`)
 			So(err, ShouldBeNil)
 			result := z.lastResult.String()
 			So(result, ShouldEqual, "HolochainError: no active bridge")
+
+			// TODO
+			// This test can't work because of the import cycle that we can't import
+			// apptest into holochain.
+			// The solution is to have a different method other than web access, i.e. direct call
+			// for the bridge.
+
+			/*
+				// set up a bridge app
+
+				d, s, h := PrepareTestChain("test")
+				defer CleanupTestDir(d)
+
+				h2, err := s.GenDev(filepath.Join(s.Path, "test2"), "json")
+				if err != nil {
+					panic(err)
+				}
+				bridgeApps := []BridgeApp{BridgeApp{
+					H:    h2,
+					Side: BridgeTo,
+					Port: "31111",
+				}}
+				bridgeAppServers, err := BuildBridges(h, bridgeApps)
+				if err != nil {
+					panic(err)
+				}
+				_, err := z.Run(fmt.Sprintf(`bridge("%s","zySampleZome","testStrFn1","foo")`, h2.DNAHash().String()))
+				So(err, ShouldBeNil)
+				result := z.lastResult.String()
+				So(result, ShouldEqual, "result: foo")
+				bridgeAppServers[0].Stop()
+				bridgeAppServers[0].Wait()
+			*/
 		})
 		Convey("send", func() {
 			ShouldLog(h.nucleus.alog, `result was: "{\"pong\":\"foobar\"}"`, func() {

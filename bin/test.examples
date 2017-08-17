@@ -24,7 +24,7 @@ do
     r=$?
     RESULTS[$i]="$r"
     i=$i+1
-    printf "RESULT for $app: $r"
+    printf "RESULT for $app: $r\n"
 done
 
 rm -rf /tmp/$testDir

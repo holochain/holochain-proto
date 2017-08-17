@@ -37,7 +37,7 @@ func TestNewJSRibosome(t *testing.T) {
 		_, err = z.Run("App.Name")
 		So(err, ShouldBeNil)
 		s, _ := z.lastResult.ToString()
-		So(s, ShouldEqual, h.nucleus.dna.Name)
+		So(s, ShouldEqual, h.Name())
 
 		_, err = z.Run("App.DNA.Hash")
 		So(err, ShouldBeNil)
@@ -104,6 +104,17 @@ func TestNewJSRibosome(t *testing.T) {
 		So(err, ShouldBeNil)
 		i, _ = z.lastResult.ToInteger()
 		So(i, ShouldEqual, StatusAny)
+
+		_, err = z.Run("HC.Bridge.From")
+		So(err, ShouldBeNil)
+		i, _ = z.lastResult.ToInteger()
+		So(i, ShouldEqual, BridgeFrom)
+
+		_, err = z.Run("HC.Bridge.To")
+		So(err, ShouldBeNil)
+		i, _ = z.lastResult.ToInteger()
+		So(i, ShouldEqual, BridgeTo)
+
 	})
 
 	Convey("should have the built in functions:", t, func() {
@@ -218,11 +229,43 @@ func TestNewJSRibosome(t *testing.T) {
 
 		})
 		Convey("bridge", func() {
-			// hard to test because we need to fire up a separate app someplace else
 			_, err := z.Run(`bridge("QmVGtdTZdTFaLsaj2RwdVG8jcjNNcp1DE914DKZ2kHmXHw","zySampleZome","testStrFn1","foo")`)
 			So(err, ShouldBeNil)
 			result := z.lastResult.String()
 			So(result, ShouldEqual, "HolochainError: no active bridge")
+
+			// TODO
+			// This test can't work because of the import cycle that we can't import
+			// apptest into holochain.
+			// The solution is to have a different method other than web access, i.e. direct call
+			// for the bridge.
+
+			/*
+				// set up a bridge app
+
+				d, s, h := PrepareTestChain("test")
+				defer CleanupTestDir(d)
+
+				h2, err := s.GenDev(filepath.Join(s.Path, "test2"), "json")
+				if err != nil {
+					panic(err)
+				}
+				bridgeApps := []BridgeApp{BridgeApp{
+					H:    h2,
+					Side: BridgeTo,
+					Port: "31111",
+				}}
+				bridgeAppServers, err := BuildBridges(h, bridgeApps)
+				if err != nil {
+					panic(err)
+				}
+				_, err := z.Run(fmt.Sprintf(`bridge("%s","zySampleZome","testStrFn1","foo")`, h2.DNAHash().String()))
+				So(err, ShouldBeNil)
+				result := z.lastResult.String()
+				So(result, ShouldEqual, "result: foo")
+				bridgeAppServers[0].Stop()
+				bridgeAppServers[0].Wait()
+			*/
 		})
 		Convey("send", func() {
 			ShouldLog(h.nucleus.alog, `result was: "{\"pong\":\"foobar\"}"`, func() {
@@ -247,15 +290,25 @@ func TestJSGenesis(t *testing.T) {
 }
 
 func TestJSBridgeGenesis(t *testing.T) {
+	d, _, h := PrepareTestChain("test")
+	defer CleanupTestDir(d)
+
+	fakeToApp, _ := NewHash("QmVGtdTZdTFaLsaj2RwdVG8jcjNNcp1DE914DKZ2kHmXHx")
 	Convey("it should fail if the bridge genesis function returns false", t, func() {
-		z, _ := NewJSRibosome(nil, &Zome{RibosomeType: JSRibosomeType, Code: `function bridgeGenesis() {return false}`})
-		err := z.BridgeGenesis()
-		So(err.Error(), ShouldEqual, "bridgeGenesis failed")
+
+		ShouldLog(&h.Config.Loggers.App, h.dnaHash.String()+" test data", func() {
+			z, err := NewJSRibosome(h, &Zome{RibosomeType: JSRibosomeType, Code: `function bridgeGenesis(side,app,data) {debug(app+" "+data);if (side==HC.Bridge.From) {return false;} return true;}`})
+			So(err, ShouldBeNil)
+			err = z.BridgeGenesis(BridgeFrom, h.dnaHash, "test data")
+			So(err.Error(), ShouldEqual, "bridgeGenesis failed")
+		})
 	})
 	Convey("it should work if the genesis function returns true", t, func() {
-		z, _ := NewJSRibosome(nil, &Zome{RibosomeType: JSRibosomeType, Code: `function bridgeGenesis() {return true}`})
-		err := z.BridgeGenesis()
-		So(err, ShouldBeNil)
+		ShouldLog(&h.Config.Loggers.App, fakeToApp.String()+" test data", func() {
+			z, _ := NewJSRibosome(h, &Zome{RibosomeType: JSRibosomeType, Code: `function bridgeGenesis(side,app,data) {debug(app+" "+data);if (side==HC.Bridge.From) {return false;} return true;}`})
+			err := z.BridgeGenesis(BridgeTo, fakeToApp, "test data")
+			So(err, ShouldBeNil)
+		})
 	})
 }
 
@@ -302,8 +355,8 @@ func TestJSValidateCommit(t *testing.T) {
 	//	a, _ := NewAgent(LibP2P, "Joe")
 	//	h := NewHolochain(a, "some/path", "yaml", Zome{RibosomeType:JSRibosomeType,})
 	//	a := h.agent
-	h.config.Loggers.App.Format = ""
-	h.config.Loggers.App.New(nil)
+	h.Config.Loggers.App.Format = ""
+	h.Config.Loggers.App.New(nil)
 	hdr := mkTestHeader("evenNumbers")
 	pkg, _ := MakePackage(h, PackagingReq{PkgReqChain: int64(PkgReqChainOptFull)})
 	vpkg, _ := MakeValidationPackage(h, &pkg)
@@ -312,7 +365,7 @@ func TestJSValidateCommit(t *testing.T) {
 		v, err := NewJSRibosome(h, &Zome{RibosomeType: JSRibosomeType, Code: `function validateCommit(name,entry,header,pkg,sources) {debug(name);debug(entry);debug(JSON.stringify(header));debug(JSON.stringify(sources));debug(JSON.stringify(pkg));return true};`})
 		So(err, ShouldBeNil)
 		d := EntryDef{Name: "evenNumbers", DataFormat: DataFormatString}
-		ShouldLog(&h.config.Loggers.App, `evenNumbers
+		ShouldLog(&h.Config.Loggers.App, `evenNumbers
 foo
 {"EntryLink":"QmNiCwBNA8MWDADTFVq1BonUEJbS2SvjAoNkZZrhEwcuU2","Time":"1970-01-01T00:00:01Z","Type":"evenNumbers"}
 ["fakehashvalue"]

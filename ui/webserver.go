@@ -7,6 +7,7 @@
 package ui
 
 import (
+	"context"
 	_ "encoding/json"
 	"errors"
 	"fmt"
@@ -19,19 +20,23 @@ import (
 )
 
 type WebServer struct {
-	h    *holo.Holochain
-	port string
-	log  holo.Logger
-	errs holo.Logger
+	h      *holo.Holochain
+	port   string
+	log    holo.Logger
+	errs   holo.Logger
+	stop   chan bool
+	server *http.Server
 }
 
 func NewWebServer(h *holo.Holochain, port string) *WebServer {
 	w := WebServer{h: h, port: port}
 	w.log = holo.Logger{Format: "%{color:magenta}%{message}"}
 	w.errs = holo.Logger{Format: "%{color:red}%{time} %{message}", Enabled: true}
+	w.stop = make(chan bool, 1)
 	return &w
 }
 
+//Start starts up a web server and returns a channel which will shutdown
 func (ws *WebServer) Start() {
 
 	mux := http.NewServeMux()
@@ -182,10 +187,34 @@ func (ws *WebServer) Start() {
 	})
 
 	// set router
-	ws.log.Logf("starting server on localhost:%s\n", ws.port)
-	err := http.ListenAndServe(":"+ws.port, mux) // set listen port
-	if err != nil {
-		ws.errs.Logf("Couldn't start server: %v", err)
+	ws.log.Logf("Starting server on localhost:%s\n", ws.port)
+
+	ws.server = &http.Server{Addr: ":" + ws.port, Handler: mux}
+
+	go func() {
+		if err := ws.server.ListenAndServe(); err != nil {
+			// when the server is stopped by Shutdown() ListenAndServe returns with ErrServerClosed
+			if err != http.ErrServerClosed {
+				ws.errs.Logf("Couldn't start server: %v", err)
+			} else {
+				ws.log.Logf("Server closed")
+			}
+			ws.stop <- true // set the channel to make sure it unblocks
+		}
+	}()
+}
+
+// Stop sends a message through the stop channel to unblock
+func (ws *WebServer) Stop() {
+	ws.stop <- true
+}
+
+// Wait blocks on the stop channel and when it finishes shuts down the server
+func (ws *WebServer) Wait() {
+	<-ws.stop
+	if ws.server != nil {
+		ws.server.Shutdown(context.Background())
+		ws.server = nil
 	}
 }
 

@@ -48,7 +48,7 @@ func NewNucleus(h *Holochain, dna *DNA) *Nucleus {
 	nucleus := Nucleus{
 		dna:  dna,
 		h:    h,
-		alog: &h.config.Loggers.App,
+		alog: &h.Config.Loggers.App,
 	}
 	return &nucleus
 }

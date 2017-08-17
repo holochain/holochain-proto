@@ -34,7 +34,7 @@ func TestNewZygoRibosome(t *testing.T) {
 		_, err = z.Run("App_Name")
 		So(err, ShouldBeNil)
 		s := z.lastResult.(*zygo.SexpStr).S
-		So(s, ShouldEqual, h.nucleus.dna.Name)
+		So(s, ShouldEqual, h.Name())
 		_, err = z.Run("App_DNA_Hash")
 		So(err, ShouldBeNil)
 		s = z.lastResult.(*zygo.SexpStr).S
@@ -206,15 +206,25 @@ func TestZygoGenesis(t *testing.T) {
 }
 
 func TestZygoBridgeGenesis(t *testing.T) {
+	d, _, h := PrepareTestChain("test")
+	defer CleanupTestDir(d)
+
+	fakeToApp, _ := NewHash("QmVGtdTZdTFaLsaj2RwdVG8jcjNNcp1DE914DKZ2kHmXHx")
 	Convey("it should fail if the bridge genesis function returns false", t, func() {
-		z, _ := NewZygoRibosome(nil, &Zome{RibosomeType: ZygoRibosomeType, Code: `(defn bridgeGenesis [] false)`})
-		err := z.BridgeGenesis()
-		So(err.Error(), ShouldEqual, "bridgeGenesis failed")
+		ShouldLog(&h.Config.Loggers.App, h.dnaHash.String()+" test data", func() {
+			z, err := NewZygoRibosome(h, &Zome{RibosomeType: ZygoRibosomeType, Code: `(defn bridgeGenesis [side app data] (begin (debug (concat app " " data)) false))`})
+			So(err, ShouldBeNil)
+			err = z.BridgeGenesis(BridgeFrom, h.dnaHash, "test data")
+			So(err.Error(), ShouldEqual, "bridgeGenesis failed")
+		})
 	})
 	Convey("it should work if the bridge genesis function returns true", t, func() {
-		z, _ := NewZygoRibosome(nil, &Zome{RibosomeType: ZygoRibosomeType, Code: `(defn bridgeGenesis [] true)`})
-		err := z.BridgeGenesis()
-		So(err, ShouldBeNil)
+		ShouldLog(&h.Config.Loggers.App, fakeToApp.String()+" test data", func() {
+			z, err := NewZygoRibosome(h, &Zome{RibosomeType: ZygoRibosomeType, Code: `(defn bridgeGenesis [side app data] (begin (debug (concat app " " data)) true))`})
+			So(err, ShouldBeNil)
+			err = z.BridgeGenesis(BridgeTo, fakeToApp, "test data")
+			So(err, ShouldBeNil)
+		})
 	})
 }
 
@@ -270,14 +280,14 @@ func TestZybuildValidate(t *testing.T) {
 func TestZyValidateCommit(t *testing.T) {
 	a, _ := NewAgent(LibP2P, "Joe")
 	h := NewHolochain(a, "some/path", "yaml", Zome{RibosomeType: ZygoRibosomeType})
-	h.config.Loggers.App.New(nil)
+	h.Config.Loggers.App.New(nil)
 	hdr := mkTestHeader("evenNumbers")
 
 	Convey("it should be passing in the correct values", t, func() {
 		v, err := NewZygoRibosome(&h, &Zome{RibosomeType: ZygoRibosomeType, Code: `(defn validateCommit [name entry header pkg sources] (debug name) (debug entry) (debug header) (debug sources) (debug pkg) true)`})
 		So(err, ShouldBeNil)
 		d := EntryDef{Name: "evenNumbers", DataFormat: DataFormatString}
-		ShouldLog(&h.config.Loggers.App, `evenNumbers
+		ShouldLog(&h.Config.Loggers.App, `evenNumbers
 foo
 {"EntryLink":"QmNiCwBNA8MWDADTFVq1BonUEJbS2SvjAoNkZZrhEwcuU2", "Type":"evenNumbers", "Time":"1970-01-01T00:00:01Z"}
 ["fakehashvalue"]

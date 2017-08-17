@@ -57,7 +57,7 @@ const (
 
 func writeToml(path string, file string, data interface{}, overwrite bool) error {
 	p := filepath.Join(path, file)
-	if !overwrite && fileExists(p) {
+	if !overwrite && FileExists(p) {
 		return mkErr(path + " already exists")
 	}
 	f, err := os.Create(p)
@@ -71,9 +71,9 @@ func writeToml(path string, file string, data interface{}, overwrite bool) error
 	return err
 }
 
-func writeFile(data []byte, pathParts ...string) error {
+func WriteFile(data []byte, pathParts ...string) error {
 	p := filepath.Join(pathParts...)
-	if fileExists(p) {
+	if FileExists(p) {
 		return mkErr(p + " already exists")
 	}
 	f, err := os.Create(p)
@@ -94,7 +94,7 @@ func writeFile(data []byte, pathParts ...string) error {
 	return err
 }
 
-func readFile(pathParts ...string) (data []byte, err error) {
+func ReadFile(pathParts ...string) (data []byte, err error) {
 	p := filepath.Join(pathParts...)
 	data, err = ioutil.ReadFile(p)
 	return data, err
@@ -104,13 +104,13 @@ func mkErr(err string) error {
 	return errors.New("holochain: " + err)
 }
 
-func dirExists(pathParts ...string) bool {
+func DirExists(pathParts ...string) bool {
 	path := filepath.Join(pathParts...)
 	info, err := os.Stat(path)
 	return err == nil && info.Mode().IsDir()
 }
 
-func fileExists(pathParts ...string) bool {
+func FileExists(pathParts ...string) bool {
 	path := filepath.Join(pathParts...)
 	info, err := os.Stat(path)
 	if err != nil {

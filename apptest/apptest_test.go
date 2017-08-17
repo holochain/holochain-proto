@@ -1,6 +1,7 @@
 package apptest
 
 import (
+	"fmt"
 	. "github.com/metacurrency/holochain"
 	. "github.com/smartystreets/goconvey/convey"
 	"os"
@@ -92,13 +93,31 @@ func TestTestOne(t *testing.T) {
 	Convey("it should validate on test data", t, func() {
 
 		ShouldLog(&h.Config.Loggers.TestInfo, `========================================
-Test: 'test_0' starting...
+Test: 'testSet1' starting...
 ========================================
-Test 'test_0.0' t+0ms: { zySampleZome addEven 2 %h%   0s  false}
+Test 'testSet1.0' t+0ms: { zySampleZome addEven 2 %h%   0s  false}
 `, func() {
-			err := TestOne(h, "test_0", nil)
+			err := TestOne(h, "testSet1", nil)
 			So(err, ShouldBeNil)
 		})
+	})
+}
+
+func TestScenarios(t *testing.T) {
+	d, _, h := SetupTestChain("test")
+	defer CleanupTestDir(d)
+	Convey("it should return list of scenarios", t, func() {
+		scenarios, err := GetTestScenarios(h)
+		So(err, ShouldBeNil)
+		_, ok := scenarios["sampleScenario"]
+		So(ok, ShouldBeTrue)
+		_, ok = scenarios["foo"]
+		So(ok, ShouldBeFalse)
+	})
+	Convey("it should return list of scenarios in a role", t, func() {
+		scenarios, err := GetTestScenarioRoles(h, "sampleScenario")
+		So(err, ShouldBeNil)
+		So(fmt.Sprintf("%v", scenarios), ShouldEqual, `[listener speaker]`)
 	})
 }
 
@@ -116,7 +135,6 @@ func TestLoadTestFiles(t *testing.T) {
 		path := h.TestPath()
 		tests, err := LoadTestFiles(path)
 		So(err, ShouldBeNil)
-		So(len(tests), ShouldEqual, 9)
+		So(len(tests), ShouldEqual, 2)
 	})
-
 }

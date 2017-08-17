@@ -123,7 +123,7 @@ func setupApp() (app *cli.App) {
 				if err != nil {
 					return err
 				}
-				err = service.Clone(srcPath, filepath.Join(root, name), agent, false)
+				err = service.Clone(srcPath, filepath.Join(root, name), agent, holo.CloneWithSameUUID, holo.InitializeDB)
 				if err == nil {
 					if verbose {
 						fmt.Printf("joined %s from %s\n", name, srcPath)

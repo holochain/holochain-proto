@@ -114,7 +114,7 @@ func setupApp() (app *cli.App) {
 					return err
 				}
 
-				err = service.Clone(srcPath, root+"/"+name, agent, true)
+				err = service.Clone(srcPath, root+"/"+name, agent, holo.CloneWithNewUUID, holo.InitializeDB)
 				if err == nil {
 					if verbose {
 						h, err := service.Load(name)
@@ -344,7 +344,7 @@ func setupApp() (app *cli.App) {
 				if err != nil {
 					return err
 				}
-				err = service.Clone(srcPath, root+"/"+name, agent, false)
+				err = service.Clone(srcPath, root+"/"+name, agent, holo.CloneWithSameUUID, holo.InitializeDB)
 				if err == nil {
 					if verbose {
 						fmt.Printf("joined %s from %s\n", name, srcPath)
@@ -430,7 +430,7 @@ func setupApp() (app *cli.App) {
 						return e
 					}
 				}
-				h, err := service.GenDev(root+"/"+name, format)
+				h, err := service.GenDev(root+"/"+name, format, holo.InitializeDB)
 				if err == nil {
 					if verbose {
 						fmt.Printf("created %s with new uuid: %v\n", name, h.Nucleus().DNA().UUID)

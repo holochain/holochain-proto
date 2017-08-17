@@ -332,6 +332,19 @@ func TestSaveScaffold(t *testing.T) {
 		So(FileExists(root2, ChainDNADir, DNAFileName+".toml"), ShouldBeTrue)
 		// the reset of the files are still saved as json...
 	})
+
+	Convey("it should write out a scaffold file to a directory tree with binary UI files", t, func() {
+		scaffoldBlob := bytes.NewBuffer([]byte(TestingAppScaffold()))
+
+		_, err := s.SaveScaffold(scaffoldBlob, root+"3", "appName2", "json", false)
+		root3 := filepath.Join(s.Path, name+"3")
+
+		So(err, ShouldBeNil)
+		So(DirExists(root3, ChainUIDir), ShouldBeTrue)
+		So(FileExists(root3, ChainUIDir, "index.html"), ShouldBeTrue)
+		So(FileExists(root3, ChainUIDir, "logo.png"), ShouldBeTrue)
+	})
+
 }
 
 func TestMakeConfig(t *testing.T) {

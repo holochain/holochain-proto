@@ -7,7 +7,7 @@ import (
 )
 
 func TestZomeGetEntryDef(t *testing.T) {
-	d, _, h := setupTestChain("test")
+	d, _, h := SetupTestChain("test")
 	defer CleanupTestDir(d)
 	z, _ := h.GetZome("zySampleZome")
 
@@ -24,7 +24,7 @@ func TestZomeGetEntryDef(t *testing.T) {
 }
 
 func TestGetFunctionDef(t *testing.T) {
-	d, _, h := setupTestChain("test")
+	d, _, h := SetupTestChain("test")
 	defer CleanupTestDir(d)
 	z, _ := h.GetZome("zySampleZome")
 

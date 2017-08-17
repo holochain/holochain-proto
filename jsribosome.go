@@ -32,20 +32,21 @@ func (jsr *JSRibosome) Type() string { return JSRibosomeType }
 // ChainGenesis runs the application genesis function
 // this function gets called after the genesis entries are added to the chain
 func (jsr *JSRibosome) ChainGenesis() (err error) {
-	err = jsr.boolFn("genesis")
+	err = jsr.boolFn("genesis", "")
 	return
 }
 
-// BridgeGnesis runs the application genesis function
-// this function gets called after the genesis entries are added to the chain
-func (jsr *JSRibosome) BridgeGenesis() (err error) {
-	err = jsr.boolFn("bridgeGenesis")
+// BridgeGenesis runs the bridging genesis function
+// this function gets called on both sides of the bridging
+func (jsr *JSRibosome) BridgeGenesis(side int, dnaHash Hash, data string) (err error) {
+	err = jsr.boolFn("bridgeGenesis", fmt.Sprintf(`%d,"%s","%s"`, side, dnaHash.String(), jsSanitizeString(data)))
 	return
 }
 
-func (jsr *JSRibosome) boolFn(fnName string) (err error) {
+func (jsr *JSRibosome) boolFn(fnName string, args string) (err error) {
 	var v otto.Value
-	v, err = jsr.vm.Run(fnName + "()")
+	v, err = jsr.vm.Run(fnName + "(" + args + ")")
+
 	if err != nil {
 		err = fmt.Errorf("Error executing %s: %v", fnName, err)
 		return
@@ -296,6 +297,9 @@ const (
 		`,Entries:` + PkgReqChainOptEntriesStr +
 		`,Full:` + PkgReqChainOptFullStr +
 		"}" +
+		"}" +
+		`,Bridge:{From:` + BridgeFromStr +
+		`,To:` + BridgeToStr +
 		"}" +
 		`};`
 )
@@ -984,7 +988,7 @@ func NewJSRibosome(h *Holochain, zome *Zome) (n Ribosome, err error) {
 
 	l := JSLibrary
 	if h != nil {
-		l += fmt.Sprintf(`var App = {Name:"%s",DNA:{Hash:"%s"},Agent:{Hash:"%s",TopHash:"%s",String:"%s"},Key:{Hash:"%s"}};`, h.nucleus.dna.Name, h.dnaHash, h.agentHash, h.agentTopHash, h.Agent().Identity(), h.nodeIDStr)
+		l += fmt.Sprintf(`var App = {Name:"%s",DNA:{Hash:"%s"},Agent:{Hash:"%s",TopHash:"%s",String:"%s"},Key:{Hash:"%s"}};`, h.Name(), h.dnaHash, h.agentHash, h.agentTopHash, h.Agent().Identity(), h.nodeIDStr)
 	}
 	_, err = jsr.Run(l + zome.Code)
 	if err != nil {

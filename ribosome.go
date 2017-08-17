@@ -37,6 +37,11 @@ const (
 	ID_PROPERTY         = "_id"
 	AGENT_ID_PROPERTY   = "_agent_id"
 	AGENT_NAME_PROPERTY = "_agent_name"
+
+	BridgeFrom    = 0
+	BridgeTo      = 1
+	BridgeFromStr = "0"
+	BridgeToStr   = "1"
 )
 
 var ValidationFailedErr = errors.New("Validation Failed")
@@ -62,7 +67,7 @@ type Ribosome interface {
 	ValidateAction(action Action, def *EntryDef, pkg *ValidationPackage, sources []string) (err error)
 	ValidatePackagingRequest(action ValidatingAction, def *EntryDef) (req PackagingReq, err error)
 	ChainGenesis() error
-	BridgeGenesis() error
+	BridgeGenesis(side int, dnaHash Hash, data string) error
 	Receive(from string, msg string) (response string, err error)
 	Call(fn *FunctionDef, params interface{}) (interface{}, error)
 	Run(code string) (result interface{}, err error)

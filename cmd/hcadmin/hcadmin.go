@@ -157,12 +157,12 @@ func setupApp() (app *cli.App) {
 					return err
 				}
 
-				token, err := hTo.NewBridge()
+				token, err := hTo.AddBridgeAsCallee(hFrom.DNAHash(), "")
 				if err != nil {
 					return err
 				}
 
-				err = hFrom.AddBridge(hTo.DNAHash(), token, fmt.Sprintf("http://localhost:%d", hTo.Config().Port))
+				err = hFrom.AddBridgeAsCaller(hTo.DNAHash(), token, fmt.Sprintf("http://localhost:%d", hTo.Config.Port), "")
 
 				if err == nil {
 					if verbose {

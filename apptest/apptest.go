@@ -3,37 +3,25 @@
 //----------------------------------------------------------------------------------------
 // Testing harness for holochain applications
 
-package holochain
+package apptest
 
 import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	. "github.com/metacurrency/holochain"
+	"github.com/metacurrency/holochain/ui"
 	"io/ioutil"
-	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
+
 	"time"
 )
 
 const (
 	TestConfigFileName string = "_config.json"
 )
-
-// TestData holds a test entry for a chain
-type TestData struct {
-	Convey   string        // a human readable description of the tests intent
-	Zome     string        // the zome in which to find the function
-	FnName   string        // the function to call
-	Input    interface{}   // the function's input
-	Output   string        // the expected output to match against (full match)
-	Err      string        // the expected error to match against
-	Regexp   string        // the expected out to match again (regular expression)
-	Time     time.Duration // offset in milliseconds from the start of the test at which to run this test.
-	Exposure string        // the exposure context for the test call (defaults to ZOME_EXPOSURE)
-	Raw      bool          // set to true if we should ignore fnName and just call input as raw code in the zome, useful for testing helper functions and validation functions
-}
 
 // TestConfig holds the configuration options for a test
 type TestConfig struct {
@@ -44,7 +32,7 @@ type TestConfig struct {
 // LoadTestFile unmarshals test json data
 func LoadTestFile(dir string, file string) (tests []TestData, err error) {
 	var v []byte
-	v, err = readFile(dir, file)
+	v, err = ReadFile(dir, file)
 	if err != nil {
 		return nil, err
 	}
@@ -62,11 +50,11 @@ func LoadTestConfig(dir string) (config *TestConfig, err error) {
 	c := TestConfig{GossipInterval: 2 * time.Second, Duration: 0}
 	config = &c
 	// if no config file return default values
-	if !fileExists(dir, TestConfigFileName) {
+	if !FileExists(dir, TestConfigFileName) {
 		return
 	}
 	var v []byte
-	v, err = readFile(dir, TestConfigFileName)
+	v, err = ReadFile(dir, TestConfigFileName)
 	if err != nil {
 		return nil, err
 	}
@@ -124,7 +112,7 @@ func toString(input interface{}) string {
 }
 
 // TestStringReplacements inserts special values into testing input and output values for matching
-func (h *Holochain) TestStringReplacements(input, r1, r2, r3 string, lastMatches *[3][]string) string {
+func TestStringReplacements(h *Holochain, input, r1, r2, r3 string, lastMatches *[3][]string) string {
 
 	output := input
 
@@ -142,7 +130,7 @@ func (h *Holochain) TestStringReplacements(input, r1, r2, r3 string, lastMatches
 					panic(err)
 				}
 			}
-			hash := h.chain.Nth(hashIdx).EntryLink
+			hash := h.Chain().Nth(hashIdx).EntryLink
 			output = strings.Replace(output, m[1], hash.String(), -1)
 		}
 	}
@@ -151,11 +139,11 @@ func (h *Holochain) TestStringReplacements(input, r1, r2, r3 string, lastMatches
 	output = strings.Replace(output, "%r1%", r1, -1)
 	output = strings.Replace(output, "%r2%", r2, -1)
 	output = strings.Replace(output, "%r3%", r3, -1)
-	output = strings.Replace(output, "%dna%", h.dnaHash.String(), -1)
-	output = strings.Replace(output, "%agent%", h.agentHash.String(), -1)
-	output = strings.Replace(output, "%agenttop%", h.agentTopHash.String(), -1)
+	output = strings.Replace(output, "%dna%", h.DNAHash().String(), -1)
+	output = strings.Replace(output, "%agent%", h.AgentHash().String(), -1)
+	output = strings.Replace(output, "%agenttop%", h.AgentTopHash().String(), -1)
 	output = strings.Replace(output, "%agentstr%", string(h.Agent().Identity()), -1)
-	output = strings.Replace(output, "%key%", h.nodeIDStr, -1)
+	output = strings.Replace(output, "%key%", h.NodeIDStr(), -1)
 
 	// look for %mx.y% in the string and do the replacements from last matches
 	re = regexp.MustCompile(`(\%m([0-9])\.([0-9])\%)`)
@@ -183,7 +171,7 @@ func (h *Holochain) TestStringReplacements(input, r1, r2, r3 string, lastMatches
 }
 
 // TestScenario runs the tests of a single role in a scenario
-func (h *Holochain) TestScenario(dir string, role string) (err error, testErrs []error) {
+func TestScenario(h *Holochain, dir string, role string) (err error, testErrs []error) {
 	var config *TestConfig
 	config, err = LoadTestConfig(dir)
 	if err != nil {
@@ -205,7 +193,7 @@ func (h *Holochain) TestScenario(dir string, role string) (err error, testErrs [
 		go h.DHT().Gossip(config.GossipInterval * time.Millisecond)
 	}
 
-	testErrs = h.DoTests(role, tests, time.Duration(config.Duration)*time.Second)
+	testErrs = DoTests(h, role, tests, time.Duration(config.Duration)*time.Second)
 
 	return
 }
@@ -222,7 +210,7 @@ func waitTill(start time.Time, till time.Duration) {
 // TODO: this code can cause crazy race conditions because lastResults and lastMatches get
 // passed into go routines that run asynchronously.  We should probably reimplement this with
 // channels or some other thread-safe queues.
-func (h *Holochain) DoTests(name string, tests []TestData, minTime time.Duration) (errs []error) {
+func DoTests(h *Holochain, name string, tests []TestData, minTime time.Duration) (errs []error) {
 	var lastResults [3]interface{}
 	var lastMatches [3][]string
 	done := make(chan bool, len(tests))
@@ -237,7 +225,7 @@ func (h *Holochain) DoTests(name string, tests []TestData, minTime time.Duration
 		count++
 		go func(index int, test TestData) {
 			waitTill(startTime, test.Time*time.Millisecond)
-			err := h.DoTest(name, index, test, startTime, &lastResults, &lastMatches)
+			err := DoTest(h, name, index, test, startTime, &lastResults, &lastMatches)
 			if err != nil {
 				errs = append(errs, err)
 			}
@@ -251,7 +239,7 @@ func (h *Holochain) DoTests(name string, tests []TestData, minTime time.Duration
 			continue
 		}
 
-		err := h.DoTest(name, i, t, startTime, &lastResults, &lastMatches)
+		err := DoTest(h, name, i, t, startTime, &lastResults, &lastMatches)
 		if err != nil {
 			errs = append(errs, err)
 		}
@@ -272,10 +260,10 @@ func (h *Holochain) DoTests(name string, tests []TestData, minTime time.Duration
 }
 
 // DoTest runs a singe test.
-func (h *Holochain) DoTest(name string, i int, t TestData, startTime time.Time, lastResults *[3]interface{}, lastMatches *[3][]string) (err error) {
-	info := h.config.Loggers.TestInfo
-	passed := h.config.Loggers.TestPassed
-	failed := h.config.Loggers.TestFailed
+func DoTest(h *Holochain, name string, i int, t TestData, startTime time.Time, lastResults *[3]interface{}, lastMatches *[3][]string) (err error) {
+	info := h.Config.Loggers.TestInfo
+	passed := h.Config.Loggers.TestPassed
+	failed := h.Config.Loggers.TestFailed
 
 	Debugf("------------------------------")
 	description := t.Convey
@@ -283,7 +271,7 @@ func (h *Holochain) DoTest(name string, i int, t TestData, startTime time.Time, 
 		description = fmt.Sprintf("%v", t)
 	}
 	elapsed := time.Now().Sub(startTime) / time.Millisecond
-	info.pf("Test '%s.%d' t+%dms: %s", name, i, elapsed, description)
+	info.Logf("Test '%s.%d' t+%dms: %s", name, i, elapsed, description)
 	//		time.Sleep(time.Millisecond * 10)
 	if err == nil {
 		testID := fmt.Sprintf("%s:%d", name, i)
@@ -305,7 +293,7 @@ func (h *Holochain) DoTest(name string, i int, t TestData, startTime time.Time, 
 			r1 := strings.Trim(fmt.Sprintf("%v", lastResults[0]), "\"")
 			r2 := strings.Trim(fmt.Sprintf("%v", lastResults[1]), "\"")
 			r3 := strings.Trim(fmt.Sprintf("%v", lastResults[2]), "\"")
-			input = h.TestStringReplacements(input, r1, r2, r3, lastMatches)
+			input = TestStringReplacements(h, input, r1, r2, r3, lastMatches)
 			Debugf("Input after replacement: %s", input)
 			//====================
 
@@ -330,7 +318,7 @@ func (h *Holochain) DoTest(name string, i int, t TestData, startTime time.Time, 
 			if expectedError != "" {
 				comparisonString := fmt.Sprintf("\nTest: %s\n\tExpected error:\t%v\n\tGot error:\t\t%v", testID, expectedError, actualError)
 				if actualError == nil || (actualError.Error() != expectedError) {
-					failed.pf("\n=====================\n%s\n\tfailed! m(\n=====================", comparisonString)
+					failed.Logf("\n=====================\n%s\n\tfailed! m(\n=====================", comparisonString)
 					err = errors.New(expectedError)
 				} else {
 					// all fine
@@ -341,14 +329,14 @@ func (h *Holochain) DoTest(name string, i int, t TestData, startTime time.Time, 
 				if actualError != nil {
 					errorString := fmt.Sprintf("\nTest: %s\n\tExpected:\t%s\n\tGot Error:\t\t%s\n", testID, expectedResult, actualError)
 					err = errors.New(errorString)
-					failed.pf(fmt.Sprintf("\n=====================\n%s\n\tfailed! m(\n=====================", errorString))
+					failed.Logf(fmt.Sprintf("\n=====================\n%s\n\tfailed! m(\n=====================", errorString))
 				} else {
 					var resultString = toString(actualResult)
 					var match bool
 					var comparisonString string
 					if expectedResultRegexp != "" {
 						Debugf("Test %s matching against regexp...", testID)
-						expectedResultRegexp = h.TestStringReplacements(expectedResultRegexp, r1, r2, r3, lastMatches)
+						expectedResultRegexp = TestStringReplacements(h, expectedResultRegexp, r1, r2, r3, lastMatches)
 						comparisonString = fmt.Sprintf("\nTest: %s\n\tExpected regexp:\t%v\n\tGot:\t\t%v", testID, expectedResultRegexp, resultString)
 						re, matchError := regexp.Compile(expectedResultRegexp)
 						if matchError != nil {
@@ -365,17 +353,17 @@ func (h *Holochain) DoTest(name string, i int, t TestData, startTime time.Time, 
 
 					} else {
 						Debugf("Test %s matching against string...", testID)
-						expectedResult = h.TestStringReplacements(expectedResult, r1, r2, r3, lastMatches)
+						expectedResult = TestStringReplacements(h, expectedResult, r1, r2, r3, lastMatches)
 						comparisonString = fmt.Sprintf("\nTest: %s\n\tExpected:\t%v\n\tGot:\t\t%v", testID, expectedResult, resultString)
 						match = (resultString == expectedResult)
 					}
 
 					if match {
 						Debugf("%s\n\tpassed! :D", comparisonString)
-						passed.p("passed! ✔")
+						passed.Log("passed! ✔")
 					} else {
 						err = errors.New(comparisonString)
-						failed.pf(fmt.Sprintf("\n=====================\n%s\n\tfailed! m(\n=====================", comparisonString))
+						failed.Logf(fmt.Sprintf("\n=====================\n%s\n\tfailed! m(\n=====================", comparisonString))
 					}
 				}
 			}
@@ -387,18 +375,58 @@ func (h *Holochain) DoTest(name string, i int, t TestData, startTime time.Time, 
 // Test loops through each of the test files in path calling the functions specified
 // This function is useful only in the context of developing a holochain and will return
 // an error if the chain has already been started (i.e. has genesis entries)
-func (h *Holochain) Test() []error {
-	return h.test("")
+func Test(h *Holochain, bridgeApps []BridgeApp) []error {
+	return test(h, "", bridgeApps)
 }
 
 // TestOne tests a single test file
 // This function is useful only in the context of developing a holochain and will return
 // an error if the chain has already been started (i.e. has genesis entries)
-func (h *Holochain) TestOne(one string) []error {
-	return h.test(one)
+func TestOne(h *Holochain, one string, bridgeApps []BridgeApp) []error {
+	return test(h, one, bridgeApps)
 }
 
-func (h *Holochain) test(one string) []error {
+func InitChain(h *Holochain, reset bool) (err error) {
+	if reset {
+		err = h.Reset()
+		if err != nil {
+			return
+		}
+	}
+	_, err = h.GenChain()
+	if err != nil {
+		return
+	}
+	err = h.Activate()
+	if err != nil {
+		return
+	}
+	return
+}
+
+func BuildBridges(h *Holochain, port string, bridgeApps []BridgeApp) (bridgeAppServers []*ui.WebServer, err error) {
+	bridgeAppServers = make([]*ui.WebServer, len(bridgeApps))
+
+	// setup any bridges
+	for i, app := range bridgeApps {
+		InitChain(app.H, true)
+		if err != nil {
+			err = fmt.Errorf("couldn't initialize bridge for %s for test. err:%v", app.H.DNAHash().String(), err.Error())
+			return
+		}
+
+		bridgeAppServers[i] = ui.NewWebServer(app.H, app.Port)
+		bridgeAppServers[i].Start()
+
+		err = h.BuildBridge(&app, port)
+		if err != nil {
+			panic(err)
+		}
+	}
+	return
+}
+
+func test(h *Holochain, one string, bridgeApps []BridgeApp) []error {
 
 	var err error
 	var errs []error
@@ -407,39 +435,47 @@ func (h *Holochain) test(one string) []error {
 		return []error{err}
 	}
 
-	path := filepath.Join(h.rootPath, ChainTestDir)
+	path := h.TestPath()
 
 	// load up the test files into the tests array
 	var tests, errorLoad = LoadTestFiles(path)
 	if errorLoad != nil {
 		return []error{errorLoad}
 	}
-	info := h.config.Loggers.TestInfo
-	passed := h.config.Loggers.TestPassed
-	failed := h.config.Loggers.TestFailed
+	info := h.Config.Loggers.TestInfo
+	passed := h.Config.Loggers.TestPassed
+	failed := h.Config.Loggers.TestFailed
 
 	for name, ts := range tests {
 		if one != "" && name != one {
 			continue
 		}
-		info.p("========================================")
-		info.pf("Test: '%s' starting...", name)
-		info.p("========================================")
+		info.Log("========================================")
+		info.Logf("Test: '%s' starting...", name)
+		info.Log("========================================")
 		// setup the genesis entries
-		err = h.Reset()
+		err = InitChain(h, true)
 		if err != nil {
-			panic("reset err")
+			panic("couldn't initialize chain for test. err:" + err.Error())
 		}
-		_, err = h.GenChain()
+
+		var bridgeAppServers []*ui.WebServer
+		bridgeAppServers, err = BuildBridges(h, "", bridgeApps)
 		if err != nil {
-			panic("gen err " + err.Error())
+			panic("couldn't build bridges for test. err:" + err.Error())
 		}
-		err = h.Activate()
-		if err != nil {
-			panic("activate err " + err.Error())
-		}
+
 		//	go h.dht.HandleChangeReqs()
-		ers := h.DoTests(name, ts, 0)
+		ers := DoTests(h, name, ts, 0)
+
+		// stop all the bridge web servers
+		for _, server := range bridgeAppServers {
+			server.Stop()
+		}
+		// then wait for them to complete
+		for _, server := range bridgeAppServers {
+			server.Wait()
+		}
 
 		errs = append(errs, ers...)
 
@@ -450,9 +486,9 @@ func (h *Holochain) test(one string) []error {
 		}
 	}
 	if len(errs) == 0 {
-		passed.p(fmt.Sprintf("\n==================================================================\n\t\t+++++ All tests passed :D +++++\n=================================================================="))
+		passed.Log(fmt.Sprintf("\n==================================================================\n\t\t+++++ All tests passed :D +++++\n=================================================================="))
 	} else {
-		failed.pf(fmt.Sprintf("\n==================================================================\n\t\t+++++ %d test(s) failed :( +++++\n==================================================================", len(errs)))
+		failed.Logf(fmt.Sprintf("\n==================================================================\n\t\t+++++ %d test(s) failed :( +++++\n==================================================================", len(errs)))
 	}
 	return errs
 }

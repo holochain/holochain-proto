@@ -12,6 +12,7 @@ import (
 	b58 "github.com/jbenet/go-base58"
 	ic "github.com/libp2p/go-libp2p-crypto"
 	peer "github.com/libp2p/go-libp2p-peer"
+	"io/ioutil"
 	"net/http"
 	"reflect"
 	"time"
@@ -296,7 +297,7 @@ func (a *ActionDebug) Args() []Arg {
 }
 
 func (a *ActionDebug) Do(h *Holochain) (response interface{}, err error) {
-	h.config.Loggers.App.p(a.msg)
+	h.Config.Loggers.App.p(a.msg)
 	return
 }
 
@@ -454,8 +455,15 @@ func (a *ActionBridge) Args() []Arg {
 
 func (a *ActionBridge) Do(h *Holochain) (response interface{}, err error) {
 	body := bytes.NewBuffer([]byte(a.args.(string)))
-	response, err = http.Post(fmt.Sprintf("%s/bridge/%s/%s/%s", a.url, a.token, a.zome, a.function), "", body)
-	response, err = h.BridgeCall(a.zome, a.function, a.args, a.token)
+	var resp *http.Response
+	resp, err = http.Post(fmt.Sprintf("%s/bridge/%s/%s/%s", a.url, a.token, a.zome, a.function), "", body)
+	if err != nil {
+		return
+	}
+	defer resp.Body.Close()
+	var b []byte
+	b, err = ioutil.ReadAll(resp.Body)
+	response = string(b)
 	return
 }
 

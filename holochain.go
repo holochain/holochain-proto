@@ -9,7 +9,6 @@ package holochain
 import (
 	"bytes"
 	"encoding/gob"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"github.com/google/uuid"
@@ -69,7 +68,7 @@ type Holochain struct {
 	agent            Agent
 	encodingFormat   string
 	hashSpec         HashSpec
-	config           Config
+	Config           Config
 	dht              *DHT
 	nucleus          *Nucleus
 	node             *Node
@@ -82,6 +81,14 @@ type Holochain struct {
 
 func (h *Holochain) Nucleus() (n *Nucleus) {
 	return h.nucleus
+}
+
+func (h *Holochain) Chain() (n *Chain) {
+	return h.chain
+}
+
+func (h *Holochain) Name() string {
+	return h.nucleus.dna.Name
 }
 
 var debugLog Logger
@@ -213,6 +220,11 @@ func (h *Holochain) Agent() Agent {
 	return h.agent
 }
 
+// NodeIDStr exposes the agent element
+func (h *Holochain) NodeIDStr() string {
+	return h.nodeIDStr
+}
+
 // PrepareHashType makes sure the given string is a correct multi-hash and stores
 // the code and length to the Holochain struct
 func (h *Holochain) PrepareHashType() (err error) {
@@ -227,7 +239,7 @@ func (h *Holochain) PrepareHashType() (err error) {
 
 // createNode creates a network node based on the current agent and port data
 func (h *Holochain) createNode() (err error) {
-	listenaddr := fmt.Sprintf("/ip4/0.0.0.0/tcp/%d", h.config.Port)
+	listenaddr := fmt.Sprintf("/ip4/0.0.0.0/tcp/%d", h.Config.Port)
 	h.node, err = NewNode(listenaddr, h.dnaHash.String(), h.Agent().(*LibP2PAgent))
 	return
 }
@@ -235,6 +247,7 @@ func (h *Holochain) createNode() (err error) {
 // Prepare sets up a holochain to run by:
 // loading the schema validators, setting up a Network node and setting up the DHT
 func (h *Holochain) Prepare() (err error) {
+	Debugf("Preparing %v", h.dnaHash)
 
 	err = h.nucleus.dna.check()
 	if err != nil {
@@ -265,13 +278,15 @@ func (h *Holochain) Prepare() (err error) {
 
 // Activate fires up the holochain node, starting node discovery and protocols
 func (h *Holochain) Activate() (err error) {
-	if h.config.EnableMDNS {
+	Debugf("Activating  %v", h.dnaHash)
+
+	if h.Config.EnableMDNS {
 		err = h.node.EnableMDNSDiscovery(h, time.Second)
 		if err != nil {
 			return
 		}
 	}
-	if h.config.BootstrapServer != "" {
+	if h.Config.BootstrapServer != "" {
 		e := h.BSpost()
 		if e != nil {
 			h.dht.dlog.Logf("error in BSpost: %s", e.Error())
@@ -281,13 +296,13 @@ func (h *Holochain) Activate() (err error) {
 			h.dht.dlog.Logf("error in BSget: %s", e.Error())
 		}
 	}
-	if h.config.PeerModeDHTNode {
+	if h.Config.PeerModeDHTNode {
 		if err = h.dht.Start(); err != nil {
 			return
 		}
 
 	}
-	if h.config.PeerModeAuthor {
+	if h.Config.PeerModeAuthor {
 		if err = h.nucleus.Start(); err != nil {
 			return
 		}
@@ -323,6 +338,11 @@ func (h *Holochain) DNAHash() (id Hash) {
 // AgentHash returns the hash of the Agent entry
 func (h *Holochain) AgentHash() (id Hash) {
 	return h.agentHash.Clone()
+}
+
+// AgentHash returns the hash of the Agent entry
+func (h *Holochain) AgentTopHash() (id Hash) {
+	return h.agentTopHash.Clone()
 }
 
 // Top returns a hash of top header or err if not yet defined
@@ -394,7 +414,7 @@ func (h *Holochain) GenChain() (headerHash Hash, err error) {
 	h.agentHash = agentHash
 	h.agentTopHash = agentHash
 
-	if err = writeFile([]byte(h.dnaHash.String()), h.rootPath, DNAHashFileName); err != nil {
+	if err = WriteFile([]byte(h.dnaHash.String()), h.rootPath, DNAHashFileName); err != nil {
 		return
 	}
 
@@ -416,22 +436,22 @@ func (h *Holochain) GenChain() (headerHash Hash, err error) {
 }
 
 func (h *Holochain) setupConfig() (err error) {
-	if err = h.config.Loggers.App.New(nil); err != nil {
+	if err = h.Config.Loggers.App.New(nil); err != nil {
 		return
 	}
-	if err = h.config.Loggers.DHT.New(nil); err != nil {
+	if err = h.Config.Loggers.DHT.New(nil); err != nil {
 		return
 	}
-	if err = h.config.Loggers.Gossip.New(nil); err != nil {
+	if err = h.Config.Loggers.Gossip.New(nil); err != nil {
 		return
 	}
-	if err = h.config.Loggers.TestPassed.New(nil); err != nil {
+	if err = h.Config.Loggers.TestPassed.New(nil); err != nil {
 		return
 	}
-	if err = h.config.Loggers.TestFailed.New(nil); err != nil {
+	if err = h.Config.Loggers.TestFailed.New(nil); err != nil {
 		return
 	}
-	if err = h.config.Loggers.TestInfo.New(nil); err != nil {
+	if err = h.Config.Loggers.TestInfo.New(nil); err != nil {
 		return
 	}
 	return
@@ -657,163 +677,4 @@ func (h *Holochain) VerifySignature(signature []byte, data string, pubKey ic.Pub
 		return
 	}
 	return
-}
-
-func (h *Holochain) Chain() *Chain {
-	return h.chain
-}
-
-type BridgeSpec map[string]map[string]bool
-
-// NewBridge registers a token for allowing bridged calls from some other app
-// and calls bridgeGenesis in any zomes with bridge functions
-func (h *Holochain) NewBridge() (token string, err error) {
-	err = h.initBridgeDB()
-	if err != nil {
-		return
-	}
-	var capability *Capability
-
-	bridgeSpec := h.makeBridgeSpec()
-	var bridgeSpecB []byte
-
-	if bridgeSpec != nil {
-		bridgeSpecB, err = json.Marshal(bridgeSpec)
-		if err != nil {
-			return
-		}
-	}
-
-	for zomeName, _ := range bridgeSpec {
-		var r Ribosome
-		r, _, err = h.MakeRibosome(zomeName)
-		if err != nil {
-			return
-		}
-		err = r.BridgeGenesis()
-		if err != nil {
-			return
-		}
-	}
-
-	capability, err = NewCapability(h.bridgeDB, string(bridgeSpecB), nil)
-	if err != nil {
-		return
-	}
-
-	token = capability.Token
-	return
-}
-
-func (h *Holochain) initBridgeDB() (err error) {
-	if h.bridgeDB == nil {
-		h.bridgeDB, err = buntdb.Open(filepath.Join(h.DBPath(), BridgeDBFileName))
-	}
-	return
-}
-
-func checkBridgeSpec(spec BridgeSpec, zomeType string, function string) bool {
-	f, ok := spec[zomeType]
-	if ok {
-		_, ok = f[function]
-	}
-	return ok
-}
-
-func (h *Holochain) makeBridgeSpec() (spec BridgeSpec) {
-	var funcs map[string]bool
-	for _, z := range h.nucleus.dna.Zomes {
-		for _, f := range z.BridgeFuncs {
-			if spec == nil {
-				spec = make(BridgeSpec)
-			}
-			_, ok := spec[z.Name]
-			if !ok {
-				funcs = make(map[string]bool)
-				spec[z.Name] = funcs
-
-			}
-			funcs[f] = true
-		}
-	}
-	return
-}
-
-// BridgeCall executes a function exposed through a bridge
-func (h *Holochain) BridgeCall(zomeType string, function string, arguments interface{}, token string) (result interface{}, err error) {
-	if h.bridgeDB == nil {
-		err = errors.New("no active bridge")
-		return
-	}
-	c := Capability{Token: token, db: h.bridgeDB}
-	var bridgeSpecStr string
-	bridgeSpecStr, err = c.Validate(nil)
-	if err == nil {
-		if bridgeSpecStr != "*" {
-			bridgeSpec := make(BridgeSpec)
-			err = json.Unmarshal([]byte(bridgeSpecStr), &bridgeSpec)
-			if err == nil {
-				if !checkBridgeSpec(bridgeSpec, zomeType, function) {
-					err = errors.New("function not bridged")
-					return
-				}
-			}
-		}
-		if err == nil {
-			result, err = h.Call(zomeType, function, arguments, ZOME_EXPOSURE)
-		}
-	}
-
-	if err != nil {
-		err = errors.New("bridging error: " + err.Error())
-
-	}
-
-	return
-}
-
-// AddBridge associates a token with an an application DNA hash
-func (h *Holochain) AddBridge(hash Hash, token string, url string) (err error) {
-	err = h.initBridgeDB()
-	if err != nil {
-		return
-	}
-	err = h.bridgeDB.Update(func(tx *buntdb.Tx) error {
-		_, _, err = tx.Set("app:"+hash.String(), token, nil)
-		if err != nil {
-			return err
-		}
-		_, _, err = tx.Set("url:"+hash.String(), url, nil)
-		if err != nil {
-			return err
-		}
-		return nil
-	})
-	return
-}
-
-var BridgeAppNotFoundErr = errors.New("bridge app not found")
-
-// GetBridgeToken returns a token given the a hash
-func (h *Holochain) GetBridgeToken(hash Hash) (token string, url string, err error) {
-	if h.bridgeDB == nil {
-		err = errors.New("no active bridge")
-		return
-	}
-	err = h.bridgeDB.View(func(tx *buntdb.Tx) (e error) {
-		token, e = tx.Get("app:" + hash.String())
-		if e == buntdb.ErrNotFound {
-			e = BridgeAppNotFoundErr
-		}
-		url, e = tx.Get("url:" + hash.String())
-		if e == buntdb.ErrNotFound {
-			e = BridgeAppNotFoundErr
-		}
-		return
-	})
-	return
-}
-
-func (h *Holochain) Config() *Config {
-	return &h.config
 }

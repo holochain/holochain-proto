@@ -20,6 +20,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"time"
 )
 
 // System settings, directory, and file names
@@ -77,7 +78,7 @@ type ZomeFile struct {
 	RibosomeType string
 	Functions    []FunctionDef
 	BridgeFuncs  []string // functions in zome that can be bridged to by fromApp
-	BridgeTo     Hash     // dna Hash of toApp for zomes to be included in the fromApp
+	BridgeTo     string   // dna Hash of toApp that this zome is a client of
 }
 
 type DNAFile struct {
@@ -93,9 +94,23 @@ type DNAFile struct {
 	Progenitor           Progenitor
 }
 
+// TestData holds a test entry for a chain
+type TestData struct {
+	Convey   string        // a human readable description of the tests intent
+	Zome     string        // the zome in which to find the function
+	FnName   string        // the function to call
+	Input    interface{}   // the function's input
+	Output   string        // the expected output to match against (full match)
+	Err      string        // the expected error to match against
+	Regexp   string        // the expected out to match again (regular expression)
+	Time     time.Duration // offset in milliseconds from the start of the test at which to run this test.
+	Exposure string        // the exposure context for the test call (defaults to ZOME_EXPOSURE)
+	Raw      bool          // set to true if we should ignore fnName and just call input as raw code in the zome, useful for testing helper functions and validation functions
+}
+
 // IsInitialized checks a path for a correctly set up .holochain directory
 func IsInitialized(root string) bool {
-	return dirExists(root) && fileExists(filepath.Join(root, SysFileName)) && fileExists(filepath.Join(root, AgentFileName))
+	return DirExists(root) && FileExists(filepath.Join(root, SysFileName)) && FileExists(filepath.Join(root, AgentFileName))
 }
 
 // Init initializes service defaults including a signing key pair for an agent
@@ -259,7 +274,7 @@ func (s *Service) LoadDNA(path string, filename string, format string) (dnaP *DN
 	var validator SchemaValidator
 	var propertiesSchema []byte
 	if dnaFile.PropertiesSchemaFile != "" {
-		propertiesSchema, err = readFile(path, dnaFile.PropertiesSchemaFile)
+		propertiesSchema, err = ReadFile(path, dnaFile.PropertiesSchemaFile)
 		if err != nil {
 			return
 		}
@@ -302,7 +317,7 @@ func (s *Service) LoadDNA(path string, filename string, format string) (dnaP *DN
 
 		zomePath := filepath.Join(path, zome.Name)
 		codeFilePath := filepath.Join(zomePath, zome.CodeFile)
-		if !fileExists(codeFilePath) {
+		if !FileExists(codeFilePath) {
 			//fmt.Printf("%v", zome)
 			return nil, errors.New("DNA specified code file missing: " + zome.CodeFile)
 		}
@@ -312,10 +327,14 @@ func (s *Service) LoadDNA(path string, filename string, format string) (dnaP *DN
 		dna.Zomes[i].RibosomeType = zome.RibosomeType
 		dna.Zomes[i].Functions = zome.Functions
 		dna.Zomes[i].BridgeFuncs = zome.BridgeFuncs
-		dna.Zomes[i].BridgeTo = zome.BridgeTo
-
+		if zome.BridgeTo != "" {
+			dna.Zomes[i].BridgeTo, err = NewHash(zome.BridgeTo)
+			if err != nil {
+				return
+			}
+		}
 		var code []byte
-		code, err = readFile(zomePath, zome.CodeFile)
+		code, err = ReadFile(zomePath, zome.CodeFile)
 		if err != nil {
 			return
 		}
@@ -329,11 +348,11 @@ func (s *Service) LoadDNA(path string, filename string, format string) (dnaP *DN
 			dna.Zomes[i].Entries[j].Schema = entry.Schema
 			if entry.Schema == "" && entry.SchemaFile != "" {
 				schemaFilePath := filepath.Join(zomePath, entry.SchemaFile)
-				if !fileExists(schemaFilePath) {
+				if !FileExists(schemaFilePath) {
 					return nil, errors.New("DNA specified schema file missing: " + schemaFilePath)
 				}
 				var schema []byte
-				schema, err = readFile(zomePath, entry.SchemaFile)
+				schema, err = ReadFile(zomePath, entry.SchemaFile)
 				if err != nil {
 					return
 				}
@@ -371,7 +390,7 @@ func (s *Service) load(name string, format string) (hP *Holochain, err error) {
 		return
 	}
 	defer f.Close()
-	err = Decode(f, format, &h.config)
+	err = Decode(f, format, &h.Config)
 	if err != nil {
 		return
 	}
@@ -408,16 +427,19 @@ func (s *Service) load(name string, format string) (hP *Holochain, err error) {
 
 	// if the chain has been started there should be a DNAHashFile which
 	// we can load to check against the actual hash of the DNA entry
-	var b []byte
-	b, err = readFile(h.rootPath, DNAHashFileName)
-	if err != nil {
-		err = nil
-	} else {
-		h.dnaHash, err = NewHash(string(b))
-		if err != nil {
-			return
+	if len(h.chain.Headers) > 0 {
+		h.dnaHash = h.chain.Headers[0].EntryLink.Clone()
+
+		var b []byte
+		b, err = ReadFile(h.rootPath, DNAHashFileName)
+		if err == nil {
+			if h.dnaHash.String() != string(b) {
+				err = errors.New("DNA doesn't match file!")
+				return
+			}
 		}
 	}
+
 	// @TODO compare value from file to actual hash
 
 	if h.chain.Length() > 0 {
@@ -431,7 +453,7 @@ func (s *Service) load(name string, format string) (hP *Holochain, err error) {
 
 // gen calls a make function which should build the holochain structure and supporting files
 func gen(root string, makeH func(root string) (hP *Holochain, err error)) (h *Holochain, err error) {
-	if dirExists(root) {
+	if DirExists(root) {
 		return nil, mkErr(root + " already exists")
 	}
 	if err := os.MkdirAll(root, os.ModePerm); err != nil {
@@ -460,7 +482,7 @@ func gen(root string, makeH func(root string) (hP *Holochain, err error)) (h *Ho
 	}
 
 	//p := filepath.Join(root, ChainDNADir, DNAFileName + "." + h.encodingFormat)
-	//if fileExists(p) {
+	//if FileExists(p) {
 	//	return nil, mkErr(p + " already exists")
 	//}
 	//f, err := os.Create(p)
@@ -489,7 +511,7 @@ func suffixByRibosomeType(ribosomeType string) (suffix string) {
 }
 
 func makeConfig(h *Holochain, s *Service) (err error) {
-	h.config = Config{
+	h.Config = Config{
 		Port:            DefaultPort,
 		PeerModeDHTNode: s.Settings.DefaultPeerModeDHTNode,
 		PeerModeAuthor:  s.Settings.DefaultPeerModeAuthor,
@@ -506,7 +528,7 @@ func makeConfig(h *Holochain, s *Service) (err error) {
 
 	val := os.Getenv("HOLOCHAINCONFIG_PORT")
 	if val != "" {
-		h.config.Port, err = strconv.Atoi(val)
+		h.Config.Port, err = strconv.Atoi(val)
 		if err != nil {
 			return err
 		}
@@ -516,20 +538,20 @@ func makeConfig(h *Holochain, s *Service) (err error) {
 		if val == "_" {
 			val = ""
 		}
-		h.config.BootstrapServer = val
+		h.Config.BootstrapServer = val
 	}
 	val = os.Getenv("HOLOCHAINCONFIG_ENABLEMDNS")
 	if val != "" {
-		h.config.EnableMDNS = val == "true"
+		h.Config.EnableMDNS = val == "true"
 	}
 	val = os.Getenv("HOLOCHAINCONFIG_LOGPREFIX")
 	if val != "" {
-		h.config.Loggers.App.Format = val + h.config.Loggers.App.Format
-		h.config.Loggers.DHT.Format = val + h.config.Loggers.DHT.Format
-		h.config.Loggers.Gossip.Format = val + h.config.Loggers.Gossip.Format
-		h.config.Loggers.TestPassed.Format = val + h.config.Loggers.TestPassed.Format
-		h.config.Loggers.TestFailed.Format = val + h.config.Loggers.TestFailed.Format
-		h.config.Loggers.TestInfo.Format = val + h.config.Loggers.TestInfo.Format
+		h.Config.Loggers.App.Format = val + h.Config.Loggers.App.Format
+		h.Config.Loggers.DHT.Format = val + h.Config.Loggers.DHT.Format
+		h.Config.Loggers.Gossip.Format = val + h.Config.Loggers.Gossip.Format
+		h.Config.Loggers.TestPassed.Format = val + h.Config.Loggers.TestPassed.Format
+		h.Config.Loggers.TestFailed.Format = val + h.Config.Loggers.TestFailed.Format
+		h.Config.Loggers.TestInfo.Format = val + h.Config.Loggers.TestInfo.Format
 	}
 
 	p := filepath.Join(h.rootPath, ConfigFileName+"."+h.encodingFormat)
@@ -539,7 +561,7 @@ func makeConfig(h *Holochain, s *Service) (err error) {
 	}
 	defer f.Close()
 
-	if err = Encode(f, h.encodingFormat, &h.config); err != nil {
+	if err = Encode(f, h.encodingFormat, &h.Config); err != nil {
 		return
 	}
 	if err = h.setupConfig(); err != nil {
@@ -664,7 +686,7 @@ func (s *Service) GenDev(root string, format string) (hP *Holochain, err error) 
 	}
 }`
 
-		if err = writeFile([]byte(propertiesSchema), h.DNAPath(), propertiesSchemaFile); err != nil {
+		if err = WriteFile([]byte(propertiesSchema), h.DNAPath(), propertiesSchemaFile); err != nil {
 			return
 		}
 
@@ -723,20 +745,20 @@ func (s *Service) GenDev(root string, format string) (hP *Holochain, err error) 
 (defn validateDelPkg [entryType] nil)
 (defn validateLinkPkg [entryType] nil)
 (defn genesis [] true)
-(defn bridgeGenesis [] (begin (debug "bridge genesis debug output")  true))
+(defn bridgeGenesis [side app data] (begin (debug (concat "bridge genesis " (cond (== side HC_Bridge_From) "from" "to") ": other side is:" app " bridging data:" data))  true))
 (defn receive [from message]
 	(hash pong: (hget message %ping)))
 `
 		if err = os.MkdirAll(filepath.Join(h.DNAPath(), zygoZomeName), os.ModePerm); err != nil {
 			return nil, err
 		}
-		if err = writeFile([]byte(zygoCode), h.DNAPath(), zygoZomeName, zygoZomeName+".zy"); err != nil {
+		if err = WriteFile([]byte(zygoCode), h.DNAPath(), zygoZomeName, zygoZomeName+".zy"); err != nil {
 			return
 		}
-		if err = writeFile([]byte(profileSchema), h.DNAPath(), zygoZomeName, "profile.json"); err != nil {
+		if err = WriteFile([]byte(profileSchema), h.DNAPath(), zygoZomeName, "profile.json"); err != nil {
 			return
 		}
-		if err = writeFile([]byte(primesSchema), h.DNAPath(), zygoZomeName, "primes.json"); err != nil {
+		if err = WriteFile([]byte(primesSchema), h.DNAPath(), zygoZomeName, "primes.json"); err != nil {
 			return
 		}
 
@@ -786,7 +808,7 @@ function validateDelPkg(entry_type) { return null}
 function validateLinkPkg(entry_type) { return null}
 
 function genesis() {return true}
-function bridgeGenesis() {return true}
+function bridgeGenesis(side,app,data) {return true}
 
 function receive(from,message) {
   // send back a pong message of what came in the ping message!
@@ -798,10 +820,10 @@ function receive(from,message) {
 		if err = os.MkdirAll(filepath.Join(h.DNAPath(), jsZomeName), os.ModePerm); err != nil {
 			return nil, err
 		}
-		if err = writeFile([]byte(jsCode), h.DNAPath(), jsZomeName, jsZomeName+".js"); err != nil {
+		if err = WriteFile([]byte(jsCode), h.DNAPath(), jsZomeName, jsZomeName+".js"); err != nil {
 			return
 		}
-		if err = writeFile([]byte(profileSchema), h.DNAPath(), jsZomeName, "profile.json"); err != nil {
+		if err = WriteFile([]byte(profileSchema), h.DNAPath(), jsZomeName, "profile.json"); err != nil {
 			return
 		}
 
@@ -870,7 +892,7 @@ function receive(from,message) {
 		}
 
 		for fileName, fileText := range SampleUI {
-			if err = writeFile([]byte(fileText), h.UIPath(), fileName); err != nil {
+			if err = WriteFile([]byte(fileText), h.UIPath(), fileName); err != nil {
 				return
 			}
 		}
@@ -889,7 +911,7 @@ function receive(from,message) {
 			if err != nil {
 				return
 			}
-			if err = writeFile(j, testPath, fn); err != nil {
+			if err = WriteFile(j, testPath, fn); err != nil {
 				return
 			}
 		}
@@ -901,7 +923,7 @@ function receive(from,message) {
 		if err != nil {
 			return
 		}
-		if err = writeFile(j, testPath, fn); err != nil {
+		if err = WriteFile(j, testPath, fn); err != nil {
 			return
 		}
 
@@ -976,7 +998,7 @@ func (s *Service) Clone(srcPath string, root string, agent Agent, new bool) (err
 
 		// copy any UI files
 		srcUIPath := filepath.Join(srcPath, ChainUIDir)
-		if dirExists(srcUIPath) {
+		if DirExists(srcUIPath) {
 			if err = CopyDir(srcUIPath, h.UIPath()); err != nil {
 				return
 			}
@@ -984,7 +1006,7 @@ func (s *Service) Clone(srcPath string, root string, agent Agent, new bool) (err
 
 		// copy any test files
 		srcTestDir := filepath.Join(srcPath, ChainTestDir)
-		if dirExists(srcTestDir) {
+		if DirExists(srcTestDir) {
 			if err = CopyDir(srcTestDir, filepath.Join(root, ChainTestDir)); err != nil {
 				return
 			}
@@ -1046,7 +1068,7 @@ func (s *Service) ListChains() (list string) {
 func (s *Service) SaveDNAFile(root string, dna *DNA, encodingFormat string, overwrite bool) (err error) {
 	dnaPath := filepath.Join(root, ChainDNADir)
 	p := filepath.Join(dnaPath, DNAFileName+"."+encodingFormat)
-	if !overwrite && fileExists(p) {
+	if !overwrite && FileExists(p) {
 		return mkErr(p + " already exists")
 	}
 	f, err := os.Create(p)
@@ -1071,7 +1093,7 @@ func (s *Service) SaveDNAFile(root string, dna *DNA, encodingFormat string, over
 		if err = os.MkdirAll(zpath, os.ModePerm); err != nil {
 			return
 		}
-		if err = writeFile([]byte(z.Code), zpath, z.Name+suffixByRibosomeType(z.RibosomeType)); err != nil {
+		if err = WriteFile([]byte(z.Code), zpath, z.Name+suffixByRibosomeType(z.RibosomeType)); err != nil {
 			return
 		}
 
@@ -1081,7 +1103,7 @@ func (s *Service) SaveDNAFile(root string, dna *DNA, encodingFormat string, over
 			RibosomeType: z.RibosomeType,
 			Functions:    z.Functions,
 			BridgeFuncs:  z.BridgeFuncs,
-			BridgeTo:     z.BridgeTo,
+			BridgeTo:     z.BridgeTo.String(),
 		}
 
 		for _, e := range z.Entries {
@@ -1092,7 +1114,7 @@ func (s *Service) SaveDNAFile(root string, dna *DNA, encodingFormat string, over
 			}
 			if e.DataFormat == DataFormatJSON && e.Schema != "" {
 				entryDefFile.SchemaFile = e.Name + ".json"
-				if err = writeFile([]byte(e.Schema), zpath, e.Name+".json"); err != nil {
+				if err = WriteFile([]byte(e.Schema), zpath, e.Name+".json"); err != nil {
 					return
 				}
 			}
@@ -1103,7 +1125,7 @@ func (s *Service) SaveDNAFile(root string, dna *DNA, encodingFormat string, over
 	}
 
 	if dna.PropertiesSchema != "" {
-		if err = writeFile([]byte(dna.PropertiesSchema), dnaPath, "properties_schema.json"); err != nil {
+		if err = WriteFile([]byte(dna.PropertiesSchema), dnaPath, "properties_schema.json"); err != nil {
 			return
 		}
 	}
@@ -1134,7 +1156,7 @@ func (service *Service) SaveScaffold(reader io.Reader, path string, newUUID bool
 
 	testPath := filepath.Join(path, ChainTestDir)
 	for _, test := range scaffold.Tests {
-		if err = writeFile([]byte(test.Value), testPath, test.Name+".json"); err != nil {
+		if err = WriteFile([]byte(test.Value), testPath, test.Name+".json"); err != nil {
 			return
 		}
 	}

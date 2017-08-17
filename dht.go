@@ -206,8 +206,8 @@ var ErrEntryTypeMismatch = errors.New("entry type mismatch")
 func NewDHT(h *Holochain) *DHT {
 	dht := DHT{
 		h:    h,
-		glog: &h.config.Loggers.Gossip,
-		dlog: &h.config.Loggers.DHT,
+		glog: &h.Config.Loggers.Gossip,
+		dlog: &h.Config.Loggers.DHT,
 	}
 	db, err := buntdb.Open(filepath.Join(h.DBPath(), DHTStoreFileName))
 	if err != nil {

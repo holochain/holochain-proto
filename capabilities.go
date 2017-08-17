@@ -31,6 +31,7 @@ func NewCapability(db *buntdb.DB, capability string, who interface{}) (c *Capabi
 	c = &Capability{db: db}
 	c.Token = makeToken(capability)
 	err = db.Update(func(tx *buntdb.Tx) error {
+		Debugf("NewCapability: save token:%s\n", c.Token)
 		_, _, err = tx.Set("tok:"+c.Token, capability, nil)
 		if err != nil {
 			return err
@@ -43,6 +44,7 @@ func NewCapability(db *buntdb.DB, capability string, who interface{}) (c *Capabi
 // Validate checks to see if the token has been registered and returns the capability it represent
 func (c *Capability) Validate(who interface{}) (capability string, err error) {
 	err = c.db.View(func(tx *buntdb.Tx) (e error) {
+		Debugf("Validate: get token:%s\n", c.Token)
 		capability, e = tx.Get("tok:" + c.Token)
 		if e == buntdb.ErrNotFound {
 			e = CapabilityInvalidErr

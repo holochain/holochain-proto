@@ -24,10 +24,10 @@ import (
 )
 
 // Version is the numeric version number of the holochain library
-const Version int = 14
+const Version int = 15
 
 // VersionStr is the textual version number of the holochain library
-const VersionStr string = "14"
+const VersionStr string = "15"
 
 // Loggers holds the logging structures for the different parts of the system
 type Loggers struct {

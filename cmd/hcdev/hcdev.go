@@ -33,7 +33,7 @@ const (
 	bridgeToPort   = "21112"
 )
 
-var debug, appInitialized bool
+var debug, appInitialized, verbose, keepalive bool
 var rootPath, devPath, bridgeToPath, bridgeToName, bridgeFromPath, bridgeFromName, name string
 var bridgeFromH, bridgeToH *holo.Holochain
 var bridgeFromAppData, bridgeToAppData string
@@ -99,6 +99,16 @@ func setupApp() (app *cli.App) {
 			Name:        "debug",
 			Usage:       "debugging output",
 			Destination: &debug,
+		},
+		cli.BoolFlag{
+			Name:        "verbose",
+			Usage:       "verbose output",
+			Destination: &verbose,
+		},
+		cli.BoolFlag{
+			Name:        "keepalive",
+			Usage:       "don't end hcdev process upon completion of work",
+			Destination: &keepalive,
 		},
 		cli.StringFlag{
 			Name:        "execpath",
@@ -692,6 +702,13 @@ func setupApp() (app *cli.App) {
 func main() {
 	app := setupApp()
 	app.Run(os.Args)
+	if verbose {
+		fmt.Printf("hcdev complete!\n")
+	}
+	if keepalive {
+		stop := make(chan bool, 1)
+		<-stop
+	}
 }
 
 func getHolochain(c *cli.Context, service *holo.Service) (h *holo.Holochain, bridgeApps []holo.BridgeApp, err error) {

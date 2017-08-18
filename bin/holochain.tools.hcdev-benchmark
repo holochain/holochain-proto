@@ -15,14 +15,14 @@ do
     if [[ $key = q ]]
     then
         break
-    fi	
+    fi
 
     grep "hcdev complete\!" benchmark.out
 
-	if [ $? -eq 0 ] 
-	then 
+	if [ $? -eq 0 ]
+	then
 		break
-	fi 	
+	fi
 
 done
 clear
@@ -30,4 +30,4 @@ echo -e "Final:"
 echo "Process          PID     CPU Time Resident Set Size"
 ps -e -o "comm pid time rss" | grep "hcdev" | grep -v "grep"
 echo ""
-pkill hcdev
+pkill hcdev > /dev/null

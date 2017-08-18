@@ -221,7 +221,7 @@ func GetFreePort() (port int, err error) {
 }
 
 func GetUnixTimestamp_secondsFromNow(seconds int) int64 {
-	return time.Now().Add(10 * time.Second).Unix()
+	return time.Now().Add(seconds * time.Second).Unix()
 }
 func GetDuration_fromUnixTimestamp(timestamp int64) (duration time.Duration) {
 	duration = 0 * time.Second

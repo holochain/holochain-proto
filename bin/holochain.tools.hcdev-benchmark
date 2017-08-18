@@ -7,7 +7,7 @@ while [ true ]
 do
 	clear
 	date
-	ps -e -m -o "comm cputime rss" | grep "hcdev" | grep -v "grep"
+	ps -e -m -o "comm pid cputime rss" | grep "hcdev" | grep -v "grep"
 
 	read -t 1 -n 1 key
 
@@ -26,6 +26,6 @@ do
 done
 clear
 echo -e "Final:"
-ps -e -m -o "comm cputime rss" | grep "hcdev" | grep -v "grep"
+ps -e -m -o "comm pid cputime rss" | grep "hcdev" | grep -v "grep"
 echo ""
 pkill hcdev

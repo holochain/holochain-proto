@@ -53,10 +53,17 @@ const (
 	SkipInitializeDB  = false
 )
 
+//
+type CloneSpec struct {
+	Role		string
+	Number		int
+}
+
 // TestConfig holds the configuration options for a test
 type TestConfig struct {
 	GossipInterval time.Duration // interval in milliseconds between gossips
 	Duration       int           // if non-zero number of seconds to keep all nodes alive
+	Clone		   []CloneSpec
 }
 
 // ServiceConfig holds the service settings

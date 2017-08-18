@@ -7,9 +7,7 @@ while [ true ]
 do
 	clear
 	date
-	ps -e -m -o "comm cputime" | grep "hcdev" | grep -v "grep"
-	ps -e -v  | grep "hcdev" | grep -v "grep" | grep -v "hcdev-bench"
-	echo `tail -n 1 benchmark.out`
+	ps -e -m -o "comm cputime rss" | grep "hcdev" | grep -v "grep"
 
 	read -t 1 -n 1 key
 
@@ -18,7 +16,9 @@ do
         break
     fi	
 
-	if [ "`tail -n 1 benchmark.out`" = "hcdev complete!" ] 
+    grep "hcdev complete\!" benchmark.out
+
+	if [ $? -eq 0 ] 
 	then 
 		break
 	fi 	
@@ -26,7 +26,6 @@ do
 done
 clear
 echo -e "Final:"
-ps -e -m -o "comm cputime" | grep "hcdev" | grep -v "grep"
-ps -v  | grep "hcdev" | grep -v "grep" | grep -v "hcdev-bench"
+ps -e -m -o "comm cputime rss" | grep "hcdev" | grep -v "grep"
 echo ""
 pkill hcdev

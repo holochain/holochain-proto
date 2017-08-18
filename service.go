@@ -7,16 +7,18 @@ package holochain
 
 import (
 	"bytes"
+	"encoding/base64"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"github.com/BurntSushi/toml"
 	"github.com/google/uuid"
-
-	"encoding/base64"
 	"io"
 	"io/ioutil"
+	"net/http"
 	"os"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"strconv"
 	"strings"
@@ -39,6 +41,8 @@ const (
 	DNAHashFileName      string = "dna.hash"    // Filename for storing the hash of the holochain
 	DHTStoreFileName     string = "dht.db"      // Filname for storing the dht
 	BridgeDBFileName     string = "bridge.db"   // Filname for storing bridge keys
+
+	TestConfigFileName string = "_config.json"
 
 	DefaultPort            = 6283
 	DefaultBootstrapServer = "bootstrap.holochain.net:10000"
@@ -593,7 +597,7 @@ func (s *Service) GenDev(root string, encodingFormat string, initDB bool) (h *Ho
 	scaffoldReader := bytes.NewBuffer([]byte(TestingAppScaffold()))
 
 	name := filepath.Base(root)
-	_, err = s.SaveScaffold(scaffoldReader, root, name, encodingFormat, initDB)
+	_, err = s.SaveFromScaffold(scaffoldReader, root, name, encodingFormat, initDB)
 	if err != nil {
 		return
 	}
@@ -857,8 +861,97 @@ func IsDebugging() bool {
 	return strings.ToLower(os.Getenv("DEBUG")) == "true" || os.Getenv("DEBUG") == "1"
 }
 
-// SaveScaffold writes out a holochain application based on scaffold file to path
-func (service *Service) SaveScaffold(reader io.Reader, path string, name string, encodingFormat string, newUUID bool) (scaffold *Scaffold, err error) {
+// MakeScaffold creates out a scaffold blob from a given holochain
+func (service *Service) MakeScaffold(h *Holochain) (data []byte, err error) {
+	scaffold := Scaffold{
+		ScaffoldVersion: ScaffoldVersion,
+		Generator:       "holochain " + VersionStr,
+		DNA:             *h.nucleus.dna,
+	}
+
+	var testsmap map[string][]TestData
+	testsmap, err = LoadTestFiles(h.TestPath())
+	if err != nil {
+		return
+	}
+	scaffold.Tests = make([]ScaffoldTests, 0)
+	for name, t := range testsmap {
+		scaffold.Tests = append(scaffold.Tests, ScaffoldTests{Name: name, Tests: t})
+	}
+
+	var scenarioFiles map[string]*os.FileInfo
+	scenarioFiles, err = GetTestScenarios(h)
+	if err != nil {
+		return
+	}
+	scaffold.Scenarios = make([]ScaffoldScenario, 0)
+	for name, _ := range scenarioFiles {
+		scenarioPath := filepath.Join(h.TestPath(), name)
+		var rolemap map[string][]TestData
+		rolemap, err = LoadTestFiles(scenarioPath)
+		if err != nil {
+			return
+		}
+		roles := make([]ScaffoldTests, 0)
+		for name, tests := range rolemap {
+			roles = append(roles,
+				ScaffoldTests{Name: name, Tests: tests})
+
+		}
+		scenario := ScaffoldScenario{Name: name, Roles: roles}
+		if FileExists(scenarioPath, TestConfigFileName) {
+			var config *TestConfig
+			config, err = LoadTestConfig(scenarioPath)
+			if err != nil {
+				return
+			}
+			scenario.Config = *config
+		}
+		scaffold.Scenarios = append(scaffold.Scenarios, scenario)
+	}
+
+	var files []os.FileInfo
+	files, err = ioutil.ReadDir(h.UIPath())
+	if err != nil {
+		return
+	}
+
+	scaffold.UI = make([]ScaffoldUIFile, 0)
+	for _, f := range files {
+		// TODO handle subdirectories
+		if f.Mode().IsRegular() {
+			var file []byte
+			file, err = ReadFile(h.UIPath(), f.Name())
+			if err != nil {
+				return
+			}
+			uiFile := ScaffoldUIFile{FileName: f.Name()}
+			contentType := http.DetectContentType(file)
+			if encodeAsBinary(contentType) {
+				uiFile.Data = base64.StdEncoding.EncodeToString([]byte(file))
+
+				uiFile.Encoding = "base64"
+			} else {
+				uiFile.Data = string(file)
+			}
+			scaffold.UI = append(scaffold.UI, uiFile)
+
+		}
+	}
+
+	data, err = json.Marshal(scaffold)
+	return
+}
+
+func encodeAsBinary(contentType string) bool {
+	if strings.HasPrefix(contentType, "text") {
+		return false
+	}
+	return true
+}
+
+// SaveFromScaffold writes out a holochain application based on scaffold file to path
+func (service *Service) SaveFromScaffold(reader io.Reader, path string, name string, encodingFormat string, newUUID bool) (scaffold *Scaffold, err error) {
 	scaffold, err = LoadScaffold(reader)
 	if err != nil {
 		return
@@ -914,7 +1007,7 @@ func (service *Service) SaveScaffold(reader io.Reader, path string, name string,
 			}
 		}
 		if scenario.Config.Duration != 0 {
-			p := filepath.Join(scenarioPath, "_config.json")
+			p := filepath.Join(scenarioPath, TestConfigFileName)
 			var f *os.File
 			f, err = os.Create(p)
 			if err != nil {
@@ -965,6 +1058,119 @@ func MakeDirs(devPath string) error {
 	}
 
 	return nil
+}
+
+// LoadTestFile unmarshals test json data
+func LoadTestFile(dir string, file string) (tests []TestData, err error) {
+	var v []byte
+	v, err = ReadFile(dir, file)
+	if err != nil {
+		return nil, err
+	}
+	err = json.Unmarshal(v, &tests)
+
+	if err != nil {
+		return nil, err
+	}
+	return
+}
+
+// LoadTestConfig unmarshals test json data
+func LoadTestConfig(dir string) (config *TestConfig, err error) {
+	c := TestConfig{GossipInterval: 2 * time.Second, Duration: 0}
+	config = &c
+	// if no config file return default values
+	if !FileExists(dir, TestConfigFileName) {
+		return
+	}
+	var v []byte
+	v, err = ReadFile(dir, TestConfigFileName)
+	if err != nil {
+		return nil, err
+	}
+	err = json.Unmarshal(v, &c)
+
+	if err != nil {
+		return nil, err
+	}
+	return
+}
+
+// LoadTestFiles searches a path for .json test files and loads them into an array
+func LoadTestFiles(path string) (map[string][]TestData, error) {
+	files, err := ioutil.ReadDir(path)
+	if err != nil {
+		return nil, err
+	}
+
+	re := regexp.MustCompile(`(.*)\.json`)
+	var tests = make(map[string][]TestData)
+	for _, f := range files {
+		if f.Mode().IsRegular() {
+			x := re.FindStringSubmatch(f.Name())
+			if len(x) > 0 {
+				if f.Name() != TestConfigFileName {
+					name := x[1]
+					tests[name], err = LoadTestFile(path, x[0])
+					if err != nil {
+						return nil, err
+					}
+				}
+			}
+		}
+	}
+
+	if len(tests) == 0 {
+		return nil, errors.New("no test files found in: " + path)
+	}
+
+	return tests, err
+}
+
+// TestScenarioList returns a list of paths to scenario directories
+func GetTestScenarios(h *Holochain) (scenarios map[string]*os.FileInfo, err error) {
+	dirContentList := []os.FileInfo{}
+	scenarios = make(map[string]*os.FileInfo)
+
+	dirContentList, err = ioutil.ReadDir(h.TestPath())
+	if err != nil {
+		return scenarios, err
+	}
+	for _, fileOrDir := range dirContentList {
+		if fileOrDir.Mode().IsDir() {
+			scenarios[fileOrDir.Name()] = &fileOrDir
+		}
+	}
+
+	return scenarios, err
+}
+
+// GetScenarioDataMap returns a map of TestData object
+func GetTestScenarioRoles(h *Holochain, scenarioName string) (roleNameList []string, err error) {
+	return GetAllTestRoles(filepath.Join(h.TestPath(), scenarioName))
+}
+
+// GetAllTestRoles  retuns a list of the roles in a scenario
+func GetAllTestRoles(path string) (roleNameList []string, err error) {
+	roleNameList = []string{}
+
+	files, err := ioutil.ReadDir(path)
+	if err != nil {
+		return nil, err
+	}
+
+	re := regexp.MustCompile(`(.*)\.json`)
+	for _, f := range files {
+		if f.Mode().IsRegular() {
+			x := re.FindStringSubmatch(f.Name())
+			if len(x) > 0 {
+				if f.Name() != TestConfigFileName {
+					roleNameList = append(roleNameList, x[1])
+				}
+			}
+		}
+	}
+	return
 }
 
 func TestingAppScaffold() string {

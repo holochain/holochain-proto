@@ -177,35 +177,51 @@ func TestInit(t *testing.T) {
 
 }
 
+func TestPackage(t *testing.T) {
+	app := setupApp()
+	tmpTestDir, app := setupTestingApp("foo")
+	defer os.RemoveAll(tmpTestDir)
+	Convey("'package' should print a scaffold file to stdout", t, func() {
+		out := runAppWithStdoutCapture(app, []string{"hcdev", "package"})
+		So(out, ShouldContainSubstring, fmt.Sprintf(`"ScaffoldVersion":"%s"`, holo.ScaffoldVersion))
+	})
+}
+
 func TestWeb(t *testing.T) {
 	tmpTestDir, app := setupTestingApp("foo")
 	defer os.RemoveAll(tmpTestDir)
 
 	Convey("'web' should run a webserver", t, func() {
-		os.Args = []string{"hcdev", "web"}
 
-		old := os.Stdout // keep backup of the real stdout
-		r, w, _ := os.Pipe()
-		os.Stdout = w
-
-		go app.Run(os.Args)
-		time.Sleep(time.Second / 2)
-
-		outC := make(chan string)
-		// copy the output in a separate goroutine so printing can't block indefinitely
-		go func() {
-			var buf bytes.Buffer
-			io.Copy(&buf, r)
-			outC <- buf.String()
-		}()
-
-		// back to normal state
-		w.Close()
-		os.Stdout = old // restoring the real stdout
-		out := <-outC
+		out := runAppWithStdoutCapture(app, []string{"hcdev", "web"})
 		So(out, ShouldContainSubstring, "on port:4141")
 		So(out, ShouldContainSubstring, "Serving holochain with DNA hash:")
 	})
+}
+
+func runAppWithStdoutCapture(app *cli.App, args []string) string {
+	os.Args = args
+
+	old := os.Stdout // keep backup of the real stdout
+	r, w, _ := os.Pipe()
+	os.Stdout = w
+
+	go app.Run(os.Args)
+	time.Sleep(time.Second / 2)
+
+	outC := make(chan string)
+	// copy the output in a separate goroutine so printing can't block indefinitely
+	go func() {
+		var buf bytes.Buffer
+		io.Copy(&buf, r)
+		outC <- buf.String()
+	}()
+
+	// back to normal state
+	w.Close()
+	os.Stdout = old // restoring the real stdout
+	out := <-outC
+	return out
 }
 
 func setupTestingApp(name string) (string, *cli.App) {

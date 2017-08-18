@@ -286,16 +286,16 @@ func TestGenDev(t *testing.T) {
 	})
 }
 
-func TestSaveScaffold(t *testing.T) {
+func TestSaveFromScaffold(t *testing.T) {
 	d, s := setupTestService()
 	defer CleanupTestDir(d)
 	name := "test"
 	root := filepath.Join(s.Path, name)
 
 	Convey("it should write out a scaffold file to a directory tree with JSON encoding", t, func() {
-		scaffoldBlob := bytes.NewBuffer([]byte(BasicTemplateScaffold))
+		scaffoldReader := bytes.NewBuffer([]byte(BasicTemplateScaffold))
 
-		scaffold, err := s.SaveScaffold(scaffoldBlob, root, "appName", "json", false)
+		scaffold, err := s.SaveFromScaffold(scaffoldReader, root, "appName", "json", false)
 		So(err, ShouldBeNil)
 		So(scaffold, ShouldNotBeNil)
 		So(scaffold.ScaffoldVersion, ShouldEqual, ScaffoldVersion)
@@ -320,11 +320,11 @@ func TestSaveScaffold(t *testing.T) {
 	})
 
 	Convey("it should write out a scaffold file to a directory tree with toml encoding", t, func() {
-		scaffoldBlob := bytes.NewBuffer([]byte(BasicTemplateScaffold))
+		scaffoldReader := bytes.NewBuffer([]byte(BasicTemplateScaffold))
 
 		root2 := filepath.Join(s.Path, name+"2")
 
-		scaffold, err := s.SaveScaffold(scaffoldBlob, root2, "appName", "toml", false)
+		scaffold, err := s.SaveFromScaffold(scaffoldReader, root2, "appName", "toml", false)
 		So(err, ShouldBeNil)
 		So(scaffold, ShouldNotBeNil)
 		So(scaffold.ScaffoldVersion, ShouldEqual, ScaffoldVersion)
@@ -334,9 +334,9 @@ func TestSaveScaffold(t *testing.T) {
 	})
 
 	Convey("it should write out a scaffold file to a directory tree with binary UI files", t, func() {
-		scaffoldBlob := bytes.NewBuffer([]byte(TestingAppScaffold()))
+		scaffoldReader := bytes.NewBuffer([]byte(TestingAppScaffold()))
 
-		_, err := s.SaveScaffold(scaffoldBlob, root+"3", "appName2", "json", false)
+		_, err := s.SaveFromScaffold(scaffoldReader, root+"3", "appName2", "json", false)
 		root3 := filepath.Join(s.Path, name+"3")
 
 		So(err, ShouldBeNil)
@@ -375,5 +375,86 @@ func TestMakeConfig(t *testing.T) {
 		So(h.Config.Loggers.App.Prefix, ShouldEqual, "prefix:")
 		So(h.Config.Loggers.App.PrefixColor, ShouldEqual, h.Config.Loggers.App.GetColor("cyan"))
 		So(h.Config.BootstrapServer, ShouldEqual, "")
+	})
+}
+
+func TestMakeScaffold(t *testing.T) {
+	d, s := setupTestService()
+	defer CleanupTestDir(d)
+	name := "test"
+	root := filepath.Join(s.Path, name)
+	h, err := s.GenDev(root, "json", InitializeDB)
+	if err != nil {
+		panic(err)
+	}
+	Convey("make scaffold should produce a scaffold file for holochain", t, func() {
+		scaffoldBlob, err := s.MakeScaffold(h)
+		So(err, ShouldBeNil)
+		scaffoldReader := bytes.NewBuffer(scaffoldBlob)
+		if err != nil {
+			panic(err)
+		}
+		root = filepath.Join(s.Path, "appFromScaffold")
+		scaffold, err := s.SaveFromScaffold(scaffoldReader, root, "appFromScaffold", "json", false)
+		So(err, ShouldBeNil)
+		So(scaffold, ShouldNotBeNil)
+		So(scaffold.ScaffoldVersion, ShouldEqual, ScaffoldVersion)
+		So(scaffold.DNA.Name, ShouldEqual, "appFromScaffold")
+
+		So(DirExists(root), ShouldBeTrue)
+		So(DirExists(root, ChainDNADir), ShouldBeTrue)
+		So(DirExists(root, ChainUIDir), ShouldBeTrue)
+		So(DirExists(root, ChainTestDir), ShouldBeTrue)
+		So(DirExists(root, ChainTestDir, scaffold.Scenarios[0].Name), ShouldBeTrue)
+		So(FileExists(root, ChainTestDir, scaffold.Scenarios[0].Name, scaffold.Scenarios[0].Roles[0].Name+".json"), ShouldBeTrue)
+		So(FileExists(root, ChainTestDir, scaffold.Scenarios[0].Name, scaffold.Scenarios[0].Roles[1].Name+".json"), ShouldBeTrue)
+		So(FileExists(root, ChainTestDir, scaffold.Scenarios[0].Name, TestConfigFileName), ShouldBeTrue)
+
+		So(DirExists(root, ChainDNADir, "jsSampleZome"), ShouldBeTrue)
+		So(FileExists(root, ChainDNADir, "jsSampleZome", "profile.json"), ShouldBeTrue)
+		So(FileExists(root, ChainDNADir, "jsSampleZome", "jsSampleZome.js"), ShouldBeTrue)
+		So(FileExists(root, ChainDNADir, DNAFileName+".json"), ShouldBeTrue)
+		So(FileExists(root, ChainDNADir, "properties_schema.json"), ShouldBeTrue)
+		So(FileExists(root, ChainTestDir, "testSet1.json"), ShouldBeTrue)
+		So(FileExists(root, ChainTestDir, "testSet1.json"), ShouldBeTrue)
+		So(FileExists(root, ChainUIDir, "index.html"), ShouldBeTrue)
+		So(FileExists(root, ChainUIDir, "hc.js"), ShouldBeTrue)
+		So(FileExists(root, ChainUIDir, "logo.png"), ShouldBeTrue)
+	})
+}
+
+func TestLoadTestFiles(t *testing.T) {
+	d, _, h := SetupTestChain("test")
+	defer CleanupTestDir(d)
+
+	Convey("it should fail if there's no test data", t, func() {
+		tests, err := LoadTestFiles(d)
+		So(tests, ShouldBeNil)
+		So(err.Error(), ShouldEqual, "no test files found in: "+d)
+	})
+
+	Convey("it should load test files", t, func() {
+		path := h.TestPath()
+		tests, err := LoadTestFiles(path)
+		So(err, ShouldBeNil)
+		So(len(tests), ShouldEqual, 2)
+	})
+}
+
+func TestGetScenarioData(t *testing.T) {
+	d, _, h := SetupTestChain("test")
+	defer CleanupTestDir(d)
+	Convey("it should return list of scenarios", t, func() {
+		scenarios, err := GetTestScenarios(h)
+		So(err, ShouldBeNil)
+		_, ok := scenarios["sampleScenario"]
+		So(ok, ShouldBeTrue)
+		_, ok = scenarios["foo"]
+		So(ok, ShouldBeFalse)
+	})
+	Convey("it should return list of scenarios in a role", t, func() {
+		scenarios, err := GetTestScenarioRoles(h, "sampleScenario")
+		So(err, ShouldBeNil)
+		So(fmt.Sprintf("%v", scenarios), ShouldEqual, `[listener speaker]`)
 	})
 }

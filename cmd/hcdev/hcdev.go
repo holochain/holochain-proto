@@ -295,7 +295,7 @@ func setupApp() (app *cli.App) {
 					}
 					defer sf.Close()
 
-					_, err = service.SaveScaffold(sf, devPath, name, encodingFormat, false)
+					_, err = service.SaveFromScaffold(sf, devPath, name, encodingFormat, false)
 					if err != nil {
 						return makeErrFromError("init", err, 1)
 					}
@@ -311,7 +311,7 @@ func setupApp() (app *cli.App) {
 					scaffoldReader := bytes.NewBuffer([]byte(holo.BasicTemplateScaffold))
 
 					var scaffold *holo.Scaffold
-					scaffold, err = service.SaveScaffold(scaffoldReader, devPath, name, encodingFormat, true)
+					scaffold, err = service.SaveFromScaffold(scaffoldReader, devPath, name, encodingFormat, true)
 					if err != nil {
 						return makeErrFromError("init", err, 1)
 					}
@@ -431,7 +431,7 @@ func setupApp() (app *cli.App) {
 					return err
 				}
 				// mutableContext.obj["initialHolochain"] = h
-				testScenarioList, err := GetTestScenarios(h)
+				testScenarioList, err := holo.GetTestScenarios(h)
 				if err != nil {
 					return err
 				}
@@ -445,7 +445,7 @@ func setupApp() (app *cli.App) {
 				mutableContext.str["testScenarioName"] = scenarioName
 
 				// get list of roles
-				roleList, err := GetTestScenarioRoles(h, scenarioName)
+				roleList, err := holo.GetTestScenarioRoles(h, scenarioName)
 				if err != nil {
 					return err
 				}
@@ -547,6 +547,29 @@ func setupApp() (app *cli.App) {
 				return err
 			},
 		},
+		{
+			Name:      "package",
+			Aliases:   []string{"p"},
+			ArgsUsage: "",
+			Usage:     fmt.Sprintf("writes a scaffold file of the dev path to stdout"),
+			Action: func(c *cli.Context) error {
+
+				if err := appCheck(devPath); err != nil {
+					return err
+				}
+				h, _, err := getHolochain(c, service)
+				if err != nil {
+					return err
+				}
+				scaffold, err := service.MakeScaffold(h)
+				if err != nil {
+					return err
+				}
+				fmt.Printf(string(scaffold))
+				return err
+			},
+		},
+
 		{
 			Name:      "dump",
 			Aliases:   []string{"d"},

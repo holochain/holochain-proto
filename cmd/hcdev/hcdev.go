@@ -31,12 +31,14 @@ const (
 	defaultPort    = "4141"
 	bridgeFromPort = "21111"
 	bridgeToPort   = "21112"
+	scenarioStartDelay = 1
 )
 
 var debug, appInitialized, verbose, keepalive bool
 var rootPath, devPath, bridgeToPath, bridgeToName, bridgeFromPath, bridgeFromName, name string
 var bridgeFromH, bridgeToH *holo.Holochain
 var bridgeFromAppData, bridgeToAppData string
+var scenarioConfig *holo.TestConfig
 
 // flags for holochain config generation
 var port, logPrefix, bootstrapServer string
@@ -463,6 +465,10 @@ func setupApp() (app *cli.App) {
 
 				// run a bunch of hcdev test processes
 				rootExecDir, err := cmd.MakeTmpDir("hcdev_test.go/$NOW")
+				if err != nil {
+					return err
+				}
+				secondsFromNowPlusDelay := cmd.GetUnixTimestamp_secondsFromNow(scenarioStartDelay)
 				for roleIndex, roleName := range roleList {
 					if debug {
 						fmt.Printf("HC: hcdev.go: goScenario: forRole(%v): start\n\n", roleName)
@@ -490,11 +496,19 @@ func setupApp() (app *cli.App) {
 						"-mdns=true",
 						"-logPrefix="+logPrefix,
 						"-bootstrapServer=_",
+						fmt.Sprintf("-keepalive=%v",keepalive),
 						"test",
-						fmt.Sprintf("-syncPauseUntil=%v", cmd.GetUnixTimestamp_secondsFromNow(10)),
+						fmt.Sprintf("-syncPauseUntil=%v", secondsFromNowPlusDelay),
 						scenarioName,
 						roleName,
 					)
+					if keepalive {
+						scenarioConfig, err = LoadTestConfig(filepath.Join(h.TestPath(), scenarioName))
+						if err != nil {
+							return err
+						}
+
+					}
 
 					mutableContext.obj["testCommand."+roleName] = &testCommand
 
@@ -702,6 +716,10 @@ func setupApp() (app *cli.App) {
 func main() {
 	app := setupApp()
 	app.Run(os.Args)
+	if keepalive && scenarioConfig != nil {
+		fmt.Printf("scenarioStartDelay:%v scenarioConfig.Duration:%v", scenarioStartDelay, scenarioConfig.Duration)
+		time.Sleep(time.Second * (scenarioStartDelay + time.Duration(scenarioConfig.Duration)) + time.Millisecond * 500)
+	}
 	if verbose {
 		fmt.Printf("hcdev complete!\n")
 	}

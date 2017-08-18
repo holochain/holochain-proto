@@ -28,9 +28,9 @@ import (
 )
 
 const (
-	defaultPort    = "4141"
-	bridgeFromPort = "21111"
-	bridgeToPort   = "21112"
+	defaultPort        = "4141"
+	bridgeFromPort     = "21111"
+	bridgeToPort       = "21112"
 	scenarioStartDelay = 1
 )
 
@@ -474,7 +474,7 @@ func setupApp() (app *cli.App) {
 				if err != nil {
 					return err
 				}
-				
+
 				for roleIndex, roleName := range roleList {
 					if debug {
 						fmt.Printf("HC: hcdev.go: goScenario: forRole(%v): start\n\n", roleName)
@@ -492,35 +492,34 @@ func setupApp() (app *cli.App) {
 						}
 					}
 
+					originalRoleName := roleName
 					for count := 0; count < clones; count++ {
 						freePort, err := cmd.GetFreePort()
 						if err != nil {
 							return err
 						}
 
-						originalRoleName := roleName
-
 						if clones > 1 {
-							roleName = fmt.Sprintf("%s.%d",roleName, count)
+							roleName = fmt.Sprintf("%s.%d", originalRoleName, count)
 						}
 						if debug {
 							fmt.Printf("HC: hcdev.go: goScenario: forRole(%v): port: %v\n\n", roleName, freePort)
 						}
 
 						colorByNumbers := []string{"green", "blue", "yellow", "cyan", "magenta", "red"}
-						
-						logPrefix := "%{color:" + colorByNumbers[roleIndex % 6] + "}" + roleName + ": "
+
+						logPrefix := "%{color:" + colorByNumbers[roleIndex%6] + "}" + roleName + ": "
 
 						testCommand := cmd.OsExecPipes_noRun(
 							"hcdev",
 							"-debug",
 							"-path="+devPath,
-							"-execpath="+filepath.Join(rootExecDir, originalRoleName),
+							"-execpath="+filepath.Join(rootExecDir, roleName),
 							"-port="+strconv.Itoa(freePort),
 							"-mdns=true",
 							"-logPrefix="+logPrefix,
 							"-bootstrapServer=_",
-							fmt.Sprintf("-keepalive=%v",keepalive),
+							fmt.Sprintf("-keepalive=%v", keepalive),
 							"test",
 							fmt.Sprintf("-syncPauseUntil=%v", secondsFromNowPlusDelay),
 							scenarioName,
@@ -735,7 +734,7 @@ func main() {
 	app := setupApp()
 	app.Run(os.Args)
 	if keepalive && scenarioConfig != nil {
-		time.Sleep(time.Second * (scenarioStartDelay + time.Duration(scenarioConfig.Duration)) + time.Millisecond * 500)
+		time.Sleep(time.Second*(scenarioStartDelay+time.Duration(scenarioConfig.Duration)) + time.Millisecond*500)
 	}
 	if verbose {
 		fmt.Printf("hcdev complete!\n")

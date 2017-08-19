@@ -73,7 +73,7 @@ func makeErrFromError(prefix string, err error, code int) error {
 
 func appCheck(devPath string) error {
 	if !appInitialized {
-		return fmt.Errorf("%s doesn't look like a holochain app (missing dna).  See 'hcdev init -h' for help on initializing an app.", devPath)
+		return makeErr("hcdev", fmt.Sprintf("%s doesn't look like a holochain app (missing dna).  See 'hcdev init -h' for help on initializing an app.", devPath), 1)
 	}
 	return nil
 }

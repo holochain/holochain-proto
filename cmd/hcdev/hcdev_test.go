@@ -192,11 +192,17 @@ func TestWeb(t *testing.T) {
 	defer os.RemoveAll(tmpTestDir)
 
 	Convey("'web' should run a webserver", t, func() {
-
 		out := runAppWithStdoutCapture(app, []string{"hcdev", "web"})
 		So(out, ShouldContainSubstring, "on port:4141")
 		So(out, ShouldContainSubstring, "Serving holochain with DNA hash:")
 	})
+	app = setupApp()
+
+	Convey("'web' not in an app directory should produce error", t, func() {
+		out := runAppWithStdoutCapture(app, []string{"hcdev", "-path", tmpTestDir, "web"})
+		So(out, ShouldContainSubstring, "doesn't look like a holochain app")
+	})
+
 }
 
 func runAppWithStdoutCapture(app *cli.App, args []string) string {

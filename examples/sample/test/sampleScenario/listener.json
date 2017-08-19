@@ -1,0 +1,14 @@
+[
+    {
+        "Convey": "confirm prime exists",
+        "Zome": "zySampleZome",
+        "FnName": "confirmOdd",
+        "Input": "7",
+        "Output": "true",
+        "Err": "",
+        "Regexp": "",
+        "Time": 1500,
+        "Exposure": "",
+        "Raw": false
+    }
+]

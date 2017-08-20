@@ -85,7 +85,24 @@ func TestNewLog(t *testing.T) {
 		l.SetPrefix("%{color:red}[COLOR PREFIX]")
 		l.Log("threefish")
 		So(buf.String(), ShouldEqual, "onefish\n[PREFIX]twofish\n\033[31m[COLOR PREFIX]\033[0mthreefish\n")
-
 	})
 
+	Convey("it should handle file name and line number", t, func() {
+		var buf bytes.Buffer
+		l := Logger{
+			Enabled: true,
+			Format:  "%{file}.%{line}:%{message}",
+		}
+		l.New(&buf)
+		doDebug(l, "fish")
+		So(buf.String(), ShouldEqual, "log_test.go.82:fish\n")
+	})
+
+}
+
+// we do this because in the case of file & line needs to know how many
+// calls back up the stack to use for calculating the line number and we
+// allways have a wrapper function around the log
+func doDebug(l Logger, m string) {
+	l.Log(m)
 }

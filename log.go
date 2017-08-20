@@ -11,7 +11,9 @@ import (
 	"github.com/fatih/color"
 	"io"
 	"os"
+	"path/filepath"
 	"regexp"
+	"runtime"
 	"strings"
 	"time"
 )
@@ -111,10 +113,6 @@ func (l *Logger) New(w io.Writer) (err error) {
 
 func (l *Logger) SetPrefix(prefixFormat string) {
 	l.PrefixColor, l.Prefix = l.setupColor(prefixFormat)
-
-	if IsDebugging() {
-		fmt.Printf("HC: log.go: name: %v, SetPrefix(%v), prefixColor: %v, prefixFormat: %v\n", l.Name, prefixFormat, l.PrefixColor, l.Prefix)
-	}
 }
 
 func (l *Logger) parse(m string) (output string) {
@@ -131,6 +129,17 @@ func (l *Logger) _parse(m string, t *time.Time) (output string) {
 	if t != nil {
 		tTxt := t.Format(l.tf)
 		output = strings.Replace(output, "%{time}", tTxt, -1)
+	}
+
+	// TODO add the calling depth to the line format string.
+	re := regexp.MustCompile(`(%{line})|(%{file})`)
+	matches := re.FindStringSubmatch(l.f)
+	if len(matches) > 0 {
+		_, file, line, ok := runtime.Caller(6)
+		if ok {
+			output = strings.Replace(output, "%{file}", filepath.Base(file), -1)
+			output = strings.Replace(output, "%{line}", fmt.Sprintf("%d", line), -1)
+		}
 	}
 	return
 }

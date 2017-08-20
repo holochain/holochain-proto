@@ -95,7 +95,7 @@ func TestNewLog(t *testing.T) {
 		}
 		l.New(&buf)
 		doDebug(l, "fish")
-		So(buf.String(), ShouldEqual, "log_test.go.82:fish\n")
+		So(buf.String(), ShouldEqual, "log_test.go.97:fish\n")
 	})
 
 }

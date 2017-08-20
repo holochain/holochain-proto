@@ -33,6 +33,7 @@ type Logger struct {
 }
 
 var colorMap map[string]*color.Color
+var EnableAllLoggersEnv string = "HC_ENABLE_ALL_LOGS"
 
 func (h *Logger) GetColor(colorName string) *color.Color {
 	if _, ok := colorMap["red"]; !ok {
@@ -100,7 +101,7 @@ func (l *Logger) New(w io.Writer) (err error) {
 		l.tf, l.f = l.setupTime(l.f)
 	}
 
-	d := os.Getenv("DEBUG")
+	d := os.Getenv(EnableAllLoggersEnv)
 	switch d {
 	case "1":
 		l.Enabled = true

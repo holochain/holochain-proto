@@ -64,10 +64,8 @@ func TestRunScenarioTest(t *testing.T) {
 		So(err, ShouldBeNil)
 		//defer os.RemoveAll(execDir)  // can't delete because this stuff runs in the background...
 
-		os.Setenv("DEBUG", "true")
-
 		// setupTestingApp moved us into the app so we just need to point to  a working directory for the test (execDir)
-		testCommand := []string{"hcdev", "-debug", "-path", tmpTestDir + "/foo", "-execpath", execDir, "scenario", "sampleScenario"}
+		testCommand := []string{"hcdev", "-path", tmpTestDir + "/foo", "-execpath", execDir, "scenario", "sampleScenario"}
 
 		err = app.Run(testCommand)
 		So(err, ShouldBeNil)

@@ -24,6 +24,7 @@ func TestSetupApp(t *testing.T) {
 }
 
 func TestGoScenario_cliCommand(t *testing.T) {
+	os.Setenv("HCDEV_TESTING", "true")
 	app := setupApp()
 
 	testCommand := []string{"hcdev", "-debug", "scenario"}
@@ -188,6 +189,7 @@ func TestPackage(t *testing.T) {
 }
 
 func TestWeb(t *testing.T) {
+	os.Setenv("HCDEV_TESTING", "true")
 	tmpTestDir, app := setupTestingApp("foo")
 	defer os.RemoveAll(tmpTestDir)
 
@@ -202,7 +204,6 @@ func TestWeb(t *testing.T) {
 		out := runAppWithStdoutCapture(app, []string{"hcdev", "-path", tmpTestDir, "web"})
 		So(out, ShouldContainSubstring, "doesn't look like a holochain app")
 	})
-
 }
 
 func runAppWithStdoutCapture(app *cli.App, args []string) string {

@@ -61,6 +61,7 @@ func makeErr(prefix string, text string, code int) error {
 
 	if os.Getenv("HCDEV_TESTING") != "" {
 		os.Setenv("HCDEV_TESTING_EXITERR", fmt.Sprintf("%d", code))
+		fmt.Printf(errText)
 		return errors.New(errText)
 	} else {
 		return cli.NewExitError(errText, 1)
@@ -505,7 +506,6 @@ func setupApp() (app *cli.App) {
 			ArgsUsage: "[port]",
 			Usage:     fmt.Sprintf("serve a chain to the web on localhost:<port> (defaults to %s)", defaultPort),
 			Action: func(c *cli.Context) error {
-
 				if err := appCheck(devPath); err != nil {
 					return err
 				}

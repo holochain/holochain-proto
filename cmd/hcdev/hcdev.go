@@ -547,16 +547,20 @@ func setupApp() (app *cli.App) {
 				return err
 			},
 		},
+
 		{
 			Name:      "package",
 			Aliases:   []string{"p"},
-			ArgsUsage: "",
-			Usage:     fmt.Sprintf("writes a scaffold file of the dev path to stdout"),
+			ArgsUsage: "[output file]",
+			Usage:     fmt.Sprintf("writes a scaffold file of the dev path  to file or stdout"),
 			Action: func(c *cli.Context) error {
 
-        old := os.Stdout // keep backup of the real stdout
-        _, w, _ := os.Pipe()
-        os.Stdout = w
+				var old *os.File
+				if len(c.Args()) == 0 {
+					old = os.Stdout // keep backup of the real stdout
+					_, w, _ := os.Pipe()
+					os.Stdout = w
+				}
 
 				if err := appCheck(devPath); err != nil {
 					return err
@@ -570,8 +574,12 @@ func setupApp() (app *cli.App) {
 					return err
 				}
 
-        os.Stdout = old
-				fmt.Printf(string(scaffold))
+				if len(c.Args()) == 0 {
+					os.Stdout = old
+					fmt.Printf(string(scaffold))
+				} else {
+					err = holo.WriteFile(scaffold, c.Args().First())
+				}
 				return err
 			},
 		},

@@ -939,7 +939,7 @@ func (service *Service) MakeScaffold(h *Holochain) (data []byte, err error) {
 		}
 	}
 
-	data, err = json.Marshal(scaffold)
+	data, err = json.MarshalIndent(scaffold, "", "  ")
 	return
 }
 

@@ -28,15 +28,17 @@ import (
 )
 
 const (
-	defaultPort    = "4141"
-	bridgeFromPort = "21111"
-	bridgeToPort   = "21112"
+	defaultPort        = "4141"
+	bridgeFromPort     = "21111"
+	bridgeToPort       = "21112"
+	scenarioStartDelay = 1
 )
 
-var debug, appInitialized bool
+var debug, appInitialized, verbose, keepalive bool
 var rootPath, devPath, bridgeToPath, bridgeToName, bridgeFromPath, bridgeFromName, name string
 var bridgeFromH, bridgeToH *holo.Holochain
 var bridgeFromAppData, bridgeToAppData string
+var scenarioConfig *holo.TestConfig
 
 // flags for holochain config generation
 var port, logPrefix, bootstrapServer string
@@ -99,6 +101,16 @@ func setupApp() (app *cli.App) {
 			Name:        "debug",
 			Usage:       "debugging output",
 			Destination: &debug,
+		},
+		cli.BoolFlag{
+			Name:        "verbose",
+			Usage:       "verbose output",
+			Destination: &verbose,
+		},
+		cli.BoolFlag{
+			Name:        "keepalive",
+			Usage:       "don't end hcdev process upon completion of work",
+			Destination: &keepalive,
 		},
 		cli.StringFlag{
 			Name:        "execpath",
@@ -453,6 +465,16 @@ func setupApp() (app *cli.App) {
 
 				// run a bunch of hcdev test processes
 				rootExecDir, err := cmd.MakeTmpDir("hcdev_test.go/$NOW")
+				if err != nil {
+					return err
+				}
+				secondsFromNowPlusDelay := cmd.GetUnixTimestamp_secondsFromNow(scenarioStartDelay)
+
+				scenarioConfig, err = LoadTestConfig(filepath.Join(h.TestPath(), scenarioName))
+				if err != nil {
+					return err
+				}
+
 				for roleIndex, roleName := range roleList {
 					if debug {
 						fmt.Printf("HC: hcdev.go: goScenario: forRole(%v): start\n\n", roleName)
@@ -461,39 +483,58 @@ func setupApp() (app *cli.App) {
 					// HOLOCHAINCONFIG_ENABLEMDNS = "true" or HOLOCHAINCONFIG_BOOTSTRAP = "ip[localhost]:port[3142]
 					// HOLOCHAINCONFIG_LOGPREFIX  = role
 
-					freePort, err := cmd.GetFreePort()
-					if err != nil {
-						return err
-					}
-					if debug {
-						fmt.Printf("HC: hcdev.go: goScenario: forRole(%v): port: %v\n\n", roleName, freePort)
+					clones := 1
+
+					for _, clone := range scenarioConfig.Clone {
+						if clone.Role == roleName {
+							clones = clone.Number
+							break
+						}
 					}
 
-					colorByNumbers := []string{"green", "blue", "yellow", "cyan", "magenta", "red"}
-					logPrefix := "%{color:" + colorByNumbers[roleIndex] + "}" + roleName + ": "
-					testCommand := cmd.OsExecPipes_noRun(
-						"hcdev",
-						"-debug",
-						"-path="+devPath,
-						"-execpath="+filepath.Join(rootExecDir, roleName),
-						"-port="+strconv.Itoa(freePort),
-						"-mdns=true",
-						"-logPrefix="+logPrefix,
-						"-bootstrapServer=_",
-						"test",
-						fmt.Sprintf("-syncPauseUntil=%v", cmd.GetUnixTimestamp_secondsFromNow(10)),
-						scenarioName,
-						roleName,
-					)
+					originalRoleName := roleName
+					for count := 0; count < clones; count++ {
+						freePort, err := cmd.GetFreePort()
+						if err != nil {
+							return err
+						}
 
-					mutableContext.obj["testCommand."+roleName] = &testCommand
+						if clones > 1 {
+							roleName = fmt.Sprintf("%s.%d", originalRoleName, count)
+						}
+						if debug {
+							fmt.Printf("HC: hcdev.go: goScenario: forRole(%v): port: %v\n\n", roleName, freePort)
+						}
 
-					if debug {
-						fmt.Printf("HC: hcdev.go: goScenario: forRole(%v): testCommandPerpared: %v\n", roleName, testCommand)
-					}
-					testCommand.Start()
-					if debug {
-						fmt.Printf("HC: hcdev.go: goScenario: forRole(%v): testCommandStarted\n", roleName)
+						colorByNumbers := []string{"green", "blue", "yellow", "cyan", "magenta", "red"}
+
+						logPrefix := "%{color:" + colorByNumbers[roleIndex%6] + "}" + roleName + ": "
+
+						testCommand := cmd.OsExecPipes_noRun(
+							"hcdev",
+							"-debug",
+							"-path="+devPath,
+							"-execpath="+filepath.Join(rootExecDir, roleName),
+							"-port="+strconv.Itoa(freePort),
+							"-mdns=true",
+							"-logPrefix="+logPrefix,
+							"-bootstrapServer=_",
+							fmt.Sprintf("-keepalive=%v", keepalive),
+							"test",
+							fmt.Sprintf("-syncPauseUntil=%v", secondsFromNowPlusDelay),
+							scenarioName,
+							originalRoleName,
+						)
+
+						mutableContext.obj["testCommand."+roleName] = &testCommand
+
+						if debug {
+							fmt.Printf("HC: hcdev.go: goScenario: forRole(%v): testCommandPerpared: %v\n", roleName, testCommand)
+						}
+						testCommand.Start()
+						if debug {
+							fmt.Printf("HC: hcdev.go: goScenario: forRole(%v): testCommandStarted\n", roleName)
+						}
 					}
 				}
 				return nil
@@ -692,6 +733,16 @@ func setupApp() (app *cli.App) {
 func main() {
 	app := setupApp()
 	app.Run(os.Args)
+	if keepalive && scenarioConfig != nil {
+		time.Sleep(time.Second*(scenarioStartDelay+time.Duration(scenarioConfig.Duration)) + time.Millisecond*500)
+	}
+	if verbose {
+		fmt.Printf("hcdev complete!\n")
+	}
+	if keepalive {
+		stop := make(chan bool, 1)
+		<-stop
+	}
 }
 
 func getHolochain(c *cli.Context, service *holo.Service) (h *holo.Holochain, bridgeApps []holo.BridgeApp, err error) {

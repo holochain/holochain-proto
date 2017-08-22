@@ -24,6 +24,7 @@ func TestSetupApp(t *testing.T) {
 }
 
 func TestGoScenario_cliCommand(t *testing.T) {
+	os.Setenv("HCDEV_TESTING", "true")
 	app := setupApp()
 
 	testCommand := []string{"hcdev", "-debug", "scenario"}
@@ -188,14 +189,20 @@ func TestPackage(t *testing.T) {
 }
 
 func TestWeb(t *testing.T) {
+	os.Setenv("HCDEV_TESTING", "true")
 	tmpTestDir, app := setupTestingApp("foo")
 	defer os.RemoveAll(tmpTestDir)
 
 	Convey("'web' should run a webserver", t, func() {
-
 		out := runAppWithStdoutCapture(app, []string{"hcdev", "web"})
 		So(out, ShouldContainSubstring, "on port:4141")
 		So(out, ShouldContainSubstring, "Serving holochain with DNA hash:")
+	})
+	app = setupApp()
+
+	Convey("'web' not in an app directory should produce error", t, func() {
+		out := runAppWithStdoutCapture(app, []string{"hcdev", "-path", tmpTestDir, "web"})
+		So(out, ShouldContainSubstring, "doesn't look like a holochain app")
 	})
 }
 

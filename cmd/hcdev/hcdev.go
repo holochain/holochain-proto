@@ -61,6 +61,7 @@ func makeErr(prefix string, text string, code int) error {
 
 	if os.Getenv("HCDEV_TESTING") != "" {
 		os.Setenv("HCDEV_TESTING_EXITERR", fmt.Sprintf("%d", code))
+		fmt.Printf(errText)
 		return errors.New(errText)
 	} else {
 		return cli.NewExitError(errText, 1)
@@ -73,7 +74,7 @@ func makeErrFromError(prefix string, err error, code int) error {
 
 func appCheck(devPath string) error {
 	if !appInitialized {
-		return fmt.Errorf("%s doesn't look like a holochain app (missing dna).  See 'hcdev init -h' for help on initializing an app.", devPath)
+		return makeErr("hcdev", fmt.Sprintf("%s doesn't look like a holochain app (missing dna).  See 'hcdev init -h' for help on initializing an app.", devPath), 1)
 	}
 	return nil
 }
@@ -505,7 +506,6 @@ func setupApp() (app *cli.App) {
 			ArgsUsage: "[port]",
 			Usage:     fmt.Sprintf("serve a chain to the web on localhost:<port> (defaults to %s)", defaultPort),
 			Action: func(c *cli.Context) error {
-
 				if err := appCheck(devPath); err != nil {
 					return err
 				}

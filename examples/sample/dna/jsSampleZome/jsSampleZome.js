@@ -44,6 +44,7 @@ function validateDelPkg(entry_type) { return null}
 function validateLinkPkg(entry_type) { return null}
 
 function genesis() {return true}
+function bridgeGenesis(side,app,data) {return true}
 
 function receive(from,message) {
   // send back a pong message of what came in the ping message!

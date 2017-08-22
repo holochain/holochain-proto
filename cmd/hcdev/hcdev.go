@@ -554,6 +554,10 @@ func setupApp() (app *cli.App) {
 			Usage:     fmt.Sprintf("writes a scaffold file of the dev path to stdout"),
 			Action: func(c *cli.Context) error {
 
+        old := os.Stdout // keep backup of the real stdout
+        _, w, _ := os.Pipe()
+        os.Stdout = w
+
 				if err := appCheck(devPath); err != nil {
 					return err
 				}
@@ -565,6 +569,8 @@ func setupApp() (app *cli.App) {
 				if err != nil {
 					return err
 				}
+
+        os.Stdout = old
 				fmt.Printf(string(scaffold))
 				return err
 			},

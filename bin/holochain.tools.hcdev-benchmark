@@ -1,0 +1,33 @@
+#!/bin/bash
+pkill hcdev
+rm benchmark.out
+rm benchmark.error.out
+hcdev $@  > benchmark.out 2> benchmark.error.out &
+while [ true ]
+do
+	clear
+	date
+    echo "Process          PID     CPU Time Resident Set Size"
+	ps -e -o "comm pid time rss" | grep "hcdev" | grep -v "grep"
+
+	read -t 1 -n 1 key
+
+    if [[ $key = q ]]
+    then
+        break
+    fi
+
+    grep "hcdev complete\!" benchmark.out
+
+	if [ $? -eq 0 ]
+	then
+		break
+	fi
+
+done
+clear
+echo -e "Final:"
+echo "Process          PID     CPU Time Resident Set Size"
+ps -e -o "comm pid time rss" | grep "hcdev" | grep -v "grep"
+echo ""
+pkill hcdev > /dev/null

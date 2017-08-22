@@ -53,10 +53,17 @@ const (
 	SkipInitializeDB  = false
 )
 
+//
+type CloneSpec struct {
+	Role		string
+	Number		int
+}
+
 // TestConfig holds the configuration options for a test
 type TestConfig struct {
 	GossipInterval time.Duration // interval in milliseconds between gossips
 	Duration       int           // if non-zero number of seconds to keep all nodes alive
+	Clone		   []CloneSpec
 }
 
 // ServiceConfig holds the service settings
@@ -116,8 +123,10 @@ type TestData struct {
 	Err      string        // the expected error to match against
 	Regexp   string        // the expected out to match again (regular expression)
 	Time     time.Duration // offset in milliseconds from the start of the test at which to run this test.
+	Wait     time.Duration // time in milliseconds to wait before running this test from when the previous ran
 	Exposure string        // the exposure context for the test call (defaults to ZOME_EXPOSURE)
 	Raw      bool          // set to true if we should ignore fnName and just call input as raw code in the zome, useful for testing helper functions and validation functions
+	Repeat   int           // number of times to repeat this test, useful for scenario testing
 }
 
 // IsInitialized checks a path for a correctly set up .holochain directory

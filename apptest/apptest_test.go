@@ -101,7 +101,7 @@ func TestTestOne(t *testing.T) {
 		ShouldLog(&h.Config.Loggers.TestInfo, `========================================
 Test: 'testSet1' starting...
 ========================================
-Test 'testSet1.0' t+0ms: { zySampleZome addEven 2 %h%   0s  false}
+Test 'testSet1.0' t+0ms: { zySampleZome addEven 2 %h%   0s 0s  false 0}
 `, func() {
 			err := TestOne(h, "testSet1", nil)
 			So(err, ShouldBeNil)

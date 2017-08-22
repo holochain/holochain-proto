@@ -420,7 +420,7 @@ func (s *Service) load(name string, format string) (hP *Holochain, err error) {
 	if err != nil {
 		return
 	}
-	if err = h.setupConfig(); err != nil {
+	if err = h.SetupLogging(); err != nil {
 		return
 	}
 
@@ -545,11 +545,7 @@ func _makeConfig(s *Service) (config Config, err error) {
 		if err != nil {
 			return
 		}
-
-		if IsDebugging() {
-			fmt.Printf("HC: service.go: makeConfig: using environment variable to set port to:            %v\n", val)
-		}
-
+		Debugf("HC: service.go: makeConfig: using environment variable to set port to: %v\n", val)
 	}
 	val = os.Getenv("HOLOCHAINCONFIG_BOOTSTRAP")
 	if val != "" {
@@ -586,7 +582,7 @@ func makeConfig(h *Holochain, s *Service) (err error) {
 	if err = Encode(f, h.encodingFormat, &h.Config); err != nil {
 		return
 	}
-	if err = h.setupConfig(); err != nil {
+	if err = h.SetupLogging(); err != nil {
 		return
 	}
 	return
@@ -638,7 +634,7 @@ func (s *Service) GenDev(root string, encodingFormat string, initDB bool) (h *Ho
 			return
 		}
 
-		if err = h.setupConfig(); err != nil {
+		if err = h.SetupLogging(); err != nil {
 			return
 		}
 	}
@@ -859,10 +855,6 @@ func (s *Service) SaveDNAFile(root string, dna *DNA, encodingFormat string, over
 
 	err = Encode(f, encodingFormat, dnaFile)
 	return
-}
-
-func IsDebugging() bool {
-	return strings.ToLower(os.Getenv("DEBUG")) == "true" || os.Getenv("DEBUG") == "1"
 }
 
 // SaveScaffold writes out a holochain application based on scaffold file to path

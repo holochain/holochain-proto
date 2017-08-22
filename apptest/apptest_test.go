@@ -36,7 +36,10 @@ func TestTestStringReplacements(t *testing.T) {
 func TestTest(t *testing.T) {
 	d, _, h := SetupTestChain("test")
 	CleanupTestDir(filepath.Join(d, ".holochain", "test", "test")) // delete the test data created by gen dev
-	if os.Getenv("DEBUG") != "1" {
+
+	_, requested := DebuggingRequestedViaEnv()
+	// unless env indicates debugging, don't show the test results as this test of testing runs
+	if !requested {
 		h.Config.Loggers.TestPassed.Enabled = false
 		h.Config.Loggers.TestFailed.Enabled = false
 		h.Config.Loggers.TestInfo.Enabled = false
@@ -49,7 +52,10 @@ func TestTest(t *testing.T) {
 
 	d, _, h = SetupTestChain("test")
 	defer CleanupTestDir(d)
-	if os.Getenv("DEBUG") != "1" {
+
+	_, requested = DebuggingRequestedViaEnv()
+	// unless env indicates debugging, don't show the test results as this test of testing runs
+	if !requested {
 		h.Config.Loggers.TestPassed.Enabled = false
 		h.Config.Loggers.TestFailed.Enabled = false
 		h.Config.Loggers.TestInfo.Enabled = false

@@ -20,6 +20,7 @@ import (
 	"math/rand"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 )
 
@@ -113,6 +114,21 @@ func Infof(m string, args ...interface{}) {
 	infoLog.Logf(m, args...)
 }
 
+// DebuggingRequestedViaEnv determines whether an environment var was set to enable or disable debugging
+func DebuggingRequestedViaEnv() (val, yes bool) {
+	return envBoolRequest("HCDEBUG")
+}
+
+func envBoolRequest(env string) (val, yes bool) {
+	str := strings.ToLower(os.Getenv(env))
+	fmt.Printf(str)
+	yes = str != ""
+	if yes {
+		val = str == "true" || str == "1"
+	}
+	return
+}
+
 var _holochainInitialized bool
 
 // InitializeHolochain setup function that must be called once at startup
@@ -148,6 +164,11 @@ func InitializeHolochain() {
 		RegisterBultinRibosomes()
 
 		infoLog.New(nil)
+		debugLog.Format = "HC:%{file}.%{line}: %{message}"
+		val, yes := DebuggingRequestedViaEnv()
+		if yes {
+			debugLog.Enabled = val
+		}
 		debugLog.New(nil)
 
 		rand.Seed(time.Now().Unix()) // initialize global pseudo random generator
@@ -425,14 +446,39 @@ func (h *Holochain) GenChain() (headerHash Hash, err error) {
 	return
 }
 
-func (h *Holochain) setupConfig() (err error) {
-	if err = h.Config.Loggers.App.New(nil); err != nil {
+func initLogger(l *Logger, envOverride string, writer io.Writer) (err error) {
+	if err = l.New(writer); err != nil {
 		return
 	}
-	if err = h.Config.Loggers.DHT.New(nil); err != nil {
+	d := os.Getenv(envOverride)
+	switch d {
+	case "true":
+		fallthrough
+	case "TRUE":
+		fallthrough
+	case "1":
+		Debugf("Using environment variable (%s) to enable log", envOverride)
+		l.Enabled = true
+	case "false":
+		fallthrough
+	case "FALSE":
+		fallthrough
+	case "0":
+		Debugf("Using environment variable (%s) to disable log", envOverride)
+		l.Enabled = false
+	}
+	return
+}
+
+// SetupLogging initializes loggers as configured by the config file and environment variables
+func (h *Holochain) SetupLogging() (err error) {
+	if err = initLogger(&h.Config.Loggers.App, "HCLOG_APP_ENABLE", nil); err != nil {
 		return
 	}
-	if err = h.Config.Loggers.Gossip.New(nil); err != nil {
+	if err = initLogger(&h.Config.Loggers.DHT, "HCLOG_DHT_ENABLE", nil); err != nil {
+		return
+	}
+	if err = initLogger(&h.Config.Loggers.Gossip, "HCLOG_GOSSIP_ENABLE", nil); err != nil {
 		return
 	}
 	if err = h.Config.Loggers.TestPassed.New(nil); err != nil {
@@ -444,9 +490,9 @@ func (h *Holochain) setupConfig() (err error) {
 	if err = h.Config.Loggers.TestInfo.New(nil); err != nil {
 		return
 	}
-	val := os.Getenv("HOLOCHAINCONFIG_LOGPREFIX")
+	val := os.Getenv("HCLOG_PREFIX")
 	if val != "" {
-		Debugf("setupConfig: using environment variable to set log prefix to: %s", val)
+		Debugf("Using environment variable to set log prefix to: %s", val)
 		h.Config.Loggers.App.SetPrefix(val)
 		h.Config.Loggers.DHT.SetPrefix(val)
 		h.Config.Loggers.Gossip.SetPrefix(val)

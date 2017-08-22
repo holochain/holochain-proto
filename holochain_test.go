@@ -4,12 +4,10 @@ import (
 	"bytes"
 	"encoding/gob"
 	"fmt"
-	// toml "github.com/BurntSushi/toml"
 	"github.com/google/uuid"
 	peer "github.com/libp2p/go-libp2p-peer"
 	. "github.com/smartystreets/goconvey/convey"
 	"os"
-	// "strings"
 	"path/filepath"
 	"testing"
 	"time"
@@ -62,6 +60,92 @@ func TestNewHolochain(t *testing.T) {
 		So(fmt.Sprintf("%v", nz.Entries[1]), ShouldEqual, "{entryTypeBar zygo   <nil>}")
 	})
 
+}
+
+func TestSetupLogging(t *testing.T) {
+	d, _, h := SetupTestChain("test")
+	defer CleanupTestDir(d)
+	Convey("it should initialize the loggers", t, func() {
+		err := h.SetupLogging()
+		So(err, ShouldBeNil)
+		// test some default configurations
+		So(h.Config.Loggers.App.Enabled, ShouldBeTrue)
+		So(h.Config.Loggers.DHT.Enabled, ShouldBeFalse)
+		So(h.Config.Loggers.Gossip.Enabled, ShouldBeFalse)
+		So(h.Config.Loggers.TestFailed.w, ShouldEqual, os.Stderr)
+		// test that a sample color got initialized
+		So(fmt.Sprintf("%v", h.Config.Loggers.App.color), ShouldEqual, "&{[36] <nil>}")
+	})
+	Convey("it should initialize the loggers with env vars", t, func() {
+		os.Setenv("HCLOG_APP_ENABLE", "0")
+		os.Setenv("HCLOG_DHT_ENABLE", "1")
+		os.Setenv("HCLOG_GOSSIP_ENABLE", "true")
+		os.Setenv("HCLOG_PREFIX", "a prefix:")
+		h.Config.Loggers.DHT.Format = "%{message}"
+		err := h.SetupLogging()
+		So(err, ShouldBeNil)
+		So(h.Config.Loggers.App.Enabled, ShouldBeFalse)
+		So(h.Config.Loggers.DHT.Enabled, ShouldBeTrue)
+		So(h.Config.Loggers.Gossip.Enabled, ShouldBeTrue)
+		var buf bytes.Buffer
+		h.Config.Loggers.DHT.w = &buf
+		h.Config.Loggers.DHT.Log("test")
+		So(string(buf.Bytes()), ShouldEqual, "a prefix:test\n")
+
+		// restore env
+		os.Setenv("HCLOG_APP_ENABLE", "")
+		os.Setenv("HCLOG_DHT_ENABLE", "")
+		os.Setenv("HCLOG_GOSSIP_ENABLE", "")
+		os.Setenv("HCLOG_PREFIX", "")
+		debugLog.SetPrefix("")
+	})
+}
+
+func TestDebuggingSetup(t *testing.T) {
+	d, _, _ := SetupTestChain("test")
+	defer CleanupTestDir(d)
+
+	Convey("it should look in the environment to know if we should turn on debugging", t, func() {
+		val, yes := DebuggingRequestedViaEnv()
+		So(yes, ShouldBeFalse)
+		os.Setenv("HCDEBUG", "0")
+		val, yes = DebuggingRequestedViaEnv()
+		So(yes, ShouldBeTrue)
+		So(val, ShouldBeFalse)
+		os.Setenv("HCDEBUG", "false")
+		val, yes = DebuggingRequestedViaEnv()
+		So(yes, ShouldBeTrue)
+		So(val, ShouldBeFalse)
+		os.Setenv("HCDEBUG", "FALSE")
+		val, yes = DebuggingRequestedViaEnv()
+		So(yes, ShouldBeTrue)
+		So(val, ShouldBeFalse)
+		os.Setenv("HCDEBUG", "1")
+		val, yes = DebuggingRequestedViaEnv()
+		So(yes, ShouldBeTrue)
+		So(val, ShouldBeTrue)
+		os.Setenv("HCDEBUG", "True")
+		val, yes = DebuggingRequestedViaEnv()
+		So(yes, ShouldBeTrue)
+		So(val, ShouldBeTrue)
+		os.Setenv("HCDEBUG", "true")
+		val, yes = DebuggingRequestedViaEnv()
+		So(yes, ShouldBeTrue)
+		So(val, ShouldBeTrue)
+	})
+	Convey("it should setup debugging output", t, func() {
+		// test the output of the debug log
+		var buf bytes.Buffer
+		debugLog.w = &buf
+		var enabled = debugLog.Enabled
+		debugLog.Enabled = true
+
+		Debug("test")
+		So(string(buf.Bytes()), ShouldEqual, "HC:holochain_test.go.143: test\n")
+		// restore state of debug log
+		debugLog.w = os.Stdout
+		debugLog.Enabled = enabled
+	})
 }
 
 func TestPrepare(t *testing.T) {

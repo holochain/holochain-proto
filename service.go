@@ -7,15 +7,18 @@ package holochain
 
 import (
 	"bytes"
+	"encoding/base64"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"github.com/BurntSushi/toml"
 	"github.com/google/uuid"
-
 	"io"
 	"io/ioutil"
+	"net/http"
 	"os"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"strconv"
 	"strings"
@@ -39,6 +42,8 @@ const (
 	DHTStoreFileName     string = "dht.db"      // Filname for storing the dht
 	BridgeDBFileName     string = "bridge.db"   // Filname for storing bridge keys
 
+	TestConfigFileName string = "_config.json"
+
 	DefaultPort            = 6283
 	DefaultBootstrapServer = "bootstrap.holochain.net:10000"
 
@@ -55,15 +60,15 @@ const (
 
 //
 type CloneSpec struct {
-	Role		string
-	Number		int
+	Role   string
+	Number int
 }
 
 // TestConfig holds the configuration options for a test
 type TestConfig struct {
 	GossipInterval time.Duration // interval in milliseconds between gossips
 	Duration       int           // if non-zero number of seconds to keep all nodes alive
-	Clone		   []CloneSpec
+	Clone          []CloneSpec
 }
 
 // ServiceConfig holds the service settings
@@ -597,7 +602,7 @@ func (s *Service) GenDev(root string, encodingFormat string, initDB bool) (h *Ho
 	scaffoldReader := bytes.NewBuffer([]byte(TestingAppScaffold()))
 
 	name := filepath.Base(root)
-	_, err = s.SaveScaffold(scaffoldReader, root, name, encodingFormat, initDB)
+	_, err = s.SaveFromScaffold(scaffoldReader, root, name, encodingFormat, initDB)
 	if err != nil {
 		return
 	}
@@ -857,8 +862,97 @@ func (s *Service) SaveDNAFile(root string, dna *DNA, encodingFormat string, over
 	return
 }
 
-// SaveScaffold writes out a holochain application based on scaffold file to path
-func (service *Service) SaveScaffold(reader io.Reader, path string, name string, encodingFormat string, newUUID bool) (scaffold *Scaffold, err error) {
+// MakeScaffold creates out a scaffold blob from a given holochain
+func (service *Service) MakeScaffold(h *Holochain) (data []byte, err error) {
+	scaffold := Scaffold{
+		ScaffoldVersion: ScaffoldVersion,
+		Generator:       "holochain " + VersionStr,
+		DNA:             *h.nucleus.dna,
+	}
+
+	var testsmap map[string][]TestData
+	testsmap, err = LoadTestFiles(h.TestPath())
+	if err != nil {
+		return
+	}
+	scaffold.Tests = make([]ScaffoldTests, 0)
+	for name, t := range testsmap {
+		scaffold.Tests = append(scaffold.Tests, ScaffoldTests{Name: name, Tests: t})
+	}
+
+	var scenarioFiles map[string]*os.FileInfo
+	scenarioFiles, err = GetTestScenarios(h)
+	if err != nil {
+		return
+	}
+	scaffold.Scenarios = make([]ScaffoldScenario, 0)
+	for name, _ := range scenarioFiles {
+		scenarioPath := filepath.Join(h.TestPath(), name)
+		var rolemap map[string][]TestData
+		rolemap, err = LoadTestFiles(scenarioPath)
+		if err != nil {
+			return
+		}
+		roles := make([]ScaffoldTests, 0)
+		for name, tests := range rolemap {
+			roles = append(roles,
+				ScaffoldTests{Name: name, Tests: tests})
+
+		}
+		scenario := ScaffoldScenario{Name: name, Roles: roles}
+		if FileExists(scenarioPath, TestConfigFileName) {
+			var config *TestConfig
+			config, err = LoadTestConfig(scenarioPath)
+			if err != nil {
+				return
+			}
+			scenario.Config = *config
+		}
+		scaffold.Scenarios = append(scaffold.Scenarios, scenario)
+	}
+
+	var files []os.FileInfo
+	files, err = ioutil.ReadDir(h.UIPath())
+	if err != nil {
+		return
+	}
+
+	scaffold.UI = make([]ScaffoldUIFile, 0)
+	for _, f := range files {
+		// TODO handle subdirectories
+		if f.Mode().IsRegular() {
+			var file []byte
+			file, err = ReadFile(h.UIPath(), f.Name())
+			if err != nil {
+				return
+			}
+			uiFile := ScaffoldUIFile{FileName: f.Name()}
+			contentType := http.DetectContentType(file)
+			if encodeAsBinary(contentType) {
+				uiFile.Data = base64.StdEncoding.EncodeToString([]byte(file))
+
+				uiFile.Encoding = "base64"
+			} else {
+				uiFile.Data = string(file)
+			}
+			scaffold.UI = append(scaffold.UI, uiFile)
+
+		}
+	}
+
+	data, err = json.MarshalIndent(scaffold, "", "  ")
+	return
+}
+
+func encodeAsBinary(contentType string) bool {
+	if strings.HasPrefix(contentType, "text") {
+		return false
+	}
+	return true
+}
+
+// SaveFromScaffold writes out a holochain application based on scaffold file to path
+func (service *Service) SaveFromScaffold(reader io.Reader, path string, name string, encodingFormat string, newUUID bool) (scaffold *Scaffold, err error) {
 	scaffold, err = LoadScaffold(reader)
 	if err != nil {
 		return
@@ -914,7 +1008,7 @@ func (service *Service) SaveScaffold(reader io.Reader, path string, name string,
 			}
 		}
 		if scenario.Config.Duration != 0 {
-			p := filepath.Join(scenarioPath, "_config.json")
+			p := filepath.Join(scenarioPath, TestConfigFileName)
 			var f *os.File
 			f, err = os.Create(p)
 			if err != nil {
@@ -927,7 +1021,17 @@ func (service *Service) SaveScaffold(reader io.Reader, path string, name string,
 
 	p := filepath.Join(path, ChainUIDir)
 	for _, ui := range scaffold.UI {
-		if err = WriteFile([]byte(ui.Data), p, ui.FileName); err != nil {
+		var data []byte
+		if ui.Encoding == "base64" {
+			data, err = base64.StdEncoding.DecodeString(ui.Data)
+			if err != nil {
+				return
+			}
+		} else {
+			data = []byte(ui.Data)
+		}
+
+		if err = WriteFile(data, p, ui.FileName); err != nil {
 			return
 		}
 	}
@@ -955,6 +1059,119 @@ func MakeDirs(devPath string) error {
 	}
 
 	return nil
+}
+
+// LoadTestFile unmarshals test json data
+func LoadTestFile(dir string, file string) (tests []TestData, err error) {
+	var v []byte
+	v, err = ReadFile(dir, file)
+	if err != nil {
+		return nil, err
+	}
+	err = json.Unmarshal(v, &tests)
+
+	if err != nil {
+		return nil, err
+	}
+	return
+}
+
+// LoadTestConfig unmarshals test json data
+func LoadTestConfig(dir string) (config *TestConfig, err error) {
+	c := TestConfig{GossipInterval: 2 * time.Second, Duration: 0}
+	config = &c
+	// if no config file return default values
+	if !FileExists(dir, TestConfigFileName) {
+		return
+	}
+	var v []byte
+	v, err = ReadFile(dir, TestConfigFileName)
+	if err != nil {
+		return nil, err
+	}
+	err = json.Unmarshal(v, &c)
+
+	if err != nil {
+		return nil, err
+	}
+	return
+}
+
+// LoadTestFiles searches a path for .json test files and loads them into an array
+func LoadTestFiles(path string) (map[string][]TestData, error) {
+	files, err := ioutil.ReadDir(path)
+	if err != nil {
+		return nil, err
+	}
+
+	re := regexp.MustCompile(`(.*)\.json`)
+	var tests = make(map[string][]TestData)
+	for _, f := range files {
+		if f.Mode().IsRegular() {
+			x := re.FindStringSubmatch(f.Name())
+			if len(x) > 0 {
+				if f.Name() != TestConfigFileName {
+					name := x[1]
+					tests[name], err = LoadTestFile(path, x[0])
+					if err != nil {
+						return nil, err
+					}
+				}
+			}
+		}
+	}
+
+	if len(tests) == 0 {
+		return nil, errors.New("no test files found in: " + path)
+	}
+
+	return tests, err
+}
+
+// TestScenarioList returns a list of paths to scenario directories
+func GetTestScenarios(h *Holochain) (scenarios map[string]*os.FileInfo, err error) {
+	dirContentList := []os.FileInfo{}
+	scenarios = make(map[string]*os.FileInfo)
+
+	dirContentList, err = ioutil.ReadDir(h.TestPath())
+	if err != nil {
+		return scenarios, err
+	}
+	for _, fileOrDir := range dirContentList {
+		if fileOrDir.Mode().IsDir() {
+			scenarios[fileOrDir.Name()] = &fileOrDir
+		}
+	}
+
+	return scenarios, err
+}
+
+// GetScenarioDataMap returns a map of TestData object
+func GetTestScenarioRoles(h *Holochain, scenarioName string) (roleNameList []string, err error) {
+	return GetAllTestRoles(filepath.Join(h.TestPath(), scenarioName))
+}
+
+// GetAllTestRoles  retuns a list of the roles in a scenario
+func GetAllTestRoles(path string) (roleNameList []string, err error) {
+	roleNameList = []string{}
+
+	files, err := ioutil.ReadDir(path)
+	if err != nil {
+		return nil, err
+	}
+
+	re := regexp.MustCompile(`(.*)\.json`)
+	for _, f := range files {
+		if f.Mode().IsRegular() {
+			x := re.FindStringSubmatch(f.Name())
+			if len(x) > 0 {
+				if f.Name() != TestConfigFileName {
+					roleNameList = append(roleNameList, x[1])
+				}
+			}
+		}
+	}
+	return
 }
 
 func TestingAppScaffold() string {
@@ -1193,6 +1410,10 @@ func TestingAppScaffold() string {
 },
 {"FileName":"hc.js",
  "Data":"` + jsSanitizeString(SampleJS) + `"
+},
+{"FileName":"logo.png",
+ "Data":"` + jsSanitizeString(SampleBinary) + `",
+ "Encoding":"base64"
 }],
 "Scenarios":[
         {"Name":"sampleScenario",
@@ -1354,6 +1575,7 @@ function receive(from,message) {
     </script>
   </head>
   <body>
+    <img src="logo.png">
     <select id="zome" name="zome">
       <option value="zySampleZome">zySampleZome</option>
       <option value="jsSampleZome">jsSampleZome</option>
@@ -1386,5 +1608,55 @@ function receive(from,message) {
          })
          ;
      };
+`
+	SampleBinary = `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
+AABJRU5ErkJggg==
 `
 )

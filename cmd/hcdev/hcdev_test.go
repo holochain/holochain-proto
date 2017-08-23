@@ -24,6 +24,7 @@ func TestSetupApp(t *testing.T) {
 }
 
 func TestGoScenario_cliCommand(t *testing.T) {
+	os.Setenv("HCDEV_TESTING", "true")
 	app := setupApp()
 
 	testCommand := []string{"hcdev", "-debug", "scenario"}
@@ -175,35 +176,67 @@ func TestInit(t *testing.T) {
 
 }
 
+func TestPackage(t *testing.T) {
+	app := setupApp()
+	tmpTestDir, app := setupTestingApp("foo")
+	defer os.RemoveAll(tmpTestDir)
+	Convey("'package' should print a scaffold file to stdout", t, func() {
+		scaffold := runAppWithStdoutCapture(app, []string{"hcdev", "package"})
+		So(scaffold, ShouldContainSubstring, fmt.Sprintf(`"ScaffoldVersion": "%s"`, holo.ScaffoldVersion))
+	})
+	app = setupApp()
+	d := holo.SetupTestDir()
+	defer os.RemoveAll(d)
+	Convey("'package' should output a scaffold file to file", t, func() {
+		runAppWithStdoutCapture(app, []string{"hcdev", "package", filepath.Join(d, "scaff.json")})
+		scaffold, err := holo.ReadFile(d, "scaff.json")
+		So(err, ShouldBeNil)
+		So(string(scaffold), ShouldContainSubstring, fmt.Sprintf(`"ScaffoldVersion": "%s"`, holo.ScaffoldVersion))
+
+	})
+}
+
 func TestWeb(t *testing.T) {
+	os.Setenv("HCDEV_TESTING", "true")
 	tmpTestDir, app := setupTestingApp("foo")
 	defer os.RemoveAll(tmpTestDir)
 
 	Convey("'web' should run a webserver", t, func() {
-		os.Args = []string{"hcdev", "web"}
-
-		old := os.Stdout // keep backup of the real stdout
-		r, w, _ := os.Pipe()
-		os.Stdout = w
-
-		go app.Run(os.Args)
-		time.Sleep(time.Second / 2)
-
-		outC := make(chan string)
-		// copy the output in a separate goroutine so printing can't block indefinitely
-		go func() {
-			var buf bytes.Buffer
-			io.Copy(&buf, r)
-			outC <- buf.String()
-		}()
-
-		// back to normal state
-		w.Close()
-		os.Stdout = old // restoring the real stdout
-		out := <-outC
+		out := runAppWithStdoutCapture(app, []string{"hcdev", "web"})
 		So(out, ShouldContainSubstring, "on port:4141")
 		So(out, ShouldContainSubstring, "Serving holochain with DNA hash:")
 	})
+	app = setupApp()
+
+	Convey("'web' not in an app directory should produce error", t, func() {
+		out := runAppWithStdoutCapture(app, []string{"hcdev", "-path", tmpTestDir, "web"})
+		So(out, ShouldContainSubstring, "doesn't look like a holochain app")
+	})
+}
+
+func runAppWithStdoutCapture(app *cli.App, args []string) string {
+	os.Args = args
+
+	old := os.Stdout // keep backup of the real stdout
+	r, w, _ := os.Pipe()
+	os.Stdout = w
+
+	go app.Run(os.Args)
+	time.Sleep(time.Second / 2)
+
+	outC := make(chan string)
+	// copy the output in a separate goroutine so printing can't block indefinitely
+	go func() {
+		var buf bytes.Buffer
+		io.Copy(&buf, r)
+		outC <- buf.String()
+	}()
+
+	// back to normal state
+	w.Close()
+	os.Stdout = old // restoring the real stdout
+	out := <-outC
+	return out
 }
 
 func setupTestingApp(name string) (string, *cli.App) {

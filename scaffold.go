@@ -13,9 +13,10 @@ const (
 	ScaffoldVersion = "0.0.3"
 )
 
-type ScaffoldUIPair struct {
+type ScaffoldUIFile struct {
 	FileName string
 	Data     string
+	Encoding string
 }
 
 type ScaffoldTests struct {
@@ -34,7 +35,7 @@ type Scaffold struct {
 	Generator       string
 	DNA             DNA
 	Tests           []ScaffoldTests
-	UI              []ScaffoldUIPair
+	UI              []ScaffoldUIFile
 	Scenarios       []ScaffoldScenario
 }
 

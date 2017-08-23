@@ -11,86 +11,12 @@ import (
 	"fmt"
 	. "github.com/metacurrency/holochain"
 	"github.com/metacurrency/holochain/ui"
-	"io/ioutil"
-	"os"
-	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
 
 	"time"
 )
-
-const (
-	TestConfigFileName string = "_config.json"
-)
-
-// LoadTestFile unmarshals test json data
-func LoadTestFile(dir string, file string) (tests []TestData, err error) {
-	var v []byte
-	v, err = ReadFile(dir, file)
-	if err != nil {
-		return nil, err
-	}
-
-	err = json.Unmarshal(v, &tests)
-
-	if err != nil {
-		return nil, err
-	}
-	return
-}
-
-// LoadTestConfig unmarshals test json data
-func LoadTestConfig(dir string) (config *TestConfig, err error) {
-	c := TestConfig{GossipInterval: 2 * time.Second, Duration: 0}
-	config = &c
-	// if no config file return default values
-	if !FileExists(dir, TestConfigFileName) {
-		return
-	}
-	var v []byte
-	v, err = ReadFile(dir, TestConfigFileName)
-	if err != nil {
-		return nil, err
-	}
-	err = json.Unmarshal(v, &c)
-
-	if err != nil {
-		return nil, err
-	}
-	return
-}
-
-// LoadTestFiles searches a path for .json test files and loads them into an array
-func LoadTestFiles(path string) (map[string][]TestData, error) {
-	files, err := ioutil.ReadDir(path)
-	if err != nil {
-		return nil, err
-	}
-
-	re := regexp.MustCompile(`(.*)\.json`)
-	var tests = make(map[string][]TestData)
-	for _, f := range files {
-		if f.Mode().IsRegular() {
-			x := re.FindStringSubmatch(f.Name())
-			if len(x) > 0 {
-				name := x[1]
-
-				tests[name], err = LoadTestFile(path, x[0])
-				if err != nil {
-					return nil, err
-				}
-			}
-		}
-	}
-
-	if len(tests) == 0 {
-		return nil, errors.New("no test files found in: " + path)
-	}
-
-	return tests, err
-}
 
 func toString(input interface{}) string {
 	// @TODO this should probably act according the function schema
@@ -109,7 +35,6 @@ func toString(input interface{}) string {
 
 // TestStringReplacements inserts special values into testing input and output values for matching
 func TestStringReplacements(h *Holochain, input, r1, r2, r3 string, lastMatches *[3][]string) string {
-
 	output := input
 
 	// look for %hn% in the string and do the replacements for recent hashes
@@ -516,50 +441,4 @@ func test(h *Holochain, one string, bridgeApps []BridgeApp) []error {
 		failed.Logf(fmt.Sprintf("\n==================================================================\n\t\t+++++ %d test(s) failed :( +++++\n==================================================================", len(errs)))
 	}
 	return errs
-}
-
-// TestScenarioList returns a list of paths to scenario directories
-func GetTestScenarios(h *Holochain) (scenarios map[string]*os.FileInfo, err error) {
-	dirContentList := []os.FileInfo{}
-	scenarios = make(map[string]*os.FileInfo)
-
-	dirContentList, err = ioutil.ReadDir(h.TestPath())
-	if err != nil {
-		return scenarios, err
-	}
-	for _, fileOrDir := range dirContentList {
-		if fileOrDir.Mode().IsDir() {
-			scenarios[fileOrDir.Name()] = &fileOrDir
-		}
-	}
-
-	return scenarios, err
-}
-
-// GetScenarioDataMap returns a map of TestData object
-func GetTestScenarioRoles(h *Holochain, scenarioName string) (roleNameList []string, err error) {
-	return GetAllTestRoles(filepath.Join(h.TestPath(), scenarioName))
-}
-
-// GetAllTestRoles  retuns a list of the roles in a scenario
-func GetAllTestRoles(path string) (roleNameList []string, err error) {
-	roleNameList = []string{}
-
-	files, err := ioutil.ReadDir(path)
-	if err != nil {
-		return nil, err
-	}
-
-	re := regexp.MustCompile(`(.*)\.json`)
-	for _, f := range files {
-		if f.Mode().IsRegular() {
-			x := re.FindStringSubmatch(f.Name())
-			if len(x) > 0 {
-				if x[1] != "_config" {
-					roleNameList = append(roleNameList, x[1])
-				}
-			}
-		}
-	}
-	return
 }

@@ -5,6 +5,13 @@
 (defn testJsonFn2 [x] (unjson (raw "[{\"a\":\"b\"}]"))) (defn getDNA [x] App_DNA_Hash)
 (defn addEven [x] (commit "evenNumbers" x))
 (defn addPrime [x] (commit "primes" x))
+(defn confirmOdd [x]
+  (letseq [h (makeHash x)
+           r (get h)
+           err (hget r %error "")]
+     (cond (== err "") "true" "false")
+  )
+)
 (defn validateCommit [entryType entry header pkg sources]
   (validate entryType entry header sources))
 (defn validatePut [entryType entry header pkg sources]
@@ -23,5 +30,6 @@
 (defn validateDelPkg [entryType] nil)
 (defn validateLinkPkg [entryType] nil)
 (defn genesis [] true)
+(defn bridgeGenesis [side app data] (begin (debug (concat "bridge genesis " (cond (== side HC_Bridge_From) "from" "to") ": other side is:" app " bridging data:" data))  true))
 (defn receive [from message]
 	(hash pong: (hget message %ping)))

@@ -63,6 +63,7 @@ func makeErr(prefix string, text string, code int) error {
 
 	if os.Getenv("HCDEV_TESTING") != "" {
 		os.Setenv("HCDEV_TESTING_EXITERR", fmt.Sprintf("%d", code))
+		fmt.Printf(errText)
 		return errors.New(errText)
 	} else {
 		return cli.NewExitError(errText, 1)
@@ -75,7 +76,7 @@ func makeErrFromError(prefix string, err error, code int) error {
 
 func appCheck(devPath string) error {
 	if !appInitialized {
-		return fmt.Errorf("%s doesn't look like a holochain app (missing dna).  See 'hcdev init -h' for help on initializing an app.", devPath)
+		return makeErr("hcdev", fmt.Sprintf("%s doesn't look like a holochain app (missing dna).  See 'hcdev init -h' for help on initializing an app.", devPath), 1)
 	}
 	return nil
 }
@@ -307,7 +308,7 @@ func setupApp() (app *cli.App) {
 					}
 					defer sf.Close()
 
-					_, err = service.SaveScaffold(sf, devPath, name, encodingFormat, false)
+					_, err = service.SaveFromScaffold(sf, devPath, name, encodingFormat, false)
 					if err != nil {
 						return makeErrFromError("init", err, 1)
 					}
@@ -323,7 +324,7 @@ func setupApp() (app *cli.App) {
 					scaffoldReader := bytes.NewBuffer([]byte(holo.BasicTemplateScaffold))
 
 					var scaffold *holo.Scaffold
-					scaffold, err = service.SaveScaffold(scaffoldReader, devPath, name, encodingFormat, true)
+					scaffold, err = service.SaveFromScaffold(scaffoldReader, devPath, name, encodingFormat, true)
 					if err != nil {
 						return makeErrFromError("init", err, 1)
 					}
@@ -442,7 +443,7 @@ func setupApp() (app *cli.App) {
 					return err
 				}
 				// mutableContext.obj["initialHolochain"] = h
-				testScenarioList, err := GetTestScenarios(h)
+				testScenarioList, err := holo.GetTestScenarios(h)
 				if err != nil {
 					return err
 				}
@@ -456,7 +457,7 @@ func setupApp() (app *cli.App) {
 				mutableContext.str["testScenarioName"] = scenarioName
 
 				// get list of roles
-				roleList, err := GetTestScenarioRoles(h, scenarioName)
+				roleList, err := holo.GetTestScenarioRoles(h, scenarioName)
 				if err != nil {
 					return err
 				}
@@ -469,7 +470,7 @@ func setupApp() (app *cli.App) {
 				}
 				secondsFromNowPlusDelay := cmd.GetUnixTimestamp_secondsFromNow(scenarioStartDelay)
 
-				scenarioConfig, err = LoadTestConfig(filepath.Join(h.TestPath(), scenarioName))
+				scenarioConfig, err = holo.LoadTestConfig(filepath.Join(h.TestPath(), scenarioName))
 				if err != nil {
 					return err
 				}
@@ -500,7 +501,7 @@ func setupApp() (app *cli.App) {
 						if clones > 1 {
 							roleName = fmt.Sprintf("%s.%d", originalRoleName, count)
 						}
-            holo.Debugf("HC: hcdev.go: goScenario: forRole(%v): port: %v\n\n", roleName, freePort)
+						holo.Debugf("HC: hcdev.go: goScenario: forRole(%v): port: %v\n\n", roleName, freePort)
 
 						colorByNumbers := []string{"green", "blue", "yellow", "cyan", "magenta", "red"}
 
@@ -538,7 +539,6 @@ func setupApp() (app *cli.App) {
 			ArgsUsage: "[port]",
 			Usage:     fmt.Sprintf("serve a chain to the web on localhost:<port> (defaults to %s)", defaultPort),
 			Action: func(c *cli.Context) error {
-
 				if err := appCheck(devPath); err != nil {
 					return err
 				}
@@ -580,6 +580,43 @@ func setupApp() (app *cli.App) {
 				return err
 			},
 		},
+
+		{
+			Name:      "package",
+			Aliases:   []string{"p"},
+			ArgsUsage: "[output file]",
+			Usage:     fmt.Sprintf("writes a scaffold file of the dev path  to file or stdout"),
+			Action: func(c *cli.Context) error {
+
+				var old *os.File
+				if len(c.Args()) == 0 {
+					old = os.Stdout // keep backup of the real stdout
+					_, w, _ := os.Pipe()
+					os.Stdout = w
+				}
+
+				if err := appCheck(devPath); err != nil {
+					return err
+				}
+				h, _, err := getHolochain(c, service)
+				if err != nil {
+					return err
+				}
+				scaffold, err := service.MakeScaffold(h)
+				if err != nil {
+					return err
+				}
+
+				if len(c.Args()) == 0 {
+					os.Stdout = old
+					fmt.Printf(string(scaffold))
+				} else {
+					err = holo.WriteFile(scaffold, c.Args().First())
+				}
+				return err
+			},
+		},
+
 		{
 			Name:      "dump",
 			Aliases:   []string{"d"},

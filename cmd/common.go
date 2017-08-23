@@ -21,8 +21,6 @@ import (
 	holo "github.com/metacurrency/holochain"
 )
 
-var debug bool = false
-
 var ErrServiceUninitialized = errors.New("service not initialized, run 'hcdev init'")
 
 func GetCurrentDirectory() (dir string, err error) {
@@ -40,24 +38,21 @@ func ExecBinScript(script string, args ...string) (err error) {
 	if err != nil {
 		return
 	}
-	if debug {
-		fmt.Printf("HC: common.go: ExecBinScript: %v (%v)", path, args)
-	}
+
+	holo.Debugf("ExecBinScript: %v (%v)", path, args)
+
 	return syscallExec(path, args...)
 }
 
 func OsExecSilent(args ...string) error {
 	cmd := exec.Command(args[0], args[1:]...)
-	if debug {
-		fmt.Printf("common.go: OsExecSilent: %v", cmd)
-	}
+	holo.Debugf("OsExecSilent: %v", cmd)
+
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		return err
 	}
-	if debug {
-		fmt.Printf("HC: common.go: OsExecSilent: %v", output)
-	}
+	holo.Debugf("OsExecSilent: %v", output)
 
 	return nil
 }
@@ -65,21 +60,15 @@ func OsExecSilent(args ...string) error {
 // OsExecPipes executes a command as if we are in a shell, including user input
 func OsExecPipes(args ...string) *exec.Cmd {
 	cmd := OsExecPipes_noRun(args...)
-
-	if debug {
-		fmt.Printf("HC: common.go: OsExecPipes: %v", cmd)
-	}
+	holo.Debugf("OsExecPipes: %v", cmd)
 	cmd.Run()
-
 	return cmd
 }
 
 // OsExecPipes executes a command as if we are in a shell, including user input
 func OsExecPipes_noRun(args ...string) *exec.Cmd {
 	cmd := exec.Command(args[0], args[1:]...)
-	if debug {
-		fmt.Printf("HC: common.go: OsExecPipes_noRun: %v", cmd)
-	}
+	holo.Debugf("OsExecPipes_noRun: %v", cmd)
 
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
@@ -219,7 +208,7 @@ func GetFreePort() (port int, err error) {
 }
 
 func GetUnixTimestamp_secondsFromNow(seconds int) int64 {
-	return time.Now().Add(10 * time.Second).Unix()
+	return time.Now().Add(time.Duration(seconds) * time.Second).Unix()
 }
 func GetDuration_fromUnixTimestamp(timestamp int64) (duration time.Duration) {
 	duration = 0 * time.Second

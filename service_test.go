@@ -364,7 +364,7 @@ func TestMakeConfig(t *testing.T) {
 	Convey("make config should produce default config from OS env overridden values", t, func() {
 		os.Setenv("HOLOCHAINCONFIG_PORT", "12345")
 		os.Setenv("HOLOCHAINCONFIG_ENABLEMDNS", "true")
-		os.Setenv("HOLOCHAINCONFIG_LOGPREFIX", "prefix:%{color:cyan}")
+		os.Setenv("HCLOG_PREFIX", "prefix:%{color:cyan}")
 		os.Setenv("HOLOCHAINCONFIG_BOOTSTRAP", "_")
 		err := makeConfig(h, s)
 		So(err, ShouldBeNil)

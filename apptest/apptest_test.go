@@ -35,7 +35,10 @@ func TestTestStringReplacements(t *testing.T) {
 func TestTest(t *testing.T) {
 	d, _, h := SetupTestChain("test")
 	CleanupTestDir(filepath.Join(d, ".holochain", "test", "test")) // delete the test data created by gen dev
-	if os.Getenv("DEBUG") != "1" {
+
+	_, requested := DebuggingRequestedViaEnv()
+	// unless env indicates debugging, don't show the test results as this test of testing runs
+	if !requested {
 		h.Config.Loggers.TestPassed.Enabled = false
 		h.Config.Loggers.TestFailed.Enabled = false
 		h.Config.Loggers.TestInfo.Enabled = false
@@ -48,7 +51,10 @@ func TestTest(t *testing.T) {
 
 	d, _, h = SetupTestChain("test")
 	defer CleanupTestDir(d)
-	if os.Getenv("DEBUG") != "1" {
+
+	_, requested = DebuggingRequestedViaEnv()
+	// unless env indicates debugging, don't show the test results as this test of testing runs
+	if !requested {
 		h.Config.Loggers.TestPassed.Enabled = false
 		h.Config.Loggers.TestFailed.Enabled = false
 		h.Config.Loggers.TestInfo.Enabled = false
@@ -94,7 +100,7 @@ func TestTestOne(t *testing.T) {
 		ShouldLog(&h.Config.Loggers.TestInfo, `========================================
 Test: 'testSet1' starting...
 ========================================
-Test 'testSet1.0' t+0ms: { zySampleZome addEven 2 %h%   0s  false}
+Test 'testSet1.0' t+0ms: { zySampleZome addEven 2 %h%   0s 0s  false 0}
 `, func() {
 			err := TestOne(h, "testSet1", nil)
 			So(err, ShouldBeNil)

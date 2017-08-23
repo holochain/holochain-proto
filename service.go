@@ -58,10 +58,17 @@ const (
 	SkipInitializeDB  = false
 )
 
+//
+type CloneSpec struct {
+	Role   string
+	Number int
+}
+
 // TestConfig holds the configuration options for a test
 type TestConfig struct {
 	GossipInterval time.Duration // interval in milliseconds between gossips
 	Duration       int           // if non-zero number of seconds to keep all nodes alive
+	Clone          []CloneSpec
 }
 
 // ServiceConfig holds the service settings
@@ -121,8 +128,10 @@ type TestData struct {
 	Err      string        // the expected error to match against
 	Regexp   string        // the expected out to match again (regular expression)
 	Time     time.Duration // offset in milliseconds from the start of the test at which to run this test.
+	Wait     time.Duration // time in milliseconds to wait before running this test from when the previous ran
 	Exposure string        // the exposure context for the test call (defaults to ZOME_EXPOSURE)
 	Raw      bool          // set to true if we should ignore fnName and just call input as raw code in the zome, useful for testing helper functions and validation functions
+	Repeat   int           // number of times to repeat this test, useful for scenario testing
 }
 
 // IsInitialized checks a path for a correctly set up .holochain directory
@@ -416,7 +425,7 @@ func (s *Service) load(name string, format string) (hP *Holochain, err error) {
 	if err != nil {
 		return
 	}
-	if err = h.setupConfig(); err != nil {
+	if err = h.SetupLogging(); err != nil {
 		return
 	}
 
@@ -541,11 +550,7 @@ func _makeConfig(s *Service) (config Config, err error) {
 		if err != nil {
 			return
 		}
-
-		if IsDebugging() {
-			fmt.Printf("HC: service.go: makeConfig: using environment variable to set port to:            %v\n", val)
-		}
-
+		Debugf("HC: service.go: makeConfig: using environment variable to set port to: %v\n", val)
 	}
 	val = os.Getenv("HOLOCHAINCONFIG_BOOTSTRAP")
 	if val != "" {
@@ -582,7 +587,7 @@ func makeConfig(h *Holochain, s *Service) (err error) {
 	if err = Encode(f, h.encodingFormat, &h.Config); err != nil {
 		return
 	}
-	if err = h.setupConfig(); err != nil {
+	if err = h.SetupLogging(); err != nil {
 		return
 	}
 	return
@@ -634,7 +639,7 @@ func (s *Service) GenDev(root string, encodingFormat string, initDB bool) (h *Ho
 			return
 		}
 
-		if err = h.setupConfig(); err != nil {
+		if err = h.SetupLogging(); err != nil {
 			return
 		}
 	}
@@ -855,10 +860,6 @@ func (s *Service) SaveDNAFile(root string, dna *DNA, encodingFormat string, over
 
 	err = Encode(f, encodingFormat, dnaFile)
 	return
-}
-
-func IsDebugging() bool {
-	return strings.ToLower(os.Getenv("DEBUG")) == "true" || os.Getenv("DEBUG") == "1"
 }
 
 // MakeScaffold creates out a scaffold blob from a given holochain

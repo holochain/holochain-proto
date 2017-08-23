@@ -201,7 +201,9 @@ func setupApp() (app *cli.App) {
 
 	app.Before = func(c *cli.Context) error {
 		if debug {
-			os.Setenv("DEBUG", "1")
+			os.Setenv("HCLOG_APP_ENABLE", "1")
+			os.Setenv("HCLOG_DHT_ENABLE", "1")
+			os.Setenv("HCLOG_GOSSIP_ENABLE", "1")
 		}
 		if verbose {
 			fmt.Printf("hcadmin version %s \n", app.Version)

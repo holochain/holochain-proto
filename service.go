@@ -1528,6 +1528,9 @@ function receive(from,message) {
   return {pong:message.ping}
 }
 
+function asyncPing(message,id) {
+  debug("async result of message with "+id+" was: "+JSON.stringify(message))
+}
 `
 	zygoZomeCode = `
 (defn testStrFn1 [x] (concat "result: " x))

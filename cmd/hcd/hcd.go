@@ -90,6 +90,7 @@ func setupApp() (app *cli.App) {
 			}
 			//				go h.DHT().HandleChangeReqs()
 			go h.DHT().HandleGossipWiths()
+			go h.HandleAsyncSends()
 			go h.DHT().Gossip(2 * time.Second)
 
 			if verbose {

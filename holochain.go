@@ -77,6 +77,7 @@ type Holochain struct {
 	validateProtocol *Protocol
 	gossipProtocol   *Protocol
 	actionProtocol   *Protocol
+	asyncSends       chan bool
 }
 
 func (h *Holochain) Nucleus() (n *Nucleus) {
@@ -263,6 +264,8 @@ func (h *Holochain) Prepare() (err error) {
 	if err = h.PrepareHashType(); err != nil {
 		return
 	}
+
+	h.asyncSends = make(chan bool, 10)
 
 	err = h.createNode()
 	if err != nil {
@@ -652,6 +655,10 @@ func (h *Holochain) Reset() (err error) {
 		close(h.dht.gchan)
 	}
 	h.dht = NewDHT(h)
+	if h.asyncSends != nil {
+		close(h.asyncSends)
+		h.asyncSends = nil
+	}
 
 	return
 }
@@ -669,6 +676,48 @@ func (h *Holochain) Node() *Node {
 // HashSpec exposes the hashSpec structure
 func (h *Holochain) HashSpec() HashSpec {
 	return h.hashSpec
+}
+
+// SendAsync builds a message and either delivers it locally or over the network via node.Send but registers a function for asyncronous call back
+func (h *Holochain) SendAsync(proto int, to peer.ID, t MsgType, body interface{}, zomeType string, callback string, callbackID string) (err error) {
+	var response interface{}
+
+	// TODO add timeout
+	go func() {
+		response, err = h.Send(proto, to, t, body)
+		if err == nil {
+			var r Ribosome
+			r, _, err := h.MakeRibosome(zomeType)
+			if err != nil {
+				h.asyncSends <- false
+				return
+			}
+			//var result interface{}
+			_, err = r.RunAsyncSendResponse(response, callback, callbackID)
+			if err != nil {
+				h.nucleus.alog.Logf("error running %s: %v", callback, err)
+				//fmt.Printf("error running %s: %v", callback, err)
+				h.asyncSends <- false
+				return
+			}
+		}
+		h.asyncSends <- true
+	}()
+	return
+}
+
+// HandleAsyncSends waits on a chanel for asyncronous sends
+func (h *Holochain) HandleAsyncSends() (err error) {
+	for {
+		h.nucleus.alog.Log("HandleAsyncSends: waiting for aysnc send response")
+		done, ok := <-h.asyncSends
+		if !ok {
+			h.nucleus.alog.Log("HandleAsyncSends: channel closed, breaking")
+			break
+		}
+		h.nucleus.alog.Logf("HandleAsyncSends: got %v", done)
+	}
+	return nil
 }
 
 // Send builds a message and either delivers it locally or over the network via node.Send

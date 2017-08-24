@@ -471,8 +471,11 @@ func (a *ActionBridge) Do(h *Holochain) (response interface{}, err error) {
 // Send
 
 type ActionSend struct {
-	to  peer.ID
-	msg AppMsg
+	to         peer.ID
+	msg        AppMsg
+	callback   string
+	callbackID string
+	zomeType   string
 }
 
 func NewSendAction(to peer.ID, msg AppMsg) *ActionSend {
@@ -485,14 +488,18 @@ func (a *ActionSend) Name() string {
 }
 
 func (a *ActionSend) Args() []Arg {
-	return []Arg{{Name: "to", Type: HashArg}, {Name: "msg", Type: MapArg}}
+	return []Arg{{Name: "to", Type: HashArg}, {Name: "msg", Type: MapArg}, {Name: "callback", Type: StringArg, Optional: true}, {Name: "callbackID", Type: StringArg, Optional: true}}
 }
 
 func (a *ActionSend) Do(h *Holochain) (response interface{}, err error) {
 	var r interface{}
-	r, err = h.Send(ActionProtocol, a.to, APP_MESSAGE, a.msg)
-	if err == nil {
-		response = r.(AppMsg).Body
+	if a.callback != "" {
+		err = h.SendAsync(ActionProtocol, a.to, APP_MESSAGE, a.msg, a.zomeType, a.callback, a.callbackID)
+	} else {
+		r, err = h.Send(ActionProtocol, a.to, APP_MESSAGE, a.msg)
+		if err == nil {
+			response = r.(AppMsg).Body
+		}
 	}
 	return
 }

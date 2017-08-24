@@ -623,6 +623,12 @@ func NewJSRibosome(h *Holochain, zome *Zome) (n Ribosome, err error) {
 		a.msg.ZomeType = jsr.zome.Name
 		a.msg.Body = string(j)
 
+		if args[2].value != nil {
+			a.callback = args[2].value.(string)
+			a.callbackID = args[3].value.(string)
+			a.zomeType = zome.Name
+		}
+
 		var r interface{}
 		r, err = a.Do(h)
 		if err != nil {
@@ -1010,5 +1016,27 @@ func (jsr *JSRibosome) Run(code string) (result interface{}, err error) {
 	}
 	jsr.lastResult = &v
 	result = &v
+	return
+}
+
+func (jsr *JSRibosome) RunAsyncSendResponse(response interface{}, callback string, callbackID string) (result interface{}, err error) {
+	resp, err := jsr.vm.ToValue(response)
+	if err != nil {
+		return
+	}
+
+	v, err := jsr.vm.Call("JSON.stringify", nil, resp)
+	if err != nil {
+		return
+	}
+
+	r, err := v.ToString()
+	if err != nil {
+		return
+	}
+
+	code := fmt.Sprintf(`%s(%v.Body,"%s")`, callback, r, jsSanitizeString(callbackID))
+	Debugf("Calling %s\n", code)
+	result, err = jsr.Run(code)
 	return
 }

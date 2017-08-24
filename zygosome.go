@@ -1070,3 +1070,8 @@ func addExtras(z *ZygoRibosome) {
 			return &zygo.SexpInt{Val: i}, nil
 		})
 }
+
+func (jsr *ZygoRibosome) RunAsyncSendResponse(response interface{}, callback string, callbackID string) (result interface{}, err error) {
+	panic("not implemented")
+	//	return
+}

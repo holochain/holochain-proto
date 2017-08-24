@@ -181,7 +181,8 @@ func TestPackage(t *testing.T) {
 	tmpTestDir, app := setupTestingApp("foo")
 	defer os.RemoveAll(tmpTestDir)
 	Convey("'package' should print a scaffold file to stdout", t, func() {
-		scaffold := runAppWithStdoutCapture(app, []string{"hcdev", "package"})
+		scaffold, err := runAppWithStdoutCapture(app, []string{"hcdev", "package"})
+		So(err, ShouldBeNil)
 		So(scaffold, ShouldContainSubstring, fmt.Sprintf(`"ScaffoldVersion": "%s"`, holo.ScaffoldVersion))
 	})
 	app = setupApp()
@@ -202,26 +203,28 @@ func TestWeb(t *testing.T) {
 	defer os.RemoveAll(tmpTestDir)
 
 	Convey("'web' should run a webserver", t, func() {
-		out := runAppWithStdoutCapture(app, []string{"hcdev", "web"})
+		out, err := runAppWithStdoutCapture(app, []string{"hcdev", "web"})
+		So(err, ShouldBeNil)
 		So(out, ShouldContainSubstring, "on port:4141")
 		So(out, ShouldContainSubstring, "Serving holochain with DNA hash:")
 	})
 	app = setupApp()
 
 	Convey("'web' not in an app directory should produce error", t, func() {
-		out := runAppWithStdoutCapture(app, []string{"hcdev", "-path", tmpTestDir, "web"})
+		out, err := runAppWithStdoutCapture(app, []string{"hcdev", "-path", tmpTestDir, "web"})
+		So(err, ShouldBeError)
 		So(out, ShouldContainSubstring, "doesn't look like a holochain app")
 	})
 }
 
-func runAppWithStdoutCapture(app *cli.App, args []string) string {
+func runAppWithStdoutCapture(app *cli.App, args []string) (out string, err error) {
 	os.Args = args
 
 	old := os.Stdout // keep backup of the real stdout
 	r, w, _ := os.Pipe()
 	os.Stdout = w
 
-	go app.Run(os.Args)
+	go func() { err = app.Run(os.Args) }()
 	time.Sleep(time.Second / 2)
 
 	outC := make(chan string)
@@ -235,8 +238,8 @@ func runAppWithStdoutCapture(app *cli.App, args []string) string {
 	// back to normal state
 	w.Close()
 	os.Stdout = old // restoring the real stdout
-	out := <-outC
-	return out
+	out = <-outC
+	return
 }
 
 func setupTestingApp(name string) (string, *cli.App) {

@@ -81,6 +81,44 @@ func TestJoin(t *testing.T) {
 	})
 }
 
+func TestBridge(t *testing.T) {
+	d := holo.SetupTestDir()
+	defer os.RemoveAll(d)
+	app := setupApp()
+	_, err := runAppWithStdoutCapture(app, []string{"hadmin", "-path", d, "init", "test-identity"})
+	if err != nil {
+		panic(err)
+	}
+
+	// create two different instances of the testing app (i.e. with different dna) and join them both
+	cmd.OsExecPipes("hcdev", "-path", d, "init", "-test", "testAppSrc1")
+	cmd.OsExecPipes("hcdev", "-path", d, "init", "-test", "testAppSrc2")
+	app = setupApp()
+	_, err = runAppWithStdoutCapture(app, []string{"hcadmin", "-path", d, "join", filepath.Join(d, "testAppSrc1"), "testApp1"})
+	if err != nil {
+		panic(err)
+	}
+	app = setupApp()
+	_, err = runAppWithStdoutCapture(app, []string{"hcadmin", "-path", d, "join", filepath.Join(d, "testAppSrc2"), "testApp2"})
+	if err != nil {
+		panic(err)
+	}
+
+	Convey("it should bridge chains", t, func() {
+		app = setupApp()
+		out, err := runAppWithStdoutCapture(app, []string{"hcadmin", "-path", d, "bridge", "testApp1", "testApp2", "-bridgeToAppData", "some to app data"})
+		So(err, ShouldBeNil)
+		So(out, ShouldContainSubstring, "bridge genesis to-- other side is:QmaYyhRCLoC2JToVT5CdCUV4eNvdYKu867uYXWpFbBZLry bridging data:some to app data\n")
+	})
+	Convey("after bridge status should show it", t, func() {
+		app = setupApp()
+		out, err := runAppWithStdoutCapture(app, []string{"hcadmin", "-path", d, "status"})
+		So(err, ShouldBeNil)
+		So(out, ShouldContainSubstring, "testApp1 QmaYyhRCLoC2JToVT5CdCUV4eNvdYKu867uYXWpFbBZLry\n        bridged to: QmeZphnoyd2Hwqatx8RVGMBGF3st4Gt1S92sZx2ZajUfHY")
+		So(out, ShouldContainSubstring, "testApp2 QmeZphnoyd2Hwqatx8RVGMBGF3st4Gt1S92sZx2ZajUfHY\n        bridged from by token:")
+	})
+}
+
 func runAppWithStdoutCapture(app *cli.App, args []string) (out string, err error) {
 	os.Args = args
 

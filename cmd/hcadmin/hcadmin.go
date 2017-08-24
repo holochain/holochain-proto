@@ -27,6 +27,7 @@ func setupApp() (app *cli.App) {
 	var dumpChain, dumpDHT bool
 	var root string
 	var service *holo.Service
+	var bridgeToAppData, bridgeFromAppData string
 
 	app.Flags = []cli.Flag{
 		cli.BoolFlag{
@@ -138,6 +139,18 @@ func setupApp() (app *cli.App) {
 			Aliases:   []string{"j"},
 			ArgsUsage: "from-chain to-chain",
 			Usage:     "allows to-chain to make calls to functions in from-chain",
+			Flags: []cli.Flag{
+				cli.StringFlag{
+					Name:        "bridgeToAppData",
+					Usage:       "application data to pass to the bridged to app",
+					Destination: &bridgeToAppData,
+				},
+				cli.StringFlag{
+					Name:        "bridgeFromAppData",
+					Usage:       "application data to pass to the bridging from app",
+					Destination: &bridgeFromAppData,
+				},
+			},
 			Action: func(c *cli.Context) error {
 				fromChain := c.Args().First()
 				if fromChain == "" {
@@ -157,12 +170,12 @@ func setupApp() (app *cli.App) {
 					return err
 				}
 
-				token, err := hTo.AddBridgeAsCallee(hFrom.DNAHash(), "")
+				token, err := hTo.AddBridgeAsCallee(hFrom.DNAHash(), bridgeToAppData)
 				if err != nil {
 					return err
 				}
 
-				err = hFrom.AddBridgeAsCaller(hTo.DNAHash(), token, fmt.Sprintf("http://localhost:%d", hTo.Config.Port), "")
+				err = hFrom.AddBridgeAsCaller(hTo.DNAHash(), token, fmt.Sprintf("http://localhost:%d", hTo.Config.Port), bridgeFromAppData)
 
 				if err == nil {
 					if verbose {

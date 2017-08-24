@@ -19,7 +19,7 @@ func TestBridgeCall(t *testing.T) {
 
 	fakeFromApp, _ := NewHash("QmVGtdTZdTFaLsaj2RwdVG8jcjNNcp1DE914DKZ2kHmXHx")
 	Convey("it should call the bridgeGenesis function when bridging on the to side", t, func() {
-		ShouldLog(h.nucleus.alog, `bridge genesis to: other side is:`+fakeFromApp.String()+` bridging data:app data`, func() {
+		ShouldLog(h.nucleus.alog, `bridge genesis to-- other side is:`+fakeFromApp.String()+` bridging data:app data`, func() {
 			token, err = h.AddBridgeAsCallee(fakeFromApp, "app data")
 			So(err, ShouldBeNil)
 		})
@@ -33,7 +33,7 @@ func TestBridgeCall(t *testing.T) {
 	Convey("it should call the bridgeGenesis function when bridging on the from side", t, func() {
 		h.nucleus.dna.Zomes[0].BridgeTo = fakeToApp
 		h.nucleus.dna.Zomes[0].BridgeTo = fakeToApp
-		ShouldLog(h.nucleus.alog, `bridge genesis from: other side is:`+fakeToApp.String()+` bridging data:app data`, func() {
+		ShouldLog(h.nucleus.alog, `bridge genesis from-- other side is:`+fakeToApp.String()+` bridging data:app data`, func() {
 			url := "http://localhost:31415"
 			err := h.AddBridgeAsCaller(fakeToApp, token, url, "app data")
 			So(err, ShouldBeNil)
@@ -95,5 +95,39 @@ func TestBridgeStore(t *testing.T) {
 		So(err, ShouldBeNil)
 		So(t, ShouldEqual, token)
 		So(u, ShouldEqual, url)
+	})
+}
+
+func TestBridgeGetBridges(t *testing.T) {
+	d, _, h := SetupTestChain("test")
+	defer CleanupTestDir(d)
+
+	Convey("it should return an empty list", t, func() {
+		bridges, err := h.GetBridges()
+		So(err, ShouldBeNil)
+		So(len(bridges), ShouldEqual, 0)
+	})
+
+	fakeToApp, _ := NewHash("QmVGtdTZdTFaLsaj2RwdVG8jcjNNcp1DE914DKZ2kHmXHw")
+	token := "some token"
+	url := "http://localhost:31415"
+	err := h.AddBridgeAsCaller(fakeToApp, token, url, "")
+	if err != nil {
+		panic(err)
+	}
+
+	fakeFromApp, _ := NewHash("QmVGtdTZdTFaLsaj2RwdVG8jcjNNcp1DE914DKZ2kHmXHx")
+	_, err = h.AddBridgeAsCallee(fakeFromApp, "app data")
+	if err != nil {
+		panic(err)
+	}
+
+	Convey("it should return the bridged apps", t, func() {
+		bridges, err := h.GetBridges()
+		So(err, ShouldBeNil)
+		So(bridges[0].Side, ShouldEqual, BridgeTo)
+		So(bridges[0].ToApp.String(), ShouldEqual, "QmVGtdTZdTFaLsaj2RwdVG8jcjNNcp1DE914DKZ2kHmXHw")
+		So(bridges[1].Side, ShouldEqual, BridgeFrom)
+		So(bridges[1].FromToken, ShouldNotEqual, 0)
 	})
 }

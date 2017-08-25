@@ -1020,23 +1020,15 @@ func (jsr *JSRibosome) Run(code string) (result interface{}, err error) {
 }
 
 func (jsr *JSRibosome) RunAsyncSendResponse(response interface{}, callback string, callbackID string) (result interface{}, err error) {
-	resp, err := jsr.vm.ToValue(response)
-	if err != nil {
-		return
+
+	switch t := response.(type) {
+	case AppMsg:
+		code := fmt.Sprintf(`%s(JSON.parse("%s"),"%s")`, callback, jsSanitizeString(t.Body), jsSanitizeString(callbackID))
+		Debugf("Calling %s\n", code)
+		result, err = jsr.Run(code)
+	default:
+		err = errors.New("expected response to be an AppMsg")
 	}
 
-	v, err := jsr.vm.Call("JSON.stringify", nil, resp)
-	if err != nil {
-		return
-	}
-
-	r, err := v.ToString()
-	if err != nil {
-		return
-	}
-
-	code := fmt.Sprintf(`%s(%v.Body,"%s")`, callback, r, jsSanitizeString(callbackID))
-	Debugf("Calling %s\n", code)
-	result, err = jsr.Run(code)
 	return
 }

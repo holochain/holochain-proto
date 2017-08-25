@@ -629,11 +629,24 @@ func NewZygoRibosome(h *Holochain, zome *Zome) (n Ribosome, err error) {
 			a.msg.ZomeType = z.zome.Name
 			a.msg.Body = string(j)
 
+			if args[2].value != nil {
+				a.callback = args[2].value.(string)
+				a.callbackID = args[3].value.(string)
+				a.zomeType = zome.Name
+			}
+
 			var r interface{}
 			r, err = a.Do(h)
 			var resp zygo.Sexp
 			if err == nil {
-				resp = &zygo.SexpStr{S: r.(string)}
+				switch t := r.(type) {
+				case string:
+					resp = &zygo.SexpStr{S: t}
+				case nil:
+					resp = zygo.SexpNull
+				default:
+					return zygo.SexpNull, errors.New("send should return nil or string")
+				}
 			}
 			return makeResult(env, resp, err)
 		})
@@ -1071,7 +1084,15 @@ func addExtras(z *ZygoRibosome) {
 		})
 }
 
-func (jsr *ZygoRibosome) RunAsyncSendResponse(response interface{}, callback string, callbackID string) (result interface{}, err error) {
-	panic("not implemented")
-	//	return
+func (z *ZygoRibosome) RunAsyncSendResponse(response interface{}, callback string, callbackID string) (result interface{}, err error) {
+	switch t := response.(type) {
+	case AppMsg:
+		code := fmt.Sprintf(`(%s (unjson (raw "%s")) "%s")`, callback, sanitizeZyString(t.Body), sanitizeZyString(callbackID))
+		Debugf("Calling %s\n", code)
+		result, err = z.Run(code)
+
+	default:
+		err = errors.New("expected response to be an AppMsg")
+	}
+	return
 }

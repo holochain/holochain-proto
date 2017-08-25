@@ -695,8 +695,7 @@ func (h *Holochain) SendAsync(proto int, to peer.ID, t MsgType, body interface{}
 			//var result interface{}
 			_, err = r.RunAsyncSendResponse(response, callback, callbackID)
 			if err != nil {
-				h.nucleus.alog.Logf("error running %s: %v", callback, err)
-				//fmt.Printf("error running %s: %v", callback, err)
+				h.nucleus.alog.Logf("error running %s: %v, got: %v", callback, err, response)
 				h.asyncSends <- false
 				return
 			}

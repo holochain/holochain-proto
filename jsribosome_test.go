@@ -274,7 +274,7 @@ func TestNewJSRibosome(t *testing.T) {
 			})
 		})
 		Convey("send async", func() {
-			ShouldLog(h.nucleus.alog, `async result of message with 123 was: "{\"pong\":\"foobar\"}"`, func() {
+			ShouldLog(h.nucleus.alog, `async result of message with 123 was: {"pong":"foobar"}`, func() {
 				_, err := z.Run(`send(App.Key.Hash,{ping:"foobar"},"asyncPing","123")`)
 				So(err, ShouldBeNil)
 				done := <-h.asyncSends

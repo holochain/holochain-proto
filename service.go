@@ -1567,6 +1567,9 @@ function asyncPing(message,id) {
 (defn bridgeGenesis [side app data] (begin (debug (concat "bridge genesis " (cond (== side HC_Bridge_From) "from" "to") ": other side is:" app " bridging data:" data))  true))
 (defn receive [from message]
 	(hash pong: (hget message %ping)))
+(defn asyncPing [message,id]
+  (debug (concat "async result of message with " id " was:" (str message)))
+)
 `
 
 	SampleHTML = `

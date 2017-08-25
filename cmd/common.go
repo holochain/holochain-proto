@@ -78,7 +78,7 @@ func OsExecPipes_noRun(args ...string) *exec.Cmd {
 }
 
 var configExtensionList []string
-func GetConfigExtensionList() (configExtensionList []string) {
+func GetConfigExtensionList() (conExtList []string) {
   if configExtensionList == nil {
     configExtensionList = []string{"json", "toml", "yaml"}
   }

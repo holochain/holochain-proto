@@ -98,14 +98,14 @@ func TestServiceGenChain(t *testing.T) {
 
 	Convey("it should return a list of the chains", t, func() {
 		list := s.ListChains()
-		So(list, ShouldEqual, "installed holochains:     test <not-started>\n")
+		So(list, ShouldEqual, "installed holochains:\n    test <not-started>\n")
 	})
 	Convey("it should start a chain and return a holochain object", t, func() {
 		h2, err := s.GenChain("test")
 		So(err, ShouldBeNil)
 		So(h2.nucleus.dna.UUID, ShouldEqual, h.nucleus.dna.UUID)
 		list := s.ListChains()
-		So(list, ShouldEqual, fmt.Sprintf("installed holochains:     test %v\n", h2.dnaHash))
+		So(list, ShouldEqual, fmt.Sprintf("installed holochains:\n    test %v\n", h2.dnaHash))
 	})
 }
 

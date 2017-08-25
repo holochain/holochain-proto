@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	holo "github.com/metacurrency/holochain"
-	cmd "github.com/metacurrency/holochain/cmd"
+	"github.com/metacurrency/holochain/cmd"
 	. "github.com/smartystreets/goconvey/convey"
 	"github.com/urfave/cli"
 	"io"
@@ -46,12 +46,16 @@ func TestJoin(t *testing.T) {
 	d := holo.SetupTestDir()
 	defer os.RemoveAll(d)
 	app := setupApp()
-	os.Args = []string{"hadmin", "-path", d, "init", "test-identity"}
+	os.Args = []string{"hcadmin", "-path", d, "init", "test-identity"}
 	err := app.Run(os.Args)
 	if err != nil {
 		panic(err)
 	}
-	cmd.OsExecPipes("hcdev", "-path", d, "init", "-test", "testAppSrc")
+	hcdev := filepath.Join(os.Getenv("GOPATH"), "/bin/hcdev")
+	err = cmd.OsExecSilent(hcdev, "-path", d, "init", "-test", "testAppSrc")
+	if err != nil {
+		panic(err)
+	}
 	app = setupApp()
 	Convey("it should join a chain", t, func() {
 		out, err := runAppWithStdoutCapture(app, []string{"hcadmin", "-verbose", "-path", d, "join", filepath.Join(d, "testAppSrc"), "testApp"})
@@ -64,7 +68,7 @@ func TestJoin(t *testing.T) {
 	Convey("after join status should show it", t, func() {
 		out, err := runAppWithStdoutCapture(app, []string{"hcadmin", "-path", d, "status"})
 		So(err, ShouldBeNil)
-		So(out, ShouldContainSubstring, "installed holochains:     testApp Qm")
+		So(out, ShouldContainSubstring, "installed holochains:\n    testApp Qm")
 	})
 	app = setupApp()
 	Convey("after join dump -chain should show it", t, func() {
@@ -91,8 +95,15 @@ func TestBridge(t *testing.T) {
 	}
 
 	// create two different instances of the testing app (i.e. with different dna) and join them both
-	cmd.OsExecPipes("hcdev", "-path", d, "init", "-test", "testAppSrc1")
-	cmd.OsExecPipes("hcdev", "-path", d, "init", "-test", "testAppSrc2")
+	hcdev := filepath.Join(os.Getenv("GOPATH"), "/bin/hcdev")
+	err = cmd.OsExecSilent(hcdev, "-path", d, "init", "-test", "testAppSrc1")
+	if err != nil {
+		panic(err)
+	}
+	err = cmd.OsExecSilent(hcdev, "-path", d, "init", "-test", "testAppSrc2")
+	if err != nil {
+		panic(err)
+	}
 	app = setupApp()
 	_, err = runAppWithStdoutCapture(app, []string{"hcadmin", "-path", d, "join", filepath.Join(d, "testAppSrc1"), "testApp1"})
 	if err != nil {

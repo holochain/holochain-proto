@@ -64,7 +64,7 @@ func TestJoin(t *testing.T) {
 	Convey("after join status should show it", t, func() {
 		out, err := runAppWithStdoutCapture(app, []string{"hcadmin", "-path", d, "status"})
 		So(err, ShouldBeNil)
-		So(out, ShouldContainSubstring, "installed holochains:     testApp Qm")
+		So(out, ShouldContainSubstring, "installed holochains:\n    testApp Qm")
 	})
 	app = setupApp()
 	Convey("after join dump -chain should show it", t, func() {

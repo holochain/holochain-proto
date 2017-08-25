@@ -52,6 +52,7 @@ func TestJoin(t *testing.T) {
 		panic(err)
 	}
 	cmd.OsExecPipes("hcdev", "-path", d, "init", "-test", "testAppSrc")
+	time.Sleep(time.Millisecond * 100) // give the processes time to complete
 	app = setupApp()
 	Convey("it should join a chain", t, func() {
 		out, err := runAppWithStdoutCapture(app, []string{"hcadmin", "-verbose", "-path", d, "join", filepath.Join(d, "testAppSrc"), "testApp"})
@@ -93,6 +94,7 @@ func TestBridge(t *testing.T) {
 	// create two different instances of the testing app (i.e. with different dna) and join them both
 	cmd.OsExecPipes("hcdev", "-path", d, "init", "-test", "testAppSrc1")
 	cmd.OsExecPipes("hcdev", "-path", d, "init", "-test", "testAppSrc2")
+	time.Sleep(time.Millisecond * 100) // give the processes time to complete
 	app = setupApp()
 	_, err = runAppWithStdoutCapture(app, []string{"hcadmin", "-path", d, "join", filepath.Join(d, "testAppSrc1"), "testApp1"})
 	if err != nil {

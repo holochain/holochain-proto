@@ -1524,6 +1524,13 @@ function genesis() {return true}
 function bridgeGenesis(side,app,data) {return true}
 
 function receive(from,message) {
+  // if the message requests blocking run an infinite loop
+  // this is used by the async send test to force the condition where
+  // the receiver doesn't return soon enough so that the send will timeout
+  if (message.block) {
+    while(true){};
+  }
+
   // send back a pong message of what came in the ping message!
   return {pong:message.ping}
 }

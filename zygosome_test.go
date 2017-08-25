@@ -191,10 +191,10 @@ func TestNewZygoRibosome(t *testing.T) {
 		})
 		Convey("send async", func() {
 			ShouldLog(h.nucleus.alog, `async result of message with 123 was: (hash pong:"foobar")`, func() {
-				_, err := z.Run(`(send App_Key_Hash (hash ping: "foobar") "asyncPing" "123")`)
+				_, err := z.Run(`(send App_Key_Hash (hash ping: "foobar") (hash Callback: (hash Function: "asyncPing" ID:"123")))`)
 				So(err, ShouldBeNil)
-				done := <-h.asyncSends
-				So(done, ShouldBeTrue)
+				err = <-h.asyncSends
+				So(err, ShouldBeNil)
 			})
 		})
 	})

@@ -7,6 +7,7 @@
 package holochain
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	ic "github.com/libp2p/go-libp2p-crypto"
@@ -635,7 +636,7 @@ func (dht *DHT) Send(key Hash, msgType MsgType, body interface{}) (response inte
 
 // Send sends a message to the node
 func (dht *DHT) send(to peer.ID, t MsgType, body interface{}) (response interface{}, err error) {
-	return dht.h.Send(ActionProtocol, to, t, body)
+	return dht.h.Send(context.Background(), ActionProtocol, to, t, body, 0)
 }
 
 // FindNodeForHash gets the nearest node to the neighborhood of the hash

@@ -630,9 +630,27 @@ func NewZygoRibosome(h *Holochain, zome *Zome) (n Ribosome, err error) {
 			a.msg.Body = string(j)
 
 			if args[2].value != nil {
-				a.callback = args[2].value.(string)
-				a.callbackID = args[3].value.(string)
-				a.zomeType = zome.Name
+				a.options = &SendOptions{}
+				opts := args[2].value.(map[string]interface{})
+				cbmap, ok := opts["Callback"]
+				if ok {
+					callback := Callback{zomeType: zome.Name}
+					v, ok := cbmap.(map[string]interface{})["Function"]
+					if !ok {
+						return zygo.SexpNull, errors.New("callback option requires Function")
+					}
+					callback.Function = v.(string)
+					v, ok = cbmap.(map[string]interface{})["ID"]
+					if !ok {
+						return zygo.SexpNull, errors.New("callback option requires ID")
+					}
+					callback.ID = v.(string)
+					a.options.Callback = &callback
+				}
+				timeout, ok := opts["Timeout"]
+				if ok {
+					a.options.Timeout = int(timeout.(int64))
+				}
 			}
 
 			var r interface{}

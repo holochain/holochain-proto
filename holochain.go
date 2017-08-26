@@ -121,7 +121,6 @@ func DebuggingRequestedViaEnv() (val, yes bool) {
 
 func envBoolRequest(env string) (val, yes bool) {
 	str := strings.ToLower(os.Getenv(env))
-	fmt.Printf(str)
 	yes = str != ""
 	if yes {
 		val = str == "true" || str == "1"
@@ -164,7 +163,7 @@ func InitializeHolochain() {
 		RegisterBultinRibosomes()
 
 		infoLog.New(nil)
-		debugLog.Format = "HC:%{file}.%{line}: %{message}"
+		debugLog.Format = "HC: %{file}.%{line}: %{message}"
 		val, yes := DebuggingRequestedViaEnv()
 		if yes {
 			debugLog.Enabled = val

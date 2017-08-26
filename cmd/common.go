@@ -21,7 +21,7 @@ import (
 	holo "github.com/metacurrency/holochain"
 )
 
-var ErrServiceUninitialized = errors.New("service not initialized, run 'hcdev init'")
+var ErrServiceUninitialized = errors.New("service not initialized, run 'hcadmin init'")
 
 func GetCurrentDirectory() (dir string, err error) {
 	dir, err = os.Getwd()

@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"github.com/tidwall/buntdb"
 	"path/filepath"
+	"strings"
 )
 
 // BridgeApp describes an app for bridging, used
@@ -21,6 +22,13 @@ type BridgeApp struct {
 	BridgeGenesisDataFrom string
 	BridgeGenesisDataTo   string
 	Port                  string // only used if side == BridgeTo
+}
+
+// Bridge holds data returned by GetBridges
+type Bridge struct {
+	ToApp     Hash
+	FromToken string
+	Side      int
 }
 
 type BridgeSpec map[string]map[string]bool
@@ -228,5 +236,39 @@ func (h *Holochain) BuildBridge(app *BridgeApp, port string) (err error) {
 	// the url is currently through the webserver
 	err = hFrom.AddBridgeAsCaller(hTo.DNAHash(), token, fmt.Sprintf("http://localhost:%s", toPort), app.BridgeGenesisDataFrom)
 
+	return
+}
+
+// GetBridges returns a list of the active bridges on the holochain
+func (h *Holochain) GetBridges() (bridges []Bridge, err error) {
+	if h.bridgeDB == nil {
+		bridgeDBFile := filepath.Join(h.DBPath(), BridgeDBFileName)
+		if FileExists(bridgeDBFile) {
+			h.bridgeDB, err = buntdb.Open(bridgeDBFile)
+			if err != nil {
+				return
+			}
+		}
+	}
+	if h.bridgeDB != nil {
+		err = h.bridgeDB.View(func(tx *buntdb.Tx) error {
+			err = tx.Ascend("", func(key, value string) bool {
+				x := strings.Split(key, ":")
+				var hash Hash
+				switch x[0] {
+				case "app":
+					hash, err = NewHash(x[1])
+					if err != nil {
+						return false
+					}
+					bridges = append(bridges, Bridge{ToApp: hash, Side: BridgeTo})
+				case "tok":
+					bridges = append(bridges, Bridge{FromToken: x[1], Side: BridgeFrom})
+				}
+				return true
+			})
+			return err
+		})
+	}
 	return
 }

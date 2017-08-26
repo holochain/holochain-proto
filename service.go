@@ -764,7 +764,6 @@ func (s *Service) GenChain(name string) (h *Holochain, err error) {
 
 // List chains produces a textual representation of the chains in the .holochain directory
 func (s *Service) ListChains() (list string) {
-
 	chains, _ := s.ConfiguredChains()
 	l := len(chains)
 	if l > 0 {
@@ -775,7 +774,7 @@ func (s *Service) ListChains() (list string) {
 			i++
 		}
 		sort.Strings(keys)
-		list = "installed holochains: "
+		list = "installed holochains:\n"
 		for _, k := range keys {
 			id := chains[k].DNAHash()
 			var sid = "<not-started>"
@@ -783,6 +782,16 @@ func (s *Service) ListChains() (list string) {
 				sid = id.String()
 			}
 			list += fmt.Sprintf("    %v %v\n", k, sid)
+			bridges, _ := chains[k].GetBridges()
+			if bridges != nil {
+				for _, b := range bridges {
+					if b.Side == BridgeTo {
+						list += fmt.Sprintf("        bridged to: %v\n", b.ToApp)
+					} else {
+						list += fmt.Sprintf("        bridged from by token: %v\n", b.FromToken)
+					}
+				}
+			}
 		}
 
 	} else {
@@ -1561,7 +1570,7 @@ function receive(from,message) {
 (defn validateDelPkg [entryType] nil)
 (defn validateLinkPkg [entryType] nil)
 (defn genesis [] true)
-(defn bridgeGenesis [side app data] (begin (debug (concat "bridge genesis " (cond (== side HC_Bridge_From) "from" "to") ": other side is:" app " bridging data:" data))  true))
+(defn bridgeGenesis [side app data] (begin (debug (concat "bridge genesis " (cond (== side HC_Bridge_From) "from" "to") "-- other side is:" app " bridging data:" data))  true))
 (defn receive [from message]
 	(hash pong: (hget message %ping)))
 `

@@ -6,6 +6,7 @@ go:
   - 1.8
 
 script:
+  - make hcdev
   - TEST_FLAGS='-v -coverprofile=$(pkg_path)/coverage.txt -covermode=atomic' make -e test
   - make test-sample
 

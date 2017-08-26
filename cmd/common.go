@@ -77,17 +77,29 @@ func OsExecPipes_noRun(args ...string) *exec.Cmd {
 	return cmd
 }
 
+var configExtensionList []string
+func GetConfigExtensionList() (conExtList []string) {
+	if configExtensionList == nil {
+		configExtensionList = []string{"json", "toml", "yaml"}
+	}
+	return configExtensionList
+}
 // IsAppDir tests path to see if it's a properly set up holochain app
 // returns nil on success or error describing the problem
-func IsAppDir(path string) error {
-	info, err := os.Stat(filepath.Join(path, "dna", "dna.json"))
-	if err != nil {
-		err = fmt.Errorf("directory missing dna/dna.json file")
-	} else {
-		if !info.Mode().IsRegular() {
-			err = fmt.Errorf("dna/dna.json is not a file")
+func IsAppDir(path string) (err error) {
+	err = nil
+
+	for _, filename := range GetConfigExtensionList() {
+		info, err := os.Stat(filepath.Join(path, "dna", "dna."+filename))
+		if err != nil {
+			// err = fmt.Errorf("directory missing dna/%v file", filename)
+		} else {
+			if info.Mode().IsRegular() {
+				return nil
+			}
 		}
 	}
+	err = fmt.Errorf("HC: Holochain App directory missing dna/dna.xyz config file")
 	return err
 }
 

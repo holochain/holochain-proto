@@ -13,17 +13,22 @@ import (
 )
 
 func TestIsAppDir(t *testing.T) {
-	Convey("it should test to see if dir is a holochain app", t, func() {
+	
+	for _, configExtension := range GetConfigExtensionList() {
+		Convey(fmt.Sprintf("it should test to see if dir is a holochain app (%v)", configExtension), t, func() {
 
-		d, s := holo.SetupTestService()
-		defer holo.CleanupTestDir(d)
-		So(IsAppDir(d).Error(), ShouldEqual, "directory missing dna/dna.json file")
-		h, err := s.GenDev(filepath.Join(s.Path, "test"), "json", true)
-		if err != nil {
-			panic(err)
-		}
-		So(IsAppDir(h.RootPath()), ShouldBeNil)
-	})
+			d, s := holo.SetupTestService()
+			
+			So(IsAppDir(d).Error(), ShouldEqual, "HC: Holochain App directory missing dna/dna.xyz config file")
+			h, err := s.GenDev(filepath.Join(s.Path, "test"), configExtension, true)
+			if err != nil {
+				panic(err)
+			}
+			So(IsAppDir(h.RootPath()), ShouldBeNil)
+			holo.CleanupTestDir(d)
+		})
+	}
+
 }
 
 func TestGetService(t *testing.T) {

@@ -9,6 +9,7 @@ import (
 	"github.com/urfave/cli"
 	"io"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"testing"
 	"time"
@@ -51,7 +52,14 @@ func TestJoin(t *testing.T) {
 	if err != nil {
 		panic(err)
 	}
-	cmd.OsExecPipes("hcdev", "-path", d, "init", "-test", "testAppSrc")
+	//	cmd := cmd.OsExecPipes("hcdev", "-path", d, "init", "-test", "testAppSrc")
+	cmd := exec.Command("hcdev", "-path", d, "init", "-test", "testAppSrc")
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		panic(err)
+	}
+	fmt.Printf("OUT:%s", string(out))
+
 	time.Sleep(time.Millisecond * 100) // give the processes time to complete
 	app = setupApp()
 	Convey("it should join a chain", t, func() {

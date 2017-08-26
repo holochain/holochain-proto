@@ -4,12 +4,11 @@ import (
 	"bytes"
 	"fmt"
 	holo "github.com/metacurrency/holochain"
-	cmd "github.com/metacurrency/holochain/cmd"
+	"github.com/metacurrency/holochain/cmd"
 	. "github.com/smartystreets/goconvey/convey"
 	"github.com/urfave/cli"
 	"io"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"testing"
 	"time"
@@ -47,20 +46,16 @@ func TestJoin(t *testing.T) {
 	d := holo.SetupTestDir()
 	defer os.RemoveAll(d)
 	app := setupApp()
-	os.Args = []string{"hadmin", "-path", d, "init", "test-identity"}
+	os.Args = []string{"hcadmin", "-path", d, "init", "test-identity"}
 	err := app.Run(os.Args)
 	if err != nil {
 		panic(err)
 	}
-	//	cmd := cmd.OsExecPipes("hcdev", "-path", d, "init", "-test", "testAppSrc")
-	cmd := exec.Command("hcdev", "-path", d, "init", "-test", "testAppSrc")
-	out, err := cmd.CombinedOutput()
+	hcdev := filepath.Join(os.Getenv("GOPATH"), "/bin/hcdev")
+	err = cmd.OsExecSilent(hcdev, "-path", d, "init", "-test", "testAppSrc")
 	if err != nil {
 		panic(err)
 	}
-	fmt.Printf("OUT:%s", string(out))
-
-	time.Sleep(time.Millisecond * 100) // give the processes time to complete
 	app = setupApp()
 	Convey("it should join a chain", t, func() {
 		out, err := runAppWithStdoutCapture(app, []string{"hcadmin", "-verbose", "-path", d, "join", filepath.Join(d, "testAppSrc"), "testApp"})
@@ -100,9 +95,15 @@ func TestBridge(t *testing.T) {
 	}
 
 	// create two different instances of the testing app (i.e. with different dna) and join them both
-	cmd.OsExecPipes("hcdev", "-path", d, "init", "-test", "testAppSrc1")
-	cmd.OsExecPipes("hcdev", "-path", d, "init", "-test", "testAppSrc2")
-	time.Sleep(time.Millisecond * 100) // give the processes time to complete
+	hcdev := filepath.Join(os.Getenv("GOPATH"), "/bin/hcdev")
+	err = cmd.OsExecSilent(hcdev, "-path", d, "init", "-test", "testAppSrc1")
+	if err != nil {
+		panic(err)
+	}
+	err = cmd.OsExecSilent(hcdev, "-path", d, "init", "-test", "testAppSrc2")
+	if err != nil {
+		panic(err)
+	}
 	app = setupApp()
 	_, err = runAppWithStdoutCapture(app, []string{"hcadmin", "-path", d, "join", filepath.Join(d, "testAppSrc1"), "testApp1"})
 	if err != nil {

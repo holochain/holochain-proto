@@ -22,7 +22,7 @@ func setupApp() (app *cli.App) {
 	app = cli.NewApp()
 	app.Name = "hcadmin"
 	app.Usage = "holochain administration tool"
-	app.Version = fmt.Sprintf("0.0.1 (holochain %s)", holo.VersionStr)
+	app.Version = fmt.Sprintf("0.0.2 (holochain %s)", holo.VersionStr)
 
 	var dumpChain, dumpDHT bool
 	var root string

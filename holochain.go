@@ -163,6 +163,7 @@ func InitializeHolochain() {
 		RegisterBultinRibosomes()
 
 		infoLog.New(nil)
+		infoLog.Enabled = true
 		debugLog.Format = "HC: %{file}.%{line}: %{message}"
 		val, yes := DebuggingRequestedViaEnv()
 		if yes {

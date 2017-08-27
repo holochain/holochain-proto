@@ -136,7 +136,7 @@ func setupApp() (app *cli.App) {
 		},
 		{
 			Name:      "bridge",
-			Aliases:   []string{"j"},
+			Aliases:   []string{"b"},
 			ArgsUsage: "from-chain to-chain",
 			Usage:     "allows to-chain to make calls to functions in from-chain",
 			Flags: []cli.Flag{

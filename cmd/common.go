@@ -78,12 +78,14 @@ func OsExecPipes_noRun(args ...string) *exec.Cmd {
 }
 
 var configExtensionList []string
+
 func GetConfigExtensionList() (conExtList []string) {
 	if configExtensionList == nil {
 		configExtensionList = []string{"json", "toml", "yaml"}
 	}
 	return configExtensionList
 }
+
 // IsAppDir tests path to see if it's a properly set up holochain app
 // returns nil on success or error describing the problem
 func IsAppDir(path string) (err error) {
@@ -111,19 +113,27 @@ func IsAppDir(path string) (err error) {
 // return IsFile(filepath.Join(path, "package.json")
 // }
 
-// GetService is a helper function to load the holochain service from default locations or a given path
-func GetService(root string) (service *holo.Service, err error) {
-	holo.InitializeHolochain()
+func GetRootOrDefault(root string) (string, error) {
 	if root == "" {
 		root = os.Getenv("HOLOPATH")
 		if root == "" {
 			u, err := user.Current()
 			if err != nil {
-				return nil, err
+				return "", err
 			}
 			userPath := u.HomeDir
 			root = filepath.Join(userPath, holo.DefaultDirectoryName)
 		}
+	}
+	return root, nil
+}
+
+// GetService is a helper function to load the holochain service from default locations or a given path
+func GetService(root string) (service *holo.Service, err error) {
+	holo.InitializeHolochain()
+	root, err = GetRootOrDefault(root)
+	if err != nil {
+		return nil, err
 	}
 	if initialized := holo.IsInitialized(root); !initialized {
 		err = ErrServiceUninitialized

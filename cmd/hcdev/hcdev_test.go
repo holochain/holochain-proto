@@ -24,7 +24,7 @@ func TestSetupApp(t *testing.T) {
 }
 
 func TestGoScenario_cliCommand(t *testing.T) {
-	os.Setenv("HCDEV_TESTING", "true")
+	os.Setenv("HC_TESTING", "true")
 	app := setupApp()
 
 	testCommand := []string{"hcdev", "-debug", "scenario"}
@@ -85,7 +85,7 @@ func TestRunScenarioTest(t *testing.T) {
 }
 
 func TestInit(t *testing.T) {
-	os.Setenv("HCDEV_TESTING", "true")
+	os.Setenv("HC_TESTING", "true")
 	tmpTestDir, err := ioutil.TempDir("", "holochain.testing.hcdev")
 	if err != nil {
 		panic(err)
@@ -157,7 +157,7 @@ func TestInit(t *testing.T) {
 		os.Args = []string{"hcdev", "init", "-cloneExample=clutter"}
 		err = app.Run(os.Args)
 		So(err, ShouldNotBeNil)
-		So(os.Getenv("HCDEV_TESTING_EXITERR"), ShouldEqual, "1")
+		So(os.Getenv("HC_TESTING_EXITERR"), ShouldEqual, "1")
 	})
 
 	Convey("'init -test testingApp' should create the test app", t, func() {
@@ -198,7 +198,7 @@ func TestPackage(t *testing.T) {
 }
 
 func TestWeb(t *testing.T) {
-	os.Setenv("HCDEV_TESTING", "true")
+	os.Setenv("HC_TESTING", "true")
 	tmpTestDir, app := setupTestingApp("foo")
 	defer os.RemoveAll(tmpTestDir)
 

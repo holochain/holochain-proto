@@ -162,8 +162,6 @@ func (l *Logger) pf(m string, args ...interface{}) {
 }
 
 func (l *Logger) prefixPrint(args ...interface{}) {
-	//Debugf("HC: log.go: name: %v, prefixPrint: prefixColor: %v, prefix: %v\n", l.Name, l.PrefixColor, l.Prefix)
-
 	if l.PrefixColor != nil {
 		l.PrefixColor.Fprintf(l.w, l.Prefix, args...)
 	} else {

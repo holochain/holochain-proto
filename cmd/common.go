@@ -15,6 +15,7 @@ import (
 	"os/user"
 	"path/filepath"
 	// "strconv"
+	"github.com/urfave/cli"
 	"syscall"
 	"time"
 
@@ -22,6 +23,24 @@ import (
 )
 
 var ErrServiceUninitialized = errors.New("service not initialized, run 'hcadmin init'")
+
+func MakeErr(c *cli.Context, text string) error {
+	if c != nil {
+		text = fmt.Sprintf("%s: %s", c.Command.Name, text)
+	}
+
+	if os.Getenv("HC_TESTING") != "" {
+		os.Setenv("HC_TESTING_EXITERR", fmt.Sprintf("%d", 1))
+		fmt.Printf(text)
+		return errors.New(text)
+	} else {
+		return cli.NewExitError(text, 1)
+	}
+}
+
+func MakeErrFromErr(c *cli.Context, err error) error {
+	return MakeErr(c, err.Error())
+}
 
 func GetCurrentDirectory() (dir string, err error) {
 	dir, err = os.Getwd()

@@ -550,7 +550,7 @@ func _makeConfig(s *Service) (config Config, err error) {
 		if err != nil {
 			return
 		}
-		Debugf("HC: service.go: makeConfig: using environment variable to set port to: %v\n", val)
+		Debugf("makeConfig: using environment variable to set port to: %v\n", val)
 	}
 	val = os.Getenv("HOLOCHAINCONFIG_BOOTSTRAP")
 	if val != "" {

@@ -22,7 +22,7 @@ func setupApp() (app *cli.App) {
 	app = cli.NewApp()
 	app.Name = "hcadmin"
 	app.Usage = "holochain administration tool"
-	app.Version = fmt.Sprintf("0.0.1 (holochain %s)", holo.VersionStr)
+	app.Version = fmt.Sprintf("0.0.2 (holochain %s)", holo.VersionStr)
 
 	var dumpChain, dumpDHT bool
 	var root string
@@ -136,7 +136,7 @@ func setupApp() (app *cli.App) {
 		},
 		{
 			Name:      "bridge",
-			Aliases:   []string{"j"},
+			Aliases:   []string{"b"},
 			ArgsUsage: "from-chain to-chain",
 			Usage:     "allows to-chain to make calls to functions in from-chain",
 			Flags: []cli.Flag{
@@ -222,6 +222,10 @@ func setupApp() (app *cli.App) {
 			fmt.Printf("hcadmin version %s \n", app.Version)
 		}
 		var err error
+		root, err = cmd.GetRootOrDefault(root)
+		if err != nil {
+			return err
+		}
 		service, err = cmd.GetService(root)
 		if err != nil {
 			if err == cmd.ErrServiceUninitialized {

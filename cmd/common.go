@@ -15,6 +15,7 @@ import (
 	"os/user"
 	"path/filepath"
 	// "strconv"
+	"github.com/urfave/cli"
 	"syscall"
 	"time"
 
@@ -22,6 +23,24 @@ import (
 )
 
 var ErrServiceUninitialized = errors.New("service not initialized, run 'hcadmin init'")
+
+func MakeErr(c *cli.Context, text string) error {
+	if c != nil {
+		text = fmt.Sprintf("%s: %s", c.Command.Name, text)
+	}
+
+	if os.Getenv("HC_TESTING") != "" {
+		os.Setenv("HC_TESTING_EXITERR", fmt.Sprintf("%d", 1))
+		fmt.Printf(text)
+		return errors.New(text)
+	} else {
+		return cli.NewExitError(text, 1)
+	}
+}
+
+func MakeErrFromErr(c *cli.Context, err error) error {
+	return MakeErr(c, err.Error())
+}
 
 func GetCurrentDirectory() (dir string, err error) {
 	dir, err = os.Getwd()
@@ -78,12 +97,14 @@ func OsExecPipes_noRun(args ...string) *exec.Cmd {
 }
 
 var configExtensionList []string
+
 func GetConfigExtensionList() (conExtList []string) {
 	if configExtensionList == nil {
 		configExtensionList = []string{"json", "toml", "yaml"}
 	}
 	return configExtensionList
 }
+
 // IsAppDir tests path to see if it's a properly set up holochain app
 // returns nil on success or error describing the problem
 func IsAppDir(path string) (err error) {
@@ -111,19 +132,27 @@ func IsAppDir(path string) (err error) {
 // return IsFile(filepath.Join(path, "package.json")
 // }
 
-// GetService is a helper function to load the holochain service from default locations or a given path
-func GetService(root string) (service *holo.Service, err error) {
-	holo.InitializeHolochain()
+func GetRootOrDefault(root string) (string, error) {
 	if root == "" {
 		root = os.Getenv("HOLOPATH")
 		if root == "" {
 			u, err := user.Current()
 			if err != nil {
-				return nil, err
+				return "", err
 			}
 			userPath := u.HomeDir
 			root = filepath.Join(userPath, holo.DefaultDirectoryName)
 		}
+	}
+	return root, nil
+}
+
+// GetService is a helper function to load the holochain service from default locations or a given path
+func GetService(root string) (service *holo.Service, err error) {
+	holo.InitializeHolochain()
+	root, err = GetRootOrDefault(root)
+	if err != nil {
+		return nil, err
 	}
 	if initialized := holo.IsInitialized(root); !initialized {
 		err = ErrServiceUninitialized

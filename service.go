@@ -134,6 +134,11 @@ type TestData struct {
 	Repeat   int           // number of times to repeat this test, useful for scenario testing
 }
 
+// IsDevMode is used to enable certain functionality when developing holochains, for example,
+// in dev mode, you can put the name of an app in the BridgeTo of the DNA and it will get
+// resolved to DNA hash of the app in the "HCDEV_DNA_FOR_<name> env variable.
+var IsDevMode bool = false
+
 // IsInitialized checks a path for a correctly set up .holochain directory
 func IsInitialized(root string) bool {
 	return DirExists(root) && FileExists(filepath.Join(root, SysFileName)) && FileExists(filepath.Join(root, AgentFileName))
@@ -285,12 +290,11 @@ func (s *Service) Load(name string) (h *Holochain, err error) {
 	return
 }
 
-// LoadDNA decodes a DNA from a directory hierarchy as specified by a DNAFile
-func (s *Service) LoadDNA(path string, filename string, format string) (dnaP *DNA, err error) {
+// loadDNA decodes a DNA from a directory hierarchy as specified by a DNAFile
+func (s *Service) loadDNA(path string, filename string, format string) (dnaP *DNA, err error) {
 	var dnaFile DNAFile
 	var dna DNA
 	dnafile := filepath.Join(path, filename+"."+format)
-	//fmt.Printf("LoadDNA: opening dna file %s\n", filepath)
 	f, err := os.Open(dnafile)
 	if err != nil {
 		return
@@ -310,7 +314,6 @@ func (s *Service) LoadDNA(path string, filename string, format string) (dnaP *DN
 			return
 		}
 		schemapath := filepath.Join(path, dnaFile.PropertiesSchemaFile)
-		//fmt.Printf("LoadDNA: opening schema file %s\n", schemapath)
 		validator, err = BuildJSONSchemaValidatorFromFile(schemapath)
 		if err != nil {
 			return
@@ -361,7 +364,24 @@ func (s *Service) LoadDNA(path string, filename string, format string) (dnaP *DN
 		if zome.BridgeTo != "" {
 			dna.Zomes[i].BridgeTo, err = NewHash(zome.BridgeTo)
 			if err != nil {
-				return
+				// if in dev mode assume the bridgeTo was the app name
+				// and that hcdev put the actual DNA for us in the env var
+				// so try again with that value
+				if IsDevMode {
+					dnaHashStr := os.Getenv("HCDEV_DNA_FOR_" + zome.BridgeTo)
+
+					dna.Zomes[i].BridgeTo, err = NewHash(dnaHashStr)
+					if err != nil {
+						// if that doesn't work, assume the testing is for
+						// a non bridged case, and just clear the bridgeTo value
+						// but issue a warning.
+						Infof("DEV MODE: WARNING, found BridgeTo value '%s' but unable to resolve, proceeding without BridgeTo", zome.BridgeTo)
+					} else {
+						Infof("DEV MODE: Found BridgeTo value '%s' and resolved to DNA Hash: %s", zome.BridgeTo, dnaHashStr)
+					}
+				} else {
+					return
+				}
 			}
 		}
 		var code []byte
@@ -405,7 +425,7 @@ func (s *Service) LoadDNA(path string, filename string, format string) (dnaP *DN
 func (s *Service) load(name string, format string) (hP *Holochain, err error) {
 	var h Holochain
 	root := filepath.Join(s.Path, name)
-	dna, err := s.LoadDNA(filepath.Join(root, ChainDNADir), DNAFileName, format)
+	dna, err := s.loadDNA(filepath.Join(root, ChainDNADir), DNAFileName, format)
 	if err != nil {
 		return
 	}
@@ -593,8 +613,8 @@ func makeConfig(h *Holochain, s *Service) (err error) {
 	return
 }
 
-// GenDev generates starter holochain DNA files from which to develop a chain
-func (s *Service) GenDev(root string, encodingFormat string, initDB bool) (h *Holochain, err error) {
+// MakeTestingApp generates a holochain used for testing purposes
+func (s *Service) MakeTestingApp(root string, encodingFormat string, initDB bool) (h *Holochain, err error) {
 	if DirExists(root) {
 		return nil, mkErr(root + " already exists")
 	}
@@ -602,6 +622,7 @@ func (s *Service) GenDev(root string, encodingFormat string, initDB bool) (h *Ho
 	scaffoldReader := bytes.NewBuffer([]byte(TestingAppScaffold()))
 
 	name := filepath.Base(root)
+
 	_, err = s.SaveFromScaffold(scaffoldReader, root, name, encodingFormat, initDB)
 	if err != nil {
 		return
@@ -664,19 +685,19 @@ func mkChainDirs(root string, initDB bool) (err error) {
 
 // Clone copies DNA files from a source directory
 // bool new indicates if this clone should create a new DNA (when true) or act as a Join
-func (s *Service) Clone(srcPath string, root string, agent Agent, new bool, initDB bool) (err error) {
-	_, err = gen(root, initDB, func(root string) (hP *Holochain, err error) {
+func (s *Service) Clone(srcPath string, root string, agent Agent, new bool, initDB bool) (hP *Holochain, err error) {
+	hP, err = gen(root, initDB, func(root string) (*Holochain, error) {
 		var h Holochain
 		srcDNAPath := filepath.Join(srcPath, ChainDNADir)
-		//fmt.Printf("\n%s\n", srcDNAPath)
+
 		format, err := findDNA(srcDNAPath)
 		if err != nil {
-			return
+			return nil, err
 		}
 
-		dna, err := s.LoadDNA(srcDNAPath, DNAFileName, format)
+		dna, err := s.loadDNA(srcDNAPath, DNAFileName, format)
 		if err != nil {
-			return
+			return nil, err
 		}
 
 		h.nucleus = NewNucleus(&h, dna)
@@ -688,19 +709,18 @@ func (s *Service) Clone(srcPath string, root string, agent Agent, new bool, init
 			return nil, err
 		}
 
-		//fmt.Printf("dna: agent, err: %s\n", agent, err)
 		// TODO verify identity against schema?
 		h.agent = agent
 
 		// once the agent is set up we can calculate the id
 		h.nodeID, h.nodeIDStr, err = agent.NodeID()
 		if err != nil {
-			return
+			return nil, err
 		}
 
 		// make a config file
 		if err = makeConfig(&h, s); err != nil {
-			return
+			return nil, err
 		}
 
 		if new {
@@ -710,24 +730,23 @@ func (s *Service) Clone(srcPath string, root string, agent Agent, new bool, init
 			h.nucleus.dna.Name = filepath.Base(root)
 
 			// change the progenitor to self because this is a clone!
-			var pk []byte
-			pk, err = agent.PubKey().Bytes()
+			pk, err := agent.PubKey().Bytes()
 			if err != nil {
-				return
+				return nil, err
 			}
 			h.nucleus.dna.Progenitor = Progenitor{Identity: string(agent.Identity()), PubKey: pk}
 		}
 
 		// save out the DNA file
-		if err = s.SaveDNAFile(h.rootPath, h.nucleus.dna, h.encodingFormat, true); err != nil {
-			return
+		if err = s.saveDNAFile(h.rootPath, h.nucleus.dna, h.encodingFormat, true); err != nil {
+			return nil, err
 		}
 
 		// copy any UI files
 		srcUIPath := filepath.Join(srcPath, ChainUIDir)
 		if DirExists(srcUIPath) {
 			if err = CopyDir(srcUIPath, h.UIPath()); err != nil {
-				return
+				return nil, err
 			}
 		}
 
@@ -735,16 +754,31 @@ func (s *Service) Clone(srcPath string, root string, agent Agent, new bool, init
 		srcTestDir := filepath.Join(srcPath, ChainTestDir)
 		if DirExists(srcTestDir) {
 			if err = CopyDir(srcTestDir, filepath.Join(root, ChainTestDir)); err != nil {
-				return
+				return nil, err
 			}
 		}
-
-		//fmt.Printf("srcTestDir: %s, err: %s\n", srcTestDir, err)
-
-		hP = &h
-
-		return
+		return &h, nil
 	})
+	return
+}
+
+func DNAHashofUngenedChain(h *Holochain) (DNAHash Hash, err error) {
+	var buf bytes.Buffer
+
+	err = h.EncodeDNA(&buf)
+	e := GobEntry{C: buf.Bytes()}
+
+	err = h.PrepareHashType()
+	if err != nil {
+		return
+	}
+
+	var dnaHeader *Header
+	_, dnaHeader, err = newHeader(h.hashSpec, time.Now(), DNAEntryType, &e, h.agent.PrivKey(), NullHash(), NullHash(), nil)
+	if err != nil {
+		return
+	}
+	DNAHash = dnaHeader.EntryLink.Clone()
 	return
 }
 
@@ -800,8 +834,8 @@ func (s *Service) ListChains() (list string) {
 	return
 }
 
-// SaveDNAFile writes out holochain DNA to files
-func (s *Service) SaveDNAFile(root string, dna *DNA, encodingFormat string, overwrite bool) (err error) {
+// saveDNAFile writes out holochain DNA to files
+func (s *Service) saveDNAFile(root string, dna *DNA, encodingFormat string, overwrite bool) (err error) {
 	dnaPath := filepath.Join(root, ChainDNADir)
 	p := filepath.Join(dnaPath, DNAFileName+"."+encodingFormat)
 	if !overwrite && FileExists(p) {
@@ -966,6 +1000,11 @@ func (service *Service) SaveFromScaffold(reader io.Reader, path string, name str
 	if err != nil {
 		return
 	}
+	err = service.saveFromScaffold(scaffold, path, name, encodingFormat, newUUID)
+	return
+}
+
+func (service *Service) saveFromScaffold(scaffold *Scaffold, path string, name string, encodingFormat string, newUUID bool) (err error) {
 
 	dna := &scaffold.DNA
 	err = MakeDirs(path)
@@ -977,7 +1016,7 @@ func (service *Service) SaveFromScaffold(reader io.Reader, path string, name str
 	}
 	dna.Name = name
 
-	err = service.SaveDNAFile(path, dna, encodingFormat, false)
+	err = service.saveDNAFile(path, dna, encodingFormat, false)
 	if err != nil {
 		return
 	}

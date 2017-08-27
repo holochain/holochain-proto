@@ -101,11 +101,16 @@ func TestServiceGenChain(t *testing.T) {
 		So(list, ShouldEqual, "installed holochains:\n    test <not-started>\n")
 	})
 	Convey("it should start a chain and return a holochain object", t, func() {
+		DNAHash, err := DNAHashofUngenedChain(h)
+		So(err, ShouldBeNil)
 		h2, err := s.GenChain("test")
 		So(err, ShouldBeNil)
 		So(h2.nucleus.dna.UUID, ShouldEqual, h.nucleus.dna.UUID)
 		list := s.ListChains()
 		So(list, ShouldEqual, fmt.Sprintf("installed holochains:\n    test %v\n", h2.dnaHash))
+
+		So(DNAHash.String(), ShouldEqual, h2.DNAHash().String())
+
 	})
 }
 
@@ -124,8 +129,11 @@ func TestCloneNew(t *testing.T) {
 	}
 
 	Convey("it should clone a chain by copying and creating an new UUID", t, func() {
-		err = s.Clone(orig, root, agent, CloneWithNewUUID, InitializeDB)
+		hc, err := s.Clone(orig, root, agent, CloneWithNewUUID, InitializeDB)
 		So(err, ShouldBeNil)
+		So(hc.Name(), ShouldEqual, name)
+		// clone returns the ungened HC so hash won't have be calculated
+		So(hc.DNAHash().String(), ShouldEqual, "")
 
 		So(DirExists(root, ChainDataDir), ShouldBeTrue)
 		So(FileExists(root, ChainDataDir, StoreFileName), ShouldBeTrue)
@@ -177,8 +185,11 @@ func TestCloneJoin(t *testing.T) {
 	}
 
 	Convey("it should clone a chain by copying and without creating a new UUID", t, func() {
-		err = s.Clone(orig, root, agent, CloneWithSameUUID, InitializeDB)
+		hc, err := s.Clone(orig, root, agent, CloneWithSameUUID, InitializeDB)
 		So(err, ShouldBeNil)
+		So(hc.Name(), ShouldEqual, "test")
+		// clone returns the ungened HC so hash won't have be calculated
+		So(hc.DNAHash().String(), ShouldEqual, "")
 
 		So(DirExists(root, ChainDataDir), ShouldBeTrue)
 		So(FileExists(root, ChainDataDir, StoreFileName), ShouldBeTrue)
@@ -223,8 +234,8 @@ func TestCloneNoDB(t *testing.T) {
 		panic(err)
 	}
 
-	Convey("it should create a chain from the examples directory", t, func() {
-		err = s.Clone(orig, root, agent, CloneWithNewUUID, SkipInitializeDB)
+	Convey("it should create a chain without initializing the DB files", t, func() {
+		_, err = s.Clone(orig, root, agent, CloneWithNewUUID, SkipInitializeDB)
 		So(err, ShouldBeNil)
 
 		So(DirExists(root, ChainDataDir), ShouldBeFalse)
@@ -232,7 +243,65 @@ func TestCloneNoDB(t *testing.T) {
 	})
 }
 
-func TestGenDev(t *testing.T) {
+func TestCloneResolveDNA(t *testing.T) {
+	d, s, bridgeToH := SetupTestChain("bridgeToApp")
+	defer CleanupTestDir(d)
+
+	DNAHash, err := DNAHashofUngenedChain(bridgeToH)
+	if err != nil {
+		panic(err)
+	}
+
+	devAppPath := filepath.Join(s.Path, "devApp")
+	_, err = s.MakeTestingApp(devAppPath, "json", InitializeDB)
+	if err != nil {
+		panic(err)
+	}
+
+	// set the bridgeTo value to the name of the app to resolve
+	var dnaFile DNAFile
+	dnafile := filepath.Join(devAppPath, ChainDNADir, DNAFileName+".json")
+	f, err := os.Open(dnafile)
+	if err != nil {
+		panic(err)
+	}
+	defer f.Close()
+	err = Decode(f, "json", &dnaFile)
+	if err != nil {
+		panic(err)
+	}
+	dnaFile.Zomes[0].BridgeTo = "bridgeToApp"
+	f2, err := os.Create(dnafile)
+	if err != nil {
+		panic(err)
+	}
+	defer f2.Close()
+	err = Encode(f2, "json", dnaFile)
+
+	agent, err := LoadAgent(s.Path)
+	if err != nil {
+		panic(err)
+	}
+
+	root := filepath.Join(s.Path, "test")
+	Convey("it should create a chain resolving the bridgeTo DNA Hash from when in dev mode", t, func() {
+		h, err := s.Clone(devAppPath, root, agent, CloneWithNewUUID, SkipInitializeDB)
+		So(err, ShouldBeError)
+
+		IsDevMode = true
+		h, err = s.Clone(devAppPath, root, agent, CloneWithNewUUID, SkipInitializeDB)
+		So(err, ShouldBeNil)
+		So(h.nucleus.dna.Zomes[0].BridgeTo.String(), ShouldEqual, "")
+
+		root = filepath.Join(s.Path, "test2")
+		os.Setenv("HCDEV_DNA_FOR_bridgeToApp", DNAHash.String())
+		h, err = s.Clone(devAppPath, root, agent, CloneWithNewUUID, SkipInitializeDB)
+		So(err, ShouldBeNil)
+		So(h.nucleus.dna.Zomes[0].BridgeTo.String(), ShouldEqual, DNAHash.String())
+	})
+}
+
+func TestMakeTestingApp(t *testing.T) {
 	d, s := setupTestService()
 	defer CleanupTestDir(d)
 	name := "test"
@@ -248,7 +317,7 @@ func TestGenDev(t *testing.T) {
 	})
 
 	Convey("when generating a dev holochain", t, func() {
-		h, err := s.GenDev(root, "json", InitializeDB)
+		h, err := s.MakeTestingApp(root, "json", InitializeDB)
 		So(err, ShouldBeNil)
 
 		f, err := s.IsConfigured(name)
@@ -280,7 +349,7 @@ func TestGenDev(t *testing.T) {
 		So(FileExists(h.rootPath, ConfigFileName+".json"), ShouldBeTrue)
 
 		Convey("we should not be able re generate it", func() {
-			_, err = s.GenDev(root, "json", SkipInitializeDB)
+			_, err = s.MakeTestingApp(root, "json", SkipInitializeDB)
 			So(err.Error(), ShouldEqual, "holochain: "+root+" already exists")
 		})
 	})
@@ -383,7 +452,7 @@ func TestMakeScaffold(t *testing.T) {
 	defer CleanupTestDir(d)
 	name := "test"
 	root := filepath.Join(s.Path, name)
-	h, err := s.GenDev(root, "json", InitializeDB)
+	h, err := s.MakeTestingApp(root, "json", InitializeDB)
 	if err != nil {
 		panic(err)
 	}

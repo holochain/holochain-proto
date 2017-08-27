@@ -222,7 +222,7 @@ func setupApp() (app *cli.App) {
 			fmt.Printf("hcadmin version %s \n", app.Version)
 		}
 		var err error
-		root, err = cmd.GetRootOrDefault(root)
+		root, err = cmd.GetHolochainRoot(root)
 		if err != nil {
 			return err
 		}
@@ -233,7 +233,6 @@ func setupApp() (app *cli.App) {
 			}
 			return err
 		}
-		root = service.Path
 		return nil
 	}
 

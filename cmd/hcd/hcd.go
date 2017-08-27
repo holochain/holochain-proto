@@ -59,11 +59,14 @@ func setupApp() (app *cli.App) {
 			fmt.Printf("hc version %s \n", app.Version)
 		}
 		var err error
+		root, err = cmd.GetHolochainRoot(root)
+		if err != nil {
+			return err
+		}
 		service, err = cmd.GetService(root)
 		if err != nil {
 			return err
 		}
-		root = service.Path
 		return nil
 	}
 

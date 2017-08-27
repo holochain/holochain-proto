@@ -14,7 +14,6 @@ import (
 	exec "os/exec"
 	"os/user"
 	"path/filepath"
-	// "strconv"
 	"syscall"
 	"time"
 
@@ -113,7 +112,8 @@ func IsAppDir(path string) (err error) {
 // return IsFile(filepath.Join(path, "package.json")
 // }
 
-func GetRootOrDefault(root string) (string, error) {
+// GetHolochainRoot returns either the path from the environment variable or the default
+func GetHolochainRoot(root string) (string, error) {
 	if root == "" {
 		root = os.Getenv("HOLOPATH")
 		if root == "" {
@@ -131,10 +131,6 @@ func GetRootOrDefault(root string) (string, error) {
 // GetService is a helper function to load the holochain service from default locations or a given path
 func GetService(root string) (service *holo.Service, err error) {
 	holo.InitializeHolochain()
-	root, err = GetRootOrDefault(root)
-	if err != nil {
-		return nil, err
-	}
 	if initialized := holo.IsInitialized(root); !initialized {
 		err = ErrServiceUninitialized
 	} else {

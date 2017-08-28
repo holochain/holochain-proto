@@ -796,3 +796,37 @@ func (h *Holochain) VerifySignature(signature []byte, data string, pubKey ic.Pub
 	}
 	return
 }
+
+type QueryOptions struct {
+	EntryType  string
+	HashesOnly bool
+}
+
+type QueryResult struct {
+	Header *Header
+	Entry  Entry
+}
+
+// Query scans the local chain and returns a collection of results based on the options specified
+func (h *Holochain) Query(options *QueryOptions) (results []QueryResult, err error) {
+	if options == nil {
+		// default options
+		options = &QueryOptions{}
+	}
+	if options.HashesOnly {
+		for _, header := range h.chain.Headers {
+			if options.EntryType != "" && header.Type != options.EntryType {
+				continue
+			}
+			results = append(results, QueryResult{Header: header})
+		}
+	} else {
+		for i, header := range h.chain.Headers {
+			if options.EntryType != "" && header.Type != options.EntryType {
+				continue
+			}
+			results = append(results, QueryResult{Header: header, Entry: h.chain.Entries[i]})
+		}
+	}
+	return
+}

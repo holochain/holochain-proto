@@ -534,6 +534,31 @@ func (a *ActionSend) Receive(dht *DHT, msg *Message) (response interface{}, err 
 }
 
 //------------------------------------------------------------
+// Query
+
+type ActionQuery struct {
+	options *QueryOptions
+}
+
+func NewQueryAction(options *QueryOptions) *ActionQuery {
+	a := ActionQuery{options: options}
+	return &a
+}
+
+func (a *ActionQuery) Name() string {
+	return "query"
+}
+
+func (a *ActionQuery) Args() []Arg {
+	return []Arg{{Name: "options", Type: MapArg, MapType: reflect.TypeOf(QueryOptions{}), Optional: true}}
+}
+
+func (a *ActionQuery) Do(h *Holochain) (response interface{}, err error) {
+	response, err = h.Query(a.options)
+	return
+}
+
+//------------------------------------------------------------
 // Get
 
 type ActionGet struct {

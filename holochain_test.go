@@ -501,6 +501,35 @@ func TestCommit(t *testing.T) {
 	})
 }
 
+func TestQuery(t *testing.T) {
+	d, _, h := PrepareTestChain("test")
+	defer CleanupTestDir(d)
+	hash1 := commit(h, "oddNumbers", "7")
+	hash2 := commit(h, "oddNumbers", "9")
+	Convey("query with no options should return entire chain entries only", t, func() {
+		results, err := h.Query(&QueryOptions{})
+		So(err, ShouldBeNil)
+		So(results[0].Header.Type, ShouldEqual, DNAEntryType)
+		So(results[1].Header.Type, ShouldEqual, AgentEntryType)
+		So(results[2].Entry.Content(), ShouldEqual, "7")
+		So(results[3].Entry.Content(), ShouldEqual, "9")
+	})
+	Convey("query with entry type options should return that type only", t, func() {
+		results, err := h.Query(&QueryOptions{EntryType: "oddNumbers"})
+		So(err, ShouldBeNil)
+		So(results[0].Entry.Content(), ShouldEqual, "7")
+		So(results[1].Entry.Content(), ShouldEqual, "9")
+	})
+	Convey("query with hash options should return only hashes", t, func() {
+		results, err := h.Query(&QueryOptions{EntryType: "oddNumbers", HashesOnly: true})
+		So(err, ShouldBeNil)
+		So(results[0].Header.EntryLink.String(), ShouldEqual, hash1.String())
+		So(results[1].Header.EntryLink.String(), ShouldEqual, hash2.String())
+		So(results[0].Entry, ShouldBeNil)
+		So(results[1].Entry, ShouldBeNil)
+	})
+}
+
 //func TestDNADefaults(t *testing.T) {
 //	h, err := DecodeDNA(strings.NewReader(`[[Zomes]]
 //Name = "test"

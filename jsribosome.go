@@ -759,6 +759,74 @@ func NewJSRibosome(h *Holochain, zome *Zome) (n Ribosome, err error) {
 	if err != nil {
 		return nil, err
 	}
+
+	err = jsr.vm.Set("query", func(call otto.FunctionCall) otto.Value {
+		a := &ActionQuery{}
+		args := a.Args()
+		err := jsProcessArgs(&jsr, args, call.ArgumentList)
+		if err != nil {
+			return mkOttoErr(&jsr, err.Error())
+		}
+
+		a.options = &QueryOptions{}
+		if len(call.ArgumentList) == 1 {
+			opts := args[0].value.(map[string]interface{})
+			hashesOnly, ok := opts["HashesOnly"]
+			if ok {
+				a.options.HashesOnly = hashesOnly.(bool)
+			}
+			entryType, ok := opts["EntryType"]
+			if ok {
+				a.options.EntryType = entryType.(string)
+			}
+		}
+
+		r, err := a.Do(h)
+		if err != nil {
+			return mkOttoErr(&jsr, err.Error())
+		}
+		qr := r.([]QueryResult)
+		if a.options.HashesOnly {
+			hashes := make([]string, len(r.([]Hash)))
+			for i, result := range qr {
+				hashes[i] = result.Header.EntryLink.String()
+			}
+			results, _ := jsr.vm.ToValue(hashes)
+			return results
+		} else {
+			var code string
+			for i, result := range qr {
+				if i > 0 {
+					code += ","
+				}
+				var def *EntryDef
+				_, def, err = h.GetEntryDef(result.Header.Type)
+				if err != nil {
+					return mkOttoErr(&jsr, err.Error())
+				}
+
+				r := result.Entry.Content().(string)
+				switch def.DataFormat {
+				case DataFormatRawJS:
+					code += r
+				case DataFormatString:
+					code += fmt.Sprintf(`"%s"`, jsSanitizeString(r))
+				case DataFormatLinks:
+					fallthrough
+				case DataFormatJSON:
+					code = fmt.Sprintf(`JSON.parse("%s")`, jsSanitizeString(r))
+				default:
+					return mkOttoErr(&jsr, "data format not implemented: "+def.DataFormat)
+				}
+
+			}
+			code = "[" + code + "]"
+			object, _ := jsr.vm.Object(code)
+			results, _ := jsr.vm.ToValue(object)
+			return results
+		}
+	})
+
 	err = jsr.vm.Set("get", func(call otto.FunctionCall) (result otto.Value) {
 		var a Action = &ActionGet{}
 		args := a.Args()

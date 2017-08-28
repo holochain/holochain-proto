@@ -290,6 +290,39 @@ func TestNewJSRibosome(t *testing.T) {
 	})
 }
 
+func TestJSQuery(t *testing.T) {
+	d, _, h := PrepareTestChain("test")
+	defer CleanupTestDir(d)
+	zome, _ := h.GetZome("jsSampleZome")
+	v, err := NewJSRibosome(h, zome)
+	if err != nil {
+		panic(err)
+	}
+	z := v.(*JSRibosome)
+
+	Convey("query", t, func() {
+		// add entries onto the chain to get hash values for testing
+		commit(h, "oddNumbers", "3")
+		commit(h, "oddNumbers", "7")
+		commit(h, "secret", "foo")
+		commit(h, "secret", "bar")
+		commit(h, "profile", `{"firstName":"Zippy","lastName":"Pinhead"}`)
+
+		ShouldLog(h.nucleus.alog, `[3,7]`, func() {
+			_, err := z.Run(`debug(query({EntryType:"oddNumbers"}))`)
+			So(err, ShouldBeNil)
+		})
+		ShouldLog(h.nucleus.alog, `["foo","bar"]`, func() {
+			_, err := z.Run(`debug(query({EntryType:"secret"}))`)
+			So(err, ShouldBeNil)
+		})
+		ShouldLog(h.nucleus.alog, `[{"firstName":"Zippy","lastName":"Pinhead"}]`, func() {
+			_, err := z.Run(`debug(query({EntryType:"profile"}))`)
+			So(err, ShouldBeNil)
+		})
+	})
+}
+
 func TestJSGenesis(t *testing.T) {
 	Convey("it should fail if the genesis function returns false", t, func() {
 		z, _ := NewJSRibosome(nil, &Zome{RibosomeType: JSRibosomeType, Code: `function genesis() {return false}`})

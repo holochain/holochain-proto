@@ -626,17 +626,17 @@ func NewZygoRibosome(h *Holochain, zome *Zome) (n Ribosome, err error) {
 				if err != nil {
 					return zygo.SexpNull, err
 				}
-				if b.Side == BridgeFrom {
-					err = bridge.HashSet(env.MakeSymbol("Side"), &zygo.SexpInt{Val: BridgeFrom})
+				if b.Side == BridgeTo {
+					err = bridge.HashSet(env.MakeSymbol("Side"), &zygo.SexpInt{Val: int64(b.Side)})
 					if err != nil {
 						return zygo.SexpNull, err
 					}
-					err = bridge.HashSet(env.MakeSymbol("FromToken"), &zygo.SexpStr{S: b.FromToken})
+					err = bridge.HashSet(env.MakeSymbol("Token"), &zygo.SexpStr{S: b.Token})
 					if err != nil {
 						return zygo.SexpNull, err
 					}
 				} else {
-					err = bridge.HashSet(env.MakeSymbol("Side"), &zygo.SexpInt{Val: BridgeTo})
+					err = bridge.HashSet(env.MakeSymbol("Side"), &zygo.SexpInt{Val: int64(b.Side)})
 					if err != nil {
 						return zygo.SexpNull, err
 					}

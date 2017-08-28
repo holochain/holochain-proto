@@ -175,7 +175,7 @@ func TestNewZygoRibosome(t *testing.T) {
 				panic(err)
 			}
 
-			ShouldLog(h.nucleus.alog, fmt.Sprintf(`[ (hash Side:1 ToApp:"QmY8Mzg9F69e5P9AoQPYat655HEhc1TVGs11tmfNSzkqto")  (hash Side:0 FromToken:"%s")]`, token), func() {
+			ShouldLog(h.nucleus.alog, fmt.Sprintf(`[ (hash Side:0 ToApp:"QmY8Mzg9F69e5P9AoQPYat655HEhc1TVGs11tmfNSzkqto")  (hash Side:1 Token:"%s")]`, token), func() {
 				_, err := z.Run(`(testGetBridges)`)
 				So(err, ShouldBeNil)
 			})

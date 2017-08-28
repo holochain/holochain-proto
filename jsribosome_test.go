@@ -178,7 +178,7 @@ func TestNewJSRibosome(t *testing.T) {
 				panic(err)
 			}
 
-			ShouldLog(h.nucleus.alog, fmt.Sprintf(`[{"Side":1,"ToApp":"QmY8Mzg9F69e5P9AoQPYat655HEhc1TVGs11tmfNSzkqto"},{"FromToken":"%s","Side":0}]`, token), func() {
+			ShouldLog(h.nucleus.alog, fmt.Sprintf(`[{"Side":0,"ToApp":"QmY8Mzg9F69e5P9AoQPYat655HEhc1TVGs11tmfNSzkqto"},{"Side":1,"Token":"%s"}]`, token), func() {
 				_, err := z.Run(`testGetBridges()`)
 				So(err, ShouldBeNil)
 			})

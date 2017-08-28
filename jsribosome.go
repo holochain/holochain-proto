@@ -569,10 +569,10 @@ func NewJSRibosome(h *Holochain, zome *Zome) (n Ribosome, err error) {
 			if i > 0 {
 				code += ","
 			}
-			if b.Side == BridgeFrom {
-				code += fmt.Sprintf(`{Side:%d,FromToken:"%s"}`, BridgeFrom, b.FromToken)
+			if b.Side == BridgeTo {
+				code += fmt.Sprintf(`{Side:%d,Token:"%s"}`, b.Side, b.Token)
 			} else {
-				code += fmt.Sprintf(`{Side:%d,ToApp:"%s"}`, BridgeTo, b.ToApp.String())
+				code += fmt.Sprintf(`{Side:%d,ToApp:"%s"}`, b.Side, b.ToApp.String())
 			}
 		}
 		code = "[" + code + "]"

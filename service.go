@@ -819,10 +819,10 @@ func (s *Service) ListChains() (list string) {
 			bridges, _ := chains[k].GetBridges()
 			if bridges != nil {
 				for _, b := range bridges {
-					if b.Side == BridgeTo {
+					if b.Side == BridgeFrom {
 						list += fmt.Sprintf("        bridged to: %v\n", b.ToApp)
 					} else {
-						list += fmt.Sprintf("        bridged from by token: %v\n", b.FromToken)
+						list += fmt.Sprintf("        bridged from by token: %v\n", b.Token)
 					}
 				}
 			}

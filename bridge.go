@@ -26,9 +26,9 @@ type BridgeApp struct {
 
 // Bridge holds data returned by GetBridges
 type Bridge struct {
-	ToApp     Hash
-	FromToken string
-	Side      int
+	ToApp Hash
+	Token string
+	Side  int
 }
 
 type BridgeSpec map[string]map[string]bool
@@ -261,9 +261,9 @@ func (h *Holochain) GetBridges() (bridges []Bridge, err error) {
 					if err != nil {
 						return false
 					}
-					bridges = append(bridges, Bridge{ToApp: hash, Side: BridgeTo})
+					bridges = append(bridges, Bridge{ToApp: hash, Side: BridgeFrom})
 				case "tok":
-					bridges = append(bridges, Bridge{FromToken: x[1], Side: BridgeFrom})
+					bridges = append(bridges, Bridge{Token: x[1], Side: BridgeTo})
 				}
 				return true
 			})

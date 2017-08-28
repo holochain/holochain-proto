@@ -12,6 +12,7 @@ import (
 	"encoding/gob"
 	"errors"
 	"fmt"
+	nat "github.com/libp2p/go-libp2p-nat"
 	net "github.com/libp2p/go-libp2p-net"
 	peer "github.com/libp2p/go-libp2p-peer"
 	pstore "github.com/libp2p/go-libp2p-peerstore"
@@ -22,8 +23,10 @@ import (
 	rhost "github.com/libp2p/go-libp2p/p2p/host/routed"
 	ma "github.com/multiformats/go-multiaddr"
 	mh "github.com/multiformats/go-multihash"
+	"github.com/pixelbender/go-stun/stun"
 	"gopkg.in/mgo.v2/bson"
 	"io"
+	go_net "net"
 	"time"
 )
 
@@ -85,6 +88,7 @@ type Node struct {
 	mdnsSvc     discovery.Service
 	blockedlist map[peer.ID]bool
 	protocols   [_protocolCount]*Protocol
+	nat         *nat.NAT
 }
 
 // Protocol encapsulates data for our different protocols
@@ -136,7 +140,7 @@ func (n *Node) EnableMDNSDiscovery(notifee discovery.Notifee, interval time.Dura
 }
 
 // NewNode creates a new ipfs basichost node with given identity
-func NewNode(listenAddr string, protoMux string, agent *LibP2PAgent) (node *Node, err error) {
+func NewNode(listenPort int, protoMux string, agent *LibP2PAgent) (node *Node, err error) {
 	Debugf("Creating new node with protoMux: %s\n", protoMux)
 	nodeID, _, err := agent.NodeID()
 	if err != nil {
@@ -144,12 +148,67 @@ func NewNode(listenAddr string, protoMux string, agent *LibP2PAgent) (node *Node
 	}
 
 	var n Node
+	listenAddr := fmt.Sprintf("/ip4/0.0.0.0/tcp/%d", listenPort)
 	n.NetAddr, err = ma.NewMultiaddr(listenAddr)
 	if err != nil {
 		return
 	}
 
 	ps := pstore.NewPeerstore()
+
+	n.nat = nat.DiscoverNAT()
+	if n.nat != nil {
+		Debugf("Discovered NAT!")
+		ifaces, _ := go_net.Interfaces()
+		// handle err
+		for _, i := range ifaces {
+			addrs, _ := i.Addrs()
+			// handle err
+			for _, addr := range addrs {
+				var ip go_net.IP
+				switch v := addr.(type) {
+				case *go_net.IPNet:
+					ip = v.IP
+				case *go_net.IPAddr:
+					ip = v.IP
+				}
+				if ip.Equal(go_net.IPv4(127, 0, 0, 1)) {
+					continue
+				}
+				addr_string := fmt.Sprintf("/ip4/%s/tcp/%d", ip, listenPort)
+				localaddr, err := ma.NewMultiaddr(addr_string)
+				if err == nil {
+					Debugf("NAT: trying to establish NAT mapping for %s...", addr_string)
+					n.nat.NewMapping(localaddr)
+				}
+			}
+		}
+
+		Debugf("NAT: Trying to punch hole through NAT via STUN")
+		conn, addr, err := stun.Discover("stun:stun.l.google.com:19302")
+		if err == nil {
+			defer conn.Close()
+			Debugf("NAT: STUN: Local address: %v, Server reflexive address: %v", conn.LocalAddr(), addr)
+		}
+
+		go func() {
+			for true {
+				mappings := n.nat.Mappings()
+				Debugf("NAT: have %d mappings", len(mappings))
+				for i := 0; i < len(mappings); i++ {
+					external_addr, err := mappings[i].ExternalAddr()
+					Debugf("NAT: Mapping %d:", i)
+					if err != nil {
+						Debugf("NAT: Could not get through NAT. Mapping error: %s", err)
+					} else {
+						Debugf("NAT: Success! External address is %s",
+							external_addr.String())
+					}
+				}
+				time.Sleep(time.Second)
+			}
+		}()
+	}
 
 	n.HashAddr = nodeID
 	priv := agent.PrivKey()

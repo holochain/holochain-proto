@@ -1575,10 +1575,20 @@ function genesis() {return true}
 function bridgeGenesis(side,app,data) {return true}
 
 function receive(from,message) {
+  // if the message requests blocking run an infinite loop
+  // this is used by the async send test to force the condition where
+  // the receiver doesn't return soon enough so that the send will timeout
+  if (message.block) {
+    while(true){};
+  }
+
   // send back a pong message of what came in the ping message!
   return {pong:message.ping}
 }
 
+function asyncPing(message,id) {
+  debug("async result of message with "+id+" was: "+JSON.stringify(message))
+}
 `
 	zygoZomeCode = `
 (defn testStrFn1 [x] (concat "result: " x))
@@ -1615,6 +1625,9 @@ function receive(from,message) {
 (defn bridgeGenesis [side app data] (begin (debug (concat "bridge genesis " (cond (== side HC_Bridge_From) "from" "to") "-- other side is:" app " bridging data:" data))  true))
 (defn receive [from message]
 	(hash pong: (hget message %ping)))
+(defn asyncPing [message,id]
+  (debug (concat "async result of message with " id " was:" (str message)))
+)
 `
 
 	SampleHTML = `

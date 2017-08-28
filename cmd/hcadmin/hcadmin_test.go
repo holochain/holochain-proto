@@ -10,6 +10,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"regexp"
 	"testing"
 	"time"
 )
@@ -89,7 +90,7 @@ func TestBridge(t *testing.T) {
 	d := holo.SetupTestDir()
 	defer os.RemoveAll(d)
 	app := setupApp()
-	_, err := runAppWithStdoutCapture(app, []string{"hadmin", "-path", d, "init", "test-identity"})
+	_, err := runAppWithStdoutCapture(app, []string{"hcadmin", "-path", d, "init", "test-identity"})
 	if err != nil {
 		panic(err)
 	}
@@ -105,28 +106,40 @@ func TestBridge(t *testing.T) {
 		panic(err)
 	}
 	app = setupApp()
-	_, err = runAppWithStdoutCapture(app, []string{"hcadmin", "-path", d, "join", filepath.Join(d, "testAppSrc1"), "testApp1"})
+	out1, err := runAppWithStdoutCapture(app, []string{"hcadmin", "-verbose", "-path", d, "join", filepath.Join(d, "testAppSrc1"), "testApp1"})
 	if err != nil {
 		panic(err)
 	}
 	app = setupApp()
-	_, err = runAppWithStdoutCapture(app, []string{"hcadmin", "-path", d, "join", filepath.Join(d, "testAppSrc2"), "testApp2"})
+	out2, err := runAppWithStdoutCapture(app, []string{"hcadmin", "-verbose", "-path", d, "join", filepath.Join(d, "testAppSrc2"), "testApp2"})
 	if err != nil {
 		panic(err)
 	}
+
+	re := regexp.MustCompile(`new holochain with ID: (Qm.*)`)
+	x := re.FindStringSubmatch(out1)
+	if len(x) == 0 {
+		panic("expected to find the DNA for app1 in " + out1)
+	}
+	testApp1DNA := x[1]
+	x = re.FindStringSubmatch(out2)
+	if len(x) == 0 {
+		panic("expected to find the DNA for app2 in " + out2)
+	}
+	testApp2DNA := x[1]
 
 	Convey("it should bridge chains", t, func() {
 		app = setupApp()
 		out, err := runAppWithStdoutCapture(app, []string{"hcadmin", "-path", d, "bridge", "testApp1", "testApp2", "-bridgeToAppData", "some to app data"})
 		So(err, ShouldBeNil)
-		So(out, ShouldContainSubstring, "bridge genesis to-- other side is:QmaYyhRCLoC2JToVT5CdCUV4eNvdYKu867uYXWpFbBZLry bridging data:some to app data\n")
+		So(out, ShouldContainSubstring, "bridge genesis to-- other side is:"+testApp1DNA+" bridging data:some to app data\n")
 	})
 	Convey("after bridge status should show it", t, func() {
 		app = setupApp()
 		out, err := runAppWithStdoutCapture(app, []string{"hcadmin", "-path", d, "status"})
 		So(err, ShouldBeNil)
-		So(out, ShouldContainSubstring, "testApp1 QmaYyhRCLoC2JToVT5CdCUV4eNvdYKu867uYXWpFbBZLry\n        bridged to: QmeZphnoyd2Hwqatx8RVGMBGF3st4Gt1S92sZx2ZajUfHY")
-		So(out, ShouldContainSubstring, "testApp2 QmeZphnoyd2Hwqatx8RVGMBGF3st4Gt1S92sZx2ZajUfHY\n        bridged from by token:")
+		So(out, ShouldContainSubstring, "testApp1 "+testApp1DNA+"\n        bridged to: "+testApp2DNA)
+		So(out, ShouldContainSubstring, "testApp2 "+testApp2DNA+"\n        bridged from by token:")
 	})
 }
 

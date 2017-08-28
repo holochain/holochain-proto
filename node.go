@@ -313,14 +313,14 @@ func (node *Node) Close() error {
 }
 
 // Send delivers a message to a node via the given protocol
-func (node *Node) Send(proto int, addr peer.ID, m *Message) (response Message, err error) {
+func (node *Node) Send(ctx context.Context, proto int, addr peer.ID, m *Message) (response Message, err error) {
 
 	if node.IsBlocked(addr) {
 		err = ErrBlockedListed
 		return
 	}
 
-	s, err := node.Host.NewStream(context.Background(), addr, node.protocols[proto].ID)
+	s, err := node.Host.NewStream(ctx, addr, node.protocols[proto].ID)
 	if err != nil {
 		return
 	}

@@ -1102,15 +1102,9 @@ func addExtras(z *ZygoRibosome) {
 		})
 }
 
-func (z *ZygoRibosome) RunAsyncSendResponse(response interface{}, callback string, callbackID string) (result interface{}, err error) {
-	switch t := response.(type) {
-	case AppMsg:
-		code := fmt.Sprintf(`(%s (unjson (raw "%s")) "%s")`, callback, sanitizeZyString(t.Body), sanitizeZyString(callbackID))
-		Debugf("Calling %s\n", code)
-		result, err = z.Run(code)
-
-	default:
-		err = errors.New("expected response to be an AppMsg")
-	}
+func (z *ZygoRibosome) RunAsyncSendResponse(response AppMsg, callback string, callbackID string) (result interface{}, err error) {
+	code := fmt.Sprintf(`(%s (unjson (raw "%s")) "%s")`, callback, sanitizeZyString(response.Body), sanitizeZyString(callbackID))
+	Debugf("Calling %s\n", code)
+	result, err = z.Run(code)
 	return
 }

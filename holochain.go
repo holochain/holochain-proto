@@ -688,21 +688,20 @@ func (h *Holochain) HashSpec() HashSpec {
 func (h *Holochain) SendAsync(proto int, to peer.ID, t MsgType, body interface{}, callback *Callback, timeout time.Duration) (err error) {
 	var response interface{}
 
-	// TODO add timeout
 	go func() {
 		response, err = h.Send(context.Background(), proto, to, t, body, timeout)
 		if err == nil {
 			var r Ribosome
 			r, _, err := h.MakeRibosome(callback.zomeType)
-			if err != nil {
-				h.asyncSends <- err
-				return
-			}
-			//var result interface{}
-			_, err = r.RunAsyncSendResponse(response, callback.Function, callback.ID)
-			if err != nil {
-				h.asyncSends <- err
-				return
+			if err == nil {
+				switch t := response.(type) {
+				case AppMsg:
+					//var result interface{}
+					_, err = r.RunAsyncSendResponse(t, callback.Function, callback.ID)
+
+				default:
+					err = fmt.Errorf("unimplemented async send response type: %t", t)
+				}
 			}
 		}
 		h.asyncSends <- err

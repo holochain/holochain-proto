@@ -294,7 +294,9 @@ func TestCloneResolveDNA(t *testing.T) {
 		So(h.nucleus.dna.Zomes[0].BridgeTo.String(), ShouldEqual, "")
 
 		root = filepath.Join(s.Path, "test2")
-		os.Setenv("HCDEV_DNA_FOR_bridgeToApp", DNAHash.String())
+		DevDNAResolveMap = make(map[string]string)
+		DevDNAResolveMap["bridgeToApp"] = DNAHash.String()
+
 		h, err = s.Clone(devAppPath, root, agent, CloneWithNewUUID, SkipInitializeDB)
 		So(err, ShouldBeNil)
 		So(h.nucleus.dna.Zomes[0].BridgeTo.String(), ShouldEqual, DNAHash.String())

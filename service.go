@@ -136,8 +136,9 @@ type TestData struct {
 
 // IsDevMode is used to enable certain functionality when developing holochains, for example,
 // in dev mode, you can put the name of an app in the BridgeTo of the DNA and it will get
-// resolved to DNA hash of the app in the "HCDEV_DNA_FOR_<name> env variable.
+// resolved to DNA hash of the app in the DevDNAResolveMap[name] global variable.
 var IsDevMode bool = false
+var DevDNAResolveMap map[string]string
 
 // IsInitialized checks a path for a correctly set up .holochain directory
 func IsInitialized(root string) bool {
@@ -365,10 +366,12 @@ func (s *Service) loadDNA(path string, filename string, format string) (dnaP *DN
 			dna.Zomes[i].BridgeTo, err = NewHash(zome.BridgeTo)
 			if err != nil {
 				// if in dev mode assume the bridgeTo was the app name
-				// and that hcdev put the actual DNA for us in the env var
-				// so try again with that value
+				// and that hcdev put the actual DNA for us in the DevDNAResolveMap
 				if IsDevMode {
-					dnaHashStr := os.Getenv("HCDEV_DNA_FOR_" + zome.BridgeTo)
+					var dnaHashStr string
+					if DevDNAResolveMap != nil {
+						dnaHashStr, _ = DevDNAResolveMap[zome.BridgeTo]
+					}
 
 					dna.Zomes[i].BridgeTo, err = NewHash(dnaHashStr)
 					if err != nil {

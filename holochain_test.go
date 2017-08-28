@@ -141,7 +141,7 @@ func TestDebuggingSetup(t *testing.T) {
 		debugLog.Enabled = true
 
 		Debug("test")
-		So(string(buf.Bytes()), ShouldEqual, "HC:holochain_test.go.143: test\n")
+		So(string(buf.Bytes()), ShouldEqual, "HC: holochain_test.go.143: test\n")
 		// restore state of debug log
 		debugLog.w = os.Stdout
 		debugLog.Enabled = enabled
@@ -203,7 +203,7 @@ func TestNewEntry(t *testing.T) {
 	defer CleanupTestDir(d)
 	n := "test"
 	path := filepath.Join(s.Path, n)
-	h, err := s.GenDev(path, "toml", InitializeDB)
+	h, err := s.MakeTestingApp(path, "toml", InitializeDB)
 	if err != nil {
 		panic(err)
 	}

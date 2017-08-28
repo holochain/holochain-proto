@@ -121,7 +121,6 @@ func DebuggingRequestedViaEnv() (val, yes bool) {
 
 func envBoolRequest(env string) (val, yes bool) {
 	str := strings.ToLower(os.Getenv(env))
-	fmt.Printf(str)
 	yes = str != ""
 	if yes {
 		val = str == "true" || str == "1"
@@ -164,7 +163,8 @@ func InitializeHolochain() {
 		RegisterBultinRibosomes()
 
 		infoLog.New(nil)
-		debugLog.Format = "HC:%{file}.%{line}: %{message}"
+		infoLog.Enabled = true
+		debugLog.Format = "HC: %{file}.%{line}: %{message}"
 		val, yes := DebuggingRequestedViaEnv()
 		if yes {
 			debugLog.Enabled = val
@@ -388,8 +388,7 @@ func (h *Holochain) AddAgentEntry(revocation Revocation) (headerHash, agentHash 
 }
 
 // GenChain establishes a holochain instance by creating the initial genesis entries in the chain
-// It assumes a properly set up .holochain sub-directory with a config file and
-// keys for signing.  See GenDev()
+// It assumes a properly set up .holochain sub-directory with a config file and keys for signing.
 func (h *Holochain) GenChain() (headerHash Hash, err error) {
 
 	if h.Started() {

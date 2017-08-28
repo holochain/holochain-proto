@@ -39,7 +39,7 @@ func TestWeb(t *testing.T) {
 		panic(err)
 	}
 	root := filepath.Join(s.Path, "testApp")
-	h, err := s.GenDev(root, "json", holo.InitializeDB)
+	h, err := s.MakeTestingApp(root, "json", holo.InitializeDB)
 	if err != nil {
 		panic(err)
 	}

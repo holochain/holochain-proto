@@ -44,7 +44,7 @@ func SetupTestService() (d string, s *Service) {
 func SetupTestChain(n string) (d string, s *Service, h *Holochain) {
 	d, s = setupTestService()
 	path := filepath.Join(s.Path, n)
-	h, err := s.GenDev(path, "toml", InitializeDB)
+	h, err := s.MakeTestingApp(path, "toml", InitializeDB)
 	if err != nil {
 		panic(err)
 	}

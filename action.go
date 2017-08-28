@@ -332,6 +332,30 @@ func (a *ActionMakeHash) Do(h *Holochain) (response interface{}, err error) {
 }
 
 //------------------------------------------------------------
+// GetBridges
+
+type ActionGetBridges struct {
+}
+
+func NewGetBridgesAction(doc []byte) *ActionGetBridges {
+	a := ActionGetBridges{}
+	return &a
+}
+
+func (a *ActionGetBridges) Name() string {
+	return "getBridges"
+}
+
+func (a *ActionGetBridges) Args() []Arg {
+	return []Arg{}
+}
+
+func (a *ActionGetBridges) Do(h *Holochain) (response interface{}, err error) {
+	response, err = h.GetBridges()
+	return
+}
+
+//------------------------------------------------------------
 // Sign
 
 type ActionSign struct {

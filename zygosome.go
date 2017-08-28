@@ -605,6 +605,52 @@ func NewZygoRibosome(h *Holochain, zome *Zome) (n Ribosome, err error) {
 			return &result, nil
 		})
 
+	z.env.AddFunction("getBridges",
+		func(env *zygo.Glisp, name string, zyargs []zygo.Sexp) (zygo.Sexp, error) {
+			a := &ActionGetBridges{}
+			args := a.Args()
+			err := zyProcessArgs(args, zyargs)
+			if err != nil {
+				return zygo.SexpNull, err
+			}
+			r, err := a.Do(h)
+			if err != nil {
+				return zygo.SexpNull, err
+			}
+			var zbridges *zygo.SexpArray
+
+			var bridges []zygo.Sexp
+			for _, b := range r.([]Bridge) {
+				var bridge *zygo.SexpHash
+				bridge, err = zygo.MakeHash(nil, "hash", env)
+				if err != nil {
+					return zygo.SexpNull, err
+				}
+				if b.Side == BridgeFrom {
+					err = bridge.HashSet(env.MakeSymbol("Side"), &zygo.SexpInt{Val: BridgeFrom})
+					if err != nil {
+						return zygo.SexpNull, err
+					}
+					err = bridge.HashSet(env.MakeSymbol("FromToken"), &zygo.SexpStr{S: b.FromToken})
+					if err != nil {
+						return zygo.SexpNull, err
+					}
+				} else {
+					err = bridge.HashSet(env.MakeSymbol("Side"), &zygo.SexpInt{Val: BridgeTo})
+					if err != nil {
+						return zygo.SexpNull, err
+					}
+					err = bridge.HashSet(env.MakeSymbol("ToApp"), &zygo.SexpStr{S: b.ToApp.String()})
+					if err != nil {
+						return zygo.SexpNull, err
+					}
+				}
+				bridges = append(bridges, bridge)
+			}
+			zbridges = env.NewSexpArray(bridges)
+			return zbridges, err
+		})
+
 	z.env.AddFunction("send",
 		func(env *zygo.Glisp, name string, zyargs []zygo.Sexp) (zygo.Sexp, error) {
 			a := &ActionSend{}
@@ -825,7 +871,6 @@ func NewZygoRibosome(h *Holochain, zome *Zome) (n Ribosome, err error) {
 				}
 			}
 			return makeResult(env, resultValue, err)
-			//			return result, err
 		})
 
 	z.env.AddFunction("update",

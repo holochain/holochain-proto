@@ -1576,6 +1576,10 @@ function receive(from,message) {
   return {pong:message.ping}
 }
 
+function testGetBridges() {
+  debug(JSON.stringify(getBridges()))
+}
+
 `
 	zygoZomeCode = `
 (defn testStrFn1 [x] (concat "result: " x))
@@ -1612,6 +1616,10 @@ function receive(from,message) {
 (defn bridgeGenesis [side app data] (begin (debug (concat "bridge genesis " (cond (== side HC_Bridge_From) "from" "to") "-- other side is:" app " bridging data:" data))  true))
 (defn receive [from message]
 	(hash pong: (hget message %ping)))
+
+(defn testGetBridges []
+  (debug (str (getBridges))))
+
 `
 
 	SampleHTML = `

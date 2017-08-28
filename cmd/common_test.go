@@ -13,14 +13,14 @@ import (
 )
 
 func TestIsAppDir(t *testing.T) {
-	
+
 	for _, configExtension := range GetConfigExtensionList() {
 		Convey(fmt.Sprintf("it should test to see if dir is a holochain app (%v)", configExtension), t, func() {
 
 			d, s := holo.SetupTestService()
-			
+
 			So(IsAppDir(d).Error(), ShouldEqual, "HC: Holochain App directory missing dna/dna.xyz config file")
-			h, err := s.GenDev(filepath.Join(s.Path, "test"), configExtension, true)
+			h, err := s.MakeTestingApp(filepath.Join(s.Path, "test"), configExtension, true)
 			if err != nil {
 				panic(err)
 			}

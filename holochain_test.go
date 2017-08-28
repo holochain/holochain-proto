@@ -203,7 +203,7 @@ func TestNewEntry(t *testing.T) {
 	defer CleanupTestDir(d)
 	n := "test"
 	path := filepath.Join(s.Path, n)
-	h, err := s.GenDev(path, "toml", InitializeDB)
+	h, err := s.MakeTestingApp(path, "toml", InitializeDB)
 	if err != nil {
 		panic(err)
 	}

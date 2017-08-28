@@ -388,8 +388,7 @@ func (h *Holochain) AddAgentEntry(revocation Revocation) (headerHash, agentHash 
 }
 
 // GenChain establishes a holochain instance by creating the initial genesis entries in the chain
-// It assumes a properly set up .holochain sub-directory with a config file and
-// keys for signing.  See GenDev()
+// It assumes a properly set up .holochain sub-directory with a config file and keys for signing.
 func (h *Holochain) GenChain() (headerHash Hash, err error) {
 
 	if h.Started() {

@@ -232,7 +232,7 @@ func setupApp() (app *cli.App) {
 
 						}
 					}
-					_, err := service.GenDev(devPath, "json", holo.SkipInitializeDB)
+					_, err := service.MakeTestingApp(devPath, "json", holo.SkipInitializeDB)
 					if err != nil {
 						return cmd.MakeErrFromErr(c, err)
 					}
@@ -647,6 +647,7 @@ func setupApp() (app *cli.App) {
 	}
 
 	app.Before = func(c *cli.Context) error {
+		holo.IsDevMode = true
 		lastRunContext = c
 
 		var err error
@@ -767,22 +768,13 @@ func main() {
 }
 
 func getHolochain(c *cli.Context, service *holo.Service) (h *holo.Holochain, bridgeApps []holo.BridgeApp, err error) {
-	fmt.Printf("Copying chain to: %s\n", rootPath)
+	// clear out the previous chain data that was copied from the last test/run
 	err = os.RemoveAll(filepath.Join(rootPath, name))
 	if err != nil {
 		return
 	}
 	var agent holo.Agent
 	agent, err = holo.LoadAgent(rootPath)
-	if err != nil {
-		return
-	}
-	err = service.Clone(devPath, filepath.Join(rootPath, name), agent, holo.CloneWithSameUUID, holo.InitializeDB)
-	if err != nil {
-		return
-	}
-
-	h, err = service.Load(name)
 	if err != nil {
 		return
 	}
@@ -799,7 +791,7 @@ func getHolochain(c *cli.Context, service *holo.Service) (h *holo.Holochain, bri
 	}
 
 	if bridgeToPath != "" {
-		bridgeToH, err = bridge(service, h, agent, bridgeToPath, holo.BridgeFrom)
+		bridgeToH, err = setupBridgeApp(service, h, agent, bridgeToPath, holo.BridgeFrom)
 		if err != nil {
 			return
 		}
@@ -812,7 +804,7 @@ func getHolochain(c *cli.Context, service *holo.Service) (h *holo.Holochain, bri
 				Port:                  bridgeToPort})
 	}
 	if bridgeFromPath != "" {
-		bridgeFromH, err = bridge(service, h, agent, bridgeFromPath, holo.BridgeTo)
+		bridgeFromH, err = setupBridgeApp(service, h, agent, bridgeFromPath, holo.BridgeTo)
 		if err != nil {
 			return
 		}
@@ -824,10 +816,22 @@ func getHolochain(c *cli.Context, service *holo.Service) (h *holo.Holochain, bri
 				BridgeGenesisDataTo:   bridgeToAppData,
 				Port:                  bridgeFromPort})
 	}
+
+	fmt.Printf("Copying chain to: %s\n", rootPath)
+	_, err = service.Clone(devPath, filepath.Join(rootPath, name), agent, holo.CloneWithSameUUID, holo.InitializeDB)
+	if err != nil {
+		return
+	}
+
+	h, err = service.Load(name)
+	if err != nil {
+		return
+	}
 	return
 }
 
-func bridge(service *holo.Service, h *holo.Holochain, agent holo.Agent, path string, side int) (bridgeH *holo.Holochain, err error) {
+// setupBridgeApp clones the bridge app from source and loads it in preparation for actual bridging
+func setupBridgeApp(service *holo.Service, h *holo.Holochain, agent holo.Agent, path string, side int) (bridgeH *holo.Holochain, err error) {
 
 	bridgeName := filepath.Base(path)
 
@@ -844,7 +848,7 @@ func bridge(service *holo.Service, h *holo.Holochain, agent holo.Agent, path str
 	if err != nil {
 		return
 	}
-	err = service.Clone(path, filepath.Join(rootPath, bridgeName), agent, holo.CloneWithSameUUID, holo.InitializeDB)
+	_, err = service.Clone(path, filepath.Join(rootPath, bridgeName), agent, holo.CloneWithSameUUID, holo.InitializeDB)
 	if err != nil {
 		return
 	}
@@ -853,6 +857,18 @@ func bridge(service *holo.Service, h *holo.Holochain, agent holo.Agent, path str
 	if err != nil {
 		return
 	}
+
+	// set the dna for use by the dev BridgeTo resolver
+	var DNAHash holo.Hash
+	DNAHash, err = holo.DNAHashofUngenedChain(bridgeH)
+	if err != nil {
+		return
+	}
+	holo.DevDNAResolveMap = make(map[string]string)
+	holo.DevDNAResolveMap[bridgeName] = DNAHash.String()
+
+	// clear the log prefix for the next load.
+	os.Setenv("HCLOG_PREFIX", "")
 	return
 }
 
@@ -882,7 +898,7 @@ func doClone(s *holo.Service, clonePath, devPath string) (err error) {
 		return
 	}
 
-	err = s.Clone(clonePath, devPath, agent, holo.CloneWithSameUUID, holo.SkipInitializeDB)
+	_, err = s.Clone(clonePath, devPath, agent, holo.CloneWithSameUUID, holo.SkipInitializeDB)
 	if err != nil {
 		return
 	}

@@ -12,6 +12,9 @@ import (
 	"encoding/gob"
 	"errors"
 	"fmt"
+	// dsf "github.com/NebulousLabs/go-upnp"
+	eth_nat "github.com/ethereum/go-ethereum/p2p/nat"
+	// stun "github.com/pixelbender/go-stun/stun"
 	nat "github.com/libp2p/go-libp2p-nat"
 	net "github.com/libp2p/go-libp2p-net"
 	peer "github.com/libp2p/go-libp2p-peer"
@@ -23,10 +26,9 @@ import (
 	rhost "github.com/libp2p/go-libp2p/p2p/host/routed"
 	ma "github.com/multiformats/go-multiaddr"
 	mh "github.com/multiformats/go-multihash"
-	"github.com/pixelbender/go-stun/stun"
 	"gopkg.in/mgo.v2/bson"
 	"io"
-	go_net "net"
+	// go_net "net"
 	"time"
 )
 
@@ -155,60 +157,108 @@ func NewNode(listenPort int, protoMux string, agent *LibP2PAgent) (node *Node, e
 	}
 
 	ps := pstore.NewPeerstore()
+	/*
+		// connect to router
+		Debugf("upnp: looking for NAT...")
+		d, err := upnp.Discover()
+		if err != nil {
+			Debugf("upnp: couldn't find NAT. Error: %s", err)
+		}
 
-	n.nat = nat.DiscoverNAT()
-	if n.nat != nil {
-		Debugf("Discovered NAT!")
-		ifaces, _ := go_net.Interfaces()
-		// handle err
-		for _, i := range ifaces {
-			addrs, _ := i.Addrs()
+		// discover external IP
+		ip, err := d.ExternalIP()
+		if err != nil {
+			Debugf("upnp: couldn't detect external IP. Error: %s", err)
+		}
+		Debugf("upnp: Your external IP is:", ip)
+
+		// forward a port
+		err = d.Forward(9001, "upnp test")
+		if err != nil {
+			Debugf("upnp: couldn't forward port. Error: %s", err)
+		}
+
+		// un-forward a port
+		err = d.Clear(9001)
+		if err != nil {
+			Debugf("upnp: couldn't clear port. Error: %s", err)
+		}
+
+		// record router's location
+		loc := d.Location()
+
+		// connect to router directly
+		d, err = upnp.Load(loc)
+		if err != nil {
+			Debugf("upnp: couldn't connect to router directly. Error: %s", err)
+		}*/
+
+	nat := eth_nat.Any()
+	ip, err := nat.ExternalIP()
+	if err != nil {
+		Debugf("eth_nat: couldn't connect external IP. Error: %s", err)
+	} else {
+		Debugf("eth_nat: external IP is: %s", ip)
+	}
+
+	err = nat.AddMapping("tcp", 9999, 9999, "holochain", time.Minute*5)
+	if err != nil {
+		Debugf("eth_nat: couldn't create mapping. Error: %s", err)
+	}
+	/*
+		n.nat = nat.DiscoverNAT()
+		if n.nat != nil {
+			Debugf("Discovered NAT!")
+			ifaces, _ := go_net.Interfaces()
 			// handle err
-			for _, addr := range addrs {
-				var ip go_net.IP
-				switch v := addr.(type) {
-				case *go_net.IPNet:
-					ip = v.IP
-				case *go_net.IPAddr:
-					ip = v.IP
-				}
-				if ip.Equal(go_net.IPv4(127, 0, 0, 1)) {
-					continue
-				}
-				addr_string := fmt.Sprintf("/ip4/%s/tcp/%d", ip, listenPort)
-				localaddr, err := ma.NewMultiaddr(addr_string)
-				if err == nil {
-					Debugf("NAT: trying to establish NAT mapping for %s...", addr_string)
-					n.nat.NewMapping(localaddr)
-				}
-			}
-		}
-
-		Debugf("NAT: Trying to punch hole through NAT via STUN")
-		conn, addr, err := stun.Discover("stun:stun.l.google.com:19302")
-		if err == nil {
-			defer conn.Close()
-			Debugf("NAT: STUN: Local address: %v, Server reflexive address: %v", conn.LocalAddr(), addr)
-		}
-
-		go func() {
-			for true {
-				mappings := n.nat.Mappings()
-				Debugf("NAT: have %d mappings", len(mappings))
-				for i := 0; i < len(mappings); i++ {
-					external_addr, err := mappings[i].ExternalAddr()
-					Debugf("NAT: Mapping %d:", i)
-					if err != nil {
-						Debugf("NAT: Could not get through NAT. Mapping error: %s", err)
-					} else {
-						Debugf("NAT: Success! External address is %s",
-							external_addr.String())
+			for _, i := range ifaces {
+				addrs, _ := i.Addrs()
+				// handle err
+				for _, addr := range addrs {
+					var ip go_net.IP
+					switch v := addr.(type) {
+					case *go_net.IPNet:
+						ip = v.IP
+					case *go_net.IPAddr:
+						ip = v.IP
+					}
+					if ip.Equal(go_net.IPv4(127, 0, 0, 1)) {
+						continue
+					}
+					addr_string := fmt.Sprintf("/ip4/%s/tcp/%d", ip, listenPort)
+					localaddr, err := ma.NewMultiaddr(addr_string)
+					if err == nil {
+						Debugf("NAT: trying to establish NAT mapping for %s...", addr_string)
+						n.nat.NewMapping(localaddr)
 					}
 				}
-				time.Sleep(time.Second)
 			}
-		}()
-	}
+
+			Debugf("NAT: Trying to punch hole through NAT via STUN")
+			conn, addr, err := stun.Discover("stun:stun.l.google.com:19302")
+			if err == nil {
+				defer conn.Close()
+				Debugf("NAT: STUN: Local address: %v, Server reflexive address: %v", conn.LocalAddr(), addr)
+			}
+
+			go func() {
+				for true {
+					mappings := n.nat.Mappings()
+					Debugf("NAT: have %d mappings", len(mappings))
+					for i := 0; i < len(mappings); i++ {
+						external_addr, err := mappings[i].ExternalAddr()
+						Debugf("NAT: Mapping %d:", i)
+						if err != nil {
+							Debugf("NAT: Could not get through NAT. Mapping error: %s", err)
+						} else {
+							Debugf("NAT: Success! External address is %s",
+								external_addr.String())
+						}
+					}
+					time.Sleep(time.Second)
+				}
+			}()
+		}*/
 
 	n.HashAddr = nodeID
 	priv := agent.PrivKey()

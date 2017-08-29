@@ -10,6 +10,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/gob"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"github.com/google/uuid"
@@ -21,6 +22,7 @@ import (
 	"math/rand"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"time"
 )
@@ -551,6 +553,13 @@ func (h *Holochain) Walk(fn WalkerFn, entriesToo bool) (err error) {
 // GetEntryDef returns an EntryDef of the given name
 // @TODO this makes the incorrect assumption that entry type strings are unique across zomes
 func (h *Holochain) GetEntryDef(t string) (zome *Zome, d *EntryDef, err error) {
+	if t == DNAEntryType {
+		d = DNAEntryDef
+		return
+	} else if t == AgentEntryType {
+		d = AgentEntryDef
+		return
+	}
 	for _, z := range h.nucleus.dna.Zomes {
 		d, err = z.GetEntryDef(t)
 		if err == nil {
@@ -797,9 +806,29 @@ func (h *Holochain) VerifySignature(signature []byte, data string, pubKey ic.Pub
 	return
 }
 
+type QueryReturn struct {
+	Hashes  bool
+	Entries bool
+	Headers bool
+}
+
+type QueryConstrain struct {
+	EntryTypes []string
+	Contains   string
+	Equals     string
+	Matches    string
+	Count      int
+	Page       int
+}
+
+type QueryOrder struct {
+	Ascending bool
+}
+
 type QueryOptions struct {
-	EntryType  string
-	HashesOnly bool
+	Return    QueryReturn
+	Constrain QueryConstrain
+	Order     QueryOrder
 }
 
 type QueryResult struct {
@@ -812,20 +841,161 @@ func (h *Holochain) Query(options *QueryOptions) (results []QueryResult, err err
 	if options == nil {
 		// default options
 		options = &QueryOptions{}
-	}
-	if options.HashesOnly {
-		for _, header := range h.chain.Headers {
-			if options.EntryType != "" && header.Type != options.EntryType {
-				continue
-			}
-			results = append(results, QueryResult{Header: header})
-		}
+		options.Return.Entries = true
 	} else {
-		for i, header := range h.chain.Headers {
-			if options.EntryType != "" && header.Type != options.EntryType {
-				continue
+		// if no return options set, assume Entries
+		if !options.Return.Entries && !options.Return.Hashes && !options.Return.Headers {
+			options.Return.Entries = true
+		}
+	}
+	var re *regexp.Regexp
+	var equalsMap, containsMap map[string]interface{}
+	var reMap map[string]*regexp.Regexp
+	defs := make(map[string]*EntryDef)
+	for i, header := range h.chain.Headers {
+
+		var def *EntryDef
+		var ok bool
+		def, ok = defs[header.Type]
+		if !ok {
+			_, def, err = h.GetEntryDef(header.Type)
+			if err != nil {
+				return
 			}
-			results = append(results, QueryResult{Header: header, Entry: h.chain.Entries[i]})
+			defs[header.Type] = def
+		}
+
+		var skip bool
+		if len(options.Constrain.EntryTypes) > 0 {
+			skip = true
+			for _, et := range options.Constrain.EntryTypes {
+				if header.Type == et {
+					skip = false
+					break
+				}
+			}
+		}
+		if !skip && (options.Constrain.Equals != "" || options.Constrain.Contains != "" || options.Constrain.Matches != "") {
+			var content string
+			var contentMap map[string]interface{}
+			if def.DataFormat == DataFormatJSON {
+				contentMap = make(map[string]interface{})
+				err = json.Unmarshal([]byte(h.chain.Entries[i].Content().(string)), &contentMap)
+				if err != nil {
+					return
+				}
+			} else {
+				content = h.chain.Entries[i].Content().(string)
+			}
+
+			if !skip && options.Constrain.Equals != "" {
+				if def.DataFormat == DataFormatJSON {
+					if equalsMap == nil {
+						equalsMap = make(map[string]interface{})
+						err = json.Unmarshal([]byte(options.Constrain.Equals), &equalsMap)
+						if err != nil {
+							return
+						}
+					}
+					skip = true
+					for fieldName, fieldValue := range equalsMap {
+						if contentMap[fieldName] == fieldValue {
+							skip = false
+							break
+						}
+					}
+				} else {
+					if content != options.Constrain.Equals {
+						skip = true
+					}
+				}
+			}
+			if !skip && options.Constrain.Contains != "" {
+				if def.DataFormat == DataFormatJSON {
+					if containsMap == nil {
+						containsMap = make(map[string]interface{})
+						err = json.Unmarshal([]byte(options.Constrain.Contains), &containsMap)
+						if err != nil {
+							return
+						}
+					}
+					skip = true
+					for fieldName, fieldValue := range containsMap {
+						if strings.Index(contentMap[fieldName].(string), fieldValue.(string)) >= 0 {
+							skip = false
+							break
+						}
+					}
+				} else {
+					if strings.Index(content, options.Constrain.Contains) < 0 {
+						skip = true
+					}
+				}
+			}
+			if !skip && options.Constrain.Matches != "" {
+				if def.DataFormat == DataFormatJSON {
+					if reMap == nil {
+						reMapStr := make(map[string]interface{})
+						err = json.Unmarshal([]byte(options.Constrain.Matches), &reMapStr)
+						if err != nil {
+							return
+						}
+						reMap = make(map[string]*regexp.Regexp)
+						for fieldName, fieldValue := range reMapStr {
+							reMap[fieldName], err = regexp.Compile(fieldValue.(string))
+							if err != nil {
+								return
+							}
+						}
+					}
+					skip = true
+					for fieldName, fieldRe := range reMap {
+						if fieldRe.Match([]byte(contentMap[fieldName].(string))) {
+							skip = false
+							break
+						}
+					}
+
+				} else {
+					if re == nil {
+						re, err = regexp.Compile(options.Constrain.Matches)
+						if err != nil {
+							return
+						}
+					}
+
+					if !re.Match([]byte(content)) {
+						skip = true
+					}
+				}
+
+			}
+		}
+
+		if !skip {
+			// we always need the header to be returned at this level.  The
+			// Return values gets limited down to the actual info in the Ribosomes
+			qr := QueryResult{Header: header}
+			if options.Return.Entries {
+				qr.Entry = h.chain.Entries[i]
+			}
+			if options.Order.Ascending {
+				results = append([]QueryResult{qr}, results...)
+			} else {
+				results = append(results, qr)
+			}
+		}
+	}
+	if options.Constrain.Count > 0 {
+		start := options.Constrain.Page * options.Constrain.Count
+		if start >= len(results) {
+			results = []QueryResult{}
+		} else {
+			end := start + options.Constrain.Count
+			if end > len(results) {
+				end = len(results)
+			}
+			results = results[start:end]
 		}
 	}
 	return

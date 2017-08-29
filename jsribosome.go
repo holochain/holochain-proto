@@ -768,63 +768,104 @@ func NewJSRibosome(h *Holochain, zome *Zome) (n Ribosome, err error) {
 			return mkOttoErr(&jsr, err.Error())
 		}
 
-		a.options = &QueryOptions{}
 		if len(call.ArgumentList) == 1 {
-			opts := args[0].value.(map[string]interface{})
-			hashesOnly, ok := opts["HashesOnly"]
-			if ok {
-				a.options.HashesOnly = hashesOnly.(bool)
+			options := QueryOptions{}
+			var j []byte
+			j, err = json.Marshal(args[0].value)
+			if err != nil {
+				return mkOttoErr(&jsr, err.Error())
 			}
-			entryType, ok := opts["EntryType"]
-			if ok {
-				a.options.EntryType = entryType.(string)
+			Debugf("Query options: %s", string(j))
+			err = json.Unmarshal(j, &options)
+			if err != nil {
+				return mkOttoErr(&jsr, err.Error())
 			}
+			a.options = &options
 		}
-
 		r, err := a.Do(h)
 		if err != nil {
 			return mkOttoErr(&jsr, err.Error())
 		}
 		qr := r.([]QueryResult)
-		if a.options.HashesOnly {
-			hashes := make([]string, len(r.([]Hash)))
-			for i, result := range qr {
-				hashes[i] = result.Header.EntryLink.String()
-			}
-			results, _ := jsr.vm.ToValue(hashes)
-			return results
-		} else {
-			var code string
-			for i, result := range qr {
-				if i > 0 {
-					code += ","
-				}
-				var def *EntryDef
-				_, def, err = h.GetEntryDef(result.Header.Type)
-				if err != nil {
-					return mkOttoErr(&jsr, err.Error())
-				}
 
+		defs := make(map[string]*EntryDef)
+		var code string
+		for i, result := range qr {
+			if i > 0 {
+				code += ","
+			}
+			var entryCode, hashCode, headerCode string
+			var returnCount int
+			if a.options.Return.Hashes {
+				returnCount += 1
+				hashCode = `"` + result.Header.EntryLink.String() + `"`
+			}
+			if a.options.Return.Headers {
+				returnCount += 1
+				headerCode = fmt.Sprintf(
+					`{Type:"%s",Time:"%v",EntryLink:"%s",HeaderLink:"%s",TypeLink:"%s",}`,
+					jsSanitizeString(result.Header.Type),
+					result.Header.Time,
+					result.Header.EntryLink.String(),
+					result.Header.HeaderLink.String(),
+					result.Header.TypeLink.String(),
+				)
+			}
+			if a.options.Return.Entries {
+				returnCount += 1
+
+				var def *EntryDef
+				var ok bool
+				def, ok = defs[result.Header.Type]
+				if !ok {
+					_, def, err = h.GetEntryDef(result.Header.Type)
+					if err != nil {
+						return mkOttoErr(&jsr, err.Error())
+					}
+					defs[result.Header.Type] = def
+				}
 				r := result.Entry.Content().(string)
 				switch def.DataFormat {
 				case DataFormatRawJS:
-					code += r
+					entryCode = r
 				case DataFormatString:
-					code += fmt.Sprintf(`"%s"`, jsSanitizeString(r))
+					entryCode = fmt.Sprintf(`"%s"`, jsSanitizeString(r))
 				case DataFormatLinks:
 					fallthrough
 				case DataFormatJSON:
-					code = fmt.Sprintf(`JSON.parse("%s")`, jsSanitizeString(r))
+					entryCode = fmt.Sprintf(`JSON.parse("%s")`, jsSanitizeString(r))
 				default:
 					return mkOttoErr(&jsr, "data format not implemented: "+def.DataFormat)
 				}
-
 			}
-			code = "[" + code + "]"
-			object, _ := jsr.vm.Object(code)
-			results, _ := jsr.vm.ToValue(object)
-			return results
+			if returnCount == 1 {
+				code += entryCode + hashCode + headerCode
+			} else {
+				var c string
+				if entryCode != "" {
+					c += "Entry:" + entryCode
+				}
+				if hashCode != "" {
+					if c != "" {
+						c += ","
+					}
+					c += "Hash:" + hashCode
+				}
+				if headerCode != "" {
+					if c != "" {
+						c += ","
+					}
+					c += "Header:" + headerCode
+				}
+				code += "{" + c + "}"
+			}
+
 		}
+		code = "[" + code + "]"
+		Debugf("Query Code:%s\n", code)
+		object, _ := jsr.vm.Object(code)
+		results, _ := jsr.vm.ToValue(object)
+		return results
 	})
 
 	err = jsr.vm.Set("get", func(call otto.FunctionCall) (result otto.Value) {

@@ -759,6 +759,118 @@ func NewZygoRibosome(h *Holochain, zome *Zome) (n Ribosome, err error) {
 			return &result, nil
 		})
 
+	z.env.AddFunction("query",
+		func(env *zygo.Glisp, name string, zyargs []zygo.Sexp) (zygo.Sexp, error) {
+			a := &ActionQuery{}
+			args := a.Args()
+			err := zyProcessArgs(args, zyargs)
+			if err != nil {
+				return zygo.SexpNull, err
+			}
+
+			if len(zyargs) == 1 {
+				options := QueryOptions{}
+				var j []byte
+				j, err = json.Marshal(args[0].value)
+				if err != nil {
+					return zygo.SexpNull, err
+				}
+				Debugf("Query options: %s", string(j))
+				err = json.Unmarshal(j, &options)
+				if err != nil {
+					return zygo.SexpNull, err
+				}
+				a.options = &options
+			}
+
+			r, err := a.Do(h)
+			if err != nil {
+				return zygo.SexpNull, err
+			}
+			qr := r.([]QueryResult)
+
+			defs := make(map[string]*EntryDef)
+			results := make([]zygo.Sexp, len(qr))
+			for i, result := range qr {
+				var sexp zygo.Sexp
+				var hashSexp, entrySexp *zygo.SexpStr
+				var headerSexp *zygo.SexpHash
+				var returnCount int
+				if a.options.Return.Hashes {
+					returnCount += 1
+					hashSexp = &zygo.SexpStr{S: result.Header.EntryLink.String()}
+					sexp = hashSexp
+				}
+				if a.options.Return.Headers {
+					returnCount += 1
+					headerSexp, err = zygo.MakeHash(nil, "hash", env)
+					if err != nil {
+						return zygo.SexpNull, err
+					}
+					sexp = headerSexp
+					// TODO REFACTOR!!
+					err = headerSexp.HashSet(env.MakeSymbol("Time"), &zygo.SexpStr{S: fmt.Sprintf("%v", result.Header.Time)})
+					if err != nil {
+						return zygo.SexpNull, err
+					}
+					err = headerSexp.HashSet(env.MakeSymbol("Type"), &zygo.SexpStr{S: result.Header.Type})
+					if err != nil {
+						return zygo.SexpNull, err
+					}
+					err = headerSexp.HashSet(env.MakeSymbol("EntryLink"), &zygo.SexpStr{S: result.Header.EntryLink.String()})
+					if err != nil {
+						return zygo.SexpNull, err
+					}
+					err = headerSexp.HashSet(env.MakeSymbol("HeaderLink"), &zygo.SexpStr{S: result.Header.HeaderLink.String()})
+					if err != nil {
+						return zygo.SexpNull, err
+					}
+					err = headerSexp.HashSet(env.MakeSymbol("TypeLink"), &zygo.SexpStr{S: result.Header.TypeLink.String()})
+					if err != nil {
+						return zygo.SexpNull, err
+					}
+				}
+
+				if a.options.Return.Entries {
+					returnCount += 1
+
+					var def *EntryDef
+					var ok bool
+					def, ok = defs[result.Header.Type]
+					if !ok {
+						_, def, err = h.GetEntryDef(result.Header.Type)
+						if err != nil {
+							return zygo.SexpNull, err
+						}
+						defs[result.Header.Type] = def
+					}
+					entrySexp = &zygo.SexpStr{S: result.Entry.Content().(string)}
+					sexp = entrySexp
+
+				}
+				if returnCount > 1 {
+					var result *zygo.SexpHash
+					result, err = zygo.MakeHash(nil, "hash", env)
+					if err == nil && headerSexp != nil {
+						err = result.HashSet(env.MakeSymbol("Header"), headerSexp)
+					}
+					if err == nil && hashSexp != nil {
+						err = result.HashSet(env.MakeSymbol("Hash"), hashSexp)
+					}
+					if err == nil && entrySexp != nil {
+						err = result.HashSet(env.MakeSymbol("Entry"), entrySexp)
+					}
+					if err != nil {
+						return zygo.SexpNull, err
+					}
+					sexp = result
+				}
+				results[i] = sexp
+			}
+
+			return env.NewSexpArray(results), nil
+		})
+
 	z.env.AddFunction("get",
 		func(env *zygo.Glisp, name string, zyargs []zygo.Sexp) (zygo.Sexp, error) {
 			var a Action = &ActionGet{}
@@ -846,10 +958,10 @@ func NewZygoRibosome(h *Holochain, zome *Zome) (n Ribosome, err error) {
 						if mask&GetMaskEntry != 0 {
 							err = respObj.HashSet(env.MakeSymbol("Entry"), &zygo.SexpStr{S: entryStr})
 						}
-						if mask&GetMaskEntryType != 0 {
+						if err == nil && mask&GetMaskEntryType != 0 {
 							err = respObj.HashSet(env.MakeSymbol("EntryType"), &zygo.SexpStr{S: getResp.EntryType})
 						}
-						if mask&GetMaskSources != 0 {
+						if err == nil && mask&GetMaskSources != 0 {
 							err = respObj.HashSet(env.MakeSymbol("Sources"), zSources)
 						}
 					}

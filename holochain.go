@@ -8,6 +8,7 @@ package holochain
 
 import (
 	"bytes"
+	"context"
 	"encoding/gob"
 	"errors"
 	"fmt"
@@ -24,11 +25,16 @@ import (
 	"time"
 )
 
-// Version is the numeric version number of the holochain library
-const Version int = 15
+const (
+	// Version is the numeric version number of the holochain library
+	Version int = 15
 
-// VersionStr is the textual version number of the holochain library
-const VersionStr string = "15"
+	// VersionStr is the textual version number of the holochain library
+	VersionStr string = "15"
+
+	// DefaultSendTimeout a time.Duration to wait by default for send to complete
+	DefaultSendTimeout = 3000 * time.Millisecond
+)
 
 // Loggers holds the logging structures for the different parts of the system
 type Loggers struct {
@@ -77,6 +83,7 @@ type Holochain struct {
 	validateProtocol *Protocol
 	gossipProtocol   *Protocol
 	actionProtocol   *Protocol
+	asyncSends       chan error
 }
 
 func (h *Holochain) Nucleus() (n *Nucleus) {
@@ -93,6 +100,7 @@ func (h *Holochain) Name() string {
 
 var debugLog Logger
 var infoLog Logger
+var SendTimeoutErr = errors.New("send timeout")
 
 // Debug sends a string to the standard debug log
 func Debug(m string) {
@@ -263,6 +271,8 @@ func (h *Holochain) Prepare() (err error) {
 	if err = h.PrepareHashType(); err != nil {
 		return
 	}
+
+	h.asyncSends = make(chan error, 10)
 
 	err = h.createNode()
 	if err != nil {
@@ -651,6 +661,10 @@ func (h *Holochain) Reset() (err error) {
 		close(h.dht.gchan)
 	}
 	h.dht = NewDHT(h)
+	if h.asyncSends != nil {
+		close(h.asyncSends)
+		h.asyncSends = nil
+	}
 
 	return
 }
@@ -670,8 +684,47 @@ func (h *Holochain) HashSpec() HashSpec {
 	return h.hashSpec
 }
 
+// SendAsync builds a message and either delivers it locally or over the network via node.Send but registers a function for asyncronous call back
+func (h *Holochain) SendAsync(proto int, to peer.ID, t MsgType, body interface{}, callback *Callback, timeout time.Duration) (err error) {
+	var response interface{}
+
+	go func() {
+		response, err = h.Send(context.Background(), proto, to, t, body, timeout)
+		if err == nil {
+			var r Ribosome
+			r, _, err := h.MakeRibosome(callback.zomeType)
+			if err == nil {
+				switch t := response.(type) {
+				case AppMsg:
+					//var result interface{}
+					_, err = r.RunAsyncSendResponse(t, callback.Function, callback.ID)
+
+				default:
+					err = fmt.Errorf("unimplemented async send response type: %t", t)
+				}
+			}
+		}
+		h.asyncSends <- err
+	}()
+	return
+}
+
+// HandleAsyncSends waits on a channel for asyncronous sends
+func (h *Holochain) HandleAsyncSends() (err error) {
+	for {
+		h.nucleus.alog.Log("HandleAsyncSends: waiting for aysnc send response")
+		err, ok := <-h.asyncSends
+		if !ok {
+			h.nucleus.alog.Log("HandleAsyncSends: channel closed, breaking")
+			break
+		}
+		h.nucleus.alog.Logf("HandleAsyncSends: got %v", err)
+	}
+	return nil
+}
+
 // Send builds a message and either delivers it locally or over the network via node.Send
-func (h *Holochain) Send(proto int, to peer.ID, t MsgType, body interface{}) (response interface{}, err error) {
+func (h *Holochain) Send(ctx context.Context, proto int, to peer.ID, t MsgType, body interface{}, timeout time.Duration) (response interface{}, err error) {
 	message := h.node.NewMessage(t, body)
 	if err != nil {
 		return
@@ -680,28 +733,46 @@ func (h *Holochain) Send(proto int, to peer.ID, t MsgType, body interface{}) (re
 	if err != nil {
 		panic(fmt.Sprintf("error calculating fingerprint when sending message %v", message))
 	}
-	// if we are sending to ourselves we should bypass the network mechanics and call
-	// the receiver directly
-	if to == h.node.HashAddr {
-		Debugf("Sending message (local):%v (fingerprint:%s)", message, f)
-		response, err = h.node.protocols[proto].Receiver(h, message)
-		Debugf("send result (local): %v (fp:%s)error:%v", response, f, err)
-	} else {
-		Debugf("Sending message (net):%v (fingerprint:%s)", message, f)
-		var r Message
-		r, err = h.node.Send(proto, to, message)
-		Debugf("send result (net): %v (fp:%s) error:%v", r, f, err)
-
-		if err != nil {
-			return
-		}
-		if r.Type == ERROR_RESPONSE {
-			errResp := r.Body.(ErrorResponse)
-			err = errResp.DecodeResponseError()
-			response = errResp.Payload
+	if timeout == 0 {
+		timeout = DefaultSendTimeout
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+	sent := make(chan error, 1)
+	go func() {
+		// if we are sending to ourselves we should bypass the network mechanics and call
+		// the receiver directly
+		if to == h.node.HashAddr {
+			Debugf("Sending message (local):%v (fingerprint:%s)", message, f)
+			response, err = h.node.protocols[proto].Receiver(h, message)
+			Debugf("send result (local): %v (fp:%s)error:%v", response, f, err)
 		} else {
-			response = r.Body
+			Debugf("Sending message (net):%v (fingerprint:%s)", message, f)
+			var r Message
+			r, err = h.node.Send(ctx, proto, to, message)
+			Debugf("send result (net): %v (fp:%s) error:%v", r, f, err)
+
+			if err != nil {
+				sent <- err
+				return
+			}
+			if r.Type == ERROR_RESPONSE {
+				errResp := r.Body.(ErrorResponse)
+				err = errResp.DecodeResponseError()
+				response = errResp.Payload
+			} else {
+				response = r.Body
+			}
 		}
+		sent <- err
+	}()
+	select {
+	case <-ctx.Done():
+		err = ctx.Err()
+		if err == context.DeadlineExceeded {
+			err = SendTimeoutErr
+		}
+	case err = <-sent:
 	}
 	return
 }

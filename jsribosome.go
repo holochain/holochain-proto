@@ -654,6 +654,30 @@ func NewJSRibosome(h *Holochain, zome *Zome) (n Ribosome, err error) {
 		a.msg.ZomeType = jsr.zome.Name
 		a.msg.Body = string(j)
 
+		if args[2].value != nil {
+			a.options = &SendOptions{}
+			opts := args[2].value.(map[string]interface{})
+			cbmap, ok := opts["Callback"]
+			if ok {
+				callback := Callback{zomeType: zome.Name}
+				v, ok := cbmap.(map[string]interface{})["Function"]
+				if !ok {
+					return mkOttoErr(&jsr, "callback option requires Function")
+				}
+				callback.Function = v.(string)
+				v, ok = cbmap.(map[string]interface{})["ID"]
+				if !ok {
+					return mkOttoErr(&jsr, "callback option requires ID")
+				}
+				callback.ID = v.(string)
+				a.options.Callback = &callback
+			}
+			timeout, ok := opts["Timeout"]
+			if ok {
+				a.options.Timeout = int(timeout.(int64))
+			}
+		}
+
 		var r interface{}
 		r, err = a.Do(h)
 		if err != nil {
@@ -1041,5 +1065,14 @@ func (jsr *JSRibosome) Run(code string) (result interface{}, err error) {
 	}
 	jsr.lastResult = &v
 	result = &v
+	return
+}
+
+func (jsr *JSRibosome) RunAsyncSendResponse(response AppMsg, callback string, callbackID string) (result interface{}, err error) {
+
+	code := fmt.Sprintf(`%s(JSON.parse("%s"),"%s")`, callback, jsSanitizeString(response.Body), jsSanitizeString(callbackID))
+	Debugf("Calling %s\n", code)
+	result, err = jsr.Run(code)
+
 	return
 }

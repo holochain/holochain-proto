@@ -6,6 +6,7 @@ package holochain
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -494,9 +495,21 @@ func (a *ActionBridge) Do(h *Holochain) (response interface{}, err error) {
 //------------------------------------------------------------
 // Send
 
+type Callback struct {
+	Function string
+	ID       string
+	zomeType string
+}
+
+type SendOptions struct {
+	Callback *Callback
+	Timeout  int
+}
+
 type ActionSend struct {
-	to  peer.ID
-	msg AppMsg
+	to      peer.ID
+	msg     AppMsg
+	options *SendOptions
 }
 
 func NewSendAction(to peer.ID, msg AppMsg) *ActionSend {
@@ -509,14 +522,22 @@ func (a *ActionSend) Name() string {
 }
 
 func (a *ActionSend) Args() []Arg {
-	return []Arg{{Name: "to", Type: HashArg}, {Name: "msg", Type: MapArg}}
+	return []Arg{{Name: "to", Type: HashArg}, {Name: "msg", Type: MapArg}, {Name: "options", Type: MapArg, MapType: reflect.TypeOf(SendOptions{}), Optional: true}}
 }
 
 func (a *ActionSend) Do(h *Holochain) (response interface{}, err error) {
 	var r interface{}
-	r, err = h.Send(ActionProtocol, a.to, APP_MESSAGE, a.msg)
-	if err == nil {
-		response = r.(AppMsg).Body
+	var timeout time.Duration
+	if a.options != nil {
+		timeout = time.Duration(a.options.Timeout) * time.Millisecond
+	}
+	if a.options != nil && a.options.Callback != nil {
+		err = h.SendAsync(ActionProtocol, a.to, APP_MESSAGE, a.msg, a.options.Callback, timeout)
+	} else {
+		r, err = h.Send(context.Background(), ActionProtocol, a.to, APP_MESSAGE, a.msg, timeout)
+		if err == nil {
+			response = r.(AppMsg).Body
+		}
 	}
 	return
 }
@@ -858,7 +879,7 @@ func (a *ActionPut) SysValidation(h *Holochain, d *EntryDef, sources []peer.ID) 
 
 func RunValidationPhase(h *Holochain, source peer.ID, msgType MsgType, query Hash, handler func(resp ValidateResponse) error) (err error) {
 	var r interface{}
-	r, err = h.Send(ValidateProtocol, source, msgType, ValidateQuery{H: query})
+	r, err = h.Send(context.Background(), ValidateProtocol, source, msgType, ValidateQuery{H: query}, 0)
 	if err != nil {
 		return
 	}

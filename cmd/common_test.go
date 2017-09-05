@@ -2,10 +2,10 @@ package cmd
 
 import (
 	"fmt"
-	"os"
-	"path/filepath"
-
 	. "github.com/smartystreets/goconvey/convey"
+	"os"
+	"os/user"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -13,7 +13,6 @@ import (
 )
 
 func TestIsAppDir(t *testing.T) {
-
 	for _, configExtension := range GetConfigExtensionList() {
 		Convey(fmt.Sprintf("it should test to see if dir is a holochain app (%v)", configExtension), t, func() {
 
@@ -29,6 +28,30 @@ func TestIsAppDir(t *testing.T) {
 		})
 	}
 
+}
+
+func TestGetHolochainRoot(t *testing.T) {
+	os.Setenv("HOLOPATH", "some/dir/in/the/env")
+	Convey("it should return the value passed in if not empty", t, func() {
+		root, err := GetHolochainRoot("some/dir")
+		So(err, ShouldBeNil)
+		So(root, ShouldEqual, "some/dir")
+	})
+	Convey("it should get the root from the env", t, func() {
+		root, err := GetHolochainRoot("")
+		So(err, ShouldBeNil)
+		So(root, ShouldEqual, "some/dir/in/the/env")
+	})
+	Convey("it should return the default directory if env and input are empty", t, func() {
+		os.Setenv("HOLOPATH", "")
+		root, err := GetHolochainRoot("")
+		So(err, ShouldBeNil)
+		u, err := user.Current()
+		if err != nil {
+			panic(err)
+		}
+		So(root, ShouldEqual, filepath.Join(u.HomeDir, holo.DefaultDirectoryName))
+	})
 }
 
 func TestGetService(t *testing.T) {

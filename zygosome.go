@@ -675,11 +675,42 @@ func NewZygoRibosome(h *Holochain, zome *Zome) (n Ribosome, err error) {
 			a.msg.ZomeType = z.zome.Name
 			a.msg.Body = string(j)
 
+			if args[2].value != nil {
+				a.options = &SendOptions{}
+				opts := args[2].value.(map[string]interface{})
+				cbmap, ok := opts["Callback"]
+				if ok {
+					callback := Callback{zomeType: zome.Name}
+					v, ok := cbmap.(map[string]interface{})["Function"]
+					if !ok {
+						return zygo.SexpNull, errors.New("callback option requires Function")
+					}
+					callback.Function = v.(string)
+					v, ok = cbmap.(map[string]interface{})["ID"]
+					if !ok {
+						return zygo.SexpNull, errors.New("callback option requires ID")
+					}
+					callback.ID = v.(string)
+					a.options.Callback = &callback
+				}
+				timeout, ok := opts["Timeout"]
+				if ok {
+					a.options.Timeout = int(timeout.(int64))
+				}
+			}
+
 			var r interface{}
 			r, err = a.Do(h)
 			var resp zygo.Sexp
 			if err == nil {
-				resp = &zygo.SexpStr{S: r.(string)}
+				switch t := r.(type) {
+				case string:
+					resp = &zygo.SexpStr{S: t}
+				case nil:
+					resp = zygo.SexpNull
+				default:
+					return zygo.SexpNull, errors.New("send should return nil or string")
+				}
 			}
 			return makeResult(env, resp, err)
 		})
@@ -1114,4 +1145,11 @@ func addExtras(z *ZygoRibosome) {
 
 			return &zygo.SexpInt{Val: i}, nil
 		})
+}
+
+func (z *ZygoRibosome) RunAsyncSendResponse(response AppMsg, callback string, callbackID string) (result interface{}, err error) {
+	code := fmt.Sprintf(`(%s (unjson (raw "%s")) "%s")`, callback, sanitizeZyString(response.Body), sanitizeZyString(callbackID))
+	Debugf("Calling %s\n", code)
+	result, err = z.Run(code)
+	return
 }

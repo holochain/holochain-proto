@@ -154,7 +154,7 @@ func TestNodeSend(t *testing.T) {
 	Convey("It should fail on messages without a source", t, func() {
 		m := Message{Type: PUT_REQUEST, Body: "fish"}
 		So(len(node1.Host.Peerstore().Peers()), ShouldEqual, 1)
-		r, err := node2.Send(ActionProtocol, node1.HashAddr, &m)
+		r, err := node2.Send(context.Background(), ActionProtocol, node1.HashAddr, &m)
 		So(err, ShouldBeNil)
 		So(len(node1.Host.Peerstore().Peers()), ShouldEqual, 2) // node1's peerstore should now have node2
 		So(r.Type, ShouldEqual, ERROR_RESPONSE)
@@ -164,21 +164,21 @@ func TestNodeSend(t *testing.T) {
 
 	Convey("It should fail on incorrect message types", t, func() {
 		m := node1.NewMessage(PUT_REQUEST, "fish")
-		r, err := node1.Send(ValidateProtocol, node2.HashAddr, m)
+		r, err := node1.Send(context.Background(), ValidateProtocol, node2.HashAddr, m)
 		So(err, ShouldBeNil)
 		So(r.Type, ShouldEqual, ERROR_RESPONSE)
 		So(r.From, ShouldEqual, node2.HashAddr) // response comes from who we sent to
 		So(r.Body.(ErrorResponse).Message, ShouldEqual, "message type 2 not in holochain-validate protocol")
 
 		m = node2.NewMessage(PUT_REQUEST, "fish")
-		r, err = node2.Send(GossipProtocol, node1.HashAddr, m)
+		r, err = node2.Send(context.Background(), GossipProtocol, node1.HashAddr, m)
 		So(err, ShouldBeNil)
 		So(r.Type, ShouldEqual, ERROR_RESPONSE)
 		So(r.From, ShouldEqual, node1.HashAddr) // response comes from who we sent to
 		So(r.Body.(ErrorResponse).Message, ShouldEqual, "message type 2 not in holochain-gossip protocol")
 
 		m = node2.NewMessage(GOSSIP_REQUEST, "fish")
-		r, err = node2.Send(ActionProtocol, node1.HashAddr, m)
+		r, err = node2.Send(context.Background(), ActionProtocol, node1.HashAddr, m)
 		So(err, ShouldBeNil)
 		So(r.Type, ShouldEqual, ERROR_RESPONSE)
 		So(r.From, ShouldEqual, node1.HashAddr) // response comes from who we sent to
@@ -190,7 +190,7 @@ func TestNodeSend(t *testing.T) {
 		hash, _ := NewHash("QmY8Mzg9F69e5P9AoQPYat6x5HEhc1TVGs11tmfNSzkqh2")
 
 		m := node2.NewMessage(PUT_REQUEST, PutReq{H: hash})
-		r, err := node2.Send(ActionProtocol, node1.HashAddr, m)
+		r, err := node2.Send(context.Background(), ActionProtocol, node1.HashAddr, m)
 		So(err, ShouldBeNil)
 		So(r.Type, ShouldEqual, ERROR_RESPONSE)
 		So(r.From, ShouldEqual, node1.HashAddr) // response comes from who we sent to
@@ -199,7 +199,7 @@ func TestNodeSend(t *testing.T) {
 
 	Convey("It should respond with OK if valid request", t, func() {
 		m := node2.NewMessage(GOSSIP_REQUEST, GossipReq{})
-		r, err := node2.Send(GossipProtocol, node1.HashAddr, m)
+		r, err := node2.Send(context.Background(), GossipProtocol, node1.HashAddr, m)
 		So(err, ShouldBeNil)
 		So(r.Type, ShouldEqual, OK_RESPONSE)
 		So(r.From, ShouldEqual, node1.HashAddr) // response comes from who we sent to
@@ -209,7 +209,7 @@ func TestNodeSend(t *testing.T) {
 	Convey("it should respond with err on messages from nodes on the blockedlist", t, func() {
 		node1.Block(node2.HashAddr)
 		m := node2.NewMessage(GOSSIP_REQUEST, GossipReq{})
-		r, err := node2.Send(GossipProtocol, node1.HashAddr, m)
+		r, err := node2.Send(context.Background(), GossipProtocol, node1.HashAddr, m)
 		So(err, ShouldBeNil)
 		So(r.Type, ShouldEqual, ERROR_RESPONSE)
 		So(r.From, ShouldEqual, node1.HashAddr) // response comes from who we sent to
@@ -219,7 +219,7 @@ func TestNodeSend(t *testing.T) {
 	Convey("it should respond with err on messages to nodes on the blockedlist", t, func() {
 		node1.Block(node2.HashAddr)
 		m := node1.NewMessage(GOSSIP_REQUEST, GossipReq{})
-		_, err = node1.Send(GossipProtocol, node2.HashAddr, m)
+		_, err = node1.Send(context.Background(), GossipProtocol, node2.HashAddr, m)
 		So(err, ShouldEqual, ErrBlockedListed)
 	})
 
@@ -330,7 +330,7 @@ func TestFindPeer(t *testing.T) {
 
 	Convey("sending to an unknown peer should fail with no route to peer", t, func() {
 		m := Message{Type: PUT_REQUEST, Body: "fish"}
-		_, err := node1.Send(ActionProtocol, pid, &m)
+		_, err := node1.Send(context.Background(),ActionProtocol, pid, &m)
 		//So(r, ShouldBeNil)
 		So(err, ShouldEqual, "fish")
 	})

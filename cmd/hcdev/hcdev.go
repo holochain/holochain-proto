@@ -864,7 +864,8 @@ func setupBridgeApp(service *holo.Service, h *holo.Holochain, agent holo.Agent, 
 	if err != nil {
 		return
 	}
-	os.Setenv("HCDEV_DNA_FOR_"+bridgeName, DNAHash.String())
+	holo.DevDNAResolveMap = make(map[string]string)
+	holo.DevDNAResolveMap[bridgeName] = DNAHash.String()
 
 	// clear the log prefix for the next load.
 	os.Setenv("HCLOG_PREFIX", "")
@@ -879,6 +880,7 @@ func activate(h *holo.Holochain, port string) (ws *ui.WebServer, err error) {
 	}
 	//				go h.DHT().HandleChangeReqs()
 	go h.DHT().HandleGossipWiths()
+	go h.HandleAsyncSends()
 	go h.DHT().Gossip(2 * time.Second)
 	ws = ui.NewWebServer(h, port)
 	ws.Start()

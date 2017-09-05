@@ -301,6 +301,20 @@ func TestNewJSRibosome(t *testing.T) {
 				So(err, ShouldBeNil)
 			})
 		})
+		Convey("send async", func() {
+			ShouldLog(h.nucleus.alog, `async result of message with 123 was: {"pong":"foobar"}`, func() {
+				_, err := z.Run(`send(App.Key.Hash,{ping:"foobar"},{Callback:{Function:"asyncPing",ID:"123"}})`)
+				So(err, ShouldBeNil)
+				err = <-h.asyncSends
+				So(err, ShouldBeNil)
+			})
+		})
+		Convey("send async with 100ms timeout", func() {
+			_, err := z.Run(`send(App.Key.Hash,{block:true},{Callback:{Function:"asyncPing",ID:"123"},Timeout:100})`)
+			So(err, ShouldBeNil)
+			err = <-h.asyncSends
+			So(err, ShouldBeError, SendTimeoutErr)
+		})
 	})
 }
 

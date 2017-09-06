@@ -15,7 +15,7 @@ func TestZomeGetEntryDef(t *testing.T) {
 		_, err := z.GetEntryDef("bar")
 		So(err.Error(), ShouldEqual, "no definition for entry type: bar")
 	})
-	Convey("it should fail on an undefined entry type", t, func() {
+	Convey("it should get a defined entry type", t, func() {
 		z := h.nucleus.dna.Zomes[0]
 		d, err := z.GetEntryDef("primes")
 		So(err, ShouldBeNil)

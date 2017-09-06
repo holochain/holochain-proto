@@ -23,11 +23,13 @@ const (
 
 	// Entry type formats
 
-	DataFormatLinks   = "links"
-	DataFormatJSON    = "json"
-	DataFormatString  = "string"
-	DataFormatRawJS   = "js"
-	DataFormatRawZygo = "zygo"
+	DataFormatLinks    = "links"
+	DataFormatJSON     = "json"
+	DataFormatString   = "string"
+	DataFormatRawJS    = "js"
+	DataFormatRawZygo  = "zygo"
+	DataFormatSysDNA   = "_DNA"
+	DataFormatSysAgent = "_agent"
 
 	// Entry sharing types
 
@@ -69,6 +71,9 @@ type EntryDef struct {
 	Schema     string
 	validator  SchemaValidator
 }
+
+var DNAEntryDef = &EntryDef{Name: DNAEntryType, DataFormat: DataFormatSysDNA}
+var AgentEntryDef = &EntryDef{Name: AgentEntryType, DataFormat: DataFormatSysAgent}
 
 // Entry describes serialization and deserialziation of entry data
 type Entry interface {

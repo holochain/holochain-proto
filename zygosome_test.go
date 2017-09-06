@@ -200,6 +200,51 @@ func TestNewZygoRibosome(t *testing.T) {
 	})
 }
 
+func TestZygoQuery(t *testing.T) {
+	d, _, h := PrepareTestChain("test")
+	defer CleanupTestDir(d)
+
+	zome, _ := h.GetZome("zySampleZome")
+	v, err := NewZygoRibosome(h, zome)
+	if err != nil {
+		panic(err)
+	}
+	z := v.(*ZygoRibosome)
+
+	Convey("query", t, func() {
+		// add entries onto the chain to get hash values for testing
+		commit(h, "evenNumbers", "2")
+		commit(h, "secret", "foo")
+		commit(h, "evenNumbers", "4")
+		commit(h, "secret", "bar")
+		commit(h, "profile", `{"firstName":"Zippy","lastName":"Pinhead"}`)
+
+		ShouldLog(h.nucleus.alog, `["2" "4"]`, func() {
+			_, err := z.Run(`(debug (str (query (hash Constrain: (hash EntryTypes: ["evenNumbers"])))))`)
+			So(err, ShouldBeNil)
+		})
+		ShouldLog(h.nucleus.alog, `["QmQzp4h9pvLVJHUx6rFxxC4ViqgnznYqXvoa9HsJgACMmi" "QmS4bKx7zZt6qoX2om5M5ik3X2k4Fco2nFx82CDJ3iVKj2"]`, func() {
+			_, err := z.Run(`(debug (str (query (hash Return: (hash Hashes: true) Constrain: (hash EntryTypes:["evenNumbers"])))))`)
+			So(err, ShouldBeNil)
+		})
+		ShouldLog(h.nucleus.alog, `[ (hash Hash:"QmQzp4h9pvLVJHUx6rFxxC4ViqgnznYqXvoa9HsJgACMmi" Entry:"2")  (hash Hash:"QmS4bKx7zZt6qoX2om5M5ik3X2k4Fco2nFx82CDJ3iVKj2" Entry:"4")]`, func() {
+			_, err := z.Run(`(debug (str (query ( hash Return: (hash Hashes:true Entries:true) Constrain: (hash EntryTypes: ["evenNumbers"])))))`)
+			So(err, ShouldBeNil)
+		})
+		ShouldLog(h.nucleus.alog, `"Type":"evenNumbers", "EntryLink":"QmQzp4h9pvLVJHUx6rFxxC4ViqgnznYqXvoa9HsJgACMmi", "HeaderLink":"Qm`, func() {
+			_, err := z.Run(`(debug (query (hash Return: (hash Headers:true Entries:true) Constrain: (hash EntryTypes: ["evenNumbers"]))))`)
+			So(err, ShouldBeNil)
+		})
+		ShouldLog(h.nucleus.alog, `["foo", "bar"]`, func() {
+			_, err := z.Run(`(debug (query (hash Constrain: (hash EntryTypes: ["secret"]))))`)
+			So(err, ShouldBeNil)
+		})
+		ShouldLog(h.nucleus.alog, `["{\"firstName\":\"Zippy\",\"lastName\":\"Pinhead\"}"]`, func() {
+			_, err := z.Run(`(debug (str (query (hash Constrain: (hash EntryTypes: ["profile"])))))`)
+			So(err, ShouldBeNil)
+		})
+	})
+}
 func TestZygoGenesis(t *testing.T) {
 	Convey("it should fail if the genesis function returns false", t, func() {
 		z, _ := NewZygoRibosome(nil, &Zome{RibosomeType: ZygoRibosomeType, Code: `(defn genesis [] false)`})

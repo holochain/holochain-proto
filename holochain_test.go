@@ -501,8 +501,184 @@ func TestCommit(t *testing.T) {
 	})
 }
 
+func TestQuery(t *testing.T) {
+	d, _, h := PrepareTestChain("test")
+	defer CleanupTestDir(d)
+	commit(h, "profile", `{"firstName":"Pebbles","lastName":"Flintstone"}`)
+	hash1 := commit(h, "oddNumbers", "7")
+	commit(h, "secret", "foo")
+	hash2 := commit(h, "oddNumbers", "9")
+	commit(h, "secret", "bar")
+	commit(h, "secret", "baz")
+	commit(h, "profile", `{"firstName":"Zippy","lastName":"Pinhead"}`)
+	commit(h, "profile", `{"firstName":"Zerbina","lastName":"Pinhead"}`)
+
+	Convey("query with no options should return entire chain entries only", t, func() {
+		results, err := h.Query(nil)
+		So(err, ShouldBeNil)
+		So(len(results), ShouldEqual, 10)
+		So(results[0].Header.Type, ShouldEqual, DNAEntryType)
+		So(results[1].Header.Type, ShouldEqual, AgentEntryType)
+		So(results[2].Entry.Content(), ShouldEqual, `{"firstName":"Pebbles","lastName":"Flintstone"}`)
+		So(results[3].Entry.Content(), ShouldEqual, "7")
+		So(results[4].Entry.Content(), ShouldEqual, "foo")
+		So(results[5].Entry.Content(), ShouldEqual, "9")
+		So(results[6].Entry.Content(), ShouldEqual, "bar")
+		So(results[7].Entry.Content(), ShouldEqual, "baz")
+		So(results[8].Entry.Content(), ShouldEqual, `{"firstName":"Zippy","lastName":"Pinhead"}`)
+		So(results[9].Entry.Content(), ShouldEqual, `{"firstName":"Zerbina","lastName":"Pinhead"}`)
+	})
+	Convey("query with order should reverse the order", t, func() {
+		results, err := h.Query(&QueryOptions{Order: QueryOrder{Ascending: true}})
+		So(err, ShouldBeNil)
+		So(len(results), ShouldEqual, 10)
+		So(results[9].Header.Type, ShouldEqual, DNAEntryType)
+		So(results[8].Header.Type, ShouldEqual, AgentEntryType)
+		So(results[7].Entry.Content(), ShouldEqual, `{"firstName":"Pebbles","lastName":"Flintstone"}`)
+		So(results[6].Entry.Content(), ShouldEqual, "7")
+		So(results[5].Entry.Content(), ShouldEqual, "foo")
+		So(results[4].Entry.Content(), ShouldEqual, "9")
+		So(results[3].Entry.Content(), ShouldEqual, "bar")
+		So(results[2].Entry.Content(), ShouldEqual, "baz")
+		So(results[1].Entry.Content(), ShouldEqual, `{"firstName":"Zippy","lastName":"Pinhead"}`)
+		So(results[0].Entry.Content(), ShouldEqual, `{"firstName":"Zerbina","lastName":"Pinhead"}`)
+	})
+
+	Convey("query with with count and page should select items", t, func() {
+		q := &QueryOptions{}
+		q.Constrain.Count = 2
+		q.Constrain.Page = 2 // zero based
+		results, err := h.Query(q)
+		So(err, ShouldBeNil)
+		So(len(results), ShouldEqual, 2)
+		So(results[0].Entry.Content(), ShouldEqual, "foo")
+		So(results[1].Entry.Content(), ShouldEqual, "9")
+	})
+
+	Convey("query with with count and page partially past end should select items", t, func() {
+		q := &QueryOptions{}
+		q.Constrain.Count = 4
+		q.Constrain.Page = 2 // zero based
+		results, err := h.Query(q)
+		So(err, ShouldBeNil)
+		So(len(results), ShouldEqual, 2)
+		So(results[0].Entry.Content(), ShouldEqual, `{"firstName":"Zippy","lastName":"Pinhead"}`)
+		So(results[1].Entry.Content(), ShouldEqual, `{"firstName":"Zerbina","lastName":"Pinhead"}`)
+	})
+
+	Convey("query with with count and page past end should be empty", t, func() {
+		q := &QueryOptions{}
+		q.Constrain.Count = 10
+		q.Constrain.Page = 1 // zero based
+		results, err := h.Query(q)
+		So(err, ShouldBeNil)
+		So(len(results), ShouldEqual, 0)
+	})
+
+	Convey("query with entry type options should return that type only", t, func() {
+		q := &QueryOptions{}
+		q.Constrain.EntryTypes = []string{"oddNumbers"}
+		results, err := h.Query(q)
+		So(err, ShouldBeNil)
+		So(len(results), ShouldEqual, 2)
+		So(results[0].Entry.Content(), ShouldEqual, "7")
+		So(results[1].Entry.Content(), ShouldEqual, "9")
+	})
+	Convey("query with multiple entry type options should return those types only", t, func() {
+		q := &QueryOptions{}
+		q.Constrain.EntryTypes = []string{"oddNumbers", "secret"}
+		results, err := h.Query(q)
+		So(err, ShouldBeNil)
+		So(len(results), ShouldEqual, 5)
+		So(results[0].Entry.Content(), ShouldEqual, "7")
+		So(results[1].Entry.Content(), ShouldEqual, "foo")
+		So(results[2].Entry.Content(), ShouldEqual, "9")
+		So(results[3].Entry.Content(), ShouldEqual, "bar")
+		So(results[4].Entry.Content(), ShouldEqual, "baz")
+	})
+	Convey("query with hash options should return only hashes", t, func() {
+		q := &QueryOptions{}
+		q.Constrain.EntryTypes = []string{"oddNumbers"}
+		q.Return.Hashes = true
+		results, err := h.Query(q)
+		So(err, ShouldBeNil)
+		So(results[0].Header.EntryLink.String(), ShouldEqual, hash1.String())
+		So(results[1].Header.EntryLink.String(), ShouldEqual, hash2.String())
+		So(results[0].Entry, ShouldBeNil)
+		So(results[1].Entry, ShouldBeNil)
+	})
+	Convey("query with equals constraint", t, func() {
+		q := &QueryOptions{}
+		q.Constrain.EntryTypes = []string{"secret"}
+		q.Constrain.Equals = "foo"
+		results, err := h.Query(q)
+		So(err, ShouldBeNil)
+		So(len(results), ShouldEqual, 1)
+		So(results[0].Entry.Content(), ShouldEqual, "foo")
+	})
+	Convey("query with contains constraint", t, func() {
+		q := &QueryOptions{}
+		q.Constrain.EntryTypes = []string{"secret"}
+		q.Constrain.Contains = "o"
+		results, err := h.Query(q)
+		So(err, ShouldBeNil)
+		So(len(results), ShouldEqual, 1)
+		So(results[0].Entry.Content(), ShouldEqual, "foo")
+	})
+	Convey("query with matches constraint", t, func() {
+		q := &QueryOptions{}
+		q.Constrain.EntryTypes = []string{"secret"}
+		q.Constrain.Matches = ".a."
+		results, err := h.Query(q)
+		So(err, ShouldBeNil)
+		So(len(results), ShouldEqual, 2)
+		So(results[0].Entry.Content(), ShouldEqual, "bar")
+		So(results[1].Entry.Content(), ShouldEqual, "baz")
+	})
+	Convey("query with equals field constraint", t, func() {
+		q := &QueryOptions{}
+		q.Constrain.EntryTypes = []string{"profile"}
+		q.Constrain.Equals = `{"firstName":"Zippy"}`
+		results, err := h.Query(q)
+		So(err, ShouldBeNil)
+		So(len(results), ShouldEqual, 1)
+		So(results[0].Entry.Content(), ShouldEqual, `{"firstName":"Zippy","lastName":"Pinhead"}`)
+	})
+	Convey("query with equals multiple field constraint", t, func() {
+		q := &QueryOptions{}
+		q.Constrain.EntryTypes = []string{"profile"}
+		q.Constrain.Equals = `{"firstName":"Zippy","lastName":"Flintstone"}`
+		results, err := h.Query(q)
+		So(err, ShouldBeNil)
+		So(len(results), ShouldEqual, 2)
+		So(results[0].Entry.Content(), ShouldEqual, `{"firstName":"Pebbles","lastName":"Flintstone"}`)
+		So(results[1].Entry.Content(), ShouldEqual, `{"firstName":"Zippy","lastName":"Pinhead"}`)
+
+	})
+	Convey("query with contains field constraint", t, func() {
+		q := &QueryOptions{}
+		q.Constrain.EntryTypes = []string{"profile"}
+		q.Constrain.Contains = `{"firstName":"Z"}`
+		results, err := h.Query(q)
+		So(err, ShouldBeNil)
+		So(len(results), ShouldEqual, 2)
+		So(results[0].Entry.Content(), ShouldEqual, `{"firstName":"Zippy","lastName":"Pinhead"}`)
+		So(results[1].Entry.Content(), ShouldEqual, `{"firstName":"Zerbina","lastName":"Pinhead"}`)
+	})
+	Convey("query with matches field constraint", t, func() {
+		q := &QueryOptions{}
+		q.Constrain.EntryTypes = []string{"profile"}
+		q.Constrain.Matches = `{"firstName":".*b"}`
+		results, err := h.Query(q)
+		So(err, ShouldBeNil)
+		So(len(results), ShouldEqual, 2)
+		So(results[0].Entry.Content(), ShouldEqual, `{"firstName":"Pebbles","lastName":"Flintstone"}`)
+		So(results[1].Entry.Content(), ShouldEqual, `{"firstName":"Zerbina","lastName":"Pinhead"}`)
+	})
+}
+
 //func TestDNADefaults(t *testing.T) {
-//	h, err := DecodeDNA(strings.NewReader(`[[Zomes]]
+//	h, err := DecodeDNA(strings.NewReader( [[Zomes]]`
 //Name = "test"
 //Description = "test-zome"
 //RibosomeType = "zygo"`), "toml")

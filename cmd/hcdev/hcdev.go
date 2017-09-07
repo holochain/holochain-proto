@@ -504,7 +504,7 @@ func setupApp() (app *cli.App) {
 							"-execpath="+filepath.Join(rootExecDir, roleName),
 							"-port="+strconv.Itoa(freePort),
 							"-mdns=true",
-							"-nat-upnp=true",
+							"-no-nat-upnp=true",
 							"-logPrefix="+logPrefix,
 							"-bootstrapServer=_",
 							fmt.Sprintf("-keepalive=%v", keepalive),

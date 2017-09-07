@@ -193,13 +193,13 @@ func (n *Node) discoverAndHandleNat(listenPort int) {
 			Debugf("NAT: successfully created port mapping! External address is: %s", external_addr.String())
 		} else {
 			Debugf("NAT: could not create port mappping. Keep trying...")
-			fmt.Errorf("NAT:-------------------------------------------------------")
-			fmt.Errorf("NAT:---------------------Warning---------------------------")
-			fmt.Errorf("NAT:-------------------------------------------------------")
-			fmt.Errorf("NAT: You seem to be behind a NAT that does not speak UPnP.")
-			fmt.Errorf("NAT: You will have to setup a port forwarding manually.")
-			fmt.Errorf("NAT: This instance is configured to listen on port: %d", listenPort)
-			fmt.Errorf("NAT:-------------------------------------------------------")
+			Infof("NAT:-------------------------------------------------------")
+			Infof("NAT:---------------------Warning---------------------------")
+			Infof("NAT:-------------------------------------------------------")
+			Infof("NAT: You seem to be behind a NAT that does not speak UPnP.")
+			Infof("NAT: You will have to setup a port forwarding manually.")
+			Infof("NAT: This instance is configured to listen on port: %d", listenPort)
+			Infof("NAT:-------------------------------------------------------")
 		}
 
 	}
@@ -216,7 +216,7 @@ func NewNode(listenAddr string, protoMux string, agent *LibP2PAgent, enableNATUP
 	var n Node
 	listenPort, err := strconv.Atoi(strings.Split(listenAddr, "/")[4])
 	if err != nil {
-		fmt.Errorf("Can't parse port from Multiaddress string: %s", listenAddr)
+		Infof("Can't parse port from Multiaddress string: %s", listenAddr)
 		return
 	}
 

@@ -822,10 +822,10 @@ func (s *Service) ListChains() (list string) {
 			bridges, _ := chains[k].GetBridges()
 			if bridges != nil {
 				for _, b := range bridges {
-					if b.Side == BridgeTo {
+					if b.Side == BridgeFrom {
 						list += fmt.Sprintf("        bridged to: %v\n", b.ToApp)
 					} else {
-						list += fmt.Sprintf("        bridged from by token: %v\n", b.FromToken)
+						list += fmt.Sprintf("        bridged from by token: %v\n", b.Token)
 					}
 				}
 			}
@@ -1586,6 +1586,10 @@ function receive(from,message) {
   return {pong:message.ping}
 }
 
+function testGetBridges() {
+  debug(JSON.stringify(getBridges()))
+}
+
 function asyncPing(message,id) {
   debug("async result of message with "+id+" was: "+JSON.stringify(message))
 }
@@ -1625,6 +1629,10 @@ function asyncPing(message,id) {
 (defn bridgeGenesis [side app data] (begin (debug (concat "bridge genesis " (cond (== side HC_Bridge_From) "from" "to") "-- other side is:" app " bridging data:" data))  true))
 (defn receive [from message]
 	(hash pong: (hget message %ping)))
+
+(defn testGetBridges []
+  (debug (str (getBridges))))
+
 (defn asyncPing [message,id]
   (debug (concat "async result of message with " id " was:" (str message)))
 )

@@ -47,7 +47,7 @@ func TestWeb(t *testing.T) {
 	app := setupApp()
 
 	Convey("it should run a webserver", t, func() {
-		os.Args = []string{"hcd", "-path", s.Path, "-verbose", "testApp"}
+		os.Args = []string{"hcd", "-path", s.Path, "-verbose", "-no-nat-upnp",  "testApp"}
 
 		old := os.Stdout // keep backup of the real stdout
 		r, w, _ := os.Pipe()

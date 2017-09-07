@@ -203,7 +203,7 @@ func TestWeb(t *testing.T) {
 	defer os.RemoveAll(tmpTestDir)
 
 	Convey("'web' should run a webserver", t, func() {
-		out, err := runAppWithStdoutCapture(app, []string{"hcdev", "web"})
+		out, err := runAppWithStdoutCapture(app, []string{"hcdev", "-no-nat-upnp", "web"})
 		So(err, ShouldBeNil)
 		So(out, ShouldContainSubstring, "on port:4141")
 		So(out, ShouldContainSubstring, "Serving holochain with DNA hash:")

@@ -206,7 +206,7 @@ func (n *Node) discoverAndHandleNat(listenPort int) {
 }
 
 // NewNode creates a new ipfs basichost node with given identity
-func NewNode(listenAddr string, protoMux string, agent *LibP2PAgent) (node *Node, err error) {
+func NewNode(listenAddr string, protoMux string, agent *LibP2PAgent, enableNATUPnP bool) (node *Node, err error) {
 	Debugf("Creating new node with protoMux: %s\n", protoMux)
 	nodeID, _, err := agent.NodeID()
 	if err != nil {
@@ -225,8 +225,12 @@ func NewNode(listenAddr string, protoMux string, agent *LibP2PAgent) (node *Node
 		return
 	}
 
+	if enableNATUPnP {
+		n.discoverAndHandleNat(listenPort)
+	}
+
 	ps := pstore.NewPeerstore()
-	n.discoverAndHandleNat(listenPort)
+
 	n.HashAddr = nodeID
 	priv := agent.PrivKey()
 	ps.AddPrivKey(nodeID, priv)

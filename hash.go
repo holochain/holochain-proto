@@ -12,6 +12,8 @@ import (
 	"errors"
 	mh "github.com/multiformats/go-multihash"
 	"io"
+	"math/big"
+	"sort"
 )
 
 // Hash of Entry's Content
@@ -28,6 +30,16 @@ type HashSpec struct {
 // NewHash builds a Hash from a b58 string encoded hash
 func NewHash(s string) (h Hash, err error) {
 	h.H, err = mh.FromB58String(s)
+	return
+}
+
+// HashFromBytes cast a string to Hash type, and validate
+// the id to make sure it is a multihash.
+func HashFromBytes(b []byte) (h Hash, err error) {
+	if h.H, err = mh.Cast(b); err != nil {
+		h = NullHash()
+		return
+	}
 	return
 }
 
@@ -99,4 +111,85 @@ func (h *Hash) UnmarshalHash(reader io.Reader) (err error) {
 		}
 	}
 	return
+}
+
+// XOR takes two byte slices, XORs them together, returns the resulting slice.
+// taken from https://github.com/ipfs/go-ipfs-util/blob/master/util.go
+func XOR(a, b []byte) []byte {
+	c := make([]byte, len(a))
+	for i := 0; i < len(a); i++ {
+		c[i] = a[i] ^ b[i]
+	}
+	return c
+}
+
+// The code below is adapted from https://github.com/libp2p/go-libp2p-kbucket
+
+// Distance returns the distance metric between two hashes
+func HashDistance(h1, h2 Hash) *big.Int {
+	// XOR the hashes
+	k3 := XOR(h1.H, h2.H)
+
+	// interpret it as an integer
+	dist := big.NewInt(0).SetBytes(k3)
+	return dist
+}
+
+// Less returns whether the first key is smaller than the second.
+func HashLess(h1, h2 Hash) bool {
+	a := h1.H
+	b := h2.H
+	for i := 0; i < len(a); i++ {
+		if a[i] != b[i] {
+			return a[i] < b[i]
+		}
+	}
+	return true
+}
+
+// ZeroPrefixLen returns the number of consecutive zeroes in a byte slice.
+func ZeroPrefixLen(id []byte) int {
+	for i := 0; i < len(id); i++ {
+		for j := 0; j < 8; j++ {
+			if (id[i]>>uint8(7-j))&0x1 != 0 {
+				return i*8 + j
+			}
+		}
+	}
+	return len(id) * 8
+}
+
+// hashDistance helper struct for sorting by distance which pre-caches the distance
+// to center so as not to recalculate it on every sort comparison.
+type hashDistance struct {
+	hash     Hash
+	distance *big.Int
+}
+
+type hashSorterArr []*hashDistance
+
+func (p hashSorterArr) Len() int      { return len(p) }
+func (p hashSorterArr) Swap(a, b int) { p[a], p[b] = p[b], p[a] }
+func (p hashSorterArr) Less(a, b int) bool {
+	return p[a].distance.Cmp(p[b].distance) == -1
+}
+
+// SortByDistance takes a center Hash, and a list of Hashes toSort.
+// It returns a new list, where the Hashes toSort have been sorted by their
+// distance to the center Hash.
+func SortByDistance(center Hash, toSort []Hash) []Hash {
+	var hsarr hashSorterArr
+	for _, h := range toSort {
+		hd := &hashDistance{
+			hash:     h,
+			distance: HashDistance(h, center),
+		}
+		hsarr = append(hsarr, hd)
+	}
+	sort.Sort(hsarr)
+	var out []Hash
+	for _, hd := range hsarr {
+		out = append(out, hd.hash)
+	}
+	return out
 }

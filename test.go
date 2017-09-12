@@ -3,6 +3,7 @@ package holochain
 import (
 	"bytes"
 	. "github.com/smartystreets/goconvey/convey"
+	"io"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -25,10 +26,14 @@ func MakeTestDirName() string {
 	return d
 }
 
+func makeTestSeed(id string) io.Reader {
+	return strings.NewReader(id + "1234567890123456789012345678901234567890")
+}
+
 func setupTestService() (d string, s *Service) {
 	d = SetupTestDir()
 	agent := AgentIdentity("Herbert <h@bert.com>")
-	s, err := Init(filepath.Join(d, DefaultDirectoryName), agent)
+	s, err := Init(filepath.Join(d, DefaultDirectoryName), agent, makeTestSeed(string(agent)))
 
 	s.Settings.DefaultBootstrapServer = "localhost:3142"
 	if err != nil {

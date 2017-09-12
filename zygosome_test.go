@@ -358,7 +358,7 @@ func TestZybuildValidate(t *testing.T) {
 }
 
 func TestZyValidateCommit(t *testing.T) {
-	a, _ := NewAgent(LibP2P, "Joe")
+	a, _ := NewAgent(LibP2P, "Joe", makeTestSeed(""))
 	h := NewHolochain(a, "some/path", "yaml", Zome{RibosomeType: ZygoRibosomeType})
 	h.Config.Loggers.App.New(nil)
 	hdr := mkTestHeader("evenNumbers")

@@ -723,7 +723,7 @@ func setupApp() (app *cli.App) {
 			if err != nil {
 				agent = "test@example.com"
 			}
-			service, err = holo.Init(rootPath, holo.AgentIdentity(agent))
+			service, err = holo.Init(rootPath, holo.AgentIdentity(agent), nil)
 			if err != nil {
 				return err
 			}

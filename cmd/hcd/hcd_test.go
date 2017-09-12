@@ -34,7 +34,7 @@ func TestWeb(t *testing.T) {
 	}
 
 	agent := "Fred Flintstone <fred@flintstone.com>"
-	s, err := holo.Init(filepath.Join(tmpTestDir, holo.DefaultDirectoryName), holo.AgentIdentity(agent))
+	s, err := holo.Init(filepath.Join(tmpTestDir, holo.DefaultDirectoryName), holo.AgentIdentity(agent), nil)
 	if err != nil {
 		panic(err)
 	}

@@ -68,7 +68,7 @@ func setupApp() (app *cli.App) {
 				if agent == "" {
 					return errors.New("missing required agent-id argument to init")
 				}
-				_, err := holo.Init(root, holo.AgentIdentity(agent))
+				_, err := holo.Init(root, holo.AgentIdentity(agent), nil)
 				if err == nil {
 					fmt.Println("Holochain service initialized")
 					if verbose {

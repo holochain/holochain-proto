@@ -148,7 +148,7 @@ func IsInitialized(root string) bool {
 // Init initializes service defaults including a signing key pair for an agent
 // and writes them out to configuration files in the root path (making the
 // directory if necessary)
-func Init(root string, agent AgentIdentity) (service *Service, err error) {
+func Init(root string, agent AgentIdentity, seed io.Reader) (service *Service, err error) {
 	err = os.MkdirAll(root, os.ModePerm)
 	if err != nil {
 		return
@@ -178,7 +178,7 @@ func Init(root string, agent AgentIdentity) (service *Service, err error) {
 		return
 	}
 
-	a, err := NewAgent(LibP2P, agent)
+	a, err := NewAgent(LibP2P, agent, seed)
 	if err != nil {
 		return
 	}

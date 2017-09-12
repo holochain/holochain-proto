@@ -18,6 +18,16 @@ func TestNewDHT(t *testing.T) {
 	h.rootPath = d
 	os.MkdirAll(h.DBPath(), os.ModePerm)
 
+	var err error
+	h.agent, err = NewAgent(LibP2P, AgentIdentity("Herbert <h@bert.com>"), makeTestSeed(""))
+	if err != nil {
+		panic(err)
+	}
+
+	err = h.createNode()
+	if err != nil {
+		panic(err)
+	}
 	dht := NewDHT(&h)
 	Convey("It should initialize the DHT struct", t, func() {
 		So(dht.h, ShouldEqual, &h)

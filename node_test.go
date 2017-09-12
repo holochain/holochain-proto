@@ -13,7 +13,6 @@ import (
 	. "github.com/smartystreets/goconvey/convey"
 	"io/ioutil"
 	"os"
-	"strings"
 	"testing"
 	"time"
 )
@@ -317,20 +316,11 @@ func TestFindPeer(t *testing.T) {
 	}
 	defer node1.Close()
 
-	// generate a new unknown peerID
-	r := strings.NewReader("1234567890123456789012345678901234567890x")
-	key, _, err := ic.GenerateEd25519Key(r)
-	if err != nil {
-		panic(err)
-	}
-	pid, err := peer.IDFromPrivateKey(key)
-	if err != nil {
-		panic(err)
-	}
+	unknownPeer, _ := makePeer("unknown peer")
 
 	Convey("sending to an unknown peer should fail with no route to peer", t, func() {
 		m := Message{Type: PUT_REQUEST, Body: "fish"}
-		_, err := node1.Send(context.Background(),ActionProtocol, pid, &m)
+		_, err := node1.Send(context.Background(), ActionProtocol, unknownPeer, &m)
 		//So(r, ShouldBeNil)
 		So(err, ShouldEqual, "fish")
 	})
@@ -340,9 +330,8 @@ func TestFindPeer(t *testing.T) {
 
 func makePeer(id string) (pid peer.ID, key ic.PrivKey) {
 	// use a constant reader so the key will be the same each time for the test...
-	r := strings.NewReader(id + "1234567890123456789012345678901234567890")
 	var err error
-	key, _, err = ic.GenerateEd25519Key(r)
+	key, _, err = ic.GenerateEd25519Key(makeTestSeed(id))
 	if err != nil {
 		panic(err)
 	}

@@ -648,6 +648,10 @@ func (h *Holochain) Reset() (err error) {
 		h.chain.s.Close()
 	}
 
+	if h.node != nil {
+		h.node.Close()
+	}
+
 	err = os.RemoveAll(h.DBPath())
 	if err != nil {
 		return

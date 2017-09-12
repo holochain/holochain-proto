@@ -254,7 +254,7 @@ func (dht *DHT) UpdateGossiper(id peer.ID, newIdx int) (err error) {
 		dht.DeleteGossiper(id) // ignore error
 		return
 	}
-	dht.glog.Logf("updaing %v to %d", id, newIdx)
+	dht.glog.Logf("updating %v to %d", id, newIdx)
 	err = dht.db.Update(func(tx *buntdb.Tx) error {
 		key := "peer:" + peer.IDB58Encode(id)
 		idx, e := getIntVal(key, tx)

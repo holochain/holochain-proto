@@ -103,7 +103,6 @@ func TestGetFindGossiper(t *testing.T) {
 		So(err, ShouldBeNil)
 		So(idx, ShouldEqual, 0)
 	})
-
 }
 
 func TestGossipData(t *testing.T) {

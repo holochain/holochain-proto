@@ -13,6 +13,7 @@ import (
 	. "github.com/smartystreets/goconvey/convey"
 	"io/ioutil"
 	"os"
+	"path/filepath"
 	"testing"
 	"time"
 )
@@ -123,19 +124,18 @@ func TestNodeSend(t *testing.T) {
 	h.node.Close()
 	h.node = node1
 
+	d2, _, h2 := PrepareTestChain("test2")
+	defer CleanupTestDir(d2)
+	h2.node.Close()
+
 	node2, err := makeNode(1235, "node2")
 	if err != nil {
 		panic(err)
 	}
 	defer node2.Close()
-
-	var h2 Holochain
-	h2.rootPath = d
 	h2.node = node2
-	os.MkdirAll(h2.DBPath(), os.ModePerm)
-	h2.dht = NewDHT(&h2)
-	h2.chain = NewChain(h.hashSpec)
-	h2.nucleus = NewNucleus(&h2, &DNA{})
+	os.Remove(filepath.Join(h2.DBPath(), DHTStoreFileName))
+	h2.dht = NewDHT(h2)
 
 	h.Activate()
 

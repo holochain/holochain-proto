@@ -24,6 +24,7 @@ import (
 	mh "github.com/multiformats/go-multihash"
 	"gopkg.in/mgo.v2/bson"
 	"io"
+	"math/big"
 	"time"
 )
 
@@ -85,6 +86,8 @@ type Node struct {
 	mdnsSvc     discovery.Service
 	blockedlist map[peer.ID]bool
 	protocols   [_protocolCount]*Protocol
+	peerstore   pstore.Peerstore
+	table       *RoutingTable
 }
 
 // Protocol encapsulates data for our different protocols
@@ -100,11 +103,9 @@ const (
 	_protocolCount
 )
 
-type Router struct {
-	dummy int
-}
-
-func (r *Router) FindPeer(context.Context, peer.ID) (peer pstore.PeerInfo, err error) {
+// FindPeer implements the FindPeer() method of the RoutedHost interface in go-libp2p/p2p/host/routed
+// and makes the Node object the "Router"
+func (n *Node) FindPeer(context.Context, peer.ID) (peer pstore.PeerInfo, err error) {
 	err = errors.New("routing not implemented")
 	return
 }
@@ -112,15 +113,21 @@ func (r *Router) FindPeer(context.Context, peer.ID) (peer pstore.PeerInfo, err e
 // implement peer found function for mdns discovery
 func (h *Holochain) HandlePeerFound(pi pstore.PeerInfo) {
 	h.dht.dlog.Logf("discovered peer via mdns: %v", pi)
-	if h.node.IsBlocked(pi.ID) {
-		h.dht.dlog.Logf("peer %v in blockedlist, ignoring", pi.ID)
-	} else {
-		h.node.Host.Connect(context.Background(), pi)
-		err := h.dht.UpdateGossiper(pi.ID, 0)
-		if err != nil {
-			h.dht.dlog.Logf("error when updating gossiper: %v", pi)
-		}
+	err := h.AddPeer(pi.ID, pi.Addrs)
+	if err != nil {
+		h.dht.dlog.Logf("error when adding peer: %v", pi)
 	}
+}
+
+func (h *Holochain) AddPeer(id peer.ID, addrs []ma.Multiaddr) (err error) {
+	if h.node.IsBlocked(id) {
+		err = fmt.Errorf("peer %v in blockedlist, ignoring", id)
+	} else {
+		h.node.peerstore.AddAddrs(id, addrs, pstore.TempAddrTTL)
+		h.node.table.Update(id)
+		err = h.dht.UpdateGossiper(id, 0)
+	}
+	return
 }
 
 func (n *Node) EnableMDNSDiscovery(notifee discovery.Notifee, interval time.Duration) (err error) {
@@ -150,6 +157,7 @@ func NewNode(listenAddr string, protoMux string, agent *LibP2PAgent) (node *Node
 	}
 
 	ps := pstore.NewPeerstore()
+	n.peerstore = ps
 
 	n.HashAddr = nodeID
 	priv := agent.PrivKey()
@@ -181,8 +189,11 @@ func NewNode(listenAddr string, protoMux string, agent *LibP2PAgent) (node *Node
 	if err != nil {
 		return
 	}
-	hr := Router{}
-	n.Host = rhost.Wrap(bh, &hr)
+
+	n.Host = rhost.Wrap(bh, &n)
+
+	m := pstore.NewMetrics()
+	n.table = NewRoutingTable(KValue, nodeID, time.Minute, m)
 
 	node = &n
 	return
@@ -445,4 +456,17 @@ func (errResp ErrorResponse) DecodeResponseError() (err error) {
 		err = errors.New(errResp.Message)
 	}
 	return
+}
+
+// Distance returns the nodes peer distance to another node for purposes of gossip
+func (node *Node) Distance(id peer.ID) *big.Int {
+	h, err := HashFromBytes([]byte(id))
+	if err != nil {
+		panic(err)
+	}
+	nh, err := HashFromBytes([]byte(node.HashAddr))
+	if err != nil {
+		panic(err)
+	}
+	return HashDistance(nh, h)
 }

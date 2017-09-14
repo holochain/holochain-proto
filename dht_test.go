@@ -6,32 +6,23 @@ import (
 	peer "github.com/libp2p/go-libp2p-peer"
 	. "github.com/smartystreets/goconvey/convey"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
 )
 
 func TestNewDHT(t *testing.T) {
-	d := SetupTestDir()
+	d, _, h := PrepareTestChain("test")
 	defer CleanupTestDir(d)
-	var h Holochain
-	h.rootPath = d
-	os.MkdirAll(h.DBPath(), os.ModePerm)
+	os.Remove(filepath.Join(h.DBPath(), DHTStoreFileName))
 
-	var err error
-	h.agent, err = NewAgent(LibP2P, AgentIdentity("Herbert <h@bert.com>"), makeTestSeed(""))
-	if err != nil {
-		panic(err)
-	}
-
-	err = h.createNode()
-	if err != nil {
-		panic(err)
-	}
-	dht := NewDHT(&h)
-	Convey("It should initialize the DHT struct", t, func() {
-		So(dht.h, ShouldEqual, &h)
+	Convey("It should initialize the DHT struct and data store", t, func() {
+		So(FileExists(h.DBPath(), DHTStoreFileName), ShouldBeFalse)
+		dht := NewDHT(h)
 		So(FileExists(h.DBPath(), DHTStoreFileName), ShouldBeTrue)
+		So(dht.h, ShouldEqual, h)
+		So(dht.config, ShouldEqual, &h.nucleus.dna.DHTConfig)
 	})
 }
 

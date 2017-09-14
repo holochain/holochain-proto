@@ -308,7 +308,64 @@ func TestErrorCoding(t *testing.T) {
 	})
 }
 
-/*
+func TestAddPeer(t *testing.T) {
+	d, _, h := PrepareTestChain("test")
+	defer CleanupTestDir(d)
+	somePeer, _ := makePeer("some peer")
+	Convey("it should add a peer to the peer store and the gossip list", t, func() {
+		So(h.node.table.Size(), ShouldEqual, 0)
+		So(len(h.node.peerstore.Peers()), ShouldEqual, 1)
+		err := h.AddPeer(somePeer, nil)
+		So(err, ShouldBeNil)
+		So(len(h.node.peerstore.Peers()), ShouldEqual, 2)
+		glist, err := h.dht.getGossipers()
+		So(err, ShouldBeNil)
+		So(len(glist), ShouldEqual, 1)
+		So(glist[0], ShouldEqual, somePeer)
+		So(h.node.table.Size(), ShouldEqual, 1)
+	})
+
+	Convey("it should not add a blocked peer", t, func() {
+		blockedPeer, _ := makePeer("blocked peer")
+		h.node.Block(blockedPeer)
+		err := h.AddPeer(blockedPeer, nil)
+		So(err.Error(), ShouldEqual, "peer <peer.ID X98p5R> in blockedlist, ignoring")
+		So(len(h.node.peerstore.Peers()), ShouldEqual, 2)
+		glist, err := h.dht.getGossipers()
+		So(err, ShouldBeNil)
+		So(len(glist), ShouldEqual, 1)
+		So(glist[0], ShouldEqual, somePeer)
+		So(h.node.table.Size(), ShouldEqual, 1)
+	})
+}
+
+func TestNodeRoutingq(t *testing.T) {
+	d, _, h := PrepareTestChain("test")
+	defer CleanupTestDir(d)
+	node := h.node
+
+	start := 0
+	testPeerCount := 20
+	peers := []peer.ID{}
+
+	peers = addTestPeers(h, peers, start, testPeerCount)
+	Convey("populating routing", t, func() {
+		p := node.HashAddr
+		srch := node.table.NearestPeers(p, 5)
+		nearest := fmt.Sprintf("%d %v", len(srch), srch)
+		So(nearest, ShouldEqual, "5 [<peer.ID P9vKpw> <peer.ID P9QXqa> <peer.ID PrUBh5> <peer.ID Pn94bj> <peer.ID QHFWTH>]")
+		start = testPeerCount
+		testPeerCount += 5
+		peers = addTestPeers(h, peers, start, testPeerCount)
+		srch = node.table.NearestPeers(p, 5)
+		nearest = fmt.Sprintf("%d %v", len(srch), srch)
+
+		// adding a few more yields one which is closer
+		So(nearest, ShouldEqual, "5 [<peer.ID NSQqJR> <peer.ID P9vKpw> <peer.ID P9QXqa> <peer.ID PrUBh5> <peer.ID Pn94bj>]")
+		//		node.table.Print()
+	})
+}
+
 func TestFindPeer(t *testing.T) {
 	node1, err := makeNode(1234, "node1")
 	if err != nil {
@@ -321,12 +378,11 @@ func TestFindPeer(t *testing.T) {
 	Convey("sending to an unknown peer should fail with no route to peer", t, func() {
 		m := Message{Type: PUT_REQUEST, Body: "fish"}
 		_, err := node1.Send(context.Background(), ActionProtocol, unknownPeer, &m)
-		//So(r, ShouldBeNil)
-		So(err, ShouldEqual, "fish")
+		So(err, ShouldBeError)
+		//	So(err, ShouldEqual, "fish")
 	})
 
 }
-*/
 
 func makePeer(id string) (pid peer.ID, key ic.PrivKey) {
 	// use a constant reader so the key will be the same each time for the test...
@@ -344,4 +400,17 @@ func makeNode(port int, id string) (*Node, error) {
 	_, key := makePeer(id)
 	agent := LibP2PAgent{identity: AgentIdentity(id), priv: key, pub: key.GetPublic()}
 	return NewNode(listenaddr, "fakednahash", &agent)
+}
+
+func addTestPeers(h *Holochain, peers []peer.ID, start int, count int) []peer.ID {
+	for i := start; i < count; i++ {
+		p, _ := makePeer(fmt.Sprintf("peer_%d", i))
+		//		fmt.Printf("Peer %d: %s\n", i, peer.IDB58Encode(p))
+		peers = append(peers, p)
+		err := h.AddPeer(p, nil)
+		if err != nil {
+			panic(err)
+		}
+	}
+	return peers
 }

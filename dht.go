@@ -23,7 +23,8 @@ type DHTConfig struct {
 	// HashType : (string) Identifies hash type to be used for this application. Should be from the list of hash types from the multihash library
 	HashType string
 
-	// NeighborhoodSize : (integer) Establishes minimum online redundancy targets for data, and size of peer sets for sync gossip. A neighborhood size of ZERO means no sharding (every node syncs all data with every other node). ONE means you are running this as a centralized application and gossip is turned OFF. For most applications we recommend neighborhoods no smaller than 8 for nearness or 32 for hashmask sharding.
+	// NeighborhoodSize(integer) Establishes minimum online redundancy targets for data, and size of peer sets for sync gossip. A neighborhood size of ZERO means no sharding (every node syncs all data with every other node). ONE means you are running this as a centralized application and gossip is turned OFF. For most applications we recommend neighborhoods no smaller than 8 for nearness or 32 for hashmask sharding.
+	NeighborhoodSize int
 
 	// ShardingMethod : Identifier for sharding method (none, XOR, hashmask, other nearness algorithms?, etc.)
 
@@ -54,6 +55,7 @@ type DHT struct {
 	dlog      *Logger // the dht logger
 	gossips   map[peer.ID]bool
 	gchan     chan gossipWithReq
+	config    *DHTConfig
 }
 
 // Meta holds data that can be associated with a hash
@@ -203,12 +205,17 @@ var ErrHashModified = errors.New("hash modified")
 var ErrHashRejected = errors.New("hash rejected")
 var ErrEntryTypeMismatch = errors.New("entry type mismatch")
 
+const (
+	KValue = 10
+)
+
 // NewDHT creates a new DHT structure
 func NewDHT(h *Holochain) *DHT {
 	dht := DHT{
-		h:    h,
-		glog: &h.Config.Loggers.Gossip,
-		dlog: &h.Config.Loggers.DHT,
+		h:      h,
+		glog:   &h.Config.Loggers.Gossip,
+		dlog:   &h.Config.Loggers.DHT,
+		config: &h.Nucleus().DNA().DHTConfig,
 	}
 	db, err := buntdb.Open(filepath.Join(h.DBPath(), DHTStoreFileName))
 	if err != nil {

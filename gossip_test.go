@@ -19,6 +19,46 @@ func TestGossipReceiver(t *testing.T) {
 
 }*/
 
+func TestGetGossipers(t *testing.T) {
+	d, _, h := PrepareTestChain("test")
+	defer CleanupTestDir(d)
+	dht := h.dht
+	Convey("should return an empty list if none availabled", t, func() {
+		glist, err := dht.getGossipers()
+		So(err, ShouldBeNil)
+		So(len(glist), ShouldEqual, 0)
+	})
+
+	start := 0
+	testPeerCount := 20
+	peers := []peer.ID{}
+	peers = addTestPeers(h, peers, start, testPeerCount)
+
+	var err error
+	var glist []peer.ID
+	Convey("should return all peers when neighborhood size is 0", t, func() {
+		So(h.nucleus.dna.DHTConfig.NeighborhoodSize, ShouldEqual, 0)
+		glist, err = dht.getGossipers()
+		So(err, ShouldBeNil)
+		So(len(glist), ShouldEqual, testPeerCount)
+	})
+
+	Convey("should return neighborhood size peers when neighborhood size is not 0", t, func() {
+		h.nucleus.dna.DHTConfig.NeighborhoodSize = 5
+		glist, err = dht.getGossipers()
+		So(err, ShouldBeNil)
+		So(len(glist), ShouldEqual, 5)
+	})
+
+	Convey("should return list sorted by closeness to me", t, func() {
+		So(h.node.Distance(glist[0]).Cmp(h.node.Distance(glist[1])), ShouldBeLessThanOrEqualTo, 0)
+		So(h.node.Distance(glist[1]).Cmp(h.node.Distance(glist[2])), ShouldBeLessThanOrEqualTo, 0)
+		So(h.node.Distance(glist[2]).Cmp(h.node.Distance(glist[3])), ShouldBeLessThanOrEqualTo, 0)
+		So(h.node.Distance(glist[3]).Cmp(h.node.Distance(glist[4])), ShouldBeLessThanOrEqualTo, 0)
+		So(h.node.Distance(glist[0]), ShouldNotEqual, h.node.Distance(glist[4]))
+	})
+}
+
 func TestGetFindGossiper(t *testing.T) {
 	d, _, h := PrepareTestChain("test")
 	defer CleanupTestDir(d)

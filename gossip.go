@@ -221,9 +221,8 @@ func (dht *DHT) GetGossiper(id peer.ID) (idx int, err error) {
 	return
 }
 
-// FindGossiper picks a random DHT node to gossip with
-func (dht *DHT) FindGossiper() (g peer.ID, err error) {
-	glist := make([]peer.ID, 0)
+func (dht *DHT) getGossipers() (glist []peer.ID, err error) {
+	glist = make([]peer.ID, 0)
 
 	err = dht.db.View(func(tx *buntdb.Tx) error {
 		err = tx.Ascend("peer", func(key, value string) bool {
@@ -238,7 +237,45 @@ func (dht *DHT) FindGossiper() (g peer.ID, err error) {
 		})
 		return nil
 	})
+	ns := dht.config.NeighborhoodSize
+	if ns > 1 {
+		size := len(glist)
+		hlist := make([]Hash, size)
+		for i := 0; i < size; i++ {
+			h, err := HashFromBytes([]byte(glist[i]))
+			if err != nil {
+				panic(err)
+			}
+			hlist[i] = h
+		}
+		me, err := HashFromBytes([]byte(dht.h.nodeID))
+		if err != nil {
+			panic(err)
+		}
 
+		hlist = SortByDistance(me, hlist)
+		if ns < size {
+			size = ns
+		}
+		glist = make([]peer.ID, size)
+		for i := 0; i < size; i++ {
+			p, err := peer.IDFromBytes([]byte(hlist[i].H))
+			if err != nil {
+				panic(err)
+			}
+			glist[i] = p
+		}
+	}
+	return
+}
+
+// FindGossiper picks a random DHT node to gossip with
+func (dht *DHT) FindGossiper() (g peer.ID, err error) {
+	var glist []peer.ID
+	glist, err = dht.getGossipers()
+	if err != nil {
+		return
+	}
 	if len(glist) == 0 {
 		err = ErrDHTErrNoGossipersAvailable
 	} else {

@@ -460,13 +460,7 @@ func (errResp ErrorResponse) DecodeResponseError() (err error) {
 
 // Distance returns the nodes peer distance to another node for purposes of gossip
 func (node *Node) Distance(id peer.ID) *big.Int {
-	h, err := HashFromBytes([]byte(id))
-	if err != nil {
-		panic(err)
-	}
-	nh, err := HashFromBytes([]byte(node.HashAddr))
-	if err != nil {
-		panic(err)
-	}
+	h := HashFromPeerID(id)
+	nh := HashFromPeerID(node.HashAddr)
 	return HashDistance(nh, h)
 }

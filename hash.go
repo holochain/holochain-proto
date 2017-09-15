@@ -10,6 +10,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"errors"
+	peer "github.com/libp2p/go-libp2p-peer"
 	mh "github.com/multiformats/go-multihash"
 	"io"
 	"math/big"
@@ -33,13 +34,30 @@ func NewHash(s string) (h Hash, err error) {
 	return
 }
 
-// HashFromBytes cast a string to Hash type, and validate
+// HashFromBytes cast a byte slice to Hash type, and validate
 // the id to make sure it is a multihash.
 func HashFromBytes(b []byte) (h Hash, err error) {
 	if h.H, err = mh.Cast(b); err != nil {
 		h = NullHash()
 		return
 	}
+	return
+}
+
+// HashFromPeerID copy the bytes from a peer ID to Hash.
+// Hashes and peer ID's are the exact same format, a multihash.
+// NOTE: assumes that the multihash is valid
+func HashFromPeerID(id peer.ID) (h Hash) {
+	h.H = make([]byte, len(id))
+	copy(h.H, id)
+	return
+}
+
+// PeerIDFromHash copy the bytes from a hash to a peer ID.
+// Hashes and peer ID's are the exact same format, a multihash.
+// NOTE: assumes that the multihash is valid
+func PeerIDFromHash(h Hash) (id peer.ID) {
+	id = peer.ID(h.H)
 	return
 }
 
@@ -162,7 +180,7 @@ func ZeroPrefixLen(id []byte) int {
 // hashDistance helper struct for sorting by distance which pre-caches the distance
 // to center so as not to recalculate it on every sort comparison.
 type hashDistance struct {
-	hash     Hash
+	hash     interface{}
 	distance *big.Int
 }
 
@@ -189,7 +207,7 @@ func SortByDistance(center Hash, toSort []Hash) []Hash {
 	sort.Sort(hsarr)
 	var out []Hash
 	for _, hd := range hsarr {
-		out = append(out, hd.hash)
+		out = append(out, hd.hash.(Hash))
 	}
 	return out
 }

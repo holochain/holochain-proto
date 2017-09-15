@@ -3,6 +3,7 @@ package holochain
 import (
 	"bytes"
 	"fmt"
+	peer "github.com/libp2p/go-libp2p-peer"
 	mh "github.com/multiformats/go-multihash"
 	. "github.com/smartystreets/goconvey/convey"
 	"math/big"
@@ -42,8 +43,28 @@ func TestHashFromBytes(t *testing.T) {
 		So(err, ShouldBeNil)
 		So(h.Equal(&h1), ShouldBeTrue)
 	})
-
 }
+
+func TestPeerIDFromHash(t *testing.T) {
+	b58 := "QmY8Mzg9F69e5P9AoQPYat655HEhc1TVGs11tmfNSzkqh2"
+	h, _ := NewHash(b58)
+
+	Convey("it should make a peerID from a Hash", t, func() {
+		peer := PeerIDFromHash(h)
+		So(peer.Pretty(), ShouldEqual, b58)
+	})
+}
+
+func TestHashFromPeerID(t *testing.T) {
+	b58 := "QmY8Mzg9F69e5P9AoQPYat655HEhc1TVGs11tmfNSzkqh2"
+	peer, _ := peer.IDB58Decode(b58)
+
+	Convey("it should make a hash from a peer ID", t, func() {
+		h := HashFromPeerID(peer)
+		So(h.String(), ShouldEqual, b58)
+	})
+}
+
 func TestEqual(t *testing.T) {
 	h1, _ := NewHash("QmY8Mzg9F69e5P9AoQPYat655HEhc1TVGs11tmfNSzkqh2")
 	h2, _ := NewHash("QmY8Mzg9F69e5P9AoQPYat655HEhc1TVGs11tmfNSzkqh2")

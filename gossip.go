@@ -242,16 +242,10 @@ func (dht *DHT) getGossipers() (glist []peer.ID, err error) {
 		size := len(glist)
 		hlist := make([]Hash, size)
 		for i := 0; i < size; i++ {
-			h, err := HashFromBytes([]byte(glist[i]))
-			if err != nil {
-				panic(err)
-			}
+			h := HashFromPeerID(glist[i])
 			hlist[i] = h
 		}
-		me, err := HashFromBytes([]byte(dht.h.nodeID))
-		if err != nil {
-			panic(err)
-		}
+		me := HashFromPeerID(dht.h.nodeID)
 
 		hlist = SortByDistance(me, hlist)
 		if ns < size {
@@ -259,10 +253,7 @@ func (dht *DHT) getGossipers() (glist []peer.ID, err error) {
 		}
 		glist = make([]peer.ID, size)
 		for i := 0; i < size; i++ {
-			p, err := peer.IDFromBytes([]byte(hlist[i].H))
-			if err != nil {
-				panic(err)
-			}
+			p := PeerIDFromHash(hlist[i])
 			glist[i] = p
 		}
 	}

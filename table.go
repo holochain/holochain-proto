@@ -84,7 +84,7 @@ func (rt *RoutingTable) Update(p peer.ID) {
 	}
 
 	if rt.metrics.LatencyEWMA(p) > rt.maxLatency {
-		// Connection doesnt meet requirements, skip!
+		// Connection doesn't meet requirements, skip!
 		return
 	}
 
@@ -160,13 +160,9 @@ func (rt *RoutingTable) NearestPeer(id peer.ID) peer.ID {
 }
 
 func copyPeersFromList(target peer.ID, hashArr hashSorterArr, peerList *list.List) hashSorterArr {
-	center, _ := HashFromBytes([]byte(target))
+	center := HashFromPeerID(target)
 	for e := peerList.Front(); e != nil; e = e.Next() {
-		p := e.Value.(peer.ID)
-		h, err := HashFromBytes([]byte(p))
-		if err != nil {
-			panic(err)
-		}
+		h := HashFromPeerID(e.Value.(peer.ID))
 		pd := hashDistance{
 			hash:     h,
 			distance: HashDistance(h, center),
@@ -211,10 +207,7 @@ func (rt *RoutingTable) NearestPeers(id peer.ID, count int) []peer.ID {
 
 	var out []peer.ID
 	for i := 0; i < count && i < hashArr.Len(); i++ {
-		p, err := peer.IDFromBytes([]byte(hashArr[i].hash.H))
-		if err != nil {
-			panic(err)
-		}
+		p := PeerIDFromHash(hashArr[i].hash.(Hash))
 		out = append(out, p)
 	}
 

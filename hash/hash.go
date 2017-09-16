@@ -4,7 +4,7 @@
 // Hash type for Holochains
 // Holochain hashes are SHA256 binary values encoded to strings as base58
 
-package holochain
+package hash
 
 import (
 	"bytes"
@@ -144,7 +144,7 @@ func XOR(a, b []byte) []byte {
 // The code below is adapted from https://github.com/libp2p/go-libp2p-kbucket
 
 // Distance returns the distance metric between two hashes
-func HashDistance(h1, h2 Hash) *big.Int {
+func HashXORDistance(h1, h2 Hash) *big.Int {
 	// XOR the hashes
 	k3 := XOR(h1.H, h2.H)
 
@@ -179,35 +179,35 @@ func ZeroPrefixLen(id []byte) int {
 
 // hashDistance helper struct for sorting by distance which pre-caches the distance
 // to center so as not to recalculate it on every sort comparison.
-type hashDistance struct {
-	hash     interface{}
-	distance *big.Int
+type HashDistance struct {
+	Hash     interface{}
+	Distance *big.Int
 }
 
-type hashSorterArr []*hashDistance
+type HashSorterArr []*HashDistance
 
-func (p hashSorterArr) Len() int      { return len(p) }
-func (p hashSorterArr) Swap(a, b int) { p[a], p[b] = p[b], p[a] }
-func (p hashSorterArr) Less(a, b int) bool {
-	return p[a].distance.Cmp(p[b].distance) == -1
+func (p HashSorterArr) Len() int      { return len(p) }
+func (p HashSorterArr) Swap(a, b int) { p[a], p[b] = p[b], p[a] }
+func (p HashSorterArr) Less(a, b int) bool {
+	return p[a].Distance.Cmp(p[b].Distance) == -1
 }
 
 // SortByDistance takes a center Hash, and a list of Hashes toSort.
 // It returns a new list, where the Hashes toSort have been sorted by their
 // distance to the center Hash.
 func SortByDistance(center Hash, toSort []Hash) []Hash {
-	var hsarr hashSorterArr
+	var hsarr HashSorterArr
 	for _, h := range toSort {
-		hd := &hashDistance{
-			hash:     h,
-			distance: HashDistance(h, center),
+		hd := &HashDistance{
+			Hash:     h,
+			Distance: HashXORDistance(h, center),
 		}
 		hsarr = append(hsarr, hd)
 	}
 	sort.Sort(hsarr)
 	var out []Hash
 	for _, hd := range hsarr {
-		out = append(out, hd.hash.(Hash))
+		out = append(out, hd.Hash.(Hash))
 	}
 	return out
 }

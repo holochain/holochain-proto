@@ -11,6 +11,7 @@ import (
 	"errors"
 	"fmt"
 	peer "github.com/libp2p/go-libp2p-peer"
+	. "github.com/metacurrency/holochain/hash"
 	"github.com/tidwall/buntdb"
 	"math/rand"
 	"sort"
@@ -313,6 +314,7 @@ func (dht *DHT) DeleteGossiper(id peer.ID) (err error) {
 	return
 }
 
+// GossipReceiver implements the handler for the gossip protocol
 func GossipReceiver(h *Holochain, m *Message) (response interface{}, err error) {
 	dht := h.dht
 	switch m.Type {

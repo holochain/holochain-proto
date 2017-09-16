@@ -13,6 +13,7 @@ import (
 	"fmt"
 	"github.com/BurntSushi/toml"
 	"github.com/google/uuid"
+	. "github.com/metacurrency/holochain/hash"
 	"io"
 	"io/ioutil"
 	"net/http"

@@ -10,6 +10,7 @@ import (
 	"encoding/binary"
 	"encoding/json"
 	"github.com/lestrrat/go-jsval"
+	. "github.com/metacurrency/holochain/hash"
 	"io"
 )
 

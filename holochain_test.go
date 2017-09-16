@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"github.com/google/uuid"
 	peer "github.com/libp2p/go-libp2p-peer"
+	. "github.com/metacurrency/holochain/hash"
 	. "github.com/smartystreets/goconvey/convey"
 	"os"
 	"path/filepath"
@@ -141,7 +142,7 @@ func TestDebuggingSetup(t *testing.T) {
 		debugLog.Enabled = true
 
 		Debug("test")
-		So(string(buf.Bytes()), ShouldEqual, "HC: holochain_test.go.143: test\n")
+		So(string(buf.Bytes()), ShouldEqual, "HC: holochain_test.go.144: test\n")
 		// restore state of debug log
 		debugLog.w = os.Stdout
 		debugLog.Enabled = enabled

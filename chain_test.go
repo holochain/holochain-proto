@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	ic "github.com/libp2p/go-libp2p-crypto"
+	. "github.com/metacurrency/holochain/hash"
 	. "github.com/smartystreets/goconvey/convey"
 	"path/filepath"
 	"reflect"

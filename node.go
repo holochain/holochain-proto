@@ -20,6 +20,7 @@ import (
 	discovery "github.com/libp2p/go-libp2p/p2p/discovery"
 	bhost "github.com/libp2p/go-libp2p/p2p/host/basic"
 	rhost "github.com/libp2p/go-libp2p/p2p/host/routed"
+	. "github.com/metacurrency/holochain/hash"
 	ma "github.com/multiformats/go-multiaddr"
 	mh "github.com/multiformats/go-multihash"
 	"gopkg.in/mgo.v2/bson"
@@ -462,5 +463,5 @@ func (errResp ErrorResponse) DecodeResponseError() (err error) {
 func (node *Node) Distance(id peer.ID) *big.Int {
 	h := HashFromPeerID(id)
 	nh := HashFromPeerID(node.HashAddr)
-	return HashDistance(nh, h)
+	return HashXORDistance(nh, h)
 }

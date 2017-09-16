@@ -10,6 +10,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	ic "github.com/libp2p/go-libp2p-crypto"
+	. "github.com/metacurrency/holochain/hash"
 	"io"
 	"time"
 )

@@ -7,6 +7,7 @@ package holochain
 import (
 	"fmt"
 	"github.com/google/uuid"
+	. "github.com/metacurrency/holochain/hash"
 )
 
 type DNA struct {

@@ -1,3 +1,7 @@
+// This code is adapted from the libp2p project, specifically:
+// https://github.com/libp2p/go-libp2p-kbucket/table_test.go
+// we don't need to unify keyspaces between random strings and peer.IDs which ipfs requires.
+
 package holochain
 
 import (

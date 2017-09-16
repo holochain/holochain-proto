@@ -16,6 +16,7 @@ import (
 	"github.com/google/uuid"
 	ic "github.com/libp2p/go-libp2p-crypto"
 	peer "github.com/libp2p/go-libp2p-peer"
+	. "github.com/metacurrency/holochain/hash"
 	mh "github.com/multiformats/go-multihash"
 	"github.com/tidwall/buntdb"
 	"io"

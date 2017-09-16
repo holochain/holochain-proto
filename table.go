@@ -11,12 +11,12 @@ package holochain
 import (
 	"container/list"
 	"fmt"
+	peer "github.com/libp2p/go-libp2p-peer"
+	pstore "github.com/libp2p/go-libp2p-peerstore"
+	. "github.com/metacurrency/holochain/hash"
 	"sort"
 	"sync"
 	"time"
-
-	peer "github.com/libp2p/go-libp2p-peer"
-	pstore "github.com/libp2p/go-libp2p-peerstore"
 )
 
 // RoutingTable defines the routing table.
@@ -159,17 +159,35 @@ func (rt *RoutingTable) NearestPeer(id peer.ID) peer.ID {
 	return ""
 }
 
-func copyPeersFromList(target peer.ID, hashArr hashSorterArr, peerList *list.List) hashSorterArr {
+func copyPeersFromList(target peer.ID, hashArr HashSorterArr, peerList *list.List) HashSorterArr {
 	center := HashFromPeerID(target)
 	for e := peerList.Front(); e != nil; e = e.Next() {
 		h := HashFromPeerID(e.Value.(peer.ID))
-		pd := hashDistance{
-			hash:     h,
-			distance: HashDistance(h, center),
+		pd := HashDistance{
+			Hash:     h,
+			Distance: HashXORDistance(h, center),
 		}
 		hashArr = append(hashArr, &pd)
 	}
 	return hashArr
+}
+
+func SortClosestPeers(peers []peer.ID, target peer.ID) []peer.ID {
+	var hsarr HashSorterArr
+	for _, p := range peers {
+		h := HashFromPeerID(p)
+		hd := &HashDistance{
+			Hash:     p,
+			Distance: HashXORDistance(h, HashFromPeerID(target)),
+		}
+		hsarr = append(hsarr, hd)
+	}
+	sort.Sort(hsarr)
+	var out []peer.ID
+	for _, p := range hsarr {
+		out = append(out, PeerIDFromHash(p.Hash.(Hash)))
+	}
+	return out
 }
 
 // NearestPeers returns a list of the 'count' closest peers to the given ID
@@ -185,7 +203,7 @@ func (rt *RoutingTable) NearestPeers(id peer.ID, count int) []peer.ID {
 	}
 	bucket = rt.Buckets[cpl]
 
-	var hashArr hashSorterArr
+	var hashArr HashSorterArr
 	hashArr = copyPeersFromList(id, hashArr, bucket.list)
 	if len(hashArr) < count {
 		// In the case of an unusual split, one bucket may be short or empty.
@@ -207,7 +225,7 @@ func (rt *RoutingTable) NearestPeers(id peer.ID, count int) []peer.ID {
 
 	var out []peer.ID
 	for i := 0; i < count && i < hashArr.Len(); i++ {
-		p := PeerIDFromHash(hashArr[i].hash.(Hash))
+		p := PeerIDFromHash(hashArr[i].Hash.(Hash))
 		out = append(out, p)
 	}
 

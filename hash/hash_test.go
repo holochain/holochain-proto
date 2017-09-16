@@ -1,4 +1,4 @@
-package holochain
+package hash
 
 import (
 	"bytes"
@@ -132,7 +132,7 @@ func TestZeroPrefixLen(t *testing.T) {
 	})
 }
 
-func TestHashDistance(t *testing.T) {
+func TestHashXORDistance(t *testing.T) {
 	h0, _ := HashFromBytes(
 		[]byte{0x12, 0x20, 0x91, 0x6f, 0x00, 0x27, 0xa5, 0x75, 0x07, 0x4c, 0xe7, 0x2a, 0x33, 0x17, 0x77, 0xc3, 0x47, 0x8d, 0x65, 0x13, 0xf7, 0x86, 0xa5, 0x91, 0xbd, 0x89, 0x2d, 0xa1, 0xa5, 0x77, 0xbf, 0x23, 0x36, 0x00})
 	h1, _ := HashFromBytes(
@@ -141,11 +141,11 @@ func TestHashDistance(t *testing.T) {
 		[]byte{0x12, 0x20, 0x91, 0x6f, 0x00, 0x27, 0xa5, 0x75, 0x07, 0x4c, 0xe7, 0x2a, 0x33, 0x17, 0x77, 0xc3, 0x47, 0x8d, 0x65, 0x13, 0xf7, 0x86, 0xa5, 0x91, 0xbd, 0x89, 0x2d, 0xa1, 0xa5, 0x77, 0xbf, 0x23, 0x36, 0xff})
 	Convey("the same hash should be at distance 0 from itself", t, func() {
 		var d big.Int
-		So(d.Cmp(HashDistance(h0, h0)), ShouldEqual, 0)
+		So(d.Cmp(HashXORDistance(h0, h0)), ShouldEqual, 0)
 	})
 	Convey("it should calculate distance", t, func() {
-		So(fmt.Sprintf("%v", HashDistance(h0, h1)), ShouldEqual, "1")
-		So(fmt.Sprintf("%v", HashDistance(h0, h2)), ShouldEqual, "255")
+		So(fmt.Sprintf("%v", HashXORDistance(h0, h1)), ShouldEqual, "1")
+		So(fmt.Sprintf("%v", HashXORDistance(h0, h2)), ShouldEqual, "255")
 	})
 
 }
@@ -159,13 +159,13 @@ func TestHashDistancesAndCenterSorting(t *testing.T) {
 	}
 
 	Convey("the same hash should be at distance 0 from itself", t, func() {
-		So(cmp(0, HashDistance(hashes[2], hashes[3])), ShouldEqual, 0)
+		So(cmp(0, HashXORDistance(hashes[2], hashes[3])), ShouldEqual, 0)
 	})
 	Convey("it should cmp if less", t, func() {
-		So(cmp(1, HashDistance(hashes[2], hashes[4])), ShouldEqual, 0)
+		So(cmp(1, HashXORDistance(hashes[2], hashes[4])), ShouldEqual, 0)
 	})
 	/*
-		d1 := HashDistance(hashes[2], hashes[5])
+		d1 := HashXORDistance(hashes[2], hashes[5])
 		d2 := u.XOR(keys[2].Bytes, keys[5].Bytes)
 		d2 = d2[len(keys[2].Bytes)-len(d1.Bytes()):] // skip empty space for big
 		if !bytes.Equal(d1.Bytes(), d2) {

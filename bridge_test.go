@@ -3,6 +3,7 @@ package holochain
 import (
 	"encoding/json"
 	"fmt"
+	. "github.com/metacurrency/holochain/hash"
 	. "github.com/smartystreets/goconvey/convey"
 	"testing"
 )

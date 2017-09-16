@@ -81,14 +81,14 @@ type Message struct {
 
 // Node represents a node in the network
 type Node struct {
-	HashAddr    peer.ID
-	NetAddr     ma.Multiaddr
-	Host        *rhost.RoutedHost
-	mdnsSvc     discovery.Service
-	blockedlist map[peer.ID]bool
-	protocols   [_protocolCount]*Protocol
-	peerstore   pstore.Peerstore
-	table       *RoutingTable
+	HashAddr     peer.ID
+	NetAddr      ma.Multiaddr
+	Host         *rhost.RoutedHost
+	mdnsSvc      discovery.Service
+	blockedlist  map[peer.ID]bool
+	protocols    [_protocolCount]*Protocol
+	peerstore    pstore.Peerstore
+	routingTable *RoutingTable
 }
 
 // Protocol encapsulates data for our different protocols
@@ -125,7 +125,7 @@ func (h *Holochain) AddPeer(id peer.ID, addrs []ma.Multiaddr) (err error) {
 		err = fmt.Errorf("peer %v in blockedlist, ignoring", id)
 	} else {
 		h.node.peerstore.AddAddrs(id, addrs, pstore.TempAddrTTL)
-		h.node.table.Update(id)
+		h.node.routingTable.Update(id)
 		err = h.dht.UpdateGossiper(id, 0)
 	}
 	return
@@ -194,7 +194,7 @@ func NewNode(listenAddr string, protoMux string, agent *LibP2PAgent) (node *Node
 	n.Host = rhost.Wrap(bh, &n)
 
 	m := pstore.NewMetrics()
-	n.table = NewRoutingTable(KValue, nodeID, time.Minute, m)
+	n.routingTable = NewRoutingTable(KValue, nodeID, time.Minute, m)
 
 	node = &n
 	return

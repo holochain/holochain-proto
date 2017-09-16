@@ -206,9 +206,8 @@ var ErrHashModified = errors.New("hash modified")
 var ErrHashRejected = errors.New("hash rejected")
 var ErrEntryTypeMismatch = errors.New("entry type mismatch")
 
-const (
-	KValue = 10
-)
+var KValue int = 10
+var AlphaValue int = 3
 
 // NewDHT creates a new DHT structure
 func NewDHT(h *Holochain) *DHT {

@@ -314,7 +314,7 @@ func TestAddPeer(t *testing.T) {
 	defer CleanupTestDir(d)
 	somePeer, _ := makePeer("some peer")
 	Convey("it should add a peer to the peer store and the gossip list", t, func() {
-		So(h.node.table.Size(), ShouldEqual, 0)
+		So(h.node.routingTable.Size(), ShouldEqual, 0)
 		So(len(h.node.peerstore.Peers()), ShouldEqual, 1)
 		err := h.AddPeer(somePeer, nil)
 		So(err, ShouldBeNil)
@@ -323,7 +323,7 @@ func TestAddPeer(t *testing.T) {
 		So(err, ShouldBeNil)
 		So(len(glist), ShouldEqual, 1)
 		So(glist[0], ShouldEqual, somePeer)
-		So(h.node.table.Size(), ShouldEqual, 1)
+		So(h.node.routingTable.Size(), ShouldEqual, 1)
 	})
 
 	Convey("it should not add a blocked peer", t, func() {
@@ -336,11 +336,11 @@ func TestAddPeer(t *testing.T) {
 		So(err, ShouldBeNil)
 		So(len(glist), ShouldEqual, 1)
 		So(glist[0], ShouldEqual, somePeer)
-		So(h.node.table.Size(), ShouldEqual, 1)
+		So(h.node.routingTable.Size(), ShouldEqual, 1)
 	})
 }
 
-func TestNodeRoutingq(t *testing.T) {
+func TestNodeRouting(t *testing.T) {
 	d, _, h := PrepareTestChain("test")
 	defer CleanupTestDir(d)
 	node := h.node
@@ -352,18 +352,18 @@ func TestNodeRoutingq(t *testing.T) {
 	peers = addTestPeers(h, peers, start, testPeerCount)
 	Convey("populating routing", t, func() {
 		p := node.HashAddr
-		srch := node.table.NearestPeers(p, 5)
+		srch := node.routingTable.NearestPeers(p, 5)
 		nearest := fmt.Sprintf("%d %v", len(srch), srch)
 		So(nearest, ShouldEqual, "5 [<peer.ID P9vKpw> <peer.ID P9QXqa> <peer.ID PrUBh5> <peer.ID Pn94bj> <peer.ID QHFWTH>]")
 		start = testPeerCount
 		testPeerCount += 5
 		peers = addTestPeers(h, peers, start, testPeerCount)
-		srch = node.table.NearestPeers(p, 5)
+		srch = node.routingTable.NearestPeers(p, 5)
 		nearest = fmt.Sprintf("%d %v", len(srch), srch)
 
 		// adding a few more yields one which is closer
 		So(nearest, ShouldEqual, "5 [<peer.ID NSQqJR> <peer.ID P9vKpw> <peer.ID P9QXqa> <peer.ID PrUBh5> <peer.ID Pn94bj>]")
-		//		node.table.Print()
+		//		node.routingTable.Print()
 	})
 }
 

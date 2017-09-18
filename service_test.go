@@ -129,7 +129,13 @@ func TestCloneNew(t *testing.T) {
 	}
 
 	Convey("it should clone a chain by copying and creating an new UUID", t, func() {
-		hc, err := s.Clone(orig, root, agent, CloneWithNewUUID, InitializeDB)
+		// change the agent identity from the default to confirm that
+		// a separate copy is saved
+		var a *LibP2PAgent
+		a = agent.(*LibP2PAgent)
+		a.identity += "extra"
+
+		hc, err := s.Clone(orig, root, a, CloneWithNewUUID, InitializeDB)
 		So(err, ShouldBeNil)
 		So(hc.Name(), ShouldEqual, name)
 		// clone returns the ungened HC so hash won't have be calculated
@@ -144,11 +150,12 @@ func TestCloneNew(t *testing.T) {
 		So(h.Name(), ShouldEqual, "test2")
 		So(h.nucleus.dna.UUID, ShouldNotEqual, h0.nucleus.dna.UUID)
 
-		agent, err := LoadAgent(s.Path)
+		agent, err := LoadAgent(h.rootPath)
 		So(err, ShouldBeNil)
 		So(h.agent.Identity(), ShouldEqual, agent.Identity())
-		So(ic.KeyEqual(h.agent.PrivKey(), agent.PrivKey()), ShouldBeTrue)
-		So(ic.KeyEqual(h.agent.PubKey(), agent.PubKey()), ShouldBeTrue)
+		So(h.agent.Identity(), ShouldEqual, a.Identity())
+		So(ic.KeyEqual(h.agent.PrivKey(), a.PrivKey()), ShouldBeTrue)
+		So(ic.KeyEqual(h.agent.PubKey(), a.PubKey()), ShouldBeTrue)
 
 		So(compareFile(filepath.Join(orig, "dna", "zySampleZome"), filepath.Join(h.DNAPath(), "zySampleZome"), "zySampleZome.zy"), ShouldBeTrue)
 
@@ -164,7 +171,7 @@ func TestCloneNew(t *testing.T) {
 
 		So(compareFile(filepath.Join(orig, ChainTestDir), filepath.Join(h.rootPath, ChainTestDir), "testSet1.json"), ShouldBeTrue)
 
-		So(h.nucleus.dna.Progenitor.Identity, ShouldEqual, "Herbert <h@bert.com>")
+		So(h.nucleus.dna.Progenitor.Identity, ShouldEqual, a.identity)
 		pk, _ := agent.PubKey().Bytes()
 		So(string(h.nucleus.dna.Progenitor.PubKey), ShouldEqual, string(pk))
 	})
@@ -253,7 +260,7 @@ func TestCloneResolveDNA(t *testing.T) {
 	}
 
 	devAppPath := filepath.Join(s.Path, "devApp")
-	_, err = s.MakeTestingApp(devAppPath, "json", InitializeDB)
+	_, err = s.MakeTestingApp(devAppPath, "json", InitializeDB, nil)
 	if err != nil {
 		panic(err)
 	}
@@ -319,7 +326,7 @@ func TestMakeTestingApp(t *testing.T) {
 	})
 
 	Convey("when generating a dev holochain", t, func() {
-		h, err := s.MakeTestingApp(root, "json", InitializeDB)
+		h, err := s.MakeTestingApp(root, "json", InitializeDB, nil)
 		So(err, ShouldBeNil)
 
 		f, err := s.IsConfigured(name)
@@ -351,7 +358,7 @@ func TestMakeTestingApp(t *testing.T) {
 		So(FileExists(h.rootPath, ConfigFileName+".json"), ShouldBeTrue)
 
 		Convey("we should not be able re generate it", func() {
-			_, err = s.MakeTestingApp(root, "json", SkipInitializeDB)
+			_, err = s.MakeTestingApp(root, "json", SkipInitializeDB, nil)
 			So(err.Error(), ShouldEqual, "holochain: "+root+" already exists")
 		})
 	})
@@ -366,7 +373,7 @@ func TestSaveFromScaffold(t *testing.T) {
 	Convey("it should write out a scaffold file to a directory tree with JSON encoding", t, func() {
 		scaffoldReader := bytes.NewBuffer([]byte(BasicTemplateScaffold))
 
-		scaffold, err := s.SaveFromScaffold(scaffoldReader, root, "appName", "json", false)
+		scaffold, err := s.SaveFromScaffold(scaffoldReader, root, "appName", nil, "json", false)
 		So(err, ShouldBeNil)
 		So(scaffold, ShouldNotBeNil)
 		So(scaffold.ScaffoldVersion, ShouldEqual, ScaffoldVersion)
@@ -388,6 +395,8 @@ func TestSaveFromScaffold(t *testing.T) {
 		So(FileExists(root, ChainTestDir, "sample.json"), ShouldBeTrue)
 		So(FileExists(root, ChainUIDir, "index.html"), ShouldBeTrue)
 		So(FileExists(root, ChainUIDir, "hc.js"), ShouldBeTrue)
+		So(FileExists(root, AgentFileName), ShouldBeTrue)
+		So(FileExists(root, PrivKeyFileName), ShouldBeTrue)
 	})
 
 	Convey("it should write out a scaffold file to a directory tree with toml encoding", t, func() {
@@ -395,7 +404,7 @@ func TestSaveFromScaffold(t *testing.T) {
 
 		root2 := filepath.Join(s.Path, name+"2")
 
-		scaffold, err := s.SaveFromScaffold(scaffoldReader, root2, "appName", "toml", false)
+		scaffold, err := s.SaveFromScaffold(scaffoldReader, root2, "appName", nil, "toml", false)
 		So(err, ShouldBeNil)
 		So(scaffold, ShouldNotBeNil)
 		So(scaffold.ScaffoldVersion, ShouldEqual, ScaffoldVersion)
@@ -407,7 +416,7 @@ func TestSaveFromScaffold(t *testing.T) {
 	Convey("it should write out a scaffold file to a directory tree with binary UI files", t, func() {
 		scaffoldReader := bytes.NewBuffer([]byte(TestingAppScaffold()))
 
-		_, err := s.SaveFromScaffold(scaffoldReader, root+"3", "appName2", "json", false)
+		_, err := s.SaveFromScaffold(scaffoldReader, root+"3", "appName2", nil, "json", false)
 		root3 := filepath.Join(s.Path, name+"3")
 
 		So(err, ShouldBeNil)
@@ -454,7 +463,7 @@ func TestMakeScaffold(t *testing.T) {
 	defer CleanupTestDir(d)
 	name := "test"
 	root := filepath.Join(s.Path, name)
-	h, err := s.MakeTestingApp(root, "json", InitializeDB)
+	h, err := s.MakeTestingApp(root, "json", InitializeDB, nil)
 	if err != nil {
 		panic(err)
 	}
@@ -466,7 +475,7 @@ func TestMakeScaffold(t *testing.T) {
 			panic(err)
 		}
 		root = filepath.Join(s.Path, "appFromScaffold")
-		scaffold, err := s.SaveFromScaffold(scaffoldReader, root, "appFromScaffold", "json", false)
+		scaffold, err := s.SaveFromScaffold(scaffoldReader, root, "appFromScaffold", nil, "json", false)
 		So(err, ShouldBeNil)
 		So(scaffold, ShouldNotBeNil)
 		So(scaffold.ScaffoldVersion, ShouldEqual, ScaffoldVersion)

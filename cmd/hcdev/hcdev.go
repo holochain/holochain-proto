@@ -232,7 +232,7 @@ func setupApp() (app *cli.App) {
 
 						}
 					}
-					_, err := service.MakeTestingApp(devPath, "json", holo.SkipInitializeDB)
+					_, err := service.MakeTestingApp(devPath, "json", holo.SkipInitializeDB, nil)
 					if err != nil {
 						return cmd.MakeErrFromErr(c, err)
 					}
@@ -292,7 +292,7 @@ func setupApp() (app *cli.App) {
 					}
 					defer sf.Close()
 
-					_, err = service.SaveFromScaffold(sf, devPath, name, encodingFormat, false)
+					_, err = service.SaveFromScaffold(sf, devPath, name, nil, encodingFormat, false)
 					if err != nil {
 						return cmd.MakeErrFromErr(c, err)
 					}

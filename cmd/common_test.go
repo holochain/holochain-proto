@@ -19,7 +19,7 @@ func TestIsAppDir(t *testing.T) {
 			d, s := holo.SetupTestService()
 
 			So(IsAppDir(d).Error(), ShouldEqual, "HC: Holochain App directory missing dna/dna.xyz config file")
-			h, err := s.MakeTestingApp(filepath.Join(s.Path, "test"), configExtension, true)
+			h, err := s.MakeTestingApp(filepath.Join(s.Path, "test"), configExtension, true, nil)
 			if err != nil {
 				panic(err)
 			}

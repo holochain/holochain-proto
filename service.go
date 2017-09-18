@@ -149,7 +149,7 @@ func IsInitialized(root string) bool {
 // Init initializes service defaults including a signing key pair for an agent
 // and writes them out to configuration files in the root path (making the
 // directory if necessary)
-func Init(root string, agent AgentIdentity, seed io.Reader) (service *Service, err error) {
+func Init(root string, identity AgentIdentity, seed io.Reader) (service *Service, err error) {
 	err = os.MkdirAll(root, os.ModePerm)
 	if err != nil {
 		return
@@ -179,7 +179,7 @@ func Init(root string, agent AgentIdentity, seed io.Reader) (service *Service, e
 		return
 	}
 
-	a, err := NewAgent(LibP2P, agent, seed)
+	a, err := NewAgent(LibP2P, identity, seed)
 	if err != nil {
 		return
 	}
@@ -459,6 +459,7 @@ func (s *Service) load(name string, format string) (hP *Holochain, err error) {
 		// if not specified for this app, get the default from the Agent.txt file for all apps
 		agent, err = LoadAgent(filepath.Dir(root))
 	}
+
 	// TODO verify Agent identity against schema
 	if err != nil {
 		return
@@ -618,7 +619,7 @@ func makeConfig(h *Holochain, s *Service) (err error) {
 }
 
 // MakeTestingApp generates a holochain used for testing purposes
-func (s *Service) MakeTestingApp(root string, encodingFormat string, initDB bool) (h *Holochain, err error) {
+func (s *Service) MakeTestingApp(root string, encodingFormat string, initDB bool, agent Agent) (h *Holochain, err error) {
 	if DirExists(root) {
 		return nil, mkErr(root + " already exists")
 	}
@@ -627,7 +628,7 @@ func (s *Service) MakeTestingApp(root string, encodingFormat string, initDB bool
 
 	name := filepath.Base(root)
 
-	_, err = s.SaveFromScaffold(scaffoldReader, root, name, encodingFormat, initDB)
+	_, err = s.SaveFromScaffold(scaffoldReader, root, name, agent, encodingFormat, initDB)
 	if err != nil {
 		return
 	}
@@ -743,6 +744,12 @@ func (s *Service) Clone(srcPath string, root string, agent Agent, new bool, init
 
 		// save out the DNA file
 		if err = s.saveDNAFile(h.rootPath, h.nucleus.dna, h.encodingFormat, true); err != nil {
+			return nil, err
+		}
+
+		// and the agent
+		err = SaveAgent(h.rootPath, h.agent)
+		if err != nil {
 			return nil, err
 		}
 
@@ -999,12 +1006,22 @@ func encodeAsBinary(contentType string) bool {
 }
 
 // SaveFromScaffold writes out a holochain application based on scaffold file to path
-func (service *Service) SaveFromScaffold(reader io.Reader, path string, name string, encodingFormat string, newUUID bool) (scaffold *Scaffold, err error) {
+func (service *Service) SaveFromScaffold(reader io.Reader, path string, name string, agent Agent, encodingFormat string, newUUID bool) (scaffold *Scaffold, err error) {
 	scaffold, err = LoadScaffold(reader)
 	if err != nil {
 		return
 	}
 	err = service.saveFromScaffold(scaffold, path, name, encodingFormat, newUUID)
+	if err != nil {
+		return
+	}
+	if agent == nil {
+		agent = service.DefaultAgent
+	}
+	err = SaveAgent(path, agent)
+	if err != nil {
+		return
+	}
 	return
 }
 

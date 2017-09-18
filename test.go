@@ -2,6 +2,7 @@ package holochain
 
 import (
 	"bytes"
+	"fmt"
 	. "github.com/smartystreets/goconvey/convey"
 	"io"
 	"io/ioutil"
@@ -32,8 +33,8 @@ func makeTestSeed(id string) io.Reader {
 
 func setupTestService() (d string, s *Service) {
 	d = SetupTestDir()
-	agent := AgentIdentity("Herbert <h@bert.com>")
-	s, err := Init(filepath.Join(d, DefaultDirectoryName), agent, makeTestSeed(string(agent)))
+	identity := "Herbert <h@bert.com>"
+	s, err := Init(filepath.Join(d, DefaultDirectoryName), AgentIdentity(identity), makeTestSeed(identity))
 
 	s.Settings.DefaultBootstrapServer = "localhost:3142"
 	if err != nil {
@@ -46,18 +47,34 @@ func SetupTestService() (d string, s *Service) {
 	return setupTestService()
 }
 
-func SetupTestChain(n string) (d string, s *Service, h *Holochain) {
-	d, s = setupTestService()
-	path := filepath.Join(s.Path, n)
-	h, err := s.MakeTestingApp(path, "toml", InitializeDB)
+func setupTestChain(name string, count int, s *Service) (h *Holochain) {
+	path := filepath.Join(s.Path, name)
+
+	a := s.DefaultAgent
+	if count > 0 {
+		var err error
+		identity := string(a.Identity()) + fmt.Sprintf("%d", count)
+		a, err = NewAgent(LibP2P, AgentIdentity(identity), makeTestSeed(identity))
+		if err != nil {
+			panic(err)
+		}
+	}
+
+	h, err := s.MakeTestingApp(path, "toml", InitializeDB, a)
 	if err != nil {
 		panic(err)
 	}
+	h.Config.Port += count
 	return
 }
 
-func PrepareTestChain(n string) (d string, s *Service, h *Holochain) {
-	d, s, h = SetupTestChain("test")
+func SetupTestChain(n string) (d string, s *Service, h *Holochain) {
+	d, s = setupTestService()
+	h = setupTestChain(n, 0, s)
+	return
+}
+
+func prepareTestChain(h *Holochain) {
 	_, err := h.GenChain()
 	if err != nil {
 		panic(err)
@@ -67,6 +84,11 @@ func PrepareTestChain(n string) (d string, s *Service, h *Holochain) {
 	if err != nil {
 		panic(err)
 	}
+}
+
+func PrepareTestChain(n string) (d string, s *Service, h *Holochain) {
+	d, s, h = SetupTestChain(n)
+	prepareTestChain(h)
 	return
 }
 

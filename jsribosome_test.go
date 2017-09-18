@@ -275,7 +275,7 @@ func TestNewJSRibosome(t *testing.T) {
 				d, s, h := PrepareTestChain("test")
 				defer CleanupTestDir(d)
 
-				h2, err := s.MakeTestingApp(filepath.Join(s.Path, "test2"), "json")
+				h2, err := s.MakeTestingApp(filepath.Join(s.Path, "test2"), "json",nil)
 				if err != nil {
 					panic(err)
 				}

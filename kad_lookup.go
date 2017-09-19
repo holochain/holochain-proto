@@ -29,7 +29,7 @@ func toPeerInfos(ps []peer.ID) []*pstore.PeerInfo {
 
 // Kademlia 'node lookup' operation. Returns a channel of the K closest peers
 // to the given key
-func (node *Node) GetClosestPeers(ctx context.Context, key peer.ID) (<-chan peer.ID, error) {
+func (node *Node) GetClosestPeers(ctx context.Context, key Hash) (<-chan peer.ID, error) {
 	Debugf("Finding peers close to %v", key)
 	tablepeers := node.routingTable.NearestPeers(key, AlphaValue)
 	if len(tablepeers) == 0 {
@@ -41,7 +41,7 @@ func (node *Node) GetClosestPeers(ctx context.Context, key peer.ID) (<-chan peer
 	// since the query doesn't actually pass our context down
 	// we have to hack this here. whyrusleeping isnt a huge fan of goprocess
 	//parent := ctx
-	query := node.newQuery(HashFromPeerID(key), func(ctx context.Context, p peer.ID) (*dhtQueryResult, error) {
+	query := node.newQuery(key, func(ctx context.Context, p peer.ID) (*dhtQueryResult, error) {
 		// For DHT query command
 		/*notif.PublishQueryEvent(parent, &notif.QueryEvent{
 			Type: notif.SendingQuery,
@@ -89,7 +89,7 @@ func (node *Node) GetClosestPeers(ctx context.Context, key peer.ID) (<-chan peer
 	return out, nil
 }
 
-func (node *Node) closerPeersSingle(ctx context.Context, key peer.ID, p peer.ID) ([]peer.ID, error) {
+func (node *Node) closerPeersSingle(ctx context.Context, key Hash, p peer.ID) ([]peer.ID, error) {
 	response, err := node.findPeerSingle(ctx, p, key)
 	if err != nil {
 		return nil, err

@@ -13,15 +13,15 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	_ "sync"
-	_ "time"
-
 	peer "github.com/libp2p/go-libp2p-peer"
 	pstore "github.com/libp2p/go-libp2p-peerstore"
+	. "github.com/metacurrency/holochain/hash"
+	_ "sync"
+	_ "time"
 )
 
 type FindNodeReq struct {
-	id peer.ID
+	hash Hash
 }
 
 type FindNodeResp struct {
@@ -38,9 +38,9 @@ func (node *Node) FindLocal(id peer.ID) pstore.PeerInfo {
 }
 
 // findPeerSingle asks peer 'p' if they know where the peer with id 'id' is
-func (node *Node) findPeerSingle(ctx context.Context, p peer.ID, id peer.ID) (response *Message, err error) {
+func (node *Node) findPeerSingle(ctx context.Context, p peer.ID, hash Hash) (response *Message, err error) {
 
-	pmes := node.NewMessage(FIND_NODE_REQUEST, FindNodeReq{id: p})
+	pmes := node.NewMessage(FIND_NODE_REQUEST, FindNodeReq{hash: hash})
 	var resp Message
 	resp, err = node.Send(ctx, KademliaProtocol, p, pmes)
 	if err != nil {

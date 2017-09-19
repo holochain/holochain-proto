@@ -239,7 +239,7 @@ func (r *dhtQueryRunner) queryPeer(proc process.Process, p peer.ID) {
 
 	// make sure we're connected to the peer.
 	// FIXME abstract away into the network layer
-	if conns := r.query.node.Host.Network().ConnsToPeer(p); len(conns) == 0 {
+	if conns := r.query.node.host.Network().ConnsToPeer(p); len(conns) == 0 {
 		Debug("not connected. dialing.")
 
 		/*
@@ -254,7 +254,7 @@ func (r *dhtQueryRunner) queryPeer(proc process.Process, p peer.ID) {
 
 		pi := pstore.PeerInfo{ID: p}
 
-		if err := r.query.node.Host.Connect(ctx, pi); err != nil {
+		if err := r.query.node.host.Connect(ctx, pi); err != nil {
 			Debugf("Error connecting: %s", err)
 
 			/*

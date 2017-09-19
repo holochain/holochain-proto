@@ -35,19 +35,19 @@ func TestNodeDiscovery(t *testing.T) {
 		node2.Close()
 	}()
 	Convey("nodes should find eachother via mdns", t, func() {
-		So(len(node1.Host.Peerstore().Peers()), ShouldEqual, 1)
-		So(len(node2.Host.Peerstore().Peers()), ShouldEqual, 1)
+		So(len(node1.host.Peerstore().Peers()), ShouldEqual, 1)
+		So(len(node2.host.Peerstore().Peers()), ShouldEqual, 1)
 
-		err := node1.EnableMDNSDiscovery(&TestDiscoveryNotifee{node1.Host}, time.Second/2)
+		err := node1.EnableMDNSDiscovery(&TestDiscoveryNotifee{node1.host}, time.Second/2)
 		So(err, ShouldBeNil)
-		err = node2.EnableMDNSDiscovery(&TestDiscoveryNotifee{node2.Host}, time.Second/2)
+		err = node2.EnableMDNSDiscovery(&TestDiscoveryNotifee{node2.host}, time.Second/2)
 		So(err, ShouldBeNil)
 
 		time.Sleep(time.Second * 1)
 
 		// many nodes from previous tests show up... TODO, figure out how to clear them
-		So(len(node1.Host.Peerstore().Peers()) > 1, ShouldBeTrue)
-		So(len(node2.Host.Peerstore().Peers()) > 1, ShouldBeTrue)
+		So(len(node1.host.Peerstore().Peers()) > 1, ShouldBeTrue)
+		So(len(node2.host.Peerstore().Peers()) > 1, ShouldBeTrue)
 	})
 }
 
@@ -66,9 +66,9 @@ func TestNewNode(t *testing.T) {
 		So(err, ShouldBeNil)
 		defer node2.Close()
 
-		node.Host.Peerstore().AddAddr(node2.HashAddr, node2.NetAddr, pstore.PermanentAddrTTL)
+		node.host.Peerstore().AddAddr(node2.HashAddr, node2.NetAddr, pstore.PermanentAddrTTL)
 		var payload string
-		node2.Host.SetStreamHandler("/testprotocol/1.0.0", func(s net.Stream) {
+		node2.host.SetStreamHandler("/testprotocol/1.0.0", func(s net.Stream) {
 			defer s.Close()
 
 			buf := make([]byte, 1024)
@@ -86,7 +86,7 @@ func TestNewNode(t *testing.T) {
 			}
 		})
 
-		s, err := node.Host.NewStream(context.Background(), node2.HashAddr, "/testprotocol/1.0.0")
+		s, err := node.host.NewStream(context.Background(), node2.HashAddr, "/testprotocol/1.0.0")
 		So(err, ShouldBeNil)
 		_, err = s.Write([]byte("greetings"))
 		So(err, ShouldBeNil)
@@ -149,14 +149,14 @@ func TestNodeSend(t *testing.T) {
 		So(err, ShouldBeNil)
 	})
 
-	node2.Host.Peerstore().AddAddr(node1.HashAddr, node1.NetAddr, pstore.PermanentAddrTTL)
+	node2.host.Peerstore().AddAddr(node1.HashAddr, node1.NetAddr, pstore.PermanentAddrTTL)
 
 	Convey("It should fail on messages without a source", t, func() {
 		m := Message{Type: PUT_REQUEST, Body: "fish"}
-		So(len(node1.Host.Peerstore().Peers()), ShouldEqual, 1)
+		So(len(node1.host.Peerstore().Peers()), ShouldEqual, 1)
 		r, err := node2.Send(context.Background(), ActionProtocol, node1.HashAddr, &m)
 		So(err, ShouldBeNil)
-		So(len(node1.Host.Peerstore().Peers()), ShouldEqual, 2) // node1's peerstore should now have node2
+		So(len(node1.host.Peerstore().Peers()), ShouldEqual, 2) // node1's peerstore should now have node2
 		So(r.Type, ShouldEqual, ERROR_RESPONSE)
 		So(r.From, ShouldEqual, node1.HashAddr) // response comes from who we sent to
 		So(r.Body.(ErrorResponse).Message, ShouldEqual, "message must have a source")
@@ -352,13 +352,13 @@ func TestNodeRouting(t *testing.T) {
 	peers = addTestPeers(h, peers, start, testPeerCount)
 	Convey("populating routing", t, func() {
 		p := node.HashAddr
-		srch := node.routingTable.NearestPeers(p, 5)
+		srch := node.routingTable.NearestPeers(HashFromPeerID(p), 5)
 		nearest := fmt.Sprintf("%d %v", len(srch), srch)
 		So(nearest, ShouldEqual, "5 [<peer.ID P9vKpw> <peer.ID P9QXqa> <peer.ID PrUBh5> <peer.ID Pn94bj> <peer.ID QHFWTH>]")
 		start = testPeerCount
 		testPeerCount += 5
 		peers = addTestPeers(h, peers, start, testPeerCount)
-		srch = node.routingTable.NearestPeers(p, 5)
+		srch = node.routingTable.NearestPeers(HashFromPeerID(p), 5)
 		nearest = fmt.Sprintf("%d %v", len(srch), srch)
 
 		// adding a few more yields one which is closer

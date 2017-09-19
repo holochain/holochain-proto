@@ -141,16 +141,16 @@ func (rt *RoutingTable) nextBucket() peer.ID {
 
 // Find a specific peer by ID or return nil
 func (rt *RoutingTable) Find(id peer.ID) peer.ID {
-	srch := rt.NearestPeers(id, 1)
+	srch := rt.NearestPeers(HashFromPeerID(id), 1)
 	if len(srch) == 0 || srch[0] != id {
 		return ""
 	}
 	return srch[0]
 }
 
-// NearestPeer returns a single peer that is nearest to the given ID
-func (rt *RoutingTable) NearestPeer(id peer.ID) peer.ID {
-	peers := rt.NearestPeers(id, 1)
+// NearestPeer returns a single peer that is nearest to the given Hash
+func (rt *RoutingTable) NearestPeer(hash Hash) peer.ID {
+	peers := rt.NearestPeers(hash, 1)
 	if len(peers) > 0 {
 		return peers[0]
 	}
@@ -172,13 +172,13 @@ func copyPeersFromList(target peer.ID, hashArr HashSorterArr, peerList *list.Lis
 	return hashArr
 }
 
-func SortClosestPeers(peers []peer.ID, target peer.ID) []peer.ID {
+func SortClosestPeers(peers []peer.ID, target Hash) []peer.ID {
 	var hsarr HashSorterArr
 	for _, p := range peers {
 		h := HashFromPeerID(p)
 		hd := &HashDistance{
-			Hash:     p,
-			Distance: HashXORDistance(h, HashFromPeerID(target)),
+			Hash:     h,
+			Distance: HashXORDistance(h, target),
 		}
 		hsarr = append(hsarr, hd)
 	}
@@ -191,7 +191,8 @@ func SortClosestPeers(peers []peer.ID, target peer.ID) []peer.ID {
 }
 
 // NearestPeers returns a list of the 'count' closest peers to the given ID
-func (rt *RoutingTable) NearestPeers(id peer.ID, count int) []peer.ID {
+func (rt *RoutingTable) NearestPeers(hash Hash, count int) []peer.ID {
+	id := PeerIDFromHash(hash)
 	cpl := commonPrefixLen(id, rt.local)
 
 	rt.tabLock.RLock()

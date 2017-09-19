@@ -5,7 +5,9 @@ import (
 	"fmt"
 	peer "github.com/libp2p/go-libp2p-peer"
 	pstore "github.com/libp2p/go-libp2p-peerstore"
+	. "github.com/metacurrency/holochain/hash"
 	. "github.com/smartystreets/goconvey/convey"
+
 	"testing"
 	"time"
 )
@@ -28,8 +30,8 @@ func TestGetClosestPeers(t *testing.T) {
 		for i := 0; i < nodesCount; i++ {
 			connect(t, ctx, nodes[i].node, nodes[(i+1)%len(nodes)].node)
 		}
-
-		peers, err := nodes[0].node.GetClosestPeers(ctx, nodes[0].node.HashAddr)
+		fooHash, _ := NewHash("QmVGtdTZdTFaLsaj2RwdVG8jcjNNcp1DE914DKZ2kHmXHx")
+		peers, err := nodes[1].node.GetClosestPeers(ctx, fooHash)
 		So(err, ShouldBeNil)
 
 		var out []peer.ID
@@ -60,7 +62,7 @@ func connectNoSync(t *testing.T, ctx context.Context, a, b *Node) {
 
 	a.peerstore.AddAddrs(idB, addrB, pstore.TempAddrTTL)
 	pi := pstore.PeerInfo{ID: idB}
-	if err := a.Host.Connect(ctx, pi); err != nil {
+	if err := a.host.Connect(ctx, pi); err != nil {
 		t.Fatal(err)
 	}
 }

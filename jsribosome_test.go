@@ -849,7 +849,7 @@ func TestJSDHT(t *testing.T) {
 		So(string(data), ShouldEqual, h.nodeIDStr)
 
 		// the new key should be a peerID in the node
-		peers := h.node.Host.Peerstore().Peers()
+		peers := h.node.host.Peerstore().Peers()
 		var found bool
 
 		for _, p := range peers {

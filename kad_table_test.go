@@ -5,13 +5,13 @@
 package holochain
 
 import (
-	"math/rand"
-	"testing"
-	"time"
-
 	peer "github.com/libp2p/go-libp2p-peer"
 	pstore "github.com/libp2p/go-libp2p-peerstore"
 	tu "github.com/libp2p/go-testutil"
+	. "github.com/metacurrency/holochain/hash"
+	"math/rand"
+	"testing"
+	"time"
 )
 
 // Test basic features of the bucket struct
@@ -114,7 +114,7 @@ func TestTableUpdate(t *testing.T) {
 
 	for i := 0; i < 100; i++ {
 		id := tu.RandPeerIDFatal(t)
-		ret := rt.NearestPeers(id, 5)
+		ret := rt.NearestPeers(HashFromPeerID(id), 5)
 		if len(ret) == 0 {
 			t.Fatal("Failed to find node near ID.")
 		}
@@ -133,7 +133,7 @@ func TestTableFind(t *testing.T) {
 	}
 
 	t.Logf("Searching for peer: '%s'", peers[2])
-	found := rt.NearestPeer(peers[2])
+	found := rt.NearestPeer(HashFromPeerID(peers[2]))
 	if !(found == peers[2]) {
 		t.Fatalf("Failed to lookup known node...")
 	}
@@ -151,7 +151,7 @@ func TestTableFindMultiple(t *testing.T) {
 	}
 
 	t.Logf("Searching for peer: '%s'", peers[2])
-	found := rt.NearestPeers(peers[2], 15)
+	found := rt.NearestPeers(HashFromPeerID(peers[2]), 15)
 	if len(found) != 15 {
 		t.Fatalf("Got back different number of peers than we expected.")
 	}

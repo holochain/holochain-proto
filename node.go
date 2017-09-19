@@ -12,6 +12,9 @@ import (
 	"encoding/gob"
 	"errors"
 	"fmt"
+	goprocess "github.com/jbenet/goprocess"
+	goprocessctx "github.com/jbenet/goprocess/context"
+
 	net "github.com/libp2p/go-libp2p-net"
 	peer "github.com/libp2p/go-libp2p-peer"
 	pstore "github.com/libp2p/go-libp2p-peerstore"
@@ -26,6 +29,7 @@ import (
 	"gopkg.in/mgo.v2/bson"
 	"io"
 	"math/big"
+	"sync"
 	"time"
 )
 
@@ -87,12 +91,18 @@ type Message struct {
 type Node struct {
 	HashAddr     peer.ID
 	NetAddr      ma.Multiaddr
-	Host         *rhost.RoutedHost
+	host         *rhost.RoutedHost
 	mdnsSvc      discovery.Service
 	blockedlist  map[peer.ID]bool
 	protocols    [_protocolCount]*Protocol
 	peerstore    pstore.Peerstore
 	routingTable *RoutingTable
+
+	// items for the kademlia implementation
+	plk   sync.Mutex
+	peers map[peer.ID]*peerTracker
+	ctx   context.Context
+	proc  goprocess.Process
 }
 
 // Protocol encapsulates data for our different protocols
@@ -140,7 +150,7 @@ func (h *Holochain) AddPeer(id peer.ID, addrs []ma.Multiaddr) (err error) {
 func (n *Node) EnableMDNSDiscovery(notifee discovery.Notifee, interval time.Duration) (err error) {
 	ctx := context.Background()
 
-	n.mdnsSvc, err = discovery.NewMdnsService(ctx, n.Host, interval)
+	n.mdnsSvc, err = discovery.NewMdnsService(ctx, n.host, interval)
 	if err != nil {
 		return
 	}
@@ -188,6 +198,7 @@ func NewNode(listenAddr string, protoMux string, agent *LibP2PAgent) (node *Node
 	n.protocols[KademliaProtocol] = &Protocol{protocol.ID(kademliaProtocolString), KademliaReceiver}
 
 	ctx := context.Background()
+	n.ctx = ctx
 
 	// create a new swarm to be used by the service host
 	netw, err := swarm.NewNetwork(ctx, []ma.Multiaddr{n.NetAddr}, nodeID, ps, nil)
@@ -201,12 +212,22 @@ func NewNode(listenAddr string, protoMux string, agent *LibP2PAgent) (node *Node
 		return
 	}
 
-	n.Host = rhost.Wrap(bh, &n)
+	n.host = rhost.Wrap(bh, &n)
 
 	m := pstore.NewMetrics()
 	n.routingTable = NewRoutingTable(KValue, nodeID, time.Minute, m)
+	n.peers = make(map[peer.ID]*peerTracker)
 
 	node = &n
+
+	n.host.Network().Notify((*netNotifiee)(node))
+
+	n.proc = goprocessctx.WithContextAndTeardown(ctx, func() error {
+		// remove ourselves from network notifs.
+		n.host.Network().StopNotify((*netNotifiee)(node))
+		return n.host.Close()
+	})
+
 	return
 }
 
@@ -310,7 +331,7 @@ func (node *Node) respondWith(s net.Stream, err error, body interface{}) {
 
 // StartProtocol initiates listening for a protocol on the node
 func (node *Node) StartProtocol(h *Holochain, proto int) (err error) {
-	node.Host.SetStreamHandler(node.protocols[proto].ID, func(s net.Stream) {
+	node.host.SetStreamHandler(node.protocols[proto].ID, func(s net.Stream) {
 		var m Message
 		err := m.Decode(s)
 		var response interface{}
@@ -333,7 +354,7 @@ func (node *Node) StartProtocol(h *Holochain, proto int) (err error) {
 
 // Close shuts down the node
 func (node *Node) Close() error {
-	return node.Host.Close()
+	return node.proc.Close()
 }
 
 // Send delivers a message to a node via the given protocol
@@ -344,7 +365,7 @@ func (node *Node) Send(ctx context.Context, proto int, addr peer.ID, m *Message)
 		return
 	}
 
-	s, err := node.Host.NewStream(ctx, addr, node.protocols[proto].ID)
+	s, err := node.host.NewStream(ctx, addr, node.protocols[proto].ID)
 	if err != nil {
 		return
 	}
@@ -476,4 +497,14 @@ func (node *Node) Distance(id peer.ID) *big.Int {
 	h := HashFromPeerID(id)
 	nh := HashFromPeerID(node.HashAddr)
 	return HashXORDistance(nh, h)
+}
+
+// Context return node's context
+func (node *Node) Context() context.Context {
+	return node.ctx
+}
+
+// Process return node's process
+func (node *Node) Process() goprocess.Process {
+	return node.proc
 }

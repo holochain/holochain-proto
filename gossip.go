@@ -336,7 +336,7 @@ func GossipReceiver(h *Holochain, m *Message) (response interface{}, err error) 
 			if e == nil && idx < t.MyIdx {
 				dht.glog.Logf("we only have %d of %d from %v so gossiping back", idx, t.MyIdx, m.From)
 
-				pi := h.node.Host.Peerstore().PeerInfo(m.From)
+				pi := h.node.host.Peerstore().PeerInfo(m.From)
 				if len(pi.Addrs) == 0 {
 					dht.glog.Logf("NO ADDRESSES FOR PEER:%v", pi)
 				}

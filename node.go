@@ -67,6 +67,10 @@ const (
 	// Peer messages
 
 	LISTADD_REQUEST
+
+	// Kademlia messages
+
+	FIND_NODE_REQUEST
 )
 
 var ErrBlockedListed = errors.New("node blockedlisted")
@@ -101,11 +105,13 @@ const (
 	ActionProtocol = iota
 	ValidateProtocol
 	GossipProtocol
+	KademliaProtocol
 	_protocolCount
 )
 
 // FindPeer implements the FindPeer() method of the RoutedHost interface in go-libp2p/p2p/host/routed
 // and makes the Node object the "Router"
+
 func (n *Node) FindPeer(context.Context, peer.ID) (peer pstore.PeerInfo, err error) {
 	err = errors.New("routing not implemented")
 	return
@@ -159,6 +165,7 @@ func NewNode(listenAddr string, protoMux string, agent *LibP2PAgent) (node *Node
 
 	ps := pstore.NewPeerstore()
 	n.peerstore = ps
+	ps.AddAddrs(nodeID, []ma.Multiaddr{n.NetAddr}, pstore.TempAddrTTL)
 
 	n.HashAddr = nodeID
 	priv := agent.PrivKey()
@@ -168,14 +175,17 @@ func NewNode(listenAddr string, protoMux string, agent *LibP2PAgent) (node *Node
 	validateProtocolString := "/hc-validate-" + protoMux + "/0.0.0"
 	gossipProtocolString := "/hc-gossip-" + protoMux + "/0.0.0"
 	actionProtocolString := "/hc-action-" + protoMux + "/0.0.0"
+	kademliaProtocolString := "/hc-kademlia-" + protoMux + "/0.0.0"
 
 	Debugf("Validate protocol identifier: " + validateProtocolString)
 	Debugf("Gossip protocol identifier: " + gossipProtocolString)
 	Debugf("Action protocol identifier: " + actionProtocolString)
+	Debugf("Kademlia protocol identifier: " + kademliaProtocolString)
 
 	n.protocols[ValidateProtocol] = &Protocol{protocol.ID(validateProtocolString), ValidateReceiver}
 	n.protocols[GossipProtocol] = &Protocol{protocol.ID(gossipProtocolString), GossipReceiver}
 	n.protocols[ActionProtocol] = &Protocol{protocol.ID(actionProtocolString), ActionReceiver}
+	n.protocols[KademliaProtocol] = &Protocol{protocol.ID(kademliaProtocolString), KademliaReceiver}
 
 	ctx := context.Background()
 
@@ -271,6 +281,8 @@ func (m Message) String() string {
 		typeStr = "APP_MESSAGE"
 	case LISTADD_REQUEST:
 		typeStr = "LISTADD_REQUEST"
+	case FIND_NODE_REQUEST:
+		typeStr = "FIND_NODE_REQUEST"
 	}
 	return fmt.Sprintf("%s @ %v From:%v Body:%v", typeStr, m.Time, m.From, m.Body)
 }

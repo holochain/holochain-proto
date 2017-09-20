@@ -159,6 +159,7 @@ func (c *Chain) TopType(entryType string) (hash *Hash, header *Header) {
 func (c *Chain) AddEntry(now time.Time, entryType string, e Entry, privKey ic.PrivKey) (hash Hash, err error) {
 	var l int
 	var header *Header
+	now = now.Round(0)
 	l, hash, header, err = c.PrepareHeader(now, entryType, e, privKey, nil)
 	if err == nil {
 		err = c.addEntry(l, hash, header, e)

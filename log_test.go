@@ -84,7 +84,7 @@ func TestNewLog(t *testing.T) {
 		l.Log("twofish")
 		l.SetPrefix("%{color:red}[COLOR PREFIX]")
 		l.Log("threefish")
-		So(buf.String(), ShouldEqual, "onefish\n[PREFIX]twofish\n\033[31m[COLOR PREFIX]\033[0mthreefish\n")
+		So(buf.String(), ShouldEqual, "onefish\n[PREFIX]twofish\n[COLOR PREFIX]threefish\n")
 	})
 
 	Convey("it should handle file name and line number", t, func() {

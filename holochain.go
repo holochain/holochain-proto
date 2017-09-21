@@ -170,6 +170,9 @@ func InitializeHolochain() {
 		gob.Register(Package{})
 		gob.Register(AppMsg{})
 		gob.Register(ListAddReq{})
+		gob.Register(FindNodeReq{})
+		gob.Register(FindNodeResp{})
+		gob.Register(PeerInfo{})
 
 		RegisterBultinRibosomes()
 

@@ -681,7 +681,10 @@ func (dht *DHT) FindNodeForHash(key Hash) (n *Node, err error) {
 
 // Start initiates listening for DHT & Gossip protocol messages on the node
 func (dht *DHT) Start() (err error) {
-	err = dht.h.node.StartProtocol(dht.h, GossipProtocol)
+	if err = dht.h.node.StartProtocol(dht.h, GossipProtocol); err != nil {
+		return
+	}
+	err = dht.h.node.StartProtocol(dht.h, KademliaProtocol)
 	return
 }
 

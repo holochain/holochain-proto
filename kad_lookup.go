@@ -53,7 +53,7 @@ func (node *Node) GetClosestPeers(ctx context.Context, key Hash) (<-chan peer.ID
 			Debugf("error getting closer peers: %s", err)
 			return nil, err
 		}
-
+		Debugf("closerPeers: %v\n", closer)
 		peerinfos := toPeerInfos(closer)
 
 		// For DHT query command
@@ -75,6 +75,7 @@ func (node *Node) GetClosestPeers(ctx context.Context, key Hash) (<-chan peer.ID
 		}
 
 		if res != nil && res.finalSet != nil {
+			Debugf("closestPeers have %d in final set", res.finalSet.Size())
 			sorted := SortClosestPeers(res.finalSet.Peers(), key)
 			if len(sorted) > KValue {
 				sorted = sorted[:KValue]
@@ -90,14 +91,13 @@ func (node *Node) GetClosestPeers(ctx context.Context, key Hash) (<-chan peer.ID
 }
 
 func (node *Node) closerPeersSingle(ctx context.Context, key Hash, p peer.ID) ([]peer.ID, error) {
-	response, err := node.findPeerSingle(ctx, p, key)
+	closerPeers, err := node.findPeerSingle(ctx, p, key)
 	if err != nil {
 		return nil, err
 	}
 
-	resp := response.Body.(FindNodeResp)
 	var out []peer.ID
-	for _, pinfo := range resp.CloserPeers {
+	for _, pinfo := range closerPeers {
 		if pinfo.ID != node.HashAddr { // dont add self
 			node.peerstore.AddAddrs(pinfo.ID, pinfo.Addrs, pstore.TempAddrTTL)
 			out = append(out, pinfo.ID)

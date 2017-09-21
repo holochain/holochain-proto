@@ -7,10 +7,36 @@ import (
 	pstore "github.com/libp2p/go-libp2p-peerstore"
 	. "github.com/metacurrency/holochain/hash"
 	. "github.com/smartystreets/goconvey/convey"
-
+	"math/rand"
 	"testing"
 	"time"
 )
+
+func ringConnect(t *testing.T, ctx context.Context, nodes []*Holochain, nodesCount int) {
+	for i := 0; i < nodesCount; i++ {
+		connect(t, ctx, nodes[i].node, nodes[(i+1)%len(nodes)].node)
+	}
+}
+
+func randConnect(t *testing.T, ctx context.Context, nodes []*Holochain, nodesCount, connectFromCount, connectToCount int) {
+
+	// connect nodes[1->connectFromCount] to connectToCount randomly selected nodes in
+	// nodes[(nodesCount-connectFromCount)->randConnect]
+
+	mrand := rand.New(rand.NewSource(42))
+	guy := nodes[0]
+	others := nodes[1:]
+	for i := 0; i < connectFromCount; i++ {
+		for j := 0; j < connectToCount; j++ { // 16, high enough to probably not have any partitions
+			v := mrand.Intn(nodesCount - connectFromCount - 1)
+			connect(t, ctx, others[i].node, others[connectFromCount+v].node)
+		}
+	}
+
+	for i := 0; i < connectFromCount; i++ {
+		connect(t, ctx, guy.node, others[i].node)
+	}
+}
 
 func TestGetClosestPeers(t *testing.T) {
 	d, s := SetupTestService()
@@ -26,11 +52,11 @@ func TestGetClosestPeers(t *testing.T) {
 		}
 	}()
 
-	SkipConvey("it should return a list of close peers", t, func() {
-		for i := 0; i < nodesCount; i++ {
-			connect(t, ctx, nodes[i].node, nodes[(i+1)%len(nodes)].node)
-		}
+	randConnect(t, ctx, nodes, nodesCount, 15, 8)
+
+	Convey("it should return a list of close peers", t, func() {
 		fooHash, _ := NewHash("QmVGtdTZdTFaLsaj2RwdVG8jcjNNcp1DE914DKZ2kHmXHx")
+		//fooHash := HashFromPeerID(nodes[29].node.HashAddr)
 		peers, err := nodes[1].node.GetClosestPeers(ctx, fooHash)
 		So(err, ShouldBeNil)
 

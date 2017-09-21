@@ -12,7 +12,6 @@ package holochain
 
 import (
 	"context"
-	"fmt"
 	inet "github.com/libp2p/go-libp2p-net"
 	ma "github.com/multiformats/go-multiaddr"
 )
@@ -53,7 +52,6 @@ func (nn *netNotifiee) Connected(n inet.Network, v inet.Conn) {
 		cancel:   cancel,
 	}
 
-	fmt.Printf("ADDING: %v\n", v.RemotePeer())
 	// Check if canceled under the lock.
 	if ctx.Err() == nil {
 		node.routingTable.Update(v.RemotePeer())

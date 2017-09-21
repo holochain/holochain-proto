@@ -13,7 +13,7 @@
 
 In other words, a holochain functions very much **like a blockchain without bottlenecks** when it comes to enforcing validation rules, but is designed to  be fully distributed with each node only needing to hold a small portion of the data instead of everything needing a full copy of a global ledger. This makes it feasible to run blockchain-like applications on devices as lightweight as mobile phones.
 
-**[Code Status:](https://github.com/metacurrency/holochain/milestones?direction=asc&sort=completeness&state=all)** Pre-alpha. Not for production use. Security and encryption tasks are still in progress and we still expect to destructively restructure code APIs and data chains at this time. Proof-of-concept was unveiled at our first hackathon (March 2017) and we are targeting an **Alpha release in August 2017** when we complete our Security Milestone.
+**[Code Status:](https://github.com/metacurrency/holochain/milestones?direction=asc&sort=completeness&state=all)** Pre-alpha. Not for production use. Security and encryption tasks are still in progress and we still expect to destructively restructure code APIs and data chains at this time. Proof-of-concept was unveiled at our first hackathon (March 2017) and we are targeting an **Alpha release in September 2017** when we complete our Security Milestone.
 <br/>
 
 | Holochain Links: | [FAQ](https://github.com/metacurrency/holochain/wiki/FAQ) | [Developer Wiki](https://github.com/metacurrency/holochain/wiki) | [White Paper](http://ceptr.org/projects/holochain) | [GoDocs](https://godoc.org/github.com/metacurrency/holochain) |

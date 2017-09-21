@@ -430,7 +430,7 @@ func setupApp() (app *cli.App) {
 						return e
 					}
 				}
-				h, err := service.MakeTestingApp(root+"/"+name, format, holo.InitializeDB, nil)
+				h, err := service.MakeTestingApp(root+"/"+name, format, holo.InitializeDB, holo.CloneWithNewUUID, nil)
 				if err == nil {
 					if verbose {
 						fmt.Printf("created %s with new uuid: %v\n", name, h.Nucleus().DNA().UUID)

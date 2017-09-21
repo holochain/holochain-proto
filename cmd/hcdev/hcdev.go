@@ -232,7 +232,7 @@ func setupApp() (app *cli.App) {
 
 						}
 					}
-					_, err := service.MakeTestingApp(devPath, "json", holo.SkipInitializeDB, nil)
+					_, err := service.MakeTestingApp(devPath, "json", holo.SkipInitializeDB, holo.CloneWithNewUUID, nil)
 					if err != nil {
 						return cmd.MakeErrFromErr(c, err)
 					}

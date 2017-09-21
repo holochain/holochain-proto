@@ -619,7 +619,7 @@ func makeConfig(h *Holochain, s *Service) (err error) {
 }
 
 // MakeTestingApp generates a holochain used for testing purposes
-func (s *Service) MakeTestingApp(root string, encodingFormat string, initDB bool, agent Agent) (h *Holochain, err error) {
+func (s *Service) MakeTestingApp(root string, encodingFormat string, initDB bool, newUUID bool, agent Agent) (h *Holochain, err error) {
 	if DirExists(root) {
 		return nil, mkErr(root + " already exists")
 	}
@@ -628,7 +628,7 @@ func (s *Service) MakeTestingApp(root string, encodingFormat string, initDB bool
 
 	name := filepath.Base(root)
 
-	_, err = s.SaveFromScaffold(scaffoldReader, root, name, agent, encodingFormat, initDB)
+	_, err = s.SaveFromScaffold(scaffoldReader, root, "test", agent, encodingFormat, newUUID)
 	if err != nil {
 		return
 	}

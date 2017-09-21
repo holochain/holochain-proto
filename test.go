@@ -60,7 +60,7 @@ func setupTestChain(name string, count int, s *Service) (h *Holochain) {
 		}
 	}
 
-	h, err := s.MakeTestingApp(path, "toml", InitializeDB, a)
+	h, err := s.MakeTestingApp(path, "toml", InitializeDB, CloneWithSameUUID, a)
 	if err != nil {
 		panic(err)
 	}

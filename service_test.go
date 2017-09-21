@@ -260,7 +260,7 @@ func TestCloneResolveDNA(t *testing.T) {
 	}
 
 	devAppPath := filepath.Join(s.Path, "devApp")
-	_, err = s.MakeTestingApp(devAppPath, "json", InitializeDB, nil)
+	_, err = s.MakeTestingApp(devAppPath, "json", InitializeDB, CloneWithNewUUID, nil)
 	if err != nil {
 		panic(err)
 	}
@@ -326,7 +326,7 @@ func TestMakeTestingApp(t *testing.T) {
 	})
 
 	Convey("when generating a dev holochain", t, func() {
-		h, err := s.MakeTestingApp(root, "json", InitializeDB, nil)
+		h, err := s.MakeTestingApp(root, "json", InitializeDB, CloneWithNewUUID, nil)
 		So(err, ShouldBeNil)
 
 		f, err := s.IsConfigured(name)
@@ -358,7 +358,7 @@ func TestMakeTestingApp(t *testing.T) {
 		So(FileExists(h.rootPath, ConfigFileName+".json"), ShouldBeTrue)
 
 		Convey("we should not be able re generate it", func() {
-			_, err = s.MakeTestingApp(root, "json", SkipInitializeDB, nil)
+			_, err = s.MakeTestingApp(root, "json", SkipInitializeDB, CloneWithNewUUID, nil)
 			So(err.Error(), ShouldEqual, "holochain: "+root+" already exists")
 		})
 	})
@@ -463,7 +463,7 @@ func TestMakeScaffold(t *testing.T) {
 	defer CleanupTestDir(d)
 	name := "test"
 	root := filepath.Join(s.Path, name)
-	h, err := s.MakeTestingApp(root, "json", InitializeDB, nil)
+	h, err := s.MakeTestingApp(root, "json", InitializeDB, CloneWithNewUUID, nil)
 	if err != nil {
 		panic(err)
 	}

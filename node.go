@@ -22,7 +22,6 @@ import (
 	swarm "github.com/libp2p/go-libp2p-swarm"
 	discovery "github.com/libp2p/go-libp2p/p2p/discovery"
 	bhost "github.com/libp2p/go-libp2p/p2p/host/basic"
-	rhost "github.com/libp2p/go-libp2p/p2p/host/routed"
 	. "github.com/metacurrency/holochain/hash"
 	ma "github.com/multiformats/go-multiaddr"
 	mh "github.com/multiformats/go-multihash"
@@ -91,7 +90,7 @@ type Message struct {
 type Node struct {
 	HashAddr     peer.ID
 	NetAddr      ma.Multiaddr
-	host         *rhost.RoutedHost
+	host         *bhost.BasicHost
 	mdnsSvc      discovery.Service
 	blockedlist  map[peer.ID]bool
 	protocols    [_protocolCount]*Protocol
@@ -118,14 +117,6 @@ const (
 	KademliaProtocol
 	_protocolCount
 )
-
-// FindPeer implements the FindPeer() method of the RoutedHost interface in go-libp2p/p2p/host/routed
-// and makes the Node object the "Router"
-
-func (n *Node) FindPeer(context.Context, peer.ID) (peer pstore.PeerInfo, err error) {
-	err = errors.New("routing not implemented")
-	return
-}
 
 // implement peer found function for mdns discovery
 func (h *Holochain) HandlePeerFound(pi pstore.PeerInfo) {
@@ -212,8 +203,7 @@ func NewNode(listenAddr string, protoMux string, agent *LibP2PAgent) (node *Node
 		return
 	}
 
-	n.host = rhost.Wrap(bh, &n)
-
+	n.host = bh
 	m := pstore.NewMetrics()
 	n.routingTable = NewRoutingTable(KValue, nodeID, time.Minute, m)
 	n.peers = make(map[peer.ID]*peerTracker)

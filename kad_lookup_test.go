@@ -52,7 +52,7 @@ func TestGetClosestPeers(t *testing.T) {
 		}
 	}()
 
-	randConnect(t, ctx, nodes, nodesCount, 15, 8)
+	randConnect(t, ctx, nodes, nodesCount, 7, 4)
 
 	Convey("it should return a list of close peers", t, func() {
 		fooHash, _ := NewHash("QmVGtdTZdTFaLsaj2RwdVG8jcjNNcp1DE914DKZ2kHmXHx")

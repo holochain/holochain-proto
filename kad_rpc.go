@@ -82,6 +82,7 @@ func (node *Node) findPeerSingle(ctx context.Context, p peer.ID, hash Hash) (clo
 				}
 				maddrs = append(maddrs, maddr)
 			}
+			peerInfo.Addrs = maddrs
 		}
 		closerPeers = append(closerPeers, peerInfo)
 	}

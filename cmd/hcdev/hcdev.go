@@ -12,6 +12,7 @@ import (
 	holo "github.com/metacurrency/holochain"
 	. "github.com/metacurrency/holochain/apptest"
 	"github.com/metacurrency/holochain/cmd"
+	hash "github.com/metacurrency/holochain/hash"
 	"github.com/metacurrency/holochain/ui"
 	"github.com/urfave/cli"
 	"io/ioutil"
@@ -307,8 +308,14 @@ func setupApp() (app *cli.App) {
 					}
 					scaffoldReader := bytes.NewBuffer([]byte(holo.BasicTemplateScaffold))
 
+					var agent holo.Agent
+					agent, err = holo.LoadAgent(rootPath)
+					if err != nil {
+						return cmd.MakeErrFromErr(c, err)
+					}
+
 					var scaffold *holo.Scaffold
-					scaffold, err = service.SaveFromScaffold(scaffoldReader, devPath, name, encodingFormat, true)
+					scaffold, err = service.SaveFromScaffold(scaffoldReader, devPath, name, agent, encodingFormat, true)
 					if err != nil {
 						return cmd.MakeErrFromErr(c, err)
 					}
@@ -711,19 +718,19 @@ func setupApp() (app *cli.App) {
 		}
 		if !holo.IsInitialized(rootPath) {
 			u, err := user.Current()
-			var agent string
+			var identity string
 			if err == nil {
 				var host string
 				host, err = os.Hostname()
 				if err == nil {
-					agent = u.Username + "@" + host
+					identity = u.Username + "@" + host
 				}
 			}
 
 			if err != nil {
-				agent = "test@example.com"
+				identity = "test@example.com"
 			}
-			service, err = holo.Init(rootPath, holo.AgentIdentity(agent), nil)
+			service, err = holo.Init(rootPath, holo.AgentIdentity(identity), nil)
 			if err != nil {
 				return err
 			}
@@ -731,7 +738,7 @@ func setupApp() (app *cli.App) {
 			fmt.Printf("    %s directory created\n", rootPath)
 			fmt.Printf("    defaults stored to %s\n", holo.SysFileName)
 			fmt.Println("    key-pair generated")
-			fmt.Printf("    using %s as default agent (stored to %s)\n", agent, holo.AgentFileName)
+			fmt.Printf("    using %s as default agent identity (stored to %s)\n", identity, holo.AgentFileName)
 
 		} else {
 			service, err = holo.LoadService(rootPath)
@@ -859,7 +866,7 @@ func setupBridgeApp(service *holo.Service, h *holo.Holochain, agent holo.Agent, 
 	}
 
 	// set the dna for use by the dev BridgeTo resolver
-	var DNAHash holo.Hash
+	var DNAHash hash.Hash
 	DNAHash, err = holo.DNAHashofUngenedChain(bridgeH)
 	if err != nil {
 		return

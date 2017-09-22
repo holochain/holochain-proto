@@ -15,6 +15,7 @@ import (
 	"fmt"
 	peer "github.com/libp2p/go-libp2p-peer"
 	pstore "github.com/libp2p/go-libp2p-peerstore"
+	routing "github.com/libp2p/go-libp2p-routing"
 	. "github.com/metacurrency/holochain/hash"
 	ma "github.com/multiformats/go-multiaddr"
 	_ "sync"
@@ -53,7 +54,7 @@ func (node *Node) FindLocal(id peer.ID) pstore.PeerInfo {
 
 // findPeerSingle asks peer 'p' if they know where the peer with id 'id' is and respond with
 // any closer peers if not.
-func (node *Node) findPeerSingle(ctx context.Context, p peer.ID, hash Hash) (closerPeers []pstore.PeerInfo, err error) {
+func (node *Node) findPeerSingle(ctx context.Context, p peer.ID, hash Hash) (closerPeers []*pstore.PeerInfo, err error) {
 	Debugf("Sending FIND_NODE_REQUEST to %v for hash: %v\n", p, hash)
 	pmes := node.NewMessage(FIND_NODE_REQUEST, FindNodeReq{H: hash})
 	var resp Message
@@ -69,7 +70,7 @@ func (node *Node) findPeerSingle(ctx context.Context, p peer.ID, hash Hash) (clo
 	}
 
 	// convert the ClosestPeers list to pstore.PeerInfo
-	closerPeers = make([]pstore.PeerInfo, 0, len(response.CloserPeers))
+	closerPeers = make([]*pstore.PeerInfo, 0, len(response.CloserPeers))
 	for _, pi := range response.CloserPeers {
 		peerInfo := pstore.PeerInfo{ID: peer.ID(pi.ID)}
 		if len(pi.Addrs) > 0 {
@@ -84,7 +85,7 @@ func (node *Node) findPeerSingle(ctx context.Context, p peer.ID, hash Hash) (clo
 			}
 			peerInfo.Addrs = maddrs
 		}
-		closerPeers = append(closerPeers, peerInfo)
+		closerPeers = append(closerPeers, &peerInfo)
 	}
 
 	return
@@ -102,7 +103,7 @@ func (node *Node) betterPeersForHash(hash *Hash, p peer.ID, count int) []peer.ID
 
 	// no node? nil
 	if closer == nil {
-		Infof("no closer peers to send to %v", p)
+		Debugf("no closer peers to send to %v", p)
 		return nil
 	}
 
@@ -111,7 +112,7 @@ func (node *Node) betterPeersForHash(hash *Hash, p peer.ID, count int) []peer.ID
 
 		// == to self? thats bad
 		if clp == node.HashAddr {
-			Info("attempted to return self! this shouldn't happen...")
+			Debug("attempted to return self! this shouldn't happen...")
 			return nil
 		}
 		// Dont send a peer back themselves
@@ -126,18 +127,19 @@ func (node *Node) betterPeersForHash(hash *Hash, p peer.ID, count int) []peer.ID
 	return filtered
 }
 
-/*
 // FindPeer searches for a peer with given ID.
+// it is also an implementation the FindPeer() method of the RoutedHost interface in go-libp2p/p2p/host/routed
+// and makes the Node object the "Router"
 func (node *Node) FindPeer(ctx context.Context, id peer.ID) (pstore.PeerInfo, error) {
-
 	// Check if were already connected to them
 	if pi := node.FindLocal(id); pi.ID != "" {
 		return pi, nil
 	}
 
-	peers := node.routingTable.NearestPeers(id, AlphaValue)
+	hashID := HashFromPeerID(id)
+	peers := node.routingTable.NearestPeers(hashID, AlphaValue)
 	if len(peers) == 0 {
-		return pstore.PeerInfo{}, ErrLookupFailure
+		return pstore.PeerInfo{}, ErrEmptyRoutingTable
 	}
 
 	// Sanity...
@@ -149,38 +151,34 @@ func (node *Node) FindPeer(ctx context.Context, id peer.ID) (pstore.PeerInfo, er
 	}
 
 	// setup the Query
-	parent := ctx
-	query := dht.newQuery(string(id), func(ctx context.Context, p peer.ID) (*dhtQueryResult, error) {
+	query := node.newQuery(hashID, func(ctx context.Context, p peer.ID) (*dhtQueryResult, error) {
 		/*	notif.PublishQueryEvent(parent, &notif.QueryEvent{
 			Type: notif.SendingQuery,
 			ID:   p,
 		})*/
-/*
-	pmes, err := node.findPeerSingle(ctx, p, id)
-	if err != nil {
-		return nil, err
-	}
 
-	closer := pmes.GetCloserPeers()
-	clpeerInfos := pb.PBPeersToPeerInfos(closer)
-
-	// see if we got the peer here
-	for _, npi := range clpeerInfos {
-		if npi.ID == id {
-			return &dhtQueryResult{
-				peer:    npi,
-				success: true,
-			}, nil
+		closerPeers, err := node.findPeerSingle(ctx, p, hashID)
+		if err != nil {
+			return nil, err
 		}
-	}
 
-	/*		notif.PublishQueryEvent(parent, &notif.QueryEvent{
-			Type:      notif.PeerResponse,
-			ID:        p,
-			Responses: clpeerInfos,
-		})*/
-/*
-		return &dhtQueryResult{closerPeers: clpeerInfos}, nil
+		// see if we got the peer here
+		for _, npi := range closerPeers {
+			if npi.ID == id {
+				return &dhtQueryResult{
+					peer:    npi,
+					success: true,
+				}, nil
+			}
+		}
+
+		/*		notif.PublishQueryEvent(parent, &notif.QueryEvent{
+				Type:      notif.PeerResponse,
+				ID:        p,
+				Responses: clpeerInfos,
+			})*/
+
+		return &dhtQueryResult{closerPeers: closerPeers}, nil
 	})
 
 	// run it!
@@ -196,7 +194,7 @@ func (node *Node) FindPeer(ctx context.Context, id peer.ID) (pstore.PeerInfo, er
 
 	return *result.peer, nil
 }
-*/
+
 // KademliaReceiver implements the handler for the kademlia RPC protocol messages
 func KademliaReceiver(h *Holochain, m *Message) (response interface{}, err error) {
 	dht := h.dht

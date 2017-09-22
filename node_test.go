@@ -367,24 +367,6 @@ func TestNodeRouting(t *testing.T) {
 	})
 }
 
-func TestFindPeer(t *testing.T) {
-	node1, err := makeNode(1234, "node1")
-	if err != nil {
-		panic(err)
-	}
-	defer node1.Close()
-
-	unknownPeer, _ := makePeer("unknown peer")
-
-	Convey("sending to an unknown peer should fail with no route to peer", t, func() {
-		m := Message{Type: PUT_REQUEST, Body: "fish"}
-		_, err := node1.Send(context.Background(), ActionProtocol, unknownPeer, &m)
-		So(err, ShouldBeError)
-		//	So(err, ShouldEqual, "fish")
-	})
-
-}
-
 func makePeer(id string) (pid peer.ID, key ic.PrivKey) {
 	// use a constant reader so the key will be the same each time for the test...
 	var err error

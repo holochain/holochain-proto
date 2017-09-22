@@ -17,7 +17,7 @@ import (
 	"errors"
 )
 
-var ErrLookupFailure = errors.New("node lookup failure")
+var ErrEmptyRoutingTable = errors.New("routing table empty")
 
 func toPeerInfos(ps []peer.ID) []*pstore.PeerInfo {
 	out := make([]*pstore.PeerInfo, len(ps))
@@ -33,7 +33,7 @@ func (node *Node) GetClosestPeers(ctx context.Context, key Hash) (<-chan peer.ID
 	Debugf("Finding peers close to %v", key)
 	tablepeers := node.routingTable.NearestPeers(key, AlphaValue)
 	if len(tablepeers) == 0 {
-		return nil, ErrLookupFailure
+		return nil, ErrEmptyRoutingTable
 	}
 
 	out := make(chan peer.ID, KValue)

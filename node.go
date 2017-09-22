@@ -22,6 +22,7 @@ import (
 	swarm "github.com/libp2p/go-libp2p-swarm"
 	discovery "github.com/libp2p/go-libp2p/p2p/discovery"
 	bhost "github.com/libp2p/go-libp2p/p2p/host/basic"
+	rhost "github.com/libp2p/go-libp2p/p2p/host/routed"
 	. "github.com/metacurrency/holochain/hash"
 	ma "github.com/multiformats/go-multiaddr"
 	mh "github.com/multiformats/go-multihash"
@@ -90,7 +91,7 @@ type Message struct {
 type Node struct {
 	HashAddr     peer.ID
 	NetAddr      ma.Multiaddr
-	host         *bhost.BasicHost
+	host         *rhost.RoutedHost
 	mdnsSvc      discovery.Service
 	blockedlist  map[peer.ID]bool
 	protocols    [_protocolCount]*Protocol
@@ -203,7 +204,8 @@ func NewNode(listenAddr string, protoMux string, agent *LibP2PAgent) (node *Node
 		return
 	}
 
-	n.host = bh
+	n.host = rhost.Wrap(bh, &n)
+
 	m := pstore.NewMetrics()
 	n.routingTable = NewRoutingTable(KValue, nodeID, time.Minute, m)
 	n.peers = make(map[peer.ID]*peerTracker)

@@ -171,6 +171,7 @@ func (h *Holochain) AddBridgeAsCaller(toDNA Hash, token string, url string, appD
 		return
 	}
 
+	var bridged bool
 	// TODO  possible that we shouldn't add the bridge unless the there is some Zome with BridgeTo?
 	// the way this is is just that the only way to get the from genesis to run is if it's set
 	for _, z := range h.nucleus.dna.Zomes {
@@ -185,8 +186,11 @@ func (h *Holochain) AddBridgeAsCaller(toDNA Hash, token string, url string, appD
 			if err != nil {
 				return
 			}
-
+			bridged = true
 		}
+	}
+	if !bridged {
+		Infof("Warning: no zome called for bridging to: %v", toDNA)
 	}
 	return
 }
@@ -230,12 +234,17 @@ func (h *Holochain) BuildBridge(app *BridgeApp, port string) (err error) {
 	var token string
 	token, err = hTo.AddBridgeAsCallee(hFrom.DNAHash(), app.BridgeGenesisDataTo)
 	if err != nil {
+		Debugf("adding bridge to %s from %s failed with %v\n", hTo.Name(), hFrom.Name(), err)
 		return
 	}
 	Debugf("%s received token %s from %s\n", hFrom.Name(), token, hTo.Name())
 
 	// the url is currently through the webserver
 	err = hFrom.AddBridgeAsCaller(hTo.DNAHash(), token, fmt.Sprintf("http://localhost:%s", toPort), app.BridgeGenesisDataFrom)
+	if err != nil {
+		Debugf("adding bridge from %s to %s failed with %s\n", hFrom.Name(), hTo.Name(), err)
+		return
+	}
 
 	return
 }

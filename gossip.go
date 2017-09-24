@@ -276,14 +276,18 @@ func (dht *DHT) FindGossiper() (g peer.ID, err error) {
 	return
 }
 
-// UpdateGossiper updates a gossiper
-func (dht *DHT) UpdateGossiper(id peer.ID, newIdx int) (err error) {
-	if dht.h.node.IsBlocked(id) {
-		dht.glog.Logf("gossiper %v on blocklist, deleting", id)
-		dht.DeleteGossiper(id) // ignore error
+// AddGossiper adds a new gossiper to the gossiper store
+func (dht *DHT) AddGossiper(id peer.ID) (err error) {
+	// never add ourselves as a gossiper
+	if id == dht.h.node.HashAddr {
 		return
 	}
-	dht.glog.Logf("updating %v to %d", id, newIdx)
+	err = dht.updateGossiper(id, 0)
+	return
+}
+
+// internal update gossiper function, assumes all checks have been made
+func (dht *DHT) updateGossiper(id peer.ID, newIdx int) (err error) {
 	err = dht.db.Update(func(tx *buntdb.Tx) error {
 		key := "peer:" + peer.IDB58Encode(id)
 		idx, e := getIntVal(key, tx)
@@ -300,6 +304,18 @@ func (dht *DHT) UpdateGossiper(id peer.ID, newIdx int) (err error) {
 		}
 		return nil
 	})
+	return
+}
+
+// UpdateGossiper updates a gossiper
+func (dht *DHT) UpdateGossiper(id peer.ID, newIdx int) (err error) {
+	if dht.h.node.IsBlocked(id) {
+		dht.glog.Logf("gossiper %v on blocklist, deleting", id)
+		dht.DeleteGossiper(id) // ignore error
+		return
+	}
+	dht.glog.Logf("updating %v to %d", id, newIdx)
+	err = dht.updateGossiper(id, newIdx)
 	return
 }
 
@@ -342,6 +358,7 @@ func GossipReceiver(h *Holochain, m *Message) (response interface{}, err error) 
 				}
 
 				// queue up a request to gossip back
+				// TODO: not thread safe, as can get called after channel closes
 				dht.gchan <- gossipWithReq{m.From}
 			}
 
@@ -429,6 +446,26 @@ func (dht *DHT) gossipWith(id peer.ID) (err error) {
 	return
 }
 
+func Every(duration time.Duration, work func(time.Time) bool) chan bool {
+	ticker := time.NewTicker(duration)
+	stop := make(chan bool, 1)
+
+	go func() {
+		for {
+			select {
+			case time := <-ticker.C:
+				if !work(time) {
+					stop <- true
+				}
+			case <-stop:
+				return
+			}
+		}
+	}()
+
+	return stop
+}
+
 // gossip picks a random node in my neighborhood and sends gossips with it
 func (dht *DHT) gossip() (err error) {
 
@@ -437,21 +474,20 @@ func (dht *DHT) gossip() (err error) {
 	if err != nil {
 		return
 	}
-
 	dht.gchan <- gossipWithReq{g}
 	return
 }
 
 // Gossip gossips every interval
 func (dht *DHT) Gossip(interval time.Duration) {
-	dht.gossiping = true
-	for dht.gossiping {
+	stop := Every(interval, func(time.Time) bool {
 		err := dht.gossip()
 		if err != nil {
 			dht.glog.Logf("error: %v", err)
 		}
-		time.Sleep(interval)
-	}
+		return true
+	})
+	dht.gossiping = stop
 }
 
 // HandleGossipWiths waits on a chanel for gossipWith requests

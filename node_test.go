@@ -86,7 +86,7 @@ func TestNewNode(t *testing.T) {
 			}
 		})
 
-		s, err := node.host.NewStream(context.Background(), node2.HashAddr, "/testprotocol/1.0.0")
+		s, err := node.host.NewStream(node.ctx, node2.HashAddr, "/testprotocol/1.0.0")
 		So(err, ShouldBeNil)
 		_, err = s.Write([]byte("greetings"))
 		So(err, ShouldBeNil)
@@ -330,7 +330,7 @@ func TestAddPeer(t *testing.T) {
 		blockedPeer, _ := makePeer("blocked peer")
 		h.node.Block(blockedPeer)
 		err := h.AddPeer(blockedPeer, nil)
-		So(err.Error(), ShouldEqual, "peer <peer.ID X98p5R> in blockedlist, ignoring")
+		So(err, ShouldEqual, ErrBlockedListed)
 		So(len(h.node.peerstore.Peers()), ShouldEqual, 2)
 		glist, err := h.dht.getGossipers()
 		So(err, ShouldBeNil)

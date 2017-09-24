@@ -12,7 +12,6 @@ import (
 	"errors"
 	"fmt"
 	peer "github.com/libp2p/go-libp2p-peer"
-	pstore "github.com/libp2p/go-libp2p-peerstore"
 	ma "github.com/multiformats/go-multiaddr"
 	"io/ioutil"
 	"net/http"
@@ -70,14 +69,11 @@ func (h *Holochain) checkBSResponses(nodes []BSResp) (err error) {
 				// don't "discover" ourselves
 				if r.Req.NodeID != myNodeID {
 					h.dht.dlog.Logf("discovered peer: %s (%v)", r.Req.NodeID, addr)
-					h.node.host.Peerstore().AddAddr(id, addr, pstore.PermanentAddrTTL)
-					err = h.dht.UpdateGossiper(id, 0)
-
+					err = h.AddPeer(id, []ma.Multiaddr{addr})
 				}
 
 			}
 		}
-
 	}
 	return
 }

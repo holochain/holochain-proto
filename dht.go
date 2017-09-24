@@ -51,7 +51,7 @@ type DHT struct {
 	h         *Holochain // pointer to the holochain this DHT is part of
 	db        *buntdb.DB
 	puts      chan Message
-	gossiping bool
+	gossiping chan bool
 	glog      *Logger // the gossip logger
 	dlog      *Logger // the dht logger
 	gossips   map[peer.ID]bool

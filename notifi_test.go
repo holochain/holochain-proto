@@ -25,7 +25,7 @@ func TestNotifieeMultipleConn(t *testing.T) {
 	nn1 := (*netNotifiee)(n1)
 	nn2 := (*netNotifiee)(n2)
 
-	connect(t, ctx, n1, n2)
+	connect(t, ctx, nodes[0], nodes[1])
 	c12 := n1.host.Network().ConnsToPeer(n2.HashAddr)[0]
 	c21 := n2.host.Network().ConnsToPeer(n1.HashAddr)[0]
 
@@ -73,7 +73,7 @@ func TestNotifieeFuzz(t *testing.T) {
 	n2 := nodes[1].node
 
 	for i := 0; i < 100; i++ {
-		connectNoSync(t, ctx, n1, n2)
+		connectNoSync(t, ctx, nodes[0], nodes[1])
 		for _, conn := range n1.host.Network().ConnsToPeer(n2.HashAddr) {
 			conn.Close()
 		}
@@ -81,7 +81,7 @@ func TestNotifieeFuzz(t *testing.T) {
 	if checkRoutingTable(n1, n2) {
 		t.Fatal("should not have routes")
 	}
-	connect(t, ctx, n1, n2)
+	connect(t, ctx, nodes[0], nodes[1])
 }
 
 func checkRoutingTable(a, b *Node) bool {

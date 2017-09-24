@@ -633,6 +633,12 @@ func (h *Holochain) Close() {
 		h.chain.s.Close()
 	}
 	if h.dht != nil {
+		if h.dht.gossiping != nil {
+			Debug("Stopping gossiping")
+			stop := h.dht.gossiping
+			h.dht.gossiping = nil
+			stop <- true
+		}
 		close(h.dht.puts)
 		close(h.dht.gchan)
 	}
@@ -729,15 +735,23 @@ func (h *Holochain) SendAsync(proto int, to peer.ID, t MsgType, body interface{}
 // HandleAsyncSends waits on a channel for asyncronous sends
 func (h *Holochain) HandleAsyncSends() (err error) {
 	for {
-		h.nucleus.alog.Log("HandleAsyncSends: waiting for aysnc send response")
+		Debug("waiting for aysnc send response")
 		err, ok := <-h.asyncSends
 		if !ok {
-			h.nucleus.alog.Log("HandleAsyncSends: channel closed, breaking")
+			Debug("channel closed, breaking")
 			break
 		}
-		h.nucleus.alog.Logf("HandleAsyncSends: got %v", err)
+		Debugf("got %v", err)
 	}
 	return nil
+}
+
+// StartBackgroundTasks sets the various background processes in motion
+func (h *Holochain) StartBackgroundTasks(gossipInterval time.Duration) {
+	//go h.DHT().HandleChangeReqs()
+	go h.DHT().HandleGossipWiths()
+	go h.HandleAsyncSends()
+	go h.DHT().Gossip(gossipInterval)
 }
 
 // Send builds a message and either delivers it locally or over the network via node.Send

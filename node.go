@@ -130,11 +130,12 @@ func (h *Holochain) HandlePeerFound(pi pstore.PeerInfo) {
 
 func (h *Holochain) AddPeer(id peer.ID, addrs []ma.Multiaddr) (err error) {
 	if h.node.IsBlocked(id) {
-		err = fmt.Errorf("peer %v in blockedlist, ignoring", id)
+		err = ErrBlockedListed
 	} else {
+		Debugf("Adding Peer: %v\n", id)
 		h.node.peerstore.AddAddrs(id, addrs, pstore.TempAddrTTL)
 		h.node.routingTable.Update(id)
-		err = h.dht.UpdateGossiper(id, 0)
+		err = h.dht.AddGossiper(id)
 	}
 	return
 }
@@ -151,7 +152,7 @@ func (n *Node) EnableMDNSDiscovery(notifee discovery.Notifee, interval time.Dura
 	return
 }
 
-// NewNode creates a new ipfs basichost node with given identity
+// NewNode creates a new node with given multiAddress listener string and identity
 func NewNode(listenAddr string, protoMux string, agent *LibP2PAgent) (node *Node, err error) {
 	Debugf("Creating new node with protoMux: %s\n", protoMux)
 	nodeID, _, err := agent.NodeID()
@@ -313,11 +314,11 @@ func (node *Node) respondWith(s net.Stream, err error, body interface{}) {
 
 	data, err := m.Encode()
 	if err != nil {
-		panic(err) //TODO can't panic, gotta do something else!
+		Infof("Response failed: unable to encode message: %v", m)
 	}
 	_, err = s.Write(data)
 	if err != nil {
-		panic(err) //TODO can't panic, gotta do something else!
+		Infof("Response failed: write returned error: %v", err)
 	}
 }
 

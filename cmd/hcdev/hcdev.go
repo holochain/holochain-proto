@@ -885,10 +885,7 @@ func activate(h *holo.Holochain, port string) (ws *ui.WebServer, err error) {
 	if err != nil {
 		return
 	}
-	//				go h.DHT().HandleChangeReqs()
-	go h.DHT().HandleGossipWiths()
-	go h.HandleAsyncSends()
-	go h.DHT().Gossip(2 * time.Second)
+	h.StartBackgroundTasks(2 * time.Second)
 	ws = ui.NewWebServer(h, port)
 	ws.Start()
 	return

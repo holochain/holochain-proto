@@ -1,6 +1,7 @@
 package holochain
 
 import (
+	"context"
 	"fmt"
 	peer "github.com/libp2p/go-libp2p-peer"
 	. "github.com/metacurrency/holochain/hash"
@@ -70,14 +71,18 @@ func TestGetFindGossiper(t *testing.T) {
 
 	})
 
-	fooAddr, _ := makePeer("peer_foo")
-
-	Convey("UpdateGossiper to 0 should add the gossiper", t, func() {
-		err := dht.UpdateGossiper(fooAddr, 0)
+	Convey("AddGossiper of ourselves should not add the gossiper", t, func() {
+		err := dht.AddGossiper(h.node.HashAddr)
 		So(err, ShouldBeNil)
+		_, err = dht.FindGossiper()
+		So(err, ShouldEqual, ErrDHTErrNoGossipersAvailable)
 	})
 
-	Convey("FindGossiper should return the gossiper", t, func() {
+	fooAddr, _ := makePeer("peer_foo")
+
+	Convey("AddGossiper add the gossiper", t, func() {
+		err := dht.AddGossiper(fooAddr)
+		So(err, ShouldBeNil)
 		g, err := dht.FindGossiper()
 		So(err, ShouldBeNil)
 		So(g, ShouldEqual, fooAddr)
@@ -281,5 +286,77 @@ func TestPeerLists(t *testing.T) {
 		So(len(peerList.Records), ShouldEqual, 2)
 		So(peerList.Records[0].ID, ShouldEqual, pid1)
 		So(peerList.Records[1].ID, ShouldEqual, pid2)
+	})
+}
+
+func TestGosspipPropigation(t *testing.T) {
+	d, s := SetupTestService()
+	defer CleanupTestDir(d)
+
+	ctx := context.Background()
+
+	nodesCount := 5
+
+	nodes := makeTestNodes(ctx, s, nodesCount)
+	defer func() {
+		for i := 0; i < nodesCount; i++ {
+			nodes[i].Close()
+		}
+	}()
+	ringConnect(t, ctx, nodes, nodesCount)
+	Convey("each node should have one gossiper from the ring connect", t, func() {
+		for i := 0; i < nodesCount; i++ {
+			glist, err := nodes[i].dht.getGossipers()
+			So(err, ShouldBeNil)
+			So(len(glist), ShouldEqual, 1)
+		}
+	})
+
+	Convey("each node should only have it's own puts", t, func() {
+		for i := 0; i < nodesCount; i++ {
+			puts, err := nodes[i].dht.GetPuts(0)
+			So(err, ShouldBeNil)
+			So(len(puts), ShouldEqual, 2)
+		}
+	})
+
+	Convey("each node should only have everybody's puts after enough propigation time", t, func() {
+
+		for i := 0; i < nodesCount; i++ {
+			nodes[i].StartBackgroundTasks(50 * time.Millisecond)
+		}
+
+		start := time.Now()
+		propigated := false
+		ticker := time.NewTicker(20 * time.Millisecond)
+		stop := make(chan bool, 1)
+
+		func() {
+			for {
+				select {
+				case tick := <-ticker.C:
+
+					// abort just in case in 4 seconds (only if propgation fails)
+					if tick.Sub(start) > (4 * time.Second) {
+						stop <- true
+					}
+
+					// check to see if the nodes have all gotten the puts yet.
+					for i := 0; i < nodesCount; i++ {
+						puts, _ := nodes[i].dht.GetPuts(0)
+						//	fmt.Printf("NODE%d: %d\n", i, len(puts))
+						if i == 0 && len(puts) >= nodesCount*2 {
+							propigated = true
+							stop <- true
+						}
+					}
+					//fmt.Printf("\n")
+				case <-stop:
+					return
+				}
+			}
+		}()
+
+		So(propigated, ShouldBeTrue)
 	})
 }

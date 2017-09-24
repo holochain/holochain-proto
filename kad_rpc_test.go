@@ -55,9 +55,9 @@ func TestFindPeer(t *testing.T) {
 		So(err, ShouldEqual, ErrEmptyRoutingTable)
 	})
 
-	connect(t, ctx, nodes[0].node, nodes[1].node)
-	connect(t, ctx, nodes[1].node, nodes[2].node)
-	connect(t, ctx, nodes[1].node, nodes[3].node)
+	connect(t, ctx, nodes[0], nodes[1])
+	connect(t, ctx, nodes[1], nodes[2])
+	connect(t, ctx, nodes[1], nodes[3])
 
 	Convey("searching for unreachable node should fail with node not found", t, func() {
 		unknownPeer, _ := makePeer("unknown peer")

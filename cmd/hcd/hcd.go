@@ -91,10 +91,8 @@ func setupApp() (app *cli.App) {
 			if err != nil {
 				return err
 			}
-			//				go h.DHT().HandleChangeReqs()
-			go h.DHT().HandleGossipWiths()
-			go h.HandleAsyncSends()
-			go h.DHT().Gossip(2 * time.Second)
+
+			h.StartBackgroundTasks(2 * time.Second)
 
 			if verbose {
 				fmt.Printf("Serving holochain with DNA hash:%v on port %s\n", h.DNAHash(), port)

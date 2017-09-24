@@ -9,12 +9,12 @@ import (
 	. "github.com/smartystreets/goconvey/convey"
 	"math/rand"
 	"testing"
-	"time"
+	_ "time"
 )
 
 func ringConnect(t *testing.T, ctx context.Context, nodes []*Holochain, nodesCount int) {
 	for i := 0; i < nodesCount; i++ {
-		connect(t, ctx, nodes[i].node, nodes[(i+1)%len(nodes)].node)
+		connect(t, ctx, nodes[i], nodes[(i+1)%len(nodes)])
 	}
 }
 
@@ -29,12 +29,12 @@ func randConnect(t *testing.T, ctx context.Context, nodes []*Holochain, nodesCou
 	for i := 0; i < connectFromCount; i++ {
 		for j := 0; j < connectToCount; j++ { // 16, high enough to probably not have any partitions
 			v := mrand.Intn(nodesCount - connectFromCount - 1)
-			connect(t, ctx, others[i].node, others[connectFromCount+v].node)
+			connect(t, ctx, others[i], others[connectFromCount+v])
 		}
 	}
 
 	for i := 0; i < connectFromCount; i++ {
-		connect(t, ctx, guy.node, others[i].node)
+		connect(t, ctx, guy, others[i])
 	}
 }
 
@@ -79,30 +79,33 @@ func makeTestNodes(ctx context.Context, s *Service, n int) (nodes []*Holochain) 
 	return
 }
 
-func connectNoSync(t *testing.T, ctx context.Context, a, b *Node) {
+func connectNoSync(t *testing.T, ctx context.Context, ah, bh *Holochain) {
+	a := ah.node
+	b := bh.node
 	idB := b.HashAddr
 	addrB := b.peerstore.Addrs(idB)
 	if len(addrB) == 0 {
 		t.Fatal("peers setup incorrectly: no local address")
 	}
 
-	a.peerstore.AddAddrs(idB, addrB, pstore.TempAddrTTL)
+	ah.AddPeer(idB, addrB)
 	pi := pstore.PeerInfo{ID: idB}
 	if err := a.host.Connect(ctx, pi); err != nil {
 		t.Fatal(err)
 	}
 }
 
-func connect(t *testing.T, ctx context.Context, a, b *Node) {
+func connect(t *testing.T, ctx context.Context, a, b *Holochain) {
 	connectNoSync(t, ctx, a, b)
 
 	// loop until connection notification has been received.
 	// under high load, this may not happen as immediately as we would like.
-	for a.routingTable.Find(b.HashAddr) == "" {
-		time.Sleep(time.Millisecond * 5)
-	}
+	/*	for a.node.routingTable.Find(b.nodeID) == "" {
+			time.Sleep(time.Millisecond * 5)
+		}
 
-	for b.routingTable.Find(a.HashAddr) == "" {
-		time.Sleep(time.Millisecond * 5)
-	}
+		for b.node.routingTable.Find(a.nodeID) == "" {
+			time.Sleep(time.Millisecond * 5)
+		}*/
+	//	time.Sleep(100 * time.Millisecond)
 }

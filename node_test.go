@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	ic "github.com/libp2p/go-libp2p-crypto"
-	host "github.com/libp2p/go-libp2p-host"
 	net "github.com/libp2p/go-libp2p-net"
 	peer "github.com/libp2p/go-libp2p-peer"
 	pstore "github.com/libp2p/go-libp2p-peerstore"
@@ -19,28 +18,29 @@ import (
 	"time"
 )
 
-type TestDiscoveryNotifee struct {
-	h host.Host
-}
-
-func (n *TestDiscoveryNotifee) HandlePeerFound(pi pstore.PeerInfo) {
-	n.h.Connect(context.Background(), pi)
-}
-
 func TestNodeDiscovery(t *testing.T) {
-	node1, _ := makeNode(1234, "node1")
-	node2, _ := makeNode(4321, "node2")
+	d, s := SetupTestService()
+	defer CleanupTestDir(d)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	nodesCount := 2
+	nodes := makeTestNodes(ctx, s, nodesCount)
 	defer func() {
-		node1.Close()
-		node2.Close()
+		for i := 0; i < nodesCount; i++ {
+			nodes[i].Close()
+		}
 	}()
+	node1 := nodes[0].node
+	node2 := nodes[1].node
+
 	Convey("nodes should find eachother via mdns", t, func() {
 		So(len(node1.host.Peerstore().Peers()), ShouldEqual, 1)
 		So(len(node2.host.Peerstore().Peers()), ShouldEqual, 1)
 
-		err := node1.EnableMDNSDiscovery(&TestDiscoveryNotifee{node1.host}, time.Second/2)
+		err := node1.EnableMDNSDiscovery(nodes[0], time.Second/2)
 		So(err, ShouldBeNil)
-		err = node2.EnableMDNSDiscovery(&TestDiscoveryNotifee{node2.host}, time.Second/2)
+		err = node2.EnableMDNSDiscovery(nodes[1], time.Second/2)
 		So(err, ShouldBeNil)
 
 		time.Sleep(time.Second * 1)

@@ -20,9 +20,9 @@ import (
 	pstore "github.com/libp2p/go-libp2p-peerstore"
 	protocol "github.com/libp2p/go-libp2p-protocol"
 	swarm "github.com/libp2p/go-libp2p-swarm"
-	discovery "github.com/libp2p/go-libp2p/p2p/discovery"
 	bhost "github.com/libp2p/go-libp2p/p2p/host/basic"
 	rhost "github.com/libp2p/go-libp2p/p2p/host/routed"
+	"github.com/metacurrency/holochain/discovery"
 	. "github.com/metacurrency/holochain/hash"
 	ma "github.com/multiformats/go-multiaddr"
 	mh "github.com/multiformats/go-multihash"
@@ -140,15 +140,14 @@ func (h *Holochain) AddPeer(id peer.ID, addrs []ma.Multiaddr) (err error) {
 	return
 }
 
-func (n *Node) EnableMDNSDiscovery(notifee discovery.Notifee, interval time.Duration) (err error) {
+func (n *Node) EnableMDNSDiscovery(h *Holochain, interval time.Duration) (err error) {
 	ctx := context.Background()
-
-	n.mdnsSvc, err = discovery.NewMdnsService(ctx, n.host, interval)
+	tag := h.dnaHash.String() + "._udp"
+	n.mdnsSvc, err = discovery.NewMdnsService(ctx, n.host, interval, tag)
 	if err != nil {
 		return
 	}
-
-	n.mdnsSvc.RegisterNotifee(notifee)
+	n.mdnsSvc.RegisterNotifee(h)
 	return
 }
 

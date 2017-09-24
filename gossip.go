@@ -446,26 +446,6 @@ func (dht *DHT) gossipWith(id peer.ID) (err error) {
 	return
 }
 
-func Every(duration time.Duration, work func(time.Time) bool) chan bool {
-	ticker := time.NewTicker(duration)
-	stop := make(chan bool, 1)
-
-	go func() {
-		for {
-			select {
-			case time := <-ticker.C:
-				if !work(time) {
-					stop <- true
-				}
-			case <-stop:
-				return
-			}
-		}
-	}()
-
-	return stop
-}
-
 // gossip picks a random node in my neighborhood and sends gossips with it
 func (dht *DHT) gossip() (err error) {
 
@@ -480,13 +460,21 @@ func (dht *DHT) gossip() (err error) {
 
 // Gossip gossips every interval
 func (dht *DHT) Gossip(interval time.Duration) {
-	stop := Every(interval, func(time.Time) bool {
-		err := dht.gossip()
-		if err != nil {
-			dht.glog.Logf("error: %v", err)
+	ticker := time.NewTicker(interval)
+	stop := make(chan bool, 1)
+	go func() {
+		for {
+			select {
+			case <-ticker.C:
+				err := dht.gossip()
+				if err != nil {
+					dht.glog.Logf("error: %v", err)
+				}
+			case <-stop:
+				return
+			}
 		}
-		return true
-	})
+	}()
 	dht.gossiping = stop
 }
 

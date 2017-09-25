@@ -147,7 +147,7 @@ func TestMakeValidatePackage(t *testing.T) {
 	defer CleanupTestDir(d)
 
 	entry := GobEntry{C: `{"firstName":"Zippy","lastName":"Pinhead"}`}
-	h.NewEntry(time.Now(), "evenNumbers", &entry)
+	h.NewEntry(time.Now().Round(0), "evenNumbers", &entry)
 
 	pkg, _ := MakePackage(h, PackagingReq{PkgReqChain: int64(PkgReqChainOptFull)})
 	Convey("it should be able to make a validate package", t, func() {

@@ -388,7 +388,7 @@ func (node *Node) Send(ctx context.Context, proto int, addr peer.ID, m *Message)
 
 // NewMessage creates a message from the node with a new current timestamp
 func (node *Node) NewMessage(t MsgType, body interface{}) (msg *Message) {
-	m := Message{Type: t, Time: time.Now(), Body: body, From: node.HashAddr}
+	m := Message{Type: t, Time: time.Now().Round(0), Body: body, From: node.HashAddr}
 	msg = &m
 	return
 }

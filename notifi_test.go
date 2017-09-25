@@ -1,23 +1,14 @@
 package holochain
 
 import (
-	"context"
 	"testing"
 )
 
 func TestNotifieeMultipleConn(t *testing.T) {
-	d, s := SetupTestService()
-	defer CleanupTestDir(d)
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
 	nodesCount := 2
-	nodes := makeTestNodes(ctx, s, nodesCount)
-	defer func() {
-		for i := 0; i < nodesCount; i++ {
-			nodes[i].Close()
-		}
-	}()
+	mt := setupMultiNodeTesting(nodesCount)
+	defer mt.cleanupMultiNodeTesting()
+	nodes := mt.nodes
 
 	n1 := nodes[0].node
 	n2 := nodes[1].node
@@ -25,7 +16,7 @@ func TestNotifieeMultipleConn(t *testing.T) {
 	nn1 := (*netNotifiee)(n1)
 	nn2 := (*netNotifiee)(n2)
 
-	connect(t, ctx, nodes[0], nodes[1])
+	connect(t, mt.ctx, nodes[0], nodes[1])
 	c12 := n1.host.Network().ConnsToPeer(n2.HashAddr)[0]
 	c21 := n2.host.Network().ConnsToPeer(n1.HashAddr)[0]
 
@@ -56,24 +47,16 @@ func TestNotifieeMultipleConn(t *testing.T) {
 }
 
 func TestNotifieeFuzz(t *testing.T) {
-	d, s := SetupTestService()
-	defer CleanupTestDir(d)
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
 	nodesCount := 2
-	nodes := makeTestNodes(ctx, s, nodesCount)
-	defer func() {
-		for i := 0; i < nodesCount; i++ {
-			nodes[i].Close()
-		}
-	}()
+	mt := setupMultiNodeTesting(nodesCount)
+	defer mt.cleanupMultiNodeTesting()
+	nodes := mt.nodes
 
 	n1 := nodes[0].node
 	n2 := nodes[1].node
 
 	for i := 0; i < 100; i++ {
-		connectNoSync(t, ctx, nodes[0], nodes[1])
+		connectNoSync(t, mt.ctx, nodes[0], nodes[1])
 		for _, conn := range n1.host.Network().ConnsToPeer(n2.HashAddr) {
 			conn.Close()
 		}
@@ -81,7 +64,7 @@ func TestNotifieeFuzz(t *testing.T) {
 	if checkRoutingTable(n1, n2) {
 		t.Fatal("should not have routes")
 	}
-	connect(t, ctx, nodes[0], nodes[1])
+	connect(t, mt.ctx, nodes[0], nodes[1])
 }
 
 func checkRoutingTable(a, b *Node) bool {

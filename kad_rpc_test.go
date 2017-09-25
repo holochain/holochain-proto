@@ -35,19 +35,13 @@ func TestFindPeer(t *testing.T) {
 	if testing.Short() {
 		t.SkipNow()
 	}
-	d, s := SetupTestService()
-	defer CleanupTestDir(d)
 
-	ctx := context.Background()
+	nodesCount := 4
+	mt := setupMultiNodeTesting(nodesCount)
+	defer mt.cleanupMultiNodeTesting()
+	nodes := mt.nodes
 
-	nodes := makeTestNodes(ctx, s, 4)
-	defer func() {
-		for i := 0; i < 4; i++ {
-			nodes[i].Close()
-		}
-	}()
-
-	ctxT, cancel := context.WithTimeout(ctx, time.Second*5)
+	ctxT, cancel := context.WithTimeout(mt.ctx, time.Second*5)
 	defer cancel()
 
 	Convey("searching before connected should fail with empty routing table", t, func() {
@@ -55,9 +49,9 @@ func TestFindPeer(t *testing.T) {
 		So(err, ShouldEqual, ErrEmptyRoutingTable)
 	})
 
-	connect(t, ctx, nodes[0], nodes[1])
-	connect(t, ctx, nodes[1], nodes[2])
-	connect(t, ctx, nodes[1], nodes[3])
+	connect(t, mt.ctx, nodes[0], nodes[1])
+	connect(t, mt.ctx, nodes[1], nodes[2])
+	connect(t, mt.ctx, nodes[1], nodes[3])
 
 	Convey("searching for unreachable node should fail with node not found", t, func() {
 		unknownPeer, _ := makePeer("unknown peer")

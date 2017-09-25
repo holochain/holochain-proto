@@ -19,18 +19,11 @@ import (
 )
 
 func TestNodeDiscovery(t *testing.T) {
-	d, s := SetupTestService()
-	defer CleanupTestDir(d)
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
 	nodesCount := 2
-	nodes := makeTestNodes(ctx, s, nodesCount)
-	defer func() {
-		for i := 0; i < nodesCount; i++ {
-			nodes[i].Close()
-		}
-	}()
+	mt := setupMultiNodeTesting(nodesCount)
+	defer mt.cleanupMultiNodeTesting()
+	nodes := mt.nodes
+
 	node1 := nodes[0].node
 	node2 := nodes[1].node
 
@@ -365,6 +358,13 @@ func TestNodeRouting(t *testing.T) {
 		So(nearest, ShouldEqual, "5 [<peer.ID NSQqJR> <peer.ID P9vKpw> <peer.ID P9QXqa> <peer.ID PrUBh5> <peer.ID Pn94bj>]")
 		//		node.routingTable.Print()
 	})
+}
+
+func TestNodeAppSendResolution(t *testing.T) {
+	nodesCount := 5
+	mt := setupMultiNodeTesting(nodesCount)
+	defer mt.cleanupMultiNodeTesting()
+	ringConnect(t, mt.ctx, mt.nodes, nodesCount)
 }
 
 func makePeer(id string) (pid peer.ID, key ic.PrivKey) {

@@ -39,25 +39,17 @@ func randConnect(t *testing.T, ctx context.Context, nodes []*Holochain, nodesCou
 }
 
 func TestGetClosestPeers(t *testing.T) {
-	d, s := SetupTestService()
-	defer CleanupTestDir(d)
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
 	nodesCount := 30
-	nodes := makeTestNodes(ctx, s, nodesCount)
-	defer func() {
-		for i := 0; i < nodesCount; i++ {
-			nodes[i].Close()
-		}
-	}()
+	mt := setupMultiNodeTesting(nodesCount)
+	defer mt.cleanupMultiNodeTesting()
+	nodes := mt.nodes
 
-	randConnect(t, ctx, nodes, nodesCount, 7, 4)
+	randConnect(t, mt.ctx, nodes, nodesCount, 7, 4)
 
 	Convey("it should return a list of close peers", t, func() {
 		fooHash, _ := NewHash("QmVGtdTZdTFaLsaj2RwdVG8jcjNNcp1DE914DKZ2kHmXHx")
 		//fooHash := HashFromPeerID(nodes[29].node.HashAddr)
-		peers, err := nodes[1].node.GetClosestPeers(ctx, fooHash)
+		peers, err := nodes[1].node.GetClosestPeers(mt.ctx, fooHash)
 		So(err, ShouldBeNil)
 
 		var out []peer.ID
@@ -67,6 +59,37 @@ func TestGetClosestPeers(t *testing.T) {
 
 		So(len(out), ShouldEqual, KValue)
 	})
+}
+
+type multiNodeTest struct {
+	ctx    context.Context
+	cancel context.CancelFunc
+	s      *Service
+	d      string
+	nodes  []*Holochain
+	count  int
+}
+
+func setupMultiNodeTesting(n int) (mt *multiNodeTest) {
+	ctx, cancel := context.WithCancel(context.Background())
+	d, s := SetupTestService()
+	mt = &multiNodeTest{
+		ctx:    ctx,
+		cancel: cancel,
+		s:      s,
+		d:      d,
+		count:  n,
+	}
+	mt.nodes = makeTestNodes(mt.ctx, mt.s, n)
+	return
+}
+
+func (mt *multiNodeTest) cleanupMultiNodeTesting() {
+	for i := 0; i < mt.count; i++ {
+		mt.nodes[i].Close()
+	}
+	mt.cancel()
+	CleanupTestDir(mt.d)
 }
 
 func makeTestNodes(ctx context.Context, s *Service, n int) (nodes []*Holochain) {

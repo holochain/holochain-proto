@@ -1,7 +1,6 @@
 package holochain
 
 import (
-	"context"
 	"fmt"
 	peer "github.com/libp2p/go-libp2p-peer"
 	. "github.com/metacurrency/holochain/hash"
@@ -289,21 +288,12 @@ func TestPeerLists(t *testing.T) {
 	})
 }
 
-func TestGosspipPropigation(t *testing.T) {
-	d, s := SetupTestService()
-	defer CleanupTestDir(d)
-
-	ctx := context.Background()
-
+func TestGossipPropigation(t *testing.T) {
 	nodesCount := 5
-
-	nodes := makeTestNodes(ctx, s, nodesCount)
-	defer func() {
-		for i := 0; i < nodesCount; i++ {
-			nodes[i].Close()
-		}
-	}()
-	ringConnect(t, ctx, nodes, nodesCount)
+	mt := setupMultiNodeTesting(nodesCount)
+	defer mt.cleanupMultiNodeTesting()
+	nodes := mt.nodes
+	ringConnect(t, mt.ctx, nodes, nodesCount)
 	Convey("each node should have one gossiper from the ring connect", t, func() {
 		for i := 0; i < nodesCount; i++ {
 			glist, err := nodes[i].dht.getGossipers()

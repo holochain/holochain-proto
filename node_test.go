@@ -361,10 +361,21 @@ func TestNodeRouting(t *testing.T) {
 }
 
 func TestNodeAppSendResolution(t *testing.T) {
-	nodesCount := 5
+	nodesCount := 50
 	mt := setupMultiNodeTesting(nodesCount)
 	defer mt.cleanupMultiNodeTesting()
 	ringConnect(t, mt.ctx, mt.nodes, nodesCount)
+	node1 := mt.nodes[0].node
+	node2 := mt.nodes[nodesCount/2].node
+
+	Convey("sending to nodes we aren't directly connected to should resolve", t, func() {
+		m := node2.NewMessage(GOSSIP_REQUEST, GossipReq{})
+		r, err := node2.Send(mt.ctx, GossipProtocol, node1.HashAddr, m)
+		So(err, ShouldBeNil)
+		So(r.Type, ShouldEqual, OK_RESPONSE)
+		So(r.From, ShouldEqual, node1.HashAddr) // response comes from who we sent to
+		So(fmt.Sprintf("%T", r.Body), ShouldEqual, "holochain.Gossip")
+	})
 }
 
 func makePeer(id string) (pid peer.ID, key ic.PrivKey) {

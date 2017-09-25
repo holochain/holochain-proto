@@ -289,7 +289,7 @@ func TestPeerLists(t *testing.T) {
 }
 
 func TestGossipPropigation(t *testing.T) {
-	nodesCount := 5
+	nodesCount := 7
 	mt := setupMultiNodeTesting(nodesCount)
 	defer mt.cleanupMultiNodeTesting()
 	nodes := mt.nodes
@@ -318,7 +318,7 @@ func TestGossipPropigation(t *testing.T) {
 
 		start := time.Now()
 		propigated := false
-		ticker := time.NewTicker(20 * time.Millisecond)
+		ticker := time.NewTicker(51 * time.Millisecond)
 		stop := make(chan bool, 1)
 
 		func() {

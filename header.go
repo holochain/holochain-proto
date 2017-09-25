@@ -39,6 +39,7 @@ type Header struct {
 func newHeader(hashSpec HashSpec, now time.Time, t string, entry Entry, privKey ic.PrivKey, prev Hash, prevType Hash, change *StatusChange) (hash Hash, header *Header, err error) {
 	var hd Header
 	hd.Type = t
+	now = now.Round(0)
 	hd.Time = now
 	hd.HeaderLink = prev
 	hd.TypeLink = prevType

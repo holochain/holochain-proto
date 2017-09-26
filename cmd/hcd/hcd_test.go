@@ -54,7 +54,7 @@ func TestWeb(t *testing.T) {
 		os.Stdout = w
 
 		go app.Run(os.Args)
-		time.Sleep(time.Second)
+		time.Sleep(time.Second * 2)
 
 		outC := make(chan string)
 		// copy the output in a separate goroutine so printing can't block indefinitely

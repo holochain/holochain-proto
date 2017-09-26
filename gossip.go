@@ -81,11 +81,21 @@ func incIdx(tx *buntdb.Tx, m *Message) (index string, err error) {
 
 	if m != nil {
 		var b []byte
+
+		// fmt.Printf("\nHC: gossip.go: incIdx: 85: Message before encoding is:\n  %v\n", m)
+
 		b, err = ByteEncoder(m)
 		if err != nil {
 			return
 		}
 		msg = string(b)
+
+		// fmt.Printf("\nHC: gossip.go: incIdx: 93: Message after encoding is:\n  %v\n", msg)
+
+		var decodedMessage interface{}
+		err = ByteDecoder(b, decodedMessage)
+		// fmt.Printf("\nHC: gossip.go: incIdx: 96: Message after decoding is:\n  %v\n", decodedMessage)
+
 	}
 	_, _, err = tx.Set("idx:"+index, msg, nil)
 	if err != nil {
@@ -196,6 +206,7 @@ func (dht *DHT) GetPuts(since int) (puts []Put, err error) {
 					if err != nil {
 						return false
 					}
+					// fmt.Printf("\nHC: gossip.go: GetPuts: decodedMessage: %v\n", p.M)
 				}
 				puts = append(puts, p)
 			}

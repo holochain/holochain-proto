@@ -157,6 +157,34 @@ func TestNewJSRibosome(t *testing.T) {
 			So(err, ShouldBeNil)
 			So(hash1.String(), ShouldEqual, profileHash.String())
 		})
+
+		Convey("getBridges", func() {
+			_, err = z.Run(`getBridges()`)
+			So(err, ShouldBeNil)
+			z := v.(*JSRibosome)
+			s, _ := z.lastResult.Export()
+			So(fmt.Sprintf("%v", s), ShouldEqual, "[]")
+
+			hFromHash, _ := NewHash("QmY8Mzg9F69e5P9AoQPYat655HEhc1TVGs11tmfNSzfrom")
+			var token string
+			token, err = h.AddBridgeAsCallee(hFromHash, "")
+			if err != nil {
+				panic(err)
+			}
+
+			hToHash, _ := NewHash("QmY8Mzg9F69e5P9AoQPYat655HEhc1TVGs11tmfNSzkqto")
+			err = h.AddBridgeAsCaller(hToHash, token, "fakeurl", "")
+			if err != nil {
+				panic(err)
+			}
+
+			ShouldLog(h.nucleus.alog, fmt.Sprintf(`[{"Side":0,"ToApp":"QmY8Mzg9F69e5P9AoQPYat655HEhc1TVGs11tmfNSzkqto"},{"Side":1,"Token":"%s"}]`, token), func() {
+				_, err := z.Run(`testGetBridges()`)
+				So(err, ShouldBeNil)
+			})
+
+		})
+
 		// Sign - this methord signs the data that is passed with the user's privKey and returns the signed data
 		Convey("sign", func() {
 			d, _, h := PrepareTestChain("test")

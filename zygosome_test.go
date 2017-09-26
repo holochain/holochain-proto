@@ -155,6 +155,33 @@ func TestNewZygoRibosome(t *testing.T) {
 			So(hash1.String(), ShouldEqual, profileHash.String())
 		})
 
+		Convey("getBridges", func() {
+			_, err = z.Run(`(getBridges)`)
+			So(err, ShouldBeNil)
+			z := v.(*ZygoRibosome)
+
+			So(len(z.lastResult.(*zygo.SexpArray).Val), ShouldEqual, 0)
+
+			hFromHash, _ := NewHash("QmY8Mzg9F69e5P9AoQPYat655HEhc1TVGs11tmfNSzfrom")
+			var token string
+			token, err = h.AddBridgeAsCallee(hFromHash, "")
+			if err != nil {
+				panic(err)
+			}
+
+			hToHash, _ := NewHash("QmY8Mzg9F69e5P9AoQPYat655HEhc1TVGs11tmfNSzkqto")
+			err = h.AddBridgeAsCaller(hToHash, token, "fakeurl", "")
+			if err != nil {
+				panic(err)
+			}
+
+			ShouldLog(h.nucleus.alog, fmt.Sprintf(`[ (hash Side:0 ToApp:"QmY8Mzg9F69e5P9AoQPYat655HEhc1TVGs11tmfNSzkqto")  (hash Side:1 Token:"%s")]`, token), func() {
+				_, err := z.Run(`(testGetBridges)`)
+				So(err, ShouldBeNil)
+			})
+
+		})
+
 		Convey("call", func() {
 			// a string calling function
 			_, err := z.Run(`(call "jsSampleZome" "addOdd" "321")`)

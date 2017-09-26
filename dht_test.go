@@ -284,7 +284,7 @@ func TestSend(t *testing.T) {
 	defer CleanupTestDir(d)
 
 	agent := h.Agent().(*LibP2PAgent)
-	node, err := NewNode("/ip4/127.0.0.1/tcp/1234", h.dnaHash.String(), agent)
+	node, err := NewNode("/ip4/127.0.0.1/tcp/1234", h.dnaHash.String(), agent, false)
 	if err != nil {
 		panic(err)
 	}

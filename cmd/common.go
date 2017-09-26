@@ -175,6 +175,11 @@ func GetHolochain(name string, service *holo.Service, cmd string) (h *holo.Holoc
 		return
 	}
 
+  val := os.Getenv("HOLOCHAINCONFIG_ENABLENATUPNP")
+  if val != "" {
+    h.Config.EnableNATUPnP = val == "true"
+  }
+
 	if err = h.Prepare(); err != nil {
 		return
 	}

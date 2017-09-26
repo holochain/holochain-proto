@@ -54,6 +54,7 @@ type Config struct {
 	EnableMDNS      bool
 	PeerModeAuthor  bool
 	PeerModeDHTNode bool
+	EnableNATUPnP   bool
 	BootstrapServer string
 	Loggers         Loggers
 }
@@ -256,7 +257,7 @@ func (h *Holochain) PrepareHashType() (err error) {
 // createNode creates a network node based on the current agent and port data
 func (h *Holochain) createNode() (err error) {
 	listenaddr := fmt.Sprintf("/ip4/0.0.0.0/tcp/%d", h.Config.Port)
-	h.node, err = NewNode(listenaddr, h.dnaHash.String(), h.Agent().(*LibP2PAgent))
+	h.node, err = NewNode(listenaddr, h.dnaHash.String(), h.Agent().(*LibP2PAgent), h.Config.EnableNATUPnP)
 	return
 }
 

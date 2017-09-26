@@ -12,6 +12,7 @@ import (
 	"encoding/gob"
 	"errors"
 	"fmt"
+	nat "github.com/libp2p/go-libp2p-nat"
 	net "github.com/libp2p/go-libp2p-net"
 	peer "github.com/libp2p/go-libp2p-peer"
 	pstore "github.com/libp2p/go-libp2p-peerstore"
@@ -24,6 +25,9 @@ import (
 	mh "github.com/multiformats/go-multihash"
 	"gopkg.in/mgo.v2/bson"
 	"io"
+	go_net "net"
+	"strconv"
+	"strings"
 	"time"
 )
 
@@ -85,6 +89,7 @@ type Node struct {
 	mdnsSvc     discovery.Service
 	blockedlist map[peer.ID]bool
 	protocols   [_protocolCount]*Protocol
+	nat         *nat.NAT
 }
 
 // Protocol encapsulates data for our different protocols
@@ -135,8 +140,73 @@ func (n *Node) EnableMDNSDiscovery(notifee discovery.Notifee, interval time.Dura
 	return
 }
 
+func (n *Node) ExternalAddr() ma.Multiaddr {
+	if n.nat == nil {
+		return n.NetAddr
+	} else {
+		mappings := n.nat.Mappings()
+		for i := 0; i < len(mappings); i++ {
+			external_addr, err := mappings[i].ExternalAddr()
+			if err == nil {
+				return external_addr
+			}
+		}
+		return n.NetAddr
+	}
+}
+
+func (n *Node) discoverAndHandleNat(listenPort int) {
+	Debugf("Looking for a NAT...")
+	n.nat = nat.DiscoverNAT()
+	if n.nat == nil {
+		Debugf("No NAT found.")
+	} else {
+		Debugf("Discovered NAT! Trying to aquire public port mapping via UPnP...")
+		ifaces, _ := go_net.Interfaces()
+		// handle err
+		for _, i := range ifaces {
+			addrs, _ := i.Addrs()
+			// handle err
+			for _, addr := range addrs {
+				var ip go_net.IP
+				switch v := addr.(type) {
+				case *go_net.IPNet:
+					ip = v.IP
+				case *go_net.IPAddr:
+					ip = v.IP
+				}
+				if ip.Equal(go_net.IPv4(127, 0, 0, 1)) {
+					continue
+				}
+				addr_string := fmt.Sprintf("/ip4/%s/tcp/%d", ip, listenPort)
+				localaddr, err := ma.NewMultiaddr(addr_string)
+				if err == nil {
+					Debugf("NAT: trying to establish NAT mapping for %s...", addr_string)
+					n.nat.NewMapping(localaddr)
+				}
+			}
+		}
+
+		external_addr := n.ExternalAddr()
+
+		if external_addr != n.NetAddr {
+			Debugf("NAT: successfully created port mapping! External address is: %s", external_addr.String())
+		} else {
+			Debugf("NAT: could not create port mappping. Keep trying...")
+			Infof("NAT:-------------------------------------------------------")
+			Infof("NAT:---------------------Warning---------------------------")
+			Infof("NAT:-------------------------------------------------------")
+			Infof("NAT: You seem to be behind a NAT that does not speak UPnP.")
+			Infof("NAT: You will have to setup a port forwarding manually.")
+			Infof("NAT: This instance is configured to listen on port: %d", listenPort)
+			Infof("NAT:-------------------------------------------------------")
+		}
+
+	}
+}
+
 // NewNode creates a new ipfs basichost node with given identity
-func NewNode(listenAddr string, protoMux string, agent *LibP2PAgent) (node *Node, err error) {
+func NewNode(listenAddr string, protoMux string, agent *LibP2PAgent, enableNATUPnP bool) (node *Node, err error) {
 	Debugf("Creating new node with protoMux: %s\n", protoMux)
 	nodeID, _, err := agent.NodeID()
 	if err != nil {
@@ -144,9 +214,19 @@ func NewNode(listenAddr string, protoMux string, agent *LibP2PAgent) (node *Node
 	}
 
 	var n Node
+	listenPort, err := strconv.Atoi(strings.Split(listenAddr, "/")[4])
+	if err != nil {
+		Infof("Can't parse port from Multiaddress string: %s", listenAddr)
+		return
+	}
+
 	n.NetAddr, err = ma.NewMultiaddr(listenAddr)
 	if err != nil {
 		return
+	}
+
+	if enableNATUPnP {
+		n.discoverAndHandleNat(listenPort)
 	}
 
 	ps := pstore.NewPeerstore()

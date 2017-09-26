@@ -203,7 +203,7 @@ func TestWeb(t *testing.T) {
 	defer os.RemoveAll(tmpTestDir)
 
 	Convey("'web' should run a webserver", t, func() {
-		out, err := runAppWithStdoutCapture(app, []string{"hcdev", "-no-nat-upnp", "web"}, 20)
+		out, err := runAppWithStdoutCapture(app, []string{"hcdev", "-no-nat-upnp", "web"}, 30)
 		So(err, ShouldBeNil)
 		So(out, ShouldContainSubstring, "on port:4141")
 		So(out, ShouldContainSubstring, "Serving holochain with DNA hash:")
@@ -225,7 +225,6 @@ func runAppWithStdoutCapture(app *cli.App, args []string, secondsToWait int) (ou
 	os.Stdout = w
 
 	go func() { err = app.Run(os.Args) }()
-	time.Sleep(time.Second * secondsToWait)
 
 	outC := make(chan string)
 	// copy the output in a separate goroutine so printing can't block indefinitely
@@ -234,6 +233,8 @@ func runAppWithStdoutCapture(app *cli.App, args []string, secondsToWait int) (ou
 		io.Copy(&buf, r)
 		outC <- buf.String()
 	}()
+
+  time.Sleep(time.Second * secondsToWait)
 
 	// back to normal state
 	w.Close()

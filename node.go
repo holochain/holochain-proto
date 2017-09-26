@@ -129,6 +129,10 @@ const (
 	_protocolCount
 )
 
+const (
+	PeerTTL = time.Minute * 10
+)
+
 // implement peer found function for mdns discovery
 func (h *Holochain) HandlePeerFound(pi pstore.PeerInfo) {
 	h.dht.dlog.Logf("discovered peer via mdns: %v", pi)
@@ -143,7 +147,7 @@ func (h *Holochain) AddPeer(id peer.ID, addrs []ma.Multiaddr) (err error) {
 		err = ErrBlockedListed
 	} else {
 		Debugf("Adding Peer: %v\n", id)
-		h.node.peerstore.AddAddrs(id, addrs, pstore.TempAddrTTL)
+		h.node.peerstore.AddAddrs(id, addrs, PeerTTL)
 		h.node.routingTable.Update(id)
 		err = h.dht.AddGossiper(id)
 	}
@@ -252,7 +256,7 @@ func NewNode(listenAddr string, protoMux string, agent *LibP2PAgent, enableNATUP
 
 	ps := pstore.NewPeerstore()
 	n.peerstore = ps
-	ps.AddAddrs(nodeID, []ma.Multiaddr{n.NetAddr}, pstore.TempAddrTTL)
+	ps.AddAddrs(nodeID, []ma.Multiaddr{n.NetAddr}, pstore.PermanentAddrTTL)
 
 	n.HashAddr = nodeID
 	priv := agent.PrivKey()

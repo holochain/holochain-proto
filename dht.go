@@ -17,6 +17,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
 )
 
 // Holds the dht configuration options
@@ -57,6 +58,9 @@ type DHT struct {
 	gossips   map[peer.ID]bool
 	gchan     chan gossipWithReq
 	config    *DHTConfig
+	glk       sync.RWMutex
+	//	sources      map[peer.ID]bool
+	//	fingerprints map[string]bool
 }
 
 // Meta holds data that can be associated with a hash
@@ -230,6 +234,8 @@ func NewDHT(h *Holochain) *DHT {
 	dht.puts = make(chan Message, 10)
 
 	dht.gossips = make(map[peer.ID]bool)
+	//	dht.sources = make(map[peer.ID]bool)
+	//	dht.fingerprints = make(map[string]bool)
 	dht.gchan = make(chan gossipWithReq, 10)
 
 	return &dht

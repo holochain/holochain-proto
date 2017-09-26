@@ -370,7 +370,7 @@ func GossipReceiver(h *Holochain, m *Message) (response interface{}, err error) 
 
 				// queue up a request to gossip back
 				// TODO: not thread safe, as can get called after channel closes
-				dht.gchan <- gossipWithReq{m.From}
+				go func() { dht.gchan <- gossipWithReq{m.From} }()
 			}
 
 		default:
@@ -384,11 +384,13 @@ func GossipReceiver(h *Holochain, m *Message) (response interface{}, err error) 
 
 // gossipWith gossips with an peer asking for everything after since
 func (dht *DHT) gossipWith(id peer.ID) (err error) {
-	dht.glog.Logf("with %v", id)
+	dht.glog.Logf("starting gossipWith %v", id)
 
 	// gossip loops are possible where a gossip request triggers a gossip back, which
 	// if the first gossiping wasn't completed triggers the same gossip, so protect against this
 	// with a hash table storing who we are currently gossiping with
+	dht.glk.Lock()
+	defer dht.glk.Unlock()
 	_, gossiping := dht.gossips[id]
 	if gossiping {
 		return
@@ -425,6 +427,7 @@ func (dht *DHT) gossipWith(id peer.ID) (err error) {
 	if count > 0 {
 		dht.glog.Logf("running %d puts", count)
 		var idx int
+		ok := true
 		for i, p := range puts {
 			idx = i + yourIdx + 1
 			/* TODO: Small mystery to be solved, the value of p.idx is always 0 but it should be the actual idx...
@@ -434,12 +437,19 @@ func (dht *DHT) gossipWith(id peer.ID) (err error) {
 			*/
 			f, e := p.M.Fingerprint()
 			if e == nil {
+				// dht.sources[p.M.From] = true
+				// dht.fingerprints[f.String()[2:4]] = true
 				dht.glog.Logf("PUT--%d (fingerprint: %v)", idx, f)
 				exists, e := dht.HaveFingerprint(f)
 				if !exists && e == nil {
 					dht.glog.Logf("PUT--%d calling ActionReceiver", idx)
+					//fmt.Printf("PUT--%d calling ActionReceiver\n", idx)
 					r, e := ActionReceiver(dht.h, &p.M)
 					dht.glog.Logf("PUT--%d ActionReceiver returned %v with err %v", idx, r, e)
+					if e != nil {
+						// put receiver error so don't update this gossip
+						ok = false
+					}
 				} else {
 					if e == nil {
 						dht.glog.Logf("already have fingerprint %v", f)
@@ -452,7 +462,9 @@ func (dht *DHT) gossipWith(id peer.ID) (err error) {
 				dht.glog.Logf("error calculating fingerprint for %v", p)
 			}
 		}
-		err = dht.UpdateGossiper(id, idx)
+		if ok {
+			err = dht.UpdateGossiper(id, idx)
+		}
 	}
 	return
 }

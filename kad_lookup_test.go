@@ -18,6 +18,12 @@ func ringConnect(t *testing.T, ctx context.Context, nodes []*Holochain, nodesCou
 	}
 }
 
+func starConnect(t *testing.T, ctx context.Context, nodes []*Holochain, nodesCount int) {
+	for i := 1; i < nodesCount; i++ {
+		connect(t, ctx, nodes[0], nodes[i])
+	}
+}
+
 func randConnect(t *testing.T, ctx context.Context, nodes []*Holochain, nodesCount, connectFromCount, connectToCount int) {
 
 	// connect nodes[1->connectFromCount] to connectToCount randomly selected nodes in

@@ -294,6 +294,8 @@ func TestGossipPropigation(t *testing.T) {
 	defer mt.cleanupMultiNodeTesting()
 	nodes := mt.nodes
 	ringConnect(t, mt.ctx, nodes, nodesCount)
+	//randConnect(t, mt.ctx, nodes, nodesCount, 7, 4)
+	//starConnect(t, mt.ctx, nodes, nodesCount)
 	Convey("each node should have one gossiper from the ring connect", t, func() {
 		for i := 0; i < nodesCount; i++ {
 			glist, err := nodes[i].dht.getGossipers()
@@ -321,32 +323,58 @@ func TestGossipPropigation(t *testing.T) {
 		ticker := time.NewTicker(51 * time.Millisecond)
 		stop := make(chan bool, 1)
 
-		func() {
-			for {
-				select {
-				case tick := <-ticker.C:
-
-					// abort just in case in 4 seconds (only if propgation fails)
-					if tick.Sub(start) > (4 * time.Second) {
-						stop <- true
-					}
-
-					// check to see if the nodes have all gotten the puts yet.
-					for i := 0; i < nodesCount; i++ {
-						puts, _ := nodes[i].dht.GetPuts(0)
-						//	fmt.Printf("NODE%d: %d\n", i, len(puts))
-						if i == 0 && len(puts) >= nodesCount*2 {
-							propigated = true
-							stop <- true
-						}
-					}
-					//fmt.Printf("\n")
-				case <-stop:
+		go func() {
+			for tick := range ticker.C {
+				// abort just in case in 4 seconds (only if propgation fails)
+				if tick.Sub(start) > (10 * time.Second) {
+					//fmt.Printf("Aborting!")
+					stop <- true
 					return
 				}
+
+				propigated = true
+				// check to see if the nodes have all gotten the puts yet.
+				for i := 0; i < nodesCount; i++ {
+					puts, _ := nodes[i].dht.GetPuts(0)
+					if len(puts) < nodesCount*2 {
+						propigated = false
+					}
+					/*fmt.Printf("NODE%d(%s): %d:", i, nodes[i].nodeID.Pretty()[2:4], len(puts))
+					for j := 0; j < len(puts); j++ {
+						f, _ := puts[j].M.Fingerprint()
+						fmt.Printf("%s,", f.String()[2:4])
+					}
+					fmt.Printf("\n              ")
+					nodes[i].dht.glk.RLock()
+					for k, _ := range nodes[i].dht.fingerprints {
+						fmt.Printf("%s,", k)
+					}
+					nodes[i].dht.glk.RUnlock()
+					fmt.Printf("\n    ")
+					for k, _ := range nodes[i].dht.sources {
+						fmt.Printf("%d,", convertToIDx(nodes, k))
+					}
+					fmt.Printf("\n")
+					*/
+				}
+				if propigated {
+					stop <- true
+					return
+				}
+				//fmt.Printf("\n")
 			}
 		}()
-
+		<-stop
+		ticker.Stop()
 		So(propigated, ShouldBeTrue)
 	})
+}
+
+func convertToIDx(nodes []*Holochain, id peer.ID) int {
+	for i, n := range nodes {
+		if id == n.nodeID {
+			return i
+		}
+	}
+	panic("bork!")
 }

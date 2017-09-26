@@ -99,6 +99,7 @@ func (node *Node) closerPeersSingle(ctx context.Context, key Hash, p peer.ID) ([
 	var out []peer.ID
 	for _, pinfo := range closerPeers {
 		if pinfo.ID != node.HashAddr { // dont add self
+			// TODO: what about the time to live of this peer???
 			node.peerstore.AddAddrs(pinfo.ID, pinfo.Addrs, pstore.TempAddrTTL)
 			out = append(out, pinfo.ID)
 		}

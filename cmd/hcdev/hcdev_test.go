@@ -181,7 +181,7 @@ func TestPackage(t *testing.T) {
 	tmpTestDir, app := setupTestingApp("foo")
 	defer os.RemoveAll(tmpTestDir)
 	Convey("'package' should print a scaffold file to stdout", t, func() {
-		scaffold, err := runAppWithStdoutCapture(app, []string{"hcdev", "package"})
+		scaffold, err := runAppWithStdoutCapture(app, []string{"hcdev", "package"}, 2 * time.Second)
 		So(err, ShouldBeNil)
 		So(scaffold, ShouldContainSubstring, fmt.Sprintf(`"ScaffoldVersion": "%s"`, holo.ScaffoldVersion))
 	})
@@ -189,7 +189,7 @@ func TestPackage(t *testing.T) {
 	d := holo.SetupTestDir()
 	defer os.RemoveAll(d)
 	Convey("'package' should output a scaffold file to file", t, func() {
-		runAppWithStdoutCapture(app, []string{"hcdev", "package", filepath.Join(d, "scaff.json")})
+		runAppWithStdoutCapture(app, []string{"hcdev", "package", filepath.Join(d, "scaff.json")}, 2 * time.Second)
 		scaffold, err := holo.ReadFile(d, "scaff.json")
 		So(err, ShouldBeNil)
 		So(string(scaffold), ShouldContainSubstring, fmt.Sprintf(`"ScaffoldVersion": "%s"`, holo.ScaffoldVersion))
@@ -203,7 +203,7 @@ func TestWeb(t *testing.T) {
 	defer os.RemoveAll(tmpTestDir)
 
 	Convey("'web' should run a webserver", t, func() {
-		out, err := runAppWithStdoutCapture(app, []string{"hcdev", "web"})
+		out, err := runAppWithStdoutCapture(app, []string{"hcdev", "-no-nat-upnp", "web"}, 30 * time.Second)
 		So(err, ShouldBeNil)
 		So(out, ShouldContainSubstring, "on port:4141")
 		So(out, ShouldContainSubstring, "Serving holochain with DNA hash:")
@@ -211,13 +211,13 @@ func TestWeb(t *testing.T) {
 	app = setupApp()
 
 	Convey("'web' not in an app directory should produce error", t, func() {
-		out, err := runAppWithStdoutCapture(app, []string{"hcdev", "-path", tmpTestDir, "web"})
+		out, err := runAppWithStdoutCapture(app, []string{"hcdev", "-path", tmpTestDir, "web"}, 1 * time.Second)
 		So(err, ShouldBeError)
 		So(out, ShouldContainSubstring, "doesn't look like a holochain app")
 	})
 }
 
-func runAppWithStdoutCapture(app *cli.App, args []string) (out string, err error) {
+func runAppWithStdoutCapture(app *cli.App, args []string, wait time.Duration) (out string, err error) {
 	os.Args = args
 
 	old := os.Stdout // keep backup of the real stdout
@@ -225,7 +225,6 @@ func runAppWithStdoutCapture(app *cli.App, args []string) (out string, err error
 	os.Stdout = w
 
 	go func() { err = app.Run(os.Args) }()
-	time.Sleep(time.Second / 2)
 
 	outC := make(chan string)
 	// copy the output in a separate goroutine so printing can't block indefinitely
@@ -234,6 +233,8 @@ func runAppWithStdoutCapture(app *cli.App, args []string) (out string, err error
 		io.Copy(&buf, r)
 		outC <- buf.String()
 	}()
+
+  time.Sleep(wait)
 
 	// back to normal state
 	w.Close()

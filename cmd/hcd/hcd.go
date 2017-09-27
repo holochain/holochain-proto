@@ -21,6 +21,7 @@ const (
 
 var debug bool
 var verbose bool
+var nonatupnp bool
 
 func setupApp() (app *cli.App) {
 	app = cli.NewApp()
@@ -49,6 +50,11 @@ func setupApp() (app *cli.App) {
 			Usage:       "verbose output",
 			Destination: &verbose,
 		},
+		cli.BoolFlag{
+			Name:        "no-nat-upnp",
+			Usage:       "whether to stop hcd from creating a port mapping through NAT via UPnP",
+			Destination: &nonatupnp,
+		},
 	}
 
 	app.Before = func(c *cli.Context) error {
@@ -66,6 +72,12 @@ func setupApp() (app *cli.App) {
 		service, err = cmd.GetService(root)
 		if err != nil {
 			return err
+		}
+		if nonatupnp == false {
+			err = os.Setenv("HOLOCHAINCONFIG_ENABLENATUPNP", "true")
+			if err != nil {
+				return err
+			}
 		}
 		return nil
 	}

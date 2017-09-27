@@ -44,6 +44,7 @@ var scenarioConfig *holo.TestConfig
 // flags for holochain config generation
 var port, logPrefix, bootstrapServer string
 var mdns bool
+var nonatupnp bool
 
 // meta flags for program flow control
 var syncPausePath string
@@ -118,6 +119,11 @@ func setupApp() (app *cli.App) {
 			Name:        "mdns",
 			Usage:       "whether to use mdns for local peer discovery",
 			Destination: &mdns,
+		},
+		cli.BoolFlag{
+			Name:        "no-nat-upnp",
+			Usage:       "whether to stop hcdev from creating a port mapping through NAT via UPnP",
+			Destination: &nonatupnp,
 		},
 		cli.StringFlag{
 			Name:        "logPrefix",
@@ -505,6 +511,7 @@ func setupApp() (app *cli.App) {
 							"-execpath="+filepath.Join(rootExecDir, roleName),
 							"-port="+strconv.Itoa(freePort),
 							"-mdns=true",
+							"-no-nat-upnp=true",
 							"-logPrefix="+logPrefix,
 							"-bootstrapServer=_",
 							fmt.Sprintf("-keepalive=%v", keepalive),
@@ -667,6 +674,12 @@ func setupApp() (app *cli.App) {
 		}
 		if mdns != false {
 			err = os.Setenv("HOLOCHAINCONFIG_ENABLEMDNS", "true")
+			if err != nil {
+				return err
+			}
+		}
+		if nonatupnp == false {
+			err = os.Setenv("HOLOCHAINCONFIG_ENABLENATUPNP", "true")
 			if err != nil {
 				return err
 			}

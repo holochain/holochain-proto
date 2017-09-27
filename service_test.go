@@ -27,7 +27,7 @@ func TestInit(t *testing.T) {
 
 		Convey("it should return a service with default values", func() {
 			So(s.DefaultAgent.Identity(), ShouldEqual, AgentIdentity(agent))
-			So(fmt.Sprintf("%v", s.Settings), ShouldEqual, "{true true bootstrap.holochain.net:10000 false}")
+			So(fmt.Sprintf("%v", s.Settings), ShouldEqual, "{true true bootstrap.holochain.net:10000 false false}")
 		})
 
 		p := filepath.Join(d, DefaultDirectoryName)

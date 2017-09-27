@@ -47,14 +47,14 @@ func TestWeb(t *testing.T) {
 	app := setupApp()
 
 	Convey("it should run a webserver", t, func() {
-		os.Args = []string{"hcd", "-path", s.Path, "-verbose", "testApp"}
+		os.Args = []string{"hcd", "-path", s.Path, "-verbose", "-no-nat-upnp",  "testApp"}
 
 		old := os.Stdout // keep backup of the real stdout
 		r, w, _ := os.Pipe()
 		os.Stdout = w
 
 		go app.Run(os.Args)
-		time.Sleep(time.Second)
+		time.Sleep(time.Second * 10)
 
 		outC := make(chan string)
 		// copy the output in a separate goroutine so printing can't block indefinitely

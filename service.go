@@ -78,6 +78,7 @@ type ServiceConfig struct {
 	DefaultPeerModeDHTNode bool
 	DefaultBootstrapServer string
 	DefaultEnableMDNS      bool
+	DefaultEnableNATUPnP   bool
 }
 
 // A Service is a Holochain service data structure
@@ -160,6 +161,7 @@ func Init(root string, identity AgentIdentity, seed io.Reader) (service *Service
 			DefaultPeerModeAuthor:  true,
 			DefaultBootstrapServer: DefaultBootstrapServer,
 			DefaultEnableMDNS:      false,
+			DefaultEnableNATUPnP:   false,
 		},
 		Path: root,
 	}
@@ -558,6 +560,7 @@ func _makeConfig(s *Service) (config Config, err error) {
 		PeerModeDHTNode: s.Settings.DefaultPeerModeDHTNode,
 		PeerModeAuthor:  s.Settings.DefaultPeerModeAuthor,
 		BootstrapServer: s.Settings.DefaultBootstrapServer,
+		EnableNATUPnP:   s.Settings.DefaultEnableNATUPnP,
 		Loggers: Loggers{
 			App:        Logger{Name: "App", Format: "%{color:cyan}%{message}", Enabled: true},
 			DHT:        Logger{Name: "DHT", Format: "%{color:yellow}%{time} DHT: %{message}"},
@@ -593,6 +596,12 @@ func _makeConfig(s *Service) (config Config, err error) {
 	if val != "" {
 		Debugf("makeConfig: using environment variable to set enableMDNS to: %s", val)
 		config.EnableMDNS = val == "true"
+	}
+
+	val = os.Getenv("HOLOCHAINCONFIG_ENABLENATUPNP")
+	if val != "" {
+		Debugf("makeConfig: using environment variable to set enableNATUPnP to: %s", val)
+		config.EnableNATUPnP = val == "true"
 	}
 	return
 }

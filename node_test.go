@@ -382,7 +382,7 @@ func makeNode(port int, id string) (*Node, error) {
 	listenaddr := fmt.Sprintf("/ip4/127.0.0.1/tcp/%d", port)
 	_, key := makePeer(id)
 	agent := LibP2PAgent{identity: AgentIdentity(id), priv: key, pub: key.GetPublic()}
-	return NewNode(listenaddr, "fakednahash", &agent)
+	return NewNode(listenaddr, "fakednahash", &agent, false)
 }
 
 func addTestPeers(h *Holochain, peers []peer.ID, start int, count int) []peer.ID {

@@ -151,7 +151,7 @@ func runAppWithStdoutCapture(app *cli.App, args []string) (out string, err error
 	os.Stdout = w
 
 	go func() { err = app.Run(os.Args) }()
-	time.Sleep(time.Second / 2)
+	time.Sleep(time.Second * 5)
 
 	outC := make(chan string)
 	// copy the output in a separate goroutine so printing can't block indefinitely

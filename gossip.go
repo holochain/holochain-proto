@@ -7,7 +7,6 @@
 package holochain
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	peer "github.com/libp2p/go-libp2p-peer"
@@ -391,14 +390,14 @@ func (dht *DHT) gossipWith(id peer.ID) (err error) {
 	// with a hash table storing who we are currently gossiping with
 	dht.glk.Lock()
 	defer dht.glk.Unlock()
-	_, gossiping := dht.gossips[id]
-	if gossiping {
-		return
-	}
-	dht.gossips[id] = true
-	defer func() {
-		delete(dht.gossips, id)
-	}()
+	/*	_, gossiping := dht.gossips[id]
+		if gossiping {
+			return
+		}
+		dht.gossips[id] = true
+		defer func() {
+			delete(dht.gossips, id)
+		}()*/
 
 	var myIdx, yourIdx int
 	myIdx, err = dht.GetIdx()
@@ -412,7 +411,7 @@ func (dht *DHT) gossipWith(id peer.ID) (err error) {
 	}
 
 	var r interface{}
-	r, err = dht.h.Send(context.Background(), GossipProtocol, id, GOSSIP_REQUEST, GossipReq{MyIdx: myIdx, YourIdx: yourIdx + 1}, 0)
+	r, err = dht.h.Send(dht.h.node.ctx, GossipProtocol, id, GOSSIP_REQUEST, GossipReq{MyIdx: myIdx, YourIdx: yourIdx + 1}, 0)
 	if err != nil {
 		return
 	}

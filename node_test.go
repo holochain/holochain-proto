@@ -242,7 +242,7 @@ func TestMessageCoding(t *testing.T) {
 
 	m := node.NewMessage(PUT_REQUEST, "foo")
 	var d []byte
-	Convey("It should encode and decode messages", t, func() {
+	Convey("It should encode and decode put messages", t, func() {
 		d, err = m.Encode()
 		So(err, ShouldBeNil)
 
@@ -253,6 +253,36 @@ func TestMessageCoding(t *testing.T) {
 
 		So(fmt.Sprintf("%v", m), ShouldEqual, fmt.Sprintf("%v", &m2))
 	})
+
+	m = node.NewMessage(GET_REQUEST, "foo")
+	Convey("It should encode and decode get messages", t, func() {
+		d, err = m.Encode()
+		So(err, ShouldBeNil)
+
+		var m2 Message
+		r := bytes.NewReader(d)
+		err = m2.Decode(r)
+		So(err, ShouldBeNil)
+
+		So(fmt.Sprintf("%v", m), ShouldEqual, fmt.Sprintf("%v", &m2))
+	})
+
+	Convey("It should encode and decode get OK_RESPONSE", t, func() {
+		body := GetResp{}
+		body.Entry = GobEntry{C: "3"}
+
+		m = node.NewMessage(OK_RESPONSE, body)
+		d, err = m.Encode()
+		So(err, ShouldBeNil)
+
+		var m2 Message
+		r := bytes.NewReader(d)
+		err = m2.Decode(r)
+		So(err, ShouldBeNil)
+
+		So(fmt.Sprintf("%v", m), ShouldEqual, fmt.Sprintf("%v", &m2))
+	})
+
 }
 
 func TestFingerprintMessage(t *testing.T) {

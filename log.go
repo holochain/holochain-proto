@@ -138,6 +138,11 @@ func (l *Logger) _parse(m string, t *time.Time) (output string) {
 	if len(matches) > 0 {
 		_, file, line, ok := runtime.Caller(6)
 		if ok {
+			// sometimes the stack is one less deep than we expect in which case
+			// the file shows "asm_" so check for this case and redo!
+			if strings.Index(file, "asm_") > 0 {
+				_, file, line, ok = runtime.Caller(5)
+			}
 			output = strings.Replace(output, "%{file}", filepath.Base(file), -1)
 			output = strings.Replace(output, "%{line}", fmt.Sprintf("%d", line), -1)
 		}

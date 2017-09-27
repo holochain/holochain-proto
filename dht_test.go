@@ -281,21 +281,17 @@ func TestFindNodeForHash(t *testing.T) {
 	})
 }
 
-func TestSend(t *testing.T) {
-	d, _, h := PrepareTestChain("test")
-	defer CleanupTestDir(d)
+func TestDHTSend(t *testing.T) {
+	nodesCount := 6
+	mt := setupMultiNodeTesting(nodesCount)
+	defer mt.cleanupMultiNodeTesting()
 
-	agent := h.Agent().(*LibP2PAgent)
-	node, err := NewNode("/ip4/127.0.0.1/tcp/1234", h.dnaHash.String(), agent, false)
-	if err != nil {
-		panic(err)
-	}
-	defer node.Close()
+	h := mt.nodes[0]
 
 	hash, _ := NewHash("QmY8Mzg9F69e5P9AoQPYat655HEhc1TVGs11tmfNSzkqh2")
 
 	Convey("send GET_REQUEST message for non existent hash should get error", t, func() {
-		_, err := h.dht.send(node.HashAddr, GET_REQUEST, GetReq{H: hash, StatusMask: StatusLive})
+		_, err := h.dht.send(h.node.HashAddr, GET_REQUEST, GetReq{H: hash, StatusMask: StatusLive})
 		So(err, ShouldEqual, ErrHashNotFound)
 	})
 
@@ -306,11 +302,14 @@ func TestSend(t *testing.T) {
 		panic(err)
 	}
 
+	/*for i := 0; i < nodesCount; i++ {
+		fmt.Printf("node%d:%v\n", i, mt.nodes[i].node.HashAddr.Pretty()[2:6])
+	}*/
+
 	// publish the entry data to the dht
 	hash = hd.EntryLink
-
 	Convey("after a handled PUT_REQUEST data should be stored in DHT", t, func() {
-		r, err := h.dht.send(node.HashAddr, PUT_REQUEST, PutReq{H: hash})
+		r, err := h.dht.send(h.node.HashAddr, PUT_REQUEST, PutReq{H: hash})
 		So(err, ShouldBeNil)
 		So(r, ShouldEqual, "queued")
 		h.dht.simHandleChangeReqs()
@@ -319,10 +318,21 @@ func TestSend(t *testing.T) {
 	})
 
 	Convey("send GET_REQUEST message should return content", t, func() {
-		r, err := h.dht.send(node.HashAddr, GET_REQUEST, GetReq{H: hash, StatusMask: StatusLive})
+		r, err := h.dht.send(h.node.HashAddr, GET_REQUEST, GetReq{H: hash, StatusMask: StatusLive})
 		So(err, ShouldBeNil)
 		resp := r.(GetResp)
-		So(fmt.Sprintf("%v", resp.Entry), ShouldEqual, fmt.Sprintf("%v", &e))
+		So(fmt.Sprintf("%v", resp.Entry), ShouldEqual, fmt.Sprintf("%v", e))
+	})
+
+	ringConnect(t, mt.ctx, mt.nodes, nodesCount)
+
+	// pick a distant node that has to do some of the recursive lookups.
+	Convey("Query GET_REQUEST message should return content", t, func() {
+		h2 := mt.nodes[nodesCount-2]
+		r, err := h2.dht.Query(hash, GET_REQUEST, GetReq{H: hash, StatusMask: StatusLive})
+		So(err, ShouldBeNil)
+		resp := r.(GetResp)
+		So(fmt.Sprintf("%v", resp.Entry), ShouldEqual, fmt.Sprintf("%v", e))
 	})
 }
 
@@ -371,27 +381,27 @@ func TestActionReceiver(t *testing.T) {
 		r, err := ActionReceiver(h, m)
 		So(err, ShouldBeNil)
 		resp := r.(GetResp)
-		So(fmt.Sprintf("%v", resp.Entry), ShouldEqual, fmt.Sprintf("%v", &e))
+		So(fmt.Sprintf("%v", resp.Entry), ShouldEqual, fmt.Sprintf("%v", e))
 
 		m = h.node.NewMessage(GET_REQUEST, GetReq{H: hash, GetMask: GetMaskEntryType})
 		r, err = ActionReceiver(h, m)
 		So(err, ShouldBeNil)
 		resp = r.(GetResp)
-		So(resp.Entry, ShouldBeNil)
+		So(resp.Entry.C, ShouldBeNil)
 		So(resp.EntryType, ShouldEqual, "evenNumbers")
 
 		m = h.node.NewMessage(GET_REQUEST, GetReq{H: hash, GetMask: GetMaskEntry + GetMaskEntryType})
 		r, err = ActionReceiver(h, m)
 		So(err, ShouldBeNil)
 		resp = r.(GetResp)
-		So(fmt.Sprintf("%v", resp.Entry), ShouldEqual, fmt.Sprintf("%v", &e))
+		So(fmt.Sprintf("%v", resp.Entry), ShouldEqual, fmt.Sprintf("%v", e))
 		So(resp.EntryType, ShouldEqual, "evenNumbers")
 
 		m = h.node.NewMessage(GET_REQUEST, GetReq{H: hash, GetMask: GetMaskSources})
 		r, err = ActionReceiver(h, m)
 		So(err, ShouldBeNil)
 		resp = r.(GetResp)
-		So(resp.Entry, ShouldBeNil)
+		So(resp.Entry.C, ShouldBeNil)
 		So(fmt.Sprintf("%v", resp.Sources), ShouldEqual, fmt.Sprintf("[%v]", h.nodeIDStr))
 		So(resp.EntryType, ShouldEqual, "")
 
@@ -399,7 +409,7 @@ func TestActionReceiver(t *testing.T) {
 		r, err = ActionReceiver(h, m)
 		So(err, ShouldBeNil)
 		resp = r.(GetResp)
-		So(fmt.Sprintf("%v", resp.Entry), ShouldEqual, fmt.Sprintf("%v", &e))
+		So(fmt.Sprintf("%v", resp.Entry), ShouldEqual, fmt.Sprintf("%v", e))
 		So(fmt.Sprintf("%v", resp.Sources), ShouldEqual, fmt.Sprintf("[%v]", h.nodeIDStr))
 		So(resp.EntryType, ShouldEqual, "")
 	})

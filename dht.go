@@ -132,7 +132,7 @@ type GetReq struct {
 
 // GetResp holds the data of a get response
 type GetResp struct {
-	Entry      Entry
+	Entry      GobEntry
 	EntryType  string
 	Sources    []string
 	FollowHash string // hash of new entry if the entry was modified and needs following
@@ -638,6 +638,48 @@ func (dht *DHT) getLink(base Hash, tag string, statusMask int) (results []Tagged
 	return
 }
 
+func (dht *DHT) Query(key Hash, msgType MsgType, body interface{}) (response interface{}, err error) {
+	Debugf("Starting %v Query for %v with body %v", msgType, key, body)
+	// get closest peers in the routing table
+	rtp := dht.h.node.routingTable.NearestPeers(key, AlphaValue)
+	Debugf("peers in rt: %d %s", len(rtp), rtp)
+	if len(rtp) == 0 {
+		Info("No peers from routing table!")
+		return nil, ErrHashNotFound
+	}
+
+	// setup the Query
+	query := dht.h.node.newQuery(key, func(ctx context.Context, to peer.ID) (*dhtQueryResult, error) {
+		response, err := dht.h.Send(ctx, ActionProtocol, to, msgType, body, 0)
+		if err != nil {
+			Debugf("Query failed: %v", err)
+			return nil, err
+		}
+
+		res := &dhtQueryResult{}
+
+		switch t := response.(type) {
+		case GetResp:
+			Debugf("Query successful with: %v", response)
+			res.success = true
+			res.response = response
+		case CloserPeersResp:
+			res.closerPeers = peerInfos2Pis(t.CloserPeers)
+			Debugf("Query closer peers: %v", res.closerPeers)
+		}
+		return res, nil
+	})
+
+	// run it!
+	var result *dhtQueryResult
+	result, err = query.Run(dht.h.node.ctx, rtp)
+	if err != nil {
+		return nil, err
+	}
+	response = result.response
+	return
+}
+
 func (dht *DHT) Send(key Hash, msgType MsgType, body interface{}) (response interface{}, err error) {
 	n, err := dht.FindNodeForHash(key)
 	if err != nil {
@@ -649,7 +691,7 @@ func (dht *DHT) Send(key Hash, msgType MsgType, body interface{}) (response inte
 
 // Send sends a message to the node
 func (dht *DHT) send(to peer.ID, t MsgType, body interface{}) (response interface{}, err error) {
-	return dht.h.Send(context.Background(), ActionProtocol, to, t, body, 0)
+	return dht.h.Send(dht.h.node.ctx, ActionProtocol, to, t, body, 0)
 }
 
 // FindNodeForHash gets the nearest node to the neighborhood of the hash

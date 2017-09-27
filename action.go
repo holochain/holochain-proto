@@ -6,7 +6,6 @@ package holochain
 
 import (
 	"bytes"
-	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -535,7 +534,7 @@ func (a *ActionSend) Do(h *Holochain) (response interface{}, err error) {
 	if a.options != nil && a.options.Callback != nil {
 		err = h.SendAsync(ActionProtocol, a.to, APP_MESSAGE, a.msg, a.options.Callback, timeout)
 	} else {
-		r, err = h.Send(context.Background(), ActionProtocol, a.to, APP_MESSAGE, a.msg, timeout)
+		r, err = h.Send(h.node.ctx, ActionProtocol, a.to, APP_MESSAGE, a.msg, timeout)
 		if err == nil {
 			response = r.(AppMsg).Body
 		}
@@ -612,13 +611,13 @@ func (a *ActionGet) Do(h *Holochain) (response interface{}, err error) {
 		if err != nil {
 			return
 		}
-		resp := GetResp{Entry: entry}
+		resp := GetResp{Entry: *entry.(*GobEntry)}
 		mask := a.options.GetMask
 		if (mask & GetMaskEntryType) != 0 {
 			resp.EntryType = entryType
 		}
 		if (mask & GetMaskEntry) != 0 {
-			resp.Entry = entry
+			resp.Entry = *entry.(*GobEntry)
 		}
 
 		response = resp
@@ -675,27 +674,38 @@ func (a *ActionGet) Receive(dht *DHT, msg *Message) (response interface{}, err e
 		if (mask & GetMaskEntry) != 0 {
 			switch entryType {
 			case DNAEntryType:
+				// TODO: make this add the requester to the blockedlist rather than panicing, see ticket #421
 				panic("nobody should actually get the DNA!")
 			case AgentEntryType:
 				fallthrough
 			case KeyEntryType:
 				var e GobEntry
 				e.C = string(entryData)
-				resp.Entry = &e
+				resp.Entry = e
 			default:
 				var e GobEntry
 				err = e.Unmarshal(entryData)
 				if err != nil {
 					return
 				}
-				resp.Entry = &e
+				resp.Entry = e
 			}
 		}
 	} else {
 		if err == ErrHashModified {
 			resp.FollowHash = string(entryData)
+		} else if err == ErrHashNotFound {
+			closest := dht.h.node.betterPeersForHash(&req.H, msg.From, CloserPeerCount)
+			if len(closest) > 0 {
+				err = nil
+				resp := CloserPeersResp{}
+				resp.CloserPeers = dht.h.node.peers2PeerInfos(closest)
+				response = resp
+				return
+			}
 		}
 	}
+
 	response = resp
 	return
 }
@@ -905,7 +915,7 @@ func (a *ActionPut) SysValidation(h *Holochain, d *EntryDef, sources []peer.ID) 
 
 func RunValidationPhase(h *Holochain, source peer.ID, msgType MsgType, query Hash, handler func(resp ValidateResponse) error) (err error) {
 	var r interface{}
-	r, err = h.Send(context.Background(), ValidateProtocol, source, msgType, ValidateQuery{H: query}, 0)
+	r, err = h.Send(h.node.ctx, ValidateProtocol, source, msgType, ValidateQuery{H: query}, 0)
 	if err != nil {
 		return
 	}
@@ -1401,12 +1411,7 @@ func (a *ActionGetLink) Do(h *Holochain) (response interface{}, err error) {
 					rsp, err := NewGetAction(req, &GetOptions{StatusMask: StatusDefault}).Do(h)
 					if err == nil {
 						entry := rsp.(GetResp).Entry
-						if entry != nil {
-							t.Links[i].E = entry.(Entry).Content().(string)
-						} else {
-							panic(fmt.Sprintf("Nil entry in GetLink.Do response to req: %v", req))
-						}
-
+						t.Links[i].E = entry.Content().(string)
 					}
 					//TODO better error handling here, i.e break out of the loop and return if error?
 				}

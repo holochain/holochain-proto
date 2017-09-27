@@ -1,7 +1,6 @@
 package holochain
 
 import (
-	"context"
 	"fmt"
 	. "github.com/smartystreets/goconvey/convey"
 	"os"
@@ -33,17 +32,17 @@ func TestAppMessages(t *testing.T) {
 		panic(err)
 	}
 	Convey("it should fail on incorrect body types", t, func() {
-		_, err := h.Send(context.Background(), ActionProtocol, h.node.HashAddr, APP_MESSAGE, GetReq{}, 0)
+		_, err := h.Send(h.node.ctx, ActionProtocol, h.node.HashAddr, APP_MESSAGE, GetReq{}, 0)
 		So(err.Error(), ShouldEqual, "Unexpected request body type 'holochain.GetReq' in send request, expecting holochain.AppMsg")
 	})
 
 	Convey("it should fail on unknown zomes", t, func() {
-		_, err := h.Send(context.Background(), ActionProtocol, h.node.HashAddr, APP_MESSAGE, AppMsg{ZomeType: "foo"}, 0)
+		_, err := h.Send(h.node.ctx, ActionProtocol, h.node.HashAddr, APP_MESSAGE, AppMsg{ZomeType: "foo"}, 0)
 		So(err.Error(), ShouldEqual, "unknown zome: foo")
 	})
 
 	Convey("it should send and receive app messages", t, func() {
-		r, err := h.Send(context.Background(), ActionProtocol, h.node.HashAddr, APP_MESSAGE, AppMsg{ZomeType: "jsSampleZome", Body: `{"ping":"foobar"}`}, 0)
+		r, err := h.Send(h.node.ctx, ActionProtocol, h.node.HashAddr, APP_MESSAGE, AppMsg{ZomeType: "jsSampleZome", Body: `{"ping":"foobar"}`}, 0)
 		So(err, ShouldBeNil)
 		So(fmt.Sprintf("%v", r), ShouldEqual, `{jsSampleZome {"pong":"foobar"}}`)
 	})

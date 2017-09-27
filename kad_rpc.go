@@ -36,7 +36,7 @@ type PeerInfo struct {
 	Addrs [][]byte // byte version of multiaddrs
 }
 
-type FindNodeResp struct {
+type CloserPeersResp struct {
 	CloserPeers []PeerInfo // note this is not a pstore.PeerInfo which can't be serialized by gob.
 }
 
@@ -63,30 +63,13 @@ func (node *Node) findPeerSingle(ctx context.Context, p peer.ID, hash Hash) (clo
 		return
 	}
 
-	response, ok := resp.Body.(FindNodeResp)
+	response, ok := resp.Body.(CloserPeersResp)
 	if !ok {
 		err = ErrDHTUnexpectedTypeInBody
 		return
 	}
 
-	// convert the ClosestPeers list to pstore.PeerInfo
-	closerPeers = make([]*pstore.PeerInfo, 0, len(response.CloserPeers))
-	for _, pi := range response.CloserPeers {
-		peerInfo := pstore.PeerInfo{ID: peer.ID(pi.ID)}
-		if len(pi.Addrs) > 0 {
-			maddrs := make([]ma.Multiaddr, 0, len(pi.Addrs))
-			for _, addr := range pi.Addrs {
-				maddr, err := ma.NewMultiaddrBytes(addr)
-				if err != nil {
-					Infof("error decoding Multiaddr for peer: %s", peerInfo.ID)
-					continue
-				}
-				maddrs = append(maddrs, maddr)
-			}
-			peerInfo.Addrs = maddrs
-		}
-		closerPeers = append(closerPeers, &peerInfo)
-	}
+	closerPeers = peerInfos2Pis(response.CloserPeers)
 
 	return
 }
@@ -207,7 +190,7 @@ func KademliaReceiver(h *Holochain, m *Message) (response interface{}, err error
 
 			p := m.From
 			var closest []peer.ID
-			resp := FindNodeResp{}
+			resp := CloserPeersResp{}
 			// if looking for self... special case where we send it on CloserPeers.
 			x := HashFromPeerID(node.HashAddr)
 			if x.Equal(&t.H) {
@@ -220,21 +203,7 @@ func KademliaReceiver(h *Holochain, m *Message) (response interface{}, err error
 				return &resp, nil
 			}
 
-			var withAddresses []PeerInfo
-			closestinfos := pstore.PeerInfos(node.peerstore, closest)
-			// convert the closest PeerInfos to a serializable type
-			for _, pi := range closestinfos {
-				if len(pi.Addrs) > 0 {
-					addrs := make([][]byte, len(pi.Addrs))
-					for i, a := range pi.Addrs {
-						addrs[i] = a.Bytes()
-					}
-					withAddresses = append(withAddresses, PeerInfo{ID: []byte(pi.ID), Addrs: addrs})
-					Debugf("FIND_NODE_REQUEST %v sending back '%s'", h.node.HashAddr, pi.ID)
-				}
-			}
-			//response.CloserPeers = pb.PeerInfosToPBPeers(dht.host.Network(), withAddresses)
-			resp.CloserPeers = withAddresses
+			resp.CloserPeers = node.peers2PeerInfos(closest)
 			response = &resp
 		default:
 			err = ErrDHTUnexpectedTypeInBody
@@ -243,4 +212,42 @@ func KademliaReceiver(h *Holochain, m *Message) (response interface{}, err error
 		err = fmt.Errorf("message type %d not in holochain-kademlia protocol", int(m.Type))
 	}
 	return
+}
+
+// PI2PeerInfos convert the closest PeerInfos to a serializable type and gets their addrs from the peerstore
+func (node *Node) peers2PeerInfos(peers []peer.ID) []PeerInfo {
+	var pis []PeerInfo
+	infos := pstore.PeerInfos(node.peerstore, peers)
+	for _, pi := range infos {
+		if len(pi.Addrs) > 0 {
+			addrs := make([][]byte, len(pi.Addrs))
+			for i, a := range pi.Addrs {
+				addrs[i] = a.Bytes()
+			}
+			pis = append(pis, PeerInfo{ID: []byte(pi.ID), Addrs: addrs})
+		}
+	}
+	return pis
+}
+
+// PeerInfos2Pis convert a list of PeerInfo structs to a list of pstore.PeerInfo
+func peerInfos2Pis(peerInfos []PeerInfo) []*pstore.PeerInfo {
+	pis := make([]*pstore.PeerInfo, 0, len(peerInfos))
+	for _, pi := range peerInfos {
+		peerInfo := pstore.PeerInfo{ID: peer.ID(pi.ID)}
+		if len(pi.Addrs) > 0 {
+			maddrs := make([]ma.Multiaddr, 0, len(pi.Addrs))
+			for _, addr := range pi.Addrs {
+				maddr, err := ma.NewMultiaddrBytes(addr)
+				if err != nil {
+					Infof("error decoding Multiaddr for peer: %s", peerInfo.ID)
+					continue
+				}
+				maddrs = append(maddrs, maddr)
+			}
+			peerInfo.Addrs = maddrs
+		}
+		pis = append(pis, &peerInfo)
+	}
+	return pis
 }

@@ -469,6 +469,7 @@ func (node *Node) Send(ctx context.Context, proto int, addr peer.ID, m *Message)
 	// decode the response
 	err = response.Decode(s)
 	if err != nil {
+		Debugf("failed to decode: %v err:%v ", err)
 		return
 	}
 	return

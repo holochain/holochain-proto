@@ -15,6 +15,7 @@ import (
 )
 
 func TestMain(m *testing.M) {
+	os.Setenv("_HCTEST", "1")
 	InitializeHolochain()
 	os.Exit(m.Run())
 }
@@ -142,7 +143,7 @@ func TestDebuggingSetup(t *testing.T) {
 		debugLog.Enabled = true
 
 		Debug("test")
-		So(string(buf.Bytes()), ShouldEqual, "HC: holochain_test.go.144: test\n")
+		So(string(buf.Bytes()), ShouldEqual, "HC: holochain_test.go.145: test\n")
 		// restore state of debug log
 		debugLog.w = os.Stdout
 		debugLog.Enabled = enabled

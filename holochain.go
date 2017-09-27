@@ -172,7 +172,7 @@ func InitializeHolochain() {
 		gob.Register(AppMsg{})
 		gob.Register(ListAddReq{})
 		gob.Register(FindNodeReq{})
-		gob.Register(FindNodeResp{})
+		gob.Register(CloserPeersResp{})
 		gob.Register(PeerInfo{})
 
 		RegisterBultinRibosomes()
@@ -260,7 +260,13 @@ func (h *Holochain) PrepareHashType() (err error) {
 
 // createNode creates a network node based on the current agent and port data
 func (h *Holochain) createNode() (err error) {
-	listenaddr := fmt.Sprintf("/ip4/0.0.0.0/tcp/%d", h.Config.Port)
+	var ip string
+	if os.Getenv("_HCTEST") == "1" {
+		ip = "127.0.0.1"
+	} else {
+		ip = "0.0.0.0"
+	}
+	listenaddr := fmt.Sprintf("/ip4/%s/tcp/%d", ip, h.Config.Port)
 	h.node, err = NewNode(listenaddr, h.dnaHash.String(), h.Agent().(*LibP2PAgent), h.Config.EnableNATUPnP)
 	return
 }
@@ -713,7 +719,7 @@ func (h *Holochain) SendAsync(proto int, to peer.ID, t MsgType, body interface{}
 	var response interface{}
 
 	go func() {
-		response, err = h.Send(context.Background(), proto, to, t, body, timeout)
+		response, err = h.Send(h.node.ctx, proto, to, t, body, timeout)
 		if err == nil {
 			var r Ribosome
 			r, _, err := h.MakeRibosome(callback.zomeType)
@@ -756,7 +762,7 @@ func (h *Holochain) StartBackgroundTasks(gossipInterval time.Duration) {
 }
 
 // Send builds a message and either delivers it locally or over the network via node.Send
-func (h *Holochain) Send(ctx context.Context, proto int, to peer.ID, t MsgType, body interface{}, timeout time.Duration) (response interface{}, err error) {
+func (h *Holochain) Send(basectx context.Context, proto int, to peer.ID, t MsgType, body interface{}, timeout time.Duration) (response interface{}, err error) {
 	message := h.node.NewMessage(t, body)
 	if err != nil {
 		return
@@ -768,7 +774,7 @@ func (h *Holochain) Send(ctx context.Context, proto int, to peer.ID, t MsgType, 
 	if timeout == 0 {
 		timeout = DefaultSendTimeout
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	ctx, cancel := context.WithTimeout(basectx, timeout)
 	defer cancel()
 	sent := make(chan error, 1)
 	go func() {
@@ -779,10 +785,10 @@ func (h *Holochain) Send(ctx context.Context, proto int, to peer.ID, t MsgType, 
 			response, err = h.node.protocols[proto].Receiver(h, message)
 			Debugf("send result (local): %v (fp:%s)error:%v", response, f, err)
 		} else {
-			Debugf("Sending message (net):%v (fingerprint:%s)", message, f)
+			Debugf("Sending message to %v (net):%v (fingerprint:%s)", to, message, f)
 			var r Message
 			r, err = h.node.Send(ctx, proto, to, message)
-			Debugf("send result (net): %v (fp:%s) error:%v", r, f, err)
+			Debugf("send result to %v (net): %v (fp:%s) error:%v", to, r, f, err)
 
 			if err != nil {
 				sent <- err

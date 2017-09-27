@@ -35,11 +35,10 @@ type dhtQuery struct {
 }
 
 type dhtQueryResult struct {
-	value         []byte             // GetValue
-	peer          *pstore.PeerInfo   // FindPeer
-	providerPeers []pstore.PeerInfo  // GetProviders
-	closerPeers   []*pstore.PeerInfo // *
-	success       bool
+	response    interface{}        // dht query
+	peer        *pstore.PeerInfo   // FindPeer
+	closerPeers []*pstore.PeerInfo // *
+	success     bool
 
 	finalSet *pset.PeerSet
 }

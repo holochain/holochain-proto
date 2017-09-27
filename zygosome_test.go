@@ -26,7 +26,7 @@ func TestNewZygoRibosome(t *testing.T) {
 
 	Convey("it should have an App structure:", t, func() {
 		d, _, h := PrepareTestChain("test")
-		defer CleanupTestDir(d)
+		defer CleanupTestChain(h, d)
 
 		v, err := NewZygoRibosome(h, &Zome{RibosomeType: ZygoRibosomeType, Code: ""})
 		So(err, ShouldBeNil)
@@ -62,7 +62,7 @@ func TestNewZygoRibosome(t *testing.T) {
 
 	Convey("it should have an HC structure:", t, func() {
 		d, _, h := PrepareTestChain("test")
-		defer CleanupTestDir(d)
+		defer CleanupTestChain(h, d)
 
 		v, err := NewZygoRibosome(h, &Zome{RibosomeType: ZygoRibosomeType})
 		So(err, ShouldBeNil)
@@ -101,7 +101,7 @@ func TestNewZygoRibosome(t *testing.T) {
 
 	Convey("should have the built in functions:", t, func() {
 		d, _, h := PrepareTestChain("test")
-		defer CleanupTestDir(d)
+		defer CleanupTestChain(h, d)
 
 		zome, _ := h.GetZome("zySampleZome")
 		v, err := NewZygoRibosome(h, zome)
@@ -230,7 +230,7 @@ func TestNewZygoRibosome(t *testing.T) {
 
 func TestZygoQuery(t *testing.T) {
 	d, _, h := PrepareTestChain("test")
-	defer CleanupTestDir(d)
+	defer CleanupTestChain(h, d)
 
 	zome, _ := h.GetZome("zySampleZome")
 	v, err := NewZygoRibosome(h, zome)
@@ -288,7 +288,7 @@ func TestZygoGenesis(t *testing.T) {
 
 func TestZygoBridgeGenesis(t *testing.T) {
 	d, _, h := PrepareTestChain("test")
-	defer CleanupTestDir(d)
+	defer CleanupTestChain(h, d)
 
 	fakeToApp, _ := NewHash("QmVGtdTZdTFaLsaj2RwdVG8jcjNNcp1DE914DKZ2kHmXHx")
 	Convey("it should fail if the bridge genesis function returns false", t, func() {
@@ -334,7 +334,7 @@ func TestZyReceive(t *testing.T) {
 
 func TestZybuildValidate(t *testing.T) {
 	d, _, h := PrepareTestChain("test")
-	defer CleanupTestDir(d)
+	defer CleanupTestChain(h, d)
 
 	e := GobEntry{C: "3"}
 	a := NewCommitAction("oddNumbers", &e)
@@ -483,7 +483,7 @@ func TestZySanitize(t *testing.T) {
 
 func TestZygoExposeCall(t *testing.T) {
 	d, _, h := PrepareTestChain("test")
-	defer CleanupTestDir(d)
+	defer CleanupTestChain(h, d)
 
 	v, zome, err := h.MakeRibosome("zySampleZome")
 	if err != nil {
@@ -518,7 +518,7 @@ func TestZygoExposeCall(t *testing.T) {
 
 func TestZygoDHT(t *testing.T) {
 	d, _, h := PrepareTestChain("test")
-	defer CleanupTestDir(d)
+	defer CleanupTestChain(h, d)
 
 	hash, _ := NewHash("QmY8Mzg9F69e5P9AoQPYat6x5HEhc1TVGs11tmfNSzkqh2")
 	Convey("get should return hash not found if it doesn't exist", t, func() {
@@ -850,7 +850,7 @@ func TestZyProcessArgs(t *testing.T) {
 	})
 
 	d, _, h := PrepareTestChain("test")
-	defer CleanupTestDir(d)
+	defer CleanupTestChain(h, d)
 
 	Convey("it should convert EntryArg from string or hash", t, func() {
 		args := []Arg{{Name: "foo", Type: EntryArg}}

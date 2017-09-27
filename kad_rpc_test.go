@@ -22,8 +22,8 @@ func TestNodeFindPeerSingle(t *testing.T) {
 }
 
 func TestKademliaReceiver(t *testing.T) {
-	d, _, _ := PrepareTestChain("test")
-	defer CleanupTestDir(d)
+	d, _, h := PrepareTestChain("test")
+	defer CleanupTestChain(h, d)
 
 	Convey("FIND_NODE_REQUEST should X", t, func() {
 	})

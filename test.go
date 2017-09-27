@@ -108,6 +108,11 @@ func CleanupTestDir(path string) {
 	}
 }
 
+func CleanupTestChain(h *Holochain, d string) {
+	h.Close()
+	CleanupTestDir(d)
+}
+
 func ShouldLog(log *Logger, message string, fn func()) {
 	var buf bytes.Buffer
 	w := log.w

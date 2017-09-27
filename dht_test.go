@@ -15,7 +15,7 @@ import (
 
 func TestNewDHT(t *testing.T) {
 	d, _, h := PrepareTestChain("test")
-	defer CleanupTestDir(d)
+	defer CleanupTestChain(h, d)
 	os.Remove(filepath.Join(h.DBPath(), DHTStoreFileName))
 
 	Convey("It should initialize the DHT struct and data store", t, func() {
@@ -29,7 +29,7 @@ func TestNewDHT(t *testing.T) {
 
 func TestSetupDHT(t *testing.T) {
 	d, _, h := PrepareTestChain("test")
-	defer CleanupTestDir(d)
+	defer CleanupTestChain(h, d)
 
 	err := h.dht.SetupDHT()
 	Convey("it should add the holochain ID to the DHT", t, func() {
@@ -77,7 +77,7 @@ func TestSetupDHT(t *testing.T) {
 
 func TestPutGetModDel(t *testing.T) {
 	d, _, h := PrepareTestChain("test")
-	defer CleanupTestDir(d)
+	defer CleanupTestChain(h, d)
 
 	dht := h.dht
 	var id = h.nodeID
@@ -161,7 +161,7 @@ func TestPutGetModDel(t *testing.T) {
 
 func TestLinking(t *testing.T) {
 	d, _, h := PrepareTestChain("test")
-	defer CleanupTestDir(d)
+	defer CleanupTestChain(h, d)
 
 	err := h.dht.SetupDHT()
 	dht := h.dht
@@ -265,7 +265,7 @@ func TestLinking(t *testing.T) {
 
 func TestFindNodeForHash(t *testing.T) {
 	d, _, h := PrepareTestChain("test")
-	defer CleanupTestDir(d)
+	defer CleanupTestChain(h, d)
 
 	Convey("It should find a node", t, func() {
 
@@ -328,7 +328,7 @@ func TestSend(t *testing.T) {
 
 func TestActionReceiver(t *testing.T) {
 	d, _, h := PrepareTestChain("test")
-	defer CleanupTestDir(d)
+	defer CleanupTestChain(h, d)
 
 	Convey("PUT_REQUEST should fail if body isn't a hash", t, func() {
 		m := h.node.NewMessage(PUT_REQUEST, "foo")
@@ -577,7 +577,8 @@ func TestActionReceiver(t *testing.T) {
 
 func TestDHTDump(t *testing.T) {
 	d, _, h := PrepareTestChain("test")
-	defer CleanupTestDir(d)
+	defer CleanupTestChain(h, d)
+
 	Convey("dht dump of index 1 should show the agent put", t, func() {
 		msg, _ := h.dht.GetIdxMessage(1)
 		f, _ := msg.Fingerprint()
@@ -599,7 +600,7 @@ func TestDHTDump(t *testing.T) {
 
 func TestDHT2String(t *testing.T) {
 	d, _, h := PrepareTestChain("test")
-	defer CleanupTestDir(d)
+	defer CleanupTestChain(h, d)
 
 	Convey("it dump should show the changes count", t, func() {
 		So(strings.Index(h.dht.String(), "DHT changes:2") >= 0, ShouldBeTrue)
@@ -609,7 +610,7 @@ func TestDHT2String(t *testing.T) {
 /*
 func TestHandleChangeReqs(t *testing.T) {
 	d, _, h := PrepareTestChain("test")
-	defer CleanupTestDir(d)
+	defer CleanupTestChain(h,d)
 
 	now := time.Unix(1, 1) // pick a constant time so the test will always work
 	e := GobEntry{C: "{\"prime\":7}"}

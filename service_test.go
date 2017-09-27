@@ -83,7 +83,7 @@ func TestValidateServiceConfig(t *testing.T) {
 
 func TestConfiguredChains(t *testing.T) {
 	d, s, h := SetupTestChain("test")
-	defer CleanupTestDir(d)
+	defer CleanupTestChain(h, d)
 
 	Convey("Configured chains should return a hash of all the chains in the Service", t, func() {
 		chains, err := s.ConfiguredChains()
@@ -94,7 +94,7 @@ func TestConfiguredChains(t *testing.T) {
 
 func TestServiceGenChain(t *testing.T) {
 	d, s, h := SetupTestChain("test")
-	defer CleanupTestDir(d)
+	defer CleanupTestChain(h, d)
 
 	Convey("it should return a list of the chains", t, func() {
 		list := s.ListChains()
@@ -116,7 +116,7 @@ func TestServiceGenChain(t *testing.T) {
 
 func TestCloneNew(t *testing.T) {
 	d, s, h0 := SetupTestChain("test")
-	defer CleanupTestDir(d)
+	defer CleanupTestChain(h0, d)
 
 	name := "test2"
 	root := filepath.Join(s.Path, name)
@@ -179,7 +179,7 @@ func TestCloneNew(t *testing.T) {
 
 func TestCloneJoin(t *testing.T) {
 	d, s, h0 := SetupTestChain("test")
-	defer CleanupTestDir(d)
+	defer CleanupTestChain(h0, d)
 
 	name := "test2"
 	root := filepath.Join(s.Path, name)
@@ -228,8 +228,8 @@ func TestCloneJoin(t *testing.T) {
 }
 
 func TestCloneNoDB(t *testing.T) {
-	d, s, _ := SetupTestChain("test")
-	defer CleanupTestDir(d)
+	d, s, h := SetupTestChain("test")
+	defer CleanupTestChain(h, d)
 
 	name := "test2"
 	root := filepath.Join(s.Path, name)
@@ -252,7 +252,7 @@ func TestCloneNoDB(t *testing.T) {
 
 func TestCloneResolveDNA(t *testing.T) {
 	d, s, bridgeToH := SetupTestChain("bridgeToApp")
-	defer CleanupTestDir(d)
+	defer CleanupTestChain(bridgeToH, d)
 
 	DNAHash, err := DNAHashofUngenedChain(bridgeToH)
 	if err != nil {
@@ -505,7 +505,7 @@ func TestMakeScaffold(t *testing.T) {
 
 func TestLoadTestFiles(t *testing.T) {
 	d, _, h := SetupTestChain("test")
-	defer CleanupTestDir(d)
+	defer CleanupTestChain(h, d)
 
 	Convey("it should fail if there's no test data", t, func() {
 		tests, err := LoadTestFiles(d)
@@ -523,7 +523,7 @@ func TestLoadTestFiles(t *testing.T) {
 
 func TestGetScenarioData(t *testing.T) {
 	d, _, h := SetupTestChain("test")
-	defer CleanupTestDir(d)
+	defer CleanupTestChain(h, d)
 	Convey("it should return list of scenarios", t, func() {
 		scenarios, err := GetTestScenarios(h)
 		So(err, ShouldBeNil)

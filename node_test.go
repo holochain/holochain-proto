@@ -109,7 +109,7 @@ func TestNewMessage(t *testing.T) {
 
 func TestNodeSend(t *testing.T) {
 	d, _, h := PrepareTestChain("test")
-	defer CleanupTestDir(d)
+	defer CleanupTestChain(h, d)
 
 	node1, err := makeNode(1234, "node1")
 	if err != nil {
@@ -119,7 +119,7 @@ func TestNodeSend(t *testing.T) {
 	h.node = node1
 
 	d2, _, h2 := PrepareTestChain("test2")
-	defer CleanupTestDir(d2)
+	defer CleanupTestChain(h2, d2)
 	h2.node.Close()
 
 	node2, err := makeNode(1235, "node2")
@@ -304,7 +304,7 @@ func TestErrorCoding(t *testing.T) {
 
 func TestAddPeer(t *testing.T) {
 	d, _, h := PrepareTestChain("test")
-	defer CleanupTestDir(d)
+	defer CleanupTestChain(h, d)
 	somePeer, _ := makePeer("some peer")
 	Convey("it should add a peer to the peer store and the gossip list", t, func() {
 		So(h.node.routingTable.Size(), ShouldEqual, 0)
@@ -335,7 +335,7 @@ func TestAddPeer(t *testing.T) {
 
 func TestNodeRouting(t *testing.T) {
 	d, _, h := PrepareTestChain("test")
-	defer CleanupTestDir(d)
+	defer CleanupTestChain(h, d)
 	node := h.node
 
 	start := 0

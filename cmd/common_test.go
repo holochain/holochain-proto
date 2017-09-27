@@ -90,7 +90,7 @@ func TestGetHolochain(t *testing.T) {
 
 	Convey("it should get an installed holochain", t, func() {
 		d, service, h := holo.PrepareTestChain("test")
-		defer holo.CleanupTestDir(d)
+		defer holo.CleanupTestChain(h, d)
 
 		// finally run the test.
 		h, err := GetHolochain("test", service, "some-cmd")

@@ -10,7 +10,8 @@ import (
 
 func TestBridgeCall(t *testing.T) {
 	d, _, h := PrepareTestChain("test")
-	defer CleanupTestDir(d)
+	defer CleanupTestChain(h, d)
+
 	token := "bogus token"
 	var err error
 	Convey("it should fail calls to functions when there's no brided", t, func() {
@@ -72,7 +73,7 @@ func TestBridgeSpec(t *testing.T) {
 
 func TestBridgeSpecMake(t *testing.T) {
 	d, _, h := PrepareTestChain("test")
-	defer CleanupTestDir(d)
+	defer CleanupTestChain(h, d)
 
 	Convey("it should make spec from the dna", t, func() {
 		spec := h.makeBridgeSpec()
@@ -84,7 +85,7 @@ func TestBridgeSpecMake(t *testing.T) {
 
 func TestBridgeStore(t *testing.T) {
 	d, _, h := SetupTestChain("test")
-	defer CleanupTestDir(d)
+	defer CleanupTestChain(h, d)
 
 	hash, _ := NewHash("QmVGtdTZdTFaLsaj2RwdVG8jcjNNcp1DE914DKZ2kHmXHw")
 	token := "some token"
@@ -101,7 +102,7 @@ func TestBridgeStore(t *testing.T) {
 
 func TestBridgeGetBridges(t *testing.T) {
 	d, _, h := SetupTestChain("test")
-	defer CleanupTestDir(d)
+	defer CleanupTestChain(h, d)
 
 	Convey("it should return an empty list", t, func() {
 		bridges, err := h.GetBridges()

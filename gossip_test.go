@@ -15,14 +15,14 @@ to gossip about.  Currently test is ActionReceiver test
 
 func TestGossipReceiver(t *testing.T) {
 	d, _, h := PrepareTestChain("test")
-	defer CleanupTestDir(d)
+	defer CleanupTestChain(h,d)
 	h.dht.SetupDHT()
 
 }*/
 
 func TestGetGossipers(t *testing.T) {
 	d, _, h := PrepareTestChain("test")
-	defer CleanupTestDir(d)
+	defer CleanupTestChain(h, d)
 	dht := h.dht
 	Convey("should return an empty list if none availabled", t, func() {
 		glist, err := dht.getGossipers()
@@ -62,7 +62,7 @@ func TestGetGossipers(t *testing.T) {
 
 func TestGetFindGossiper(t *testing.T) {
 	d, _, h := PrepareTestChain("test")
-	defer CleanupTestDir(d)
+	defer CleanupTestChain(h, d)
 	dht := h.dht
 	Convey("FindGossiper should start empty", t, func() {
 		_, err := dht.FindGossiper()
@@ -152,7 +152,7 @@ func TestGetFindGossiper(t *testing.T) {
 
 func TestGossipData(t *testing.T) {
 	d, _, h := PrepareTestChain("test")
-	defer CleanupTestDir(d)
+	defer CleanupTestChain(h, d)
 	dht := h.dht
 	Convey("Idx should be 2 at start (first puts are DNA, Agent & Key but DNA put not stored)", t, func() {
 		var idx int
@@ -244,7 +244,7 @@ func TestGossipData(t *testing.T) {
 
 func TestGossip(t *testing.T) {
 	d, _, h := PrepareTestChain("test")
-	defer CleanupTestDir(d)
+	defer CleanupTestChain(h, d)
 	dht := h.dht
 
 	idx, _ := dht.GetIdx()
@@ -259,7 +259,7 @@ func TestGossip(t *testing.T) {
 
 func TestPeerLists(t *testing.T) {
 	d, _, h := PrepareTestChain("test")
-	defer CleanupTestDir(d)
+	defer CleanupTestChain(h, d)
 
 	Convey("it should start with an empty blockedlist", t, func() {
 		peerList, err := h.dht.getList(BlockedList)

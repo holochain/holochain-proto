@@ -19,7 +19,8 @@ func TestMain(m *testing.M) {
 
 func TestWebServer(t *testing.T) {
 	d, _, h := PrepareTestChain("test")
-	defer CleanupTestDir(d)
+	defer CleanupTestChain(h, d)
+
 	ws := NewWebServer(h, "31415")
 	ws.Start()
 	time.Sleep(time.Second * 1)

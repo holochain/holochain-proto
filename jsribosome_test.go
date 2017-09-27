@@ -29,7 +29,7 @@ func TestNewJSRibosome(t *testing.T) {
 
 	Convey("it should have an App structure:", t, func() {
 		d, _, h := PrepareTestChain("test")
-		defer CleanupTestDir(d)
+		defer CleanupTestChain(h, d)
 
 		v, err := NewJSRibosome(h, &Zome{RibosomeType: JSRibosomeType})
 		So(err, ShouldBeNil)
@@ -70,7 +70,7 @@ func TestNewJSRibosome(t *testing.T) {
 
 	Convey("it should have an HC structure:", t, func() {
 		d, _, h := PrepareTestChain("test")
-		defer CleanupTestDir(d)
+		defer CleanupTestChain(h, d)
 
 		v, err := NewJSRibosome(h, &Zome{RibosomeType: JSRibosomeType})
 		So(err, ShouldBeNil)
@@ -120,7 +120,7 @@ func TestNewJSRibosome(t *testing.T) {
 
 	Convey("should have the built in functions:", t, func() {
 		d, _, h := PrepareTestChain("test")
-		defer CleanupTestDir(d)
+		defer CleanupTestChain(h, d)
 
 		zome, _ := h.GetZome("jsSampleZome")
 		v, err := NewJSRibosome(h, zome)
@@ -189,7 +189,7 @@ func TestNewJSRibosome(t *testing.T) {
 		// Sign - this methord signs the data that is passed with the user's privKey and returns the signed data
 		Convey("sign", func() {
 			d, _, h := PrepareTestChain("test")
-			defer CleanupTestDir(d)
+			defer CleanupTestChain(h, d)
 
 			v, err := NewJSRibosome(h, &Zome{RibosomeType: JSRibosomeType})
 			So(err, ShouldBeNil)
@@ -213,7 +213,7 @@ func TestNewJSRibosome(t *testing.T) {
 		// sig will be signed by the user and We will verifySignature i.e verify if the uses we know signed it
 		Convey("verifySignature", func() {
 			d, _, h := PrepareTestChain("test")
-			defer CleanupTestDir(d)
+			defer CleanupTestChain(h, d)
 			v, err := NewJSRibosome(h, &Zome{RibosomeType: JSRibosomeType})
 			So(err, ShouldBeNil)
 			z := v.(*JSRibosome)
@@ -273,7 +273,7 @@ func TestNewJSRibosome(t *testing.T) {
 				// set up a bridge app
 
 				d, s, h := PrepareTestChain("test")
-				defer CleanupTestDir(d)
+				defer CleanupTestChain(h, d)
 
 				h2, err := s.MakeTestingApp(filepath.Join(s.Path, "test2"), "json",nil)
 				if err != nil {
@@ -321,7 +321,7 @@ func TestNewJSRibosome(t *testing.T) {
 
 func TestJSQuery(t *testing.T) {
 	d, _, h := PrepareTestChain("test")
-	defer CleanupTestDir(d)
+	defer CleanupTestChain(h, d)
 	zome, _ := h.GetZome("jsSampleZome")
 	v, err := NewJSRibosome(h, zome)
 	if err != nil {
@@ -379,7 +379,7 @@ func TestJSGenesis(t *testing.T) {
 
 func TestJSBridgeGenesis(t *testing.T) {
 	d, _, h := PrepareTestChain("test")
-	defer CleanupTestDir(d)
+	defer CleanupTestChain(h, d)
 
 	fakeToApp, _ := NewHash("QmVGtdTZdTFaLsaj2RwdVG8jcjNNcp1DE914DKZ2kHmXHx")
 	Convey("it should fail if the bridge genesis function returns false", t, func() {
@@ -411,7 +411,7 @@ func TestJSReceive(t *testing.T) {
 
 func TestJSbuildValidate(t *testing.T) {
 	d, _, h := PrepareTestChain("test")
-	defer CleanupTestDir(d)
+	defer CleanupTestChain(h, d)
 
 	e := GobEntry{C: "2"}
 	a := NewCommitAction("evenNumbers", &e)
@@ -439,7 +439,7 @@ func TestJSbuildValidate(t *testing.T) {
 
 func TestJSValidateCommit(t *testing.T) {
 	d, _, h := PrepareTestChain("test")
-	defer CleanupTestDir(d)
+	defer CleanupTestChain(h, d)
 	//	a, _ := NewAgent(LibP2P, "Joe", makeTestSeed(""))
 	//	h := NewHolochain(a, "some/path", "yaml", Zome{RibosomeType:JSRibosomeType,})
 	//	a := h.agent
@@ -570,7 +570,7 @@ func TestJSSanitize(t *testing.T) {
 
 func TestJSExposeCall(t *testing.T) {
 	d, _, h := PrepareTestChain("test")
-	defer CleanupTestDir(d)
+	defer CleanupTestChain(h, d)
 
 	v, zome, err := h.MakeRibosome("jsSampleZome")
 	if err != nil {
@@ -615,7 +615,7 @@ func TestJSExposeCall(t *testing.T) {
 
 func TestJSDHT(t *testing.T) {
 	d, _, h := PrepareTestChain("test")
-	defer CleanupTestDir(d)
+	defer CleanupTestChain(h, d)
 
 	hash, _ := NewHash("QmY8Mzg9F69e5P9AoQPYat6x5HEhc1TVGs11tmfNSzkqh2")
 	Convey("get should return hash not found if it doesn't exist", t, func() {
@@ -888,7 +888,7 @@ func TestJSDHT(t *testing.T) {
 
 func TestJSProcessArgs(t *testing.T) {
 	d, _, h := PrepareTestChain("test")
-	defer CleanupTestDir(d)
+	defer CleanupTestChain(h, d)
 
 	v, _ := NewJSRibosome(h, &Zome{RibosomeType: JSRibosomeType, Code: ""})
 	z := v.(*JSRibosome)

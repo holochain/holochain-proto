@@ -24,7 +24,7 @@ func TestNewNucleus(t *testing.T) {
 
 func TestAppMessages(t *testing.T) {
 	d, _, h := PrepareTestChain("test")
-	defer CleanupTestDir(d)
+	defer CleanupTestChain(h, d)
 
 	// no need to activate DHT protocols for this test
 	h.Config.PeerModeDHTNode = false

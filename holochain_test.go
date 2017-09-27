@@ -65,7 +65,7 @@ func TestNewHolochain(t *testing.T) {
 
 func TestSetupLogging(t *testing.T) {
 	d, _, h := SetupTestChain("test")
-	defer CleanupTestDir(d)
+	defer CleanupTestChain(h, d)
 	Convey("it should initialize the loggers", t, func() {
 		err := h.SetupLogging()
 		So(err, ShouldBeNil)
@@ -103,8 +103,8 @@ func TestSetupLogging(t *testing.T) {
 }
 
 func TestDebuggingSetup(t *testing.T) {
-	d, _, _ := SetupTestChain("test")
-	defer CleanupTestDir(d)
+	d, _, h := SetupTestChain("test")
+	defer CleanupTestChain(h, d)
 
 	Convey("it should look in the environment to know if we should turn on debugging", t, func() {
 		val, yes := DebuggingRequestedViaEnv()
@@ -161,7 +161,8 @@ func TestPrepare(t *testing.T) {
 	})
 	Convey("it should return no err if the requires version is correct", t, func() {
 		d, _, h := SetupTestChain("test")
-		defer CleanupTestDir(d)
+		defer CleanupTestChain(h, d)
+
 		dna := DNA{DHTConfig: DHTConfig{HashType: "sha1"}, RequiresVersion: Version}
 		h.nucleus = NewNucleus(h, &dna)
 		err := h.Prepare()
@@ -310,7 +311,7 @@ func TestHeader(t *testing.T) {
 
 func TestAddAgentEntry(t *testing.T) {
 	d, _, h := SetupTestChain("test")
-	defer CleanupTestDir(d)
+	defer CleanupTestChain(h, d)
 
 	Convey("it should add an agent entry to the chain", t, func() {
 		headerHash, agentHash, err := h.AddAgentEntry(&FakeRevocation{data: "some revocation data"})
@@ -334,7 +335,7 @@ func TestAddAgentEntry(t *testing.T) {
 
 func TestGenChain(t *testing.T) {
 	d, _, h := SetupTestChain("test")
-	defer CleanupTestDir(d)
+	defer CleanupTestChain(h, d)
 	var err error
 
 	Convey("before GenChain call DNAHash call should fail", t, func() {
@@ -389,7 +390,7 @@ func TestGenChain(t *testing.T) {
 
 func TestWalk(t *testing.T) {
 	d, _, h := PrepareTestChain("test")
-	defer CleanupTestDir(d)
+	defer CleanupTestChain(h, d)
 
 	// add an extra link onto the chain
 	entryTypeFoo := `(message (from "art") (to "eric") (contents "test"))`
@@ -420,7 +421,8 @@ func TestWalk(t *testing.T) {
 
 func TestGetZome(t *testing.T) {
 	d, _, h := SetupTestChain("test")
-	defer CleanupTestDir(d)
+	defer CleanupTestChain(h, d)
+
 	Convey("it should fail if the zome isn't defined in the DNA", t, func() {
 		_, err := h.GetZome("bogusZome")
 		So(err.Error(), ShouldEqual, "unknown zome: bogusZome")
@@ -434,7 +436,8 @@ func TestGetZome(t *testing.T) {
 
 func TestMakeRibosome(t *testing.T) {
 	d, _, h := SetupTestChain("test")
-	defer CleanupTestDir(d)
+	defer CleanupTestChain(h, d)
+
 	Convey("it should fail if the zome isn't defined in the DNA", t, func() {
 		_, _, err := h.MakeRibosome("bogusZome")
 		So(err.Error(), ShouldEqual, "unknown zome: bogusZome")
@@ -451,7 +454,8 @@ func TestMakeRibosome(t *testing.T) {
 
 func TestCall(t *testing.T) {
 	d, _, h := PrepareTestChain("test")
-	defer CleanupTestDir(d)
+	defer CleanupTestChain(h, d)
+
 	Convey("it should call the exposed function", t, func() {
 		result, err := h.Call("zySampleZome", "testStrFn1", "arg1 arg2", ZOME_EXPOSURE)
 		So(err, ShouldBeNil)
@@ -474,7 +478,7 @@ func TestCall(t *testing.T) {
 
 func TestCommit(t *testing.T) {
 	d, _, h := PrepareTestChain("test")
-	defer CleanupTestDir(d)
+	defer CleanupTestChain(h, d)
 
 	// add an entry onto the chain
 	hash := commit(h, "oddNumbers", "7")
@@ -504,7 +508,8 @@ func TestCommit(t *testing.T) {
 
 func TestQuery(t *testing.T) {
 	d, _, h := PrepareTestChain("test")
-	defer CleanupTestDir(d)
+	defer CleanupTestChain(h, d)
+
 	commit(h, "profile", `{"firstName":"Pebbles","lastName":"Flintstone"}`)
 	hash1 := commit(h, "oddNumbers", "7")
 	commit(h, "secret", "foo")

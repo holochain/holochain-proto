@@ -12,7 +12,7 @@ import (
 
 func TestValidateReceiver(t *testing.T) {
 	d, _, h := PrepareTestChain("test")
-	defer CleanupTestDir(d)
+	defer CleanupTestChain(h, d)
 
 	Convey("VALIDATE_PUT_REQUEST should fail if  body isn't a ValidateQuery", t, func() {
 		m := h.node.NewMessage(VALIDATE_PUT_REQUEST, "fish")
@@ -81,7 +81,7 @@ func TestValidateReceiver(t *testing.T) {
 
 func TestMakePackage(t *testing.T) {
 	d, _, h := PrepareTestChain("test")
-	defer CleanupTestDir(d)
+	defer CleanupTestChain(h, d)
 
 	Convey("it should be able to make a full chain package", t, func() {
 		req := PackagingReq{PkgReqChain: int64(PkgReqChainOptFull)}
@@ -130,7 +130,7 @@ func TestMakePackage(t *testing.T) {
 
 func TestGetValidationResponse(t *testing.T) {
 	d, _, h := PrepareTestChain("test")
-	defer CleanupTestDir(d)
+	defer CleanupTestChain(h, d)
 	Convey("Sys defined entry types should return empty packages", t, func() {
 		entry, _, err := h.chain.GetEntry(h.agentHash)
 		a := NewPutAction(AgentEntryType, entry, &Header{})
@@ -144,7 +144,7 @@ func TestGetValidationResponse(t *testing.T) {
 
 func TestMakeValidatePackage(t *testing.T) {
 	d, _, h := PrepareTestChain("test")
-	defer CleanupTestDir(d)
+	defer CleanupTestChain(h, d)
 
 	entry := GobEntry{C: `{"firstName":"Zippy","lastName":"Pinhead"}`}
 	h.NewEntry(time.Now().Round(0), "evenNumbers", &entry)

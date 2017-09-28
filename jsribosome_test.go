@@ -686,29 +686,32 @@ func TestJSDHT(t *testing.T) {
 		v, err := NewJSRibosome(h, &Zome{RibosomeType: JSRibosomeType, Code: fmt.Sprintf(`getLinks("%s","4stars");`, hash.String())})
 		So(err, ShouldBeNil)
 		z := v.(*JSRibosome)
-		So(z.lastResult.Class(), ShouldEqual, "Object")
-		x, err := z.lastResult.Export()
-		lqr := x.(*LinkQueryResp)
-		So(err, ShouldBeNil)
-		So(fmt.Sprintf("%v", lqr.Links[1].H), ShouldEqual, profileHash.String())
-		So(fmt.Sprintf("%v", lqr.Links[0].H), ShouldEqual, reviewHash.String())
+		So(z.lastResult.Class(), ShouldEqual, "Array")
+		links, _ := z.lastResult.Export()
+		l0 := links.([]map[string]interface{})[0]
+		l1 := links.([]map[string]interface{})[1]
+
+		So(fmt.Sprintf("%v", l0["Hash"]), ShouldEqual, reviewHash.String())
+		So(fmt.Sprintf("%v", l1["Hash"]), ShouldEqual, profileHash.String())
 	})
 
 	Convey("getLinks function with load option should return the Links and entries", t, func() {
 		v, err := NewJSRibosome(h, &Zome{RibosomeType: JSRibosomeType, Code: fmt.Sprintf(`getLinks("%s","4stars",{Load:true});`, hash.String())})
 		So(err, ShouldBeNil)
 		z := v.(*JSRibosome)
-		So(z.lastResult.Class(), ShouldEqual, "Object")
-		x, err := z.lastResult.Export()
-		lqr := x.(*LinkQueryResp)
-		So(err, ShouldBeNil)
-		So(fmt.Sprintf("%v", lqr.Links[1].H), ShouldEqual, profileHash.String())
-		So(fmt.Sprintf("%v", lqr.Links[1].E), ShouldEqual, `{"firstName":"Zippy","lastName":"Pinhead"}`)
-		So(lqr.Links[1].EntryType, ShouldEqual, "profile")
+		So(z.lastResult.Class(), ShouldEqual, "Array")
+		links, _ := z.lastResult.Export()
+		l0 := links.([]map[string]interface{})[0]
+		l1 := links.([]map[string]interface{})[1]
+		So(l1["Hash"], ShouldEqual, profileHash.String())
+		lp := l1["Entry"].(map[string]interface{})
+		So(fmt.Sprintf("%v", lp["firstName"]), ShouldEqual, "Zippy")
+		So(fmt.Sprintf("%v", lp["lastName"]), ShouldEqual, "Pinhead")
+		So(l1["EntryType"], ShouldEqual, "profile")
 
-		So(fmt.Sprintf("%v", lqr.Links[0].H), ShouldEqual, reviewHash.String())
-		So(fmt.Sprintf("%v", lqr.Links[0].E), ShouldEqual, `this is my bogus review of some thing`)
-		So(lqr.Links[0].EntryType, ShouldEqual, "review")
+		So(l0["Hash"], ShouldEqual, reviewHash.String())
+		So(fmt.Sprintf("%v", l0["Entry"]), ShouldEqual, `this is my bogus review of some thing`)
+		So(l0["EntryType"], ShouldEqual, "review")
 	})
 
 	Convey("commit with del link should delete link", t, func() {
@@ -732,11 +735,10 @@ func TestJSDHT(t *testing.T) {
 		So(err, ShouldBeNil)
 		z := v.(*JSRibosome)
 
-		So(z.lastResult.Class(), ShouldEqual, "Object")
-		x, err := z.lastResult.Export()
-		lqr := x.(*LinkQueryResp)
-		So(err, ShouldBeNil)
-		So(fmt.Sprintf("%v", lqr.Links[0].H), ShouldEqual, profileHash.String())
+		So(z.lastResult.Class(), ShouldEqual, "Array")
+		links, _ := z.lastResult.Export()
+		l0 := links.([]map[string]interface{})[0]
+		So(l0["Hash"], ShouldEqual, profileHash.String())
 	})
 
 	Convey("update function should commit a new entry and on DHT mark item modified", t, func() {

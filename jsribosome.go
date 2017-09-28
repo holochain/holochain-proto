@@ -1168,8 +1168,56 @@ func NewJSRibosome(h *Holochain, zome *Zome) (n Ribosome, err error) {
 		Debugf("RESPONSE:%v\n", response)
 
 		if err == nil {
-			result, err = jsr.vm.ToValue(response)
-		} else {
+			// we build up our response by creating the javascript object
+			// that we want and using otto to create it with vm.
+			// TODO: is there a faster way to do this?
+			lqr := response.(*LinkQueryResp)
+			var js string
+			for i, th := range lqr.Links {
+				var l string
+				l = `Hash:"` + th.H + `"`
+				if options.Load {
+					l += `,EntryType:"` + jsSanitizeString(th.EntryType) + `"`
+					_, def, err := h.GetEntryDef(th.EntryType)
+					if err != nil {
+						break
+					}
+					var entry string
+					switch def.DataFormat {
+					case DataFormatRawJS:
+						entry = th.E
+					case DataFormatRawZygo:
+						fallthrough
+					case DataFormatString:
+						entry = `"` + jsSanitizeString(th.E) + `"`
+					case DataFormatLinks:
+						fallthrough
+					case DataFormatJSON:
+						entry = `JSON.parse("` + jsSanitizeString(th.E) + `")`
+					default:
+						err = errors.New("data format not implemented: " + def.DataFormat)
+						break
+					}
+
+					l += `,Entry:` + entry
+				}
+				if i > 0 {
+					js += ","
+				}
+				js += `{` + l + `}`
+			}
+			if err == nil {
+				js = `[` + js + `]`
+				var obj *otto.Object
+				obj, err = jsr.vm.Object(js)
+				if err == nil {
+					result = obj.Value()
+				}
+			}
+		}
+
+		if err != nil {
+			fmt.Printf("Error:%v", err)
 			result = mkOttoErr(&jsr, err.Error())
 		}
 

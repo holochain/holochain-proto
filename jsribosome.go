@@ -1176,6 +1176,9 @@ func NewJSRibosome(h *Holochain, zome *Zome) (n Ribosome, err error) {
 			for i, th := range lqr.Links {
 				var l string
 				l = `Hash:"` + th.H + `"`
+				if tag == "" {
+					l += `Tag:"` + th.T + `"`
+				}
 				if options.Load {
 					l += `,EntryType:"` + jsSanitizeString(th.EntryType) + `"`
 					_, def, err := h.GetEntryDef(th.EntryType)

@@ -695,6 +695,22 @@ func TestJSDHT(t *testing.T) {
 		So(fmt.Sprintf("%v", l1["Hash"]), ShouldEqual, profileHash.String())
 	})
 
+	Convey("getLinks function with empty tag should return the Links and tags", t, func() {
+		v, err := NewJSRibosome(h, &Zome{RibosomeType: JSRibosomeType, Code: fmt.Sprintf(`getLinks("%s","");`, hash.String())})
+		So(err, ShouldBeNil)
+		z := v.(*JSRibosome)
+		So(z.lastResult.Class(), ShouldEqual, "Array")
+		links, _ := z.lastResult.Export()
+		l0 := links.([]map[string]interface{})[0]
+		l1 := links.([]map[string]interface{})[1]
+
+		So(fmt.Sprintf("%v", l0["Hash"]), ShouldEqual, reviewHash.String())
+		So(fmt.Sprintf("%v", l0["Tag"]), ShouldEqual, "4stars")
+		So(fmt.Sprintf("%v", l1["Hash"]), ShouldEqual, profileHash.String())
+		So(fmt.Sprintf("%v", l1["Tag"]), ShouldEqual, "4stars")
+
+	})
+
 	Convey("getLinks function with load option should return the Links and entries", t, func() {
 		v, err := NewJSRibosome(h, &Zome{RibosomeType: JSRibosomeType, Code: fmt.Sprintf(`getLinks("%s","4stars",{Load:true});`, hash.String())})
 		So(err, ShouldBeNil)

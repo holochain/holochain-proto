@@ -219,7 +219,7 @@ func MakeActionFromMessage(msg *Message) (a Action, err error) {
 		a = &ActionLink{}
 		t = reflect.TypeOf(LinkReq{})
 	case GETLINK_REQUEST:
-		a = &ActionGetLink{}
+		a = &ActionGetLinks{}
 		t = reflect.TypeOf(LinkQuery{})
 	case LISTADD_REQUEST:
 		a = &ActionListAdd{}
@@ -666,6 +666,8 @@ func (a *ActionGet) Receive(dht *DHT, msg *Message) (response interface{}, err e
 	}
 	resp := GetResp{}
 	var entryType string
+
+	// always get the entry type despite what the mas says because we need it for the switch below.
 	entryData, entryType, resp.Sources, _, err = dht.get(req.H, req.StatusMask, req.GetMask|GetMaskEntryType)
 	if (mask & GetMaskEntryType) != 0 {
 		resp.EntryType = entryType
@@ -1362,27 +1364,27 @@ func (a *ActionLink) CheckValidationRequest(def *EntryDef) (err error) {
 }
 
 //------------------------------------------------------------
-// GetLink
+// GetLinks
 
-type ActionGetLink struct {
+type ActionGetLinks struct {
 	linkQuery *LinkQuery
-	options   *GetLinkOptions
+	options   *GetLinksOptions
 }
 
-func NewGetLinkAction(linkQuery *LinkQuery, options *GetLinkOptions) *ActionGetLink {
-	a := ActionGetLink{linkQuery: linkQuery, options: options}
+func NewGetLinksAction(linkQuery *LinkQuery, options *GetLinksOptions) *ActionGetLinks {
+	a := ActionGetLinks{linkQuery: linkQuery, options: options}
 	return &a
 }
 
-func (a *ActionGetLink) Name() string {
-	return "getLink"
+func (a *ActionGetLinks) Name() string {
+	return "getLinks"
 }
 
-func (a *ActionGetLink) Args() []Arg {
-	return []Arg{{Name: "base", Type: HashArg}, {Name: "tag", Type: StringArg}, {Name: "options", Type: MapArg, MapType: reflect.TypeOf(GetLinkOptions{}), Optional: true}}
+func (a *ActionGetLinks) Args() []Arg {
+	return []Arg{{Name: "base", Type: HashArg}, {Name: "tag", Type: StringArg}, {Name: "options", Type: MapArg, MapType: reflect.TypeOf(GetLinksOptions{}), Optional: true}}
 }
 
-func (a *ActionGetLink) Do(h *Holochain) (response interface{}, err error) {
+func (a *ActionGetLinks) Do(h *Holochain) (response interface{}, err error) {
 	var r interface{}
 	r, err = h.dht.Send(a.linkQuery.Base, GETLINK_REQUEST, *a.linkQuery)
 
@@ -1397,14 +1399,16 @@ func (a *ActionGetLink) Do(h *Holochain) (response interface{}, err error) {
 					if err != nil {
 						return
 					}
-					req := GetReq{H: hash, StatusMask: StatusDefault}
-					rsp, err := NewGetAction(req, &GetOptions{StatusMask: StatusDefault}).Do(h)
+					opts := GetOptions{GetMask: GetMaskEntryType + GetMaskEntry, StatusMask: StatusDefault}
+					req := GetReq{H: hash, StatusMask: StatusDefault, GetMask: opts.GetMask}
+					rsp, err := NewGetAction(req, &opts).Do(h)
 					if err == nil {
 						entry := rsp.(GetResp).Entry
 						if entry != nil {
 							t.Links[i].E = entry.(Entry).Content().(string)
+							t.Links[i].EntryType = rsp.(GetResp).EntryType
 						} else {
-							panic(fmt.Sprintf("Nil entry in GetLink.Do response to req: %v", req))
+							panic(fmt.Sprintf("Nil entry in GetLinks.Do response to req: %v", req))
 						}
 
 					}
@@ -1412,21 +1416,21 @@ func (a *ActionGetLink) Do(h *Holochain) (response interface{}, err error) {
 				}
 			}
 		default:
-			err = fmt.Errorf("unexpected response type from SendGetLink: %T", t)
+			err = fmt.Errorf("unexpected response type from SendGetLinks: %T", t)
 		}
 	}
 	return
 }
 
-func (a *ActionGetLink) SysValidation(h *Holochain, d *EntryDef, sources []peer.ID) (err error) {
+func (a *ActionGetLinks) SysValidation(h *Holochain, d *EntryDef, sources []peer.ID) (err error) {
 	//@TODO what sys level getlinks validation?  That they are all valid hash format for the DNA?
 	return
 }
 
-func (a *ActionGetLink) Receive(dht *DHT, msg *Message) (response interface{}, err error) {
+func (a *ActionGetLinks) Receive(dht *DHT, msg *Message) (response interface{}, err error) {
 	lq := msg.Body.(LinkQuery)
 	var r LinkQueryResp
-	r.Links, err = dht.getLink(lq.Base, lq.T, lq.StatusMask)
+	r.Links, err = dht.getLinks(lq.Base, lq.T, lq.StatusMask)
 	response = &r
 
 	return

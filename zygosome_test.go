@@ -586,25 +586,25 @@ func TestZygoDHT(t *testing.T) {
 		panic(err)
 	}
 
-	Convey("getLink function should return the Links", t, func() {
-		v, err := NewZygoRibosome(h, &Zome{RibosomeType: ZygoRibosomeType, Code: fmt.Sprintf(`(getLink "%s" "4stars")`, hash.String())})
+	Convey("getLinks function should return the Links", t, func() {
+		v, err := NewZygoRibosome(h, &Zome{RibosomeType: ZygoRibosomeType, Code: fmt.Sprintf(`(getLinks "%s" "4stars")`, hash.String())})
 		So(err, ShouldBeNil)
 		z := v.(*ZygoRibosome)
 		sh := z.lastResult.(*zygo.SexpHash)
 
 		r, err := sh.HashGet(z.env, z.env.MakeSymbol("result"))
 		So(err, ShouldBeNil)
-		So(r.(*zygo.SexpStr).S, ShouldEqual, `[{"H":"QmYeinX5vhuA91D3v24YbgyLofw9QAxY6PoATrBHnRwbtt","E":""}]`)
+		So(r.(*zygo.SexpStr).S, ShouldEqual, `[{"H":"QmYeinX5vhuA91D3v24YbgyLofw9QAxY6PoATrBHnRwbtt","E":"","EntryType":"","T":""}]`)
 	})
-	Convey("getLink function with load option should return the Links and entries", t, func() {
-		v, err := NewZygoRibosome(h, &Zome{RibosomeType: ZygoRibosomeType, Code: fmt.Sprintf(`(getLink "%s" "4stars" (hash Load:true))`, hash.String())})
+	Convey("getLinks function with load option should return the Links and entries", t, func() {
+		v, err := NewZygoRibosome(h, &Zome{RibosomeType: ZygoRibosomeType, Code: fmt.Sprintf(`(getLinks "%s" "4stars" (hash Load:true))`, hash.String())})
 		So(err, ShouldBeNil)
 		z := v.(*ZygoRibosome)
 		sh := z.lastResult.(*zygo.SexpHash)
 
 		r, err := sh.HashGet(z.env, z.env.MakeSymbol("result"))
 		So(err, ShouldBeNil)
-		So(r.(*zygo.SexpStr).S, ShouldEqual, `[{"H":"QmYeinX5vhuA91D3v24YbgyLofw9QAxY6PoATrBHnRwbtt","E":"{\"firstName\":\"Zippy\",\"lastName\":\"Pinhead\"}"}]`)
+		So(r.(*zygo.SexpStr).S, ShouldEqual, `[{"H":"QmYeinX5vhuA91D3v24YbgyLofw9QAxY6PoATrBHnRwbtt","E":"{\"firstName\":\"Zippy\",\"lastName\":\"Pinhead\"}","EntryType":"profile","T":""}]`)
 	})
 
 	Convey("commit with del link should delete link", t, func() {
@@ -619,21 +619,21 @@ func TestZygoDHT(t *testing.T) {
 			panic(err)
 		}
 
-		links, _ := h.dht.getLink(hash, "4stars", StatusLive)
+		links, _ := h.dht.getLinks(hash, "4stars", StatusLive)
 		So(fmt.Sprintf("%v", links), ShouldEqual, "[]")
-		links, _ = h.dht.getLink(hash, "4stars", StatusDeleted)
-		So(fmt.Sprintf("%v", links), ShouldEqual, "[{QmYeinX5vhuA91D3v24YbgyLofw9QAxY6PoATrBHnRwbtt }]")
+		links, _ = h.dht.getLinks(hash, "4stars", StatusDeleted)
+		So(fmt.Sprintf("%v", links), ShouldEqual, "[{QmYeinX5vhuA91D3v24YbgyLofw9QAxY6PoATrBHnRwbtt   }]")
 	})
 
-	Convey("getLink function with StatusMask option should return deleted Links", t, func() {
-		v, err := NewZygoRibosome(h, &Zome{RibosomeType: ZygoRibosomeType, Code: fmt.Sprintf(`(getLink "%s" "4stars" (hash StatusMask:HC_Status_Deleted))`, hash.String())})
+	Convey("getLinks function with StatusMask option should return deleted Links", t, func() {
+		v, err := NewZygoRibosome(h, &Zome{RibosomeType: ZygoRibosomeType, Code: fmt.Sprintf(`(getLinks "%s" "4stars" (hash StatusMask:HC_Status_Deleted))`, hash.String())})
 		So(err, ShouldBeNil)
 		z := v.(*ZygoRibosome)
 
 		sh := z.lastResult.(*zygo.SexpHash)
 		r, err := sh.HashGet(z.env, z.env.MakeSymbol("result"))
 		So(err, ShouldBeNil)
-		So(r.(*zygo.SexpStr).S, ShouldEqual, `[{"H":"QmYeinX5vhuA91D3v24YbgyLofw9QAxY6PoATrBHnRwbtt","E":""}]`)
+		So(r.(*zygo.SexpStr).S, ShouldEqual, `[{"H":"QmYeinX5vhuA91D3v24YbgyLofw9QAxY6PoATrBHnRwbtt","E":"","EntryType":"","T":""}]`)
 	})
 
 	Convey("update function should commit a new entry and on DHT mark item modified", t, func() {

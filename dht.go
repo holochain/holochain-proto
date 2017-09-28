@@ -156,7 +156,7 @@ type DelLinkReq struct {
 	Tag  string // tag to be deleted
 }
 
-// LinkQuery holds a getLink query
+// LinkQuery holds a getLinks query
 type LinkQuery struct {
 	Base       Hash
 	T          string
@@ -172,19 +172,21 @@ type GetOptions struct {
 	Local      bool // bool if get should happen from chain not DHT
 }
 
-// GetLinkOptions options to holochain level GetLink functions
-type GetLinkOptions struct {
-	Load       bool // indicates whether GetLink should retrieve the entries of all links
+// GetLinksOptions options to holochain level GetLinks functions
+type GetLinksOptions struct {
+	Load       bool // indicates whether GetLinks should retrieve the entries of all links
 	StatusMask int  // mask of which status of links to return
 }
 
 // TaggedHash holds associated entries for the LinkQueryResponse
 type TaggedHash struct {
-	H string // the hash of the link; gets filled by dht base node when answering get link request
-	E string // the value of link, get's filled by caller if getLink function set Load to true
+	H         string // the hash of the link; gets filled by dht base node when answering get link request
+	E         string // the value of link, gets filled if options set Load to true
+	EntryType string // the entry type of the link, gets filled if options set Load to true
+	T         string // the tag of the link, gets filled only if a tag wasn't specified and all tags are being returns
 }
 
-// LinkQueryResp holds response to getLink query
+// LinkQueryResp holds response to getLinks query
 type LinkQueryResp struct {
 	Links []TaggedHash
 }
@@ -588,9 +590,9 @@ func filter(ss []Meta, test func(*Meta) bool) (ret []Meta) {
 	return
 }
 
-// getLink retrieves meta value associated with a base
-func (dht *DHT) getLink(base Hash, tag string, statusMask int) (results []TaggedHash, err error) {
-	dht.dlog.Logf("getLink on %v of %s with mask %d", base, tag, statusMask)
+// getLinks retrieves meta value associated with a base
+func (dht *DHT) getLinks(base Hash, tag string, statusMask int) (results []TaggedHash, err error) {
+	dht.dlog.Logf("getLinks on %v of %s with mask %d", base, tag, statusMask)
 	b := base.String()
 	err = dht.db.View(func(tx *buntdb.Tx) error {
 		_, err := _get(tx, b, StatusLive+StatusModified) //only get links on live and modified bases
@@ -605,12 +607,16 @@ func (dht *DHT) getLink(base Hash, tag string, statusMask int) (results []Tagged
 		results = make([]TaggedHash, 0)
 		err = tx.Ascend("link", func(key, value string) bool {
 			x := strings.Split(key, ":")
-
-			if string(x[1]) == b && string(x[3]) == tag {
+			t := string(x[3])
+			if string(x[1]) == b && (tag == "" || tag == t) {
 				var status int
 				status, err = strconv.Atoi(value)
 				if err == nil && (status&statusMask) > 0 {
-					results = append(results, TaggedHash{H: string(x[2])})
+					th := TaggedHash{H: string(x[2])}
+					if tag == "" {
+						th.T = t
+					}
+					results = append(results, th)
 				}
 			}
 

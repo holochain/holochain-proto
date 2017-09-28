@@ -1131,8 +1131,8 @@ func NewJSRibosome(h *Holochain, zome *Zome) (n Ribosome, err error) {
 		return nil, err
 	}
 
-	err = jsr.vm.Set("getLink", func(call otto.FunctionCall) (result otto.Value) {
-		var a Action = &ActionGetLink{}
+	err = jsr.vm.Set("getLinks", func(call otto.FunctionCall) (result otto.Value) {
+		var a Action = &ActionGetLinks{}
 		args := a.Args()
 		err := jsProcessArgs(&jsr, args, call.ArgumentList)
 		if err != nil {
@@ -1142,7 +1142,7 @@ func NewJSRibosome(h *Holochain, zome *Zome) (n Ribosome, err error) {
 		tag := args[1].value.(string)
 
 		l := len(call.ArgumentList)
-		options := GetLinkOptions{Load: false, StatusMask: StatusLive}
+		options := GetLinksOptions{Load: false, StatusMask: StatusLive}
 		if l == 3 {
 			opts := args[2].value.(map[string]interface{})
 			load, ok := opts["Load"]
@@ -1164,7 +1164,7 @@ func NewJSRibosome(h *Holochain, zome *Zome) (n Ribosome, err error) {
 		}
 		var response interface{}
 
-		response, err = NewGetLinkAction(&LinkQuery{Base: base, T: tag, StatusMask: options.StatusMask}, &options).Do(h)
+		response, err = NewGetLinksAction(&LinkQuery{Base: base, T: tag, StatusMask: options.StatusMask}, &options).Do(h)
 		Debugf("RESPONSE:%v\n", response)
 
 		if err == nil {

@@ -1152,9 +1152,9 @@ func NewZygoRibosome(h *Holochain, zome *Zome) (n Ribosome, err error) {
 			return zygo.SexpNull, err
 		})
 
-	z.env.AddFunction("getLink",
+	z.env.AddFunction("getLinks",
 		func(env *zygo.Glisp, name string, zyargs []zygo.Sexp) (zygo.Sexp, error) {
-			var a Action = &ActionGetLink{}
+			var a Action = &ActionGetLinks{}
 			args := a.Args()
 			err := zyProcessArgs(&z, args, zyargs)
 			if err != nil {
@@ -1163,7 +1163,7 @@ func NewZygoRibosome(h *Holochain, zome *Zome) (n Ribosome, err error) {
 			base := args[0].value.(Hash)
 			tag := args[1].value.(string)
 
-			options := GetLinkOptions{Load: false, StatusMask: StatusLive}
+			options := GetLinksOptions{Load: false, StatusMask: StatusLive}
 			if len(zyargs) == 3 {
 				opts := args[2].value.(map[string]interface{})
 				load, ok := opts["Load"]
@@ -1187,7 +1187,7 @@ func NewZygoRibosome(h *Holochain, zome *Zome) (n Ribosome, err error) {
 			}
 
 			var r interface{}
-			r, err = NewGetLinkAction(&LinkQuery{Base: base, T: tag, StatusMask: options.StatusMask}, &options).Do(h)
+			r, err = NewGetLinksAction(&LinkQuery{Base: base, T: tag, StatusMask: options.StatusMask}, &options).Do(h)
 			var resultValue zygo.Sexp
 			if err == nil {
 				response := r.(*LinkQueryResp)

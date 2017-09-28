@@ -717,6 +717,7 @@ func (h *Holochain) doCommit(a CommittingAction, change *StatusChange) (d *Entry
 	entry := a.Entry()
 	var l int
 	var hash Hash
+
 	l, hash, header, err = h.chain.PrepareHeader(time.Now(), entryType, entry, h.agent.PrivKey(), change)
 	if err != nil {
 		return
@@ -951,7 +952,16 @@ func (a *ActionPut) Receive(dht *DHT, msg *Message) (response interface{}, err e
 		return err
 	})
 
-	response = "queued"
+	closest := dht.h.node.betterPeersForHash(&t.H, msg.From, CloserPeerCount)
+	if len(closest) > 0 {
+		err = nil
+		resp := CloserPeersResp{}
+		resp.CloserPeers = dht.h.node.peers2PeerInfos(closest)
+		response = resp
+		return
+	} else {
+		response = "queued"
+	}
 	return
 }
 

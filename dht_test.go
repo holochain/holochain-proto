@@ -282,11 +282,8 @@ func TestFindNodeForHash(t *testing.T) {
 }
 
 func TestDHTSend(t *testing.T) {
-	nodesCount := 6
-	mt := setupMultiNodeTesting(nodesCount)
-	defer mt.cleanupMultiNodeTesting()
-
-	h := mt.nodes[0]
+	d, _, h := PrepareTestChain("test")
+	defer CleanupTestChain(h, d)
 
 	hash, _ := NewHash("QmY8Mzg9F69e5P9AoQPYat655HEhc1TVGs11tmfNSzkqh2")
 
@@ -301,10 +298,6 @@ func TestDHTSend(t *testing.T) {
 	if err != nil {
 		panic(err)
 	}
-
-	/*for i := 0; i < nodesCount; i++ {
-		fmt.Printf("node%d:%v\n", i, mt.nodes[i].node.HashAddr.Pretty()[2:6])
-	}*/
 
 	// publish the entry data to the dht
 	hash = hd.EntryLink
@@ -323,13 +316,93 @@ func TestDHTSend(t *testing.T) {
 		resp := r.(GetResp)
 		So(fmt.Sprintf("%v", resp.Entry), ShouldEqual, fmt.Sprintf("%v", e))
 	})
+}
+
+func TestDHTQueryGet(t *testing.T) {
+	nodesCount := 6
+	mt := setupMultiNodeTesting(nodesCount)
+	defer mt.cleanupMultiNodeTesting()
+
+	h := mt.nodes[0]
+
+	now := time.Unix(1, 1) // pick a constant time so the test will always work
+	e := GobEntry{C: "4"}
+	_, hd, err := h.NewEntry(now, "evenNumbers", &e)
+	if err != nil {
+		panic(err)
+	}
+
+	/*for i := 0; i < nodesCount; i++ {
+		fmt.Printf("node%d:%v\n", i, mt.nodes[i].node.HashAddr.Pretty()[2:6])
+	}*/
+
+	// publish the entry data to local DHT node (0)
+	hash := hd.EntryLink
+	_, err = h.dht.send(h.node.HashAddr, PUT_REQUEST, PutReq{H: hash})
+	if err != nil {
+		panic(err)
+	}
 
 	ringConnect(t, mt.ctx, mt.nodes, nodesCount)
 
-	// pick a distant node that has to do some of the recursive lookups.
-	Convey("Query GET_REQUEST message should return content", t, func() {
+	// pick a distant node that has to do some of the recursive lookups to get back to node 0.
+	Convey("Kademlia GET_REQUEST should return content", t, func() {
 		h2 := mt.nodes[nodesCount-2]
 		r, err := h2.dht.Query(hash, GET_REQUEST, GetReq{H: hash, StatusMask: StatusLive})
+		So(err, ShouldBeNil)
+		resp := r.(GetResp)
+		So(fmt.Sprintf("%v", resp.Entry), ShouldEqual, fmt.Sprintf("%v", e))
+	})
+}
+
+func TestDHTKadPut(t *testing.T) {
+	nodesCount := 6
+	mt := setupMultiNodeTesting(nodesCount)
+	defer mt.cleanupMultiNodeTesting()
+
+	h := mt.nodes[0]
+
+	now := time.Unix(1, 1) // pick a constant time so the test will always work
+	e := GobEntry{C: "4"}
+	_, hd, err := h.NewEntry(now, "evenNumbers", &e)
+	if err != nil {
+		panic(err)
+	}
+	hash := hd.EntryLink
+
+	/*
+		for i := 0; i < nodesCount; i++ {
+			fmt.Printf("node%d:%v\n", i, mt.nodes[i].node.HashAddr.Pretty()[2:6])
+		}
+		//node0:NnRV
+		//node1:UfY4
+		//node2:YA62
+		//node3:S4BF
+		//node4:W4He
+		//node5:dxxu
+
+		starConnect(t, mt.ctx, mt.nodes, nodesCount)
+		// get closest peers in the routing table
+		rtp := h.node.routingTable.NearestPeers(hash, AlphaValue)
+		fmt.Printf("CLOSE:%v\n", rtp)
+
+		//[<peer.ID S4BFeT> <peer.ID W4HeEG> <peer.ID UfY4We>]
+		//i.e 3,4,1
+	*/
+
+	ringConnect(t, mt.ctx, mt.nodes, nodesCount)
+
+	Convey("Kademlia PUT_REQUEST should put the hash to its closet node even if we don't know about it yet", t, func() {
+		rtp := h.node.routingTable.NearestPeers(hash, AlphaValue)
+		// check that our routing table doesn't contain closest node yet
+		So(fmt.Sprintf("%v", rtp), ShouldEqual, "[<peer.ID UfY4We> <peer.ID dxxuES>]")
+		err := h.dht.Change(hash, PUT_REQUEST, PutReq{H: hash})
+		So(err, ShouldBeNil)
+		rtp = h.node.routingTable.NearestPeers(hash, AlphaValue)
+		// routing table should be updated
+		So(fmt.Sprintf("%v", rtp), ShouldEqual, "[<peer.ID S4BFeT> <peer.ID W4HeEG> <peer.ID UfY4We>]")
+		// and get from node should get the value
+		r, err := h.dht.send(mt.nodes[3].nodeID, GET_REQUEST, GetReq{H: hash, StatusMask: StatusLive})
 		So(err, ShouldBeNil)
 		resp := r.(GetResp)
 		So(fmt.Sprintf("%v", resp.Entry), ShouldEqual, fmt.Sprintf("%v", e))

@@ -638,8 +638,45 @@ func (dht *DHT) getLink(base Hash, tag string, statusMask int) (results []Tagged
 	return
 }
 
+// Change sends DHT change messages to the closest peers to the hash in question
+func (dht *DHT) Change(key Hash, msgType MsgType, body interface{}) (err error) {
+	Debugf("Starting %v Change for %v with body %v", msgType, key, body)
+
+	// change locally first
+	// TODO
+
+	node := dht.h.node
+
+	pchan, err := node.GetClosestPeers(node.ctx, key)
+	if err != nil {
+		return err
+	}
+
+	wg := sync.WaitGroup{}
+	for p := range pchan {
+		wg.Add(1)
+		go func(p peer.ID) {
+			ctx, cancel := context.WithCancel(node.ctx)
+			defer cancel()
+			defer wg.Done()
+
+			_, err := dht.h.Send(ctx, ActionProtocol, p, msgType, body, 0)
+			if err != nil {
+				dht.dlog.Logf("DHT %s failed to peer %v with error: %s", msgType, p, err)
+			}
+		}(p)
+	}
+	wg.Wait()
+	return
+}
+
+// Query sends DHT query messages recursively to peers until one is able to respond.
 func (dht *DHT) Query(key Hash, msgType MsgType, body interface{}) (response interface{}, err error) {
 	Debugf("Starting %v Query for %v with body %v", msgType, key, body)
+
+	// try locally first
+	// TODO
+
 	// get closest peers in the routing table
 	rtp := dht.h.node.routingTable.NearestPeers(key, AlphaValue)
 	Debugf("peers in rt: %d %s", len(rtp), rtp)
@@ -665,7 +702,6 @@ func (dht *DHT) Query(key Hash, msgType MsgType, body interface{}) (response int
 			res.response = response
 		case CloserPeersResp:
 			res.closerPeers = peerInfos2Pis(t.CloserPeers)
-			Debugf("Query closer peers: %v", res.closerPeers)
 		}
 		return res, nil
 	})

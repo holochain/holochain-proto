@@ -15,7 +15,7 @@ func TestMain(m *testing.M) {
 
 func TestTestStringReplacements(t *testing.T) {
 	d, _, h := PrepareTestChain("test")
-	CleanupTestDir(d)
+	defer CleanupTestChain(h, d)
 	var lastMatches = [3][]string{{"complete match", "1st submatch", "2nd submatch"}}
 
 	Convey("it should replace %dna%", t, func() {
@@ -50,7 +50,7 @@ func TestTest(t *testing.T) {
 	CleanupTestDir(d)
 
 	d, _, h = SetupTestChain("test")
-	defer CleanupTestDir(d)
+	defer CleanupTestChain(h, d)
 
 	_, requested = DebuggingRequestedViaEnv()
 	// unless env indicates debugging, don't show the test results as this test of testing runs
@@ -89,7 +89,7 @@ func TestTest(t *testing.T) {
 
 func TestTestOne(t *testing.T) {
 	d, _, h := SetupTestChain("test")
-	defer CleanupTestDir(d)
+	defer CleanupTestChain(h, d)
 	if os.Getenv("DEBUG") != "" {
 		h.Config.Loggers.TestPassed.Enabled = false
 		h.Config.Loggers.TestFailed.Enabled = false

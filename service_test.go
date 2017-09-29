@@ -20,7 +20,7 @@ func TestInit(t *testing.T) {
 
 	agent := "Fred Flintstone <fred@flintstone.com>"
 
-	s, err := Init(filepath.Join(d, DefaultDirectoryName), AgentIdentity(agent))
+	s, err := Init(filepath.Join(d, DefaultDirectoryName), AgentIdentity(agent), makeTestSeed(agent))
 
 	Convey("when initializing service in a directory", t, func() {
 		So(err, ShouldBeNil)
@@ -83,7 +83,7 @@ func TestValidateServiceConfig(t *testing.T) {
 
 func TestConfiguredChains(t *testing.T) {
 	d, s, h := SetupTestChain("test")
-	defer CleanupTestDir(d)
+	defer CleanupTestChain(h, d)
 
 	Convey("Configured chains should return a hash of all the chains in the Service", t, func() {
 		chains, err := s.ConfiguredChains()
@@ -94,7 +94,7 @@ func TestConfiguredChains(t *testing.T) {
 
 func TestServiceGenChain(t *testing.T) {
 	d, s, h := SetupTestChain("test")
-	defer CleanupTestDir(d)
+	defer CleanupTestChain(h, d)
 
 	Convey("it should return a list of the chains", t, func() {
 		list := s.ListChains()
@@ -116,7 +116,7 @@ func TestServiceGenChain(t *testing.T) {
 
 func TestCloneNew(t *testing.T) {
 	d, s, h0 := SetupTestChain("test")
-	defer CleanupTestDir(d)
+	defer CleanupTestChain(h0, d)
 
 	name := "test2"
 	root := filepath.Join(s.Path, name)
@@ -129,7 +129,13 @@ func TestCloneNew(t *testing.T) {
 	}
 
 	Convey("it should clone a chain by copying and creating an new UUID", t, func() {
-		hc, err := s.Clone(orig, root, agent, CloneWithNewUUID, InitializeDB)
+		// change the agent identity from the default to confirm that
+		// a separate copy is saved
+		var a *LibP2PAgent
+		a = agent.(*LibP2PAgent)
+		a.identity += "extra"
+
+		hc, err := s.Clone(orig, root, a, CloneWithNewUUID, InitializeDB)
 		So(err, ShouldBeNil)
 		So(hc.Name(), ShouldEqual, name)
 		// clone returns the ungened HC so hash won't have be calculated
@@ -144,11 +150,12 @@ func TestCloneNew(t *testing.T) {
 		So(h.Name(), ShouldEqual, "test2")
 		So(h.nucleus.dna.UUID, ShouldNotEqual, h0.nucleus.dna.UUID)
 
-		agent, err := LoadAgent(s.Path)
+		agent, err := LoadAgent(h.rootPath)
 		So(err, ShouldBeNil)
 		So(h.agent.Identity(), ShouldEqual, agent.Identity())
-		So(ic.KeyEqual(h.agent.PrivKey(), agent.PrivKey()), ShouldBeTrue)
-		So(ic.KeyEqual(h.agent.PubKey(), agent.PubKey()), ShouldBeTrue)
+		So(h.agent.Identity(), ShouldEqual, a.Identity())
+		So(ic.KeyEqual(h.agent.PrivKey(), a.PrivKey()), ShouldBeTrue)
+		So(ic.KeyEqual(h.agent.PubKey(), a.PubKey()), ShouldBeTrue)
 
 		So(compareFile(filepath.Join(orig, "dna", "zySampleZome"), filepath.Join(h.DNAPath(), "zySampleZome"), "zySampleZome.zy"), ShouldBeTrue)
 
@@ -164,7 +171,7 @@ func TestCloneNew(t *testing.T) {
 
 		So(compareFile(filepath.Join(orig, ChainTestDir), filepath.Join(h.rootPath, ChainTestDir), "testSet1.json"), ShouldBeTrue)
 
-		So(h.nucleus.dna.Progenitor.Identity, ShouldEqual, "Herbert <h@bert.com>")
+		So(h.nucleus.dna.Progenitor.Identity, ShouldEqual, a.identity)
 		pk, _ := agent.PubKey().Bytes()
 		So(string(h.nucleus.dna.Progenitor.PubKey), ShouldEqual, string(pk))
 	})
@@ -172,7 +179,7 @@ func TestCloneNew(t *testing.T) {
 
 func TestCloneJoin(t *testing.T) {
 	d, s, h0 := SetupTestChain("test")
-	defer CleanupTestDir(d)
+	defer CleanupTestChain(h0, d)
 
 	name := "test2"
 	root := filepath.Join(s.Path, name)
@@ -221,8 +228,8 @@ func TestCloneJoin(t *testing.T) {
 }
 
 func TestCloneNoDB(t *testing.T) {
-	d, s, _ := SetupTestChain("test")
-	defer CleanupTestDir(d)
+	d, s, h := SetupTestChain("test")
+	defer CleanupTestChain(h, d)
 
 	name := "test2"
 	root := filepath.Join(s.Path, name)
@@ -245,7 +252,7 @@ func TestCloneNoDB(t *testing.T) {
 
 func TestCloneResolveDNA(t *testing.T) {
 	d, s, bridgeToH := SetupTestChain("bridgeToApp")
-	defer CleanupTestDir(d)
+	defer CleanupTestChain(bridgeToH, d)
 
 	DNAHash, err := DNAHashofUngenedChain(bridgeToH)
 	if err != nil {
@@ -253,7 +260,7 @@ func TestCloneResolveDNA(t *testing.T) {
 	}
 
 	devAppPath := filepath.Join(s.Path, "devApp")
-	_, err = s.MakeTestingApp(devAppPath, "json", InitializeDB)
+	_, err = s.MakeTestingApp(devAppPath, "json", InitializeDB, CloneWithNewUUID, nil)
 	if err != nil {
 		panic(err)
 	}
@@ -319,7 +326,7 @@ func TestMakeTestingApp(t *testing.T) {
 	})
 
 	Convey("when generating a dev holochain", t, func() {
-		h, err := s.MakeTestingApp(root, "json", InitializeDB)
+		h, err := s.MakeTestingApp(root, "json", InitializeDB, CloneWithNewUUID, nil)
 		So(err, ShouldBeNil)
 
 		f, err := s.IsConfigured(name)
@@ -351,7 +358,7 @@ func TestMakeTestingApp(t *testing.T) {
 		So(FileExists(h.rootPath, ConfigFileName+".json"), ShouldBeTrue)
 
 		Convey("we should not be able re generate it", func() {
-			_, err = s.MakeTestingApp(root, "json", SkipInitializeDB)
+			_, err = s.MakeTestingApp(root, "json", SkipInitializeDB, CloneWithNewUUID, nil)
 			So(err.Error(), ShouldEqual, "holochain: "+root+" already exists")
 		})
 	})
@@ -366,7 +373,7 @@ func TestSaveFromScaffold(t *testing.T) {
 	Convey("it should write out a scaffold file to a directory tree with JSON encoding", t, func() {
 		scaffoldReader := bytes.NewBuffer([]byte(BasicTemplateScaffold))
 
-		scaffold, err := s.SaveFromScaffold(scaffoldReader, root, "appName", "json", false)
+		scaffold, err := s.SaveFromScaffold(scaffoldReader, root, "appName", nil, "json", false)
 		So(err, ShouldBeNil)
 		So(scaffold, ShouldNotBeNil)
 		So(scaffold.ScaffoldVersion, ShouldEqual, ScaffoldVersion)
@@ -388,6 +395,8 @@ func TestSaveFromScaffold(t *testing.T) {
 		So(FileExists(root, ChainTestDir, "sample.json"), ShouldBeTrue)
 		So(FileExists(root, ChainUIDir, "index.html"), ShouldBeTrue)
 		So(FileExists(root, ChainUIDir, "hc.js"), ShouldBeTrue)
+		So(FileExists(root, AgentFileName), ShouldBeTrue)
+		So(FileExists(root, PrivKeyFileName), ShouldBeTrue)
 	})
 
 	Convey("it should write out a scaffold file to a directory tree with toml encoding", t, func() {
@@ -395,7 +404,7 @@ func TestSaveFromScaffold(t *testing.T) {
 
 		root2 := filepath.Join(s.Path, name+"2")
 
-		scaffold, err := s.SaveFromScaffold(scaffoldReader, root2, "appName", "toml", false)
+		scaffold, err := s.SaveFromScaffold(scaffoldReader, root2, "appName", nil, "toml", false)
 		So(err, ShouldBeNil)
 		So(scaffold, ShouldNotBeNil)
 		So(scaffold.ScaffoldVersion, ShouldEqual, ScaffoldVersion)
@@ -407,7 +416,7 @@ func TestSaveFromScaffold(t *testing.T) {
 	Convey("it should write out a scaffold file to a directory tree with binary UI files", t, func() {
 		scaffoldReader := bytes.NewBuffer([]byte(TestingAppScaffold()))
 
-		_, err := s.SaveFromScaffold(scaffoldReader, root+"3", "appName2", "json", false)
+		_, err := s.SaveFromScaffold(scaffoldReader, root+"3", "appName2", nil, "json", false)
 		root3 := filepath.Join(s.Path, name+"3")
 
 		So(err, ShouldBeNil)
@@ -454,7 +463,7 @@ func TestMakeScaffold(t *testing.T) {
 	defer CleanupTestDir(d)
 	name := "test"
 	root := filepath.Join(s.Path, name)
-	h, err := s.MakeTestingApp(root, "json", InitializeDB)
+	h, err := s.MakeTestingApp(root, "json", InitializeDB, CloneWithNewUUID, nil)
 	if err != nil {
 		panic(err)
 	}
@@ -466,7 +475,7 @@ func TestMakeScaffold(t *testing.T) {
 			panic(err)
 		}
 		root = filepath.Join(s.Path, "appFromScaffold")
-		scaffold, err := s.SaveFromScaffold(scaffoldReader, root, "appFromScaffold", "json", false)
+		scaffold, err := s.SaveFromScaffold(scaffoldReader, root, "appFromScaffold", nil, "json", false)
 		So(err, ShouldBeNil)
 		So(scaffold, ShouldNotBeNil)
 		So(scaffold.ScaffoldVersion, ShouldEqual, ScaffoldVersion)
@@ -496,7 +505,7 @@ func TestMakeScaffold(t *testing.T) {
 
 func TestLoadTestFiles(t *testing.T) {
 	d, _, h := SetupTestChain("test")
-	defer CleanupTestDir(d)
+	defer CleanupTestChain(h, d)
 
 	Convey("it should fail if there's no test data", t, func() {
 		tests, err := LoadTestFiles(d)
@@ -514,7 +523,7 @@ func TestLoadTestFiles(t *testing.T) {
 
 func TestGetScenarioData(t *testing.T) {
 	d, _, h := SetupTestChain("test")
-	defer CleanupTestDir(d)
+	defer CleanupTestChain(h, d)
 	Convey("it should return list of scenarios", t, func() {
 		scenarios, err := GetTestScenarios(h)
 		So(err, ShouldBeNil)

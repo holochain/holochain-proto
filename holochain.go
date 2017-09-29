@@ -16,6 +16,7 @@ import (
 	"github.com/google/uuid"
 	ic "github.com/libp2p/go-libp2p-crypto"
 	peer "github.com/libp2p/go-libp2p-peer"
+	. "github.com/metacurrency/holochain/hash"
 	mh "github.com/multiformats/go-multihash"
 	"github.com/tidwall/buntdb"
 	"io"
@@ -170,6 +171,9 @@ func InitializeHolochain() {
 		gob.Register(Package{})
 		gob.Register(AppMsg{})
 		gob.Register(ListAddReq{})
+		gob.Register(FindNodeReq{})
+		gob.Register(CloserPeersResp{})
+		gob.Register(PeerInfo{})
 
 		RegisterBultinRibosomes()
 
@@ -256,7 +260,13 @@ func (h *Holochain) PrepareHashType() (err error) {
 
 // createNode creates a network node based on the current agent and port data
 func (h *Holochain) createNode() (err error) {
-	listenaddr := fmt.Sprintf("/ip4/0.0.0.0/tcp/%d", h.Config.Port)
+	var ip string
+	if os.Getenv("_HCTEST") == "1" {
+		ip = "127.0.0.1"
+	} else {
+		ip = "0.0.0.0"
+	}
+	listenaddr := fmt.Sprintf("/ip4/%s/tcp/%d", ip, h.Config.Port)
 	h.node, err = NewNode(listenaddr, h.dnaHash.String(), h.Agent().(*LibP2PAgent), h.Config.EnableNATUPnP)
 	return
 }
@@ -560,6 +570,9 @@ func (h *Holochain) GetEntryDef(t string) (zome *Zome, d *EntryDef, err error) {
 	} else if t == AgentEntryType {
 		d = AgentEntryDef
 		return
+	} else if t == KeyEntryType {
+		d = KeyEntryDef
+		return
 	}
 	for _, z := range h.nucleus.dna.Zomes {
 		d, err = z.GetEntryDef(t)
@@ -630,6 +643,12 @@ func (h *Holochain) Close() {
 		h.chain.s.Close()
 	}
 	if h.dht != nil {
+		if h.dht.gossiping != nil {
+			Debug("Stopping gossiping")
+			stop := h.dht.gossiping
+			h.dht.gossiping = nil
+			stop <- true
+		}
 		close(h.dht.puts)
 		close(h.dht.gchan)
 	}
@@ -647,6 +666,10 @@ func (h *Holochain) Reset() (err error) {
 
 	if h.chain.s != nil {
 		h.chain.s.Close()
+	}
+
+	if h.node != nil {
+		h.node.Close()
 	}
 
 	err = os.RemoveAll(h.DBPath())
@@ -699,7 +722,7 @@ func (h *Holochain) SendAsync(proto int, to peer.ID, t MsgType, body interface{}
 	var response interface{}
 
 	go func() {
-		response, err = h.Send(context.Background(), proto, to, t, body, timeout)
+		response, err = h.Send(h.node.ctx, proto, to, t, body, timeout)
 		if err == nil {
 			var r Ribosome
 			r, _, err := h.MakeRibosome(callback.zomeType)
@@ -722,19 +745,27 @@ func (h *Holochain) SendAsync(proto int, to peer.ID, t MsgType, body interface{}
 // HandleAsyncSends waits on a channel for asyncronous sends
 func (h *Holochain) HandleAsyncSends() (err error) {
 	for {
-		h.nucleus.alog.Log("HandleAsyncSends: waiting for aysnc send response")
+		Debug("waiting for aysnc send response")
 		err, ok := <-h.asyncSends
 		if !ok {
-			h.nucleus.alog.Log("HandleAsyncSends: channel closed, breaking")
+			Debug("channel closed, breaking")
 			break
 		}
-		h.nucleus.alog.Logf("HandleAsyncSends: got %v", err)
+		Debugf("got %v", err)
 	}
 	return nil
 }
 
+// StartBackgroundTasks sets the various background processes in motion
+func (h *Holochain) StartBackgroundTasks(gossipInterval time.Duration) {
+	//go h.DHT().HandleChangeReqs()
+	go h.DHT().HandleGossipWiths()
+	go h.HandleAsyncSends()
+	go h.DHT().Gossip(gossipInterval)
+}
+
 // Send builds a message and either delivers it locally or over the network via node.Send
-func (h *Holochain) Send(ctx context.Context, proto int, to peer.ID, t MsgType, body interface{}, timeout time.Duration) (response interface{}, err error) {
+func (h *Holochain) Send(basectx context.Context, proto int, to peer.ID, t MsgType, body interface{}, timeout time.Duration) (response interface{}, err error) {
 	message := h.node.NewMessage(t, body)
 	if err != nil {
 		return
@@ -746,7 +777,7 @@ func (h *Holochain) Send(ctx context.Context, proto int, to peer.ID, t MsgType, 
 	if timeout == 0 {
 		timeout = DefaultSendTimeout
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	ctx, cancel := context.WithTimeout(basectx, timeout)
 	defer cancel()
 	sent := make(chan error, 1)
 	go func() {
@@ -757,10 +788,10 @@ func (h *Holochain) Send(ctx context.Context, proto int, to peer.ID, t MsgType, 
 			response, err = h.node.protocols[proto].Receiver(h, message)
 			Debugf("send result (local): %v (fp:%s)error:%v", response, f, err)
 		} else {
-			Debugf("Sending message (net):%v (fingerprint:%s)", message, f)
+			Debugf("Sending message to %v (net):%v (fingerprint:%s)", to, message, f)
 			var r Message
 			r, err = h.node.Send(ctx, proto, to, message)
-			Debugf("send result (net): %v (fp:%s) error:%v", r, f, err)
+			Debugf("send result to %v (net): %v (fp:%s) error:%v", to, r, f, err)
 
 			if err != nil {
 				sent <- err

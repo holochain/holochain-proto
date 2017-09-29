@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"github.com/google/uuid"
 	peer "github.com/libp2p/go-libp2p-peer"
+	. "github.com/metacurrency/holochain/hash"
 	. "github.com/smartystreets/goconvey/convey"
 	"os"
 	"path/filepath"
@@ -14,12 +15,13 @@ import (
 )
 
 func TestMain(m *testing.M) {
+	os.Setenv("_HCTEST", "1")
 	InitializeHolochain()
 	os.Exit(m.Run())
 }
 
 func TestNewHolochain(t *testing.T) {
-	a, _ := NewAgent(LibP2P, "Joe")
+	a, _ := NewAgent(LibP2P, "Joe", makeTestSeed(""))
 
 	Convey("New should fill Holochain struct with provided values and new UUID", t, func() {
 
@@ -64,7 +66,7 @@ func TestNewHolochain(t *testing.T) {
 
 func TestSetupLogging(t *testing.T) {
 	d, _, h := SetupTestChain("test")
-	defer CleanupTestDir(d)
+	defer CleanupTestChain(h, d)
 	Convey("it should initialize the loggers", t, func() {
 		err := h.SetupLogging()
 		So(err, ShouldBeNil)
@@ -102,8 +104,8 @@ func TestSetupLogging(t *testing.T) {
 }
 
 func TestDebuggingSetup(t *testing.T) {
-	d, _, _ := SetupTestChain("test")
-	defer CleanupTestDir(d)
+	d, _, h := SetupTestChain("test")
+	defer CleanupTestChain(h, d)
 
 	Convey("it should look in the environment to know if we should turn on debugging", t, func() {
 		val, yes := DebuggingRequestedViaEnv()
@@ -141,7 +143,7 @@ func TestDebuggingSetup(t *testing.T) {
 		debugLog.Enabled = true
 
 		Debug("test")
-		So(string(buf.Bytes()), ShouldEqual, "HC: holochain_test.go.143: test\n")
+		So(string(buf.Bytes()), ShouldEqual, "HC: holochain_test.go.145: test\n")
 		// restore state of debug log
 		debugLog.w = os.Stdout
 		debugLog.Enabled = enabled
@@ -160,7 +162,8 @@ func TestPrepare(t *testing.T) {
 	})
 	Convey("it should return no err if the requires version is correct", t, func() {
 		d, _, h := SetupTestChain("test")
-		defer CleanupTestDir(d)
+		defer CleanupTestChain(h, d)
+
 		dna := DNA{DHTConfig: DHTConfig{HashType: "sha1"}, RequiresVersion: Version}
 		h.nucleus = NewNucleus(h, &dna)
 		err := h.Prepare()
@@ -203,7 +206,7 @@ func TestNewEntry(t *testing.T) {
 	defer CleanupTestDir(d)
 	n := "test"
 	path := filepath.Join(s.Path, n)
-	h, err := s.MakeTestingApp(path, "toml", InitializeDB)
+	h, err := s.MakeTestingApp(path, "toml", InitializeDB, CloneWithNewUUID, nil)
 	if err != nil {
 		panic(err)
 	}
@@ -309,7 +312,7 @@ func TestHeader(t *testing.T) {
 
 func TestAddAgentEntry(t *testing.T) {
 	d, _, h := SetupTestChain("test")
-	defer CleanupTestDir(d)
+	defer CleanupTestChain(h, d)
 
 	Convey("it should add an agent entry to the chain", t, func() {
 		headerHash, agentHash, err := h.AddAgentEntry(&FakeRevocation{data: "some revocation data"})
@@ -326,14 +329,14 @@ func TestAddAgentEntry(t *testing.T) {
 		var a = entry.Content().(AgentEntry)
 		So(a.Identity, ShouldEqual, h.agent.Identity())
 		pk, _ := h.agent.PubKey().Bytes()
-		So(string(a.Key), ShouldEqual, string(pk))
+		So(string(a.PublicKey), ShouldEqual, string(pk))
 		So(string(a.Revocation), ShouldEqual, "some revocation data")
 	})
 }
 
 func TestGenChain(t *testing.T) {
 	d, _, h := SetupTestChain("test")
-	defer CleanupTestDir(d)
+	defer CleanupTestChain(h, d)
 	var err error
 
 	Convey("before GenChain call DNAHash call should fail", t, func() {
@@ -357,7 +360,7 @@ func TestGenChain(t *testing.T) {
 		var a = entry.Content().(AgentEntry)
 		So(a.Identity, ShouldEqual, h.agent.Identity())
 		pk, _ := h.agent.PubKey().Bytes()
-		So(string(a.Key), ShouldEqual, string(pk))
+		So(string(a.PublicKey), ShouldEqual, string(pk))
 		So(string(a.Revocation), ShouldEqual, "")
 	})
 
@@ -388,7 +391,7 @@ func TestGenChain(t *testing.T) {
 
 func TestWalk(t *testing.T) {
 	d, _, h := PrepareTestChain("test")
-	defer CleanupTestDir(d)
+	defer CleanupTestChain(h, d)
 
 	// add an extra link onto the chain
 	entryTypeFoo := `(message (from "art") (to "eric") (contents "test"))`
@@ -419,7 +422,8 @@ func TestWalk(t *testing.T) {
 
 func TestGetZome(t *testing.T) {
 	d, _, h := SetupTestChain("test")
-	defer CleanupTestDir(d)
+	defer CleanupTestChain(h, d)
+
 	Convey("it should fail if the zome isn't defined in the DNA", t, func() {
 		_, err := h.GetZome("bogusZome")
 		So(err.Error(), ShouldEqual, "unknown zome: bogusZome")
@@ -433,7 +437,8 @@ func TestGetZome(t *testing.T) {
 
 func TestMakeRibosome(t *testing.T) {
 	d, _, h := SetupTestChain("test")
-	defer CleanupTestDir(d)
+	defer CleanupTestChain(h, d)
+
 	Convey("it should fail if the zome isn't defined in the DNA", t, func() {
 		_, _, err := h.MakeRibosome("bogusZome")
 		So(err.Error(), ShouldEqual, "unknown zome: bogusZome")
@@ -450,7 +455,8 @@ func TestMakeRibosome(t *testing.T) {
 
 func TestCall(t *testing.T) {
 	d, _, h := PrepareTestChain("test")
-	defer CleanupTestDir(d)
+	defer CleanupTestChain(h, d)
+
 	Convey("it should call the exposed function", t, func() {
 		result, err := h.Call("zySampleZome", "testStrFn1", "arg1 arg2", ZOME_EXPOSURE)
 		So(err, ShouldBeNil)
@@ -473,7 +479,7 @@ func TestCall(t *testing.T) {
 
 func TestCommit(t *testing.T) {
 	d, _, h := PrepareTestChain("test")
-	defer CleanupTestDir(d)
+	defer CleanupTestChain(h, d)
 
 	// add an entry onto the chain
 	hash := commit(h, "oddNumbers", "7")
@@ -503,7 +509,8 @@ func TestCommit(t *testing.T) {
 
 func TestQuery(t *testing.T) {
 	d, _, h := PrepareTestChain("test")
-	defer CleanupTestDir(d)
+	defer CleanupTestChain(h, d)
+
 	commit(h, "profile", `{"firstName":"Pebbles","lastName":"Flintstone"}`)
 	hash1 := commit(h, "oddNumbers", "7")
 	commit(h, "secret", "foo")
@@ -674,6 +681,36 @@ func TestQuery(t *testing.T) {
 		So(len(results), ShouldEqual, 2)
 		So(results[0].Entry.Content(), ShouldEqual, `{"firstName":"Pebbles","lastName":"Flintstone"}`)
 		So(results[1].Entry.Content(), ShouldEqual, `{"firstName":"Zerbina","lastName":"Pinhead"}`)
+	})
+}
+
+func TestGetEntryDef(t *testing.T) {
+	d, _, h := SetupTestChain("test")
+	defer CleanupTestDir(d)
+	Convey("it should fail on bad entry types", t, func() {
+		_, _, err := h.GetEntryDef("foobar")
+		So(err, ShouldBeError)
+		So(err.Error(), ShouldEqual, "no definition for entry type: foobar")
+	})
+	Convey("it should get entry definitions", t, func() {
+		zome, def, err := h.GetEntryDef("evenNumbers")
+		So(err, ShouldBeNil)
+		So(zome.Name, ShouldEqual, "zySampleZome")
+		So(fmt.Sprintf("%v", def), ShouldEqual, "&{evenNumbers zygo public  <nil>}")
+	})
+	Convey("it should get sys entry definitions", t, func() {
+		zome, def, err := h.GetEntryDef(DNAEntryType)
+		So(err, ShouldBeNil)
+		So(zome, ShouldBeNil)
+		So(def, ShouldEqual, DNAEntryDef)
+		zome, def, err = h.GetEntryDef(AgentEntryType)
+		So(err, ShouldBeNil)
+		So(zome, ShouldBeNil)
+		So(def, ShouldEqual, AgentEntryDef)
+		zome, def, err = h.GetEntryDef(KeyEntryType)
+		So(err, ShouldBeNil)
+		So(zome, ShouldBeNil)
+		So(def, ShouldEqual, KeyEntryDef)
 	})
 }
 

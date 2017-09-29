@@ -594,7 +594,7 @@ func TestZygoDHT(t *testing.T) {
 
 		r, err := sh.HashGet(z.env, z.env.MakeSymbol("result"))
 		So(err, ShouldBeNil)
-		So(r.(*zygo.SexpStr).S, ShouldEqual, `[{"H":"QmYeinX5vhuA91D3v24YbgyLofw9QAxY6PoATrBHnRwbtt","E":""}]`)
+		So(r.(*zygo.SexpStr).S, ShouldEqual, fmt.Sprintf(`[{"H":"QmYeinX5vhuA91D3v24YbgyLofw9QAxY6PoATrBHnRwbtt","E":"","Source":"%s"}]`, h.nodeIDStr))
 	})
 	Convey("getLink function with load option should return the Links and entries", t, func() {
 		v, err := NewZygoRibosome(h, &Zome{RibosomeType: ZygoRibosomeType, Code: fmt.Sprintf(`(getLink "%s" "4stars" (hash Load:true))`, hash.String())})
@@ -604,7 +604,7 @@ func TestZygoDHT(t *testing.T) {
 
 		r, err := sh.HashGet(z.env, z.env.MakeSymbol("result"))
 		So(err, ShouldBeNil)
-		So(r.(*zygo.SexpStr).S, ShouldEqual, `[{"H":"QmYeinX5vhuA91D3v24YbgyLofw9QAxY6PoATrBHnRwbtt","E":"{\"firstName\":\"Zippy\",\"lastName\":\"Pinhead\"}"}]`)
+		So(r.(*zygo.SexpStr).S, ShouldEqual, fmt.Sprintf(`[{"H":"QmYeinX5vhuA91D3v24YbgyLofw9QAxY6PoATrBHnRwbtt","E":"{\"firstName\":\"Zippy\",\"lastName\":\"Pinhead\"}","Source":"%s"}]`, h.nodeIDStr))
 	})
 
 	Convey("commit with del link should delete link", t, func() {
@@ -622,7 +622,7 @@ func TestZygoDHT(t *testing.T) {
 		links, _ := h.dht.getLink(hash, "4stars", StatusLive)
 		So(fmt.Sprintf("%v", links), ShouldEqual, "[]")
 		links, _ = h.dht.getLink(hash, "4stars", StatusDeleted)
-		So(fmt.Sprintf("%v", links), ShouldEqual, "[{QmYeinX5vhuA91D3v24YbgyLofw9QAxY6PoATrBHnRwbtt }]")
+		So(fmt.Sprintf("%v", links), ShouldEqual, fmt.Sprintf("[{QmYeinX5vhuA91D3v24YbgyLofw9QAxY6PoATrBHnRwbtt  %s}]", h.nodeIDStr))
 	})
 
 	Convey("getLink function with StatusMask option should return deleted Links", t, func() {
@@ -633,7 +633,7 @@ func TestZygoDHT(t *testing.T) {
 		sh := z.lastResult.(*zygo.SexpHash)
 		r, err := sh.HashGet(z.env, z.env.MakeSymbol("result"))
 		So(err, ShouldBeNil)
-		So(r.(*zygo.SexpStr).S, ShouldEqual, `[{"H":"QmYeinX5vhuA91D3v24YbgyLofw9QAxY6PoATrBHnRwbtt","E":""}]`)
+		So(r.(*zygo.SexpStr).S, ShouldEqual, fmt.Sprintf(`[{"H":"QmYeinX5vhuA91D3v24YbgyLofw9QAxY6PoATrBHnRwbtt","E":"","Source":"%s"}]`, h.nodeIDStr))
 	})
 
 	Convey("update function should commit a new entry and on DHT mark item modified", t, func() {

@@ -8,6 +8,7 @@ package holochain
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	ic "github.com/libp2p/go-libp2p-crypto"
@@ -180,8 +181,9 @@ type GetLinkOptions struct {
 
 // TaggedHash holds associated entries for the LinkQueryResponse
 type TaggedHash struct {
-	H string // the hash of the link; gets filled by dht base node when answering get link request
-	E string // the value of link, get's filled by caller if getLink function set Load to true
+	H      string // the hash of the link; gets filled by dht base node when answering get link request
+	E      string // the value of link, get's filled by caller if getLink function set Load to true
+	Source string
 }
 
 // LinkQueryResp holds response to getLink query
@@ -194,6 +196,14 @@ type ListAddReq struct {
 	Peers       []string
 	WarrantType int
 	Warrant     []byte
+}
+
+// Structure that represents the value stored in buntDB associated with a
+// link key
+// (The Link struct defined in entry.go is encoded in the key used for buntDB)
+type LinkEntry struct {
+	Status int
+	Source string
 }
 
 var ErrLinkNotFound = errors.New("link not found")
@@ -366,7 +376,7 @@ func (dht *DHT) mod(m *Message, key Hash, newkey Hash) (err error) {
 		err = _setStatus(tx, m, k, StatusModified)
 		if err == nil {
 			link := newkey.String()
-			err = _putLink(tx, k, link, SysTagReplacedBy)
+			err = _putLink(tx, k, link, SysTagReplacedBy, m.From)
 			if err == nil {
 				_, _, err = tx.Set("replacedBy:"+k, link, nil)
 				if err != nil {
@@ -493,19 +503,22 @@ func (dht *DHT) get(key Hash, statusMask int, getMask int) (data []byte, entryTy
 }
 
 // _putLink is a low level routine to add a link, also used by mod
-func _putLink(tx *buntdb.Tx, base string, link string, tag string) (err error) {
+func _putLink(tx *buntdb.Tx, base string, link string, tag string, src peer.ID) (err error) {
 	key := "link:" + base + ":" + link + ":" + tag
 	var val string
 	val, err = tx.Get(key)
 	if err == buntdb.ErrNotFound {
-		_, _, err = tx.Set(key, StatusLiveVal, nil)
+		entryString, _ := json.Marshal(LinkEntry{StatusLive, peer.IDB58Encode(src)})
+		_, _, err = tx.Set(key, string(entryString), nil)
 		if err != nil {
 			return
 		}
 	} else {
 		// if the status is already live then just exit silently
 		// if the status isn't live then return an error.
-		if val != StatusLiveVal {
+		entry := LinkEntry{}
+		json.Unmarshal([]byte(val), &entry)
+		if entry.Status != StatusLive {
 			err = ErrPutLinkOverDeleted
 			return
 		}
@@ -524,7 +537,7 @@ func (dht *DHT) putLink(m *Message, base string, link string, tag string) (err e
 			return err
 		}
 
-		err = _putLink(tx, base, link, tag)
+		err = _putLink(tx, base, link, tag, m.From)
 		if err != nil {
 			return err
 		}
@@ -551,6 +564,8 @@ func (dht *DHT) delLink(m *Message, base string, link string, tag string) (err e
 
 		key := "link:" + base + ":" + link + ":" + tag
 		val, err := tx.Get(key)
+		entry := LinkEntry{}
+		json.Unmarshal([]byte(val), &entry)
 		if err == buntdb.ErrNotFound {
 			return ErrLinkNotFound
 		}
@@ -558,13 +573,16 @@ func (dht *DHT) delLink(m *Message, base string, link string, tag string) (err e
 			return err
 		}
 
-		if val == StatusLiveVal {
+		if entry.Status == StatusLive {
 			//var index string
 			_, err = incIdx(tx, m)
 			if err != nil {
 				return err
 			}
-			_, _, err = tx.Set(key, StatusDeletedVal, nil)
+			entry.Status = StatusDeleted
+			entryByte, _ := json.Marshal(entry)
+			val = string(entryByte)
+			_, _, err = tx.Set(key, val, nil)
 			if err != nil {
 				return err
 			}
@@ -607,10 +625,10 @@ func (dht *DHT) getLink(base Hash, tag string, statusMask int) (results []Tagged
 			x := strings.Split(key, ":")
 
 			if string(x[1]) == b && string(x[3]) == tag {
-				var status int
-				status, err = strconv.Atoi(value)
-				if err == nil && (status&statusMask) > 0 {
-					results = append(results, TaggedHash{H: string(x[2])})
+				entry := LinkEntry{}
+				json.Unmarshal([]byte(value), &entry)
+				if err == nil && (entry.Status&statusMask) > 0 {
+					results = append(results, TaggedHash{H: string(x[2]), Source: entry.Source})
 				}
 			}
 

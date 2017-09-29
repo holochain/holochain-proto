@@ -699,6 +699,7 @@ func TestJSDHT(t *testing.T) {
 		So(err, ShouldBeNil)
 		So(fmt.Sprintf("%v", lqr.Links[0].H), ShouldEqual, profileHash.String())
 		So(fmt.Sprintf("%v", lqr.Links[0].E), ShouldEqual, `{"firstName":"Zippy","lastName":"Pinhead"}`)
+		So(fmt.Sprintf("%v", lqr.Links[0].Source), ShouldEqual, h.nodeIDStr)
 	})
 
 	Convey("commit with del link should delete link", t, func() {
@@ -714,7 +715,7 @@ func TestJSDHT(t *testing.T) {
 		links, _ := h.dht.getLink(hash, "4stars", StatusLive)
 		So(fmt.Sprintf("%v", links), ShouldEqual, "[]")
 		links, _ = h.dht.getLink(hash, "4stars", StatusDeleted)
-		So(fmt.Sprintf("%v", links), ShouldEqual, "[{QmYeinX5vhuA91D3v24YbgyLofw9QAxY6PoATrBHnRwbtt }]")
+		So(fmt.Sprintf("%v", links), ShouldEqual, fmt.Sprintf("[{QmYeinX5vhuA91D3v24YbgyLofw9QAxY6PoATrBHnRwbtt  %s}]", h.nodeIDStr))
 	})
 
 	Convey("getLink function with StatusMask option should return deleted Links", t, func() {

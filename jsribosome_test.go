@@ -331,11 +331,12 @@ func TestJSQuery(t *testing.T) {
 
 	Convey("query", t, func() {
 		// add entries onto the chain to get hash values for testing
-		commit(h, "oddNumbers", "3")
+		hash := commit(h, "oddNumbers", "3")
 		commit(h, "secret", "foo")
 		commit(h, "oddNumbers", "7")
 		commit(h, "secret", "bar")
-		commit(h, "profile", `{"firstName":"Zippy","lastName":"Pinhead"}`)
+		profileHash := commit(h, "profile", `{"firstName":"Zippy","lastName":"Pinhead"}`)
+		commit(h, "rating", fmt.Sprintf(`{"Links":[{"Base":"%s","Link":"%s","Tag":"4stars"}]}`, hash.String(), profileHash.String()))
 
 		ShouldLog(h.nucleus.alog, `[3,7]`, func() {
 			_, err := z.Run(`debug(query({Constrain:{EntryTypes:["oddNumbers"]}}))`)
@@ -359,6 +360,18 @@ func TestJSQuery(t *testing.T) {
 		})
 		ShouldLog(h.nucleus.alog, `[{"firstName":"Zippy","lastName":"Pinhead"}]`, func() {
 			_, err := z.Run(`debug(query({Constrain:{EntryTypes:["profile"]}}))`)
+			So(err, ShouldBeNil)
+		})
+		ShouldLog(h.nucleus.alog, `[{"Identity":"Herbert \u003ch@bert.com\u003e","PublicKey":"CAESIHLUfxjdoEfk8byjsBR+FXxYpYrFTviSBf2BbC0boylT","Revocation":null}]`, func() {
+			_, err := z.Run(`debug(query({Constrain:{EntryTypes:["%agent"]}}))`)
+			So(err, ShouldBeNil)
+		})
+		ShouldLog(h.nucleus.alog, `{"message":"data format not implemented: _DNA","name":"HolochainError"}`, func() {
+			_, err := z.Run(`debug(query({Constrain:{EntryTypes:["%dna"]}}))`)
+			So(err, ShouldBeNil)
+		})
+		ShouldLog(h.nucleus.alog, `[{"Links":[{"Base":"QmSwMfay3iCynzBFeq9rPzTMTnnuQSMUSe84whjcC9JPAo","Link":"QmYeinX5vhuA91D3v24YbgyLofw9QAxY6PoATrBHnRwbtt","Tag":"4stars"}]}]`, func() {
+			_, err := z.Run(`debug(query({Constrain:{EntryTypes:["rating"]}}))`)
 			So(err, ShouldBeNil)
 		})
 	})
@@ -632,13 +645,24 @@ func TestJSDHT(t *testing.T) {
 		panic(err)
 	}
 
-	Convey("get should return entry's", t, func() {
+	Convey("get should return entry", t, func() {
 		v, err := NewJSRibosome(h, &Zome{RibosomeType: JSRibosomeType, Code: fmt.Sprintf(`get("%s");`, hash.String())})
 		So(err, ShouldBeNil)
 		z := v.(*JSRibosome)
 		x, err := z.lastResult.Export()
 		So(err, ShouldBeNil)
 		So(fmt.Sprintf("%v", x), ShouldEqual, `7`)
+	})
+
+	Convey("get should return entry of sys types", t, func() {
+		ShouldLog(h.nucleus.alog, `{"Identity":"Herbert \u003ch@bert.com\u003e","PublicKey":[8,1,18,32,114,212,127,24,221,160,71,228,241,188,163,176,20,126,21,124,88,165,138,197,78,248,146,5,253,129,108,45,27,163,41,83],"Revocation":[]}`, func() {
+			_, err := NewJSRibosome(h, &Zome{RibosomeType: JSRibosomeType, Code: fmt.Sprintf(`debug(get("%s"));`, h.agentHash.String())})
+			So(err, ShouldBeNil)
+		})
+		ShouldLog(h.nucleus.alog, `[8,1,18,32,114,212,127,24,221,160,71,228,241,188,163,176,20,126,21,124,88,165,138,197,78,248,146,5,253,129,108,45,27,163,41,83]`, func() {
+			_, err := NewJSRibosome(h, &Zome{RibosomeType: JSRibosomeType, Code: fmt.Sprintf(`debug(get("%s"));`, h.nodeID.Pretty())})
+			So(err, ShouldBeNil)
+		})
 	})
 
 	Convey("get should return entry type", t, func() {
@@ -805,7 +829,7 @@ func TestJSDHT(t *testing.T) {
 		So(fmt.Sprintf("%v", newPubKey), ShouldEqual, fmt.Sprintf("%v", oldPubKey))
 		entry, _, _ := h.chain.GetEntry(header.EntryLink)
 		So(entry.Content().(AgentEntry).Identity, ShouldEqual, "new identity")
-		So(fmt.Sprintf("%v", entry.Content().(AgentEntry).Key), ShouldEqual, fmt.Sprintf("%v", oldPubKey))
+		So(fmt.Sprintf("%v", entry.Content().(AgentEntry).PublicKey), ShouldEqual, fmt.Sprintf("%v", oldPubKey))
 	})
 
 	Convey("updateAgent function with revoke option should commit a new agent entry and mark key as modified on DHT", t, func() {
@@ -835,7 +859,7 @@ func TestJSDHT(t *testing.T) {
 		payload, _ := w.Property("payload")
 
 		So(string(payload.([]byte)), ShouldEqual, "some revocation data")
-		So(fmt.Sprintf("%v", entry.Content().(AgentEntry).Key), ShouldEqual, fmt.Sprintf("%v", newPubKey))
+		So(fmt.Sprintf("%v", entry.Content().(AgentEntry).PublicKey), ShouldEqual, fmt.Sprintf("%v", newPubKey))
 
 		// the new Key should be available on the DHT
 		newKey, _ := NewHash(h.nodeIDStr)

@@ -31,6 +31,7 @@ const (
 	DataFormatRawZygo  = "zygo"
 	DataFormatSysDNA   = "_DNA"
 	DataFormatSysAgent = "_agent"
+	DataFormatSysKey   = "_key"
 
 	// Entry sharing types
 
@@ -42,7 +43,7 @@ const (
 type AgentEntry struct {
 	Identity   AgentIdentity
 	Revocation []byte // marshaled revocation
-	Key        []byte // marshaled public key
+	PublicKey  []byte // marshaled public key
 }
 
 // LinksEntry holds one or more links
@@ -75,6 +76,7 @@ type EntryDef struct {
 
 var DNAEntryDef = &EntryDef{Name: DNAEntryType, DataFormat: DataFormatSysDNA}
 var AgentEntryDef = &EntryDef{Name: AgentEntryType, DataFormat: DataFormatSysAgent}
+var KeyEntryDef = &EntryDef{Name: KeyEntryType, DataFormat: DataFormatSysKey}
 
 // Entry describes serialization and deserialziation of entry data
 type Entry interface {

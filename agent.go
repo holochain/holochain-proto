@@ -96,7 +96,7 @@ func (a *LibP2PAgent) AgentEntry(revocation Revocation) (entry AgentEntry, err e
 			return
 		}
 	}
-	entry.Key, err = ic.MarshalPublicKey(a.PubKey())
+	entry.PublicKey, err = ic.MarshalPublicKey(a.PubKey())
 	if err != nil {
 		return
 	}

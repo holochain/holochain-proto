@@ -1140,7 +1140,6 @@ func NewJSRibosome(h *Holochain, zome *Zome) (n Ribosome, err error) {
 		var response interface{}
 
 		response, err = NewGetLinkAction(&LinkQuery{Base: base, T: tag, StatusMask: options.StatusMask}, &options).Do(h)
-		Debugf("RESPONSE:%v\n", response)
 
 		if err == nil {
 			result, err = jsr.vm.ToValue(response)

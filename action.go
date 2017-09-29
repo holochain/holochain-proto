@@ -623,7 +623,7 @@ func (a *ActionGet) Do(h *Holochain) (response interface{}, err error) {
 		response = resp
 		return
 	}
-	rsp, err := h.dht.Send(a.req.H, GET_REQUEST, a.req)
+	rsp, err := h.dht.Query(a.req.H, GET_REQUEST, a.req)
 	if err != nil {
 
 		// follow the modified hash
@@ -790,14 +790,18 @@ func (a *ActionCommit) Do(h *Holochain) (response interface{}, err error) {
 			_, exists := bases[l.Base]
 			if !exists {
 				b, _ := NewHash(l.Base)
-				h.dht.Send(b, LINK_REQUEST, LinkReq{Base: b, Links: entryHash})
+				h.dht.Change(b, LINK_REQUEST, LinkReq{Base: b, Links: entryHash})
 				//TODO errors from the send??
 				bases[l.Base] = true
 			}
 		}
 	} else if d.Sharing == Public {
 		// otherwise we check to see if it's a public entry and if so send the DHT put message
-		_, err = h.dht.Send(entryHash, PUT_REQUEST, PutReq{H: entryHash})
+		err = h.dht.Change(entryHash, PUT_REQUEST, PutReq{H: entryHash})
+		if err == ErrEmptyRoutingTable {
+			// will still have committed locally and can gossip later
+			err = nil
+		}
 	}
 	response = entryHash
 	return
@@ -1010,8 +1014,8 @@ func (a *ActionMod) Do(h *Holochain) (response interface{}, err error) {
 	if d.Sharing == Public {
 		// if it's a public entry send the DHT MOD & PUT messages
 		// TODO handle errors better!!
-		_, err = h.dht.Send(entryHash, PUT_REQUEST, PutReq{H: entryHash})
-		_, err = h.dht.Send(a.replaces, MOD_REQUEST, ModReq{H: a.replaces, N: entryHash})
+		h.dht.Change(entryHash, PUT_REQUEST, PutReq{H: entryHash})
+		h.dht.Change(a.replaces, MOD_REQUEST, ModReq{H: a.replaces, N: entryHash})
 	}
 	response = entryHash
 	return
@@ -1152,7 +1156,7 @@ func (a *ActionModAgent) Do(h *Holochain) (response interface{}, err error) {
 			h.node.Close()
 			h.createNode()
 
-			_, err = h.dht.Send(oldKey, MOD_REQUEST, ModReq{H: oldKey, N: newKey})
+			h.dht.Change(oldKey, MOD_REQUEST, ModReq{H: oldKey, N: newKey})
 
 			warrant, _ := NewSelfRevocationWarrant(revocation)
 			var data []byte
@@ -1162,7 +1166,7 @@ func (a *ActionModAgent) Do(h *Holochain) (response interface{}, err error) {
 			}
 
 			// TODO, this isn't really a DHT send, but a management send, so the key is bogus.  have to work this out...
-			_, err = h.dht.Send(oldKey, LISTADD_REQUEST,
+			h.dht.Change(oldKey, LISTADD_REQUEST,
 				ListAddReq{
 					ListType:    BlockedList,
 					Peers:       []string{peer.IDB58Encode(oldPeer)},
@@ -1222,7 +1226,7 @@ func (a *ActionDel) Do(h *Holochain) (response interface{}, err error) {
 
 	if d.Sharing == Public {
 		// if it's a public entry send the DHT DEL
-		_, err = h.dht.Send(a.entry.Hash, DEL_REQUEST, DelReq{H: a.entry.Hash, By: entryHash})
+		h.dht.Change(a.entry.Hash, DEL_REQUEST, DelReq{H: a.entry.Hash, By: entryHash})
 	}
 	response = entryHash
 
@@ -1404,7 +1408,7 @@ func (a *ActionGetLink) Args() []Arg {
 
 func (a *ActionGetLink) Do(h *Holochain) (response interface{}, err error) {
 	var r interface{}
-	r, err = h.dht.Send(a.linkQuery.Base, GETLINK_REQUEST, *a.linkQuery)
+	r, err = h.dht.Query(a.linkQuery.Base, GETLINK_REQUEST, *a.linkQuery)
 
 	if err == nil {
 		switch t := r.(type) {

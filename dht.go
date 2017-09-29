@@ -642,9 +642,13 @@ func (dht *DHT) getLink(base Hash, tag string, statusMask int) (results []Tagged
 func (dht *DHT) Change(key Hash, msgType MsgType, body interface{}) (err error) {
 	Debugf("Starting %v Change for %v with body %v", msgType, key, body)
 
-	// change locally first
-	// TODO
+	// change in our local DHT as well as
+	_, err = dht.send(nil, dht.h.nodeID, msgType, body)
 
+	if err != nil {
+		dht.dlog.Logf("DHT %s failed to self with error: %s", msgType, err)
+		err = nil
+	}
 	node := dht.h.node
 
 	pchan, err := node.GetClosestPeers(node.ctx, key)
@@ -660,7 +664,7 @@ func (dht *DHT) Change(key Hash, msgType MsgType, body interface{}) (err error) 
 			defer cancel()
 			defer wg.Done()
 
-			_, err := dht.h.Send(ctx, ActionProtocol, p, msgType, body, 0)
+			_, err := dht.send(ctx, p, msgType, body)
 			if err != nil {
 				dht.dlog.Logf("DHT %s failed to peer %v with error: %s", msgType, p, err)
 			}
@@ -675,19 +679,34 @@ func (dht *DHT) Query(key Hash, msgType MsgType, body interface{}) (response int
 	Debugf("Starting %v Query for %v with body %v", msgType, key, body)
 
 	// try locally first
-	// TODO
+	response, err = dht.send(nil, dht.h.nodeID, msgType, body)
+	if err == nil {
+		// if we actually got a response (not a closer peers list) then return it
+		_, notok := response.(CloserPeersResp)
+		if !notok {
+			return
+		}
+	} else {
+		if err != ErrHashNotFound {
+			return
+		}
+		err = nil
+	}
 
 	// get closest peers in the routing table
 	rtp := dht.h.node.routingTable.NearestPeers(key, AlphaValue)
 	Debugf("peers in rt: %d %s", len(rtp), rtp)
 	if len(rtp) == 0 {
-		Info("No peers from routing table!")
+		Info("DHT Query with no peers in routing table!")
 		return nil, ErrHashNotFound
 	}
 
 	// setup the Query
 	query := dht.h.node.newQuery(key, func(ctx context.Context, to peer.ID) (*dhtQueryResult, error) {
-		response, err := dht.h.Send(ctx, ActionProtocol, to, msgType, body, 0)
+		if ctx == nil {
+			Debug("fish")
+		}
+		response, err := dht.send(ctx, to, msgType, body)
 		if err != nil {
 			Debugf("Query failed: %v", err)
 			return nil, err
@@ -716,32 +735,12 @@ func (dht *DHT) Query(key Hash, msgType MsgType, body interface{}) (response int
 	return
 }
 
-func (dht *DHT) Send(key Hash, msgType MsgType, body interface{}) (response interface{}, err error) {
-	n, err := dht.FindNodeForHash(key)
-	if err != nil {
-		return
-	}
-	response, err = dht.send(n.HashAddr, msgType, body)
-	return
-}
-
 // Send sends a message to the node
-func (dht *DHT) send(to peer.ID, t MsgType, body interface{}) (response interface{}, err error) {
-	return dht.h.Send(dht.h.node.ctx, ActionProtocol, to, t, body, 0)
-}
-
-// FindNodeForHash gets the nearest node to the neighborhood of the hash
-func (dht *DHT) FindNodeForHash(key Hash) (n *Node, err error) {
-
-	// for now, the node it returns it self!
-	pid := dht.h.nodeID
-
-	var node Node
-	node.HashAddr = pid
-
-	n = &node
-
-	return
+func (dht *DHT) send(ctx context.Context, to peer.ID, t MsgType, body interface{}) (response interface{}, err error) {
+	if ctx == nil {
+		ctx = dht.h.node.ctx
+	}
+	return dht.h.Send(ctx, ActionProtocol, to, t, body, 0)
 }
 
 // HandleChangeReqs waits on a chanel for messages to handle

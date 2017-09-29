@@ -263,24 +263,6 @@ func TestLinking(t *testing.T) {
 
 }
 
-func TestFindNodeForHash(t *testing.T) {
-	d, _, h := PrepareTestChain("test")
-	defer CleanupTestChain(h, d)
-
-	Convey("It should find a node", t, func() {
-
-		// for now the node it finds is ourself for any hash because we haven't implemented
-		// anything about neighborhoods or other nodes...
-		hash, err := NewHash("QmY8Mzg9F69e5P9AoQPYat655HEhc1TVGs11tmfNSzkqh2")
-		if err != nil {
-			panic(err)
-		}
-		node, err := h.dht.FindNodeForHash(hash)
-		So(err, ShouldBeNil)
-		So(node.HashAddr.Pretty(), ShouldEqual, h.nodeID.Pretty())
-	})
-}
-
 func TestDHTSend(t *testing.T) {
 	d, _, h := PrepareTestChain("test")
 	defer CleanupTestChain(h, d)
@@ -288,7 +270,7 @@ func TestDHTSend(t *testing.T) {
 	hash, _ := NewHash("QmY8Mzg9F69e5P9AoQPYat655HEhc1TVGs11tmfNSzkqh2")
 
 	Convey("send GET_REQUEST message for non existent hash should get error", t, func() {
-		_, err := h.dht.send(h.node.HashAddr, GET_REQUEST, GetReq{H: hash, StatusMask: StatusLive})
+		_, err := h.dht.send(nil, h.node.HashAddr, GET_REQUEST, GetReq{H: hash, StatusMask: StatusLive})
 		So(err, ShouldEqual, ErrHashNotFound)
 	})
 
@@ -302,7 +284,7 @@ func TestDHTSend(t *testing.T) {
 	// publish the entry data to the dht
 	hash = hd.EntryLink
 	Convey("after a handled PUT_REQUEST data should be stored in DHT", t, func() {
-		r, err := h.dht.send(h.node.HashAddr, PUT_REQUEST, PutReq{H: hash})
+		r, err := h.dht.send(nil, h.node.HashAddr, PUT_REQUEST, PutReq{H: hash})
 		So(err, ShouldBeNil)
 		So(r, ShouldEqual, "queued")
 		h.dht.simHandleChangeReqs()
@@ -311,7 +293,7 @@ func TestDHTSend(t *testing.T) {
 	})
 
 	Convey("send GET_REQUEST message should return content", t, func() {
-		r, err := h.dht.send(h.node.HashAddr, GET_REQUEST, GetReq{H: hash, StatusMask: StatusLive})
+		r, err := h.dht.send(nil, h.node.HashAddr, GET_REQUEST, GetReq{H: hash, StatusMask: StatusLive})
 		So(err, ShouldBeNil)
 		resp := r.(GetResp)
 		So(fmt.Sprintf("%v", resp.Entry), ShouldEqual, fmt.Sprintf("%v", e))
@@ -338,7 +320,7 @@ func TestDHTQueryGet(t *testing.T) {
 
 	// publish the entry data to local DHT node (0)
 	hash := hd.EntryLink
-	_, err = h.dht.send(h.node.HashAddr, PUT_REQUEST, PutReq{H: hash})
+	_, err = h.dht.send(nil, h.node.HashAddr, PUT_REQUEST, PutReq{H: hash})
 	if err != nil {
 		panic(err)
 	}
@@ -402,7 +384,7 @@ func TestDHTKadPut(t *testing.T) {
 		// routing table should be updated
 		So(fmt.Sprintf("%v", rtp), ShouldEqual, "[<peer.ID S4BFeT> <peer.ID W4HeEG> <peer.ID UfY4We>]")
 		// and get from node should get the value
-		r, err := h.dht.send(mt.nodes[3].nodeID, GET_REQUEST, GetReq{H: hash, StatusMask: StatusLive})
+		r, err := h.dht.send(nil, mt.nodes[3].nodeID, GET_REQUEST, GetReq{H: hash, StatusMask: StatusLive})
 		So(err, ShouldBeNil)
 		resp := r.(GetResp)
 		So(fmt.Sprintf("%v", resp.Entry), ShouldEqual, fmt.Sprintf("%v", e))

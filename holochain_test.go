@@ -329,7 +329,7 @@ func TestAddAgentEntry(t *testing.T) {
 		var a = entry.Content().(AgentEntry)
 		So(a.Identity, ShouldEqual, h.agent.Identity())
 		pk, _ := h.agent.PubKey().Bytes()
-		So(string(a.Key), ShouldEqual, string(pk))
+		So(string(a.PublicKey), ShouldEqual, string(pk))
 		So(string(a.Revocation), ShouldEqual, "some revocation data")
 	})
 }
@@ -360,7 +360,7 @@ func TestGenChain(t *testing.T) {
 		var a = entry.Content().(AgentEntry)
 		So(a.Identity, ShouldEqual, h.agent.Identity())
 		pk, _ := h.agent.PubKey().Bytes()
-		So(string(a.Key), ShouldEqual, string(pk))
+		So(string(a.PublicKey), ShouldEqual, string(pk))
 		So(string(a.Revocation), ShouldEqual, "")
 	})
 
@@ -681,6 +681,36 @@ func TestQuery(t *testing.T) {
 		So(len(results), ShouldEqual, 2)
 		So(results[0].Entry.Content(), ShouldEqual, `{"firstName":"Pebbles","lastName":"Flintstone"}`)
 		So(results[1].Entry.Content(), ShouldEqual, `{"firstName":"Zerbina","lastName":"Pinhead"}`)
+	})
+}
+
+func TestGetEntryDef(t *testing.T) {
+	d, _, h := SetupTestChain("test")
+	defer CleanupTestDir(d)
+	Convey("it should fail on bad entry types", t, func() {
+		_, _, err := h.GetEntryDef("foobar")
+		So(err, ShouldBeError)
+		So(err.Error(), ShouldEqual, "no definition for entry type: foobar")
+	})
+	Convey("it should get entry definitions", t, func() {
+		zome, def, err := h.GetEntryDef("evenNumbers")
+		So(err, ShouldBeNil)
+		So(zome.Name, ShouldEqual, "zySampleZome")
+		So(fmt.Sprintf("%v", def), ShouldEqual, "&{evenNumbers zygo public  <nil>}")
+	})
+	Convey("it should get sys entry definitions", t, func() {
+		zome, def, err := h.GetEntryDef(DNAEntryType)
+		So(err, ShouldBeNil)
+		So(zome, ShouldBeNil)
+		So(def, ShouldEqual, DNAEntryDef)
+		zome, def, err = h.GetEntryDef(AgentEntryType)
+		So(err, ShouldBeNil)
+		So(zome, ShouldBeNil)
+		So(def, ShouldEqual, AgentEntryDef)
+		zome, def, err = h.GetEntryDef(KeyEntryType)
+		So(err, ShouldBeNil)
+		So(zome, ShouldBeNil)
+		So(def, ShouldEqual, KeyEntryDef)
 	})
 }
 

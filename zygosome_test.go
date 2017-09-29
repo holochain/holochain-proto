@@ -271,6 +271,10 @@ func TestZygoQuery(t *testing.T) {
 			_, err := z.Run(`(debug (str (query (hash Constrain: (hash EntryTypes: ["profile"])))))`)
 			So(err, ShouldBeNil)
 		})
+		ShouldLog(h.nucleus.alog, `["{\"Identity\":\"Herbert \\u003ch@bert.com\\u003e\",\"Revocation\":null,\"PublicKey\":\"CAESIHLUfxjdoEfk8byjsBR+FXxYpYrFTviSBf2BbC0boylT\"}"]`, func() {
+			_, err := z.Run(`(debug (str (query (hash Constrain: (hash EntryTypes: ["%agent"])))))`)
+			So(err, ShouldBeNil)
+		})
 	})
 }
 func TestZygoGenesis(t *testing.T) {
@@ -545,6 +549,13 @@ func TestZygoDHT(t *testing.T) {
 		So(r.(*zygo.SexpStr).S, ShouldEqual, `"2"`)
 	})
 
+	Convey("get should return entry of sys types", t, func() {
+		ShouldLog(h.nucleus.alog, `{"result":"{\"Identity\":\"Herbert \\u003ch@bert.com\\u003e\",\"Revocation\":null,\"PublicKey\":\"CAESIHLUfxjdoEfk8byjsBR+FXxYpYrFTviSBf2BbC0boylT\"}"}`, func() {
+			_, err := NewZygoRibosome(h, &Zome{RibosomeType: ZygoRibosomeType, Code: fmt.Sprintf(`(debug (get "%s"))`, h.agentHash.String())})
+			So(err, ShouldBeNil)
+		})
+	})
+
 	Convey("get should return entry type", t, func() {
 		v, err := NewZygoRibosome(h, &Zome{RibosomeType: ZygoRibosomeType, Code: fmt.Sprintf(`(get "%s" (hash GetMask:HC_GetMask_EntryType))`, hash.String())})
 		So(err, ShouldBeNil)
@@ -713,7 +724,7 @@ func TestZygoDHT(t *testing.T) {
 		So(fmt.Sprintf("%v", newPubKey), ShouldEqual, fmt.Sprintf("%v", oldPubKey))
 		entry, _, _ := h.chain.GetEntry(header.EntryLink)
 		So(entry.Content().(AgentEntry).Identity, ShouldEqual, "new identity")
-		So(fmt.Sprintf("%v", entry.Content().(AgentEntry).Key), ShouldEqual, fmt.Sprintf("%v", oldPubKey))
+		So(fmt.Sprintf("%v", entry.Content().(AgentEntry).PublicKey), ShouldEqual, fmt.Sprintf("%v", oldPubKey))
 	})
 
 	Convey("updateAgent function with revoke option should commit a new agent entry and mark key as modified on DHT", t, func() {
@@ -744,7 +755,7 @@ func TestZygoDHT(t *testing.T) {
 		payload, _ := w.Property("payload")
 
 		So(string(payload.([]byte)), ShouldEqual, "some revocation data")
-		So(fmt.Sprintf("%v", entry.Content().(AgentEntry).Key), ShouldEqual, fmt.Sprintf("%v", newPubKey))
+		So(fmt.Sprintf("%v", entry.Content().(AgentEntry).PublicKey), ShouldEqual, fmt.Sprintf("%v", newPubKey))
 
 		// the new Key should be available on the DHT
 		newKey, _ := NewHash(h.nodeIDStr)

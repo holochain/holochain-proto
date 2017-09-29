@@ -570,6 +570,9 @@ func (h *Holochain) GetEntryDef(t string) (zome *Zome, d *EntryDef, err error) {
 	} else if t == AgentEntryType {
 		d = AgentEntryDef
 		return
+	} else if t == KeyEntryType {
+		d = KeyEntryDef
+		return
 	}
 	for _, z := range h.nucleus.dna.Zomes {
 		d, err = z.GetEntryDef(t)

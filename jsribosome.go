@@ -856,16 +856,22 @@ func NewJSRibosome(h *Holochain, zome *Zome) (n Ribosome, err error) {
 					}
 					defs[result.Header.Type] = def
 				}
-				r := result.Entry.Content().(string)
+				r := result.Entry.Content()
 				switch def.DataFormat {
 				case DataFormatRawJS:
-					entryCode = r
+					entryCode = r.(string)
 				case DataFormatString:
-					entryCode = fmt.Sprintf(`"%s"`, jsSanitizeString(r))
+					entryCode = fmt.Sprintf(`"%s"`, jsSanitizeString(r.(string)))
 				case DataFormatLinks:
 					fallthrough
 				case DataFormatJSON:
-					entryCode = fmt.Sprintf(`JSON.parse("%s")`, jsSanitizeString(r))
+					entryCode = fmt.Sprintf(`JSON.parse("%s")`, jsSanitizeString(r.(string)))
+				case DataFormatSysAgent:
+					j, err := json.Marshal(r.(AgentEntry))
+					if err != nil {
+						return mkOttoErr(&jsr, err.Error())
+					}
+					entryCode = fmt.Sprintf(`JSON.parse("%s")`, jsSanitizeString(string(j)))
 				default:
 					return mkOttoErr(&jsr, "data format not implemented: "+def.DataFormat)
 				}
@@ -1155,7 +1161,7 @@ func NewJSRibosome(h *Holochain, zome *Zome) (n Ribosome, err error) {
 
 	l := JSLibrary
 	if h != nil {
-		l += fmt.Sprintf(`var App = {Name:"%s",DNA:{Hash:"%s"},Agent:{Hash:"%s",TopHash:"%s",String:"%s"},Key:{Hash:"%s"}};`, h.Name(), h.dnaHash, h.agentHash, h.agentTopHash, h.Agent().Identity(), h.nodeIDStr)
+		l += fmt.Sprintf(`var App = {Name:"%s",DNA:{Hash:"%s"},Agent:{Hash:"%s",TopHash:"%s",String:"%s"},Key:{Hash:"%s"}};`, h.Name(), h.dnaHash, h.agentHash, h.agentTopHash, jsSanitizeString(string(h.Agent().Identity())), h.nodeIDStr)
 	}
 	_, err = jsr.Run(l + zome.Code)
 	if err != nil {

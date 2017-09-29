@@ -675,13 +675,10 @@ func (a *ActionGet) Receive(dht *DHT, msg *Message) (response interface{}, err e
 			switch entryType {
 			case DNAEntryType:
 				// TODO: make this add the requester to the blockedlist rather than panicing, see ticket #421
-				panic("nobody should actually get the DNA!")
-			case AgentEntryType:
-				fallthrough
+				err = errors.New("nobody should actually get the DNA!")
+				return
 			case KeyEntryType:
-				var e GobEntry
-				e.C = string(entryData)
-				resp.Entry = e
+				resp.Entry = GobEntry{C: entryData}
 			default:
 				var e GobEntry
 				err = e.Unmarshal(entryData)

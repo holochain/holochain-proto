@@ -298,6 +298,25 @@ func TestDHTSend(t *testing.T) {
 		resp := r.(GetResp)
 		So(fmt.Sprintf("%v", resp.Entry), ShouldEqual, fmt.Sprintf("%v", e))
 	})
+
+	Convey("send GET_REQUEST message should return content of sys types", t, func() {
+		r, err := h.dht.send(nil, h.nodeID, GET_REQUEST, GetReq{H: h.agentHash, StatusMask: StatusLive})
+		So(err, ShouldBeNil)
+		resp := r.(GetResp)
+		ae, _ := h.agent.AgentEntry(nil)
+		So(fmt.Sprintf("%v", resp.Entry.Content()), ShouldEqual, fmt.Sprintf("%v", ae))
+
+		r, err = h.dht.send(nil, h.nodeID, GET_REQUEST, GetReq{H: HashFromPeerID(h.nodeID), StatusMask: StatusLive})
+		So(err, ShouldBeNil)
+		resp = r.(GetResp)
+		So(fmt.Sprintf("%v", resp.Entry.Content()), ShouldEqual, fmt.Sprintf("%v", ae.PublicKey))
+
+		// for now this is an error because we presume everyone has the DNA.
+		// once we implement dna changes, this needs to be changed
+		r, err = h.dht.send(nil, h.nodeID, GET_REQUEST, GetReq{H: h.dnaHash, StatusMask: StatusLive})
+		So(err, ShouldBeError)
+
+	})
 }
 
 func TestDHTQueryGet(t *testing.T) {

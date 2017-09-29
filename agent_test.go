@@ -59,7 +59,7 @@ func TestLibP2PAgent(t *testing.T) {
 		So(entry.Identity, ShouldEqual, a)
 		So(string(entry.Revocation), ShouldEqual, "fake revocation")
 		pk, _ := ic.MarshalPublicKey(a1.PubKey())
-		So(string(entry.Key), ShouldEqual, string(pk))
+		So(string(entry.PublicKey), ShouldEqual, string(pk))
 	})
 	Convey("it should fail to load an agent file that has bad permissions", t, func() {
 		os.Chmod(filepath.Join(d, PrivKeyFileName), OS_USER_RW)

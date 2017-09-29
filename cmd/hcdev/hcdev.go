@@ -888,7 +888,7 @@ func setupBridgeApp(service *holo.Service, h *holo.Holochain, agent holo.Agent, 
 	holo.DevDNAResolveMap[bridgeName] = DNAHash.String()
 
 	// clear the log prefix for the next load.
-	os.Setenv("HCLOG_PREFIX", "")
+	os.Unsetenv("HCLOG_PREFIX")
 	return
 }
 

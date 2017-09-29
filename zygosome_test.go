@@ -870,8 +870,6 @@ func TestZyProcessArgs(t *testing.T) {
 	hval, _ := zygo.MakeHash(nil, "hash", z.env)
 	hval.HashSet(z.env.MakeSymbol("fname"), &zygo.SexpStr{S: "Jane"})
 	hval.HashSet(z.env.MakeSymbol("lname"), &zygo.SexpStr{S: "Smith"})
-	d, _, h := PrepareTestChain("test")
-	defer CleanupTestChain(h, d)
 	Convey("EntryArg should only accept strings for string type entries", t, func() {
 		args := []Arg{{Name: "entryType", Type: StringArg}, {Name: "foo", Type: EntryArg}}
 		var entryType zygo.Sexp = &zygo.SexpStr{S: "review"}

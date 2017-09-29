@@ -682,7 +682,7 @@ func TestJSDHT(t *testing.T) {
 		panic(err)
 	}
 
-	Convey("getLinks function should return the Links", t, func() {
+	Convey("getLinks should return the Links", t, func() {
 		v, err := NewJSRibosome(h, &Zome{RibosomeType: JSRibosomeType, Code: fmt.Sprintf(`getLinks("%s","4stars");`, hash.String())})
 		So(err, ShouldBeNil)
 		z := v.(*JSRibosome)
@@ -695,7 +695,7 @@ func TestJSDHT(t *testing.T) {
 		So(fmt.Sprintf("%v", l1["Hash"]), ShouldEqual, profileHash.String())
 	})
 
-	Convey("getLinks function with empty tag should return the Links and tags", t, func() {
+	Convey("getLinks with empty tag should return the Links and tags", t, func() {
 		v, err := NewJSRibosome(h, &Zome{RibosomeType: JSRibosomeType, Code: fmt.Sprintf(`getLinks("%s","");`, hash.String())})
 		So(err, ShouldBeNil)
 		z := v.(*JSRibosome)
@@ -711,7 +711,7 @@ func TestJSDHT(t *testing.T) {
 
 	})
 
-	Convey("getLinks function with load option should return the Links and entries", t, func() {
+	Convey("getLinks with load option should return the Links and entries", t, func() {
 		v, err := NewJSRibosome(h, &Zome{RibosomeType: JSRibosomeType, Code: fmt.Sprintf(`getLinks("%s","4stars",{Load:true});`, hash.String())})
 		So(err, ShouldBeNil)
 		z := v.(*JSRibosome)
@@ -746,7 +746,7 @@ func TestJSDHT(t *testing.T) {
 		So(fmt.Sprintf("%v", links), ShouldEqual, "[{QmYeinX5vhuA91D3v24YbgyLofw9QAxY6PoATrBHnRwbtt   }]")
 	})
 
-	Convey("getLinks function with StatusMask option should return deleted Links", t, func() {
+	Convey("getLinks with StatusMask option should return deleted Links", t, func() {
 		v, err := NewJSRibosome(h, &Zome{RibosomeType: JSRibosomeType, Code: fmt.Sprintf(`getLinks("%s","4stars",{StatusMask:HC.Status.Deleted});`, hash.String())})
 		So(err, ShouldBeNil)
 		z := v.(*JSRibosome)
@@ -757,7 +757,20 @@ func TestJSDHT(t *testing.T) {
 		So(l0["Hash"], ShouldEqual, profileHash.String())
 	})
 
-	Convey("update function should commit a new entry and on DHT mark item modified", t, func() {
+	Convey("getLinks with quotes in tags should work", t, func() {
+
+		commit(h, "rating", fmt.Sprintf(`{"Links":[{"Base":"%s","Link":"%s","Tag":"\"quotes!\""}]}`, hash.String(), profileHash.String()))
+		v, err := NewJSRibosome(h, &Zome{RibosomeType: JSRibosomeType, Code: fmt.Sprintf(`getLinks("%s","\"quotes!\"");`, hash.String())})
+		So(err, ShouldBeNil)
+		z := v.(*JSRibosome)
+		So(z.lastResult.Class(), ShouldEqual, "Array")
+		links, _ := z.lastResult.Export()
+		l0 := links.([]map[string]interface{})[0]
+
+		So(fmt.Sprintf("%v", l0["Hash"]), ShouldEqual, profileHash.String())
+	})
+
+	Convey("update should commit a new entry and on DHT mark item modified", t, func() {
 		v, err := NewJSRibosome(h, &Zome{RibosomeType: JSRibosomeType, Code: fmt.Sprintf(`update("profile",{firstName:"Zippy",lastName:"ThePinhead"},"%s")`, profileHash.String())})
 		So(err, ShouldBeNil)
 		z := v.(*JSRibosome)

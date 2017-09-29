@@ -11,6 +11,7 @@ import (
 	"fmt"
 	zygo "github.com/glycerine/zygomys/repl"
 	peer "github.com/libp2p/go-libp2p-peer"
+	. "github.com/metacurrency/holochain/hash"
 	"math"
 	"regexp"
 	"strconv"

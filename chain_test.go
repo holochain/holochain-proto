@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	ic "github.com/libp2p/go-libp2p-crypto"
+	. "github.com/metacurrency/holochain/hash"
 	. "github.com/smartystreets/goconvey/convey"
 	"path/filepath"
 	"reflect"
@@ -434,7 +435,7 @@ func TestPersistingChain(t *testing.T) {
 */
 
 func chainTestSetup() (hs HashSpec, key ic.PrivKey, now time.Time) {
-	a, _ := NewAgent(LibP2P, "agent id")
+	a, _ := NewAgent(LibP2P, "agent id", makeTestSeed(""))
 	key = a.PrivKey()
 	hc := Holochain{agent: a}
 	dna := DNA{DHTConfig: DHTConfig{HashType: "sha2-256"}}

@@ -4,30 +4,32 @@ import (
 	"fmt"
 	ic "github.com/libp2p/go-libp2p-crypto"
 	peer "github.com/libp2p/go-libp2p-peer"
+	. "github.com/metacurrency/holochain/hash"
 	. "github.com/smartystreets/goconvey/convey"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
 )
 
 func TestNewDHT(t *testing.T) {
-	d := SetupTestDir()
-	defer CleanupTestDir(d)
-	var h Holochain
-	h.rootPath = d
-	os.MkdirAll(h.DBPath(), os.ModePerm)
+	d, _, h := PrepareTestChain("test")
+	defer CleanupTestChain(h, d)
+	os.Remove(filepath.Join(h.DBPath(), DHTStoreFileName))
 
-	dht := NewDHT(&h)
-	Convey("It should initialize the DHT struct", t, func() {
-		So(dht.h, ShouldEqual, &h)
+	Convey("It should initialize the DHT struct and data store", t, func() {
+		So(FileExists(h.DBPath(), DHTStoreFileName), ShouldBeFalse)
+		dht := NewDHT(h)
 		So(FileExists(h.DBPath(), DHTStoreFileName), ShouldBeTrue)
+		So(dht.h, ShouldEqual, h)
+		So(dht.config, ShouldEqual, &h.nucleus.dna.DHTConfig)
 	})
 }
 
 func TestSetupDHT(t *testing.T) {
 	d, _, h := PrepareTestChain("test")
-	defer CleanupTestDir(d)
+	defer CleanupTestChain(h, d)
 
 	err := h.dht.SetupDHT()
 	Convey("it should add the holochain ID to the DHT", t, func() {
@@ -75,7 +77,7 @@ func TestSetupDHT(t *testing.T) {
 
 func TestPutGetModDel(t *testing.T) {
 	d, _, h := PrepareTestChain("test")
-	defer CleanupTestDir(d)
+	defer CleanupTestChain(h, d)
 
 	dht := h.dht
 	var id = h.nodeID
@@ -159,7 +161,7 @@ func TestPutGetModDel(t *testing.T) {
 
 func TestLinking(t *testing.T) {
 	d, _, h := PrepareTestChain("test")
-	defer CleanupTestDir(d)
+	defer CleanupTestChain(h, d)
 
 	err := h.dht.SetupDHT()
 	dht := h.dht
@@ -263,7 +265,7 @@ func TestLinking(t *testing.T) {
 
 func TestFindNodeForHash(t *testing.T) {
 	d, _, h := PrepareTestChain("test")
-	defer CleanupTestDir(d)
+	defer CleanupTestChain(h, d)
 
 	Convey("It should find a node", t, func() {
 
@@ -279,21 +281,17 @@ func TestFindNodeForHash(t *testing.T) {
 	})
 }
 
-func TestSend(t *testing.T) {
-	d, _, h := PrepareTestChain("test")
-	defer CleanupTestDir(d)
+func TestDHTSend(t *testing.T) {
+	nodesCount := 6
+	mt := setupMultiNodeTesting(nodesCount)
+	defer mt.cleanupMultiNodeTesting()
 
-	agent := h.Agent().(*LibP2PAgent)
-	node, err := NewNode("/ip4/127.0.0.1/tcp/1234", h.dnaHash.String(), agent, false)
-	if err != nil {
-		panic(err)
-	}
-	defer node.Close()
+	h := mt.nodes[0]
 
 	hash, _ := NewHash("QmY8Mzg9F69e5P9AoQPYat655HEhc1TVGs11tmfNSzkqh2")
 
 	Convey("send GET_REQUEST message for non existent hash should get error", t, func() {
-		_, err := h.dht.send(node.HashAddr, GET_REQUEST, GetReq{H: hash, StatusMask: StatusLive})
+		_, err := h.dht.send(h.node.HashAddr, GET_REQUEST, GetReq{H: hash, StatusMask: StatusLive})
 		So(err, ShouldEqual, ErrHashNotFound)
 	})
 
@@ -304,11 +302,14 @@ func TestSend(t *testing.T) {
 		panic(err)
 	}
 
+	/*for i := 0; i < nodesCount; i++ {
+		fmt.Printf("node%d:%v\n", i, mt.nodes[i].node.HashAddr.Pretty()[2:6])
+	}*/
+
 	// publish the entry data to the dht
 	hash = hd.EntryLink
-
 	Convey("after a handled PUT_REQUEST data should be stored in DHT", t, func() {
-		r, err := h.dht.send(node.HashAddr, PUT_REQUEST, PutReq{H: hash})
+		r, err := h.dht.send(h.node.HashAddr, PUT_REQUEST, PutReq{H: hash})
 		So(err, ShouldBeNil)
 		So(r, ShouldEqual, "queued")
 		h.dht.simHandleChangeReqs()
@@ -317,16 +318,27 @@ func TestSend(t *testing.T) {
 	})
 
 	Convey("send GET_REQUEST message should return content", t, func() {
-		r, err := h.dht.send(node.HashAddr, GET_REQUEST, GetReq{H: hash, StatusMask: StatusLive})
+		r, err := h.dht.send(h.node.HashAddr, GET_REQUEST, GetReq{H: hash, StatusMask: StatusLive})
 		So(err, ShouldBeNil)
 		resp := r.(GetResp)
-		So(fmt.Sprintf("%v", resp.Entry), ShouldEqual, fmt.Sprintf("%v", &e))
+		So(fmt.Sprintf("%v", resp.Entry), ShouldEqual, fmt.Sprintf("%v", e))
+	})
+
+	ringConnect(t, mt.ctx, mt.nodes, nodesCount)
+
+	// pick a distant node that has to do some of the recursive lookups.
+	Convey("Query GET_REQUEST message should return content", t, func() {
+		h2 := mt.nodes[nodesCount-2]
+		r, err := h2.dht.Query(hash, GET_REQUEST, GetReq{H: hash, StatusMask: StatusLive})
+		So(err, ShouldBeNil)
+		resp := r.(GetResp)
+		So(fmt.Sprintf("%v", resp.Entry), ShouldEqual, fmt.Sprintf("%v", e))
 	})
 }
 
 func TestActionReceiver(t *testing.T) {
 	d, _, h := PrepareTestChain("test")
-	defer CleanupTestDir(d)
+	defer CleanupTestChain(h, d)
 
 	Convey("PUT_REQUEST should fail if body isn't a hash", t, func() {
 		m := h.node.NewMessage(PUT_REQUEST, "foo")
@@ -369,27 +381,27 @@ func TestActionReceiver(t *testing.T) {
 		r, err := ActionReceiver(h, m)
 		So(err, ShouldBeNil)
 		resp := r.(GetResp)
-		So(fmt.Sprintf("%v", resp.Entry), ShouldEqual, fmt.Sprintf("%v", &e))
+		So(fmt.Sprintf("%v", resp.Entry), ShouldEqual, fmt.Sprintf("%v", e))
 
 		m = h.node.NewMessage(GET_REQUEST, GetReq{H: hash, GetMask: GetMaskEntryType})
 		r, err = ActionReceiver(h, m)
 		So(err, ShouldBeNil)
 		resp = r.(GetResp)
-		So(resp.Entry, ShouldBeNil)
+		So(resp.Entry.C, ShouldBeNil)
 		So(resp.EntryType, ShouldEqual, "evenNumbers")
 
 		m = h.node.NewMessage(GET_REQUEST, GetReq{H: hash, GetMask: GetMaskEntry + GetMaskEntryType})
 		r, err = ActionReceiver(h, m)
 		So(err, ShouldBeNil)
 		resp = r.(GetResp)
-		So(fmt.Sprintf("%v", resp.Entry), ShouldEqual, fmt.Sprintf("%v", &e))
+		So(fmt.Sprintf("%v", resp.Entry), ShouldEqual, fmt.Sprintf("%v", e))
 		So(resp.EntryType, ShouldEqual, "evenNumbers")
 
 		m = h.node.NewMessage(GET_REQUEST, GetReq{H: hash, GetMask: GetMaskSources})
 		r, err = ActionReceiver(h, m)
 		So(err, ShouldBeNil)
 		resp = r.(GetResp)
-		So(resp.Entry, ShouldBeNil)
+		So(resp.Entry.C, ShouldBeNil)
 		So(fmt.Sprintf("%v", resp.Sources), ShouldEqual, fmt.Sprintf("[%v]", h.nodeIDStr))
 		So(resp.EntryType, ShouldEqual, "")
 
@@ -397,7 +409,7 @@ func TestActionReceiver(t *testing.T) {
 		r, err = ActionReceiver(h, m)
 		So(err, ShouldBeNil)
 		resp = r.(GetResp)
-		So(fmt.Sprintf("%v", resp.Entry), ShouldEqual, fmt.Sprintf("%v", &e))
+		So(fmt.Sprintf("%v", resp.Entry), ShouldEqual, fmt.Sprintf("%v", e))
 		So(fmt.Sprintf("%v", resp.Sources), ShouldEqual, fmt.Sprintf("[%v]", h.nodeIDStr))
 		So(resp.EntryType, ShouldEqual, "")
 	})
@@ -575,7 +587,8 @@ func TestActionReceiver(t *testing.T) {
 
 func TestDHTDump(t *testing.T) {
 	d, _, h := PrepareTestChain("test")
-	defer CleanupTestDir(d)
+	defer CleanupTestChain(h, d)
+
 	Convey("dht dump of index 1 should show the agent put", t, func() {
 		msg, _ := h.dht.GetIdxMessage(1)
 		f, _ := msg.Fingerprint()
@@ -597,7 +610,7 @@ func TestDHTDump(t *testing.T) {
 
 func TestDHT2String(t *testing.T) {
 	d, _, h := PrepareTestChain("test")
-	defer CleanupTestDir(d)
+	defer CleanupTestChain(h, d)
 
 	Convey("it dump should show the changes count", t, func() {
 		So(strings.Index(h.dht.String(), "DHT changes:2") >= 0, ShouldBeTrue)
@@ -607,7 +620,7 @@ func TestDHT2String(t *testing.T) {
 /*
 func TestHandleChangeReqs(t *testing.T) {
 	d, _, h := PrepareTestChain("test")
-	defer CleanupTestDir(d)
+	defer CleanupTestChain(h,d)
 
 	now := time.Unix(1, 1) // pick a constant time so the test will always work
 	e := GobEntry{C: "{\"prime\":7}"}

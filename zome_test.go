@@ -8,7 +8,8 @@ import (
 
 func TestZomeGetEntryDef(t *testing.T) {
 	d, _, h := SetupTestChain("test")
-	defer CleanupTestDir(d)
+	defer CleanupTestChain(h, d)
+
 	z, _ := h.GetZome("zySampleZome")
 
 	Convey("it should fail on an undefined entry type", t, func() {
@@ -25,7 +26,8 @@ func TestZomeGetEntryDef(t *testing.T) {
 
 func TestGetFunctionDef(t *testing.T) {
 	d, _, h := SetupTestChain("test")
-	defer CleanupTestDir(d)
+	defer CleanupTestChain(h, d)
+
 	z, _ := h.GetZome("zySampleZome")
 
 	Convey("it should fail if the fn isn't defined in the DNA", t, func() {

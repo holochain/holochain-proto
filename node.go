@@ -12,22 +12,33 @@ import (
 	"encoding/gob"
 	"errors"
 	"fmt"
+
+	goprocess "github.com/jbenet/goprocess"
+	goprocessctx "github.com/jbenet/goprocess/context"
+
 	nat "github.com/libp2p/go-libp2p-nat"
+
 	net "github.com/libp2p/go-libp2p-net"
 	peer "github.com/libp2p/go-libp2p-peer"
 	pstore "github.com/libp2p/go-libp2p-peerstore"
 	protocol "github.com/libp2p/go-libp2p-protocol"
 	swarm "github.com/libp2p/go-libp2p-swarm"
-	discovery "github.com/libp2p/go-libp2p/p2p/discovery"
 	bhost "github.com/libp2p/go-libp2p/p2p/host/basic"
 	rhost "github.com/libp2p/go-libp2p/p2p/host/routed"
+	"github.com/metacurrency/holochain/discovery"
+	. "github.com/metacurrency/holochain/hash"
 	ma "github.com/multiformats/go-multiaddr"
 	mh "github.com/multiformats/go-multihash"
 	"gopkg.in/mgo.v2/bson"
 	"io"
+
+	"math/big"
+	"sync"
+
 	go_net "net"
 	"strconv"
 	"strings"
+
 	"time"
 )
 
@@ -69,6 +80,10 @@ const (
 	// Peer messages
 
 	LISTADD_REQUEST
+
+	// Kademlia messages
+
+	FIND_NODE_REQUEST
 )
 
 var ErrBlockedListed = errors.New("node blockedlisted")
@@ -83,13 +98,21 @@ type Message struct {
 
 // Node represents a node in the network
 type Node struct {
-	HashAddr    peer.ID
-	NetAddr     ma.Multiaddr
-	Host        *rhost.RoutedHost
-	mdnsSvc     discovery.Service
-	blockedlist map[peer.ID]bool
-	protocols   [_protocolCount]*Protocol
-	nat         *nat.NAT
+	HashAddr     peer.ID
+	NetAddr      ma.Multiaddr
+	host         *rhost.RoutedHost
+	mdnsSvc      discovery.Service
+	blockedlist  map[peer.ID]bool
+	protocols    [_protocolCount]*Protocol
+	peerstore    pstore.Peerstore
+	routingTable *RoutingTable
+	nat          *nat.NAT
+
+	// items for the kademlia implementation
+	plk   sync.Mutex
+	peers map[peer.ID]*peerTracker
+	ctx   context.Context
+	proc  goprocess.Process
 }
 
 // Protocol encapsulates data for our different protocols
@@ -102,41 +125,43 @@ const (
 	ActionProtocol = iota
 	ValidateProtocol
 	GossipProtocol
+	KademliaProtocol
 	_protocolCount
 )
 
-type Router struct {
-	dummy int
-}
-
-func (r *Router) FindPeer(context.Context, peer.ID) (peer pstore.PeerInfo, err error) {
-	err = errors.New("routing not implemented")
-	return
-}
+const (
+	PeerTTL = time.Minute * 10
+)
 
 // implement peer found function for mdns discovery
 func (h *Holochain) HandlePeerFound(pi pstore.PeerInfo) {
 	h.dht.dlog.Logf("discovered peer via mdns: %v", pi)
-	if h.node.IsBlocked(pi.ID) {
-		h.dht.dlog.Logf("peer %v in blockedlist, ignoring", pi.ID)
-	} else {
-		h.node.Host.Connect(context.Background(), pi)
-		err := h.dht.UpdateGossiper(pi.ID, 0)
-		if err != nil {
-			h.dht.dlog.Logf("error when updating gossiper: %v", pi)
-		}
+	err := h.AddPeer(pi.ID, pi.Addrs)
+	if err != nil {
+		h.dht.dlog.Logf("error when adding peer: %v", pi)
 	}
 }
 
-func (n *Node) EnableMDNSDiscovery(notifee discovery.Notifee, interval time.Duration) (err error) {
-	ctx := context.Background()
+func (h *Holochain) AddPeer(id peer.ID, addrs []ma.Multiaddr) (err error) {
+	if h.node.IsBlocked(id) {
+		err = ErrBlockedListed
+	} else {
+		Debugf("Adding Peer: %v\n", id)
+		h.node.peerstore.AddAddrs(id, addrs, PeerTTL)
+		h.node.routingTable.Update(id)
+		err = h.dht.AddGossiper(id)
+	}
+	return
+}
 
-	n.mdnsSvc, err = discovery.NewMdnsService(ctx, n.Host, interval)
+func (n *Node) EnableMDNSDiscovery(h *Holochain, interval time.Duration) (err error) {
+	ctx := context.Background()
+	tag := h.dnaHash.String() + "._udp"
+	n.mdnsSvc, err = discovery.NewMdnsService(ctx, n.host, interval, tag)
 	if err != nil {
 		return
 	}
-
-	n.mdnsSvc.RegisterNotifee(notifee)
+	n.mdnsSvc.RegisterNotifee(h)
 	return
 }
 
@@ -205,7 +230,7 @@ func (n *Node) discoverAndHandleNat(listenPort int) {
 	}
 }
 
-// NewNode creates a new ipfs basichost node with given identity
+// NewNode creates a new node with given multiAddress listener string and identity
 func NewNode(listenAddr string, protoMux string, agent *LibP2PAgent, enableNATUPnP bool) (node *Node, err error) {
 	Debugf("Creating new node with protoMux: %s\n", protoMux)
 	nodeID, _, err := agent.NodeID()
@@ -230,6 +255,8 @@ func NewNode(listenAddr string, protoMux string, agent *LibP2PAgent, enableNATUP
 	}
 
 	ps := pstore.NewPeerstore()
+	n.peerstore = ps
+	ps.AddAddrs(nodeID, []ma.Multiaddr{n.NetAddr}, pstore.PermanentAddrTTL)
 
 	n.HashAddr = nodeID
 	priv := agent.PrivKey()
@@ -239,16 +266,20 @@ func NewNode(listenAddr string, protoMux string, agent *LibP2PAgent, enableNATUP
 	validateProtocolString := "/hc-validate-" + protoMux + "/0.0.0"
 	gossipProtocolString := "/hc-gossip-" + protoMux + "/0.0.0"
 	actionProtocolString := "/hc-action-" + protoMux + "/0.0.0"
+	kademliaProtocolString := "/hc-kademlia-" + protoMux + "/0.0.0"
 
 	Debugf("Validate protocol identifier: " + validateProtocolString)
 	Debugf("Gossip protocol identifier: " + gossipProtocolString)
 	Debugf("Action protocol identifier: " + actionProtocolString)
+	Debugf("Kademlia protocol identifier: " + kademliaProtocolString)
 
 	n.protocols[ValidateProtocol] = &Protocol{protocol.ID(validateProtocolString), ValidateReceiver}
 	n.protocols[GossipProtocol] = &Protocol{protocol.ID(gossipProtocolString), GossipReceiver}
 	n.protocols[ActionProtocol] = &Protocol{protocol.ID(actionProtocolString), ActionReceiver}
+	n.protocols[KademliaProtocol] = &Protocol{protocol.ID(kademliaProtocolString), KademliaReceiver}
 
 	ctx := context.Background()
+	n.ctx = ctx
 
 	// create a new swarm to be used by the service host
 	netw, err := swarm.NewNetwork(ctx, []ma.Multiaddr{n.NetAddr}, nodeID, ps, nil)
@@ -261,10 +292,23 @@ func NewNode(listenAddr string, protoMux string, agent *LibP2PAgent, enableNATUP
 	if err != nil {
 		return
 	}
-	hr := Router{}
-	n.Host = rhost.Wrap(bh, &hr)
+
+	n.host = rhost.Wrap(bh, &n)
+
+	m := pstore.NewMetrics()
+	n.routingTable = NewRoutingTable(KValue, nodeID, time.Minute, m)
+	n.peers = make(map[peer.ID]*peerTracker)
 
 	node = &n
+
+	n.host.Network().Notify((*netNotifiee)(node))
+
+	n.proc = goprocessctx.WithContextAndTeardown(ctx, func() error {
+		// remove ourselves from network notifs.
+		n.host.Network().StopNotify((*netNotifiee)(node))
+		return n.host.Close()
+	})
+
 	return
 }
 
@@ -339,6 +383,8 @@ func (m Message) String() string {
 		typeStr = "APP_MESSAGE"
 	case LISTADD_REQUEST:
 		typeStr = "LISTADD_REQUEST"
+	case FIND_NODE_REQUEST:
+		typeStr = "FIND_NODE_REQUEST"
 	}
 	return fmt.Sprintf("%s @ %v From:%v Body:%v", typeStr, m.Time, m.From, m.Body)
 }
@@ -356,17 +402,17 @@ func (node *Node) respondWith(s net.Stream, err error, body interface{}) {
 
 	data, err := m.Encode()
 	if err != nil {
-		panic(err) //TODO can't panic, gotta do something else!
+		Infof("Response failed: unable to encode message: %v", m)
 	}
 	_, err = s.Write(data)
 	if err != nil {
-		panic(err) //TODO can't panic, gotta do something else!
+		Infof("Response failed: write returned error: %v", err)
 	}
 }
 
 // StartProtocol initiates listening for a protocol on the node
 func (node *Node) StartProtocol(h *Holochain, proto int) (err error) {
-	node.Host.SetStreamHandler(node.protocols[proto].ID, func(s net.Stream) {
+	node.host.SetStreamHandler(node.protocols[proto].ID, func(s net.Stream) {
 		var m Message
 		err := m.Decode(s)
 		var response interface{}
@@ -389,7 +435,7 @@ func (node *Node) StartProtocol(h *Holochain, proto int) (err error) {
 
 // Close shuts down the node
 func (node *Node) Close() error {
-	return node.Host.Close()
+	return node.proc.Close()
 }
 
 // Send delivers a message to a node via the given protocol
@@ -400,7 +446,7 @@ func (node *Node) Send(ctx context.Context, proto int, addr peer.ID, m *Message)
 		return
 	}
 
-	s, err := node.Host.NewStream(ctx, addr, node.protocols[proto].ID)
+	s, err := node.host.NewStream(ctx, addr, node.protocols[proto].ID)
 	if err != nil {
 		return
 	}
@@ -423,6 +469,7 @@ func (node *Node) Send(ctx context.Context, proto int, addr peer.ID, m *Message)
 	// decode the response
 	err = response.Decode(s)
 	if err != nil {
+		Debugf("failed to decode: %v err:%v ", err)
 		return
 	}
 	return
@@ -525,4 +572,21 @@ func (errResp ErrorResponse) DecodeResponseError() (err error) {
 		err = errors.New(errResp.Message)
 	}
 	return
+}
+
+// Distance returns the nodes peer distance to another node for purposes of gossip
+func (node *Node) Distance(id peer.ID) *big.Int {
+	h := HashFromPeerID(id)
+	nh := HashFromPeerID(node.HashAddr)
+	return HashXORDistance(nh, h)
+}
+
+// Context return node's context
+func (node *Node) Context() context.Context {
+	return node.ctx
+}
+
+// Process return node's process
+func (node *Node) Process() goprocess.Process {
+	return node.proc
 }

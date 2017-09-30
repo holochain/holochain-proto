@@ -310,9 +310,6 @@ func (z *ZygoRibosome) validateEntry(fnName string, def *EntryDef, entry Entry, 
 	Debugf("%s: %s", fnName, code)
 
 	err = z.runValidate(fnName, code)
-	if err != nil && err == ValidationFailedErr {
-		err = fmt.Errorf("Invalid entry: %v", entry.Content())
-	}
 	return
 }
 

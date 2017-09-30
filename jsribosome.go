@@ -270,10 +270,6 @@ func (jsr *JSRibosome) validateEntry(fnName string, def *EntryDef, entry Entry, 
 	code := fmt.Sprintf(`%s("%s",%s,%s,%s)`, fnName, def.Name, e, hdr, srcs)
 	Debugf("%s: %s", fnName, code)
 	err = jsr.runValidate(fnName, code)
-	if err != nil && err == ValidationFailedErr {
-		err = fmt.Errorf("Invalid entry: %v", entry.Content())
-	}
-
 	return
 }
 

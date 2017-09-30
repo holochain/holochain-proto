@@ -12,15 +12,18 @@ import (
 	"github.com/lestrrat/go-jsval"
 	. "github.com/metacurrency/holochain/hash"
 	"io"
+	"strings"
 )
 
 const (
+	SysEntryTypePrefix     = "%"
+	VirtualEntryTypePrefix = "%%"
 
 	// System defined entry types
 
-	DNAEntryType   = "%dna"
-	AgentEntryType = "%agent"
-	KeyEntryType   = "%%key" // virtual entry type, not actually on the chain
+	DNAEntryType   = SysEntryTypePrefix + "dna"
+	AgentEntryType = SysEntryTypePrefix + "agent"
+	KeyEntryType   = VirtualEntryTypePrefix + "key" // virtual entry type, not actually on the chain
 
 	// Entry type formats
 
@@ -99,6 +102,16 @@ type GobEntry struct {
 // JSONEntry is a structure for implementing JSON encoding of Entry content
 type JSONEntry struct {
 	C interface{}
+}
+
+// IsSysEntry returns true if the entry type is system defined
+func (def *EntryDef) IsSysEntry() bool {
+	return strings.HasPrefix(def.Name, SysEntryTypePrefix)
+}
+
+// IsVirtualEntry returns true if the entry type is virtual
+func (def *EntryDef) IsVirtualEntry() bool {
+	return strings.HasPrefix(def.Name, VirtualEntryTypePrefix)
 }
 
 // MarshalEntry serializes an entry to a writer

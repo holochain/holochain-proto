@@ -643,14 +643,7 @@ func (h *Holochain) Close() {
 		h.chain.s.Close()
 	}
 	if h.dht != nil {
-		if h.dht.gossiping != nil {
-			Debug("Stopping gossiping")
-			stop := h.dht.gossiping
-			h.dht.gossiping = nil
-			stop <- true
-		}
-		close(h.dht.puts)
-		close(h.dht.gchan)
+		h.dht.Close()
 	}
 	if h.node != nil {
 		h.node.Close()
@@ -690,8 +683,7 @@ func (h *Holochain) Reset() (err error) {
 		panic(err)
 	}
 	if h.dht != nil {
-		close(h.dht.puts)
-		close(h.dht.gchan)
+		h.dht.Close()
 	}
 	h.dht = NewDHT(h)
 	if h.asyncSends != nil {
@@ -756,12 +748,17 @@ func (h *Holochain) HandleAsyncSends() (err error) {
 	return nil
 }
 
+const (
+	DefaultRetryInterval = time.Millisecond * 500
+)
+
 // StartBackgroundTasks sets the various background processes in motion
 func (h *Holochain) StartBackgroundTasks(gossipInterval time.Duration) {
 	//go h.DHT().HandleChangeReqs()
 	go h.DHT().HandleGossipWiths()
 	go h.HandleAsyncSends()
 	go h.DHT().Gossip(gossipInterval)
+	go h.DHT().Retry(DefaultRetryInterval)
 }
 
 // Send builds a message and either delivers it locally or over the network via node.Send

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	. "github.com/smartystreets/goconvey/convey"
 	"testing"
+	"time"
 )
 
 func TestUtilsEncodeDecode(t *testing.T) {
@@ -47,5 +48,17 @@ func TestUtilsEncodeDecode(t *testing.T) {
 		So(err, ShouldBeNil)
 		So(data.A, ShouldEqual, data1.A)
 		So(data.B, ShouldEqual, data1.B)
+	})
+}
+
+func TestTicker(t *testing.T) {
+	counter := 0
+	stopper := Ticker(10*time.Millisecond, func() {
+		counter += 1
+	})
+	time.Sleep(25 * time.Millisecond)
+	stopper <- true
+	Convey("it should have ticked twice", t, func() {
+		So(counter, ShouldEqual, 2)
 	})
 }

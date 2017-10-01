@@ -88,6 +88,10 @@ type AppMsg struct {
 
 // ActionReceiver handles messages on the action protocol
 func ActionReceiver(h *Holochain, msg *Message) (response interface{}, err error) {
+	return actionReceiver(h, msg, MaxRetries)
+}
+
+func actionReceiver(h *Holochain, msg *Message, retries int) (response interface{}, err error) {
 	dht := h.dht
 	var a Action
 	a, err = MakeActionFromMessage(msg)
@@ -96,7 +100,7 @@ func ActionReceiver(h *Holochain, msg *Message) (response interface{}, err error
 		// N.B. a.Receive calls made to an Action whose values are NOT populated.
 		// The Receive functions understand this and use the values from the message body
 		// TODO, this indicates an architectural error, so fix!
-		response, err = a.Receive(dht, msg)
+		response, err = a.Receive(dht, msg, retries)
 	}
 	return
 }

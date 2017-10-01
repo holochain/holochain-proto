@@ -1187,6 +1187,7 @@ func NewJSRibosome(h *Holochain, zome *Zome) (n Ribosome, err error) {
 				}
 				if options.Load {
 					l += `,EntryType:"` + jsSanitizeString(th.EntryType) + `"`
+					l += `,Source:"` + jsSanitizeString(th.Source) + `"`
 					_, def, err := h.GetEntryDef(th.EntryType)
 					if err != nil {
 						break

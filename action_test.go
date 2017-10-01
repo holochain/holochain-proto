@@ -4,13 +4,14 @@ import (
 	// "fmt"
 	"fmt"
 	peer "github.com/libp2p/go-libp2p-peer"
+	. "github.com/metacurrency/holochain/hash"
 	. "github.com/smartystreets/goconvey/convey"
 	"testing"
 )
 
 func TestValidateAction(t *testing.T) {
 	d, _, h := PrepareTestChain("test")
-	defer CleanupTestDir(d)
+	defer CleanupTestChain(h, d)
 	var err error
 
 	// these test the generic properties of ValidateAction using a commit action as an example
@@ -39,7 +40,7 @@ func TestValidateAction(t *testing.T) {
 
 func TestSysValidateEntry(t *testing.T) {
 	d, _, h := PrepareTestChain("test")
-	defer CleanupTestDir(d)
+	defer CleanupTestChain(h, d)
 
 	Convey("a nil entry is invalid", t, func() {
 		err := sysValidateEntry(h, nil, nil)
@@ -85,7 +86,8 @@ func TestSysValidateEntry(t *testing.T) {
 
 func TestSysValidateMod(t *testing.T) {
 	d, _, h := PrepareTestChain("test")
-	defer CleanupTestDir(d)
+	defer CleanupTestChain(h, d)
+
 	hash := commit(h, "evenNumbers", "2")
 	_, def, _ := h.GetEntryDef("evenNumbers")
 
@@ -111,7 +113,8 @@ func TestSysValidateMod(t *testing.T) {
 
 func TestSysValidateDel(t *testing.T) {
 	d, _, h := PrepareTestChain("test")
-	defer CleanupTestDir(d)
+	defer CleanupTestChain(h, d)
+
 	hash := commit(h, "evenNumbers", "2")
 	_, def, _ := h.GetEntryDef("evenNumbers")
 
@@ -151,9 +154,46 @@ func TestCheckArgCount(t *testing.T) {
 	})
 }
 
+func TestActionGet(t *testing.T) {
+	nodesCount := 3
+	mt := setupMultiNodeTesting(nodesCount)
+	defer mt.cleanupMultiNodeTesting()
+
+	h := mt.nodes[0]
+
+	e := GobEntry{C: "3"}
+	hash, _ := e.Sum(h.hashSpec)
+
+	Convey("receive should return not found if it doesn't exist", t, func() {
+		m := h.node.NewMessage(GET_REQUEST, GetReq{H: hash})
+		_, err := ActionReceiver(h, m)
+		So(err, ShouldEqual, ErrHashNotFound)
+	})
+
+	commit(h, "oddNumbers", "3")
+	m := h.node.NewMessage(GET_REQUEST, GetReq{H: hash})
+	Convey("receive should return value if it exists", t, func() {
+		r, err := ActionReceiver(h, m)
+		So(err, ShouldBeNil)
+		resp := r.(GetResp)
+		So(fmt.Sprintf("%v", resp.Entry), ShouldEqual, fmt.Sprintf("%v", e))
+	})
+
+	ringConnect(t, mt.ctx, mt.nodes, nodesCount)
+	Convey("receive should return closer peers if it can", t, func() {
+		h2 := mt.nodes[2]
+		r, err := ActionReceiver(h2, m)
+		So(err, ShouldBeNil)
+		resp := r.(CloserPeersResp)
+		So(len(resp.CloserPeers), ShouldEqual, 1)
+		So(peer.ID(resp.CloserPeers[0].ID).Pretty(), ShouldEqual, "QmUfY4WeqD3UUfczjdkoFQGEgCAVNf7rgFfjdeTbr7JF1C")
+	})
+}
+
 func TestActionGetLocal(t *testing.T) {
 	d, _, h := PrepareTestChain("test")
-	defer CleanupTestDir(d)
+	defer CleanupTestChain(h, d)
+
 	hash := commit(h, "secret", "31415")
 
 	Convey("non local get should fail for private entries", t, func() {

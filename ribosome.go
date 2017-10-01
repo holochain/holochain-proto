@@ -9,6 +9,7 @@ package holochain
 import (
 	"errors"
 	"fmt"
+	. "github.com/metacurrency/holochain/hash"
 	"sort"
 	"strings"
 )

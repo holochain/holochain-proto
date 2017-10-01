@@ -34,12 +34,12 @@ func TestWeb(t *testing.T) {
 	}
 
 	agent := "Fred Flintstone <fred@flintstone.com>"
-	s, err := holo.Init(filepath.Join(tmpTestDir, holo.DefaultDirectoryName), holo.AgentIdentity(agent))
+	s, err := holo.Init(filepath.Join(tmpTestDir, holo.DefaultDirectoryName), holo.AgentIdentity(agent), nil)
 	if err != nil {
 		panic(err)
 	}
 	root := filepath.Join(s.Path, "testApp")
-	h, err := s.MakeTestingApp(root, "json", holo.InitializeDB)
+	h, err := s.MakeTestingApp(root, "json", holo.InitializeDB, holo.CloneWithNewUUID, nil)
 	if err != nil {
 		panic(err)
 	}

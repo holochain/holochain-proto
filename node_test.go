@@ -6,47 +6,41 @@ import (
 	"errors"
 	"fmt"
 	ic "github.com/libp2p/go-libp2p-crypto"
-	host "github.com/libp2p/go-libp2p-host"
 	net "github.com/libp2p/go-libp2p-net"
 	peer "github.com/libp2p/go-libp2p-peer"
 	pstore "github.com/libp2p/go-libp2p-peerstore"
+	. "github.com/metacurrency/holochain/hash"
 	. "github.com/smartystreets/goconvey/convey"
 	"io/ioutil"
 	"os"
-	"strings"
+	"path/filepath"
 	"testing"
 	"time"
 )
 
-type TestDiscoveryNotifee struct {
-	h host.Host
-}
-
-func (n *TestDiscoveryNotifee) HandlePeerFound(pi pstore.PeerInfo) {
-	n.h.Connect(context.Background(), pi)
-}
-
 func TestNodeDiscovery(t *testing.T) {
-	node1, _ := makeNode(1234, "node1")
-	node2, _ := makeNode(4321, "node2")
-	defer func() {
-		node1.Close()
-		node2.Close()
-	}()
-	Convey("nodes should find eachother via mdns", t, func() {
-		So(len(node1.Host.Peerstore().Peers()), ShouldEqual, 1)
-		So(len(node2.Host.Peerstore().Peers()), ShouldEqual, 1)
+	nodesCount := 2
+	mt := setupMultiNodeTesting(nodesCount)
+	defer mt.cleanupMultiNodeTesting()
+	nodes := mt.nodes
 
-		err := node1.EnableMDNSDiscovery(&TestDiscoveryNotifee{node1.Host}, time.Second/2)
+	node1 := nodes[0].node
+	node2 := nodes[1].node
+
+	Convey("nodes should find eachother via mdns", t, func() {
+		So(len(node1.host.Peerstore().Peers()), ShouldEqual, 1)
+		So(len(node2.host.Peerstore().Peers()), ShouldEqual, 1)
+
+		err := node1.EnableMDNSDiscovery(nodes[0], time.Second/2)
 		So(err, ShouldBeNil)
-		err = node2.EnableMDNSDiscovery(&TestDiscoveryNotifee{node2.Host}, time.Second/2)
+		err = node2.EnableMDNSDiscovery(nodes[1], time.Second/2)
 		So(err, ShouldBeNil)
 
 		time.Sleep(time.Second * 1)
 
 		// many nodes from previous tests show up... TODO, figure out how to clear them
-		So(len(node1.Host.Peerstore().Peers()) > 1, ShouldBeTrue)
-		So(len(node2.Host.Peerstore().Peers()) > 1, ShouldBeTrue)
+		So(len(node1.host.Peerstore().Peers()) > 1, ShouldBeTrue)
+		So(len(node2.host.Peerstore().Peers()) > 1, ShouldBeTrue)
 	})
 }
 
@@ -65,9 +59,9 @@ func TestNewNode(t *testing.T) {
 		So(err, ShouldBeNil)
 		defer node2.Close()
 
-		node.Host.Peerstore().AddAddr(node2.HashAddr, node2.NetAddr, pstore.PermanentAddrTTL)
+		node.host.Peerstore().AddAddr(node2.HashAddr, node2.NetAddr, pstore.PermanentAddrTTL)
 		var payload string
-		node2.Host.SetStreamHandler("/testprotocol/1.0.0", func(s net.Stream) {
+		node2.host.SetStreamHandler("/testprotocol/1.0.0", func(s net.Stream) {
 			defer s.Close()
 
 			buf := make([]byte, 1024)
@@ -85,7 +79,7 @@ func TestNewNode(t *testing.T) {
 			}
 		})
 
-		s, err := node.Host.NewStream(context.Background(), node2.HashAddr, "/testprotocol/1.0.0")
+		s, err := node.host.NewStream(node.ctx, node2.HashAddr, "/testprotocol/1.0.0")
 		So(err, ShouldBeNil)
 		_, err = s.Write([]byte("greetings"))
 		So(err, ShouldBeNil)
@@ -115,7 +109,7 @@ func TestNewMessage(t *testing.T) {
 
 func TestNodeSend(t *testing.T) {
 	d, _, h := PrepareTestChain("test")
-	defer CleanupTestDir(d)
+	defer CleanupTestChain(h, d)
 
 	node1, err := makeNode(1234, "node1")
 	if err != nil {
@@ -124,19 +118,18 @@ func TestNodeSend(t *testing.T) {
 	h.node.Close()
 	h.node = node1
 
+	d2, _, h2 := PrepareTestChain("test2")
+	defer CleanupTestChain(h2, d2)
+	h2.node.Close()
+
 	node2, err := makeNode(1235, "node2")
 	if err != nil {
 		panic(err)
 	}
 	defer node2.Close()
-
-	var h2 Holochain
-	h2.rootPath = d
 	h2.node = node2
-	os.MkdirAll(h2.DBPath(), os.ModePerm)
-	h2.dht = NewDHT(&h2)
-	h2.chain = NewChain(h.hashSpec)
-	h2.nucleus = NewNucleus(&h2, &DNA{})
+	os.Remove(filepath.Join(h2.DBPath(), DHTStoreFileName))
+	h2.dht = NewDHT(h2)
 
 	h.Activate()
 
@@ -149,14 +142,14 @@ func TestNodeSend(t *testing.T) {
 		So(err, ShouldBeNil)
 	})
 
-	node2.Host.Peerstore().AddAddr(node1.HashAddr, node1.NetAddr, pstore.PermanentAddrTTL)
+	node2.host.Peerstore().AddAddr(node1.HashAddr, node1.NetAddr, pstore.PermanentAddrTTL)
 
 	Convey("It should fail on messages without a source", t, func() {
 		m := Message{Type: PUT_REQUEST, Body: "fish"}
-		So(len(node1.Host.Peerstore().Peers()), ShouldEqual, 1)
+		So(len(node1.host.Peerstore().Peers()), ShouldEqual, 1)
 		r, err := node2.Send(context.Background(), ActionProtocol, node1.HashAddr, &m)
 		So(err, ShouldBeNil)
-		So(len(node1.Host.Peerstore().Peers()), ShouldEqual, 2) // node1's peerstore should now have node2
+		So(len(node1.host.Peerstore().Peers()), ShouldEqual, 2) // node1's peerstore should now have node2
 		So(r.Type, ShouldEqual, ERROR_RESPONSE)
 		So(r.From, ShouldEqual, node1.HashAddr) // response comes from who we sent to
 		So(r.Body.(ErrorResponse).Message, ShouldEqual, "message must have a source")
@@ -249,7 +242,7 @@ func TestMessageCoding(t *testing.T) {
 
 	m := node.NewMessage(PUT_REQUEST, "foo")
 	var d []byte
-	Convey("It should encode and decode messages", t, func() {
+	Convey("It should encode and decode put messages", t, func() {
 		d, err = m.Encode()
 		So(err, ShouldBeNil)
 
@@ -260,6 +253,36 @@ func TestMessageCoding(t *testing.T) {
 
 		So(fmt.Sprintf("%v", m), ShouldEqual, fmt.Sprintf("%v", &m2))
 	})
+
+	m = node.NewMessage(GET_REQUEST, "foo")
+	Convey("It should encode and decode get messages", t, func() {
+		d, err = m.Encode()
+		So(err, ShouldBeNil)
+
+		var m2 Message
+		r := bytes.NewReader(d)
+		err = m2.Decode(r)
+		So(err, ShouldBeNil)
+
+		So(fmt.Sprintf("%v", m), ShouldEqual, fmt.Sprintf("%v", &m2))
+	})
+
+	Convey("It should encode and decode get OK_RESPONSE", t, func() {
+		body := GetResp{}
+		body.Entry = GobEntry{C: "3"}
+
+		m = node.NewMessage(OK_RESPONSE, body)
+		d, err = m.Encode()
+		So(err, ShouldBeNil)
+
+		var m2 Message
+		r := bytes.NewReader(d)
+		err = m2.Decode(r)
+		So(err, ShouldBeNil)
+
+		So(fmt.Sprintf("%v", m), ShouldEqual, fmt.Sprintf("%v", &m2))
+	})
+
 }
 
 func TestFingerprintMessage(t *testing.T) {
@@ -309,40 +332,86 @@ func TestErrorCoding(t *testing.T) {
 	})
 }
 
-/*
-func TestFindPeer(t *testing.T) {
-	node1, err := makeNode(1234, "node1")
-	if err != nil {
-		panic(err)
-	}
-	defer node1.Close()
-
-	// generate a new unknown peerID
-	r := strings.NewReader("1234567890123456789012345678901234567890x")
-	key, _, err := ic.GenerateEd25519Key(r)
-	if err != nil {
-		panic(err)
-	}
-	pid, err := peer.IDFromPrivateKey(key)
-	if err != nil {
-		panic(err)
-	}
-
-	Convey("sending to an unknown peer should fail with no route to peer", t, func() {
-		m := Message{Type: PUT_REQUEST, Body: "fish"}
-		_, err := node1.Send(context.Background(),ActionProtocol, pid, &m)
-		//So(r, ShouldBeNil)
-		So(err, ShouldEqual, "fish")
+func TestAddPeer(t *testing.T) {
+	d, _, h := PrepareTestChain("test")
+	defer CleanupTestChain(h, d)
+	somePeer, _ := makePeer("some peer")
+	Convey("it should add a peer to the peer store and the gossip list", t, func() {
+		So(h.node.routingTable.Size(), ShouldEqual, 0)
+		So(len(h.node.peerstore.Peers()), ShouldEqual, 1)
+		err := h.AddPeer(somePeer, nil)
+		So(err, ShouldBeNil)
+		So(len(h.node.peerstore.Peers()), ShouldEqual, 2)
+		glist, err := h.dht.getGossipers()
+		So(err, ShouldBeNil)
+		So(len(glist), ShouldEqual, 1)
+		So(glist[0], ShouldEqual, somePeer)
+		So(h.node.routingTable.Size(), ShouldEqual, 1)
 	})
 
+	Convey("it should not add a blocked peer", t, func() {
+		blockedPeer, _ := makePeer("blocked peer")
+		h.node.Block(blockedPeer)
+		err := h.AddPeer(blockedPeer, nil)
+		So(err, ShouldEqual, ErrBlockedListed)
+		So(len(h.node.peerstore.Peers()), ShouldEqual, 2)
+		glist, err := h.dht.getGossipers()
+		So(err, ShouldBeNil)
+		So(len(glist), ShouldEqual, 1)
+		So(glist[0], ShouldEqual, somePeer)
+		So(h.node.routingTable.Size(), ShouldEqual, 1)
+	})
 }
-*/
+
+func TestNodeRouting(t *testing.T) {
+	d, _, h := PrepareTestChain("test")
+	defer CleanupTestChain(h, d)
+	node := h.node
+
+	start := 0
+	testPeerCount := 20
+	peers := []peer.ID{}
+
+	peers = addTestPeers(h, peers, start, testPeerCount)
+	Convey("populating routing", t, func() {
+		p := node.HashAddr
+		srch := node.routingTable.NearestPeers(HashFromPeerID(p), 5)
+		nearest := fmt.Sprintf("%d %v", len(srch), srch)
+		So(nearest, ShouldEqual, "5 [<peer.ID P9vKpw> <peer.ID P9QXqa> <peer.ID PrUBh5> <peer.ID Pn94bj> <peer.ID QHFWTH>]")
+		start = testPeerCount
+		testPeerCount += 5
+		peers = addTestPeers(h, peers, start, testPeerCount)
+		srch = node.routingTable.NearestPeers(HashFromPeerID(p), 5)
+		nearest = fmt.Sprintf("%d %v", len(srch), srch)
+
+		// adding a few more yields one which is closer
+		So(nearest, ShouldEqual, "5 [<peer.ID NSQqJR> <peer.ID P9vKpw> <peer.ID P9QXqa> <peer.ID PrUBh5> <peer.ID Pn94bj>]")
+		//		node.routingTable.Print()
+	})
+}
+
+func TestNodeAppSendResolution(t *testing.T) {
+	nodesCount := 50
+	mt := setupMultiNodeTesting(nodesCount)
+	defer mt.cleanupMultiNodeTesting()
+	ringConnect(t, mt.ctx, mt.nodes, nodesCount)
+	node1 := mt.nodes[0].node
+	node2 := mt.nodes[nodesCount/2].node
+
+	Convey("sending to nodes we aren't directly connected to should resolve", t, func() {
+		m := node2.NewMessage(GOSSIP_REQUEST, GossipReq{})
+		r, err := node2.Send(mt.ctx, GossipProtocol, node1.HashAddr, m)
+		So(err, ShouldBeNil)
+		So(r.Type, ShouldEqual, OK_RESPONSE)
+		So(r.From, ShouldEqual, node1.HashAddr) // response comes from who we sent to
+		So(fmt.Sprintf("%T", r.Body), ShouldEqual, "holochain.Gossip")
+	})
+}
 
 func makePeer(id string) (pid peer.ID, key ic.PrivKey) {
 	// use a constant reader so the key will be the same each time for the test...
-	r := strings.NewReader(id + "1234567890123456789012345678901234567890")
 	var err error
-	key, _, err = ic.GenerateEd25519Key(r)
+	key, _, err = ic.GenerateEd25519Key(makeTestSeed(id))
 	if err != nil {
 		panic(err)
 	}
@@ -355,4 +424,17 @@ func makeNode(port int, id string) (*Node, error) {
 	_, key := makePeer(id)
 	agent := LibP2PAgent{identity: AgentIdentity(id), priv: key, pub: key.GetPublic()}
 	return NewNode(listenaddr, "fakednahash", &agent, false)
+}
+
+func addTestPeers(h *Holochain, peers []peer.ID, start int, count int) []peer.ID {
+	for i := start; i < count; i++ {
+		p, _ := makePeer(fmt.Sprintf("peer_%d", i))
+		//		fmt.Printf("Peer %d: %s\n", i, peer.IDB58Encode(p))
+		peers = append(peers, p)
+		err := h.AddPeer(p, nil)
+		if err != nil {
+			panic(err)
+		}
+	}
+	return peers
 }

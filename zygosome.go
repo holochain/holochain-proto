@@ -11,6 +11,7 @@ import (
 	"fmt"
 	zygo "github.com/glycerine/zygomys/repl"
 	peer "github.com/libp2p/go-libp2p-peer"
+	. "github.com/metacurrency/holochain/hash"
 	"math"
 	"regexp"
 	"strconv"
@@ -581,7 +582,7 @@ func NewZygoRibosome(h *Holochain, zome *Zome) (n Ribosome, err error) {
 	var appKeyHash, appAgentStr, appAgentHash, appAgentTopHash zygo.SexpStr
 	if h != nil {
 		appKeyHash = zygo.SexpStr{S: h.nodeIDStr}
-		appAgentStr = zygo.SexpStr{S: string(h.Agent().Identity())}
+		appAgentStr = zygo.SexpStr{S: sanitizeZyString(string(h.Agent().Identity()))}
 		appAgentHash = zygo.SexpStr{S: h.agentHash.String()}
 		appAgentTopHash = zygo.SexpStr{S: h.agentTopHash.String()}
 	}
@@ -930,7 +931,29 @@ func NewZygoRibosome(h *Holochain, zome *Zome) (n Ribosome, err error) {
 						}
 						defs[result.Header.Type] = def
 					}
-					entrySexp = &zygo.SexpStr{S: result.Entry.Content().(string)}
+					r := result.Entry.Content()
+					var content string
+					switch def.DataFormat {
+					case DataFormatRawZygo:
+						fallthrough
+					case DataFormatRawJS:
+						fallthrough
+					case DataFormatString:
+						fallthrough
+					case DataFormatLinks:
+						fallthrough
+					case DataFormatJSON:
+						content = result.Entry.Content().(string)
+					case DataFormatSysAgent:
+						j, err := json.Marshal(r.(AgentEntry))
+						if err != nil {
+							return zygo.SexpNull, err
+						}
+						content = string(j)
+					default:
+						return zygo.SexpNull, fmt.Errorf("data format not implemented: %s", def.DataFormat)
+					}
+					entrySexp = &zygo.SexpStr{S: content}
 					sexp = entrySexp
 
 				}

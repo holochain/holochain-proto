@@ -10,6 +10,7 @@ package holochain
 import (
 	"bytes"
 	"fmt"
+	. "github.com/metacurrency/holochain/hash"
 )
 
 // Package holds app specified data needed for validation (wire package)

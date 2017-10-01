@@ -6,13 +6,13 @@ package holochain
 
 import (
 	"bytes"
-	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	b58 "github.com/jbenet/go-base58"
 	ic "github.com/libp2p/go-libp2p-crypto"
 	peer "github.com/libp2p/go-libp2p-peer"
+	. "github.com/metacurrency/holochain/hash"
 	"io/ioutil"
 	"net/http"
 	"reflect"
@@ -535,7 +535,7 @@ func (a *ActionSend) Do(h *Holochain) (response interface{}, err error) {
 	if a.options != nil && a.options.Callback != nil {
 		err = h.SendAsync(ActionProtocol, a.to, APP_MESSAGE, a.msg, a.options.Callback, timeout)
 	} else {
-		r, err = h.Send(context.Background(), ActionProtocol, a.to, APP_MESSAGE, a.msg, timeout)
+		r, err = h.Send(h.node.ctx, ActionProtocol, a.to, APP_MESSAGE, a.msg, timeout)
 		if err == nil {
 			response = r.(AppMsg).Body
 		}
@@ -612,19 +612,19 @@ func (a *ActionGet) Do(h *Holochain) (response interface{}, err error) {
 		if err != nil {
 			return
 		}
-		resp := GetResp{Entry: entry}
+		resp := GetResp{Entry: *entry.(*GobEntry)}
 		mask := a.options.GetMask
 		if (mask & GetMaskEntryType) != 0 {
 			resp.EntryType = entryType
 		}
 		if (mask & GetMaskEntry) != 0 {
-			resp.Entry = entry
+			resp.Entry = *entry.(*GobEntry)
 		}
 
 		response = resp
 		return
 	}
-	rsp, err := h.dht.Send(a.req.H, GET_REQUEST, a.req)
+	rsp, err := h.dht.Query(a.req.H, GET_REQUEST, a.req)
 	if err != nil {
 
 		// follow the modified hash
@@ -677,27 +677,35 @@ func (a *ActionGet) Receive(dht *DHT, msg *Message) (response interface{}, err e
 		if (mask & GetMaskEntry) != 0 {
 			switch entryType {
 			case DNAEntryType:
-				panic("nobody should actually get the DNA!")
-			case AgentEntryType:
-				fallthrough
+				// TODO: make this add the requester to the blockedlist rather than panicing, see ticket #421
+				err = errors.New("nobody should actually get the DNA!")
+				return
 			case KeyEntryType:
-				var e GobEntry
-				e.C = string(entryData)
-				resp.Entry = &e
+				resp.Entry = GobEntry{C: entryData}
 			default:
 				var e GobEntry
 				err = e.Unmarshal(entryData)
 				if err != nil {
 					return
 				}
-				resp.Entry = &e
+				resp.Entry = e
 			}
 		}
 	} else {
 		if err == ErrHashModified {
 			resp.FollowHash = string(entryData)
+		} else if err == ErrHashNotFound {
+			closest := dht.h.node.betterPeersForHash(&req.H, msg.From, CloserPeerCount)
+			if len(closest) > 0 {
+				err = nil
+				resp := CloserPeersResp{}
+				resp.CloserPeers = dht.h.node.peers2PeerInfos(closest)
+				response = resp
+				return
+			}
 		}
 	}
+
 	response = resp
 	return
 }
@@ -709,6 +717,7 @@ func (h *Holochain) doCommit(a CommittingAction, change *StatusChange) (d *Entry
 	entry := a.Entry()
 	var l int
 	var hash Hash
+
 	l, hash, header, err = h.chain.PrepareHeader(time.Now(), entryType, entry, h.agent.PrivKey(), change)
 	if err != nil {
 		return
@@ -781,14 +790,18 @@ func (a *ActionCommit) Do(h *Holochain) (response interface{}, err error) {
 			_, exists := bases[l.Base]
 			if !exists {
 				b, _ := NewHash(l.Base)
-				h.dht.Send(b, LINK_REQUEST, LinkReq{Base: b, Links: entryHash})
+				h.dht.Change(b, LINK_REQUEST, LinkReq{Base: b, Links: entryHash})
 				//TODO errors from the send??
 				bases[l.Base] = true
 			}
 		}
 	} else if d.Sharing == Public {
 		// otherwise we check to see if it's a public entry and if so send the DHT put message
-		_, err = h.dht.Send(entryHash, PUT_REQUEST, PutReq{H: entryHash})
+		err = h.dht.Change(entryHash, PUT_REQUEST, PutReq{H: entryHash})
+		if err == ErrEmptyRoutingTable {
+			// will still have committed locally and can gossip later
+			err = nil
+		}
 	}
 	response = entryHash
 	return
@@ -907,7 +920,7 @@ func (a *ActionPut) SysValidation(h *Holochain, d *EntryDef, sources []peer.ID) 
 
 func RunValidationPhase(h *Holochain, source peer.ID, msgType MsgType, query Hash, handler func(resp ValidateResponse) error) (err error) {
 	var r interface{}
-	r, err = h.Send(context.Background(), ValidateProtocol, source, msgType, ValidateQuery{H: query}, 0)
+	r, err = h.Send(h.node.ctx, ValidateProtocol, source, msgType, ValidateQuery{H: query}, 0)
 	if err != nil {
 		return
 	}
@@ -943,7 +956,16 @@ func (a *ActionPut) Receive(dht *DHT, msg *Message) (response interface{}, err e
 		return err
 	})
 
-	response = "queued"
+	closest := dht.h.node.betterPeersForHash(&t.H, msg.From, CloserPeerCount)
+	if len(closest) > 0 {
+		err = nil
+		resp := CloserPeersResp{}
+		resp.CloserPeers = dht.h.node.peers2PeerInfos(closest)
+		response = resp
+		return
+	} else {
+		response = "queued"
+	}
 	return
 }
 
@@ -992,8 +1014,8 @@ func (a *ActionMod) Do(h *Holochain) (response interface{}, err error) {
 	if d.Sharing == Public {
 		// if it's a public entry send the DHT MOD & PUT messages
 		// TODO handle errors better!!
-		_, err = h.dht.Send(entryHash, PUT_REQUEST, PutReq{H: entryHash})
-		_, err = h.dht.Send(a.replaces, MOD_REQUEST, ModReq{H: a.replaces, N: entryHash})
+		h.dht.Change(entryHash, PUT_REQUEST, PutReq{H: entryHash})
+		h.dht.Change(a.replaces, MOD_REQUEST, ModReq{H: a.replaces, N: entryHash})
 	}
 	response = entryHash
 	return
@@ -1134,7 +1156,7 @@ func (a *ActionModAgent) Do(h *Holochain) (response interface{}, err error) {
 			h.node.Close()
 			h.createNode()
 
-			_, err = h.dht.Send(oldKey, MOD_REQUEST, ModReq{H: oldKey, N: newKey})
+			h.dht.Change(oldKey, MOD_REQUEST, ModReq{H: oldKey, N: newKey})
 
 			warrant, _ := NewSelfRevocationWarrant(revocation)
 			var data []byte
@@ -1144,7 +1166,7 @@ func (a *ActionModAgent) Do(h *Holochain) (response interface{}, err error) {
 			}
 
 			// TODO, this isn't really a DHT send, but a management send, so the key is bogus.  have to work this out...
-			_, err = h.dht.Send(oldKey, LISTADD_REQUEST,
+			h.dht.Change(oldKey, LISTADD_REQUEST,
 				ListAddReq{
 					ListType:    BlockedList,
 					Peers:       []string{peer.IDB58Encode(oldPeer)},
@@ -1204,7 +1226,7 @@ func (a *ActionDel) Do(h *Holochain) (response interface{}, err error) {
 
 	if d.Sharing == Public {
 		// if it's a public entry send the DHT DEL
-		_, err = h.dht.Send(a.entry.Hash, DEL_REQUEST, DelReq{H: a.entry.Hash, By: entryHash})
+		h.dht.Change(a.entry.Hash, DEL_REQUEST, DelReq{H: a.entry.Hash, By: entryHash})
 	}
 	response = entryHash
 
@@ -1386,7 +1408,7 @@ func (a *ActionGetLinks) Args() []Arg {
 
 func (a *ActionGetLinks) Do(h *Holochain) (response interface{}, err error) {
 	var r interface{}
-	r, err = h.dht.Send(a.linkQuery.Base, GETLINK_REQUEST, *a.linkQuery)
+	r, err = h.dht.Query(a.linkQuery.Base, GETLINK_REQUEST, *a.linkQuery)
 
 	if err == nil {
 		switch t := r.(type) {
@@ -1404,12 +1426,8 @@ func (a *ActionGetLinks) Do(h *Holochain) (response interface{}, err error) {
 					rsp, err := NewGetAction(req, &opts).Do(h)
 					if err == nil {
 						entry := rsp.(GetResp).Entry
-						if entry != nil {
-							t.Links[i].E = entry.(Entry).Content().(string)
-							t.Links[i].EntryType = rsp.(GetResp).EntryType
-						} else {
-							panic(fmt.Sprintf("Nil entry in GetLinks.Do response to req: %v", req))
-						}
+						t.Links[i].E = entry.Content().(string)
+						t.Links[i].EntryType = rsp.(GetResp).EntryType
 
 					}
 					//TODO better error handling here, i.e break out of the loop and return if error?

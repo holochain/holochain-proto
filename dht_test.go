@@ -222,6 +222,20 @@ func TestLinking(t *testing.T) {
 		So(data[0].H, ShouldEqual, linkHash1Str)
 	})
 
+	Convey("It should store and retrieve a links source", t, func() {
+		err = dht.putLink(fakeMsg, baseStr, linkHash1Str, "tag source")
+		So(err, ShouldBeNil)
+
+		data, err := dht.getLinks(base, "tag source", StatusLive)
+		So(err, ShouldBeNil)
+		So(len(data), ShouldEqual, 1)
+
+		data, err = dht.getLinks(base, "tag source", StatusLive)
+		So(err, ShouldBeNil)
+		So(len(data), ShouldEqual, 1)
+		So(data[0].Source, ShouldEqual, h.nodeIDStr)
+	})
+
 	Convey("It should work to put a link a second time", t, func() {
 		err = dht.putLink(fakeMsg, baseStr, linkHash1Str, "tag foo")
 		So(err, ShouldBeNil)

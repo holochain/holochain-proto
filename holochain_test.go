@@ -503,7 +503,7 @@ func TestCommit(t *testing.T) {
 		}
 		results, err := h.dht.getLinks(hash, "4stars", StatusLive)
 		So(err, ShouldBeNil)
-		So(fmt.Sprintf("%v", results), ShouldEqual, "[{QmYeinX5vhuA91D3v24YbgyLofw9QAxY6PoATrBHnRwbtt   }]")
+		So(fmt.Sprintf("%v", results), ShouldEqual, fmt.Sprintf("[{QmYeinX5vhuA91D3v24YbgyLofw9QAxY6PoATrBHnRwbtt    %s}]", h.nodeIDStr))
 	})
 }
 

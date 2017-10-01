@@ -749,6 +749,7 @@ func TestJSDHT(t *testing.T) {
 		So(fmt.Sprintf("%v", lp["firstName"]), ShouldEqual, "Zippy")
 		So(fmt.Sprintf("%v", lp["lastName"]), ShouldEqual, "Pinhead")
 		So(l1["EntryType"], ShouldEqual, "profile")
+		So(l1["Source"], ShouldEqual, h.nodeIDStr)
 
 		So(l0["Hash"], ShouldEqual, reviewHash.String())
 		So(fmt.Sprintf("%v", l0["Entry"]), ShouldEqual, `this is my bogus review of some thing`)
@@ -766,9 +767,9 @@ func TestJSDHT(t *testing.T) {
 			panic(err)
 		}
 		links, _ := h.dht.getLinks(hash, "4stars", StatusLive)
-		So(fmt.Sprintf("%v", links), ShouldEqual, "[{QmWbbUf6G38hT27kmrQ5UYFbXUPTGokKvDiaQbczFYNjuN   }]")
+		So(fmt.Sprintf("%v", links), ShouldEqual, fmt.Sprintf("[{QmWbbUf6G38hT27kmrQ5UYFbXUPTGokKvDiaQbczFYNjuN    %s}]", h.nodeIDStr))
 		links, _ = h.dht.getLinks(hash, "4stars", StatusDeleted)
-		So(fmt.Sprintf("%v", links), ShouldEqual, "[{QmYeinX5vhuA91D3v24YbgyLofw9QAxY6PoATrBHnRwbtt   }]")
+		So(fmt.Sprintf("%v", links), ShouldEqual, fmt.Sprintf("[{QmYeinX5vhuA91D3v24YbgyLofw9QAxY6PoATrBHnRwbtt    %s}]", h.nodeIDStr))
 	})
 
 	Convey("getLinks with StatusMask option should return deleted Links", t, func() {

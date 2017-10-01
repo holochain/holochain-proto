@@ -13,10 +13,12 @@ import (
 	"fmt"
 	ic "github.com/libp2p/go-libp2p-crypto"
 	peer "github.com/libp2p/go-libp2p-peer"
+	. "github.com/metacurrency/holochain/hash"
 	"github.com/tidwall/buntdb"
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
 )
 
 // Holds the dht configuration options
@@ -24,7 +26,8 @@ type DHTConfig struct {
 	// HashType : (string) Identifies hash type to be used for this application. Should be from the list of hash types from the multihash library
 	HashType string
 
-	// NeighborhoodSize : (integer) Establishes minimum online redundancy targets for data, and size of peer sets for sync gossip. A neighborhood size of ZERO means no sharding (every node syncs all data with every other node). ONE means you are running this as a centralized application and gossip is turned OFF. For most applications we recommend neighborhoods no smaller than 8 for nearness or 32 for hashmask sharding.
+	// NeighborhoodSize(integer) Establishes minimum online redundancy targets for data, and size of peer sets for sync gossip. A neighborhood size of ZERO means no sharding (every node syncs all data with every other node). ONE means you are running this as a centralized application and gossip is turned OFF. For most applications we recommend neighborhoods no smaller than 8 for nearness or 32 for hashmask sharding.
+	NeighborhoodSize int
 
 	// ShardingMethod : Identifier for sharding method (none, XOR, hashmask, other nearness algorithms?, etc.)
 
@@ -50,11 +53,15 @@ type DHT struct {
 	h         *Holochain // pointer to the holochain this DHT is part of
 	db        *buntdb.DB
 	puts      chan Message
-	gossiping bool
+	gossiping chan bool
 	glog      *Logger // the gossip logger
 	dlog      *Logger // the dht logger
 	gossips   map[peer.ID]bool
 	gchan     chan gossipWithReq
+	config    *DHTConfig
+	glk       sync.RWMutex
+	//	sources      map[peer.ID]bool
+	//	fingerprints map[string]bool
 }
 
 // Meta holds data that can be associated with a hash
@@ -126,7 +133,7 @@ type GetReq struct {
 
 // GetResp holds the data of a get response
 type GetResp struct {
-	Entry      Entry
+	Entry      GobEntry
 	EntryType  string
 	Sources    []string
 	FollowHash string // hash of new entry if the entry was modified and needs following
@@ -157,7 +164,7 @@ type DelLinkReq struct {
 	Tag  string // tag to be deleted
 }
 
-// LinkQuery holds a getLink query
+// LinkQuery holds a getLinks query
 type LinkQuery struct {
 	Base       Hash
 	T          string
@@ -173,20 +180,22 @@ type GetOptions struct {
 	Local      bool // bool if get should happen from chain not DHT
 }
 
-// GetLinkOptions options to holochain level GetLink functions
-type GetLinkOptions struct {
-	Load       bool // indicates whether GetLink should retrieve the entries of all links
+// GetLinksOptions options to holochain level GetLinks functions
+type GetLinksOptions struct {
+	Load       bool // indicates whether GetLinks should retrieve the entries of all links
 	StatusMask int  // mask of which status of links to return
 }
 
 // TaggedHash holds associated entries for the LinkQueryResponse
 type TaggedHash struct {
-	H      string // the hash of the link; gets filled by dht base node when answering get link request
-	E      string // the value of link, get's filled by caller if getLink function set Load to true
-	Source string
+	H         string // the hash of the link; gets filled by dht base node when answering get link request
+	E         string // the value of link, gets filled if options set Load to true
+	EntryType string // the entry type of the link, gets filled if options set Load to true
+	T         string // the tag of the link, gets filled only if a tag wasn't specified and all tags are being returns
+	Source    string
 }
 
-// LinkQueryResp holds response to getLink query
+// LinkQueryResp holds response to getLinks query
 type LinkQueryResp struct {
 	Links []TaggedHash
 }
@@ -213,12 +222,16 @@ var ErrHashModified = errors.New("hash modified")
 var ErrHashRejected = errors.New("hash rejected")
 var ErrEntryTypeMismatch = errors.New("entry type mismatch")
 
+var KValue int = 10
+var AlphaValue int = 3
+
 // NewDHT creates a new DHT structure
 func NewDHT(h *Holochain) *DHT {
 	dht := DHT{
-		h:    h,
-		glog: &h.Config.Loggers.Gossip,
-		dlog: &h.Config.Loggers.DHT,
+		h:      h,
+		glog:   &h.Config.Loggers.Gossip,
+		dlog:   &h.Config.Loggers.DHT,
+		config: &h.Nucleus().DNA().DHTConfig,
 	}
 	db, err := buntdb.Open(filepath.Join(h.DBPath(), DHTStoreFileName))
 	if err != nil {
@@ -233,6 +246,8 @@ func NewDHT(h *Holochain) *DHT {
 	dht.puts = make(chan Message, 10)
 
 	dht.gossips = make(map[peer.ID]bool)
+	//	dht.sources = make(map[peer.ID]bool)
+	//	dht.fingerprints = make(map[string]bool)
 	dht.gchan = make(chan gossipWithReq, 10)
 
 	return &dht
@@ -606,9 +621,9 @@ func filter(ss []Meta, test func(*Meta) bool) (ret []Meta) {
 	return
 }
 
-// getLink retrieves meta value associated with a base
-func (dht *DHT) getLink(base Hash, tag string, statusMask int) (results []TaggedHash, err error) {
-	dht.dlog.Logf("getLink on %v of %s with mask %d", base, tag, statusMask)
+// getLinks retrieves meta value associated with a base
+func (dht *DHT) getLinks(base Hash, tag string, statusMask int) (results []TaggedHash, err error) {
+	dht.dlog.Logf("getLinks on %v of %s with mask %d", base, tag, statusMask)
 	b := base.String()
 	err = dht.db.View(func(tx *buntdb.Tx) error {
 		_, err := _get(tx, b, StatusLive+StatusModified) //only get links on live and modified bases
@@ -623,12 +638,16 @@ func (dht *DHT) getLink(base Hash, tag string, statusMask int) (results []Tagged
 		results = make([]TaggedHash, 0)
 		err = tx.Ascend("link", func(key, value string) bool {
 			x := strings.Split(key, ":")
-
-			if string(x[1]) == b && string(x[3]) == tag {
+			t := string(x[3])
+			if string(x[1]) == b && (tag == "" || tag == t) {
 				entry := LinkEntry{}
 				json.Unmarshal([]byte(value), &entry)
 				if err == nil && (entry.Status&statusMask) > 0 {
-					results = append(results, TaggedHash{H: string(x[2]), Source: entry.Source})
+					th := TaggedHash{H: string(x[2]), Source: entry.Source}
+					if tag == "" {
+						th.T = t
+					}
+					results = append(results, th)
 				}
 			}
 
@@ -643,32 +662,109 @@ func (dht *DHT) getLink(base Hash, tag string, statusMask int) (results []Tagged
 	return
 }
 
-func (dht *DHT) Send(key Hash, msgType MsgType, body interface{}) (response interface{}, err error) {
-	n, err := dht.FindNodeForHash(key)
+// Change sends DHT change messages to the closest peers to the hash in question
+func (dht *DHT) Change(key Hash, msgType MsgType, body interface{}) (err error) {
+	Debugf("Starting %v Change for %v with body %v", msgType, key, body)
+
+	// change in our local DHT as well as
+	_, err = dht.send(nil, dht.h.nodeID, msgType, body)
+
 	if err != nil {
-		return
+		dht.dlog.Logf("DHT %s failed to self with error: %s", msgType, err)
+		err = nil
 	}
-	response, err = dht.send(n.HashAddr, msgType, body)
+	node := dht.h.node
+
+	pchan, err := node.GetClosestPeers(node.ctx, key)
+	if err != nil {
+		return err
+	}
+
+	wg := sync.WaitGroup{}
+	for p := range pchan {
+		wg.Add(1)
+		go func(p peer.ID) {
+			ctx, cancel := context.WithCancel(node.ctx)
+			defer cancel()
+			defer wg.Done()
+
+			_, err := dht.send(ctx, p, msgType, body)
+			if err != nil {
+				dht.dlog.Logf("DHT %s failed to peer %v with error: %s", msgType, p, err)
+			}
+		}(p)
+	}
+	wg.Wait()
+	return
+}
+
+// Query sends DHT query messages recursively to peers until one is able to respond.
+func (dht *DHT) Query(key Hash, msgType MsgType, body interface{}) (response interface{}, err error) {
+	Debugf("Starting %v Query for %v with body %v", msgType, key, body)
+
+	// try locally first
+	response, err = dht.send(nil, dht.h.nodeID, msgType, body)
+	if err == nil {
+		// if we actually got a response (not a closer peers list) then return it
+		_, notok := response.(CloserPeersResp)
+		if !notok {
+			return
+		}
+	} else {
+		if err != ErrHashNotFound {
+			return
+		}
+		err = nil
+	}
+
+	// get closest peers in the routing table
+	rtp := dht.h.node.routingTable.NearestPeers(key, AlphaValue)
+	Debugf("peers in rt: %d %s", len(rtp), rtp)
+	if len(rtp) == 0 {
+		Info("DHT Query with no peers in routing table!")
+		return nil, ErrHashNotFound
+	}
+
+	// setup the Query
+	query := dht.h.node.newQuery(key, func(ctx context.Context, to peer.ID) (*dhtQueryResult, error) {
+		if ctx == nil {
+			Debug("fish")
+		}
+		response, err := dht.send(ctx, to, msgType, body)
+		if err != nil {
+			Debugf("Query failed: %v", err)
+			return nil, err
+		}
+
+		res := &dhtQueryResult{}
+
+		switch t := response.(type) {
+		case GetResp:
+			Debugf("Query successful with: %v", response)
+			res.success = true
+			res.response = response
+		case CloserPeersResp:
+			res.closerPeers = peerInfos2Pis(t.CloserPeers)
+		}
+		return res, nil
+	})
+
+	// run it!
+	var result *dhtQueryResult
+	result, err = query.Run(dht.h.node.ctx, rtp)
+	if err != nil {
+		return nil, err
+	}
+	response = result.response
 	return
 }
 
 // Send sends a message to the node
-func (dht *DHT) send(to peer.ID, t MsgType, body interface{}) (response interface{}, err error) {
-	return dht.h.Send(context.Background(), ActionProtocol, to, t, body, 0)
-}
-
-// FindNodeForHash gets the nearest node to the neighborhood of the hash
-func (dht *DHT) FindNodeForHash(key Hash) (n *Node, err error) {
-
-	// for now, the node it returns it self!
-	pid := dht.h.nodeID
-
-	var node Node
-	node.HashAddr = pid
-
-	n = &node
-
-	return
+func (dht *DHT) send(ctx context.Context, to peer.ID, t MsgType, body interface{}) (response interface{}, err error) {
+	if ctx == nil {
+		ctx = dht.h.node.ctx
+	}
+	return dht.h.Send(ctx, ActionProtocol, to, t, body, 0)
 }
 
 // HandleChangeReqs waits on a chanel for messages to handle
@@ -692,7 +788,10 @@ func (dht *DHT) FindNodeForHash(key Hash) (n *Node, err error) {
 
 // Start initiates listening for DHT & Gossip protocol messages on the node
 func (dht *DHT) Start() (err error) {
-	err = dht.h.node.StartProtocol(dht.h, GossipProtocol)
+	if err = dht.h.node.StartProtocol(dht.h, GossipProtocol); err != nil {
+		return
+	}
+	err = dht.h.node.StartProtocol(dht.h, KademliaProtocol)
 	return
 }
 

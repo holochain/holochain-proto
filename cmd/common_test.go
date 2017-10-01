@@ -19,7 +19,7 @@ func TestIsAppDir(t *testing.T) {
 			d, s := holo.SetupTestService()
 
 			So(IsAppDir(d).Error(), ShouldEqual, "HC: Holochain App directory missing dna/dna.xyz config file")
-			h, err := s.MakeTestingApp(filepath.Join(s.Path, "test"), configExtension, true)
+			h, err := s.MakeTestingApp(filepath.Join(s.Path, "test"), configExtension, holo.InitializeDB, holo.CloneWithNewUUID, nil)
 			if err != nil {
 				panic(err)
 			}
@@ -63,7 +63,7 @@ func TestGetService(t *testing.T) {
 		So(err, ShouldEqual, ErrServiceUninitialized)
 	})
 	Convey("it should make a service once initialized", t, func() {
-		holo.Init(d, holo.AgentIdentity("test@example.com"))
+		holo.Init(d, holo.AgentIdentity("test@example.com"), nil)
 		service, err := GetService(d)
 		So(err, ShouldBeNil)
 		So(service.Path, ShouldEqual, d)
@@ -80,7 +80,7 @@ func TestGetHolochain(t *testing.T) {
 		So(h, ShouldBeNil)
 	})
 
-	holo.Init(d, holo.AgentIdentity("test@example.com"))
+	holo.Init(d, holo.AgentIdentity("test@example.com"), nil)
 	service, _ := GetService(d)
 	Convey("it should fail to get an non-existent holochain", t, func() {
 		h, err := GetHolochain("foobar", service, "some-cmd")
@@ -90,7 +90,7 @@ func TestGetHolochain(t *testing.T) {
 
 	Convey("it should get an installed holochain", t, func() {
 		d, service, h := holo.PrepareTestChain("test")
-		defer holo.CleanupTestDir(d)
+		defer holo.CleanupTestChain(h, d)
 
 		// finally run the test.
 		h, err := GetHolochain("test", service, "some-cmd")

@@ -43,7 +43,7 @@ func TestSelfRevocationWarrant(t *testing.T) {
 	})
 
 	d, _, h := PrepareTestChain("test")
-	defer CleanupTestDir(d)
+	defer CleanupTestChain(h, d)
 
 	Convey("verification should fail if not true in context", t, func() {
 		err = w.Verify(h)

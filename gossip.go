@@ -7,10 +7,10 @@
 package holochain
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	peer "github.com/libp2p/go-libp2p-peer"
+	. "github.com/metacurrency/holochain/hash"
 	"github.com/tidwall/buntdb"
 	"math/rand"
 	"sort"
@@ -232,9 +232,8 @@ func (dht *DHT) GetGossiper(id peer.ID) (idx int, err error) {
 	return
 }
 
-// FindGossiper picks a random DHT node to gossip with
-func (dht *DHT) FindGossiper() (g peer.ID, err error) {
-	glist := make([]peer.ID, 0)
+func (dht *DHT) getGossipers() (glist []peer.ID, err error) {
+	glist = make([]peer.ID, 0)
 
 	err = dht.db.View(func(tx *buntdb.Tx) error {
 		err = tx.Ascend("peer", func(key, value string) bool {
@@ -249,7 +248,36 @@ func (dht *DHT) FindGossiper() (g peer.ID, err error) {
 		})
 		return nil
 	})
+	ns := dht.config.NeighborhoodSize
+	if ns > 1 {
+		size := len(glist)
+		hlist := make([]Hash, size)
+		for i := 0; i < size; i++ {
+			h := HashFromPeerID(glist[i])
+			hlist[i] = h
+		}
+		me := HashFromPeerID(dht.h.nodeID)
 
+		hlist = SortByDistance(me, hlist)
+		if ns < size {
+			size = ns
+		}
+		glist = make([]peer.ID, size)
+		for i := 0; i < size; i++ {
+			p := PeerIDFromHash(hlist[i])
+			glist[i] = p
+		}
+	}
+	return
+}
+
+// FindGossiper picks a random DHT node to gossip with
+func (dht *DHT) FindGossiper() (g peer.ID, err error) {
+	var glist []peer.ID
+	glist, err = dht.getGossipers()
+	if err != nil {
+		return
+	}
 	if len(glist) == 0 {
 		err = ErrDHTErrNoGossipersAvailable
 	} else {
@@ -258,14 +286,18 @@ func (dht *DHT) FindGossiper() (g peer.ID, err error) {
 	return
 }
 
-// UpdateGossiper updates a gossiper
-func (dht *DHT) UpdateGossiper(id peer.ID, newIdx int) (err error) {
-	if dht.h.node.IsBlocked(id) {
-		dht.glog.Logf("gossiper %v on blocklist, deleting", id)
-		dht.DeleteGossiper(id) // ignore error
+// AddGossiper adds a new gossiper to the gossiper store
+func (dht *DHT) AddGossiper(id peer.ID) (err error) {
+	// never add ourselves as a gossiper
+	if id == dht.h.node.HashAddr {
 		return
 	}
-	dht.glog.Logf("updaing %v to %d", id, newIdx)
+	err = dht.updateGossiper(id, 0)
+	return
+}
+
+// internal update gossiper function, assumes all checks have been made
+func (dht *DHT) updateGossiper(id peer.ID, newIdx int) (err error) {
 	err = dht.db.Update(func(tx *buntdb.Tx) error {
 		key := "peer:" + peer.IDB58Encode(id)
 		idx, e := getIntVal(key, tx)
@@ -285,6 +317,18 @@ func (dht *DHT) UpdateGossiper(id peer.ID, newIdx int) (err error) {
 	return
 }
 
+// UpdateGossiper updates a gossiper
+func (dht *DHT) UpdateGossiper(id peer.ID, newIdx int) (err error) {
+	if dht.h.node.IsBlocked(id) {
+		dht.glog.Logf("gossiper %v on blocklist, deleting", id)
+		dht.DeleteGossiper(id) // ignore error
+		return
+	}
+	dht.glog.Logf("updating %v to %d", id, newIdx)
+	err = dht.updateGossiper(id, newIdx)
+	return
+}
+
 // DeleteGossiper removes a gossiper from the database
 func (dht *DHT) DeleteGossiper(id peer.ID) (err error) {
 	dht.glog.Logf("deleting %v", id)
@@ -296,6 +340,7 @@ func (dht *DHT) DeleteGossiper(id peer.ID) (err error) {
 	return
 }
 
+// GossipReceiver implements the handler for the gossip protocol
 func GossipReceiver(h *Holochain, m *Message) (response interface{}, err error) {
 	dht := h.dht
 	switch m.Type {
@@ -317,13 +362,14 @@ func GossipReceiver(h *Holochain, m *Message) (response interface{}, err error) 
 			if e == nil && idx < t.MyIdx {
 				dht.glog.Logf("we only have %d of %d from %v so gossiping back", idx, t.MyIdx, m.From)
 
-				pi := h.node.Host.Peerstore().PeerInfo(m.From)
+				pi := h.node.host.Peerstore().PeerInfo(m.From)
 				if len(pi.Addrs) == 0 {
 					dht.glog.Logf("NO ADDRESSES FOR PEER:%v", pi)
 				}
 
 				// queue up a request to gossip back
-				dht.gchan <- gossipWithReq{m.From}
+				// TODO: not thread safe, as can get called after channel closes
+				go func() { dht.gchan <- gossipWithReq{m.From} }()
 			}
 
 		default:
@@ -337,19 +383,21 @@ func GossipReceiver(h *Holochain, m *Message) (response interface{}, err error) 
 
 // gossipWith gossips with an peer asking for everything after since
 func (dht *DHT) gossipWith(id peer.ID) (err error) {
-	dht.glog.Logf("with %v", id)
+	dht.glog.Logf("starting gossipWith %v", id)
 
 	// gossip loops are possible where a gossip request triggers a gossip back, which
 	// if the first gossiping wasn't completed triggers the same gossip, so protect against this
 	// with a hash table storing who we are currently gossiping with
-	_, gossiping := dht.gossips[id]
-	if gossiping {
-		return
-	}
-	dht.gossips[id] = true
-	defer func() {
-		delete(dht.gossips, id)
-	}()
+	dht.glk.Lock()
+	defer dht.glk.Unlock()
+	/*	_, gossiping := dht.gossips[id]
+		if gossiping {
+			return
+		}
+		dht.gossips[id] = true
+		defer func() {
+			delete(dht.gossips, id)
+		}()*/
 
 	var myIdx, yourIdx int
 	myIdx, err = dht.GetIdx()
@@ -363,7 +411,7 @@ func (dht *DHT) gossipWith(id peer.ID) (err error) {
 	}
 
 	var r interface{}
-	r, err = dht.h.Send(context.Background(), GossipProtocol, id, GOSSIP_REQUEST, GossipReq{MyIdx: myIdx, YourIdx: yourIdx + 1}, 0)
+	r, err = dht.h.Send(dht.h.node.ctx, GossipProtocol, id, GOSSIP_REQUEST, GossipReq{MyIdx: myIdx, YourIdx: yourIdx + 1}, 0)
 	if err != nil {
 		return
 	}
@@ -378,6 +426,7 @@ func (dht *DHT) gossipWith(id peer.ID) (err error) {
 	if count > 0 {
 		dht.glog.Logf("running %d puts", count)
 		var idx int
+		ok := true
 		for i, p := range puts {
 			idx = i + yourIdx + 1
 			/* TODO: Small mystery to be solved, the value of p.idx is always 0 but it should be the actual idx...
@@ -387,12 +436,19 @@ func (dht *DHT) gossipWith(id peer.ID) (err error) {
 			*/
 			f, e := p.M.Fingerprint()
 			if e == nil {
+				// dht.sources[p.M.From] = true
+				// dht.fingerprints[f.String()[2:4]] = true
 				dht.glog.Logf("PUT--%d (fingerprint: %v)", idx, f)
 				exists, e := dht.HaveFingerprint(f)
 				if !exists && e == nil {
 					dht.glog.Logf("PUT--%d calling ActionReceiver", idx)
+					//fmt.Printf("PUT--%d calling ActionReceiver\n", idx)
 					r, e := ActionReceiver(dht.h, &p.M)
 					dht.glog.Logf("PUT--%d ActionReceiver returned %v with err %v", idx, r, e)
+					if e != nil {
+						// put receiver error so don't update this gossip
+						ok = false
+					}
 				} else {
 					if e == nil {
 						dht.glog.Logf("already have fingerprint %v", f)
@@ -405,7 +461,9 @@ func (dht *DHT) gossipWith(id peer.ID) (err error) {
 				dht.glog.Logf("error calculating fingerprint for %v", p)
 			}
 		}
-		err = dht.UpdateGossiper(id, idx)
+		if ok {
+			err = dht.UpdateGossiper(id, idx)
+		}
 	}
 	return
 }
@@ -418,21 +476,28 @@ func (dht *DHT) gossip() (err error) {
 	if err != nil {
 		return
 	}
-
 	dht.gchan <- gossipWithReq{g}
 	return
 }
 
 // Gossip gossips every interval
 func (dht *DHT) Gossip(interval time.Duration) {
-	dht.gossiping = true
-	for dht.gossiping {
-		err := dht.gossip()
-		if err != nil {
-			dht.glog.Logf("error: %v", err)
+	ticker := time.NewTicker(interval)
+	stop := make(chan bool, 1)
+	go func() {
+		for {
+			select {
+			case <-ticker.C:
+				err := dht.gossip()
+				if err != nil {
+					dht.glog.Logf("error: %v", err)
+				}
+			case <-stop:
+				return
+			}
 		}
-		time.Sleep(interval)
-	}
+	}()
+	dht.gossiping = stop
 }
 
 // HandleGossipWiths waits on a chanel for gossipWith requests

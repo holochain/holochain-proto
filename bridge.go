@@ -10,6 +10,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	. "github.com/metacurrency/holochain/hash"
 	"github.com/tidwall/buntdb"
 	"path/filepath"
 	"strings"

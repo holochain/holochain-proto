@@ -96,7 +96,7 @@ func (a *LibP2PAgent) AgentEntry(revocation Revocation) (entry AgentEntry, err e
 			return
 		}
 	}
-	entry.Key, err = ic.MarshalPublicKey(a.PubKey())
+	entry.PublicKey, err = ic.MarshalPublicKey(a.PubKey())
 	if err != nil {
 		return
 	}
@@ -105,13 +105,13 @@ func (a *LibP2PAgent) AgentEntry(revocation Revocation) (entry AgentEntry, err e
 
 // NewAgent creates an agent structure of the given type
 // Note: currently only IPFS agents are implemented
-func NewAgent(agentType AgentType, identity AgentIdentity) (agent Agent, err error) {
+func NewAgent(agentType AgentType, identity AgentIdentity, seed io.Reader) (agent Agent, err error) {
 	switch agentType {
 	case LibP2P:
 		a := LibP2PAgent{
 			identity: identity,
 		}
-		err = a.GenKeys(nil)
+		err = a.GenKeys(seed)
 		if err != nil {
 			return
 		}

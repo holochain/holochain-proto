@@ -121,10 +121,7 @@ func TestScenario(h *Holochain, dir string, role string) (err error, testErrs []
 	}
 
 	if config.GossipInterval > 0 {
-		//	go h.DHT().HandleChangeReqs()
-		go h.DHT().HandleGossipWiths()
-		go h.HandleAsyncSends()
-		go h.DHT().Gossip(config.GossipInterval * time.Millisecond)
+		h.StartBackgroundTasks(config.GossipInterval * time.Millisecond)
 	}
 
 	testErrs = DoTests(h, role, tests, time.Duration(config.Duration)*time.Second)

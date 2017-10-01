@@ -707,30 +707,52 @@ func TestJSDHT(t *testing.T) {
 		panic(err)
 	}
 
-	Convey("getLink function should return the Links", t, func() {
-		v, err := NewJSRibosome(h, &Zome{RibosomeType: JSRibosomeType, Code: fmt.Sprintf(`getLink("%s","4stars");`, hash.String())})
+	Convey("getLinks should return the Links", t, func() {
+		v, err := NewJSRibosome(h, &Zome{RibosomeType: JSRibosomeType, Code: fmt.Sprintf(`getLinks("%s","4stars");`, hash.String())})
 		So(err, ShouldBeNil)
 		z := v.(*JSRibosome)
-		So(z.lastResult.Class(), ShouldEqual, "Object")
-		x, err := z.lastResult.Export()
-		lqr := x.(*LinkQueryResp)
-		So(err, ShouldBeNil)
-		So(fmt.Sprintf("%v", lqr.Links[1].H), ShouldEqual, profileHash.String())
-		So(fmt.Sprintf("%v", lqr.Links[0].H), ShouldEqual, reviewHash.String())
+		So(z.lastResult.Class(), ShouldEqual, "Array")
+		links, _ := z.lastResult.Export()
+		l0 := links.([]map[string]interface{})[0]
+		l1 := links.([]map[string]interface{})[1]
+
+		So(fmt.Sprintf("%v", l0["Hash"]), ShouldEqual, reviewHash.String())
+		So(fmt.Sprintf("%v", l1["Hash"]), ShouldEqual, profileHash.String())
 	})
 
-	Convey("getLink function with load option should return the Links and entries", t, func() {
-		v, err := NewJSRibosome(h, &Zome{RibosomeType: JSRibosomeType, Code: fmt.Sprintf(`getLink("%s","4stars",{Load:true});`, hash.String())})
+	Convey("getLinks with empty tag should return the Links and tags", t, func() {
+		v, err := NewJSRibosome(h, &Zome{RibosomeType: JSRibosomeType, Code: fmt.Sprintf(`getLinks("%s","");`, hash.String())})
 		So(err, ShouldBeNil)
 		z := v.(*JSRibosome)
-		So(z.lastResult.Class(), ShouldEqual, "Object")
-		x, err := z.lastResult.Export()
-		lqr := x.(*LinkQueryResp)
+		So(z.lastResult.Class(), ShouldEqual, "Array")
+		links, _ := z.lastResult.Export()
+		l0 := links.([]map[string]interface{})[0]
+		l1 := links.([]map[string]interface{})[1]
+
+		So(fmt.Sprintf("%v", l0["Hash"]), ShouldEqual, reviewHash.String())
+		So(fmt.Sprintf("%v", l0["Tag"]), ShouldEqual, "4stars")
+		So(fmt.Sprintf("%v", l1["Hash"]), ShouldEqual, profileHash.String())
+		So(fmt.Sprintf("%v", l1["Tag"]), ShouldEqual, "4stars")
+
+	})
+
+	Convey("getLinks with load option should return the Links and entries", t, func() {
+		v, err := NewJSRibosome(h, &Zome{RibosomeType: JSRibosomeType, Code: fmt.Sprintf(`getLinks("%s","4stars",{Load:true});`, hash.String())})
 		So(err, ShouldBeNil)
-		So(fmt.Sprintf("%v", lqr.Links[1].H), ShouldEqual, profileHash.String())
-		So(fmt.Sprintf("%v", lqr.Links[1].E), ShouldEqual, `{"firstName":"Zippy","lastName":"Pinhead"}`)
-		So(fmt.Sprintf("%v", lqr.Links[0].H), ShouldEqual, reviewHash.String())
-		So(fmt.Sprintf("%v", lqr.Links[0].E), ShouldEqual, `this is my bogus review of some thing`)
+		z := v.(*JSRibosome)
+		So(z.lastResult.Class(), ShouldEqual, "Array")
+		links, _ := z.lastResult.Export()
+		l0 := links.([]map[string]interface{})[0]
+		l1 := links.([]map[string]interface{})[1]
+		So(l1["Hash"], ShouldEqual, profileHash.String())
+		lp := l1["Entry"].(map[string]interface{})
+		So(fmt.Sprintf("%v", lp["firstName"]), ShouldEqual, "Zippy")
+		So(fmt.Sprintf("%v", lp["lastName"]), ShouldEqual, "Pinhead")
+		So(l1["EntryType"], ShouldEqual, "profile")
+
+		So(l0["Hash"], ShouldEqual, reviewHash.String())
+		So(fmt.Sprintf("%v", l0["Entry"]), ShouldEqual, `this is my bogus review of some thing`)
+		So(l0["EntryType"], ShouldEqual, "review")
 	})
 
 	Convey("commit with del link should delete link", t, func() {
@@ -743,25 +765,37 @@ func TestJSDHT(t *testing.T) {
 		if err := h.dht.simHandleChangeReqs(); err != nil {
 			panic(err)
 		}
-		links, _ := h.dht.getLink(hash, "4stars", StatusLive)
-		So(fmt.Sprintf("%v", links), ShouldEqual, "[{QmWbbUf6G38hT27kmrQ5UYFbXUPTGokKvDiaQbczFYNjuN }]")
-		links, _ = h.dht.getLink(hash, "4stars", StatusDeleted)
-		So(fmt.Sprintf("%v", links), ShouldEqual, "[{QmYeinX5vhuA91D3v24YbgyLofw9QAxY6PoATrBHnRwbtt }]")
+		links, _ := h.dht.getLinks(hash, "4stars", StatusLive)
+		So(fmt.Sprintf("%v", links), ShouldEqual, "[{QmWbbUf6G38hT27kmrQ5UYFbXUPTGokKvDiaQbczFYNjuN   }]")
+		links, _ = h.dht.getLinks(hash, "4stars", StatusDeleted)
+		So(fmt.Sprintf("%v", links), ShouldEqual, "[{QmYeinX5vhuA91D3v24YbgyLofw9QAxY6PoATrBHnRwbtt   }]")
 	})
 
-	Convey("getLink function with StatusMask option should return deleted Links", t, func() {
-		v, err := NewJSRibosome(h, &Zome{RibosomeType: JSRibosomeType, Code: fmt.Sprintf(`getLink("%s","4stars",{StatusMask:HC.Status.Deleted});`, hash.String())})
+	Convey("getLinks with StatusMask option should return deleted Links", t, func() {
+		v, err := NewJSRibosome(h, &Zome{RibosomeType: JSRibosomeType, Code: fmt.Sprintf(`getLinks("%s","4stars",{StatusMask:HC.Status.Deleted});`, hash.String())})
 		So(err, ShouldBeNil)
 		z := v.(*JSRibosome)
 
-		So(z.lastResult.Class(), ShouldEqual, "Object")
-		x, err := z.lastResult.Export()
-		lqr := x.(*LinkQueryResp)
-		So(err, ShouldBeNil)
-		So(fmt.Sprintf("%v", lqr.Links[0].H), ShouldEqual, profileHash.String())
+		So(z.lastResult.Class(), ShouldEqual, "Array")
+		links, _ := z.lastResult.Export()
+		l0 := links.([]map[string]interface{})[0]
+		So(l0["Hash"], ShouldEqual, profileHash.String())
 	})
 
-	Convey("update function should commit a new entry and on DHT mark item modified", t, func() {
+	Convey("getLinks with quotes in tags should work", t, func() {
+
+		commit(h, "rating", fmt.Sprintf(`{"Links":[{"Base":"%s","Link":"%s","Tag":"\"quotes!\""}]}`, hash.String(), profileHash.String()))
+		v, err := NewJSRibosome(h, &Zome{RibosomeType: JSRibosomeType, Code: fmt.Sprintf(`getLinks("%s","\"quotes!\"");`, hash.String())})
+		So(err, ShouldBeNil)
+		z := v.(*JSRibosome)
+		So(z.lastResult.Class(), ShouldEqual, "Array")
+		links, _ := z.lastResult.Export()
+		l0 := links.([]map[string]interface{})[0]
+
+		So(fmt.Sprintf("%v", l0["Hash"]), ShouldEqual, profileHash.String())
+	})
+
+	Convey("update should commit a new entry and on DHT mark item modified", t, func() {
 		v, err := NewJSRibosome(h, &Zome{RibosomeType: JSRibosomeType, Code: fmt.Sprintf(`update("profile",{firstName:"Zippy",lastName:"ThePinhead"},"%s")`, profileHash.String())})
 		So(err, ShouldBeNil)
 		z := v.(*JSRibosome)

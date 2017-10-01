@@ -501,9 +501,9 @@ func TestCommit(t *testing.T) {
 		if err := h.dht.simHandleChangeReqs(); err != nil {
 			panic(err)
 		}
-		results, err := h.dht.getLink(hash, "4stars", StatusLive)
+		results, err := h.dht.getLinks(hash, "4stars", StatusLive)
 		So(err, ShouldBeNil)
-		So(fmt.Sprintf("%v", results), ShouldEqual, "[{QmYeinX5vhuA91D3v24YbgyLofw9QAxY6PoATrBHnRwbtt }]")
+		So(fmt.Sprintf("%v", results), ShouldEqual, "[{QmYeinX5vhuA91D3v24YbgyLofw9QAxY6PoATrBHnRwbtt   }]")
 	})
 }
 

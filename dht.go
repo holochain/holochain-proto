@@ -192,7 +192,7 @@ type TaggedHash struct {
 	E         string // the value of link, gets filled if options set Load to true
 	EntryType string // the entry type of the link, gets filled if options set Load to true
 	T         string // the tag of the link, gets filled only if a tag wasn't specified and all tags are being returns
-	Source    string
+	Source    string // the source of the link, gets filled if options set Load to true
 }
 
 // LinkQueryResp holds response to getLinks query

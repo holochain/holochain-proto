@@ -8,6 +8,7 @@ package holochain
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	ic "github.com/libp2p/go-libp2p-crypto"
@@ -163,7 +164,7 @@ type DelLinkReq struct {
 	Tag  string // tag to be deleted
 }
 
-// LinkQuery holds a getLink query
+// LinkQuery holds a getLinks query
 type LinkQuery struct {
 	Base       Hash
 	T          string
@@ -179,19 +180,22 @@ type GetOptions struct {
 	Local      bool // bool if get should happen from chain not DHT
 }
 
-// GetLinkOptions options to holochain level GetLink functions
-type GetLinkOptions struct {
-	Load       bool // indicates whether GetLink should retrieve the entries of all links
+// GetLinksOptions options to holochain level GetLinks functions
+type GetLinksOptions struct {
+	Load       bool // indicates whether GetLinks should retrieve the entries of all links
 	StatusMask int  // mask of which status of links to return
 }
 
 // TaggedHash holds associated entries for the LinkQueryResponse
 type TaggedHash struct {
-	H string // the hash of the link; gets filled by dht base node when answering get link request
-	E string // the value of link, get's filled by caller if getLink function set Load to true
+	H         string // the hash of the link; gets filled by dht base node when answering get link request
+	E         string // the value of link, gets filled if options set Load to true
+	EntryType string // the entry type of the link, gets filled if options set Load to true
+	T         string // the tag of the link, gets filled only if a tag wasn't specified and all tags are being returns
+	Source    string // the source of the link, gets filled if options set Load to true
 }
 
-// LinkQueryResp holds response to getLink query
+// LinkQueryResp holds response to getLinks query
 type LinkQueryResp struct {
 	Links []TaggedHash
 }
@@ -201,6 +205,14 @@ type ListAddReq struct {
 	Peers       []string
 	WarrantType int
 	Warrant     []byte
+}
+
+// Structure that represents the value stored in buntDB associated with a
+// link key
+// (The Link struct defined in entry.go is encoded in the key used for buntDB)
+type LinkEntry struct {
+	Status int
+	Source string
 }
 
 var ErrLinkNotFound = errors.New("link not found")
@@ -379,7 +391,7 @@ func (dht *DHT) mod(m *Message, key Hash, newkey Hash) (err error) {
 		err = _setStatus(tx, m, k, StatusModified)
 		if err == nil {
 			link := newkey.String()
-			err = _putLink(tx, k, link, SysTagReplacedBy)
+			err = _putLink(tx, k, link, SysTagReplacedBy, m.From)
 			if err == nil {
 				_, _, err = tx.Set("replacedBy:"+k, link, nil)
 				if err != nil {
@@ -506,19 +518,22 @@ func (dht *DHT) get(key Hash, statusMask int, getMask int) (data []byte, entryTy
 }
 
 // _putLink is a low level routine to add a link, also used by mod
-func _putLink(tx *buntdb.Tx, base string, link string, tag string) (err error) {
+func _putLink(tx *buntdb.Tx, base string, link string, tag string, src peer.ID) (err error) {
 	key := "link:" + base + ":" + link + ":" + tag
 	var val string
 	val, err = tx.Get(key)
 	if err == buntdb.ErrNotFound {
-		_, _, err = tx.Set(key, StatusLiveVal, nil)
+		entryString, _ := json.Marshal(LinkEntry{StatusLive, peer.IDB58Encode(src)})
+		_, _, err = tx.Set(key, string(entryString), nil)
 		if err != nil {
 			return
 		}
 	} else {
 		// if the status is already live then just exit silently
 		// if the status isn't live then return an error.
-		if val != StatusLiveVal {
+		entry := LinkEntry{}
+		json.Unmarshal([]byte(val), &entry)
+		if entry.Status != StatusLive {
 			err = ErrPutLinkOverDeleted
 			return
 		}
@@ -537,7 +552,7 @@ func (dht *DHT) putLink(m *Message, base string, link string, tag string) (err e
 			return err
 		}
 
-		err = _putLink(tx, base, link, tag)
+		err = _putLink(tx, base, link, tag, m.From)
 		if err != nil {
 			return err
 		}
@@ -564,6 +579,8 @@ func (dht *DHT) delLink(m *Message, base string, link string, tag string) (err e
 
 		key := "link:" + base + ":" + link + ":" + tag
 		val, err := tx.Get(key)
+		entry := LinkEntry{}
+		json.Unmarshal([]byte(val), &entry)
 		if err == buntdb.ErrNotFound {
 			return ErrLinkNotFound
 		}
@@ -571,13 +588,16 @@ func (dht *DHT) delLink(m *Message, base string, link string, tag string) (err e
 			return err
 		}
 
-		if val == StatusLiveVal {
+		if entry.Status == StatusLive {
 			//var index string
 			_, err = incIdx(tx, m)
 			if err != nil {
 				return err
 			}
-			_, _, err = tx.Set(key, StatusDeletedVal, nil)
+			entry.Status = StatusDeleted
+			entryByte, _ := json.Marshal(entry)
+			val = string(entryByte)
+			_, _, err = tx.Set(key, val, nil)
 			if err != nil {
 				return err
 			}
@@ -601,9 +621,9 @@ func filter(ss []Meta, test func(*Meta) bool) (ret []Meta) {
 	return
 }
 
-// getLink retrieves meta value associated with a base
-func (dht *DHT) getLink(base Hash, tag string, statusMask int) (results []TaggedHash, err error) {
-	dht.dlog.Logf("getLink on %v of %s with mask %d", base, tag, statusMask)
+// getLinks retrieves meta value associated with a base
+func (dht *DHT) getLinks(base Hash, tag string, statusMask int) (results []TaggedHash, err error) {
+	dht.dlog.Logf("getLinks on %v of %s with mask %d", base, tag, statusMask)
 	b := base.String()
 	err = dht.db.View(func(tx *buntdb.Tx) error {
 		_, err := _get(tx, b, StatusLive+StatusModified) //only get links on live and modified bases
@@ -618,12 +638,16 @@ func (dht *DHT) getLink(base Hash, tag string, statusMask int) (results []Tagged
 		results = make([]TaggedHash, 0)
 		err = tx.Ascend("link", func(key, value string) bool {
 			x := strings.Split(key, ":")
-
-			if string(x[1]) == b && string(x[3]) == tag {
-				var status int
-				status, err = strconv.Atoi(value)
-				if err == nil && (status&statusMask) > 0 {
-					results = append(results, TaggedHash{H: string(x[2])})
+			t := string(x[3])
+			if string(x[1]) == b && (tag == "" || tag == t) {
+				entry := LinkEntry{}
+				json.Unmarshal([]byte(value), &entry)
+				if err == nil && (entry.Status&statusMask) > 0 {
+					th := TaggedHash{H: string(x[2]), Source: entry.Source}
+					if tag == "" {
+						th.T = t
+					}
+					results = append(results, th)
 				}
 			}
 

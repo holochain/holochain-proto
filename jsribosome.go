@@ -22,6 +22,7 @@ const (
 
 // JSRibosome holds data needed for the Javascript VM
 type JSRibosome struct {
+	h          *Holochain
 	zome       *Zome
 	vm         *otto.Otto
 	lastResult *otto.Value
@@ -417,26 +418,50 @@ func jsProcessArgs(jsr *JSRibosome, args []Arg, oArgs []otto.Value) (err error) 
 				return argErr("string or object", i+1, args[i])
 			}
 		case EntryArg:
-			if arg.IsString() {
-				str, err := arg.ToString()
+			// this a special case in that all EntryArgs must be preceeded by
+			// string arg that specifies the entry type
+			entryType, err := oArgs[i-1].ToString()
+			if err != nil {
+				return err
+			}
+			_, def, err := jsr.h.GetEntryDef(entryType)
+			if err != nil {
+				return err
+			}
+			var entry string
+			switch def.DataFormat {
+			case DataFormatRawJS:
+				fallthrough
+			case DataFormatRawZygo:
+				fallthrough
+			case DataFormatString:
+				if !arg.IsString() {
+					return argErr("string", i+1, args[i])
+				}
+				entry, err = arg.ToString()
 				if err != nil {
 					return err
 				}
-				args[i].value = str
-			} else if arg.IsObject() {
+			case DataFormatLinks:
+				if !arg.IsObject() {
+					return argErr("object", i+1, args[i])
+				}
+				fallthrough
+			case DataFormatJSON:
 				v, err := jsr.vm.Call("JSON.stringify", nil, arg)
 				if err != nil {
 					return err
 				}
-				entry, err := v.ToString()
+				entry, err = v.ToString()
 				if err != nil {
 					return err
 				}
-				args[i].value = entry
-
-			} else {
-				return argErr("string or object", i+1, args[i])
+			default:
+				err = errors.New("data format not implemented: " + def.DataFormat)
+				return err
 			}
+
+			args[i].value = entry
 		case MapArg:
 			if arg.IsObject() {
 				m, err := arg.Export()
@@ -489,6 +514,7 @@ func numInterfaceToInt(num interface{}) (val int, ok bool) {
 // NewJSRibosome factory function to build a javascript execution environment for a zome
 func NewJSRibosome(h *Holochain, zome *Zome) (n Ribosome, err error) {
 	jsr := JSRibosome{
+		h:    h,
 		zome: zome,
 		vm:   otto.New(),
 	}
@@ -534,8 +560,8 @@ func NewJSRibosome(h *Holochain, zome *Zome) (n Ribosome, err error) {
 		if err != nil {
 			return mkOttoErr(&jsr, err.Error())
 		}
-
-		a.entry = &GobEntry{C: args[0].value.(string)}
+		a.entryType = args[0].value.(string)
+		a.entry = &GobEntry{C: args[1].value.(string)}
 		var r interface{}
 		r, err = a.Do(h)
 		if err != nil {
@@ -1108,8 +1134,8 @@ func NewJSRibosome(h *Holochain, zome *Zome) (n Ribosome, err error) {
 		return nil, err
 	}
 
-	err = jsr.vm.Set("getLink", func(call otto.FunctionCall) (result otto.Value) {
-		var a Action = &ActionGetLink{}
+	err = jsr.vm.Set("getLinks", func(call otto.FunctionCall) (result otto.Value) {
+		var a Action = &ActionGetLinks{}
 		args := a.Args()
 		err := jsProcessArgs(&jsr, args, call.ArgumentList)
 		if err != nil {
@@ -1119,7 +1145,7 @@ func NewJSRibosome(h *Holochain, zome *Zome) (n Ribosome, err error) {
 		tag := args[1].value.(string)
 
 		l := len(call.ArgumentList)
-		options := GetLinkOptions{Load: false, StatusMask: StatusLive}
+		options := GetLinksOptions{Load: false, StatusMask: StatusLive}
 		if l == 3 {
 			opts := args[2].value.(map[string]interface{})
 			load, ok := opts["Load"]
@@ -1141,11 +1167,63 @@ func NewJSRibosome(h *Holochain, zome *Zome) (n Ribosome, err error) {
 		}
 		var response interface{}
 
-		response, err = NewGetLinkAction(&LinkQuery{Base: base, T: tag, StatusMask: options.StatusMask}, &options).Do(h)
+		response, err = NewGetLinksAction(&LinkQuery{Base: base, T: tag, StatusMask: options.StatusMask}, &options).Do(h)
 
 		if err == nil {
-			result, err = jsr.vm.ToValue(response)
-		} else {
+			// we build up our response by creating the javascript object
+			// that we want and using otto to create it with vm.
+			// TODO: is there a faster way to do this?
+			lqr := response.(*LinkQueryResp)
+			var js string
+			for i, th := range lqr.Links {
+				var l string
+				l = `Hash:"` + th.H + `"`
+				if tag == "" {
+					l += `Tag:"` + jsSanitizeString(th.T) + `"`
+				}
+				if options.Load {
+					l += `,EntryType:"` + jsSanitizeString(th.EntryType) + `"`
+					l += `,Source:"` + jsSanitizeString(th.Source) + `"`
+					_, def, err := h.GetEntryDef(th.EntryType)
+					if err != nil {
+						break
+					}
+					var entry string
+					switch def.DataFormat {
+					case DataFormatRawJS:
+						entry = th.E
+					case DataFormatRawZygo:
+						fallthrough
+					case DataFormatString:
+						entry = `"` + jsSanitizeString(th.E) + `"`
+					case DataFormatLinks:
+						fallthrough
+					case DataFormatJSON:
+						entry = `JSON.parse("` + jsSanitizeString(th.E) + `")`
+					default:
+						err = errors.New("data format not implemented: " + def.DataFormat)
+						break
+					}
+
+					l += `,Entry:` + entry
+				}
+				if i > 0 {
+					js += ","
+				}
+				js += `{` + l + `}`
+			}
+			if err == nil {
+				js = `[` + js + `]`
+				var obj *otto.Object
+				obj, err = jsr.vm.Object(js)
+				if err == nil {
+					result = obj.Value()
+				}
+			}
+		}
+
+		if err != nil {
+			fmt.Printf("Error:%v", err)
 			result = mkOttoErr(&jsr, err.Error())
 		}
 

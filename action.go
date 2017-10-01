@@ -306,7 +306,8 @@ func (a *ActionDebug) Do(h *Holochain) (response interface{}, err error) {
 // MakeHash
 
 type ActionMakeHash struct {
-	entry Entry
+	entryType string
+	entry     Entry
 }
 
 func NewMakeHashAction(entry Entry) *ActionMakeHash {
@@ -319,7 +320,7 @@ func (a *ActionMakeHash) Name() string {
 }
 
 func (a *ActionMakeHash) Args() []Arg {
-	return []Arg{{Name: "entry", Type: EntryArg}}
+	return []Arg{{Name: "entryType", Type: StringArg}, {Name: "entry", Type: EntryArg}}
 }
 
 func (a *ActionMakeHash) Do(h *Holochain) (response interface{}, err error) {
@@ -373,7 +374,7 @@ func (a *ActionSign) Name() string {
 }
 
 func (a *ActionSign) Args() []Arg {
-	return []Arg{{Name: "doc", Type: EntryArg}}
+	return []Arg{{Name: "doc", Type: StringArg}}
 }
 
 func (a *ActionSign) Do(h *Holochain) (response interface{}, err error) {

@@ -1364,6 +1364,11 @@ func TestingAppScaffold() string {
                     "DataFormat": "links",
                 },
                 {
+                    "Name": "review",
+                    "DataFormat": "string",
+                    "Sharing": "public"
+                },
+                {
                     "Name": "secret",
                     "DataFormat": "string",
                 }
@@ -1583,6 +1588,9 @@ function validate(entry_type,entry,header,sources) {
   if (entry_type=="profile") {
     return true
   }
+  if (entry_type=="review") {
+    return true
+  }
   if (entry_type=="secret") {
     return true
   }
@@ -1629,7 +1637,7 @@ function asyncPing(message,id) {
 (defn addEven [x] (commit "evenNumbers" x))
 (defn addPrime [x] (commit "primes" x))
 (defn confirmOdd [x]
-  (letseq [h (makeHash x)
+  (letseq [h (makeHash "oddNumbers" x)
            r (get h)
            err (hget r %error "")]
      (cond (== err "") "true" "false")

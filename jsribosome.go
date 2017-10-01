@@ -22,6 +22,7 @@ const (
 
 // JSRibosome holds data needed for the Javascript VM
 type JSRibosome struct {
+	h          *Holochain
 	zome       *Zome
 	vm         *otto.Otto
 	lastResult *otto.Value
@@ -421,26 +422,50 @@ func jsProcessArgs(jsr *JSRibosome, args []Arg, oArgs []otto.Value) (err error) 
 				return argErr("string or object", i+1, args[i])
 			}
 		case EntryArg:
-			if arg.IsString() {
-				str, err := arg.ToString()
+			// this a special case in that all EntryArgs must be preceeded by
+			// string arg that specifies the entry type
+			entryType, err := oArgs[i-1].ToString()
+			if err != nil {
+				return err
+			}
+			_, def, err := jsr.h.GetEntryDef(entryType)
+			if err != nil {
+				return err
+			}
+			var entry string
+			switch def.DataFormat {
+			case DataFormatRawJS:
+				fallthrough
+			case DataFormatRawZygo:
+				fallthrough
+			case DataFormatString:
+				if !arg.IsString() {
+					return argErr("string", i+1, args[i])
+				}
+				entry, err = arg.ToString()
 				if err != nil {
 					return err
 				}
-				args[i].value = str
-			} else if arg.IsObject() {
+			case DataFormatLinks:
+				if !arg.IsObject() {
+					return argErr("object", i+1, args[i])
+				}
+				fallthrough
+			case DataFormatJSON:
 				v, err := jsr.vm.Call("JSON.stringify", nil, arg)
 				if err != nil {
 					return err
 				}
-				entry, err := v.ToString()
+				entry, err = v.ToString()
 				if err != nil {
 					return err
 				}
-				args[i].value = entry
-
-			} else {
-				return argErr("string or object", i+1, args[i])
+			default:
+				err = errors.New("data format not implemented: " + def.DataFormat)
+				return err
 			}
+
+			args[i].value = entry
 		case MapArg:
 			if arg.IsObject() {
 				m, err := arg.Export()
@@ -493,6 +518,7 @@ func numInterfaceToInt(num interface{}) (val int, ok bool) {
 // NewJSRibosome factory function to build a javascript execution environment for a zome
 func NewJSRibosome(h *Holochain, zome *Zome) (n Ribosome, err error) {
 	jsr := JSRibosome{
+		h:    h,
 		zome: zome,
 		vm:   otto.New(),
 	}
@@ -538,8 +564,8 @@ func NewJSRibosome(h *Holochain, zome *Zome) (n Ribosome, err error) {
 		if err != nil {
 			return mkOttoErr(&jsr, err.Error())
 		}
-
-		a.entry = &GobEntry{C: args[0].value.(string)}
+		a.entryType = args[0].value.(string)
+		a.entry = &GobEntry{C: args[1].value.(string)}
 		var r interface{}
 		r, err = a.Do(h)
 		if err != nil {

@@ -1364,6 +1364,11 @@ func TestingAppScaffold() string {
                     "DataFormat": "links",
                 },
                 {
+                    "Name": "review",
+                    "DataFormat": "string",
+                    "Sharing": "public"
+                },
+                {
                     "Name": "secret",
                     "DataFormat": "string",
                 }
@@ -1424,7 +1429,7 @@ func TestingAppScaffold() string {
         "Zome":   "zySampleZome",
         "FnName": "addEven",
         "Input":  "5",
-        "Err":    "Error calling 'commit': Invalid entry: 5"},
+        "Err":    "Error calling 'commit': Validation Failed"},
     {
         "Zome":   "zySampleZome",
         "FnName": "addPrime",
@@ -1434,7 +1439,7 @@ func TestingAppScaffold() string {
         "Zome":   "zySampleZome",
         "FnName": "addPrime",
         "Input":  {"prime":4},
-        "Err":    "Error calling 'commit': Invalid entry: {\"prime\":4}"},
+        "Err":    "Error calling 'commit': Validation Failed"},
     {
 	"Zome":   "jsSampleZome",
 	"FnName": "addProfile",
@@ -1464,7 +1469,7 @@ func TestingAppScaffold() string {
 	"Zome":   "jsSampleZome",
 	"FnName": "addOdd",
 	"Input":  "2",
-	"Err":    "Invalid entry: 2"},
+	"Err":    "Validation Failed"},
     {
 	"Zome":   "zySampleZome",
 	"FnName": "confirmOdd",
@@ -1583,6 +1588,9 @@ function validate(entry_type,entry,header,sources) {
   if (entry_type=="profile") {
     return true
   }
+  if (entry_type=="review") {
+    return true
+  }
   if (entry_type=="secret") {
     return true
   }
@@ -1629,7 +1637,7 @@ function asyncPing(message,id) {
 (defn addEven [x] (commit "evenNumbers" x))
 (defn addPrime [x] (commit "primes" x))
 (defn confirmOdd [x]
-  (letseq [h (makeHash x)
+  (letseq [h (makeHash "oddNumbers" x)
            r (get h)
            err (hget r %error "")]
      (cond (== err "") "true" "false")

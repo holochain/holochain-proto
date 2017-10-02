@@ -145,14 +145,14 @@ func TestNewJSRibosome(t *testing.T) {
 		profileHash := commit(h, "profile", `{"firstName":"Zippy","lastName":"Pinhead"}`)
 
 		Convey("makeHash", func() {
-			_, err = z.Run(`makeHash("3")`)
+			_, err = z.Run(`makeHash("oddNumbers","3")`)
 			So(err, ShouldBeNil)
 			z := v.(*JSRibosome)
 			hash1, err := NewHash(z.lastResult.String())
 			So(err, ShouldBeNil)
 			So(hash1.String(), ShouldEqual, hash.String())
 
-			_, err = z.Run(`makeHash('{"firstName":"Zippy","lastName":"Pinhead"}')`)
+			_, err = z.Run(`makeHash("profile",{"firstName":"Zippy","lastName":"Pinhead"})`)
 			So(err, ShouldBeNil)
 			hash1, err = NewHash(z.lastResult.String())
 			So(err, ShouldBeNil)
@@ -696,34 +696,64 @@ func TestJSDHT(t *testing.T) {
 	})
 
 	profileHash := commit(h, "profile", `{"firstName":"Zippy","lastName":"Pinhead"}`)
+	reviewHash := commit(h, "review", "this is my bogus review of some thing")
 
-	commit(h, "rating", fmt.Sprintf(`{"Links":[{"Base":"%s","Link":"%s","Tag":"4stars"}]}`, hash.String(), profileHash.String()))
+	commit(h, "rating", fmt.Sprintf(`{"Links":[{"Base":"%s","Link":"%s","Tag":"4stars"},{"Base":"%s","Link":"%s","Tag":"4stars"}]}`, hash.String(), profileHash.String(), hash.String(), reviewHash.String()))
 
 	if err := h.dht.simHandleChangeReqs(); err != nil {
 		panic(err)
 	}
+	if err := h.dht.simHandleChangeReqs(); err != nil {
+		panic(err)
+	}
 
-	Convey("getLink function should return the Links", t, func() {
-		v, err := NewJSRibosome(h, &Zome{RibosomeType: JSRibosomeType, Code: fmt.Sprintf(`getLink("%s","4stars");`, hash.String())})
+	Convey("getLinks should return the Links", t, func() {
+		v, err := NewJSRibosome(h, &Zome{RibosomeType: JSRibosomeType, Code: fmt.Sprintf(`getLinks("%s","4stars");`, hash.String())})
 		So(err, ShouldBeNil)
 		z := v.(*JSRibosome)
-		So(z.lastResult.Class(), ShouldEqual, "Object")
-		x, err := z.lastResult.Export()
-		lqr := x.(*LinkQueryResp)
-		So(err, ShouldBeNil)
-		So(fmt.Sprintf("%v", lqr.Links[0].H), ShouldEqual, profileHash.String())
+		So(z.lastResult.Class(), ShouldEqual, "Array")
+		links, _ := z.lastResult.Export()
+		l0 := links.([]map[string]interface{})[0]
+		l1 := links.([]map[string]interface{})[1]
+
+		So(fmt.Sprintf("%v", l0["Hash"]), ShouldEqual, reviewHash.String())
+		So(fmt.Sprintf("%v", l1["Hash"]), ShouldEqual, profileHash.String())
 	})
 
-	Convey("getLink function with load option should return the Links and entries", t, func() {
-		v, err := NewJSRibosome(h, &Zome{RibosomeType: JSRibosomeType, Code: fmt.Sprintf(`getLink("%s","4stars",{Load:true});`, hash.String())})
+	Convey("getLinks with empty tag should return the Links and tags", t, func() {
+		v, err := NewJSRibosome(h, &Zome{RibosomeType: JSRibosomeType, Code: fmt.Sprintf(`getLinks("%s","");`, hash.String())})
 		So(err, ShouldBeNil)
 		z := v.(*JSRibosome)
-		So(z.lastResult.Class(), ShouldEqual, "Object")
-		x, err := z.lastResult.Export()
-		lqr := x.(*LinkQueryResp)
+		So(z.lastResult.Class(), ShouldEqual, "Array")
+		links, _ := z.lastResult.Export()
+		l0 := links.([]map[string]interface{})[0]
+		l1 := links.([]map[string]interface{})[1]
+
+		So(fmt.Sprintf("%v", l0["Hash"]), ShouldEqual, reviewHash.String())
+		So(fmt.Sprintf("%v", l0["Tag"]), ShouldEqual, "4stars")
+		So(fmt.Sprintf("%v", l1["Hash"]), ShouldEqual, profileHash.String())
+		So(fmt.Sprintf("%v", l1["Tag"]), ShouldEqual, "4stars")
+
+	})
+
+	Convey("getLinks with load option should return the Links and entries", t, func() {
+		v, err := NewJSRibosome(h, &Zome{RibosomeType: JSRibosomeType, Code: fmt.Sprintf(`getLinks("%s","4stars",{Load:true});`, hash.String())})
 		So(err, ShouldBeNil)
-		So(fmt.Sprintf("%v", lqr.Links[0].H), ShouldEqual, profileHash.String())
-		So(fmt.Sprintf("%v", lqr.Links[0].E), ShouldEqual, `{"firstName":"Zippy","lastName":"Pinhead"}`)
+		z := v.(*JSRibosome)
+		So(z.lastResult.Class(), ShouldEqual, "Array")
+		links, _ := z.lastResult.Export()
+		l0 := links.([]map[string]interface{})[0]
+		l1 := links.([]map[string]interface{})[1]
+		So(l1["Hash"], ShouldEqual, profileHash.String())
+		lp := l1["Entry"].(map[string]interface{})
+		So(fmt.Sprintf("%v", lp["firstName"]), ShouldEqual, "Zippy")
+		So(fmt.Sprintf("%v", lp["lastName"]), ShouldEqual, "Pinhead")
+		So(l1["EntryType"], ShouldEqual, "profile")
+		So(l1["Source"], ShouldEqual, h.nodeIDStr)
+
+		So(l0["Hash"], ShouldEqual, reviewHash.String())
+		So(fmt.Sprintf("%v", l0["Entry"]), ShouldEqual, `this is my bogus review of some thing`)
+		So(l0["EntryType"], ShouldEqual, "review")
 	})
 
 	Convey("commit with del link should delete link", t, func() {
@@ -736,25 +766,37 @@ func TestJSDHT(t *testing.T) {
 		if err := h.dht.simHandleChangeReqs(); err != nil {
 			panic(err)
 		}
-		links, _ := h.dht.getLink(hash, "4stars", StatusLive)
-		So(fmt.Sprintf("%v", links), ShouldEqual, "[]")
-		links, _ = h.dht.getLink(hash, "4stars", StatusDeleted)
-		So(fmt.Sprintf("%v", links), ShouldEqual, "[{QmYeinX5vhuA91D3v24YbgyLofw9QAxY6PoATrBHnRwbtt }]")
+		links, _ := h.dht.getLinks(hash, "4stars", StatusLive)
+		So(fmt.Sprintf("%v", links), ShouldEqual, fmt.Sprintf("[{QmWbbUf6G38hT27kmrQ5UYFbXUPTGokKvDiaQbczFYNjuN    %s}]", h.nodeIDStr))
+		links, _ = h.dht.getLinks(hash, "4stars", StatusDeleted)
+		So(fmt.Sprintf("%v", links), ShouldEqual, fmt.Sprintf("[{QmYeinX5vhuA91D3v24YbgyLofw9QAxY6PoATrBHnRwbtt    %s}]", h.nodeIDStr))
 	})
 
-	Convey("getLink function with StatusMask option should return deleted Links", t, func() {
-		v, err := NewJSRibosome(h, &Zome{RibosomeType: JSRibosomeType, Code: fmt.Sprintf(`getLink("%s","4stars",{StatusMask:HC.Status.Deleted});`, hash.String())})
+	Convey("getLinks with StatusMask option should return deleted Links", t, func() {
+		v, err := NewJSRibosome(h, &Zome{RibosomeType: JSRibosomeType, Code: fmt.Sprintf(`getLinks("%s","4stars",{StatusMask:HC.Status.Deleted});`, hash.String())})
 		So(err, ShouldBeNil)
 		z := v.(*JSRibosome)
 
-		So(z.lastResult.Class(), ShouldEqual, "Object")
-		x, err := z.lastResult.Export()
-		lqr := x.(*LinkQueryResp)
-		So(err, ShouldBeNil)
-		So(fmt.Sprintf("%v", lqr.Links[0].H), ShouldEqual, profileHash.String())
+		So(z.lastResult.Class(), ShouldEqual, "Array")
+		links, _ := z.lastResult.Export()
+		l0 := links.([]map[string]interface{})[0]
+		So(l0["Hash"], ShouldEqual, profileHash.String())
 	})
 
-	Convey("update function should commit a new entry and on DHT mark item modified", t, func() {
+	Convey("getLinks with quotes in tags should work", t, func() {
+
+		commit(h, "rating", fmt.Sprintf(`{"Links":[{"Base":"%s","Link":"%s","Tag":"\"quotes!\""}]}`, hash.String(), profileHash.String()))
+		v, err := NewJSRibosome(h, &Zome{RibosomeType: JSRibosomeType, Code: fmt.Sprintf(`getLinks("%s","\"quotes!\"");`, hash.String())})
+		So(err, ShouldBeNil)
+		z := v.(*JSRibosome)
+		So(z.lastResult.Class(), ShouldEqual, "Array")
+		links, _ := z.lastResult.Export()
+		l0 := links.([]map[string]interface{})[0]
+
+		So(fmt.Sprintf("%v", l0["Hash"]), ShouldEqual, profileHash.String())
+	})
+
+	Convey("update should commit a new entry and on DHT mark item modified", t, func() {
 		v, err := NewJSRibosome(h, &Zome{RibosomeType: JSRibosomeType, Code: fmt.Sprintf(`update("profile",{firstName:"Zippy",lastName:"ThePinhead"},"%s")`, profileHash.String())})
 		So(err, ShouldBeNil)
 		z := v.(*JSRibosome)
@@ -963,20 +1005,79 @@ func TestJSProcessArgs(t *testing.T) {
 		So(args[0].value.(bool), ShouldEqual, true)
 	})
 
-	Convey("it should convert EntryArg from string or object", t, func() {
-		args := []Arg{{Name: "foo", Type: EntryArg}}
-		err := jsProcessArgs(z, args, []otto.Value{nilValue})
-		So(err.Error(), ShouldEqual, "argument 1 (foo) should be string or object")
+	Convey("EntryArg should only accept strings for string type entries", t, func() {
+		args := []Arg{{Name: "entryType", Type: StringArg}, {Name: "foo", Type: EntryArg}}
+		entryType, _ := z.vm.ToValue("review")
+
+		err := jsProcessArgs(z, args, []otto.Value{entryType, nilValue})
+		So(err, ShouldBeError)
+		So(err.Error(), ShouldEqual, "argument 2 (foo) should be string")
+
 		val, _ := z.vm.ToValue("bar")
-		err = jsProcessArgs(z, args, []otto.Value{val})
+		err = jsProcessArgs(z, args, []otto.Value{entryType, val})
 		So(err, ShouldBeNil)
-		So(args[0].value.(string), ShouldEqual, "bar")
+		So(args[1].value.(string), ShouldEqual, "bar")
 
 		// create an otto.object for a test arg
 		val, _ = z.vm.ToValue(map[string]string{"H": "foo", "E": "bar"})
-		err = jsProcessArgs(z, args, []otto.Value{val})
+		err = jsProcessArgs(z, args, []otto.Value{entryType, val})
+		So(err, ShouldBeError)
+		So(err.Error(), ShouldEqual, "argument 2 (foo) should be string")
+
+		val, _ = z.vm.ToValue(3.1415)
+		err = jsProcessArgs(z, args, []otto.Value{entryType, val})
+		So(err, ShouldBeError)
+		So(err.Error(), ShouldEqual, "argument 2 (foo) should be string")
+	})
+
+	Convey("EntryArg should only accept objects for links type entries", t, func() {
+		args := []Arg{{Name: "entryType", Type: StringArg}, {Name: "foo", Type: EntryArg}}
+		entryType, _ := z.vm.ToValue("rating")
+
+		err := jsProcessArgs(z, args, []otto.Value{entryType, nilValue})
+		So(err, ShouldBeError)
+		So(err.Error(), ShouldEqual, "argument 2 (foo) should be object")
+
+		val, _ := z.vm.ToValue("bar")
+		err = jsProcessArgs(z, args, []otto.Value{entryType, val})
+		So(err, ShouldBeError)
+		So(err.Error(), ShouldEqual, "argument 2 (foo) should be object")
+
+		// create an otto.object for a test arg
+		val, _ = z.vm.ToValue(map[string]string{"H": "foo", "E": "bar"})
+		err = jsProcessArgs(z, args, []otto.Value{entryType, val})
 		So(err, ShouldBeNil)
-		So(args[0].value.(string), ShouldEqual, `{"E":"bar","H":"foo"}`)
+		So(args[1].value.(string), ShouldEqual, `{"E":"bar","H":"foo"}`)
+
+		val, _ = z.vm.ToValue(3.1415)
+		err = jsProcessArgs(z, args, []otto.Value{entryType, val})
+		So(err, ShouldBeError)
+		So(err.Error(), ShouldEqual, "argument 2 (foo) should be object")
+	})
+
+	Convey("EntryArg should convert all values to JSON for JSON type entries", t, func() {
+		args := []Arg{{Name: "entryType", Type: StringArg}, {Name: "foo", Type: EntryArg}}
+		entryType, _ := z.vm.ToValue("profile")
+
+		err := jsProcessArgs(z, args, []otto.Value{entryType, nilValue})
+		So(err, ShouldBeNil)
+		So(args[1].value.(string), ShouldEqual, "undefined")
+
+		val, _ := z.vm.ToValue("bar")
+		err = jsProcessArgs(z, args, []otto.Value{entryType, val})
+		So(err, ShouldBeNil)
+		So(args[1].value.(string), ShouldEqual, `"bar"`)
+
+		val, _ = z.vm.ToValue(3.1415)
+		err = jsProcessArgs(z, args, []otto.Value{entryType, val})
+		So(err, ShouldBeNil)
+		So(args[1].value.(string), ShouldEqual, `3.1415`)
+
+		// create an otto.object for a test arg
+		val, _ = z.vm.ToValue(map[string]string{"H": "foo", "E": "bar"})
+		err = jsProcessArgs(z, args, []otto.Value{entryType, val})
+		So(err, ShouldBeNil)
+		So(args[1].value.(string), ShouldEqual, `{"E":"bar","H":"foo"}`)
 	})
 
 	// currently ArgsArg and EntryArg are identical, but we expect this to change

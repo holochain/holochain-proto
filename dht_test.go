@@ -127,7 +127,7 @@ func TestPutGetModDel(t *testing.T) {
 		// replaced by link gets returned in the data!!
 		So(string(data), ShouldEqual, newhashStr)
 
-		links, err := dht.getLink(hash, SysTagReplacedBy, StatusLive)
+		links, err := dht.getLinks(hash, SysTagReplacedBy, StatusLive)
 		So(err, ShouldBeNil)
 		So(len(links), ShouldEqual, 1)
 		So(links[0].H, ShouldEqual, newhashStr)
@@ -178,7 +178,7 @@ func TestLinking(t *testing.T) {
 		err := dht.putLink(nil, baseStr, linkHash1Str, "tag foo")
 		So(err, ShouldEqual, ErrHashNotFound)
 
-		v, err := dht.getLink(base, "tag foo", StatusLive)
+		v, err := dht.getLinks(base, "tag foo", StatusLive)
 		So(v, ShouldBeNil)
 		So(err, ShouldEqual, ErrHashNotFound)
 	})
@@ -193,7 +193,7 @@ func TestLinking(t *testing.T) {
 	fakeMsg := h.node.NewMessage(LINK_REQUEST, LinkReq{})
 
 	Convey("It should store and retrieve links values on a base", t, func() {
-		data, err := dht.getLink(base, "tag foo", StatusLive)
+		data, err := dht.getLinks(base, "tag foo", StatusLive)
 		So(err, ShouldNotBeNil)
 		So(err.Error(), ShouldEqual, "No links for tag foo")
 
@@ -206,7 +206,7 @@ func TestLinking(t *testing.T) {
 		err = dht.putLink(fakeMsg, baseStr, linkHash1Str, "tag bar")
 		So(err, ShouldBeNil)
 
-		data, err = dht.getLink(base, "tag foo", StatusLive)
+		data, err = dht.getLinks(base, "tag foo", StatusLive)
 		So(err, ShouldBeNil)
 		So(len(data), ShouldEqual, 2)
 		m := data[0]
@@ -215,10 +215,24 @@ func TestLinking(t *testing.T) {
 		m = data[1]
 		So(m.H, ShouldEqual, linkHash2Str)
 
-		data, err = dht.getLink(base, "tag bar", StatusLive)
+		data, err = dht.getLinks(base, "tag bar", StatusLive)
 		So(err, ShouldBeNil)
 		So(len(data), ShouldEqual, 1)
 		So(data[0].H, ShouldEqual, linkHash1Str)
+	})
+
+	Convey("It should store and retrieve a links source", t, func() {
+		err = dht.putLink(fakeMsg, baseStr, linkHash1Str, "tag source")
+		So(err, ShouldBeNil)
+
+		data, err := dht.getLinks(base, "tag source", StatusLive)
+		So(err, ShouldBeNil)
+		So(len(data), ShouldEqual, 1)
+
+		data, err = dht.getLinks(base, "tag source", StatusLive)
+		So(err, ShouldBeNil)
+		So(len(data), ShouldEqual, 1)
+		So(data[0].Source, ShouldEqual, h.nodeIDStr)
 	})
 
 	Convey("It should work to put a link a second time", t, func() {
@@ -240,18 +254,18 @@ func TestLinking(t *testing.T) {
 	Convey("It should delete links", t, func() {
 		err := dht.delLink(fakeMsg, baseStr, linkHash1Str, "tag bar")
 		So(err, ShouldBeNil)
-		data, err := dht.getLink(base, "tag bar", StatusLive)
+		data, err := dht.getLinks(base, "tag bar", StatusLive)
 		So(err.Error(), ShouldEqual, "No links for tag bar")
 
 		err = dht.delLink(fakeMsg, baseStr, linkHash1Str, "tag foo")
 		So(err, ShouldBeNil)
-		data, err = dht.getLink(base, "tag foo", StatusLive)
+		data, err = dht.getLinks(base, "tag foo", StatusLive)
 		So(err, ShouldBeNil)
 		So(len(data), ShouldEqual, 1)
 
 		err = dht.delLink(fakeMsg, baseStr, linkHash2Str, "tag foo")
 		So(err, ShouldBeNil)
-		data, err = dht.getLink(base, "tag foo", StatusLive)
+		data, err = dht.getLinks(base, "tag foo", StatusLive)
 		So(err.Error(), ShouldEqual, "No links for tag foo")
 	})
 
@@ -483,7 +497,7 @@ func TestActionReceiver(t *testing.T) {
 	_, hd, _ = h.NewEntry(now, "profile", &e)
 	profileHash := hd.EntryLink
 
-	le := GobEntry{C: fmt.Sprintf(`{"Links":[{"Base":"%s","Link":"%s","Tag":"4stars"}]}`, hash.String(), profileHash.String())}
+	le := GobEntry{C: fmt.Sprintf(`{"Links":[{"Base":"%s","Link":"%s","Tag":"4stars"},{"Base":"%s","Link":"%s","Tag":"3stars"}]}`, hash.String(), profileHash.String(), hash.String(), h.agentHash)}
 	_, lhd, _ := h.NewEntry(time.Now(), "rating", &le)
 
 	Convey("LINK_REQUEST should store links", t, func() {
@@ -498,7 +512,7 @@ func TestActionReceiver(t *testing.T) {
 		So(err, ShouldBeNil)
 
 		// check that it got put
-		meta, err := h.dht.getLink(hash, "4stars", StatusLive)
+		meta, err := h.dht.getLinks(hash, "4stars", StatusLive)
 		So(err, ShouldBeNil)
 		So(meta[0].H, ShouldEqual, hd.EntryLink.String())
 	})
@@ -526,6 +540,29 @@ func TestActionReceiver(t *testing.T) {
 		So(err, ShouldBeNil)
 		results := r.(*LinkQueryResp)
 		So(results.Links[0].H, ShouldEqual, hd.EntryLink.String())
+		So(results.Links[0].T, ShouldEqual, "")
+	})
+
+	Convey("GETLINK_REQUEST with empty tag should retrieve all linked values", t, func() {
+		mq := LinkQuery{Base: hash, T: ""}
+		m := h.node.NewMessage(GETLINK_REQUEST, mq)
+		r, err := ActionReceiver(h, m)
+		So(err, ShouldBeNil)
+		results := r.(*LinkQueryResp)
+		var l4star, l3star TaggedHash
+		// could come back in any order...
+		if results.Links[0].T == "4stars" {
+			l4star = results.Links[0]
+			l3star = results.Links[1]
+
+		} else {
+			l4star = results.Links[1]
+			l3star = results.Links[0]
+		}
+		So(l3star.H, ShouldEqual, h.agentHash.String())
+		So(l3star.T, ShouldEqual, "3stars")
+		So(l4star.H, ShouldEqual, hd.EntryLink.String())
+		So(l4star.T, ShouldEqual, "4stars")
 	})
 
 	Convey("GOSSIP_REQUEST should request and advertise data by idx", t, func() {
@@ -534,7 +571,7 @@ func TestActionReceiver(t *testing.T) {
 		r, err := GossipReceiver(h, m)
 		So(err, ShouldBeNil)
 		gr := r.(Gossip)
-		So(len(gr.Puts), ShouldEqual, 3)
+		So(len(gr.Puts), ShouldEqual, 4)
 	})
 
 	le2 := GobEntry{C: fmt.Sprintf(`{"Links":[{"Base":"%s","Link":"%s","Tag":"4stars","LinkAction":"%s"}]}`, hash.String(), profileHash.String(), DelAction)}
@@ -550,10 +587,10 @@ func TestActionReceiver(t *testing.T) {
 		err = h.dht.simHandleChangeReqs()
 		So(err, ShouldBeNil)
 
-		_, err = h.dht.getLink(hash, "4stars", StatusLive)
+		_, err = h.dht.getLinks(hash, "4stars", StatusLive)
 		So(err.Error(), ShouldEqual, "No links for 4stars")
 
-		results, err := h.dht.getLink(hash, "4stars", StatusDeleted)
+		results, err := h.dht.getLinks(hash, "4stars", StatusDeleted)
 		So(err, ShouldBeNil)
 		So(len(results), ShouldEqual, 1)
 	})

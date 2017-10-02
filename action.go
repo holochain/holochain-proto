@@ -65,7 +65,7 @@ type Action interface {
 type CommittingAction interface {
 	Name() string
 	Do(h *Holochain) (response interface{}, err error)
-	SysValidation(h *Holochain, d *EntryDef, sources []peer.ID) (err error)
+	SysValidation(h *Holochain, def *EntryDef, pkg *Package, sources []peer.ID) (err error)
 	Receive(dht *DHT, msg *Message, retries int) (response interface{}, err error)
 	CheckValidationRequest(def *EntryDef) (err error)
 	Args() []Arg
@@ -77,7 +77,7 @@ type CommittingAction interface {
 type ValidatingAction interface {
 	Name() string
 	Do(h *Holochain) (response interface{}, err error)
-	SysValidation(h *Holochain, d *EntryDef, sources []peer.ID) (err error)
+	SysValidation(h *Holochain, def *EntryDef, pkg *Package, sources []peer.ID) (err error)
 	Receive(dht *DHT, msg *Message, retries int) (response interface{}, err error)
 	CheckValidationRequest(def *EntryDef) (err error)
 	Args() []Arg
@@ -85,6 +85,9 @@ type ValidatingAction interface {
 
 var NonDHTAction error = errors.New("Not a DHT action")
 var NonCallableAction error = errors.New("Not a callable action")
+var ErrNotValidForDNAType error = errors.New("Invalid action for DNA type")
+var ErrNotValidForAgentType error = errors.New("Invalid action for Agent type")
+var ErrNotValidForKeyType error = errors.New("Invalid action for Key type")
 
 func prepareSources(sources []peer.ID) (srcs []string) {
 	srcs = make([]string, 0)
@@ -95,34 +98,26 @@ func prepareSources(sources []peer.ID) (srcs []string) {
 }
 
 // ValidateAction runs the different phases of validating an action
-func (h *Holochain) ValidateAction(a ValidatingAction, entryType string, pkg *Package, sources []peer.ID) (d *EntryDef, err error) {
-	switch entryType {
-	case DNAEntryType:
-		//		panic("attempt to get validation response for DNA")
-	case KeyEntryType:
-		//		validate the public key?
-	case AgentEntryType:
-		//		validate the Agent Entry?
-	default:
+func (h *Holochain) ValidateAction(a ValidatingAction, entryType string, pkg *Package, sources []peer.ID) (def *EntryDef, err error) {
+
+	var z *Zome
+	z, def, err = h.GetEntryDef(entryType)
+	if err != nil {
+		return
+	}
+
+	// run the action's system level validations
+	err = a.SysValidation(h, def, pkg, sources)
+	if err != nil {
+		Debugf("Sys ValidateAction(%T) err:%v\n", a, err)
+		return
+	}
+	if !def.IsSysEntry() {
 
 		// validation actions for application defined entry types
-
-		var z *Zome
-		z, d, err = h.GetEntryDef(entryType)
-		if err != nil {
-			return
-		}
-
 		var vpkg *ValidationPackage
 		vpkg, err = MakeValidationPackage(h, pkg)
 		if err != nil {
-			return
-		}
-
-		// run the action's system level validations
-		err = a.SysValidation(h, d, sources)
-		if err != nil {
-			Debugf("Sys ValidateAction(%T) err:%v\n", a, err)
 			return
 		}
 
@@ -133,7 +128,7 @@ func (h *Holochain) ValidateAction(a ValidatingAction, entryType string, pkg *Pa
 			return
 		}
 
-		err = n.ValidateAction(a, d, vpkg, prepareSources(sources))
+		err = n.ValidateAction(a, def, vpkg, prepareSources(sources))
 		if err != nil {
 			Debugf("Ribosome ValidateAction(%T) err:%v\n", a, err)
 		}
@@ -149,6 +144,12 @@ func (h *Holochain) GetValidationResponse(a ValidatingAction, hash Hash) (resp V
 	if err == ErrHashNotFound {
 		if hash.String() == h.nodeIDStr {
 			resp.Type = KeyEntryType
+			var pk []byte
+			pk, err = ic.MarshalPublicKey(h.agent.PubKey())
+			if err != nil {
+				return
+			}
+			resp.Entry.C = pk
 			err = nil
 		} else {
 			return
@@ -166,11 +167,15 @@ func (h *Holochain) GetValidationResponse(a ValidatingAction, hash Hash) (resp V
 	}
 	switch resp.Type {
 	case DNAEntryType:
-		panic("attempt to get validation response for DNA")
+		err = ErrNotValidForDNAType
+		return
 	case KeyEntryType:
-		//		resp.Entry = TODO public key goes here
+		// if key entry there no extra info to return in the package so do nothing
 	case AgentEntryType:
-		//		resp.Entry = TODO agent block goes here
+		// if agent, the package to return is the entry-type chain
+		// so that sys validation can confirm this agent entry in the chain
+		req := PackagingReq{PkgReqChain: int64(PkgReqChainOptFull), PkgReqEntryTypes: []string{AgentEntryType}}
+		resp.Package, err = MakePackage(h, req)
 	default:
 		// app defined entry types
 		var def *EntryDef
@@ -224,7 +229,7 @@ func MakeActionFromMessage(msg *Message) (a Action, err error) {
 		a = &ActionLink{}
 		t = reflect.TypeOf(LinkReq{})
 	case GETLINK_REQUEST:
-		a = &ActionGetLink{}
+		a = &ActionGetLinks{}
 		t = reflect.TypeOf(LinkQuery{})
 	case LISTADD_REQUEST:
 		a = &ActionListAdd{}
@@ -311,7 +316,8 @@ func (a *ActionDebug) Do(h *Holochain) (response interface{}, err error) {
 // MakeHash
 
 type ActionMakeHash struct {
-	entry Entry
+	entryType string
+	entry     Entry
 }
 
 func NewMakeHashAction(entry Entry) *ActionMakeHash {
@@ -324,7 +330,7 @@ func (a *ActionMakeHash) Name() string {
 }
 
 func (a *ActionMakeHash) Args() []Arg {
-	return []Arg{{Name: "entry", Type: EntryArg}}
+	return []Arg{{Name: "entryType", Type: StringArg}, {Name: "entry", Type: EntryArg}}
 }
 
 func (a *ActionMakeHash) Do(h *Holochain) (response interface{}, err error) {
@@ -378,7 +384,7 @@ func (a *ActionSign) Name() string {
 }
 
 func (a *ActionSign) Args() []Arg {
-	return []Arg{{Name: "doc", Type: EntryArg}}
+	return []Arg{{Name: "doc", Type: StringArg}}
 }
 
 func (a *ActionSign) Do(h *Holochain) (response interface{}, err error) {
@@ -589,7 +595,6 @@ func (a *ActionQuery) Do(h *Holochain) (response interface{}, err error) {
 
 //------------------------------------------------------------
 // Get
-
 type ActionGet struct {
 	req     GetReq
 	options *GetOptions
@@ -656,7 +661,7 @@ func (a *ActionGet) Do(h *Holochain) (response interface{}, err error) {
 	return
 }
 
-func (a *ActionGet) SysValidation(h *Holochain, d *EntryDef, sources []peer.ID) (err error) {
+func (a *ActionGet) SysValidation(h *Holochain, def *EntryDef, pkg *Package, sources []peer.ID) (err error) {
 	return
 }
 
@@ -670,6 +675,8 @@ func (a *ActionGet) Receive(dht *DHT, msg *Message, retries int) (response inter
 	}
 	resp := GetResp{}
 	var entryType string
+
+	// always get the entry type despite what the mas says because we need it for the switch below.
 	entryData, entryType, resp.Sources, _, err = dht.get(req.H, req.StatusMask, req.GetMask|GetMaskEntryType)
 	if (mask & GetMaskEntryType) != 0 {
 		resp.EntryType = entryType
@@ -727,9 +734,6 @@ func (h *Holochain) doCommit(a CommittingAction, change *StatusChange) (d *Entry
 	//TODO	a.header = header
 	d, err = h.ValidateAction(a, entryType, nil, []peer.ID{h.nodeID})
 	if err != nil {
-		if err == ValidationFailedErr {
-			err = fmt.Errorf("Invalid entry: %v", entry.Content())
-		}
 		return
 	}
 	err = h.chain.addEntry(l, hash, header, entry)
@@ -809,18 +813,63 @@ func (a *ActionCommit) Do(h *Holochain) (response interface{}, err error) {
 	return
 }
 
-// sysValidateEntry does system level validation for an entry
+// sysValidateEntry does system level validation for adding an entry (put or commit)
 // It checks that entry is not nil, and that it conforms to the entry schema in the definition
-// and if it's a Links entry that the contents are correctly structured
-func sysValidateEntry(h *Holochain, d *EntryDef, entry Entry) (err error) {
+// if it's a Links entry that the contents are correctly structured
+// if it's a new agent entry, that identity matches the defined identity structure
+// if it's a key that the structure is actually a public key
+func sysValidateEntry(h *Holochain, def *EntryDef, entry Entry, pkg *Package) (err error) {
+	switch def.Name {
+	case DNAEntryType:
+		err = ErrNotValidForDNAType
+		return
+	case KeyEntryType:
+		pk, ok := entry.Content().([]byte)
+		if !ok || len(pk) != 36 {
+			err = ValidationFailedErr
+			return
+		} else {
+			_, err = ic.UnmarshalPublicKey(pk)
+			if err != nil {
+				err = ValidationFailedErr
+				return err
+			}
+		}
+	case AgentEntryType:
+		ae, ok := entry.Content().(AgentEntry)
+		if !ok {
+			err = ValidationFailedErr
+			return
+		}
+
+		// check that the public key is unmarshalable
+		_, err = ic.UnmarshalPublicKey(ae.PublicKey)
+		if err != nil {
+			err = ValidationFailedErr
+			return err
+		}
+
+		// if there's a revocation, confirm that has a reasonable format
+		if ae.Revocation != nil {
+			revocation := &SelfRevocation{}
+			err := revocation.Unmarshal(ae.Revocation)
+			if err != nil {
+				err = ValidationFailedErr
+				return err
+			}
+		}
+
+		// TODO check anything in the package
+	}
+
 	if entry == nil {
 		err = errors.New("nil entry invalid")
 		return
 	}
 	// see if there is a schema validator for the entry type and validate it if so
-	if d.validator != nil {
+	if def.validator != nil {
 		var input interface{}
-		if d.DataFormat == DataFormatJSON {
+		if def.DataFormat == DataFormatJSON {
 			if err = json.Unmarshal([]byte(entry.Content().(string)), &input); err != nil {
 				return
 			}
@@ -828,10 +877,10 @@ func sysValidateEntry(h *Holochain, d *EntryDef, entry Entry) (err error) {
 			input = entry
 		}
 		Debugf("Validating %v against schema", input)
-		if err = d.validator.Validate(input); err != nil {
+		if err = def.validator.Validate(input); err != nil {
 			return
 		}
-	} else if d.DataFormat == DataFormatLinks {
+	} else if def.DataFormat == DataFormatLinks {
 		// Perform base validation on links entries, i.e. that all items exist and are of the right types
 		// so first unmarshall the json, and then check that the hashes are real.
 		var l struct{ Links []map[string]string }
@@ -874,8 +923,8 @@ func sysValidateEntry(h *Holochain, d *EntryDef, entry Entry) (err error) {
 	return
 }
 
-func (a *ActionCommit) SysValidation(h *Holochain, d *EntryDef, sources []peer.ID) (err error) {
-	err = sysValidateEntry(h, d, a.entry)
+func (a *ActionCommit) SysValidation(h *Holochain, def *EntryDef, pkg *Package, sources []peer.ID) (err error) {
+	err = sysValidateEntry(h, def, a.entry, pkg)
 	return
 }
 
@@ -915,8 +964,8 @@ func (a *ActionPut) Do(h *Holochain) (response interface{}, err error) {
 	return
 }
 
-func (a *ActionPut) SysValidation(h *Holochain, d *EntryDef, sources []peer.ID) (err error) {
-	err = sysValidateEntry(h, d, a.entry)
+func (a *ActionPut) SysValidation(h *Holochain, def *EntryDef, pkg *Package, sources []peer.ID) (err error) {
+	err = sysValidateEntry(h, def, a.entry, pkg)
 	return
 }
 
@@ -1022,21 +1071,34 @@ func (a *ActionMod) Do(h *Holochain) (response interface{}, err error) {
 	return
 }
 
-func (a *ActionMod) SysValidation(h *Holochain, def *EntryDef, sources []peer.ID) (err error) {
+func (a *ActionMod) SysValidation(h *Holochain, def *EntryDef, pkg *Package, sources []peer.ID) (err error) {
+	switch def.Name {
+	case DNAEntryType:
+		err = ErrNotValidForDNAType
+		return
+	case KeyEntryType:
+	case AgentEntryType:
+	}
+
 	if def.DataFormat == DataFormatLinks {
 		err = errors.New("Can't mod Links entry")
 		return
 	}
-	var header *Header
-	header, err = h.chain.GetEntryHeader(a.replaces)
-	if err != nil {
-		return
+
+	// no need to check for virtual entries on the chain because they aren't there
+	// currently the only virtual entry is the node id
+	if !def.IsVirtualEntry() {
+		var header *Header
+		header, err = h.chain.GetEntryHeader(a.replaces)
+		if err != nil {
+			return
+		}
+		if header.Type != a.entryType {
+			err = ErrEntryTypeMismatch
+			return
+		}
 	}
-	if header.Type != a.entryType {
-		err = ErrEntryTypeMismatch
-		return
-	}
-	err = sysValidateEntry(h, def, a.entry)
+	err = sysValidateEntry(h, def, a.entry, pkg)
 	return
 }
 
@@ -1231,11 +1293,27 @@ func (a *ActionDel) Do(h *Holochain) (response interface{}, err error) {
 	return
 }
 
-func (a *ActionDel) SysValidation(h *Holochain, d *EntryDef, sources []peer.ID) (err error) {
-	if d.DataFormat == DataFormatLinks {
+func (a *ActionDel) SysValidation(h *Holochain, def *EntryDef, pkg *Package, sources []peer.ID) (err error) {
+	switch def.Name {
+	case DNAEntryType:
+		err = ErrNotValidForDNAType
+		return
+	case KeyEntryType:
+		err = ErrNotValidForKeyType
+		return
+	case AgentEntryType:
+		err = ErrNotValidForAgentType
+		return
+	}
+
+	if def.DataFormat == DataFormatLinks {
 		err = errors.New("Can't del Links entry")
 		return
 	}
+
+	// we don't have to check to see if the entry type is virtual here because currently
+	// the only virtual entry type is the KeyEntryType, for which Del isn't even valid
+	// and will have gotten caught in the switch statement above so no use wasting CPU cycles.
 	var header *Header
 	header, err = h.chain.GetEntryHeader(a.entry.Hash)
 	if err != nil {
@@ -1309,7 +1387,10 @@ func (a *ActionLink) Do(h *Holochain) (response interface{}, err error) {
 	return
 }
 
-func (a *ActionLink) SysValidation(h *Holochain, d *EntryDef, sources []peer.ID) (err error) {
+func (a *ActionLink) SysValidation(h *Holochain, def *EntryDef, pkg *Package, sources []peer.ID) (err error) {
+	if def.DataFormat != DataFormatLinks {
+		err = errors.New("action only valid for links entry type")
+	}
 	//@TODO what sys level links validation?  That they are all valid hash format for the DNA?
 	return
 }
@@ -1368,27 +1449,27 @@ func (a *ActionLink) CheckValidationRequest(def *EntryDef) (err error) {
 }
 
 //------------------------------------------------------------
-// GetLink
+// GetLinks
 
-type ActionGetLink struct {
+type ActionGetLinks struct {
 	linkQuery *LinkQuery
-	options   *GetLinkOptions
+	options   *GetLinksOptions
 }
 
-func NewGetLinkAction(linkQuery *LinkQuery, options *GetLinkOptions) *ActionGetLink {
-	a := ActionGetLink{linkQuery: linkQuery, options: options}
+func NewGetLinksAction(linkQuery *LinkQuery, options *GetLinksOptions) *ActionGetLinks {
+	a := ActionGetLinks{linkQuery: linkQuery, options: options}
 	return &a
 }
 
-func (a *ActionGetLink) Name() string {
-	return "getLink"
+func (a *ActionGetLinks) Name() string {
+	return "getLinks"
 }
 
-func (a *ActionGetLink) Args() []Arg {
-	return []Arg{{Name: "base", Type: HashArg}, {Name: "tag", Type: StringArg}, {Name: "options", Type: MapArg, MapType: reflect.TypeOf(GetLinkOptions{}), Optional: true}}
+func (a *ActionGetLinks) Args() []Arg {
+	return []Arg{{Name: "base", Type: HashArg}, {Name: "tag", Type: StringArg}, {Name: "options", Type: MapArg, MapType: reflect.TypeOf(GetLinksOptions{}), Optional: true}}
 }
 
-func (a *ActionGetLink) Do(h *Holochain) (response interface{}, err error) {
+func (a *ActionGetLinks) Do(h *Holochain) (response interface{}, err error) {
 	var r interface{}
 	r, err = h.dht.Query(a.linkQuery.Base, GETLINK_REQUEST, *a.linkQuery)
 
@@ -1403,31 +1484,34 @@ func (a *ActionGetLink) Do(h *Holochain) (response interface{}, err error) {
 					if err != nil {
 						return
 					}
-					req := GetReq{H: hash, StatusMask: StatusDefault}
-					rsp, err := NewGetAction(req, &GetOptions{StatusMask: StatusDefault}).Do(h)
+					opts := GetOptions{GetMask: GetMaskEntryType + GetMaskEntry, StatusMask: StatusDefault}
+					req := GetReq{H: hash, StatusMask: StatusDefault, GetMask: opts.GetMask}
+					rsp, err := NewGetAction(req, &opts).Do(h)
 					if err == nil {
 						entry := rsp.(GetResp).Entry
 						t.Links[i].E = entry.Content().(string)
+						t.Links[i].EntryType = rsp.(GetResp).EntryType
+
 					}
 					//TODO better error handling here, i.e break out of the loop and return if error?
 				}
 			}
 		default:
-			err = fmt.Errorf("unexpected response type from SendGetLink: %T", t)
+			err = fmt.Errorf("unexpected response type from SendGetLinks: %T", t)
 		}
 	}
 	return
 }
 
-func (a *ActionGetLink) SysValidation(h *Holochain, d *EntryDef, sources []peer.ID) (err error) {
+func (a *ActionGetLinks) SysValidation(h *Holochain, d *EntryDef, pkg *Package, sources []peer.ID) (err error) {
 	//@TODO what sys level getlinks validation?  That they are all valid hash format for the DNA?
 	return
 }
 
-func (a *ActionGetLink) Receive(dht *DHT, msg *Message, retries int) (response interface{}, err error) {
+func (a *ActionGetLinks) Receive(dht *DHT, msg *Message, retries int) (response interface{}, err error) {
 	lq := msg.Body.(LinkQuery)
 	var r LinkQueryResp
-	r.Links, err = dht.getLink(lq.Base, lq.T, lq.StatusMask)
+	r.Links, err = dht.getLinks(lq.Base, lq.T, lq.StatusMask)
 	response = &r
 
 	return

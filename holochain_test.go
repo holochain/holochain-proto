@@ -469,7 +469,7 @@ func TestCall(t *testing.T) {
 		So(result.(string), ShouldEqual, ph.String())
 
 		_, err = h.Call("zySampleZome", "addEven", "41", ZOME_EXPOSURE)
-		So(err.Error(), ShouldEqual, "Error calling 'commit': Invalid entry: 41")
+		So(err.Error(), ShouldEqual, "Error calling 'commit': Validation Failed")
 	})
 	Convey("it should fail calls to functions not exposed to the given context", t, func() {
 		_, err := h.Call("zySampleZome", "testStrFn1", "arg1 arg2", PUBLIC_EXPOSURE)
@@ -501,9 +501,9 @@ func TestCommit(t *testing.T) {
 		if err := h.dht.simHandleChangeReqs(); err != nil {
 			panic(err)
 		}
-		results, err := h.dht.getLink(hash, "4stars", StatusLive)
+		results, err := h.dht.getLinks(hash, "4stars", StatusLive)
 		So(err, ShouldBeNil)
-		So(fmt.Sprintf("%v", results), ShouldEqual, "[{QmYeinX5vhuA91D3v24YbgyLofw9QAxY6PoATrBHnRwbtt }]")
+		So(fmt.Sprintf("%v", results), ShouldEqual, fmt.Sprintf("[{QmYeinX5vhuA91D3v24YbgyLofw9QAxY6PoATrBHnRwbtt    %s}]", h.nodeIDStr))
 	})
 }
 

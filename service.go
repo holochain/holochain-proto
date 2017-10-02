@@ -1429,7 +1429,7 @@ func TestingAppScaffold() string {
         "Zome":   "zySampleZome",
         "FnName": "addEven",
         "Input":  "5",
-        "Err":    "Error calling 'commit': Invalid entry: 5"},
+        "Err":    "Error calling 'commit': Validation Failed"},
     {
         "Zome":   "zySampleZome",
         "FnName": "addPrime",
@@ -1439,7 +1439,7 @@ func TestingAppScaffold() string {
         "Zome":   "zySampleZome",
         "FnName": "addPrime",
         "Input":  {"prime":4},
-        "Err":    "Error calling 'commit': Invalid entry: {\"prime\":4}"},
+        "Err":    "Error calling 'commit': Validation Failed"},
     {
 	"Zome":   "jsSampleZome",
 	"FnName": "addProfile",
@@ -1469,7 +1469,7 @@ func TestingAppScaffold() string {
 	"Zome":   "jsSampleZome",
 	"FnName": "addOdd",
 	"Input":  "2",
-	"Err":    "Invalid entry: 2"},
+	"Err":    "Validation Failed"},
     {
 	"Zome":   "zySampleZome",
 	"FnName": "confirmOdd",

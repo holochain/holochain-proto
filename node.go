@@ -86,6 +86,26 @@ const (
 	FIND_NODE_REQUEST
 )
 
+func (msgType MsgType) String() string {
+	return []string{"ERROR_RESPONSE",
+		"OK_RESPONSE",
+		"PUT_REQUEST",
+		"DEL_REQUEST",
+		"MOD_REQUEST",
+		"GET_REQUEST",
+		"LINK_REQUEST",
+		"GETLINK_REQUEST",
+		"DELETELINK_REQUEST",
+		"GOSSIP_REQUEST",
+		"VALIDATE_PUT_REQUEST",
+		"VALIDATE_LINK_REQUEST",
+		"VALIDATE_DEL_REQUEST",
+		"VALIDATE_MOD_REQUEST",
+		"APP_MESSAGE",
+		"LISTADD_REQUEST",
+		"FIND_NODE_REQUEST"}[msgType]
+}
+
 var ErrBlockedListed = errors.New("node blockedlisted")
 
 // Message represents data that can be sent to node in the network
@@ -349,44 +369,7 @@ func (m *Message) Fingerprint() (f Hash, err error) {
 
 // String converts a message to a nice string
 func (m Message) String() string {
-	var typeStr string
-	switch m.Type {
-	case ERROR_RESPONSE:
-		typeStr = "ERROR_RESPONSE"
-	case OK_RESPONSE:
-		typeStr = "OK_RESPONSE"
-	case PUT_REQUEST:
-		typeStr = "PUT_REQUEST"
-	case DEL_REQUEST:
-		typeStr = "DEL_REQUEST"
-	case MOD_REQUEST:
-		typeStr = "MOD_REQUEST"
-	case GET_REQUEST:
-		typeStr = "GET_REQUEST"
-	case LINK_REQUEST:
-		typeStr = "LINK_REQUEST"
-	case GETLINK_REQUEST:
-		typeStr = "GETLINK_REQUEST"
-	case DELETELINK_REQUEST:
-		typeStr = "DELETELINK_REQUEST"
-	case GOSSIP_REQUEST:
-		typeStr = "GOSSIP_REQUEST"
-	case VALIDATE_PUT_REQUEST:
-		typeStr = "VALIDATE_PUT_REQUEST"
-	case VALIDATE_LINK_REQUEST:
-		typeStr = "VALIDATE_LINK_REQUEST"
-	case VALIDATE_DEL_REQUEST:
-		typeStr = "VALIDATE_DEL_REQUEST"
-	case VALIDATE_MOD_REQUEST:
-		typeStr = "VALIDATE_MOD_REQUEST"
-	case APP_MESSAGE:
-		typeStr = "APP_MESSAGE"
-	case LISTADD_REQUEST:
-		typeStr = "LISTADD_REQUEST"
-	case FIND_NODE_REQUEST:
-		typeStr = "FIND_NODE_REQUEST"
-	}
-	return fmt.Sprintf("%s @ %v From:%v Body:%v", typeStr, m.Time, m.From, m.Body)
+	return fmt.Sprintf("%v @ %v From:%v Body:%v", m.Type, m.Time, m.From, m.Body)
 }
 
 // respondWith writes a message either error or otherwise, to the stream

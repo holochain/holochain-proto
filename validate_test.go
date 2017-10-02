@@ -3,6 +3,7 @@ package holochain
 import (
 	"bytes"
 	"fmt"
+	ic "github.com/libp2p/go-libp2p-crypto"
 	. "github.com/metacurrency/holochain/hash"
 	. "github.com/smartystreets/goconvey/convey"
 	"strings"
@@ -131,13 +132,59 @@ func TestMakePackage(t *testing.T) {
 func TestGetValidationResponse(t *testing.T) {
 	d, _, h := PrepareTestChain("test")
 	defer CleanupTestChain(h, d)
-	Convey("Sys defined entry types should return empty packages", t, func() {
+
+	hash := commit(h, "oddNumbers", "3")
+
+	Convey("entry types should return packages based on definition", t, func() {
+		entry, _, err := h.chain.GetEntry(hash)
+		if err != nil {
+			panic(err)
+		}
+		a := NewPutAction("oddNumbers", entry, &Header{})
+		resp, err := h.GetValidationResponse(a, hash)
+		So(err, ShouldBeNil)
+		So(resp.Type, ShouldEqual, "oddNumbers")
+		So(fmt.Sprintf("%v", &resp.Entry), ShouldEqual, fmt.Sprintf("%v", entry))
+		var b bytes.Buffer
+		h.chain.MarshalChain(&b, ChainMarshalFlagsOmitDNA)
+		So(fmt.Sprintf("%v", string(resp.Package.Chain)), ShouldEqual, fmt.Sprintf("%v", string(b.Bytes())))
+	})
+
+	Convey("it should fail on the DNA (can't validate DNA as it's what determines what's valid)", t, func() {
+		entry, _, err := h.chain.GetEntry(h.dnaHash)
+		a := NewPutAction(AgentEntryType, entry, &Header{})
+		_, err = h.GetValidationResponse(a, h.dnaHash)
+		So(err, ShouldEqual, ErrNotValidForDNAType)
+
+	})
+
+	Convey("agent entry type should return the type chain in the package", t, func() {
 		entry, _, err := h.chain.GetEntry(h.agentHash)
 		a := NewPutAction(AgentEntryType, entry, &Header{})
 		resp, err := h.GetValidationResponse(a, h.agentHash)
 		So(err, ShouldBeNil)
 		So(resp.Type, ShouldEqual, AgentEntryType)
 		So(fmt.Sprintf("%v", &resp.Entry), ShouldEqual, fmt.Sprintf("%v", entry))
+
+		types := []string{AgentEntryType}
+		var b bytes.Buffer
+		h.chain.MarshalChain(&b, ChainMarshalFlagsOmitDNA, types...)
+		So(fmt.Sprintf("%v", string(resp.Package.Chain)), ShouldEqual, fmt.Sprintf("%v", string(b.Bytes())))
+	})
+
+	Convey("key entry type should return empty package with pubkey as entry", t, func() {
+		hash := HashFromPeerID(h.nodeID)
+		a := NewPutAction(KeyEntryType, nil, &Header{})
+		resp, err := h.GetValidationResponse(a, hash)
+		So(err, ShouldBeNil)
+		So(resp.Type, ShouldEqual, KeyEntryType)
+
+		pk, err := ic.MarshalPublicKey(h.agent.PubKey())
+		if err != nil {
+			panic(err)
+		}
+
+		So(fmt.Sprintf("%v", resp.Entry.Content()), ShouldEqual, fmt.Sprintf("%v", pk))
 		So(fmt.Sprintf("%v", resp.Package), ShouldEqual, fmt.Sprintf("%v", Package{}))
 	})
 }

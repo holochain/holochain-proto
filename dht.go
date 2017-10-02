@@ -670,7 +670,7 @@ func (dht *DHT) Change(key Hash, msgType MsgType, body interface{}) (err error) 
 	_, err = dht.send(nil, dht.h.nodeID, msgType, body)
 
 	if err != nil {
-		dht.dlog.Logf("DHT %s failed to self with error: %s", msgType, err)
+		dht.dlog.Logf("DHT send of %v to self failed with error: %s", msgType, err)
 		err = nil
 	}
 	node := dht.h.node
@@ -690,7 +690,7 @@ func (dht *DHT) Change(key Hash, msgType MsgType, body interface{}) (err error) 
 
 			_, err := dht.send(ctx, p, msgType, body)
 			if err != nil {
-				dht.dlog.Logf("DHT %s failed to peer %v with error: %s", msgType, p, err)
+				dht.dlog.Logf("DHT send of %v failed to peer %v with error: %s", msgType, p, err)
 			}
 		}(p)
 	}

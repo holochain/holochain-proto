@@ -387,7 +387,7 @@ func (dht *DHT) gossipWith(id peer.ID) (err error) {
 
 	// gossip loops are possible where a gossip request triggers a gossip back, which
 	// if the first gossiping wasn't completed triggers the same gossip, so protect against this
-	// with a hash table storing who we are currently gossiping with
+	// with a lock to prevent re-entry
 	dht.glk.Lock()
 	defer dht.glk.Unlock()
 	/*	_, gossiping := dht.gossips[id]
@@ -482,22 +482,12 @@ func (dht *DHT) gossip() (err error) {
 
 // Gossip gossips every interval
 func (dht *DHT) Gossip(interval time.Duration) {
-	ticker := time.NewTicker(interval)
-	stop := make(chan bool, 1)
-	go func() {
-		for {
-			select {
-			case <-ticker.C:
-				err := dht.gossip()
-				if err != nil {
-					dht.glog.Logf("error: %v", err)
-				}
-			case <-stop:
-				return
-			}
+	dht.gossiping = Ticker(interval, func() {
+		err := dht.gossip()
+		if err != nil {
+			dht.glog.Logf("error: %v", err)
 		}
-	}()
-	dht.gossiping = stop
+	})
 }
 
 // HandleGossipWiths waits on a chanel for gossipWith requests

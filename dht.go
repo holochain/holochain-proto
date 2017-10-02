@@ -19,6 +19,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 )
 
 // Holds the dht configuration options
@@ -50,19 +51,29 @@ type gossipWithReq struct {
 
 // DHT struct holds the data necessary to run the distributed hash table
 type DHT struct {
-	h         *Holochain // pointer to the holochain this DHT is part of
-	db        *buntdb.DB
-	puts      chan Message
-	gossiping chan bool
-	glog      *Logger // the gossip logger
-	dlog      *Logger // the dht logger
-	gossips   map[peer.ID]bool
-	gchan     chan gossipWithReq
-	config    *DHTConfig
-	glk       sync.RWMutex
+	h          *Holochain // pointer to the holochain this DHT is part of
+	db         *buntdb.DB
+	retryQueue chan *retry
+	retrying   chan bool
+	gossiping  chan bool
+	glog       *Logger // the gossip logger
+	dlog       *Logger // the dht logger
+	gossips    map[peer.ID]bool
+	gchan      chan gossipWithReq
+	config     *DHTConfig
+	glk        sync.RWMutex
 	//	sources      map[peer.ID]bool
 	//	fingerprints map[string]bool
 }
+
+type retry struct {
+	msg     Message
+	retries int
+}
+
+const (
+	MaxRetries = 10
+)
 
 // Meta holds data that can be associated with a hash
 // @todo, we should also be storing the meta-data source
@@ -243,7 +254,7 @@ func NewDHT(h *Holochain) *DHT {
 	db.CreateIndex("list", "list:*", buntdb.IndexString)
 
 	dht.db = db
-	dht.puts = make(chan Message, 10)
+	dht.retryQueue = make(chan *retry, 100)
 
 	dht.gossips = make(map[peer.ID]bool)
 	//	dht.sources = make(map[peer.ID]bool)
@@ -834,4 +845,37 @@ func (dht *DHT) String() (result string) {
 		}
 	}
 	return
+}
+
+// Close cleans up the DHT
+func (dht *DHT) Close() {
+	if dht.gossiping != nil {
+		Debug("Stopping gossiping")
+		stop := dht.gossiping
+		dht.gossiping = nil
+		stop <- true
+	}
+	if dht.retrying != nil {
+		Debug("Stopping retrying")
+		stop := dht.retrying
+		dht.retrying = nil
+		stop <- true
+	}
+	close(dht.retryQueue)
+	close(dht.gchan)
+}
+
+// Retry starts retry processing
+func (dht *DHT) Retry(interval time.Duration) {
+	dht.retrying = Ticker(interval, func() {
+		if len(dht.retryQueue) > 0 {
+			r := <-dht.retryQueue
+			if r.retries > 0 {
+				resp, err := actionReceiver(dht.h, &r.msg, r.retries-1)
+				dht.dlog.Logf("retry %d of %v, response: %d error: %v", r.retries, r.msg, resp, err)
+			} else {
+				dht.dlog.Logf("max retries for %v, ignoring", r.msg)
+			}
+		}
+	})
 }

@@ -20,6 +20,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 )
 
 const (
@@ -309,5 +310,22 @@ func BuildJSONSchemaValidatorFromString(input string) (validator *JSONSchemaVali
 	if err == nil {
 		validator = &v
 	}
+	return
+}
+
+// Ticker runs a function on an interval that can be stopped with the returned bool channel
+func Ticker(interval time.Duration, fn func()) (stopper chan bool) {
+	ticker := time.NewTicker(interval)
+	stopper = make(chan bool, 1)
+	go func() {
+		for {
+			select {
+			case <-ticker.C:
+				fn()
+			case <-stopper:
+				return
+			}
+		}
+	}()
 	return
 }

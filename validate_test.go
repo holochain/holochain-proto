@@ -128,6 +128,22 @@ func TestMakePackage(t *testing.T) {
 		So(string(pkg.Chain), ShouldEqual, string(b.Bytes()))
 	})
 
+	Convey("it should not contain the real contents of private entries", t, func() {
+		entry := GobEntry{C: "secret message"}
+		h.NewEntry(time.Now(), "privateData", &entry)
+
+		req := PackagingReq{PkgReqChain: int64(PkgReqChainOptFull)}
+		pkg, err := MakePackage(h, req)
+		So(err, ShouldBeNil)
+
+		_, c1, err := UnmarshalChain(h.hashSpec, bytes.NewBuffer(pkg.Chain))
+		So(err, ShouldBeNil)
+		So(c1.Entries[2].Content(), ShouldEqual, "2") //from previous test cases
+		So(c1.Entries[3].Content(), ShouldEqual, "3") //from previous test cases
+		So(c1.Entries[4].Content(), ShouldNotEqual, "secret message")
+		So(c1.Entries[4].Content(), ShouldEqual, ChainMarshalPrivateEntryRedacted)
+	})
+
 }
 
 func TestGetValidationResponse(t *testing.T) {

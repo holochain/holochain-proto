@@ -25,10 +25,12 @@ var ErrHashNotFound = errors.New("hash not found")
 var ErrIncompleteChain = errors.New("operation not allowed on incomplete chain")
 
 const (
-	ChainMarshalFlagsNone      = 0x00
-	ChainMarshalFlagsNoHeaders = 0x01
-	ChainMarshalFlagsNoEntries = 0x02
-	ChainMarshalFlagsOmitDNA   = 0x04
+	ChainMarshalFlagsNone            = 0x00
+	ChainMarshalFlagsNoHeaders       = 0x01
+	ChainMarshalFlagsNoEntries       = 0x02
+	ChainMarshalFlagsOmitDNA         = 0x04
+	ChainMarshalFlagsNoPrivate       = 0x08
+	ChainMarshalPrivateEntryRedacted = "%%PRIVATE ENTRY REDACTED%%"
 )
 
 // Chain structure for providing in-memory access to chain data, entries headers and hashes
@@ -343,6 +345,10 @@ func (c *Chain) MarshalChain(writer io.Writer, flags int64, whitelistTypes []str
 
 			if (flags & ChainMarshalFlagsNoEntries) != 0 {
 				e = nil
+			}
+
+			if !filterPass(i, hdr, whitelistTypes, privateTypes) {
+				e = &GobEntry{C: ChainMarshalPrivateEntryRedacted}
 			}
 
 			if (flags & ChainMarshalFlagsNoHeaders) != 0 {

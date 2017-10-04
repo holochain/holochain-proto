@@ -199,6 +199,9 @@ func TestMarshalChain(t *testing.T) {
 	e = GobEntry{C: "and more data"}
 	c.AddEntry(now, "entryTypeFoo3", &e, key)
 
+	e = GobEntry{C: "some private"}
+	c.AddEntry(now, "entryTypePrivate", &e, key)
+
 	Convey("it should be able to marshal and unmarshal full chain", t, func() {
 		var b bytes.Buffer
 
@@ -297,6 +300,25 @@ func TestMarshalChain(t *testing.T) {
 		So(reflect.DeepEqual(c.Hmap, c1.Hmap), ShouldBeTrue)
 		So(reflect.DeepEqual(c.Emap, c1.Emap), ShouldBeTrue)
 		So(reflect.DeepEqual(c.Entries, c1.Entries), ShouldBeTrue)
+
+	})
+
+	Convey("it should be able to marshal with contents of private entries being redacted", t, func() {
+		var b bytes.Buffer
+
+		privateTypes := []string{"entryTypePrivate"}
+		err := c.MarshalChain(&b, ChainMarshalFlagsNone, emptyStringList, privateTypes)
+		So(err, ShouldBeNil)
+		_, c1, err := UnmarshalChain(hashSpec, &b)
+		So(err, ShouldBeNil)
+		So(len(c1.Headers), ShouldEqual, len(c.Headers))
+		So(len(c1.Entries), ShouldEqual, len(c.Entries))
+		So(c1.Entries[0].Content(), ShouldEqual, c.Entries[0].Content())
+		So(c1.Entries[1].Content(), ShouldEqual, c.Entries[1].Content())
+		So(c1.Entries[2].Content(), ShouldEqual, c.Entries[2].Content())
+		So(c1.Entries[3].Content(), ShouldEqual, c.Entries[3].Content())
+		So(c1.Entries[4].Content(), ShouldEqual, c.Entries[4].Content())
+		So(c1.Entries[5].Content(), ShouldEqual, ChainMarshalPrivateEntryRedacted)
 
 	})
 

@@ -182,6 +182,7 @@ func TestGet(t *testing.T) {
 func TestMarshalChain(t *testing.T) {
 	hashSpec, key, now := chainTestSetup()
 	c := NewChain(hashSpec)
+	var emptyStringList []string
 
 	e := GobEntry{C: "fake DNA"}
 	c.AddEntry(now, DNAEntryType, &e, key)
@@ -201,7 +202,7 @@ func TestMarshalChain(t *testing.T) {
 	Convey("it should be able to marshal and unmarshal full chain", t, func() {
 		var b bytes.Buffer
 
-		err := c.MarshalChain(&b, ChainMarshalFlagsNone)
+		err := c.MarshalChain(&b, ChainMarshalFlagsNone, emptyStringList, emptyStringList)
 		So(err, ShouldBeNil)
 		flags, c1, err := UnmarshalChain(hashSpec, &b)
 		So(err, ShouldBeNil)
@@ -221,7 +222,8 @@ func TestMarshalChain(t *testing.T) {
 	Convey("it should be able to marshal and unmarshal specify types", t, func() {
 		var b bytes.Buffer
 
-		err := c.MarshalChain(&b, ChainMarshalFlagsNone, AgentEntryType, "entryTypeFoo2")
+		typeList := []string{AgentEntryType, "entryTypeFoo2"}
+		err := c.MarshalChain(&b, ChainMarshalFlagsNone, typeList, emptyStringList)
 		So(err, ShouldBeNil)
 		flags, c1, err := UnmarshalChain(hashSpec, &b)
 		So(err, ShouldBeNil)
@@ -237,7 +239,7 @@ func TestMarshalChain(t *testing.T) {
 	Convey("it should be able to marshal and unmarshal headers only", t, func() {
 		var b bytes.Buffer
 
-		err := c.MarshalChain(&b, ChainMarshalFlagsNoEntries)
+		err := c.MarshalChain(&b, ChainMarshalFlagsNoEntries, emptyStringList, emptyStringList)
 		So(err, ShouldBeNil)
 		flags, c1, err := UnmarshalChain(hashSpec, &b)
 		So(err, ShouldBeNil)
@@ -259,7 +261,7 @@ func TestMarshalChain(t *testing.T) {
 	Convey("it should be able to marshal and unmarshal entries only", t, func() {
 		var b bytes.Buffer
 
-		err := c.MarshalChain(&b, ChainMarshalFlagsNoHeaders)
+		err := c.MarshalChain(&b, ChainMarshalFlagsNoHeaders, emptyStringList, emptyStringList)
 		So(err, ShouldBeNil)
 		flags, c1, err := UnmarshalChain(hashSpec, &b)
 		So(err, ShouldBeNil)
@@ -278,7 +280,7 @@ func TestMarshalChain(t *testing.T) {
 	Convey("it should be able to marshal and unmarshal with omitted DNA", t, func() {
 		var b bytes.Buffer
 
-		err := c.MarshalChain(&b, ChainMarshalFlagsOmitDNA)
+		err := c.MarshalChain(&b, ChainMarshalFlagsOmitDNA, emptyStringList, emptyStringList)
 		So(err, ShouldBeNil)
 		flags, c1, err := UnmarshalChain(hashSpec, &b)
 		So(err, ShouldBeNil)

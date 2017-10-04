@@ -1486,12 +1486,34 @@ func (a *ActionGetLinks) Do(h *Holochain) (response interface{}, err error) {
 					}
 					opts := GetOptions{GetMask: GetMaskEntryType + GetMaskEntry, StatusMask: StatusDefault}
 					req := GetReq{H: hash, StatusMask: StatusDefault, GetMask: opts.GetMask}
-					rsp, err := NewGetAction(req, &opts).Do(h)
+					var rsp interface{}
+					rsp, err = NewGetAction(req, &opts).Do(h)
 					if err == nil {
+						// TODO: bleah, really this should be another of those
+						// case statements that choses the encoding baste on
+						// entry type, time for a refactor!
 						entry := rsp.(GetResp).Entry
-						t.Links[i].E = entry.Content().(string)
+						switch content := entry.Content().(type) {
+						case string:
+							t.Links[i].E = content
+						case []byte:
+							var j []byte
+							j, err = json.Marshal(content)
+							if err != nil {
+								return
+							}
+							t.Links[i].E = string(j)
+						case AgentEntry:
+							var j []byte
+							j, err = json.Marshal(content)
+							if err != nil {
+								return
+							}
+							t.Links[i].E = string(j)
+						default:
+							err = fmt.Errorf("bad type in entry content: %T:%v", content, content)
+						}
 						t.Links[i].EntryType = rsp.(GetResp).EntryType
-
 					}
 					//TODO better error handling here, i.e break out of the loop and return if error?
 				}

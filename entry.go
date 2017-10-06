@@ -40,6 +40,7 @@ const (
 
 	Public  = "public"
 	Partial = "partial"
+	Private = "private"
 )
 
 // AgentEntry structure for building AgentEntryType entries

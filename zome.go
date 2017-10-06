@@ -35,6 +35,16 @@ func (z *Zome) GetEntryDef(entryName string) (e *EntryDef, err error) {
 	return
 }
 
+func (z *Zome) GetPrivateEntryDefs() (privateDefs []EntryDef) {
+	privateDefs = make([]EntryDef, 0)
+	for _, def := range z.Entries {
+		if def.Sharing == "private" {
+			privateDefs = append(privateDefs, def)
+		}
+	}
+	return
+}
+
 // GetFunctionDef returns the exposed function spec for the given zome and function
 func (zome *Zome) GetFunctionDef(fnName string) (fn *FunctionDef, err error) {
 	for _, f := range zome.Functions {

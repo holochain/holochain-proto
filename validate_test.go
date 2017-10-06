@@ -83,6 +83,7 @@ func TestValidateReceiver(t *testing.T) {
 func TestMakePackage(t *testing.T) {
 	d, _, h := PrepareTestChain("test")
 	defer CleanupTestChain(h, d)
+	var emptyStringList []string
 
 	Convey("it should be able to make a full chain package", t, func() {
 		req := PackagingReq{PkgReqChain: int64(PkgReqChainOptFull)}
@@ -90,7 +91,7 @@ func TestMakePackage(t *testing.T) {
 		So(err, ShouldBeNil)
 
 		var b bytes.Buffer
-		h.chain.MarshalChain(&b, ChainMarshalFlagsOmitDNA)
+		h.chain.MarshalChain(&b, ChainMarshalFlagsOmitDNA, emptyStringList, emptyStringList)
 		So(string(pkg.Chain), ShouldEqual, string(b.Bytes()))
 	})
 	Convey("it should be able to make a headers only chain package", t, func() {
@@ -99,7 +100,7 @@ func TestMakePackage(t *testing.T) {
 		So(err, ShouldBeNil)
 
 		var b bytes.Buffer
-		h.chain.MarshalChain(&b, ChainMarshalFlagsNoEntries+ChainMarshalFlagsOmitDNA)
+		h.chain.MarshalChain(&b, ChainMarshalFlagsNoEntries+ChainMarshalFlagsOmitDNA, emptyStringList, emptyStringList)
 		So(string(pkg.Chain), ShouldEqual, string(b.Bytes()))
 	})
 	Convey("it should be able to make an entries only chain package", t, func() {
@@ -108,7 +109,7 @@ func TestMakePackage(t *testing.T) {
 		So(err, ShouldBeNil)
 
 		var b bytes.Buffer
-		h.chain.MarshalChain(&b, ChainMarshalFlagsNoHeaders+ChainMarshalFlagsOmitDNA)
+		h.chain.MarshalChain(&b, ChainMarshalFlagsNoHeaders+ChainMarshalFlagsOmitDNA, emptyStringList, emptyStringList)
 		So(string(pkg.Chain), ShouldEqual, string(b.Bytes()))
 	})
 
@@ -123,8 +124,24 @@ func TestMakePackage(t *testing.T) {
 		So(err, ShouldBeNil)
 
 		var b bytes.Buffer
-		h.chain.MarshalChain(&b, ChainMarshalFlagsOmitDNA, "oddNumbers")
+		h.chain.MarshalChain(&b, ChainMarshalFlagsOmitDNA, []string{"oddNumbers"}, emptyStringList)
 		So(string(pkg.Chain), ShouldEqual, string(b.Bytes()))
+	})
+
+	Convey("it should not contain the real contents of private entries", t, func() {
+		entry := GobEntry{C: "secret message"}
+		h.NewEntry(time.Now(), "privateData", &entry)
+
+		req := PackagingReq{PkgReqChain: int64(PkgReqChainOptFull)}
+		pkg, err := MakePackage(h, req)
+		So(err, ShouldBeNil)
+
+		_, c1, err := UnmarshalChain(h.hashSpec, bytes.NewBuffer(pkg.Chain))
+		So(err, ShouldBeNil)
+		So(c1.Entries[2].Content(), ShouldEqual, "2") //from previous test cases
+		So(c1.Entries[3].Content(), ShouldEqual, "3") //from previous test cases
+		So(c1.Entries[4].Content(), ShouldNotEqual, "secret message")
+		So(c1.Entries[4].Content(), ShouldEqual, ChainMarshalPrivateEntryRedacted)
 	})
 
 }
@@ -132,6 +149,7 @@ func TestMakePackage(t *testing.T) {
 func TestGetValidationResponse(t *testing.T) {
 	d, _, h := PrepareTestChain("test")
 	defer CleanupTestChain(h, d)
+	var emptyStringList []string
 
 	hash := commit(h, "oddNumbers", "3")
 
@@ -146,7 +164,7 @@ func TestGetValidationResponse(t *testing.T) {
 		So(resp.Type, ShouldEqual, "oddNumbers")
 		So(fmt.Sprintf("%v", &resp.Entry), ShouldEqual, fmt.Sprintf("%v", entry))
 		var b bytes.Buffer
-		h.chain.MarshalChain(&b, ChainMarshalFlagsOmitDNA)
+		h.chain.MarshalChain(&b, ChainMarshalFlagsOmitDNA, emptyStringList, emptyStringList)
 		So(fmt.Sprintf("%v", string(resp.Package.Chain)), ShouldEqual, fmt.Sprintf("%v", string(b.Bytes())))
 	})
 
@@ -168,7 +186,7 @@ func TestGetValidationResponse(t *testing.T) {
 
 		types := []string{AgentEntryType}
 		var b bytes.Buffer
-		h.chain.MarshalChain(&b, ChainMarshalFlagsOmitDNA, types...)
+		h.chain.MarshalChain(&b, ChainMarshalFlagsOmitDNA, types, emptyStringList)
 		So(fmt.Sprintf("%v", string(resp.Package.Chain)), ShouldEqual, fmt.Sprintf("%v", string(b.Bytes())))
 	})
 

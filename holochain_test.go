@@ -714,6 +714,23 @@ func TestGetEntryDef(t *testing.T) {
 		So(zome, ShouldBeNil)
 		So(def, ShouldEqual, KeyEntryDef)
 	})
+	Convey("it should get private entry definition", t, func() {
+		zome, def, err := h.GetEntryDef("privateData")
+		So(err, ShouldBeNil)
+		So(zome, ShouldNotBeNil)
+		So(def, ShouldNotBeNil)
+	})
+}
+
+func TestGetPrivateEntryDefs(t *testing.T) {
+	d, _, h := SetupTestChain("test")
+	defer CleanupTestDir(d)
+	Convey("it should contain only private entry definition", t, func() {
+		_, privateData, _ := h.GetEntryDef("privateData")
+		privateDefs := h.GetPrivateEntryDefs()
+		So(len(privateDefs), ShouldEqual, 1)
+		So(privateDefs[0].Name, ShouldEqual, privateData.Name)
+	})
 }
 
 //func TestDNADefaults(t *testing.T) {

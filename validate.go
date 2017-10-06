@@ -84,7 +84,14 @@ func MakePackage(h *Holochain, req PackagingReq) (pkg Package, err error) {
 		if t, ok := req[PkgReqEntryTypes]; ok {
 			types = t.([]string)
 		}
-		h.chain.MarshalChain(&b, mflags+ChainMarshalFlagsOmitDNA, types...)
+
+		privateEntries := h.GetPrivateEntryDefs()
+		privateTypeNames := make([]string, len(privateEntries))
+		for i, def := range privateEntries {
+			privateTypeNames[i] = def.Name
+		}
+
+		h.chain.MarshalChain(&b, mflags+ChainMarshalFlagsOmitDNA, types, privateTypeNames)
 		pkg.Chain = b.Bytes()
 	}
 	return

@@ -756,6 +756,27 @@ func TestJSDHT(t *testing.T) {
 		So(l0["EntryType"], ShouldEqual, "review")
 	})
 
+	Convey("getLinks with load option should return the Links and entries for linked sys types", t, func() {
+		commit(h, "rating", fmt.Sprintf(`{"Links":[{"Base":"%s","Link":"%s","Tag":"4stars"},{"Base":"%s","Link":"%s","Tag":"4stars"}]}`, profileHash.String(), h.nodeIDStr, profileHash.String(), h.agentHash.String()))
+		v, err := NewJSRibosome(h, &Zome{RibosomeType: JSRibosomeType, Code: fmt.Sprintf(`getLinks("%s","4stars",{Load:true});`, profileHash.String())})
+		So(err, ShouldBeNil)
+		z := v.(*JSRibosome)
+		So(z.lastResult.Class(), ShouldEqual, "Array")
+		links, _ := z.lastResult.Export()
+		l0 := links.([]map[string]interface{})[0]
+		l1 := links.([]map[string]interface{})[1]
+		So(l1["Hash"], ShouldEqual, h.agentHash.String())
+		lp := l1["Entry"].(map[string]interface{})
+		So(fmt.Sprintf("%v", lp["Identity"]), ShouldEqual, "Herbert <h@bert.com>")
+		So(fmt.Sprintf("%v", lp["PublicKey"]), ShouldEqual, "CAESIHLUfxjdoEfk8byjsBR+FXxYpYrFTviSBf2BbC0boylT")
+		So(l1["EntryType"], ShouldEqual, AgentEntryType)
+		So(l1["Source"], ShouldEqual, h.nodeIDStr)
+
+		So(l0["Hash"], ShouldEqual, h.nodeIDStr)
+		So(fmt.Sprintf("%v", l0["Entry"]), ShouldEqual, "CAESIHLUfxjdoEfk8byjsBR+FXxYpYrFTviSBf2BbC0boylT")
+		So(l0["EntryType"], ShouldEqual, KeyEntryType)
+	})
+
 	Convey("commit with del link should delete link", t, func() {
 		v, err := NewJSRibosome(h, &Zome{RibosomeType: JSRibosomeType, Code: fmt.Sprintf(`commit("rating",{Links:[{"LinkAction":HC.LinkAction.Del,Base:"%s",Link:"%s",Tag:"4stars"}]});`, hash.String(), profileHash.String())})
 		So(err, ShouldBeNil)

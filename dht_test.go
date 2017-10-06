@@ -195,13 +195,23 @@ func TestLinking(t *testing.T) {
 	// the message doesn't actually matter for this test because it only gets used later in gossiping
 	fakeMsg := h.node.NewMessage(LINK_REQUEST, LinkReq{Base: linkHash1, Links: linkingEntryHash})
 
-	Convey("Low level should add linking event to buntdb", t, func() {
+	Convey("Low level should add linking events to buntdb", t, func() {
 		err := dht.link(fakeMsg, baseStr, linkHash1Str, "link test", StatusLive)
 		So(err, ShouldBeNil)
 		err = dht.db.View(func(tx *buntdb.Tx) error {
 			err = tx.Ascend("link", func(key, value string) bool {
 				So(key, ShouldEqual, fmt.Sprintf(`link:%s:%s:link test`, baseStr, linkHash1Str))
 				So(value, ShouldEqual, fmt.Sprintf(`[{"Status":%d,"Source":"%s","LinksEntry":"%s"}]`, StatusLive, h.nodeIDStr, linkingEntryHashStr))
+				return true
+			})
+			return nil
+		})
+
+		err = dht.link(fakeMsg, baseStr, linkHash1Str, "link test", StatusDeleted)
+		So(err, ShouldBeNil)
+		err = dht.db.View(func(tx *buntdb.Tx) error {
+			err = tx.Ascend("link", func(key, value string) bool {
+				So(value, ShouldEqual, fmt.Sprintf(`[{"Status":%d,"Source":"%s","LinksEntry":"%s"},{"Status":%d,"Source":"%s","LinksEntry":"%s"}]`, StatusLive, h.nodeIDStr, linkingEntryHashStr, StatusDeleted, h.nodeIDStr, linkingEntryHashStr))
 				return true
 			})
 			return nil

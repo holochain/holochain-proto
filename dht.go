@@ -526,16 +526,18 @@ func (dht *DHT) get(key Hash, statusMask int, getMask int) (data []byte, entryTy
 // this ensure monotonic recording of linking attempts
 func _link(tx *buntdb.Tx, base string, link string, tag string, src peer.ID, status int, linkingEntryHash Hash) (err error) {
 	key := "link:" + base + ":" + link + ":" + tag
-	_, err = tx.Get(key)
+	var val string
+	val, err = tx.Get(key)
 	source := peer.IDB58Encode(src)
 	lehStr := linkingEntryHash.String()
 	var records []LinkEvent
 	if err == nil {
+		// load the previous value so we can append to it.
+		json.Unmarshal([]byte(val), &records)
+
 		// TODO: if the link exists, then load the statuses and see
 		// what we should do about this situation
 		/*
-			json.Unmarshal([]byte(val), &records)
-
 			// search for the source and linking entry in the status
 			for _, s := range records {
 				if s.Source == source && s.LinksEntry == lehStr {

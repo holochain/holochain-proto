@@ -284,15 +284,6 @@ func TestLinking(t *testing.T) {
 		data, err = dht.getLinks(base, "tag foo", StatusLive)
 		So(err.Error(), ShouldEqual, "No links for tag foo")
 	})
-
-	SkipConvey("It should fail to put a link over a deleted link with a second linking entry", t, func() {
-		//		linkingEntryHash2Str := "QmY8Mzg9F69e5P9AoQPYat655HEhc1TVGs11tmfNSzkqh9"
-		//		linkingEntryHash2, _ := NewHash(linkingEntryHash2Str)
-		//		fakeMsg2 := h.node.NewMessage(LINK_REQUEST, LinkReq{Base: linkHash1, Links: linkingEntryHash2})
-		err = dht.putLink(fakeMsg, baseStr, linkHash1Str, "tag foo")
-		So(err, ShouldEqual, ErrPutLinkOverDeleted)
-	})
-
 }
 
 func TestDHTSend(t *testing.T) {

@@ -526,29 +526,29 @@ func (dht *DHT) get(key Hash, statusMask int, getMask int) (data []byte, entryTy
 // this ensure monotonic recording of linking attempts
 func _link(tx *buntdb.Tx, base string, link string, tag string, src peer.ID, status int, linkingEntryHash Hash) (err error) {
 	key := "link:" + base + ":" + link + ":" + tag
-	var val string
-	val, err = tx.Get(key)
+	_, err = tx.Get(key)
 	source := peer.IDB58Encode(src)
 	lehStr := linkingEntryHash.String()
 	var records []LinkEvent
 	if err == nil {
-		// if the link exists, then load the statuses and see if this source
-		// has said anything about this link before
-		json.Unmarshal([]byte(val), status)
-
-		// search for the source and linking entry in the status
+		// TODO: if the link exists, then load the statuses and see
+		// what we should do about this situation
 		/*
+			json.Unmarshal([]byte(val), &records)
+
+			// search for the source and linking entry in the status
 			for _, s := range records {
 				if s.Source == source && s.LinksEntry == lehStr {
-					if s.Status != status {
+					if status == StatusLive && s.Status != status {
 						err = ErrPutLinkOverDeleted
 						return
 					}
 					// return silently because this is just a duplicate putLink
 					break
 				}
-			}*/
-		// fall through and add this linking event.
+			} // fall through and add this linking event.
+		*/
+
 	} else if err == buntdb.ErrNotFound {
 		// when deleting the key must exist
 		if status == StatusDeleted {

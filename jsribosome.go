@@ -1196,13 +1196,17 @@ func NewJSRibosome(h *Holochain, zome *Zome) (n Ribosome, err error) {
 						fallthrough
 					case DataFormatString:
 						entry = `"` + jsSanitizeString(th.E) + `"`
+					case DataFormatSysKey:
+						entry = fmt.Sprintf("%v", th.E)
+					case DataFormatSysAgent:
+						fallthrough
 					case DataFormatLinks:
 						fallthrough
 					case DataFormatJSON:
 						entry = `JSON.parse("` + jsSanitizeString(th.E) + `")`
 					default:
 						err = errors.New("data format not implemented: " + def.DataFormat)
-						break
+						return
 					}
 
 					l += `,Entry:` + entry
@@ -1215,6 +1219,7 @@ func NewJSRibosome(h *Holochain, zome *Zome) (n Ribosome, err error) {
 			if err == nil {
 				js = `[` + js + `]`
 				var obj *otto.Object
+				Debugf("getLinks code:\n%s", js)
 				obj, err = jsr.vm.Object(js)
 				if err == nil {
 					result = obj.Value()
@@ -1223,7 +1228,6 @@ func NewJSRibosome(h *Holochain, zome *Zome) (n Ribosome, err error) {
 		}
 
 		if err != nil {
-			fmt.Printf("Error:%v", err)
 			result = mkOttoErr(&jsr, err.Error())
 		}
 

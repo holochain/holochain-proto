@@ -506,7 +506,6 @@ func setupApp() (app *cli.App) {
 
 						testCommand := cmd.OsExecPipes_noRun(
 							"hcdev",
-							"-debug",
 							"-path="+devPath,
 							"-execpath="+filepath.Join(rootExecDir, roleName),
 							"-port="+strconv.Itoa(freePort),
@@ -888,7 +887,7 @@ func setupBridgeApp(service *holo.Service, h *holo.Holochain, agent holo.Agent, 
 	holo.DevDNAResolveMap[bridgeName] = DNAHash.String()
 
 	// clear the log prefix for the next load.
-	os.Setenv("HCLOG_PREFIX", "")
+	os.Unsetenv("HCLOG_PREFIX")
 	return
 }
 

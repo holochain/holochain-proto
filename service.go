@@ -307,6 +307,7 @@ func (s *Service) loadDNA(path string, filename string, format string) (dnaP *DN
 
 	err = Decode(f, format, &dnaFile)
 	if err != nil {
+		err = fmt.Errorf("error decoding DNA file %s: %v", dnafile, err)
 		return
 	}
 
@@ -320,6 +321,7 @@ func (s *Service) loadDNA(path string, filename string, format string) (dnaP *DN
 		schemapath := filepath.Join(path, dnaFile.PropertiesSchemaFile)
 		validator, err = BuildJSONSchemaValidatorFromFile(schemapath)
 		if err != nil {
+			err = fmt.Errorf("error building validator for %s: %v", schemapath, err)
 			return
 		}
 	}
@@ -337,6 +339,7 @@ func (s *Service) loadDNA(path string, filename string, format string) (dnaP *DN
 
 	err = dna.check()
 	if err != nil {
+		err = fmt.Errorf("dna failed check with: %v", err)
 		return
 	}
 
@@ -356,7 +359,6 @@ func (s *Service) loadDNA(path string, filename string, format string) (dnaP *DN
 		zomePath := filepath.Join(path, zome.Name)
 		codeFilePath := filepath.Join(zomePath, zome.CodeFile)
 		if !FileExists(codeFilePath) {
-			//fmt.Printf("%v", zome)
 			return nil, errors.New("DNA specified code file missing: " + zome.CodeFile)
 		}
 
@@ -416,6 +418,7 @@ func (s *Service) loadDNA(path string, filename string, format string) (dnaP *DN
 				dna.Zomes[i].Entries[j].Schema = string(schema)
 				if strings.HasSuffix(entry.SchemaFile, ".json") {
 					if err = dna.Zomes[i].Entries[j].BuildJSONSchemaValidator(schemaFilePath); err != nil {
+						err = fmt.Errorf("error building validator for %s: %v", schemaFilePath, err)
 						return nil, err
 					}
 				}

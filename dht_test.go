@@ -6,6 +6,7 @@ import (
 	peer "github.com/libp2p/go-libp2p-peer"
 	. "github.com/metacurrency/holochain/hash"
 	. "github.com/smartystreets/goconvey/convey"
+	"github.com/tidwall/buntdb"
 	"os"
 	"path/filepath"
 	"strings"
@@ -170,8 +171,10 @@ func TestLinking(t *testing.T) {
 	if err != nil {
 		panic(err)
 	}
+	linkingEntryHashStr := "QmY8Mzg9F69e5P9AoQPYat655HEhc1TVGs11tmfNSzkqh3"
+	linkingEntryHash, _ := NewHash(linkingEntryHashStr)
 	linkHash1Str := "QmY8Mzg9F69e5P9AoQPYat655HEhc1TVGs11tmfNSzkqh1"
-	//linkHash1, _ := NewHash(linkHash1Str)
+	linkHash1, _ := NewHash(linkHash1Str)
 	linkHash2Str := "QmY8Mzg9F69e5P9AoQPYat655HEhc1TVGs11tmfNSzkqh2"
 	//linkHash2, _ := NewHash(linkHash2Str)
 	Convey("It should fail if hash doesn't exist", t, func() {
@@ -190,7 +193,30 @@ func TestLinking(t *testing.T) {
 	}
 
 	// the message doesn't actually matter for this test because it only gets used later in gossiping
-	fakeMsg := h.node.NewMessage(LINK_REQUEST, LinkReq{})
+	fakeMsg := h.node.NewMessage(LINK_REQUEST, LinkReq{Base: linkHash1, Links: linkingEntryHash})
+
+	Convey("Low level should add linking events to buntdb", t, func() {
+		err := dht.link(fakeMsg, baseStr, linkHash1Str, "link test", StatusLive)
+		So(err, ShouldBeNil)
+		err = dht.db.View(func(tx *buntdb.Tx) error {
+			err = tx.Ascend("link", func(key, value string) bool {
+				So(key, ShouldEqual, fmt.Sprintf(`link:%s:%s:link test`, baseStr, linkHash1Str))
+				So(value, ShouldEqual, fmt.Sprintf(`[{"Status":%d,"Source":"%s","LinksEntry":"%s"}]`, StatusLive, h.nodeIDStr, linkingEntryHashStr))
+				return true
+			})
+			return nil
+		})
+
+		err = dht.link(fakeMsg, baseStr, linkHash1Str, "link test", StatusDeleted)
+		So(err, ShouldBeNil)
+		err = dht.db.View(func(tx *buntdb.Tx) error {
+			err = tx.Ascend("link", func(key, value string) bool {
+				So(value, ShouldEqual, fmt.Sprintf(`[{"Status":%d,"Source":"%s","LinksEntry":"%s"},{"Status":%d,"Source":"%s","LinksEntry":"%s"}]`, StatusLive, h.nodeIDStr, linkingEntryHashStr, StatusDeleted, h.nodeIDStr, linkingEntryHashStr))
+				return true
+			})
+			return nil
+		})
+	})
 
 	Convey("It should store and retrieve links values on a base", t, func() {
 		data, err := dht.getLinks(base, "tag foo", StatusLive)
@@ -268,12 +294,6 @@ func TestLinking(t *testing.T) {
 		data, err = dht.getLinks(base, "tag foo", StatusLive)
 		So(err.Error(), ShouldEqual, "No links for tag foo")
 	})
-
-	Convey("It should fail to put a link over a deleted link", t, func() {
-		err = dht.putLink(fakeMsg, baseStr, linkHash1Str, "tag foo")
-		So(err, ShouldEqual, ErrPutLinkOverDeleted)
-	})
-
 }
 
 func TestDHTSend(t *testing.T) {

@@ -95,11 +95,12 @@ func TestSetupLogging(t *testing.T) {
 		So(string(buf.Bytes()), ShouldEqual, "a prefix:test\n")
 
 		// restore env
-		os.Setenv("HCLOG_APP_ENABLE", "")
-		os.Setenv("HCLOG_DHT_ENABLE", "")
-		os.Setenv("HCLOG_GOSSIP_ENABLE", "")
-		os.Setenv("HCLOG_PREFIX", "")
+		os.Unsetenv("HCLOG_APP_ENABLE")
+		os.Unsetenv("HCLOG_DHT_ENABLE")
+		os.Unsetenv("HCLOG_GOSSIP_ENABLE")
+		os.Unsetenv("HCLOG_PREFIX")
 		debugLog.SetPrefix("")
+		infoLog.SetPrefix("")
 	})
 }
 
@@ -143,7 +144,8 @@ func TestDebuggingSetup(t *testing.T) {
 		debugLog.Enabled = true
 
 		Debug("test")
-		So(string(buf.Bytes()), ShouldEqual, "HC: holochain_test.go.145: test\n")
+		So(string(buf.Bytes()), ShouldEqual, "HC: holochain_test.go.146: test\n")
+
 		// restore state of debug log
 		debugLog.w = os.Stdout
 		debugLog.Enabled = enabled

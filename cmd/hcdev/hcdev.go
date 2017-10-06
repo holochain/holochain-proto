@@ -83,6 +83,7 @@ func setupApp() (app *cli.App) {
 	app.Version = fmt.Sprintf("0.0.3 (holochain %s)", holo.VersionStr)
 
 	var service *holo.Service
+	var serverID, agentPrefix string
 
 	app.Flags = []cli.Flag{
 		cli.BoolFlag{
@@ -154,6 +155,16 @@ func setupApp() (app *cli.App) {
 			Name:        "bridgeFromAppData",
 			Usage:       "application data to pass to the bridging from app",
 			Destination: &bridgeFromAppData,
+		},
+		cli.StringFlag{
+			Name:        "serverID",
+			Usage:       "server identifier for multi-server scenario testing",
+			Destination: &serverID,
+		},
+		cli.StringFlag{
+			Name:        "agentPrefix",
+			Usage:       "prefix to use for agent identity",
+			Destination: &agentPrefix,
 		},
 	}
 
@@ -363,7 +374,7 @@ func setupApp() (app *cli.App) {
 
 				var h *holo.Holochain
 				var bridgeApps []holo.BridgeApp
-				h, bridgeApps, err = getHolochain(c, service)
+				h, bridgeApps, err = getHolochain(c, service, agentPrefix)
 				if err != nil {
 					return cmd.MakeErrFromErr(c, err)
 				}
@@ -388,7 +399,7 @@ func setupApp() (app *cli.App) {
 					}
 					holo.Debugf("test: scenario(%v, %v): continuing at: %v\n", dir, role, time.Now())
 
-					err, errs = TestScenario(h, dir, role)
+					err, errs = TestScenario(h, dir, role, serverID)
 					if err != nil {
 						return cmd.MakeErrFromErr(c, err)
 					}
@@ -435,7 +446,7 @@ func setupApp() (app *cli.App) {
 				scenarioName := args[0]
 
 				// get the holochain from the source that we are supposed to be testing
-				h, _, err := getHolochain(c, service)
+				h, _, err := getHolochain(c, service, agentPrefix)
 				if err != nil {
 					return cmd.MakeErrFromErr(c, err)
 				}
@@ -488,6 +499,12 @@ func setupApp() (app *cli.App) {
 						}
 					}
 
+					// if the bootstrapServer flag isn't set we assume this is a local scenario
+					// test so we set the flag "_" the use no bootstrap
+					if bootstrapServer == "" {
+						bootstrapServer = "_"
+					}
+
 					originalRoleName := roleName
 					for count := 0; count < clones; count++ {
 						freePort, err := cmd.GetFreePort()
@@ -497,13 +514,16 @@ func setupApp() (app *cli.App) {
 
 						if clones > 1 {
 							roleName = fmt.Sprintf("%s.%d", originalRoleName, count)
+							agentPrefix = fmt.Sprintf("%d", count)
+						}
+						if serverID != "" {
+							roleName = serverID + "." + roleName
 						}
 						holo.Debugf("scenario: forRole(%v): port: %v\n\n", roleName, freePort)
 
 						colorByNumbers := []string{"green", "blue", "yellow", "cyan", "magenta", "red"}
 
 						logPrefix := "%{color:" + colorByNumbers[roleIndex%6] + "}" + roleName + ": "
-
 						testCommand := cmd.OsExecPipes_noRun(
 							"hcdev",
 							"-path="+devPath,
@@ -512,7 +532,9 @@ func setupApp() (app *cli.App) {
 							"-mdns=true",
 							"-no-nat-upnp=true",
 							"-logPrefix="+logPrefix,
-							"-bootstrapServer=_",
+							"-serverID="+serverID,
+							"-agentPrefix="+agentPrefix,
+							fmt.Sprintf("-bootstrapServer=%v", bootstrapServer),
 							fmt.Sprintf("-keepalive=%v", keepalive),
 							"test",
 							fmt.Sprintf("-syncPauseUntil=%v", secondsFromNowPlusDelay),
@@ -540,7 +562,7 @@ func setupApp() (app *cli.App) {
 					return cmd.MakeErrFromErr(c, err)
 				}
 
-				h, bridgeApps, err := getHolochain(c, service)
+				h, bridgeApps, err := getHolochain(c, service, agentPrefix)
 				if err != nil {
 					return cmd.MakeErrFromErr(c, err)
 				}
@@ -595,7 +617,7 @@ func setupApp() (app *cli.App) {
 				if err := appCheck(devPath); err != nil {
 					return err
 				}
-				h, _, err := getHolochain(c, service)
+				h, _, err := getHolochain(c, service, agentPrefix)
 				if err != nil {
 					return cmd.MakeErrFromErr(c, err)
 				}
@@ -735,12 +757,18 @@ func setupApp() (app *cli.App) {
 				var host string
 				host, err = os.Hostname()
 				if err == nil {
+					if serverID != "" {
+						host = serverID + "." + host
+					}
 					identity = u.Username + "@" + host
 				}
 			}
-
 			if err != nil {
-				identity = "test@example.com"
+				if serverID != "" {
+					identity = "test@" + serverID
+				} else {
+					identity = "test@example.com"
+				}
 			}
 			service, err = holo.Init(rootPath, holo.AgentIdentity(identity), nil)
 			if err != nil {
@@ -786,7 +814,7 @@ func main() {
 	}
 }
 
-func getHolochain(c *cli.Context, service *holo.Service) (h *holo.Holochain, bridgeApps []holo.BridgeApp, err error) {
+func getHolochain(c *cli.Context, service *holo.Service, agentPrefix string) (h *holo.Holochain, bridgeApps []holo.BridgeApp, err error) {
 	// clear out the previous chain data that was copied from the last test/run
 	err = os.RemoveAll(filepath.Join(rootPath, name))
 	if err != nil {
@@ -796,6 +824,10 @@ func getHolochain(c *cli.Context, service *holo.Service) (h *holo.Holochain, bri
 	agent, err = holo.LoadAgent(rootPath)
 	if err != nil {
 		return
+	}
+
+	if agentPrefix != "" {
+		agent.SetIdentity(holo.AgentIdentity(agentPrefix + "." + string(agent.Identity())))
 	}
 
 	bridgeApps = make([]holo.BridgeApp, 0)

@@ -20,16 +20,21 @@ func TestTestStringReplacements(t *testing.T) {
 
 	Convey("it should replace %dna%", t, func() {
 		input := "%dna%"
-		output := TestStringReplacements(h, input, "", "", "", &lastMatches)
+		output := TestStringReplacements(h, input, "", "", "", &lastMatches, "")
 		So(output, ShouldEqual, h.DNAHash().String())
 	})
 
 	Convey("it should replace %m%", t, func() {
 		input := "%m1.2%"
-		output := TestStringReplacements(h, input, "", "", "", &lastMatches)
+		output := TestStringReplacements(h, input, "", "", "", &lastMatches, "")
 		So(output, ShouldEqual, "2nd submatch")
 	})
 
+	Convey("it should replace %server%", t, func() {
+		input := "%server%"
+		output := TestStringReplacements(h, input, "", "", "", &lastMatches, "foo")
+		So(output, ShouldEqual, "foo")
+	})
 }
 
 func TestTest(t *testing.T) {

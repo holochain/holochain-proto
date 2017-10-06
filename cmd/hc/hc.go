@@ -161,7 +161,7 @@ func setupApp() (app *cli.App) {
 					dir := h.TestPath() + "/" + args[1]
 					role := args[2]
 
-					err, errs = TestScenario(h, dir, role)
+					err, errs = TestScenario(h, dir, role, "")
 					if err != nil {
 						return err
 					}

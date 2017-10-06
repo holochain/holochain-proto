@@ -34,7 +34,7 @@ func toString(input interface{}) string {
 }
 
 // TestStringReplacements inserts special values into testing input and output values for matching
-func TestStringReplacements(h *Holochain, input, r1, r2, r3 string, lastMatches *[3][]string) string {
+func TestStringReplacements(h *Holochain, input, r1, r2, r3 string, lastMatches *[3][]string, serverID string) string {
 	output := input
 
 	// look for %hn% in the string and do the replacements for recent hashes
@@ -55,8 +55,8 @@ func TestStringReplacements(h *Holochain, input, r1, r2, r3 string, lastMatches 
 			output = strings.Replace(output, m[1], hash.String(), -1)
 		}
 	}
-	// get the top 2 hashes for substituting for %h% and %h1% in the test expectation
 
+	output = strings.Replace(output, "%server%", serverID, -1)
 	output = strings.Replace(output, "%r1%", r1, -1)
 	output = strings.Replace(output, "%r2%", r2, -1)
 	output = strings.Replace(output, "%r3%", r3, -1)
@@ -92,7 +92,7 @@ func TestStringReplacements(h *Holochain, input, r1, r2, r3 string, lastMatches 
 }
 
 // TestScenario runs the tests of a single role in a scenario
-func TestScenario(h *Holochain, dir string, role string) (err error, testErrs []error) {
+func TestScenario(h *Holochain, dir string, role string, serverID string) (err error, testErrs []error) {
 	var config *TestConfig
 	config, err = LoadTestConfig(dir)
 	if err != nil {
@@ -124,7 +124,7 @@ func TestScenario(h *Holochain, dir string, role string) (err error, testErrs []
 		h.StartBackgroundTasks(config.GossipInterval * time.Millisecond)
 	}
 
-	testErrs = DoTests(h, role, tests, time.Duration(config.Duration)*time.Second)
+	testErrs = DoTests(h, role, tests, time.Duration(config.Duration)*time.Second, serverID)
 
 	return
 }
@@ -137,13 +137,17 @@ func waitTill(start time.Time, till time.Duration) {
 	}
 }
 
+type history struct {
+	lastResults [3]interface{}
+	lastMatches [3][]string
+}
+
 // DoTests runs through all the tests in a TestData array and returns any errors encountered
 // TODO: this code can cause crazy race conditions because lastResults and lastMatches get
 // passed into go routines that run asynchronously.  We should probably reimplement this with
 // channels or some other thread-safe queues.
-func DoTests(h *Holochain, name string, tests []TestData, minTime time.Duration) (errs []error) {
-	var lastResults [3]interface{}
-	var lastMatches [3][]string
+func DoTests(h *Holochain, name string, tests []TestData, minTime time.Duration, serverID string) (errs []error) {
+	var history history
 	done := make(chan bool, len(tests))
 	startTime := time.Now()
 
@@ -156,7 +160,7 @@ func DoTests(h *Holochain, name string, tests []TestData, minTime time.Duration)
 		count++
 		go func(index int, test TestData) {
 			waitTill(startTime, test.Time*time.Millisecond)
-			err := DoTest(h, name, index, test, startTime, &lastResults, &lastMatches)
+			err := DoTest(h, name, index, test, startTime, &history, serverID)
 			if err != nil {
 				errs = append(errs, err)
 			}
@@ -170,7 +174,7 @@ func DoTests(h *Holochain, name string, tests []TestData, minTime time.Duration)
 			continue
 		}
 
-		err := DoTest(h, name, i, t, startTime, &lastResults, &lastMatches)
+		err := DoTest(h, name, i, t, startTime, &history, serverID)
 		if err != nil {
 			errs = append(errs, err)
 		}
@@ -191,7 +195,7 @@ func DoTests(h *Holochain, name string, tests []TestData, minTime time.Duration)
 }
 
 // DoTest runs a singe test.
-func DoTest(h *Holochain, name string, i int, t TestData, startTime time.Time, lastResults *[3]interface{}, lastMatches *[3][]string) (err error) {
+func DoTest(h *Holochain, name string, i int, t TestData, startTime time.Time, history *history, serverID string) (err error) {
 	info := h.Config.Loggers.TestInfo
 	passed := h.Config.Loggers.TestPassed
 	failed := h.Config.Loggers.TestFailed
@@ -239,10 +243,10 @@ func DoTest(h *Holochain, name string, i int, t TestData, startTime time.Time, l
 		}
 
 		Debugf("Input before replacement: %s", input)
-		r1 := strings.Trim(fmt.Sprintf("%v", lastResults[0]), "\"")
-		r2 := strings.Trim(fmt.Sprintf("%v", lastResults[1]), "\"")
-		r3 := strings.Trim(fmt.Sprintf("%v", lastResults[2]), "\"")
-		input = TestStringReplacements(h, input, r1, r2, r3, lastMatches)
+		r1 := strings.Trim(fmt.Sprintf("%v", history.lastResults[0]), "\"")
+		r2 := strings.Trim(fmt.Sprintf("%v", history.lastResults[1]), "\"")
+		r3 := strings.Trim(fmt.Sprintf("%v", history.lastResults[2]), "\"")
+		input = TestStringReplacements(h, input, r1, r2, r3, &history.lastMatches, serverID)
 		Debugf("Input after replacement: %s", input)
 		//====================
 
@@ -261,9 +265,9 @@ func DoTest(h *Holochain, name string, i int, t TestData, startTime time.Time, l
 		var expectedResult, expectedError = t.Output, t.Err
 		var expectedResultRegexp = t.Regexp
 		//====================
-		lastResults[2] = lastResults[1]
-		lastResults[1] = lastResults[0]
-		lastResults[0] = actualResult
+		history.lastResults[2] = history.lastResults[1]
+		history.lastResults[1] = history.lastResults[0]
+		history.lastResults[0] = actualResult
 		if expectedError != "" {
 			comparisonString := fmt.Sprintf("\nTest: %s\n\tExpected error:\t%v\n\tGot error:\t\t%v", testID, expectedError, actualError)
 			if actualError == nil || (actualError.Error() != expectedError) {
@@ -285,16 +289,16 @@ func DoTest(h *Holochain, name string, i int, t TestData, startTime time.Time, l
 				var comparisonString string
 				if expectedResultRegexp != "" {
 					Debugf("Test %s matching against regexp...", testID)
-					expectedResultRegexp = TestStringReplacements(h, expectedResultRegexp, r1, r2, r3, lastMatches)
+					expectedResultRegexp = TestStringReplacements(h, expectedResultRegexp, r1, r2, r3, &history.lastMatches, serverID)
 					comparisonString = fmt.Sprintf("\nTest: %s\n\tExpected regexp:\t%v\n\tGot:\t\t%v", testID, expectedResultRegexp, resultString)
 					re, matchError := regexp.Compile(expectedResultRegexp)
 					if matchError != nil {
 						Infof(err.Error())
 					} else {
 						matches := re.FindStringSubmatch(resultString)
-						lastMatches[2] = lastMatches[1]
-						lastMatches[1] = lastMatches[0]
-						lastMatches[0] = matches
+						history.lastMatches[2] = history.lastMatches[1]
+						history.lastMatches[1] = history.lastMatches[0]
+						history.lastMatches[0] = matches
 						if len(matches) > 0 {
 							match = true
 						}
@@ -302,7 +306,7 @@ func DoTest(h *Holochain, name string, i int, t TestData, startTime time.Time, l
 
 				} else {
 					Debugf("Test %s matching against string...", testID)
-					expectedResult = TestStringReplacements(h, expectedResult, r1, r2, r3, lastMatches)
+					expectedResult = TestStringReplacements(h, expectedResult, r1, r2, r3, &history.lastMatches, serverID)
 					comparisonString = fmt.Sprintf("\nTest: %s\n\tExpected:\t%v\n\tGot:\t\t%v", testID, expectedResult, resultString)
 					match = (resultString == expectedResult)
 				}
@@ -414,7 +418,7 @@ func test(h *Holochain, one string, bridgeApps []BridgeApp) []error {
 		}
 
 		//	go h.dht.HandleChangeReqs()
-		ers := DoTests(h, name, ts, 0)
+		ers := DoTests(h, name, ts, 0, "")
 
 		// stop all the bridge web servers
 		for _, server := range bridgeAppServers {

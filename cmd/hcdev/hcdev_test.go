@@ -57,7 +57,7 @@ func TestRunScenarioTest(t *testing.T) {
 	})
 
 	tmpTestDir, app := setupTestingApp("foo")
-	//defer os.RemoveAll(tmpTestDir)
+	defer os.RemoveAll(tmpTestDir)
 
 	Convey("run the scenario in the testing app", t, func() {
 
@@ -181,7 +181,7 @@ func TestPackage(t *testing.T) {
 	tmpTestDir, app := setupTestingApp("foo")
 	defer os.RemoveAll(tmpTestDir)
 	Convey("'package' should print a scaffold file to stdout", t, func() {
-		scaffold, err := runAppWithStdoutCapture(app, []string{"hcdev", "package"}, 2 * time.Second)
+		scaffold, err := runAppWithStdoutCapture(app, []string{"hcdev", "package"}, 2*time.Second)
 		So(err, ShouldBeNil)
 		So(scaffold, ShouldContainSubstring, fmt.Sprintf(`"ScaffoldVersion": "%s"`, holo.ScaffoldVersion))
 	})
@@ -189,7 +189,7 @@ func TestPackage(t *testing.T) {
 	d := holo.SetupTestDir()
 	defer os.RemoveAll(d)
 	Convey("'package' should output a scaffold file to file", t, func() {
-		runAppWithStdoutCapture(app, []string{"hcdev", "package", filepath.Join(d, "scaff.json")}, 2 * time.Second)
+		runAppWithStdoutCapture(app, []string{"hcdev", "package", filepath.Join(d, "scaff.json")}, 2*time.Second)
 		scaffold, err := holo.ReadFile(d, "scaff.json")
 		So(err, ShouldBeNil)
 		So(string(scaffold), ShouldContainSubstring, fmt.Sprintf(`"ScaffoldVersion": "%s"`, holo.ScaffoldVersion))
@@ -203,7 +203,7 @@ func TestWeb(t *testing.T) {
 	defer os.RemoveAll(tmpTestDir)
 
 	Convey("'web' should run a webserver", t, func() {
-		out, err := runAppWithStdoutCapture(app, []string{"hcdev", "-no-nat-upnp", "web"}, 30 * time.Second)
+		out, err := runAppWithStdoutCapture(app, []string{"hcdev", "-no-nat-upnp", "web"}, 30*time.Second)
 		So(err, ShouldBeNil)
 		So(out, ShouldContainSubstring, "on port:4141")
 		So(out, ShouldContainSubstring, "Serving holochain with DNA hash:")
@@ -211,7 +211,7 @@ func TestWeb(t *testing.T) {
 	app = setupApp()
 
 	Convey("'web' not in an app directory should produce error", t, func() {
-		out, err := runAppWithStdoutCapture(app, []string{"hcdev", "-path", tmpTestDir, "web"}, 1 * time.Second)
+		out, err := runAppWithStdoutCapture(app, []string{"hcdev", "-path", tmpTestDir, "web"}, 1*time.Second)
 		So(err, ShouldBeError)
 		So(out, ShouldContainSubstring, "doesn't look like a holochain app")
 	})
@@ -234,7 +234,7 @@ func runAppWithStdoutCapture(app *cli.App, args []string, wait time.Duration) (o
 		outC <- buf.String()
 	}()
 
-  time.Sleep(wait)
+	time.Sleep(wait)
 
 	// back to normal state
 	w.Close()

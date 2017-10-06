@@ -33,6 +33,7 @@ const (
 // would need to also abstract a matching NodeID type
 type Agent interface {
 	Identity() AgentIdentity
+	SetIdentity(id AgentIdentity)
 	AgentType() AgentType
 	GenKeys(seed io.Reader) error
 	PrivKey() ic.PrivKey
@@ -49,6 +50,9 @@ type LibP2PAgent struct {
 
 func (a *LibP2PAgent) Identity() AgentIdentity {
 	return a.identity
+}
+func (a *LibP2PAgent) SetIdentity(id AgentIdentity) {
+	a.identity = id
 }
 
 func (a *LibP2PAgent) AgentType() AgentType {

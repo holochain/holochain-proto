@@ -56,8 +56,8 @@ type LinksEntry struct {
 
 // Link structure for holding meta tagging of linking entry
 type Link struct {
-	LinkAction string // StatusAction (either AddAction or ModAction)
-	Base       string // hash of entry (perhaps elsewhere) tow which we are attaching the link
+	LinkAction string // StatusAction (either AddAction or DelAction)
+	Base       string // hash of entry (perhaps elsewhere) to which we are attaching the link
 	Link       string // hash of entry being linked to
 	Tag        string // tag
 }

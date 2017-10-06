@@ -506,7 +506,6 @@ func setupApp() (app *cli.App) {
 
 						testCommand := cmd.OsExecPipes_noRun(
 							"hcdev",
-							"-debug",
 							"-path="+devPath,
 							"-execpath="+filepath.Join(rootExecDir, roleName),
 							"-port="+strconv.Itoa(freePort),

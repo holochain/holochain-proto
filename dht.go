@@ -165,14 +165,7 @@ type ModReq struct {
 // LinkReq holds a link request
 type LinkReq struct {
 	Base  Hash // data on which to attach the links
-	Links Hash // hash of the links entry
-}
-
-// DelLinkReq holds a delete link request
-type DelLinkReq struct {
-	Base Hash   // data on which to link was attached
-	Link Hash   // hash of the link entry
-	Tag  string // tag to be deleted
+	Links Hash // hash of the source entry making the link, i.e. the req provenance
 }
 
 // LinkQuery holds a getLinks query
@@ -203,7 +196,7 @@ type TaggedHash struct {
 	E         string // the value of link, gets filled if options set Load to true
 	EntryType string // the entry type of the link, gets filled if options set Load to true
 	T         string // the tag of the link, gets filled only if a tag wasn't specified and all tags are being returns
-	Source    string // the source of the link, gets filled if options set Load to true
+	Source    string // the statuses on the link, gets filled if options set Load to true
 }
 
 // LinkQueryResp holds response to getLinks query
@@ -218,12 +211,13 @@ type ListAddReq struct {
 	Warrant     []byte
 }
 
-// Structure that represents the value stored in buntDB associated with a
-// link key
+// LinkEvent represents the value stored in buntDB associated with a
+// link key for one source having stored one LinkingEntry
 // (The Link struct defined in entry.go is encoded in the key used for buntDB)
-type LinkEntry struct {
-	Status int
-	Source string
+type LinkEvent struct {
+	Status     int
+	Source     string
+	LinksEntry string
 }
 
 var ErrLinkNotFound = errors.New("link not found")
@@ -402,7 +396,7 @@ func (dht *DHT) mod(m *Message, key Hash, newkey Hash) (err error) {
 		err = _setStatus(tx, m, k, StatusModified)
 		if err == nil {
 			link := newkey.String()
-			err = _putLink(tx, k, link, SysTagReplacedBy, m.From)
+			err = _link(tx, k, link, SysTagReplacedBy, m.From, StatusLive, newkey)
 			if err == nil {
 				_, _, err = tx.Set("replacedBy:"+k, link, nil)
 				if err != nil {
@@ -528,42 +522,63 @@ func (dht *DHT) get(key Hash, statusMask int, getMask int) (data []byte, entryTy
 	return
 }
 
-// _putLink is a low level routine to add a link, also used by mod
-func _putLink(tx *buntdb.Tx, base string, link string, tag string, src peer.ID) (err error) {
+// _link is a low level routine to add a link, also used by delLink
+// this ensure monotonic recording of linking attempts
+func _link(tx *buntdb.Tx, base string, link string, tag string, src peer.ID, status int, linkingEntryHash Hash) (err error) {
 	key := "link:" + base + ":" + link + ":" + tag
 	var val string
 	val, err = tx.Get(key)
-	if err == buntdb.ErrNotFound {
-		entryString, _ := json.Marshal(LinkEntry{StatusLive, peer.IDB58Encode(src)})
-		_, _, err = tx.Set(key, string(entryString), nil)
-		if err != nil {
+	source := peer.IDB58Encode(src)
+	lehStr := linkingEntryHash.String()
+	var records []LinkEvent
+	if err == nil {
+		// if the link exists, then load the statuses and see if this source
+		// has said anything about this link before
+		json.Unmarshal([]byte(val), status)
+
+		// search for the source and linking entry in the status
+		/*
+			for _, s := range records {
+				if s.Source == source && s.LinksEntry == lehStr {
+					if s.Status != status {
+						err = ErrPutLinkOverDeleted
+						return
+					}
+					// return silently because this is just a duplicate putLink
+					break
+				}
+			}*/
+		// fall through and add this linking event.
+	} else if err == buntdb.ErrNotFound {
+		// when deleting the key must exist
+		if status == StatusDeleted {
+			err = ErrLinkNotFound
 			return
 		}
+		err = nil
 	} else {
-		// if the status is already live then just exit silently
-		// if the status isn't live then return an error.
-		entry := LinkEntry{}
-		json.Unmarshal([]byte(val), &entry)
-		if entry.Status != StatusLive {
-			err = ErrPutLinkOverDeleted
-			return
-		}
+		return
+	}
+	records = append(records, LinkEvent{status, source, lehStr})
+	var b []byte
+	b, err = json.Marshal(records)
+	if err != nil {
+		return
+	}
+	_, _, err = tx.Set(key, string(b), nil)
+	if err != nil {
+		return
 	}
 	return
 }
 
-// putLink associates a link with a stored hash
-// N.B. this function assumes that the data associated has been properly retrieved
-// and validated from the cource chain
-func (dht *DHT) putLink(m *Message, base string, link string, tag string) (err error) {
-	dht.dlog.Logf("putLink on %v link %v as %s", base, link, tag)
+func (dht *DHT) link(m *Message, base string, link string, tag string, status int) (err error) {
 	err = dht.db.Update(func(tx *buntdb.Tx) error {
 		_, err := _get(tx, base, StatusLive)
 		if err != nil {
 			return err
 		}
-
-		err = _putLink(tx, base, link, tag, m.From)
+		err = _link(tx, base, link, tag, m.From, status, m.Body.(LinkReq).Links)
 		if err != nil {
 			return err
 		}
@@ -578,48 +593,20 @@ func (dht *DHT) putLink(m *Message, base string, link string, tag string) (err e
 	return
 }
 
+// putLink associates a link with a stored hash
+// N.B. this function assumes that the data associated has been properly retrieved
+// and validated from the cource chain
+func (dht *DHT) putLink(m *Message, base string, link string, tag string) (err error) {
+	dht.dlog.Logf("putLink on %v link %v as %s", base, link, tag)
+	err = dht.link(m, base, link, tag, StatusLive)
+	return
+}
+
 // delLink removes a link and tag associated with a stored hash
 // N.B. this function assumes that the action has been properly validated
 func (dht *DHT) delLink(m *Message, base string, link string, tag string) (err error) {
 	dht.dlog.Logf("delLink on %v link %v as %s", base, link, tag)
-	err = dht.db.Update(func(tx *buntdb.Tx) error {
-		_, err := _get(tx, base, StatusLive)
-		if err != nil {
-			return err
-		}
-
-		key := "link:" + base + ":" + link + ":" + tag
-		val, err := tx.Get(key)
-		entry := LinkEntry{}
-		json.Unmarshal([]byte(val), &entry)
-		if err == buntdb.ErrNotFound {
-			return ErrLinkNotFound
-		}
-		if err != nil {
-			return err
-		}
-
-		if entry.Status == StatusLive {
-			//var index string
-			_, err = incIdx(tx, m)
-			if err != nil {
-				return err
-			}
-			entry.Status = StatusDeleted
-			entryByte, _ := json.Marshal(entry)
-			val = string(entryByte)
-			_, _, err = tx.Set(key, val, nil)
-			if err != nil {
-				return err
-			}
-
-		} else {
-			// TODO what do we do about deleting deleted links!?
-			// ignore for now.
-		}
-
-		return err
-	})
+	err = dht.link(m, base, link, tag, StatusDeleted)
 	return
 }
 
@@ -651,14 +638,20 @@ func (dht *DHT) getLinks(base Hash, tag string, statusMask int) (results []Tagge
 			x := strings.Split(key, ":")
 			t := string(x[3])
 			if string(x[1]) == b && (tag == "" || tag == t) {
-				entry := LinkEntry{}
-				json.Unmarshal([]byte(value), &entry)
-				if err == nil && (entry.Status&statusMask) > 0 {
-					th := TaggedHash{H: string(x[2]), Source: entry.Source}
-					if tag == "" {
-						th.T = t
+				var records []LinkEvent
+				json.Unmarshal([]byte(value), &records)
+				l := len(records)
+				//TODO: this is totally bogus currently simply
+				// looking at the last item we ever got
+				if l > 0 {
+					entry := records[l-1]
+					if err == nil && (entry.Status&statusMask) > 0 {
+						th := TaggedHash{H: string(x[2]), Source: entry.Source}
+						if tag == "" {
+							th.T = t
+						}
+						results = append(results, th)
 					}
-					results = append(results, th)
 				}
 			}
 

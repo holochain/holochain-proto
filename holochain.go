@@ -584,6 +584,14 @@ func (h *Holochain) GetEntryDef(t string) (zome *Zome, d *EntryDef, err error) {
 	return
 }
 
+func (h *Holochain) GetPrivateEntryDefs() (privateDefs []EntryDef) {
+	privateDefs = make([]EntryDef, 0)
+	for _, z := range h.nucleus.dna.Zomes {
+		privateDefs = append(privateDefs, z.GetPrivateEntryDefs()...)
+	}
+	return
+}
+
 // Call executes an exposed function
 func (h *Holochain) Call(zomeType string, function string, arguments interface{}, exposureContext string) (result interface{}, err error) {
 	n, z, err := h.MakeRibosome(zomeType)

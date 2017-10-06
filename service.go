@@ -1296,6 +1296,11 @@ func TestingAppScaffold() string {
                     "DataFormat": "json",
                     "Schema": "` + jsSanitizeString(profileSchema) + `",
                     "Sharing": "public"
+                },
+                {
+                  "Name": "privateData",
+                  "DataFormat": "string",
+                  "Sharing": "private"
                 }
             ],
             "Functions": [

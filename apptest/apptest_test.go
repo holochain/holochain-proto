@@ -18,22 +18,29 @@ func TestTestStringReplacements(t *testing.T) {
 	defer CleanupTestChain(h, d)
 	var lastMatches = [3][]string{{"complete match", "1st submatch", "2nd submatch"}}
 
+	replacements := replacements{h: h, serverID: "foo", lastMatches: &lastMatches, repetition: "1"}
+
 	Convey("it should replace %dna%", t, func() {
 		input := "%dna%"
-		output := TestStringReplacements(h, input, "", "", "", &lastMatches, "")
+		output := testStringReplacements(input, &replacements)
 		So(output, ShouldEqual, h.DNAHash().String())
 	})
 
 	Convey("it should replace %m%", t, func() {
 		input := "%m1.2%"
-		output := TestStringReplacements(h, input, "", "", "", &lastMatches, "")
+		output := testStringReplacements(input, &replacements)
 		So(output, ShouldEqual, "2nd submatch")
 	})
 
 	Convey("it should replace %server%", t, func() {
 		input := "%server%"
-		output := TestStringReplacements(h, input, "", "", "", &lastMatches, "foo")
+		output := testStringReplacements(input, &replacements)
 		So(output, ShouldEqual, "foo")
+	})
+	Convey("it should replace %reps%", t, func() {
+		input := "%reps%"
+		output := testStringReplacements(input, &replacements)
+		So(output, ShouldEqual, "1")
 	})
 }
 

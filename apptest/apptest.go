@@ -33,10 +33,18 @@ func toString(input interface{}) string {
 	return output
 }
 
-// TestStringReplacements inserts special values into testing input and output values for matching
-func TestStringReplacements(h *Holochain, input, r1, r2, r3 string, lastMatches *[3][]string, serverID string) string {
-	output := input
+type replacements struct {
+	h           *Holochain
+	r1, r2, r3  string
+	lastMatches *[3][]string
+	serverID    string
+	repetition  string
+}
 
+// testStringReplacements inserts special values into testing input and output values for matching
+func testStringReplacements(input string, r *replacements) string {
+	output := input
+	h := r.h
 	// look for %hn% in the string and do the replacements for recent hashes
 	re := regexp.MustCompile(`(\%h([0-9]*)\%)`)
 	var matches [][]string
@@ -56,10 +64,21 @@ func TestStringReplacements(h *Holochain, input, r1, r2, r3 string, lastMatches 
 		}
 	}
 
-	output = strings.Replace(output, "%server%", serverID, -1)
-	output = strings.Replace(output, "%r1%", r1, -1)
-	output = strings.Replace(output, "%r2%", r2, -1)
-	output = strings.Replace(output, "%r3%", r3, -1)
+	// this is a hack.  The clone id is put into the identity by hcdev we can get
+	// out with this regex without having to create more code to pass it around.
+	re = regexp.MustCompile(`.*.([0-9]+)@.*`)
+	x := re.FindStringSubmatch(string(h.Agent().Identity()))
+	var clone string
+	if len(x) > 0 {
+		clone = x[1]
+	}
+	output = strings.Replace(output, "%clone%", clone, -1)
+
+	output = strings.Replace(output, "%server%", r.serverID, -1)
+	output = strings.Replace(output, "%reps%", r.repetition, -1)
+	output = strings.Replace(output, "%r1%", r.r1, -1)
+	output = strings.Replace(output, "%r2%", r.r2, -1)
+	output = strings.Replace(output, "%r3%", r.r3, -1)
 	output = strings.Replace(output, "%dna%", h.DNAHash().String(), -1)
 	output = strings.Replace(output, "%agent%", h.AgentHash().String(), -1)
 	output = strings.Replace(output, "%agenttop%", h.AgentTopHash().String(), -1)
@@ -82,8 +101,8 @@ func TestStringReplacements(h *Holochain, input, r1, r2, r3 string, lastMatches 
 			if matchIdx < 1 || matchIdx > 3 {
 				panic("please pick a match between 1 & 3")
 			}
-			if subMatch < len(lastMatches[matchIdx-1]) {
-				output = strings.Replace(output, m[1], lastMatches[matchIdx-1][subMatch], -1)
+			if subMatch < len(r.lastMatches[matchIdx-1]) {
+				output = strings.Replace(output, m[1], r.lastMatches[matchIdx-1][subMatch], -1)
 			}
 		}
 	}
@@ -228,7 +247,11 @@ func DoTest(h *Holochain, name string, i int, t TestData, startTime time.Time, h
 	} else {
 		repetitions = t.Repeat
 	}
+
+	replacements := replacements{h: h, serverID: serverID, lastMatches: &history.lastMatches}
+	origInput := input
 	for r := 0; r < repetitions; r++ {
+		input = origInput // gotta do this so %reps% substitution will work
 		var rStr, testID string
 		if t.Repeat > 0 {
 			rStr = fmt.Sprintf(".%d", r)
@@ -243,10 +266,11 @@ func DoTest(h *Holochain, name string, i int, t TestData, startTime time.Time, h
 		}
 
 		Debugf("Input before replacement: %s", input)
-		r1 := strings.Trim(fmt.Sprintf("%v", history.lastResults[0]), "\"")
-		r2 := strings.Trim(fmt.Sprintf("%v", history.lastResults[1]), "\"")
-		r3 := strings.Trim(fmt.Sprintf("%v", history.lastResults[2]), "\"")
-		input = TestStringReplacements(h, input, r1, r2, r3, &history.lastMatches, serverID)
+		replacements.repetition = fmt.Sprintf("%d", r)
+		replacements.r1 = strings.Trim(fmt.Sprintf("%v", history.lastResults[0]), "\"")
+		replacements.r2 = strings.Trim(fmt.Sprintf("%v", history.lastResults[1]), "\"")
+		replacements.r3 = strings.Trim(fmt.Sprintf("%v", history.lastResults[2]), "\"")
+		input = testStringReplacements(input, &replacements)
 		Debugf("Input after replacement: %s", input)
 		//====================
 
@@ -289,7 +313,7 @@ func DoTest(h *Holochain, name string, i int, t TestData, startTime time.Time, h
 				var comparisonString string
 				if expectedResultRegexp != "" {
 					Debugf("Test %s matching against regexp...", testID)
-					expectedResultRegexp = TestStringReplacements(h, expectedResultRegexp, r1, r2, r3, &history.lastMatches, serverID)
+					expectedResultRegexp = testStringReplacements(expectedResultRegexp, &replacements)
 					comparisonString = fmt.Sprintf("\nTest: %s\n\tExpected regexp:\t%v\n\tGot:\t\t%v", testID, expectedResultRegexp, resultString)
 					re, matchError := regexp.Compile(expectedResultRegexp)
 					if matchError != nil {
@@ -306,7 +330,7 @@ func DoTest(h *Holochain, name string, i int, t TestData, startTime time.Time, h
 
 				} else {
 					Debugf("Test %s matching against string...", testID)
-					expectedResult = TestStringReplacements(h, expectedResult, r1, r2, r3, &history.lastMatches, serverID)
+					expectedResult = testStringReplacements(expectedResult, &replacements)
 					comparisonString = fmt.Sprintf("\nTest: %s\n\tExpected:\t%v\n\tGot:\t\t%v", testID, expectedResult, resultString)
 					match = (resultString == expectedResult)
 				}

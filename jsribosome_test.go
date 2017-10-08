@@ -641,10 +641,6 @@ func TestJSDHT(t *testing.T) {
 	// add an entry onto the chain
 	hash = commit(h, "oddNumbers", "7")
 
-	if err := h.dht.simHandleChangeReqs(); err != nil {
-		panic(err)
-	}
-
 	Convey("get should return entry", t, func() {
 		v, err := NewJSRibosome(h, &Zome{RibosomeType: JSRibosomeType, Code: fmt.Sprintf(`get("%s");`, hash.String())})
 		So(err, ShouldBeNil)
@@ -699,13 +695,6 @@ func TestJSDHT(t *testing.T) {
 	reviewHash := commit(h, "review", "this is my bogus review of some thing")
 
 	commit(h, "rating", fmt.Sprintf(`{"Links":[{"Base":"%s","Link":"%s","Tag":"4stars"},{"Base":"%s","Link":"%s","Tag":"4stars"}]}`, hash.String(), profileHash.String(), hash.String(), reviewHash.String()))
-
-	if err := h.dht.simHandleChangeReqs(); err != nil {
-		panic(err)
-	}
-	if err := h.dht.simHandleChangeReqs(); err != nil {
-		panic(err)
-	}
 
 	Convey("getLinks should return the Links", t, func() {
 		v, err := NewJSRibosome(h, &Zome{RibosomeType: JSRibosomeType, Code: fmt.Sprintf(`getLinks("%s","4stars");`, hash.String())})
@@ -784,9 +773,6 @@ func TestJSDHT(t *testing.T) {
 		_, err = NewHash(z.lastResult.String())
 		So(err, ShouldBeNil)
 
-		if err := h.dht.simHandleChangeReqs(); err != nil {
-			panic(err)
-		}
 		links, _ := h.dht.getLinks(hash, "4stars", StatusLive)
 		So(fmt.Sprintf("%v", links), ShouldEqual, fmt.Sprintf("[{QmWbbUf6G38hT27kmrQ5UYFbXUPTGokKvDiaQbczFYNjuN    %s}]", h.nodeIDStr))
 		links, _ = h.dht.getLinks(hash, "4stars", StatusDeleted)
@@ -827,10 +813,6 @@ func TestJSDHT(t *testing.T) {
 		So(header.EntryLink.String(), ShouldEqual, profileHashStr2)
 		So(header.Change.Action, ShouldEqual, ModAction)
 		So(header.Change.Hash.String(), ShouldEqual, profileHash.String())
-
-		if err := h.dht.simHandleChangeReqs(); err != nil {
-			panic(err)
-		}
 
 		// the entry should be marked as Modifed
 		data, _, _, _, err := h.dht.get(profileHash, StatusDefault, GetMaskDefault)

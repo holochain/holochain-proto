@@ -194,7 +194,6 @@ func TestGossipData(t *testing.T) {
 		So(r, ShouldBeFalse)
 	})
 	ActionReceiver(h, m1)
-	dht.simHandleChangeReqs()
 
 	someData := `{"firstName":"Zippy","lastName":"Pinhead"}`
 	e = GobEntry{C: someData}
@@ -207,7 +206,6 @@ func TestGossipData(t *testing.T) {
 
 	m2 := h.node.NewMessage(LINK_REQUEST, lr)
 	ActionReceiver(h, m2)
-	h.dht.simHandleChangeReqs()
 
 	Convey("fingerprints for messages should exist", t, func() {
 		f, _ := m1.Fingerprint()

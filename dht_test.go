@@ -320,7 +320,6 @@ func TestDHTSend(t *testing.T) {
 		r, err := h.dht.send(nil, h.node.HashAddr, PUT_REQUEST, PutReq{H: hash})
 		So(err, ShouldBeNil)
 		So(r, ShouldEqual, DHTChangeOK)
-		h.dht.simHandleChangeReqs()
 		hd, _ := h.chain.GetEntryHeader(hash)
 		So(hd.EntryLink.Equal(&hash), ShouldBeTrue)
 	})
@@ -471,9 +470,6 @@ func TestActionReceiver(t *testing.T) {
 		So(r, ShouldEqual, DHTChangeOK)
 	})
 
-	if err := h.dht.simHandleChangeReqs(); err != nil {
-		panic(err)
-	}
 	Convey("GET_REQUEST should return the requested values", t, func() {
 		m := h.node.NewMessage(GET_REQUEST, GetReq{H: hash, StatusMask: StatusLive})
 		r, err := ActionReceiver(h, m)
@@ -526,10 +522,6 @@ func TestActionReceiver(t *testing.T) {
 		r, err := ActionReceiver(h, m)
 		So(err, ShouldBeNil)
 		So(r, ShouldEqual, DHTChangeOK)
-
-		// fake the handling of change requests
-		err = h.dht.simHandleChangeReqs()
-		So(err, ShouldBeNil)
 
 		// check that it got put
 		meta, err := h.dht.getLinks(hash, "4stars", StatusLive)
@@ -603,10 +595,6 @@ func TestActionReceiver(t *testing.T) {
 		r, err := ActionReceiver(h, m)
 		So(r, ShouldEqual, DHTChangeOK)
 
-		// fake the handling of change requests
-		err = h.dht.simHandleChangeReqs()
-		So(err, ShouldBeNil)
-
 		_, err = h.dht.getLinks(hash, "4stars", StatusLive)
 		So(err.Error(), ShouldEqual, "No links for 4stars")
 
@@ -656,10 +644,6 @@ func TestActionReceiver(t *testing.T) {
 		r, err := ActionReceiver(h, m)
 		So(err, ShouldBeNil)
 		So(r, ShouldEqual, DHTChangeOK)
-
-		// fake the handling of change requests
-		err = h.dht.simHandleChangeReqs()
-		So(err, ShouldBeNil)
 
 		data, entryType, _, status, _ := h.dht.get(hash2, StatusAny, GetMaskAll)
 		var e GobEntry
@@ -835,38 +819,4 @@ func TestDHTRetry(t *testing.T) {
 		time.Sleep(interval * (MaxRetries + 2))
 		So(len(h.dht.retryQueue), ShouldEqual, 0)
 	})
-}
-
-/*
-func TestHandleChangeReqs(t *testing.T) {
-	d, _, h := PrepareTestChain("test")
-	defer CleanupTestChain(h,d)
-
-	now := time.Unix(1, 1) // pick a constant time so the test will always work
-	e := GobEntry{C: "{\"prime\":7}"}
-	_, hd, err := h.NewEntry(now, "primes", &e)
-	if err != nil {
-		panic(err)
-	}
-
-	m := h.node.NewMessage(PUT_REQUEST, PutReq{H: hd.EntryLink})
-	h.dht.puts <- *m
-
-	Convey("handle put request should pull data from source and verify it", t, func() {
-		err := h.dht.simHandleChangeReqs()
-		So(err, ShouldBeNil)
-		data, et,_, _, err := h.dht.get(hd.EntryLink, StatusDefault, GetMaskDefault)
-		So(err, ShouldBeNil)
-		So(et, ShouldEqual, "primes")
-		b, _ := e.Marshal()
-		So(fmt.Sprintf("%v", data), ShouldEqual, fmt.Sprintf("%v", b))
-	})
-
-}
-*/
-
-func (dht *DHT) simHandleChangeReqs() (err error) {
-	//	m := <-dht.puts
-	//	err = dht.handleChangeReq(&m)
-	return
 }

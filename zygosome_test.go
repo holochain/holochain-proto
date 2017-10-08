@@ -536,10 +536,6 @@ func TestZygoDHT(t *testing.T) {
 	// add an entry onto the chain
 	hash = commit(h, "evenNumbers", "2")
 
-	if err := h.dht.simHandleChangeReqs(); err != nil {
-		panic(err)
-	}
-
 	Convey("get should return entry", t, func() {
 		v, err := NewZygoRibosome(h, &Zome{RibosomeType: ZygoRibosomeType, Code: fmt.Sprintf(`(get "%s")`, hash.String())})
 		So(err, ShouldBeNil)
@@ -589,14 +585,8 @@ func TestZygoDHT(t *testing.T) {
 		So(e.(*zygo.SexpArray).Val[0].(*zygo.SexpStr).S, ShouldEqual, h.nodeIDStr)
 	})
 	profileHash := commit(h, "profile", `{"firstName":"Zippy","lastName":"Pinhead"}`)
-	if err := h.dht.simHandleChangeReqs(); err != nil {
-		panic(err)
-	}
 
 	commit(h, "rating", fmt.Sprintf(`{"Links":[{"Base":"%s","Link":"%s","Tag":"4stars"}]}`, hash.String(), profileHash.String()))
-	if err := h.dht.simHandleChangeReqs(); err != nil {
-		panic(err)
-	}
 
 	Convey("getLinks function should return the Links", t, func() {
 		v, err := NewZygoRibosome(h, &Zome{RibosomeType: ZygoRibosomeType, Code: fmt.Sprintf(`(getLinks "%s" "4stars")`, hash.String())})
@@ -627,10 +617,6 @@ func TestZygoDHT(t *testing.T) {
 		_, err = NewHash(z.lastResult.(*zygo.SexpStr).S)
 		So(err, ShouldBeNil)
 
-		if err := h.dht.simHandleChangeReqs(); err != nil {
-			panic(err)
-		}
-
 		links, _ := h.dht.getLinks(hash, "4stars", StatusLive)
 		So(fmt.Sprintf("%v", links), ShouldEqual, "[]")
 		links, _ = h.dht.getLinks(hash, "4stars", StatusDeleted)
@@ -658,10 +644,6 @@ func TestZygoDHT(t *testing.T) {
 		So(header.EntryLink.String(), ShouldEqual, profileHashStr2)
 		So(header.Change.Action, ShouldEqual, ModAction)
 		So(header.Change.Hash.String(), ShouldEqual, profileHash.String())
-
-		if err := h.dht.simHandleChangeReqs(); err != nil {
-			panic(err)
-		}
 
 		// the entry should be marked as Modifed
 		data, _, _, _, err := h.dht.get(profileHash, StatusDefault, GetMaskDefault)

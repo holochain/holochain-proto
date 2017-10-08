@@ -486,10 +486,6 @@ func TestCommit(t *testing.T) {
 	// add an entry onto the chain
 	hash := commit(h, "oddNumbers", "7")
 
-	if err := h.dht.simHandleChangeReqs(); err != nil {
-		panic(err)
-	}
-
 	Convey("publicly shared entries should generate a put", t, func() {
 		err := h.dht.exists(hash, StatusLive)
 		So(err, ShouldBeNil)
@@ -500,9 +496,6 @@ func TestCommit(t *testing.T) {
 	Convey("it should attach links after commit of Links entry", t, func() {
 		commit(h, "rating", fmt.Sprintf(`{"Links":[{"Base":"%s","Link":"%s","Tag":"4stars"}]}`, hash.String(), profileHash.String()))
 
-		if err := h.dht.simHandleChangeReqs(); err != nil {
-			panic(err)
-		}
 		results, err := h.dht.getLinks(hash, "4stars", StatusLive)
 		So(err, ShouldBeNil)
 		So(fmt.Sprintf("%v", results), ShouldEqual, fmt.Sprintf("[{QmYeinX5vhuA91D3v24YbgyLofw9QAxY6PoATrBHnRwbtt    %s}]", h.nodeIDStr))

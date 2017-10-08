@@ -293,6 +293,7 @@ func DoTest(h *Holochain, name string, i int, t TestData, startTime time.Time, h
 		history.lastResults[1] = history.lastResults[0]
 		history.lastResults[0] = actualResult
 		if expectedError != "" {
+			expectedError = testStringReplacements(expectedError, &replacements)
 			comparisonString := fmt.Sprintf("\nTest: %s\n\tExpected error:\t%v\n\tGot error:\t\t%v", testID, expectedError, actualError)
 			if actualError == nil || (actualError.Error() != expectedError) {
 				failed.Logf("\n=====================\n%s\n\tfailed! m(\n=====================", comparisonString)
@@ -304,6 +305,7 @@ func DoTest(h *Holochain, name string, i int, t TestData, startTime time.Time, h
 			}
 		} else {
 			if actualError != nil {
+				expectedResult = testStringReplacements(expectedResult, &replacements)
 				errorString := fmt.Sprintf("\nTest: %s\n\tExpected:\t%s\n\tGot Error:\t\t%s\n", testID, expectedResult, actualError)
 				err = errors.New(errorString)
 				failed.Logf(fmt.Sprintf("\n=====================\n%s\n\tfailed! m(\n=====================", errorString))

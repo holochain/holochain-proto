@@ -718,11 +718,11 @@ func (h *Holochain) HashSpec() HashSpec {
 }
 
 // SendAsync builds a message and either delivers it locally or over the network via node.Send but registers a function for asyncronous call back
-func (h *Holochain) SendAsync(proto int, to peer.ID, t MsgType, body interface{}, callback *Callback, timeout time.Duration) (err error) {
+func (h *Holochain) SendAsync(proto int, to peer.ID, msg *Message, callback *Callback, timeout time.Duration) (err error) {
 	var response interface{}
 
 	go func() {
-		response, err = h.Send(h.node.ctx, proto, to, t, body, timeout)
+		response, err = h.Send(h.node.ctx, proto, to, msg, timeout)
 		if err == nil {
 			var r Ribosome
 			r, _, err := h.MakeRibosome(callback.zomeType)
@@ -770,11 +770,7 @@ func (h *Holochain) StartBackgroundTasks(gossipInterval time.Duration) {
 }
 
 // Send builds a message and either delivers it locally or over the network via node.Send
-func (h *Holochain) Send(basectx context.Context, proto int, to peer.ID, t MsgType, body interface{}, timeout time.Duration) (response interface{}, err error) {
-	message := h.node.NewMessage(t, body)
-	if err != nil {
-		return
-	}
+func (h *Holochain) Send(basectx context.Context, proto int, to peer.ID, message *Message, timeout time.Duration) (response interface{}, err error) {
 	f, err := message.Fingerprint()
 	if err != nil {
 		panic(fmt.Sprintf("error calculating fingerprint when sending message %v", message))

@@ -23,9 +23,8 @@ import (
 	"path/filepath"
 	"strconv"
 	"time"
-
 	// fsnotify	"github.com/fsnotify/fsnotify"
-	spew "github.com/davecgh/go-spew/spew"
+	//spew "github.com/davecgh/go-spew/spew"
 )
 
 const (
@@ -403,7 +402,7 @@ func setupApp() (app *cli.App) {
 					if err != nil {
 						return cmd.MakeErrFromErr(c, err)
 					}
-					holo.Debugf("testScenario: h: %v\n", spew.Sdump(h))
+					//holo.Debugf("testScenario: h: %v\n", spew.Sdump(h))
 
 				} else if len(args) == 1 {
 					errs = TestOne(h, args[0], bridgeApps)

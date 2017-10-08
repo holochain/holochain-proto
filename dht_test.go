@@ -303,7 +303,8 @@ func TestDHTSend(t *testing.T) {
 	hash, _ := NewHash("QmY8Mzg9F69e5P9AoQPYat655HEhc1TVGs11tmfNSzkqh2")
 
 	Convey("send GET_REQUEST message for non existent hash should get error", t, func() {
-		_, err := h.dht.send(nil, h.node.HashAddr, GET_REQUEST, GetReq{H: hash, StatusMask: StatusLive})
+		msg := h.node.NewMessage(GET_REQUEST, GetReq{H: hash, StatusMask: StatusLive})
+		_, err := h.dht.send(nil, h.node.HashAddr, msg)
 		So(err, ShouldEqual, ErrHashNotFound)
 	})
 
@@ -317,7 +318,8 @@ func TestDHTSend(t *testing.T) {
 	// publish the entry data to the dht
 	hash = hd.EntryLink
 	Convey("after a handled PUT_REQUEST data should be stored in DHT", t, func() {
-		r, err := h.dht.send(nil, h.node.HashAddr, PUT_REQUEST, PutReq{H: hash})
+		msg := h.node.NewMessage(PUT_REQUEST, PutReq{H: hash})
+		r, err := h.dht.send(nil, h.node.HashAddr, msg)
 		So(err, ShouldBeNil)
 		So(r, ShouldEqual, DHTChangeOK)
 		hd, _ := h.chain.GetEntryHeader(hash)
@@ -325,27 +327,31 @@ func TestDHTSend(t *testing.T) {
 	})
 
 	Convey("send GET_REQUEST message should return content", t, func() {
-		r, err := h.dht.send(nil, h.node.HashAddr, GET_REQUEST, GetReq{H: hash, StatusMask: StatusLive})
+		msg := h.node.NewMessage(GET_REQUEST, GetReq{H: hash, StatusMask: StatusLive})
+		r, err := h.dht.send(nil, h.node.HashAddr, msg)
 		So(err, ShouldBeNil)
 		resp := r.(GetResp)
 		So(fmt.Sprintf("%v", resp.Entry), ShouldEqual, fmt.Sprintf("%v", e))
 	})
 
 	Convey("send GET_REQUEST message should return content of sys types", t, func() {
-		r, err := h.dht.send(nil, h.nodeID, GET_REQUEST, GetReq{H: h.agentHash, StatusMask: StatusLive})
+		msg := h.node.NewMessage(GET_REQUEST, GetReq{H: h.agentHash, StatusMask: StatusLive})
+		r, err := h.dht.send(nil, h.nodeID, msg)
 		So(err, ShouldBeNil)
 		resp := r.(GetResp)
 		ae, _ := h.agent.AgentEntry(nil)
 		So(fmt.Sprintf("%v", resp.Entry.Content()), ShouldEqual, fmt.Sprintf("%v", ae))
 
-		r, err = h.dht.send(nil, h.nodeID, GET_REQUEST, GetReq{H: HashFromPeerID(h.nodeID), StatusMask: StatusLive})
+		msg = h.node.NewMessage(GET_REQUEST, GetReq{H: HashFromPeerID(h.nodeID), StatusMask: StatusLive})
+		r, err = h.dht.send(nil, h.nodeID, msg)
 		So(err, ShouldBeNil)
 		resp = r.(GetResp)
 		So(fmt.Sprintf("%v", resp.Entry.Content()), ShouldEqual, fmt.Sprintf("%v", ae.PublicKey))
 
 		// for now this is an error because we presume everyone has the DNA.
 		// once we implement dna changes, this needs to be changed
-		r, err = h.dht.send(nil, h.nodeID, GET_REQUEST, GetReq{H: h.dnaHash, StatusMask: StatusLive})
+		msg = h.node.NewMessage(GET_REQUEST, GetReq{H: h.dnaHash, StatusMask: StatusLive})
+		r, err = h.dht.send(nil, h.nodeID, msg)
 		So(err, ShouldBeError)
 
 	})
@@ -371,7 +377,8 @@ func TestDHTQueryGet(t *testing.T) {
 
 	// publish the entry data to local DHT node (0)
 	hash := hd.EntryLink
-	_, err = h.dht.send(nil, h.node.HashAddr, PUT_REQUEST, PutReq{H: hash})
+	msg := h.node.NewMessage(PUT_REQUEST, PutReq{H: hash})
+	_, err = h.dht.send(nil, h.node.HashAddr, msg)
 	if err != nil {
 		panic(err)
 	}
@@ -435,7 +442,8 @@ func TestDHTKadPut(t *testing.T) {
 		// routing table should be updated
 		So(fmt.Sprintf("%v", rtp), ShouldEqual, "[<peer.ID S4BFeT> <peer.ID W4HeEG> <peer.ID UfY4We>]")
 		// and get from node should get the value
-		r, err := h.dht.send(nil, mt.nodes[3].nodeID, GET_REQUEST, GetReq{H: hash, StatusMask: StatusLive})
+		msg := h.node.NewMessage(GET_REQUEST, GetReq{H: hash, StatusMask: StatusLive})
+		r, err := h.dht.send(nil, mt.nodes[3].nodeID, msg)
 		So(err, ShouldBeNil)
 		resp := r.(GetResp)
 		So(fmt.Sprintf("%v", resp.Entry), ShouldEqual, fmt.Sprintf("%v", e))

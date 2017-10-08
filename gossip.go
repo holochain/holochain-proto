@@ -361,8 +361,18 @@ func GossipReceiver(h *Holochain, m *Message) (response interface{}, err error) 
 				}
 
 				// queue up a request to gossip back
-				// TODO: not thread safe, as can get called after channel closes
-				go func() { dht.gchan <- gossipWithReq{m.From} }()
+				go func() {
+					defer func() {
+						if r := recover(); r != nil {
+							// ignore writes past close
+							//fmt.Println("Recovered in f", r)
+						}
+					}()
+					// but give them a chance to finish handling the response
+					// from this request first so sleep a bit
+					time.Sleep(100 * time.Millisecond)
+					dht.gchan <- gossipWithReq{m.From}
+				}()
 			}
 
 		default:
@@ -377,6 +387,9 @@ func GossipReceiver(h *Holochain, m *Message) (response interface{}, err error) 
 // gossipWith gossips with an peer asking for everything after since
 func (dht *DHT) gossipWith(id peer.ID) (err error) {
 	dht.glog.Logf("starting gossipWith %v", id)
+	defer func() {
+		dht.glog.Logf("finish gossipWith %v, err=%v", id, err)
+	}()
 
 	// gossip loops are possible where a gossip request triggers a gossip back, which
 	// if the first gossiping wasn't completed triggers the same gossip, so protect against this
@@ -404,7 +417,8 @@ func (dht *DHT) gossipWith(id peer.ID) (err error) {
 	}
 
 	var r interface{}
-	r, err = dht.h.Send(dht.h.node.ctx, GossipProtocol, id, GOSSIP_REQUEST, GossipReq{MyIdx: myIdx, YourIdx: yourIdx + 1}, 0)
+	msg := dht.h.node.NewMessage(GOSSIP_REQUEST, GossipReq{MyIdx: myIdx, YourIdx: yourIdx + 1})
+	r, err = dht.h.Send(dht.h.node.ctx, GossipProtocol, id, msg, 0)
 	if err != nil {
 		return
 	}

@@ -216,7 +216,7 @@ func TestGossipData(t *testing.T) {
 		So(r, ShouldBeTrue)
 	})
 
-	Convey("Idx should be 5 after puts", t, func() {
+	Convey("Idx should be 4 after puts", t, func() {
 		var idx int
 		idx, err := dht.GetIdx()
 		So(err, ShouldBeNil)
@@ -241,17 +241,44 @@ func TestGossipData(t *testing.T) {
 }
 
 func TestGossip(t *testing.T) {
-	d, _, h := PrepareTestChain("test")
-	defer CleanupTestChain(h, d)
-	dht := h.dht
+	nodesCount := 2
+	mt := setupMultiNodeTesting(nodesCount)
+	defer mt.cleanupMultiNodeTesting()
+	nodes := mt.nodes
 
-	idx, _ := dht.GetIdx()
-	dht.UpdateGossiper(h.node.HashAddr, idx)
+	h1 := nodes[0]
+	h2 := nodes[1]
 
-	Convey("gossip should send a request", t, func() {
-		var err error
-		err = dht.gossip()
+	commit(h1, "oddNumbers", "3")
+	commit(h1, "oddNumbers", "5")
+	commit(h1, "oddNumbers", "7")
+
+	puts1, _ := h1.dht.GetPuts(0)
+	puts2, _ := h2.dht.GetPuts(0)
+
+	Convey("Idx after puts", t, func() {
+		So(len(puts1), ShouldEqual, 5)
+		So(len(puts2), ShouldEqual, 2)
+	})
+	ringConnect(t, mt.ctx, mt.nodes, nodesCount)
+	Convey("gossipWith should add the puts", t, func() {
+		err := h2.dht.gossipWith(h1.nodeID)
 		So(err, ShouldBeNil)
+		go h2.dht.HandleGossipPuts()
+		time.Sleep(time.Millisecond * 100)
+		puts2, _ = h2.dht.GetPuts(0)
+		So(len(puts2), ShouldEqual, 7)
+	})
+	commit(h1, "evenNumbers", "2")
+	commit(h1, "evenNumbers", "4")
+
+	Convey("gossipWith should add the puts", t, func() {
+		err := h2.dht.gossipWith(h1.nodeID)
+		So(err, ShouldBeNil)
+		go h2.dht.HandleGossipPuts()
+		time.Sleep(time.Millisecond * 100)
+		puts2, _ = h2.dht.GetPuts(0)
+		So(len(puts2), ShouldEqual, 9)
 	})
 }
 

@@ -810,7 +810,7 @@ func TestJSDHT(t *testing.T) {
 		profileHashStr2 := z.lastResult.String()
 
 		header := h.chain.Top()
-		So(header.EntryLink.String(), ShouldEqual, profileHashStr2)
+		So(profileHashStr2, ShouldEqual, header.EntryLink.String())
 		So(header.Change.Action, ShouldEqual, ModAction)
 		So(header.Change.Hash.String(), ShouldEqual, profileHash.String())
 

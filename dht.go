@@ -679,8 +679,9 @@ func (dht *DHT) getLinks(base Hash, tag string, statusMask int) (results []Tagge
 func (dht *DHT) Change(key Hash, msgType MsgType, body interface{}) (err error) {
 	Debugf("Starting %v Change for %v with body %v", msgType, key, body)
 
+	msg := dht.h.node.NewMessage(msgType, body)
 	// change in our local DHT as well as
-	_, err = dht.send(nil, dht.h.nodeID, msgType, body)
+	_, err = dht.send(nil, dht.h.nodeID, msg)
 
 	if err != nil {
 		dht.dlog.Logf("DHT send of %v to self failed with error: %s", msgType, err)
@@ -701,7 +702,7 @@ func (dht *DHT) Change(key Hash, msgType MsgType, body interface{}) (err error) 
 			defer cancel()
 			defer wg.Done()
 
-			_, err := dht.send(ctx, p, msgType, body)
+			_, err := dht.send(ctx, p, msg)
 			if err != nil {
 				dht.dlog.Logf("DHT send of %v failed to peer %v with error: %s", msgType, p, err)
 			}
@@ -715,8 +716,9 @@ func (dht *DHT) Change(key Hash, msgType MsgType, body interface{}) (err error) 
 func (dht *DHT) Query(key Hash, msgType MsgType, body interface{}) (response interface{}, err error) {
 	Debugf("Starting %v Query for %v with body %v", msgType, key, body)
 
+	msg := dht.h.node.NewMessage(msgType, body)
 	// try locally first
-	response, err = dht.send(nil, dht.h.nodeID, msgType, body)
+	response, err = dht.send(nil, dht.h.nodeID, msg)
 	if err == nil {
 		// if we actually got a response (not a closer peers list) then return it
 		_, notok := response.(CloserPeersResp)
@@ -743,7 +745,7 @@ func (dht *DHT) Query(key Hash, msgType MsgType, body interface{}) (response int
 		if ctx == nil {
 			Debug("fish")
 		}
-		response, err := dht.send(ctx, to, msgType, body)
+		response, err := dht.send(ctx, to, msg)
 		if err != nil {
 			Debugf("Query failed: %v", err)
 			return nil, err
@@ -773,11 +775,11 @@ func (dht *DHT) Query(key Hash, msgType MsgType, body interface{}) (response int
 }
 
 // Send sends a message to the node
-func (dht *DHT) send(ctx context.Context, to peer.ID, t MsgType, body interface{}) (response interface{}, err error) {
+func (dht *DHT) send(ctx context.Context, to peer.ID, msg *Message) (response interface{}, err error) {
 	if ctx == nil {
 		ctx = dht.h.node.ctx
 	}
-	return dht.h.Send(ctx, ActionProtocol, to, t, body, 0)
+	return dht.h.Send(ctx, ActionProtocol, to, msg, 0)
 }
 
 // HandleChangeReqs waits on a chanel for messages to handle

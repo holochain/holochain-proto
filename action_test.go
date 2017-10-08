@@ -192,8 +192,24 @@ func TestSysValidateMod(t *testing.T) {
 	Convey("it should check that entry validates", t, func() {
 		a := NewModAction("evenNumbers", nil, hash)
 		err := a.SysValidation(h, def, nil, []peer.ID{h.nodeID})
-		So(err.Error(), ShouldEqual, "nil entry invalid")
+		So(err, ShouldEqual, ErrNilEntryInvalid)
 	})
+
+	Convey("it should check that header isn't missing", t, func() {
+		a := NewModAction("evenNumbers", &GobEntry{}, hash)
+		err := a.SysValidation(h, def, nil, []peer.ID{h.nodeID})
+		So(err, ShouldBeError)
+		So(err.Error(), ShouldEqual, "mod: missing header")
+	})
+
+	Convey("it should check that replaces is doesn't make a loop", t, func() {
+		a := NewModAction("evenNumbers", &GobEntry{}, hash)
+		a.header = &Header{EntryLink: hash}
+		err := a.SysValidation(h, def, nil, []peer.ID{h.nodeID})
+		So(err, ShouldBeError)
+		So(err.Error(), ShouldEqual, "mod: replaces must be different from original hash")
+	})
+
 }
 
 func TestSysValidateDel(t *testing.T) {

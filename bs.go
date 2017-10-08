@@ -16,6 +16,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"strings"
+	"time"
 )
 
 type BSReq struct {
@@ -25,8 +26,9 @@ type BSReq struct {
 }
 
 type BSResp struct {
-	Req    BSReq
-	Remote string
+	Req      BSReq
+	Remote   string
+	LastSeen time.Time
 }
 
 func (h *Holochain) BSpost() (err error) {
@@ -68,7 +70,7 @@ func (h *Holochain) checkBSResponses(nodes []BSResp) (err error) {
 			if err == nil {
 				// don't "discover" ourselves
 				if r.Req.NodeID != myNodeID {
-					h.dht.dlog.Logf("discovered peer: %s (%v)", r.Req.NodeID, addr)
+					h.dht.dlog.Logf("discovered peer via bs: %s (%v)", r.Req.NodeID, addr)
 					err = h.AddPeer(id, []ma.Multiaddr{addr})
 				}
 

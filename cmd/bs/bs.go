@@ -12,6 +12,7 @@ import (
 	"os"
 	"os/user"
 	"strings"
+	"time"
 )
 
 const (
@@ -22,11 +23,31 @@ var log = logging.MustGetLogger("main")
 
 var store *buntdb.DB
 
+func setupDB(dbpath string) (err error) {
+	if dbpath == "" {
+		dbpath = os.Getenv("HOLOBSPATH")
+		if dbpath == "" {
+			u, err := user.Current()
+			if err != nil {
+				return err
+			}
+			userPath := u.HomeDir
+			dbpath = userPath + "/.hcbootstrapdb"
+		}
+	}
+	store, err = buntdb.Open(dbpath)
+	if err != nil {
+		panic(err)
+	}
+	store.CreateIndex("chain", "*", buntdb.IndexJSON("HID"))
+	return
+}
+
 func setupApp() (app *cli.App) {
 	app = cli.NewApp()
 	app.Name = "bs"
 	app.Usage = "holochain bootstrap server"
-	app.Version = "0.0.1"
+	app.Version = "0.0.2"
 
 	var port int
 	var dbpath string
@@ -44,24 +65,7 @@ func setupApp() (app *cli.App) {
 
 		log.Infof("app version: %s; Holochain bootstrap server", app.Version)
 
-		var err error
-		if dbpath == "" {
-			dbpath = os.Getenv("HOLOBSPATH")
-			if dbpath == "" {
-				u, err := user.Current()
-				if err != nil {
-					return err
-				}
-				userPath := u.HomeDir
-				dbpath = userPath + "/.hcbootstrapdb"
-			}
-		}
-		store, err = buntdb.Open(dbpath)
-		if err != nil {
-			panic(err)
-		}
-		store.CreateIndex("chain", "*", buntdb.IndexJSON("HID"))
-
+		err := setupDB(dbpath)
 		return err
 	}
 
@@ -77,9 +81,59 @@ func main() {
 }
 
 type Node struct {
-	Req    holo.BSReq
-	Remote string
-	HID    string
+	Req      holo.BSReq
+	Remote   string
+	HID      string
+	LastSeen time.Time
+}
+
+const (
+	TTL = time.Minute * 60 * 24
+)
+
+func get(chain string) (result string, err error) {
+	err = store.View(func(tx *buntdb.Tx) error {
+		nodes := make([]holo.BSResp, 0)
+		//hid := fmt.Sprintf(`{"HID":"%s"}`, chain)
+
+		now := time.Now()
+		tx.Ascend("chain", func(key, value string) bool {
+			var nd Node
+			json.Unmarshal([]byte(value), &nd)
+			if nd.HID == chain {
+				if nd.LastSeen.Add(TTL).After(now) {
+					log.Infof("Found: %s=>%s", key, value)
+					resp := holo.BSResp{Req: nd.Req, Remote: nd.Remote, LastSeen: nd.LastSeen}
+					nodes = append(nodes, resp)
+				}
+			}
+			return true
+		})
+		var b []byte
+		b, err = json.Marshal(nodes)
+		if err == nil {
+			result = string(b)
+		}
+		return err
+	})
+	return
+}
+
+func post(chain string, req *holo.BSReq, remote string, seen time.Time) (err error) {
+	err = store.Update(func(tx *buntdb.Tx) error {
+		var b []byte
+		n := Node{Remote: remote, Req: *req, HID: chain, LastSeen: seen}
+		b, err = json.Marshal(n)
+		if err == nil {
+			key := chain + ":" + req.NodeID
+			_, _, err = tx.Set(key, string(b), nil)
+			if err == nil {
+				log.Infof("Set: %s", string(b))
+			}
+		}
+		return err
+	})
+	return
 }
 
 func h(w http.ResponseWriter, r *http.Request) {
@@ -92,29 +146,11 @@ func h(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		chain := string(path[1])
-
-		err = store.View(func(tx *buntdb.Tx) error {
-			nodes := make([]holo.BSResp, 0)
-			//hid := fmt.Sprintf(`{"HID":"%s"}`, chain)
-
-			tx.Ascend("chain", func(key, value string) bool {
-				var nd Node
-				json.Unmarshal([]byte(value), &nd)
-				if nd.HID == chain {
-					log.Infof("Found: %s=>%s", key, value)
-					resp := holo.BSResp{Req: nd.Req, Remote: nd.Remote}
-					nodes = append(nodes, resp)
-				}
-				return true
-			})
-			var b []byte
-			b, err = json.Marshal(nodes)
-			if err == nil {
-				fmt.Fprintf(w, string(b))
-			}
-
-			return err
-		})
+		var result string
+		result, err = get(chain)
+		if err == nil {
+			fmt.Fprintf(w, result)
+		}
 	} else if r.Method == "POST" {
 		if len(path) != 3 {
 			http.Error(w, "expecting path /<holochainid>/<peerid>", 400)
@@ -130,19 +166,14 @@ func h(w http.ResponseWriter, r *http.Request) {
 		if err == nil {
 			err = json.NewDecoder(r.Body).Decode(&req)
 			if err == nil {
-				err = store.Update(func(tx *buntdb.Tx) error {
-					var b []byte
-					n := Node{Remote: r.RemoteAddr, Req: req, HID: chain}
-					b, err = json.Marshal(n)
+				if req.NodeID != node {
+					err = errors.New("id in post URL doesn't match Req")
+				} else {
+					err = post(chain, &req, r.RemoteAddr, time.Now())
 					if err == nil {
-						_, _, err = tx.Set(node, string(b), nil)
-						if err == nil {
-							log.Infof("Set: %s", string(b))
-							fmt.Fprintf(w, "ok")
-						}
+						fmt.Fprintf(w, "ok")
 					}
-					return err
-				})
+				}
 			}
 		}
 	}

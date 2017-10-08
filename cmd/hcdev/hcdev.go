@@ -525,13 +525,20 @@ func setupApp() (app *cli.App) {
 						colorByNumbers := []string{"green", "blue", "yellow", "cyan", "magenta", "red"}
 
 						logPrefix := "%{color:" + colorByNumbers[roleIndex%6] + "}" + roleName + ": "
+
+						var nonat string
+						if bootstrapServer == "_" {
+							nonat = "true"
+						} else {
+							nonat = "false"
+						}
 						testCommand := cmd.OsExecPipes_noRun(
 							"hcdev",
 							"-path="+devPath,
 							"-execpath="+filepath.Join(rootExecDir, roleName),
 							"-port="+strconv.Itoa(freePort),
 							"-mdns=true",
-							"-no-nat-upnp=true",
+							"-no-nat-upnp="+nonat,
 							"-logPrefix="+logPrefix,
 							"-serverID="+serverID,
 							"-agentID="+agentID,
@@ -776,7 +783,7 @@ func setupApp() (app *cli.App) {
 
 			identity = username + "@" + host
 
-			service, err = holo.Init(rootPath, holo.AgentIdentity(identity), nil)
+			service, err = holo.Init(rootPath, holo.AgentIdentity(identity), holo.MakeTestSeed(identity))
 			if err != nil {
 				return err
 			}

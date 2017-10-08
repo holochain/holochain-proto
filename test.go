@@ -27,14 +27,14 @@ func MakeTestDirName() string {
 	return d
 }
 
-func makeTestSeed(id string) io.Reader {
+func MakeTestSeed(id string) io.Reader {
 	return strings.NewReader(id + "1234567890123456789012345678901234567890")
 }
 
 func setupTestService() (d string, s *Service) {
 	d = SetupTestDir()
 	identity := "Herbert <h@bert.com>"
-	s, err := Init(filepath.Join(d, DefaultDirectoryName), AgentIdentity(identity), makeTestSeed(identity))
+	s, err := Init(filepath.Join(d, DefaultDirectoryName), AgentIdentity(identity), MakeTestSeed(identity))
 
 	s.Settings.DefaultBootstrapServer = "localhost:3142"
 	if err != nil {
@@ -54,7 +54,7 @@ func setupTestChain(name string, count int, s *Service) (h *Holochain) {
 	if count > 0 {
 		var err error
 		identity := string(a.Identity()) + fmt.Sprintf("%d", count)
-		a, err = NewAgent(LibP2P, AgentIdentity(identity), makeTestSeed(identity))
+		a, err = NewAgent(LibP2P, AgentIdentity(identity), MakeTestSeed(identity))
 		if err != nil {
 			panic(err)
 		}

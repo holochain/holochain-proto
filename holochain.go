@@ -762,7 +762,7 @@ const (
 
 // StartBackgroundTasks sets the various background processes in motion
 func (h *Holochain) StartBackgroundTasks(gossipInterval time.Duration) {
-	//go h.DHT().HandleChangeReqs()
+	go h.DHT().HandleGossipPuts()
 	go h.DHT().HandleGossipWiths()
 	go h.HandleAsyncSends()
 	go h.DHT().Gossip(gossipInterval)

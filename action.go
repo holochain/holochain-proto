@@ -100,6 +100,12 @@ func prepareSources(sources []peer.ID) (srcs []string) {
 // ValidateAction runs the different phases of validating an action
 func (h *Holochain) ValidateAction(a ValidatingAction, entryType string, pkg *Package, sources []peer.ID) (def *EntryDef, err error) {
 
+	defer func() {
+		if err != nil {
+			h.dht.dlog.Logf("%T Validation failed with: %v", a, err)
+		}
+	}()
+
 	var z *Zome
 	z, def, err = h.GetEntryDef(entryType)
 	if err != nil {
@@ -1087,17 +1093,18 @@ func (a *ActionMod) SysValidation(h *Holochain, def *EntryDef, pkg *Package, sou
 
 	// no need to check for virtual entries on the chain because they aren't there
 	// currently the only virtual entry is the node id
-	if !def.IsVirtualEntry() {
-		var header *Header
-		header, err = h.chain.GetEntryHeader(a.replaces)
-		if err != nil {
-			return
-		}
-		if header.Type != a.entryType {
-			err = ErrEntryTypeMismatch
-			return
-		}
-	}
+	/*
+		if !def.IsVirtualEntry() {
+			var header *Header
+			header, err = h.chain.GetEntryHeader(a.replaces)
+			if err != nil {
+				return
+			}
+			if header.Type != a.entryType {
+				err = ErrEntryTypeMismatch
+				return
+			}
+		}*/
 	err = sysValidateEntry(h, def, a.entry, pkg)
 	return
 }

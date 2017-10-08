@@ -56,6 +56,7 @@ type DHT struct {
 	retryQueue chan *retry
 	retrying   chan bool
 	gossiping  chan bool
+	gossipPuts chan Put
 	glog       *Logger // the gossip logger
 	dlog       *Logger // the dht logger
 	gossips    map[peer.ID]bool
@@ -230,6 +231,11 @@ var ErrEntryTypeMismatch = errors.New("entry type mismatch")
 var KValue int = 10
 var AlphaValue int = 3
 
+const (
+	GossipWithQueueSize = 10
+	GossipPutQueueSize  = 1000
+)
+
 // NewDHT creates a new DHT structure
 func NewDHT(h *Holochain) *DHT {
 	dht := DHT{
@@ -253,7 +259,8 @@ func NewDHT(h *Holochain) *DHT {
 	dht.gossips = make(map[peer.ID]bool)
 	//	dht.sources = make(map[peer.ID]bool)
 	//	dht.fingerprints = make(map[string]bool)
-	dht.gchan = make(chan gossipWithReq, 10)
+	dht.gchan = make(chan gossipWithReq, GossipWithQueueSize)
+	dht.gossipPuts = make(chan Put, GossipPutQueueSize)
 
 	return &dht
 }
@@ -858,6 +865,7 @@ func (dht *DHT) Close() {
 	}
 	close(dht.retryQueue)
 	close(dht.gchan)
+	close(dht.gossipPuts)
 }
 
 // Retry starts retry processing

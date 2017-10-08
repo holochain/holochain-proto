@@ -21,7 +21,7 @@ import (
 
 // Put holds a put or link for gossiping
 type Put struct {
-	idx int
+	Idx int
 	M   Message
 }
 
@@ -82,20 +82,14 @@ func incIdx(tx *buntdb.Tx, m *Message) (index string, err error) {
 	if m != nil {
 		var b []byte
 
-		// fmt.Printf("\nHC: gossip.go: incIdx: 85: Message before encoding is:\n  %v\n", m)
-
 		b, err = ByteEncoder(m)
 		if err != nil {
 			return
 		}
 		msg = string(b)
 
-		// fmt.Printf("\nHC: gossip.go: incIdx: 93: Message after encoding is:\n  %v\n", msg)
-
 		var decodedMessage interface{}
 		err = ByteDecoder(b, decodedMessage)
-		// fmt.Printf("\nHC: gossip.go: incIdx: 96: Message after decoding is:\n  %v\n", decodedMessage)
-
 	}
 	_, _, err = tx.Set("idx:"+index, msg, nil)
 	if err != nil {
@@ -200,19 +194,18 @@ func (dht *DHT) GetPuts(since int) (puts []Put, err error) {
 			x := strings.Split(key, ":")
 			idx, _ := strconv.Atoi(x[1])
 			if idx >= since {
-				p := Put{idx: idx}
+				p := Put{Idx: idx}
 				if value != "" {
 					err := ByteDecoder([]byte(value), &p.M)
 					if err != nil {
 						return false
 					}
-					// fmt.Printf("\nHC: gossip.go: GetPuts: decodedMessage: %v\n", p.M)
 				}
 				puts = append(puts, p)
 			}
 			return true
 		})
-		sort.Slice(puts, func(i, j int) bool { return puts[i].idx < puts[j].idx })
+		sort.Slice(puts, func(i, j int) bool { return puts[i].Idx < puts[j].Idx })
 		return err
 	})
 	return
@@ -426,46 +419,62 @@ func (dht *DHT) gossipWith(id peer.ID) (err error) {
 	if count > 0 {
 		dht.glog.Logf("running %d puts", count)
 		var idx int
-		ok := true
 		for i, p := range puts {
 			idx = i + yourIdx + 1
-			/* TODO: Small mystery to be solved, the value of p.idx is always 0 but it should be the actual idx...
-			if idx != p.idx {
-				dht.glog.Logf("WHOA! idx=%d  p.idx:%d p.M: %v", idx, p.idx, p.M)
-			}
-			*/
-			f, e := p.M.Fingerprint()
-			if e == nil {
-				// dht.sources[p.M.From] = true
-				// dht.fingerprints[f.String()[2:4]] = true
-				dht.glog.Logf("PUT--%d (fingerprint: %v)", idx, f)
-				exists, e := dht.HaveFingerprint(f)
-				if !exists && e == nil {
-					dht.glog.Logf("PUT--%d calling ActionReceiver", idx)
-					//fmt.Printf("PUT--%d calling ActionReceiver\n", idx)
-					r, e := ActionReceiver(dht.h, &p.M)
-					dht.glog.Logf("PUT--%d ActionReceiver returned %v with err %v", idx, r, e)
-					if e != nil {
-						// put receiver error so don't update this gossip
-						ok = false
-					}
-				} else {
-					if e == nil {
-						dht.glog.Logf("already have fingerprint %v", f)
-					} else {
-						dht.glog.Logf("error in HaveFingerprint %v", e)
-					}
-				}
-
-			} else {
-				dht.glog.Logf("error calculating fingerprint for %v", p)
-			}
+			// put the message into the gossip put handling queue so we can return quickly
+			dht.gossipPuts <- p
 		}
-		if ok {
-			err = dht.UpdateGossiper(id, idx)
-		}
+		err = dht.UpdateGossiper(id, idx)
 	}
 	return
+}
+
+// gossipPut handles a given put
+func (dht *DHT) gossipPut(p Put) (err error) {
+	f, e := p.M.Fingerprint()
+	if e == nil {
+		// dht.sources[p.M.From] = true
+		// dht.fingerprints[f.String()[2:4]] = true
+		dht.glog.Logf("PUT--%d (fingerprint: %v)", p.Idx, f)
+		exists, e := dht.HaveFingerprint(f)
+		if !exists && e == nil {
+			dht.glog.Logf("PUT--%d calling ActionReceiver", p.Idx)
+			r, e := ActionReceiver(dht.h, &p.M)
+			dht.glog.Logf("PUT--%d ActionReceiver returned %v with err %v", p.Idx, r, e)
+			if e != nil {
+				// put receiver error so do what? probably nothing because
+				// put will get retried
+			}
+		} else {
+			if e == nil {
+				dht.glog.Logf("already have fingerprint %v", f)
+			} else {
+				dht.glog.Logf("error in HaveFingerprint %v", e)
+			}
+		}
+
+	} else {
+		dht.glog.Logf("error calculating fingerprint for %v", p)
+	}
+	return
+}
+
+// HandleGossipPuts waits on a chanel for gossip changes
+func (dht *DHT) HandleGossipPuts() (err error) {
+	for {
+		dht.glog.Log("HandleGossipPuts: waiting for put")
+		p, ok := <-dht.gossipPuts
+		if !ok {
+			dht.glog.Log("HandleGossipPuts: channel closed, breaking")
+			break
+		}
+
+		err = dht.gossipPut(p)
+		if err != nil {
+			dht.glog.Logf("HandleGossipPuts: got err: %v", err)
+		}
+	}
+	return nil
 }
 
 // gossip picks a random node in my neighborhood and sends gossips with it

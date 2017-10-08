@@ -20,7 +20,7 @@ func TestInit(t *testing.T) {
 
 	agent := "Fred Flintstone <fred@flintstone.com>"
 
-	s, err := Init(filepath.Join(d, DefaultDirectoryName), AgentIdentity(agent), makeTestSeed(agent))
+	s, err := Init(filepath.Join(d, DefaultDirectoryName), AgentIdentity(agent), MakeTestSeed(agent))
 
 	Convey("when initializing service in a directory", t, func() {
 		So(err, ShouldBeNil)

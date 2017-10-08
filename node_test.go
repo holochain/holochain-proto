@@ -411,7 +411,7 @@ func TestNodeAppSendResolution(t *testing.T) {
 func makePeer(id string) (pid peer.ID, key ic.PrivKey) {
 	// use a constant reader so the key will be the same each time for the test...
 	var err error
-	key, _, err = ic.GenerateEd25519Key(makeTestSeed(id))
+	key, _, err = ic.GenerateEd25519Key(MakeTestSeed(id))
 	if err != nil {
 		panic(err)
 	}

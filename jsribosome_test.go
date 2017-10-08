@@ -453,7 +453,7 @@ func TestJSbuildValidate(t *testing.T) {
 func TestJSValidateCommit(t *testing.T) {
 	d, _, h := PrepareTestChain("test")
 	defer CleanupTestChain(h, d)
-	//	a, _ := NewAgent(LibP2P, "Joe", makeTestSeed(""))
+	//	a, _ := NewAgent(LibP2P, "Joe", MakeTestSeed(""))
 	//	h := NewHolochain(a, "some/path", "yaml", Zome{RibosomeType:JSRibosomeType,})
 	//	a := h.agent
 	h.Config.Loggers.App.Format = ""

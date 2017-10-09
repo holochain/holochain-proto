@@ -1,6 +1,6 @@
 # Holochain
 
-[![Code Status](https://img.shields.io/badge/Code-Pre--Alpha-orange.svg)](https://github.com/metacurrency/holochain/milestones?direction=asc&sort=completeness&state=all)
+[![Code Status](https://img.shields.io/badge/Code-Alpha-yellow.svg)](https://github.com/metacurrency/holochain/milestones?direction=asc&sort=completeness&state=all)
 [![Travis](https://img.shields.io/travis/metacurrency/holochain/master.svg)](https://travis-ci.org/metacurrency/holochain/branches)
 [![Codecov](https://img.shields.io/codecov/c/github/metacurrency/holochain.svg)](https://codecov.io/gh/metacurrency/holochain/branch/master)
 [![Go Report Card](https://goreportcard.com/badge/github.com/metacurrency/holochain)](https://goreportcard.com/report/github.com/metacurrency/holochain)
@@ -13,7 +13,7 @@
 
 In other words, a holochain functions very much **like a blockchain without bottlenecks** when it comes to enforcing validation rules, but is designed to  be fully distributed with each node only needing to hold a small portion of the data instead of everything needing a full copy of a global ledger. This makes it feasible to run blockchain-like applications on devices as lightweight as mobile phones.
 
-**[Code Status:](https://github.com/metacurrency/holochain/milestones?direction=asc&sort=completeness&state=all)** Pre-alpha. Not for production use. Security and encryption tasks are still in progress and we still expect to destructively restructure code APIs and data chains at this time. Proof-of-concept was unveiled at our first hackathon (March 2017) and we are targeting an **Alpha release in September 2017** when we complete our Security Milestone.
+**[Code Status:](https://github.com/metacurrency/holochain/milestones?direction=asc&sort=completeness&state=all)** Alpha. Not for production use. The code has not yet undergone a security audit. We expect to destructively restructure code APIs and data chains until Beta. Proof-of-concept was unveiled at our first hackathon (March 2017). Alpha 0 was released (October 2017).
 <br/>
 
 | Holochain Links: | [FAQ](https://github.com/metacurrency/holochain/wiki/FAQ) | [Developer Wiki](https://github.com/metacurrency/holochain/wiki) | [White Paper](http://ceptr.org/projects/holochain) | [GoDocs](https://godoc.org/github.com/metacurrency/holochain) |
@@ -255,6 +255,6 @@ This program is free software: you can redistribute it and/or modify it under th
 &nbsp;
 * **Ian Grigg**: Some of our initial plans for this architecture were inspired in 2006 by [his paper about Triple Entry Accounting](http://iang.org/papers/triple_entry.html) and his work on [Ricardian Contracts](http://iang.org/papers/ricardian_contract.html).
 &nbsp;
-* **Juan Benet**: For all his work on IPFS and being a generally cool guy. Various functions like multihash, multiaddress, and such come from IPFS as well as the libP2P library which we hope helps get peered node communications up and running.
+* **Juan Benet & the IPFS team**: For all their work on IPFS, libp2p, and various cool tools like multihash, multiaddress, etc. We use libP2P library for our transport layer and kademlia dht.
 &nbsp;
 * **Crypto Pioneers** And of course the people who paved the road before us by writing good crypto libraries and *preaching the blockchain gospel*. Back in 2008, nobody understood what we were talking about when we started sharing our designs. The main reason people want it now, is because blockchains have opened their eyes to the power of decentralized architectures.

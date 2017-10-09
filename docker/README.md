@@ -1,6 +1,8 @@
 # Holochain Docker Usage
 This document provides a description and usage instructions for the different use-cases of Holochain Docker images.
 
+TODO: This file and the hc-dev-tool scripts are out of data, and need to be updated.
+
 <!-- TOC depthFrom:2 depthTo:6 withLinks:1 updateOnSave:1 orderedList:0 -->
 
 - [Docker use-cases](#docker-use-cases)
@@ -16,16 +18,10 @@ This document provides a description and usage instructions for the different us
 ## Docker use-cases
 This is a list of use-cases for Docker in the context of Holochain. Once you have found the Docker image for your needs, scroll down to the relevant image section below.
 
-### Multi-Node Tests
-Docker enables easy creation of virtual machines, which makes it good for testing how multiple holochain nodes interact.
-
-See [the Holochain skeleton repository](https://github.com/metacurrency/holoSkel) for working examples of this.
-
 ### Development
 Docker can also be used for doing development inside of containers. This can be helpful for developers who are unable to (or don't want to) run Holochain directly on their system.
 
 For this use-case, one of the [hc-dev-tools](#hc-dev-tools) images should be built and run interactively.
-
 
 ### Packaging Holochain Apps for End-Users
 Docker can also be used for distributing a Holochain application as an image.
@@ -44,7 +40,7 @@ Example of an image which distributes a holochain app:
 ```Dockerfile
 FROM metacurrency/holochain
 
-RUN hc init address@example.org
+RUN hcadmin init address@example.org
 
 ENV appdir="/home/holochain/app"
 

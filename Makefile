@@ -30,7 +30,7 @@ define new_line
 
 endef
 
-.PHONY: hc hcd hcdev hcadmin hccore bs test deps work pub
+.PHONY: hcd hcdev hcadmin hccore bs test deps work pub
 # Anything which requires deps should end with: gx-go rewrite --undo
 
 all: deps
@@ -50,9 +50,6 @@ hcadmin: deps
 	gx-go rewrite --undo
 bs: deps
 	go get $(REPO)/cmd/bs
-	gx-go rewrite --undo
-hc: deps
-	go get $(REPO)/cmd/hc
 	gx-go rewrite --undo
 test: deps
 	$(foreach pkg_path,$(go_packages),go get -d -t $(pkg_path) && go test $(TEST_FLAGS) $(pkg_path)${new_line})

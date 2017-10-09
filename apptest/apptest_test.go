@@ -17,8 +17,8 @@ func TestTestStringReplacements(t *testing.T) {
 	d, _, h := PrepareTestChain("test")
 	defer CleanupTestChain(h, d)
 	var lastMatches = [3][]string{{"complete match", "1st submatch", "2nd submatch"}}
-
-	replacements := replacements{h: h, serverID: "foo", lastMatches: &lastMatches, repetition: "1"}
+	history := &history{lastMatches: lastMatches}
+	replacements := replacements{h: h, serverID: "foo", history: history, repetition: "1"}
 
 	Convey("it should replace %dna%", t, func() {
 		input := "%dna%"
@@ -41,6 +41,19 @@ func TestTestStringReplacements(t *testing.T) {
 		input := "%reps%"
 		output := testStringReplacements(input, &replacements)
 		So(output, ShouldEqual, "1")
+	})
+	Convey("it should replace %resultX%", t, func() {
+		history.results = append(history.results, "foo")
+		input := "%result0%"
+		output := testStringReplacements(input, &replacements)
+		So(output, ShouldEqual, "foo")
+		history.results = append(history.results, "bar")
+		input = "%result0%-%result1%-%result0%"
+		output = testStringReplacements(input, &replacements)
+		So(output, ShouldEqual, "foo-bar-foo")
+		input = "%result99%"
+		output = testStringReplacements(input, &replacements)
+		So(output, ShouldEqual, "<bad-result-index>")
 	})
 }
 

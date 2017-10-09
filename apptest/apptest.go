@@ -34,11 +34,11 @@ func toString(input interface{}) string {
 }
 
 type replacements struct {
-	h           *Holochain
-	r1, r2, r3  string
-	lastMatches *[3][]string
-	serverID    string
-	repetition  string
+	h          *Holochain
+	r1, r2, r3 string
+	serverID   string
+	repetition string
+	history    *history
 }
 
 // testStringReplacements inserts special values into testing input and output values for matching
@@ -74,6 +74,24 @@ func testStringReplacements(input string, r *replacements) string {
 	}
 	output = strings.Replace(output, "%clone%", clone, -1)
 
+	re = regexp.MustCompile(`(\%result([0-9]+)\%)`)
+	matches = re.FindAllStringSubmatch(output, -1)
+	if len(matches) > 0 {
+		for _, m := range matches {
+			resultIdx, err := strconv.Atoi(m[2])
+			if err != nil {
+				panic(err)
+			}
+			var nthResult string
+			if len(r.history.results) > resultIdx {
+				nthResult = fmt.Sprintf("%v", r.history.results[resultIdx])
+			} else {
+				nthResult = "<bad-result-index>"
+			}
+			output = strings.Replace(output, m[1], nthResult, -1)
+		}
+	}
+
 	output = strings.Replace(output, "%server%", r.serverID, -1)
 	output = strings.Replace(output, "%reps%", r.repetition, -1)
 	output = strings.Replace(output, "%r1%", r.r1, -1)
@@ -101,8 +119,8 @@ func testStringReplacements(input string, r *replacements) string {
 			if matchIdx < 1 || matchIdx > 3 {
 				panic("please pick a match between 1 & 3")
 			}
-			if subMatch < len(r.lastMatches[matchIdx-1]) {
-				output = strings.Replace(output, m[1], r.lastMatches[matchIdx-1][subMatch], -1)
+			if subMatch < len(r.history.lastMatches[matchIdx-1]) {
+				output = strings.Replace(output, m[1], r.history.lastMatches[matchIdx-1][subMatch], -1)
 			}
 		}
 	}
@@ -157,6 +175,7 @@ func waitTill(start time.Time, till time.Duration) {
 }
 
 type history struct {
+	results     []interface{}
 	lastResults [3]interface{}
 	lastMatches [3][]string
 }
@@ -248,7 +267,7 @@ func DoTest(h *Holochain, name string, i int, t TestData, startTime time.Time, h
 		repetitions = t.Repeat
 	}
 
-	replacements := replacements{h: h, serverID: serverID, lastMatches: &history.lastMatches}
+	replacements := replacements{h: h, serverID: serverID, history: history}
 	origInput := input
 	for r := 0; r < repetitions; r++ {
 		input = origInput // gotta do this so %reps% substitution will work
@@ -292,6 +311,7 @@ func DoTest(h *Holochain, name string, i int, t TestData, startTime time.Time, h
 		history.lastResults[2] = history.lastResults[1]
 		history.lastResults[1] = history.lastResults[0]
 		history.lastResults[0] = actualResult
+		history.results = append(history.results, actualResult)
 		if expectedError != "" {
 			expectedError = testStringReplacements(expectedError, &replacements)
 			comparisonString := fmt.Sprintf("\nTest: %s\n\tExpected error:\t%v\n\tGot error:\t\t%v", testID, expectedError, actualError)

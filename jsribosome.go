@@ -1179,7 +1179,7 @@ func NewJSRibosome(h *Holochain, zome *Zome) (n Ribosome, err error) {
 				var l string
 				l = `Hash:"` + th.H + `"`
 				if tag == "" {
-					l += `Tag:"` + jsSanitizeString(th.T) + `"`
+					l += `,Tag:"` + jsSanitizeString(th.T) + `"`
 				}
 				if options.Load {
 					l += `,EntryType:"` + jsSanitizeString(th.EntryType) + `"`

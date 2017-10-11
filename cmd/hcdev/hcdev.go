@@ -168,7 +168,7 @@ func setupApp() (app *cli.App) {
 	}
 
 	var interactive, dumpChain, dumpDHT, initTest bool
-	var clonePath, scaffoldPath, cloneExample string
+	var clonePath, scaffoldPath, cloneExample, outputDir string
 	app.Commands = []cli.Command{
 		{
 			Name:    "init",
@@ -427,6 +427,13 @@ func setupApp() (app *cli.App) {
 			Aliases:   []string{"s"},
 			Usage:     "run a scenario test",
 			ArgsUsage: "scenario-name",
+			Flags: []cli.Flag{
+				cli.StringFlag{
+					Name:        "outputDir",
+					Usage:       "directory to send output",
+					Destination: &outputDir,
+				},
+			},
 			Action: func(c *cli.Context) error {
 				mutableContext.str["command"] = "scenario"
 
@@ -482,6 +489,13 @@ func setupApp() (app *cli.App) {
 					return cmd.MakeErrFromErr(c, err)
 				}
 
+				if outputDir != "" {
+					err = os.MkdirAll(outputDir, os.ModePerm)
+					if err != nil {
+						return cmd.MakeErrFromErr(c, err)
+					}
+				}
+
 				for roleIndex, roleName := range roleList {
 					holo.Debugf("scenario: forRole(%v): start\n\n", roleName)
 
@@ -524,6 +538,10 @@ func setupApp() (app *cli.App) {
 						colorByNumbers := []string{"green", "blue", "yellow", "cyan", "magenta", "red"}
 
 						logPrefix := "%{color:" + colorByNumbers[roleIndex%6] + "}" + roleName + ": "
+						/* time doesn't work in prefix yet
+						if outputDir != "" {
+							logPrefix = "%{time}" + logPrefix
+						}*/
 
 						var nonat string
 						if bootstrapServer == "_" {
@@ -531,7 +549,8 @@ func setupApp() (app *cli.App) {
 						} else {
 							nonat = "false"
 						}
-						testCommand := cmd.OsExecPipes_noRun(
+
+						testCommand := exec.Command(
 							"hcdev",
 							"-path="+devPath,
 							"-execpath="+filepath.Join(rootExecDir, roleName),
@@ -552,7 +571,23 @@ func setupApp() (app *cli.App) {
 						mutableContext.obj["testCommand."+roleName] = &testCommand
 
 						holo.Debugf("scenario: forRole(%v): testCommandPerpared: %v\n", roleName, testCommand)
+
+						if outputDir != "" {
+							f := filepath.Join(outputDir, roleName)
+							df, err := os.Create(f)
+							if err != nil {
+								return cmd.MakeErrFromErr(c, err)
+							}
+							defer df.Close()
+							testCommand.Stdout = df
+							testCommand.Stderr = df
+						} else {
+
+							testCommand.Stdout = os.Stdout
+							testCommand.Stderr = os.Stderr
+						}
 						testCommand.Start()
+
 						holo.Debugf("scenario: forRole(%v): testCommandStarted\n", roleName)
 					}
 				}

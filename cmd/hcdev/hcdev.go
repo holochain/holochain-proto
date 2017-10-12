@@ -384,6 +384,7 @@ func setupApp() (app *cli.App) {
 				var errs []error
 
 				if len(args) == 2 {
+
 					holo.Debug("test: scenario")
 
 					dir := filepath.Join(h.TestPath(), args[0])
@@ -444,7 +445,6 @@ func setupApp() (app *cli.App) {
 				if bridgeFromPath != "" || bridgeToPath != "" {
 					return cmd.MakeErr(c, "bridging not supported in scenario tests yet")
 				}
-
 				args := c.Args()
 				if len(args) != 1 {
 					return cmd.MakeErr(c, "missing scenario name argument")
@@ -570,7 +570,7 @@ func setupApp() (app *cli.App) {
 
 						mutableContext.obj["testCommand."+roleName] = &testCommand
 
-						holo.Debugf("scenario: forRole(%v): testCommandPerpared: %v\n", roleName, testCommand)
+						holo.Debugf("scenario: forRole(%v): testCommandPrepared: %v\n", roleName, testCommand)
 
 						if outputDir != "" {
 							f := filepath.Join(outputDir, roleName)
@@ -845,15 +845,21 @@ func setupApp() (app *cli.App) {
 func main() {
 	app := setupApp()
 	err := app.Run(os.Args)
+	var stop chan bool
+	if keepalive {
+		stop = make(chan bool, 1)
+	}
 	if keepalive && scenarioConfig != nil {
-		time.Sleep(time.Second*(scenarioStartDelay+time.Duration(scenarioConfig.Duration)) + time.Millisecond*500)
+		go func() {
+			time.Sleep(time.Second*(scenarioStartDelay+time.Duration(scenarioConfig.Duration)) + time.Second*scenarioStartDelay)
+			stop <- true
+		}()
+	}
+	if keepalive {
+		<-stop
 	}
 	if verbose {
 		fmt.Printf("hcdev complete!\n")
-	}
-	if keepalive {
-		stop := make(chan bool, 1)
-		<-stop
 	}
 	if err != nil {
 		fmt.Printf("Error: %v\n", err)

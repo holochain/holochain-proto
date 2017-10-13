@@ -16,7 +16,7 @@ import (
 	ma "github.com/multiformats/go-multiaddr"
 )
 
-// netNotifiee defines methods to be used with the IpfsDHT
+// netNotifiee defines methods to be used with the Holochain Node
 type netNotifiee Node
 
 func (nn *netNotifiee) Node() *Node {

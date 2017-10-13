@@ -156,20 +156,42 @@ const (
 // implement peer found function for mdns discovery
 func (h *Holochain) HandlePeerFound(pi pstore.PeerInfo) {
 	h.dht.dlog.Logf("discovered peer via mdns: %v", pi)
-	err := h.AddPeer(pi.ID, pi.Addrs)
+	err := h.AddPeer(pi)
 	if err != nil {
-		h.dht.dlog.Logf("error when adding peer: %v", pi)
+		h.dht.dlog.Logf("error when adding peer: %v, %v", pi, err)
 	}
 }
 
-func (h *Holochain) AddPeer(id peer.ID, addrs []ma.Multiaddr) (err error) {
-	if h.node.IsBlocked(id) {
+func (h *Holochain) addPeer(pi pstore.PeerInfo, confirm bool) (err error) {
+	// add the peer into the peerstore
+	h.node.peerstore.AddAddrs(pi.ID, pi.Addrs, PeerTTL)
+
+	// attempt a connection to see if this is actually valid
+	if confirm {
+		err = h.node.host.Connect(h.node.ctx, pi)
+	}
+	if err != nil {
+		Debugf("Clearing peer %v, connection failed (%v)\n", pi.ID, err)
+		h.node.peerstore.ClearAddrs(pi.ID)
+		err = nil
+	} else {
+		Debugf("Adding Peer: %v\n", pi.ID)
+		h.node.routingTable.Update(pi.ID)
+		err = h.dht.AddGossiper(pi.ID)
+	}
+	return
+}
+
+// AddPeer adds a peer to the peerstore if it passes various checks
+func (h *Holochain) AddPeer(pi pstore.PeerInfo) (err error) {
+	Debugf("Adding Peer Req: %v my node %v\n", pi.ID, h.node.HashAddr)
+	if pi.ID == h.node.HashAddr {
+		return
+	}
+	if h.node.IsBlocked(pi.ID) {
 		err = ErrBlockedListed
 	} else {
-		Debugf("Adding Peer: %v\n", id)
-		h.node.peerstore.AddAddrs(id, addrs, PeerTTL)
-		h.node.routingTable.Update(id)
-		err = h.dht.AddGossiper(id)
+		err = h.addPeer(pi, true)
 	}
 	return
 }
@@ -257,6 +279,7 @@ func NewNode(listenAddr string, protoMux string, agent *LibP2PAgent, enableNATUP
 	if err != nil {
 		return
 	}
+	Debugf("NodeID is: %v\n", nodeID)
 
 	var n Node
 	listenPort, err := strconv.Atoi(strings.Split(listenAddr, "/")[4])

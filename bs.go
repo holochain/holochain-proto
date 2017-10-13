@@ -12,6 +12,7 @@ import (
 	"errors"
 	"fmt"
 	peer "github.com/libp2p/go-libp2p-peer"
+	pstore "github.com/libp2p/go-libp2p-peerstore"
 	ma "github.com/multiformats/go-multiaddr"
 	"io/ioutil"
 	"net/http"
@@ -71,7 +72,7 @@ func (h *Holochain) checkBSResponses(nodes []BSResp) (err error) {
 				// don't "discover" ourselves
 				if r.Req.NodeID != myNodeID {
 					h.dht.dlog.Logf("discovered peer via bs: %s (%v)", r.Req.NodeID, addr)
-					err = h.AddPeer(id, []ma.Multiaddr{addr})
+					err = h.AddPeer(pstore.PeerInfo{ID: id, Addrs: []ma.Multiaddr{addr}})
 				}
 
 			}

@@ -8,6 +8,7 @@ import (
 	. "github.com/metacurrency/holochain/hash"
 	. "github.com/smartystreets/goconvey/convey"
 	"math/rand"
+	"os"
 	"testing"
 	_ "time"
 )
@@ -101,10 +102,16 @@ func (mt *multiNodeTest) cleanupMultiNodeTesting() {
 func makeTestNodes(ctx context.Context, s *Service, n int) (nodes []*Holochain) {
 	nodes = make([]*Holochain, n)
 	for i := 0; i < n; i++ {
-		nodes[i] = setupTestChain(fmt.Sprintf("node%d", i), i, s)
+		nodeName := fmt.Sprintf("node%d", i)
+		os.Setenv("HCLOG_PREFIX", nodeName+"_")
+		nodes[i] = setupTestChain(nodeName, i, s)
 		prepareTestChain(nodes[i])
-
 	}
+	for i := 0; i < n; i++ {
+		nodeName := fmt.Sprintf("node%d", i)
+		nodes[i].dht.dlog.Logf("SETUP: %s is %v", nodeName, nodes[i].nodeID)
+	}
+	os.Unsetenv("HCLOG_PREFIX")
 	return
 }
 
@@ -117,8 +124,9 @@ func connectNoSync(t *testing.T, ctx context.Context, ah, bh *Holochain) {
 		t.Fatal("peers setup incorrectly: no local address")
 	}
 
-	ah.AddPeer(idB, addrB)
-	pi := pstore.PeerInfo{ID: idB}
+	pi := pstore.PeerInfo{ID: idB, Addrs: addrB}
+	ah.AddPeer(pi)
+
 	if err := a.host.Connect(ctx, pi); err != nil {
 		t.Fatal(err)
 	}

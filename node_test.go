@@ -10,6 +10,7 @@ import (
 	peer "github.com/libp2p/go-libp2p-peer"
 	pstore "github.com/libp2p/go-libp2p-peerstore"
 	. "github.com/metacurrency/holochain/hash"
+	ma "github.com/multiformats/go-multiaddr"
 	. "github.com/smartystreets/goconvey/convey"
 	"io/ioutil"
 	"os"
@@ -18,29 +19,56 @@ import (
 	"time"
 )
 
-func TestNodeDiscovery(t *testing.T) {
-	nodesCount := 2
+func TestNodeMDNSDiscovery(t *testing.T) {
+	nodesCount := 4
 	mt := setupMultiNodeTesting(nodesCount)
 	defer mt.cleanupMultiNodeTesting()
 	nodes := mt.nodes
 
-	node1 := nodes[0].node
-	node2 := nodes[1].node
+	node0 := nodes[0].node
+	node1 := nodes[1].node
+	node2 := nodes[2].node
+	node3 := nodes[3].node
 
 	Convey("nodes should find eachother via mdns", t, func() {
+		So(len(node0.host.Peerstore().Peers()), ShouldEqual, 1)
 		So(len(node1.host.Peerstore().Peers()), ShouldEqual, 1)
 		So(len(node2.host.Peerstore().Peers()), ShouldEqual, 1)
 
-		err := node1.EnableMDNSDiscovery(nodes[0], time.Second/2)
+		err := node0.EnableMDNSDiscovery(nodes[0], time.Second/4)
 		So(err, ShouldBeNil)
-		err = node2.EnableMDNSDiscovery(nodes[1], time.Second/2)
+		err = node1.EnableMDNSDiscovery(nodes[1], time.Second/4)
+		So(err, ShouldBeNil)
+		err = node2.EnableMDNSDiscovery(nodes[2], time.Second/4)
 		So(err, ShouldBeNil)
 
-		time.Sleep(time.Second * 1)
+		time.Sleep(time.Millisecond * 500)
 
-		// many nodes from previous tests show up... TODO, figure out how to clear them
-		So(len(node1.host.Peerstore().Peers()) > 1, ShouldBeTrue)
-		So(len(node2.host.Peerstore().Peers()) > 1, ShouldBeTrue)
+		So(len(node0.host.Peerstore().Peers()), ShouldEqual, 3)
+		So(len(node1.host.Peerstore().Peers()), ShouldEqual, 3)
+		So(len(node2.host.Peerstore().Peers()), ShouldEqual, 3)
+	})
+
+	Convey("nodes should confirm connectability before adding nodes found via mdns", t, func() {
+		So(len(node3.host.Peerstore().Peers()), ShouldEqual, 1)
+
+		// shut-down node2 so the new node can't connect to it
+		node2.Close()
+
+		err := node3.EnableMDNSDiscovery(nodes[3], time.Second/4)
+		So(err, ShouldBeNil)
+		time.Sleep(time.Millisecond * 500)
+
+		/*for _, p := range node3.host.Peerstore().Peers() {
+			fmt.Printf("PERR:%v\n", p)
+			for _, a := range node3.host.Peerstore().Addrs(p) {
+				fmt.Printf("    ADDR:%v\n", a)
+			}
+		}*/
+
+		// mdns still reporting nodes2
+		So(len(node3.host.Peerstore().Peers()), ShouldEqual, 4)
+		//	So(len(node3.host.Peerstore().Addrs(nodes[2].nodeID)), ShouldEqual, 0)
 	})
 }
 
@@ -221,7 +249,9 @@ func TestNodeSend(t *testing.T) {
 func TestNodeBlockedList(t *testing.T) {
 	Convey("it should be set up from a peerlist", t, func() {
 		node, _ := makeNode(1234, "node1")
+		defer node.Close()
 		node2, _ := makeNode(1235, "node2")
+		defer node2.Close()
 
 		So(node.IsBlocked(node2.HashAddr), ShouldBeFalse)
 		node.InitBlockedList(PeerList{Records: []PeerRecord{PeerRecord{ID: node2.HashAddr}}})
@@ -333,13 +363,18 @@ func TestErrorCoding(t *testing.T) {
 }
 
 func TestAddPeer(t *testing.T) {
-	d, _, h := PrepareTestChain("test")
-	defer CleanupTestChain(h, d)
-	somePeer, _ := makePeer("some peer")
+	nodesCount := 4
+	mt := setupMultiNodeTesting(nodesCount)
+	defer mt.cleanupMultiNodeTesting()
+	nodes := mt.nodes
+
+	h := nodes[0]
+	somePeer := nodes[1].node.HashAddr
+	pi := pstore.PeerInfo{ID: somePeer, Addrs: []ma.Multiaddr{nodes[1].node.NetAddr}}
 	Convey("it should add a peer to the peer store and the gossip list", t, func() {
 		So(h.node.routingTable.Size(), ShouldEqual, 0)
 		So(len(h.node.peerstore.Peers()), ShouldEqual, 1)
-		err := h.AddPeer(somePeer, nil)
+		err := h.AddPeer(pi)
 		So(err, ShouldBeNil)
 		So(len(h.node.peerstore.Peers()), ShouldEqual, 2)
 		glist, err := h.dht.getGossipers()
@@ -350,9 +385,10 @@ func TestAddPeer(t *testing.T) {
 	})
 
 	Convey("it should not add a blocked peer", t, func() {
-		blockedPeer, _ := makePeer("blocked peer")
+		blockedPeer := nodes[2].node.HashAddr
+		bpi := pstore.PeerInfo{ID: blockedPeer, Addrs: []ma.Multiaddr{nodes[2].node.NetAddr}}
 		h.node.Block(blockedPeer)
-		err := h.AddPeer(blockedPeer, nil)
+		err := h.AddPeer(bpi)
 		So(err, ShouldEqual, ErrBlockedListed)
 		So(len(h.node.peerstore.Peers()), ShouldEqual, 2)
 		glist, err := h.dht.getGossipers()
@@ -360,6 +396,15 @@ func TestAddPeer(t *testing.T) {
 		So(len(glist), ShouldEqual, 1)
 		So(glist[0], ShouldEqual, somePeer)
 		So(h.node.routingTable.Size(), ShouldEqual, 1)
+	})
+
+	Convey("it should clear the peer's Address list if connection fails", t, func() {
+		closedNode := nodes[nodesCount-1].node
+		pi := pstore.PeerInfo{ID: closedNode.HashAddr, Addrs: []ma.Multiaddr{closedNode.NetAddr}}
+		closedNode.Close()
+		err := h.AddPeer(pi)
+		So(err, ShouldEqual, nil)
+		So(len(h.node.peerstore.Addrs(pi.ID)), ShouldEqual, 0)
 	})
 }
 
@@ -431,7 +476,8 @@ func addTestPeers(h *Holochain, peers []peer.ID, start int, count int) []peer.ID
 		p, _ := makePeer(fmt.Sprintf("peer_%d", i))
 		//		fmt.Printf("Peer %d: %s\n", i, peer.IDB58Encode(p))
 		peers = append(peers, p)
-		err := h.AddPeer(p, nil)
+		pi := pstore.PeerInfo{ID: p}
+		err := h.addPeer(pi, false)
 		if err != nil {
 			panic(err)
 		}

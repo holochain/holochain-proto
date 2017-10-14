@@ -453,6 +453,46 @@ func TestNodeAppSendResolution(t *testing.T) {
 	})
 }
 
+func TestActivePeers(t *testing.T) {
+	node, _ := makeNode(1234, "")
+	defer node.Close()
+	Convey("self node should be active", t, func() {
+		So(node.isPeerActive(node.HashAddr), ShouldBeTrue)
+	})
+
+	otherPeer, _ := makePeer("foo")
+	Convey("a peer not in the peerstore be considered inactive", t, func() {
+		So(node.isPeerActive(otherPeer), ShouldBeFalse)
+	})
+
+	Convey("a peer without an address in the peerstore should be considered inactive", t, func() {
+		node.peerstore.AddAddrs(otherPeer, []ma.Multiaddr{}, PeerTTL)
+		So(node.isPeerActive(otherPeer), ShouldBeFalse)
+	})
+
+	Convey("it should be able to filter out inactive peers from a list", t, func() {
+		filteredList := node.filterInactviePeers([]peer.ID{node.HashAddr, otherPeer}, 0)
+		So(len(filteredList), ShouldEqual, 1)
+		So(filteredList[0], ShouldEqual, node.HashAddr)
+	})
+
+	Convey("it should be able to limit number returned when filtering out inactive peers", t, func() {
+		addr, err := ma.NewMultiaddr("/ip4/127.0.0.1/tcp/1234")
+		if err != nil {
+			panic(err)
+		}
+		node.peerstore.AddAddrs(otherPeer, []ma.Multiaddr{addr}, PeerTTL)
+		filteredList := node.filterInactviePeers([]peer.ID{node.HashAddr, otherPeer}, 0)
+		So(len(filteredList), ShouldEqual, 2)
+		So(filteredList[0], ShouldEqual, node.HashAddr)
+		So(filteredList[1], ShouldEqual, otherPeer)
+
+		filteredList = node.filterInactviePeers([]peer.ID{node.HashAddr, otherPeer}, 1)
+		So(len(filteredList), ShouldEqual, 1)
+	})
+
+}
+
 func makePeer(id string) (pid peer.ID, key ic.PrivKey) {
 	// use a constant reader so the key will be the same each time for the test...
 	var err error

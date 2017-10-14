@@ -252,15 +252,12 @@ func (dht *DHT) getGossipers() (glist []peer.ID, err error) {
 		me := HashFromPeerID(dht.h.nodeID)
 
 		hlist = SortByDistance(me, hlist)
-		if ns < size {
-			size = ns
-		}
-		glist = make([]peer.ID, size)
-		for i := 0; i < size; i++ {
-			p := PeerIDFromHash(hlist[i])
-			glist[i] = p
+		glist = make([]peer.ID, len(hlist))
+		for i := 0; i < len(hlist); i++ {
+			glist[i] = PeerIDFromHash(hlist[i])
 		}
 	}
+	glist = dht.h.node.filterInactviePeers(glist, ns)
 	return
 }
 

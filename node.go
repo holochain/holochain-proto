@@ -182,6 +182,33 @@ func (h *Holochain) addPeer(pi pstore.PeerInfo, confirm bool) (err error) {
 	return
 }
 
+func (node *Node) isPeerActive(id peer.ID) bool {
+	// inactive currently defined by seeing if there are any addrs in the
+	// peerstore
+	// TODO: should be something different
+	addrs := node.peerstore.Addrs(id)
+	return len(addrs) > 0
+}
+
+// filterInactviePeers removes peers from a list who are currently inactive
+// if max >  0 returns only max number of peers
+func (node *Node) filterInactviePeers(peersIn []peer.ID, max int) (peersOut []peer.ID) {
+	if max <= 0 {
+		max = len(peersIn)
+	}
+	var i int
+	for _, p := range peersIn {
+		if node.isPeerActive(p) {
+			peersOut = append(peersOut, p)
+			i += 1
+			if i == max {
+				return
+			}
+		}
+	}
+	return
+}
+
 // AddPeer adds a peer to the peerstore if it passes various checks
 func (h *Holochain) AddPeer(pi pstore.PeerInfo) (err error) {
 	Debugf("Adding Peer Req: %v my node %v\n", pi.ID, h.node.HashAddr)

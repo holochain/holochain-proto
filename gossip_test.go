@@ -4,6 +4,7 @@ import (
 	"fmt"
 	peer "github.com/libp2p/go-libp2p-peer"
 	. "github.com/metacurrency/holochain/hash"
+	ma "github.com/multiformats/go-multiaddr"
 	. "github.com/smartystreets/goconvey/convey"
 	"testing"
 	"time"
@@ -21,8 +22,11 @@ func TestGossipReceiver(t *testing.T) {
 }*/
 
 func TestGetGossipers(t *testing.T) {
-	d, _, h := PrepareTestChain("test")
-	defer CleanupTestChain(h, d)
+	nodesCount := 20
+	mt := setupMultiNodeTesting(nodesCount)
+	defer mt.cleanupMultiNodeTesting()
+	nodes := mt.nodes
+	h := nodes[0]
 	dht := h.dht
 	Convey("should return an empty list if none availabled", t, func() {
 		glist, err := dht.getGossipers()
@@ -30,10 +34,7 @@ func TestGetGossipers(t *testing.T) {
 		So(len(glist), ShouldEqual, 0)
 	})
 
-	start := 0
-	testPeerCount := 20
-	peers := []peer.ID{}
-	peers = addTestPeers(h, peers, start, testPeerCount)
+	starConnect(t, mt.ctx, nodes, nodesCount)
 
 	var err error
 	var glist []peer.ID
@@ -41,7 +42,7 @@ func TestGetGossipers(t *testing.T) {
 		So(h.nucleus.dna.DHTConfig.NeighborhoodSize, ShouldEqual, 0)
 		glist, err = dht.getGossipers()
 		So(err, ShouldBeNil)
-		So(len(glist), ShouldEqual, testPeerCount)
+		So(len(glist), ShouldEqual, nodesCount-1)
 	})
 
 	Convey("should return neighborhood size peers when neighborhood size is not 0", t, func() {
@@ -57,6 +58,18 @@ func TestGetGossipers(t *testing.T) {
 		So(h.node.Distance(glist[2]).Cmp(h.node.Distance(glist[3])), ShouldBeLessThanOrEqualTo, 0)
 		So(h.node.Distance(glist[3]).Cmp(h.node.Distance(glist[4])), ShouldBeLessThanOrEqualTo, 0)
 		So(h.node.Distance(glist[0]), ShouldNotEqual, h.node.Distance(glist[4]))
+	})
+
+	Convey("it should only return active gossipers.", t, func() {
+
+		// mark one of nodes previously found as closed
+		id := glist[0]
+		h.node.peerstore.ClearAddrs(id)
+		glist, err = dht.getGossipers()
+		So(err, ShouldBeNil)
+		So(len(glist), ShouldEqual, 5)
+
+		So(glist[0].Pretty(), ShouldNotEqual, id.Pretty())
 	})
 }
 
@@ -78,6 +91,11 @@ func TestGetFindGossiper(t *testing.T) {
 	})
 
 	fooAddr, _ := makePeer("peer_foo")
+	addr, err := ma.NewMultiaddr("/ip4/127.0.0.1/tcp/1234")
+	if err != nil {
+		panic(err)
+	}
+	h.node.peerstore.AddAddrs(fooAddr, []ma.Multiaddr{addr}, PeerTTL)
 
 	Convey("AddGossiper add the gossiper", t, func() {
 		err := dht.AddGossiper(fooAddr)
@@ -314,7 +332,7 @@ func TestPeerLists(t *testing.T) {
 }
 
 func xTestGossipPropigation(t *testing.T) {
-	nodesCount := 7
+	nodesCount := 20
 	mt := setupMultiNodeTesting(nodesCount)
 	defer mt.cleanupMultiNodeTesting()
 	nodes := mt.nodes
@@ -340,12 +358,12 @@ func xTestGossipPropigation(t *testing.T) {
 	Convey("each node should only have everybody's puts after enough propigation time", t, func() {
 
 		for i := 0; i < nodesCount; i++ {
-			nodes[i].StartBackgroundTasks(50 * time.Millisecond)
+			nodes[i].StartBackgroundTasks(200 * time.Millisecond)
 		}
 
 		start := time.Now()
 		propigated := false
-		ticker := time.NewTicker(51 * time.Millisecond)
+		ticker := time.NewTicker(210 * time.Millisecond)
 		stop := make(chan bool, 1)
 
 		go func() {
@@ -364,7 +382,7 @@ func xTestGossipPropigation(t *testing.T) {
 					if len(puts) < nodesCount*2 {
 						propigated = false
 					}
-					/*fmt.Printf("NODE%d(%s): %d:", i, nodes[i].nodeID.Pretty()[2:4], len(puts))
+					fmt.Printf("NODE%d(%s): %d:", i, nodes[i].nodeID.Pretty()[2:4], len(puts))
 					for j := 0; j < len(puts); j++ {
 						f, _ := puts[j].M.Fingerprint()
 						fmt.Printf("%s,", f.String()[2:4])
@@ -377,16 +395,16 @@ func xTestGossipPropigation(t *testing.T) {
 					nodes[i].dht.glk.RUnlock()
 					fmt.Printf("\n    ")
 					for k, _ := range nodes[i].dht.sources {
-						fmt.Printf("%d,", convertToIDx(nodes, k))
+						fmt.Printf("%d,", findNodeIdx(nodes, k))
 					}
 					fmt.Printf("\n")
-					*/
+
 				}
 				if propigated {
 					stop <- true
 					return
 				}
-				//fmt.Printf("\n")
+				fmt.Printf("\n")
 			}
 		}()
 		<-stop
@@ -395,7 +413,7 @@ func xTestGossipPropigation(t *testing.T) {
 	})
 }
 
-func convertToIDx(nodes []*Holochain, id peer.ID) int {
+func findNodeIdx(nodes []*Holochain, id peer.ID) int {
 	for i, n := range nodes {
 		if id == n.nodeID {
 			return i

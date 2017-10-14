@@ -740,20 +740,35 @@ func (h *Holochain) doCommit(a CommittingAction, change *StatusChange) (d *Entry
 	entry := a.Entry()
 	var l int
 	var hash Hash
+	var added bool
 
-	l, hash, header, err = h.chain.PrepareHeader(time.Now(), entryType, entry, h.agent.PrivKey(), change)
-	if err != nil {
-		return
-	}
+	// retry loop incase someone sneaks a new commit in between prepareHeader and addEntry
+	for !added {
+		h.chain.lk.RLock()
+		count := len(h.chain.Headers)
+		l, hash, header, err = h.chain.prepareHeader(time.Now(), entryType, entry, h.agent.PrivKey(), change)
+		h.chain.lk.RUnlock()
+		if err != nil {
+			return
+		}
 
-	a.SetHeader(header)
-	d, err = h.ValidateAction(a, entryType, nil, []peer.ID{h.nodeID})
-	if err != nil {
-		return
-	}
-	err = h.chain.addEntry(l, hash, header, entry)
-	if err != nil {
-		return
+		a.SetHeader(header)
+		d, err = h.ValidateAction(a, entryType, nil, []peer.ID{h.nodeID})
+		if err != nil {
+			return
+		}
+
+		h.chain.lk.Lock()
+		if count == len(h.chain.Headers) {
+			err = h.chain.addEntry(l, hash, header, entry)
+			if err == nil {
+				added = true
+			}
+		}
+		h.chain.lk.Unlock()
+		if err != nil {
+			return
+		}
 	}
 	entryHash = header.EntryLink
 	return

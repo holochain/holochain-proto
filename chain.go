@@ -15,6 +15,7 @@ import (
 	. "github.com/metacurrency/holochain/hash"
 	"io"
 	"os"
+	"sync"
 	"time"
 )
 
@@ -46,6 +47,7 @@ type Chain struct {
 
 	s        *os.File // if this stream is not nil, new entries will get marshaled to it
 	hashSpec HashSpec
+	lk       sync.RWMutex
 }
 
 // NewChain creates and empty chain
@@ -140,6 +142,8 @@ func (c *Chain) Top() (header *Header) {
 
 // Nth returns the nth latest header
 func (c *Chain) Nth(n int) (header *Header) {
+	c.lk.RLock()
+	defer c.lk.RUnlock()
 	l := len(c.Headers)
 	if l-n > 0 {
 		header = c.Headers[l-n-1]
@@ -149,6 +153,8 @@ func (c *Chain) Nth(n int) (header *Header) {
 
 // TopType returns the latest header of a given type
 func (c *Chain) TopType(entryType string) (hash *Hash, header *Header) {
+	c.lk.RLock()
+	defer c.lk.RUnlock()
 	i, ok := c.TypeTops[entryType]
 	if ok {
 		header = c.Headers[i]
@@ -160,22 +166,25 @@ func (c *Chain) TopType(entryType string) (hash *Hash, header *Header) {
 
 // AddEntry creates a new header and adds it to a chain
 func (c *Chain) AddEntry(now time.Time, entryType string, e Entry, privKey ic.PrivKey) (hash Hash, err error) {
+	c.lk.Lock()
+	defer c.lk.Unlock()
 	var l int
 	var header *Header
 	now = now.Round(0)
-	l, hash, header, err = c.PrepareHeader(now, entryType, e, privKey, nil)
+	l, hash, header, err = c.prepareHeader(now, entryType, e, privKey, nil)
 	if err == nil {
 		err = c.addEntry(l, hash, header, e)
 	}
 	return
 }
 
-func (c *Chain) PrepareHeader(now time.Time, entryType string, e Entry, privKey ic.PrivKey, change *StatusChange) (entryIdx int, hash Hash, header *Header, err error) {
-
+// prepareHeader builds a header that could be added to the chain.
+// Not thread safe, this must be called with the chain locked for writing so something else
+// doesn't get inserted
+func (c *Chain) prepareHeader(now time.Time, entryType string, e Entry, privKey ic.PrivKey, change *StatusChange) (entryIdx int, hash Hash, header *Header, err error) {
 	// get the previous hashes
 	var ph, pth Hash
 
-	//@TODO make this transactional
 	l := len(c.Hashes)
 	if l == 0 {
 		ph = NullHash()
@@ -198,6 +207,7 @@ func (c *Chain) PrepareHeader(now time.Time, entryType string, e Entry, privKey 
 	return
 }
 
+// addEntry, low level entry add, not thread safe, must call c.lock in the calling funciton
 func (c *Chain) addEntry(entryIdx int, hash Hash, header *Header, e Entry) (err error) {
 
 	l := len(c.Hashes)
@@ -230,6 +240,8 @@ func (c *Chain) addEntry(entryIdx int, hash Hash, header *Header, e Entry) (err 
 
 // Get returns the header of a given hash
 func (c *Chain) Get(h Hash) (header *Header, err error) {
+	c.lk.RLock()
+	defer c.lk.RUnlock()
 	i, ok := c.Hmap[h.String()]
 	if ok {
 		header = c.Headers[i]
@@ -241,6 +253,8 @@ func (c *Chain) Get(h Hash) (header *Header, err error) {
 
 // GetEntry returns the entry of a given entry hash
 func (c *Chain) GetEntry(h Hash) (entry Entry, entryType string, err error) {
+	c.lk.RLock()
+	defer c.lk.RUnlock()
 	i, ok := c.Emap[h.String()]
 	if ok {
 		entry = c.Entries[i]
@@ -253,6 +267,8 @@ func (c *Chain) GetEntry(h Hash) (entry Entry, entryType string, err error) {
 
 // GetEntryHeader returns the header of a given entry hash
 func (c *Chain) GetEntryHeader(h Hash) (header *Header, err error) {
+	c.lk.RLock()
+	defer c.lk.RUnlock()
 	i, ok := c.Emap[h.String()]
 	if ok {
 		header = c.Headers[i]
@@ -318,6 +334,8 @@ type ChainPair struct {
 
 // MarshalChain serializes a chain data to a writer
 func (c *Chain) MarshalChain(writer io.Writer, flags int64, whitelistTypes []string, privateTypes []string) (err error) {
+	c.lk.RLock()
+	defer c.lk.RUnlock()
 
 	if len(c.Headers) != len(c.Entries) {
 		err = ErrIncompleteChain
@@ -457,6 +475,8 @@ func (c *Chain) Walk(fn WalkerFn) (err error) {
 // @TODO confirm that TypeLinks are also correct
 // @TODO confirm signatures
 func (c *Chain) Validate(skipEntries bool) (err error) {
+	c.lk.RLock()
+	defer c.lk.RUnlock()
 	l := len(c.Headers)
 	for i := 0; i < l; i++ {
 		hd := c.Headers[i]
@@ -502,6 +522,8 @@ func (c *Chain) Validate(skipEntries bool) (err error) {
 
 // String converts a chain to a textual dump of the headers and entries
 func (c *Chain) String() string {
+	c.lk.RLock()
+	defer c.lk.RUnlock()
 	l := len(c.Headers)
 	r := ""
 	for i := 0; i < l; i++ {

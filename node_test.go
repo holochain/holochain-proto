@@ -13,6 +13,7 @@ import (
 	ma "github.com/multiformats/go-multiaddr"
 	. "github.com/smartystreets/goconvey/convey"
 	"io/ioutil"
+	"math/rand"
 	"os"
 	"path/filepath"
 	"testing"
@@ -490,8 +491,65 @@ func TestActivePeers(t *testing.T) {
 		filteredList = node.filterInactviePeers([]peer.ID{node.HashAddr, otherPeer}, 1)
 		So(len(filteredList), ShouldEqual, 1)
 	})
-
 }
+
+func TestNodeStress(t *testing.T) {
+	nodesCount := 4
+	mt := setupMultiNodeTesting(nodesCount)
+	defer mt.cleanupMultiNodeTesting()
+	nodes := mt.nodes
+	h1 := nodes[0]
+	h2 := nodes[1]
+	h3 := nodes[2]
+	h4 := nodes[3]
+	node1 := h1.node
+	node2 := h2.node
+	node3 := h3.node
+	node4 := h4.node
+	starConnectMutal(t, mt.ctx, nodes, nodesCount)
+
+	Convey("hammering a node should work", t, func() {
+		var i int
+		var err error
+		var r Message
+		//count := 1000
+		count := 10
+		s1 := make(chan bool, count)
+		s2 := make(chan bool, count)
+		for i = 0; i < count; i++ {
+			hash := commit(h1, "evenNumbers", fmt.Sprintf("%d", i*2))
+			m := node1.NewMessage(PUT_REQUEST, PutReq{H: hash})
+			r, err = node1.Send(mt.ctx, ActionProtocol, node2.HashAddr, m)
+			if err != nil || r.Type != OK_RESPONSE {
+				break
+			}
+			go func() {
+				r, err = node1.Send(mt.ctx, ActionProtocol, node3.HashAddr, m)
+				if err != nil {
+					panic(err)
+				}
+				s1 <- true
+			}()
+			go func() {
+				r, err = node1.Send(mt.ctx, ActionProtocol, node4.HashAddr, m)
+				if err != nil {
+					panic(err)
+				}
+				s2 <- true
+			}()
+		}
+		for i = 0; i < count; i++ {
+			<-s1
+			<-s2
+		}
+		So(i, ShouldEqual, count)
+		So(err, ShouldBeNil)
+		So(r.Type, ShouldEqual, OK_RESPONSE)
+	})
+}
+
+// -------------------------------------------------------------------------------------------
+// node testing functions
 
 func makePeer(id string) (pid peer.ID, key ic.PrivKey) {
 	// use a constant reader so the key will be the same each time for the test...
@@ -523,4 +581,122 @@ func addTestPeers(h *Holochain, peers []peer.ID, start int, count int) []peer.ID
 		}
 	}
 	return peers
+}
+
+func ringConnect(t *testing.T, ctx context.Context, nodes []*Holochain, nodesCount int) {
+	for i := 0; i < nodesCount; i++ {
+		connect(t, ctx, nodes[i], nodes[(i+1)%len(nodes)])
+	}
+}
+
+func starConnect(t *testing.T, ctx context.Context, nodes []*Holochain, nodesCount int) {
+	for i := 1; i < nodesCount; i++ {
+		connect(t, ctx, nodes[0], nodes[i])
+	}
+}
+
+func starConnectMutal(t *testing.T, ctx context.Context, nodes []*Holochain, nodesCount int) {
+	for i := 1; i < nodesCount; i++ {
+		connect(t, ctx, nodes[0], nodes[i])
+		connect(t, ctx, nodes[i], nodes[0])
+	}
+}
+
+func randConnect(t *testing.T, ctx context.Context, nodes []*Holochain, nodesCount, connectFromCount, connectToCount int) {
+
+	// connect nodes[1->connectFromCount] to connectToCount randomly selected nodes in
+	// nodes[(nodesCount-connectFromCount)->randConnect]
+
+	mrand := rand.New(rand.NewSource(42))
+	guy := nodes[0]
+	others := nodes[1:]
+	for i := 0; i < connectFromCount; i++ {
+		for j := 0; j < connectToCount; j++ { // 16, high enough to probably not have any partitions
+			v := mrand.Intn(nodesCount - connectFromCount - 1)
+			connect(t, ctx, others[i], others[connectFromCount+v])
+		}
+	}
+
+	for i := 0; i < connectFromCount; i++ {
+		connect(t, ctx, guy, others[i])
+	}
+}
+
+type multiNodeTest struct {
+	ctx    context.Context
+	cancel context.CancelFunc
+	s      *Service
+	d      string
+	nodes  []*Holochain
+	count  int
+}
+
+func setupMultiNodeTesting(n int) (mt *multiNodeTest) {
+	ctx, cancel := context.WithCancel(context.Background())
+	d, s := SetupTestService()
+	mt = &multiNodeTest{
+		ctx:    ctx,
+		cancel: cancel,
+		s:      s,
+		d:      d,
+		count:  n,
+	}
+	mt.nodes = makeTestNodes(mt.ctx, mt.s, n)
+	return
+}
+
+func (mt *multiNodeTest) cleanupMultiNodeTesting() {
+	for i := 0; i < mt.count; i++ {
+		mt.nodes[i].Close()
+	}
+	mt.cancel()
+	CleanupTestDir(mt.d)
+}
+
+func makeTestNodes(ctx context.Context, s *Service, n int) (nodes []*Holochain) {
+	nodes = make([]*Holochain, n)
+	for i := 0; i < n; i++ {
+		nodeName := fmt.Sprintf("node%d", i)
+		os.Setenv("HCLOG_PREFIX", nodeName+"_")
+		nodes[i] = setupTestChain(nodeName, i, s)
+		prepareTestChain(nodes[i])
+	}
+	for i := 0; i < n; i++ {
+		nodeName := fmt.Sprintf("node%d", i)
+		nodes[i].dht.dlog.Logf("SETUP: %s is %v", nodeName, nodes[i].nodeID)
+	}
+	os.Unsetenv("HCLOG_PREFIX")
+	return
+}
+
+func connectNoSync(t *testing.T, ctx context.Context, ah, bh *Holochain) {
+	a := ah.node
+	b := bh.node
+	idB := b.HashAddr
+	addrB := b.peerstore.Addrs(idB)
+	if len(addrB) == 0 {
+		t.Fatal("peers setup incorrectly: no local address")
+	}
+
+	pi := pstore.PeerInfo{ID: idB, Addrs: addrB}
+	ah.AddPeer(pi)
+
+	if err := a.host.Connect(ctx, pi); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func connect(t *testing.T, ctx context.Context, a, b *Holochain) {
+	connectNoSync(t, ctx, a, b)
+
+	// loop until connection notification has been received.
+	// under high load, this may not happen as immediately as we would like.
+	/*	for a.node.routingTable.Find(b.nodeID) == "" {
+			time.Sleep(time.Millisecond * 5)
+		}
+
+		for b.node.routingTable.Find(a.nodeID) == "" {
+			time.Sleep(time.Millisecond * 5)
+		}*/
+	//	time.Sleep(100 * time.Millisecond)
 }

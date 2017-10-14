@@ -534,8 +534,10 @@ func (h *Holochain) EncodeDNA(writer io.Writer) (err error) {
 
 // NewEntry adds an entry and it's header to the chain and returns the header and it's hash
 func (h *Holochain) NewEntry(now time.Time, entryType string, entry Entry) (hash Hash, header *Header, err error) {
+	h.chain.lk.Lock()
+	defer h.chain.lk.Unlock()
 	var l int
-	l, hash, header, err = h.chain.PrepareHeader(now, entryType, entry, h.agent.PrivKey(), nil)
+	l, hash, header, err = h.chain.prepareHeader(now, entryType, entry, h.agent.PrivKey(), nil)
 	if err == nil {
 		err = h.chain.addEntry(l, hash, header, entry)
 	}

@@ -17,6 +17,7 @@ import (
 	goprocessctx "github.com/jbenet/goprocess/context"
 
 	nat "github.com/libp2p/go-libp2p-nat"
+	discovery "github.com/libp2p/go-libp2p/p2p/discovery"
 
 	net "github.com/libp2p/go-libp2p-net"
 	peer "github.com/libp2p/go-libp2p-peer"
@@ -25,7 +26,6 @@ import (
 	swarm "github.com/libp2p/go-libp2p-swarm"
 	bhost "github.com/libp2p/go-libp2p/p2p/host/basic"
 	rhost "github.com/libp2p/go-libp2p/p2p/host/routed"
-	"github.com/metacurrency/holochain/discovery"
 	. "github.com/metacurrency/holochain/hash"
 	ma "github.com/multiformats/go-multiaddr"
 	mh "github.com/multiformats/go-multihash"

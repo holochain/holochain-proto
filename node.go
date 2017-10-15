@@ -15,15 +15,13 @@ import (
 
 	goprocess "github.com/jbenet/goprocess"
 	goprocessctx "github.com/jbenet/goprocess/context"
-
 	nat "github.com/libp2p/go-libp2p-nat"
-	discovery "github.com/libp2p/go-libp2p/p2p/discovery"
-
 	net "github.com/libp2p/go-libp2p-net"
 	peer "github.com/libp2p/go-libp2p-peer"
 	pstore "github.com/libp2p/go-libp2p-peerstore"
 	protocol "github.com/libp2p/go-libp2p-protocol"
 	swarm "github.com/libp2p/go-libp2p-swarm"
+	discovery "github.com/libp2p/go-libp2p/p2p/discovery"
 	bhost "github.com/libp2p/go-libp2p/p2p/host/basic"
 	rhost "github.com/libp2p/go-libp2p/p2p/host/routed"
 	. "github.com/metacurrency/holochain/hash"
@@ -31,14 +29,12 @@ import (
 	mh "github.com/multiformats/go-multihash"
 	"gopkg.in/mgo.v2/bson"
 	"io"
-
 	"math/big"
-	"sync"
-
+	"math/rand"
 	go_net "net"
 	"strconv"
 	"strings"
-
+	"sync"
 	"time"
 )
 
@@ -175,11 +171,25 @@ func (h *Holochain) addPeer(pi pstore.PeerInfo, confirm bool) (err error) {
 		h.node.peerstore.ClearAddrs(pi.ID)
 		err = nil
 	} else {
+		bootstrap := h.node.routingTable.IsEmpty()
 		Debugf("Adding Peer: %v\n", pi.ID)
 		h.node.routingTable.Update(pi.ID)
 		err = h.dht.AddGossiper(pi.ID)
+		if bootstrap {
+			h.BootstrapRouting()
+		}
 	}
 	return
+}
+
+// BootstrapRouting fills the routing table by searching for a random node
+func (h *Holochain) BootstrapRouting() {
+	s := fmt.Sprintf("%d", rand.Intn(1000000))
+	var hash Hash
+	err := hash.Sum(h.hashSpec, []byte(s))
+	if err == nil {
+		h.node.FindPeer(h.node.ctx, PeerIDFromHash(hash))
+	}
 }
 
 func (node *Node) isPeerActive(id peer.ID) bool {

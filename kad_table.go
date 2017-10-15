@@ -244,6 +244,20 @@ func (rt *RoutingTable) Size() int {
 	return tot
 }
 
+// IsEmpty returns bool
+func (rt *RoutingTable) IsEmpty() (empty bool) {
+	rt.tabLock.RLock()
+	empty = true
+	for _, buck := range rt.Buckets {
+		if buck.Len() > 0 {
+			empty = false
+			break
+		}
+	}
+	rt.tabLock.RUnlock()
+	return
+}
+
 // ListPeers takes a RoutingTable and returns a list of all peers from all buckets in the table.
 // NOTE: This is potentially unsafe... use at your own risk
 func (rt *RoutingTable) ListPeers() []peer.ID {

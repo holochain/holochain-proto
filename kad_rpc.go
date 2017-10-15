@@ -184,7 +184,7 @@ func KademliaReceiver(h *Holochain, m *Message) (response interface{}, err error
 	node := h.node
 	switch m.Type {
 	case FIND_NODE_REQUEST:
-		dht.dlog.Logf("KademliaReceiver got FIND_NODE_REQUEST: %v", m)
+		dht.dlog.Logf("KademliaReceiver got: %v", m)
 		switch t := m.Body.(type) {
 		case FindNodeReq:
 

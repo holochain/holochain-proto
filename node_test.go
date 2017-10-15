@@ -506,7 +506,7 @@ func TestNodeStress(t *testing.T) {
 	node2 := h2.node
 	node3 := h3.node
 	node4 := h4.node
-	starConnectMutal(t, mt.ctx, nodes, nodesCount)
+	starConnectMutual(t, mt.ctx, nodes, nodesCount)
 
 	Convey("hammering a node should work", t, func() {
 		var i int
@@ -589,13 +589,21 @@ func ringConnect(t *testing.T, ctx context.Context, nodes []*Holochain, nodesCou
 	}
 }
 
+func ringConnectMutual(t *testing.T, ctx context.Context, nodes []*Holochain, nodesCount int) {
+	for i := 0; i < nodesCount; i++ {
+		n2 := nodes[(i+1)%len(nodes)]
+		connect(t, ctx, nodes[i], n2)
+		connect(t, ctx, n2, nodes[i])
+	}
+}
+
 func starConnect(t *testing.T, ctx context.Context, nodes []*Holochain, nodesCount int) {
 	for i := 1; i < nodesCount; i++ {
 		connect(t, ctx, nodes[0], nodes[i])
 	}
 }
 
-func starConnectMutal(t *testing.T, ctx context.Context, nodes []*Holochain, nodesCount int) {
+func starConnectMutual(t *testing.T, ctx context.Context, nodes []*Holochain, nodesCount int) {
 	for i := 1; i < nodesCount; i++ {
 		connect(t, ctx, nodes[0], nodes[i])
 		connect(t, ctx, nodes[i], nodes[0])

@@ -335,7 +335,7 @@ func GossipReceiver(h *Holochain, m *Message) (response interface{}, err error) 
 	dht := h.dht
 	switch m.Type {
 	case GOSSIP_REQUEST:
-		dht.glog.Logf("GossipReceiver got GOSSIP_REQUEST: %v", m)
+		dht.glog.Logf("GossipReceiver got: %v", m)
 		switch t := m.Body.(type) {
 		case GossipReq:
 			dht.glog.Logf("%v wants my puts since %d and is at %d", m.From, t.YourIdx, t.MyIdx)

@@ -336,7 +336,7 @@ func xTestGossipPropigation(t *testing.T) {
 	mt := setupMultiNodeTesting(nodesCount)
 	defer mt.cleanupMultiNodeTesting()
 	nodes := mt.nodes
-	ringConnect(t, mt.ctx, nodes, nodesCount)
+	ringConnectMutual(t, mt.ctx, nodes, nodesCount)
 	//randConnect(t, mt.ctx, nodes, nodesCount, 7, 4)
 	//starConnect(t, mt.ctx, nodes, nodesCount)
 	Convey("each node should have one gossiper from the ring connect", t, func() {

@@ -744,21 +744,27 @@ func TestDHTDump(t *testing.T) {
 
 		So(strings.Index(str, fmt.Sprintf("MSG (fingerprint %v)", f)) >= 0, ShouldBeTrue)
 		So(strings.Index(str, msgStr) >= 0, ShouldBeTrue)
-
 	})
+
 	Convey("dht dump of index 99 should return err", t, func() {
 		_, err := h.dht.DumpIdx(99)
 		So(err.Error(), ShouldEqual, "no such change index")
-
 	})
-}
 
-func TestDHT2String(t *testing.T) {
-	d, _, h := PrepareTestChain("test")
-	defer CleanupTestChain(h, d)
+	Convey("dht.String() should produce human readable DHT", t, func() {
+		dump := h.dht.String()
+		So(dump, ShouldContainSubstring, "DHT changes: 2")
+		d, _ := h.dht.DumpIdx(1)
+		So(dump, ShouldContainSubstring, d)
+		d, _ = h.dht.DumpIdx(2)
+		So(dump, ShouldContainSubstring, d)
 
-	Convey("it dump should show the changes count", t, func() {
-		So(strings.Index(h.dht.String(), "DHT changes:2") >= 0, ShouldBeTrue)
+		So(dump, ShouldContainSubstring, "DHT entries:")
+		So(dump, ShouldContainSubstring, fmt.Sprintf("Hash--%s (status 1)", h.nodeIDStr))
+		pk, _ := h.agent.PubKey().Bytes()
+		So(dump, ShouldContainSubstring, fmt.Sprintf("Value: %s", string(pk)))
+		So(dump, ShouldContainSubstring, fmt.Sprintf("Sources: %s", h.nodeIDStr))
+
 	})
 }
 

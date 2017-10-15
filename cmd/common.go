@@ -175,10 +175,10 @@ func GetHolochain(name string, service *holo.Service, cmd string) (h *holo.Holoc
 		return
 	}
 
-  val := os.Getenv("HOLOCHAINCONFIG_ENABLENATUPNP")
-  if val != "" {
-    h.Config.EnableNATUPnP = val == "true"
-  }
+	val := os.Getenv("HOLOCHAINCONFIG_ENABLENATUPNP")
+	if val != "" {
+		h.Config.EnableNATUPnP = val == "true"
+	}
 
 	if err = h.Prepare(); err != nil {
 		return
@@ -220,8 +220,17 @@ func IsDir(pathParts ...string) bool {
 	return err == nil && info.Mode().IsDir()
 }
 
+func GetTmpDir(name string) (d string, err error) {
+	d = filepath.Join("/", "tmp", name)
+	//d, err = ioutil.TempDir("", d)
+	return
+}
+
 func MakeTmpDir(name string) (tmpHolochainCopyDir string, err error) {
-	tmpHolochainCopyDir = filepath.Join("/", "tmp", name)
+	tmpHolochainCopyDir, err = GetTmpDir(name)
+	if err != nil {
+		return
+	}
 	os.RemoveAll(tmpHolochainCopyDir)
 	err = os.MkdirAll(tmpHolochainCopyDir, 0770)
 	if err != nil {

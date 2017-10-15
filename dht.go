@@ -833,13 +833,18 @@ func (dht *DHT) DumpIdx(idx int) (str string, err error) {
 	return
 }
 
+func statusValueToString(val string) string {
+	//TODO
+	return val
+}
+
 // String converts a DHT into a human readable string
 func (dht *DHT) String() (result string) {
 	idx, err := dht.GetIdx()
 	if err != nil {
-		return ""
+		return err.Error()
 	}
-	result += fmt.Sprintf("DHT changes:%d\n", idx)
+	result += fmt.Sprintf("DHT changes: %d\n", idx)
 	for i := 1; i <= idx; i++ {
 		str, err := dht.DumpIdx(i)
 		if err != nil {
@@ -848,6 +853,32 @@ func (dht *DHT) String() (result string) {
 			result += fmt.Sprintf("%d\n%v\n", i, str)
 		}
 	}
+
+	result += fmt.Sprintf("DHT entries:\n")
+	err = dht.db.View(func(tx *buntdb.Tx) error {
+		err = tx.Ascend("entry", func(key, value string) bool {
+			x := strings.Split(key, ":")
+			k := string(x[1])
+			var status string
+			statusVal, err := tx.Get("status:" + k)
+			if err != nil {
+				status = fmt.Sprintf("<err getting status:%v>", err)
+			} else {
+				status = statusValueToString(statusVal)
+			}
+
+			var sources string
+			sources, err = tx.Get("src:" + k)
+			if err != nil {
+				sources = fmt.Sprintf("<err getting sources:%v>", err)
+			}
+
+			result += fmt.Sprintf("Hash--%s (status %s):\nValue: %s\nSources: %s\n\n", k, status, value, sources)
+			return true
+		})
+		return nil
+	})
+
 	return
 }
 

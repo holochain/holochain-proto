@@ -58,6 +58,8 @@ var mutableContext MutableContext
 
 var lastRunContext *cli.Context
 
+var sysUser *user.User
+
 // TODO: move these into cmd module
 
 func appCheck(devPath string) error {
@@ -76,6 +78,12 @@ func setupApp() (app *cli.App) {
 	name = ""
 	mutableContext = MutableContext{map[string]string{}, map[string]interface{}{}}
 
+	var err error
+	sysUser, err = user.Current()
+	if err != nil {
+		panic(err)
+	}
+
 	app = cli.NewApp()
 	app.Name = "hcdev"
 	app.Usage = "holochain dev command line tool"
@@ -83,6 +91,11 @@ func setupApp() (app *cli.App) {
 
 	var service *holo.Service
 	var serverID, agentID, identity string
+
+	var scenarioTmpDir = "hcdev_scenario_test_nodes_" + sysUser.Username
+
+	var dumpScenario string
+	var dumpTest bool
 
 	app.Flags = []cli.Flag{
 		cli.BoolFlag{
@@ -477,8 +490,9 @@ func setupApp() (app *cli.App) {
 				}
 				mutableContext.obj["testScenarioRoleList"] = &roleList
 
-				// run a bunch of hcdev test processes
-				rootExecDir, err := cmd.MakeTmpDir("hcdev_test.go/$NOW")
+				// run a bunch of hcdev test processes. Separate temp folder by username in case
+				// multiple users on the same machine are running tests
+				rootExecDir, err := cmd.MakeTmpDir(scenarioTmpDir)
 				if err != nil {
 					return cmd.MakeErrFromErr(c, err)
 				}
@@ -685,7 +699,7 @@ func setupApp() (app *cli.App) {
 			Name:      "dump",
 			Aliases:   []string{"d"},
 			ArgsUsage: "holochain-name",
-			Usage:     "display a text dump of a chain after last test",
+			Usage:     "display a text dump of a chain after last 'web', 'test', or 'scenario'",
 			Flags: []cli.Flag{
 				cli.BoolFlag{
 					Name:        "chain",
@@ -695,13 +709,43 @@ func setupApp() (app *cli.App) {
 					Name:        "dht",
 					Destination: &dumpDHT,
 				},
+				cli.BoolFlag{
+					Name:        "test",
+					Destination: &dumpTest,
+				},
+				cli.StringFlag{
+					Name:        "scenario",
+					Destination: &dumpScenario,
+				},
 			},
 			Action: func(c *cli.Context) error {
 
 				if !dumpChain && !dumpDHT {
 					dumpChain = true
 				}
-				h, err := service.Load(name)
+
+				var h *holo.Holochain
+				var s *holo.Service
+				var err error
+				if dumpTest {
+					panic("not implemented")
+				} else if dumpScenario != "" {
+					// the value is the role name which has it's own service for that role
+					var d string
+					d, err = cmd.GetTmpDir(scenarioTmpDir)
+					if err == nil {
+						s, err = holo.LoadService(filepath.Join(d, dumpScenario))
+					}
+				} else {
+					// use default service
+					s = service
+				}
+				if err == nil {
+					h, err = s.Load(name)
+					if err == nil {
+						err = h.Prepare()
+					}
+				}
 				if err != nil {
 					return cmd.MakeErrFromErr(c, err)
 				}
@@ -715,7 +759,7 @@ func setupApp() (app *cli.App) {
 					fmt.Printf("Chain for: %s\n%v", dnaHash, h.Chain())
 				}
 				if dumpDHT {
-					fmt.Printf("DHT for: %s\n%v", dnaHash, h.DHT())
+					fmt.Printf("DHT for: %s\n%v", dnaHash, h.DHT().String())
 				}
 
 				return nil
@@ -784,11 +828,7 @@ func setupApp() (app *cli.App) {
 		if rootPath == "" {
 			rootPath = os.Getenv("HOLOPATHDEV")
 			if rootPath == "" {
-				u, err := user.Current()
-				if err != nil {
-					return err
-				}
-				userPath := u.HomeDir
+				userPath := sysUser.HomeDir
 				rootPath = filepath.Join(userPath, holo.DefaultDirectoryName+"dev")
 			}
 		}
@@ -806,10 +846,7 @@ func setupApp() (app *cli.App) {
 			if agentID != "" {
 				username = agentID
 			} else {
-				u, err := user.Current()
-				if err == nil {
-					username = u.Username
-				}
+				username = sysUser.Username
 			}
 			if username == "" {
 				username = "test"

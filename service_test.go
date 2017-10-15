@@ -321,7 +321,7 @@ func TestMakeTestingApp(t *testing.T) {
 		So(f, ShouldEqual, "")
 		So(err.Error(), ShouldEqual, "No DNA file in "+filepath.Join(root, ChainDNADir)+"/")
 		_, err = s.load("test", "json")
-		So(err.Error(), ShouldEqual, "open "+filepath.Join(root, ChainDNADir, DNAFileName+".json")+": no such file or directory")
+		So(err.Error(), ShouldEqual, "open "+filepath.Join(root, ConfigFileName+".json")+": no such file or directory")
 
 	})
 

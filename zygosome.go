@@ -81,7 +81,7 @@ func (z *ZygoRibosome) Receive(from string, msg string) (response string, err er
 	fnName := "receive"
 
 	code = fmt.Sprintf(`(json (%s "%s" (unjson (raw "%s"))))`, fnName, from, sanitizeZyString(msg))
-	Debug(code)
+	z.h.Debug(code)
 	err = z.env.LoadString(code)
 	if err != nil {
 		return
@@ -108,7 +108,7 @@ func (z *ZygoRibosome) ValidatePackagingRequest(action ValidatingAction, def *En
 	var code string
 	fnName := "validate" + strings.Title(action.Name()) + "Pkg"
 	code = fmt.Sprintf(`(%s "%s")`, fnName, def.Name)
-	Debug(code)
+	z.h.Debug(code)
 	err = z.env.LoadString(code)
 	if err != nil {
 		return
@@ -228,7 +228,7 @@ func (z *ZygoRibosome) ValidateAction(action Action, def *EntryDef, pkg *Validat
 	if err != nil {
 		return
 	}
-	Debug(code)
+	z.h.Debug(code)
 	err = z.runValidate(action.Name(), code)
 	return
 }
@@ -308,7 +308,7 @@ func (z *ZygoRibosome) validateEntry(fnName string, def *EntryDef, entry Entry, 
 	}
 
 	code := fmt.Sprintf(`(%s "%s" %s %s %s)`, fnName, def.Name, e, hdr, srcs)
-	Debugf("%s: %s", fnName, code)
+	z.h.Debugf("%s: %s", fnName, code)
 
 	err = z.runValidate(fnName, code)
 	return
@@ -336,7 +336,7 @@ func (z *ZygoRibosome) Call(fn *FunctionDef, params interface{}) (result interfa
 		err = errors.New("params type not implemented")
 		return
 	}
-	Debugf("Zygo Call: %s", code)
+	z.h.Debugf("Zygo Call: %s", code)
 	err = z.env.LoadString(code)
 	if err != nil {
 		return
@@ -859,7 +859,7 @@ func NewZygoRibosome(h *Holochain, zome *Zome) (n Ribosome, err error) {
 				if err != nil {
 					return zygo.SexpNull, err
 				}
-				Debugf("Query options: %s", string(j))
+				z.h.Debugf("Query options: %s", string(j))
 				err = json.Unmarshal(j, &options)
 				if err != nil {
 					return zygo.SexpNull, err
@@ -1321,7 +1321,7 @@ func addExtras(z *ZygoRibosome) {
 
 func (z *ZygoRibosome) RunAsyncSendResponse(response AppMsg, callback string, callbackID string) (result interface{}, err error) {
 	code := fmt.Sprintf(`(%s (unjson (raw "%s")) "%s")`, callback, sanitizeZyString(response.Body), sanitizeZyString(callbackID))
-	Debugf("Calling %s\n", code)
+	z.h.Debugf("Calling %s\n", code)
 	result, err = z.Run(code)
 	return
 }

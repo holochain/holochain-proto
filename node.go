@@ -123,6 +123,7 @@ type Node struct {
 	peerstore    pstore.Peerstore
 	routingTable *RoutingTable
 	nat          *nat.NAT
+	log          *Logger
 
 	// items for the kademlia implementation
 	plk   sync.Mutex
@@ -167,12 +168,12 @@ func (h *Holochain) addPeer(pi pstore.PeerInfo, confirm bool) (err error) {
 		err = h.node.host.Connect(h.node.ctx, pi)
 	}
 	if err != nil {
-		Debugf("Clearing peer %v, connection failed (%v)\n", pi.ID, err)
+		h.dht.dlog.Logf("Clearing peer %v, connection failed (%v)\n", pi.ID, err)
 		h.node.peerstore.ClearAddrs(pi.ID)
 		err = nil
 	} else {
 		bootstrap := h.node.routingTable.IsEmpty()
-		Debugf("Adding Peer: %v\n", pi.ID)
+		h.dht.dlog.Logf("Adding Peer: %v\n", pi.ID)
 		h.node.routingTable.Update(pi.ID)
 		err = h.dht.AddGossiper(pi.ID)
 		if bootstrap {
@@ -221,7 +222,7 @@ func (node *Node) filterInactviePeers(peersIn []peer.ID, max int) (peersOut []pe
 
 // AddPeer adds a peer to the peerstore if it passes various checks
 func (h *Holochain) AddPeer(pi pstore.PeerInfo) (err error) {
-	Debugf("Adding Peer Req: %v my node %v\n", pi.ID, h.node.HashAddr)
+	h.dht.dlog.Logf("Adding Peer Req: %v my node %v\n", pi.ID, h.node.HashAddr)
 	if pi.ID == h.node.HashAddr {
 		return
 	}
@@ -259,13 +260,13 @@ func (n *Node) ExternalAddr() ma.Multiaddr {
 	}
 }
 
-func (n *Node) discoverAndHandleNat(listenPort int) {
-	Debugf("Looking for a NAT...")
-	n.nat = nat.DiscoverNAT()
-	if n.nat == nil {
-		Debugf("No NAT found.")
+func (node *Node) discoverAndHandleNat(listenPort int) {
+	node.log.Logf("Looking for a NAT...")
+	node.nat = nat.DiscoverNAT()
+	if node.nat == nil {
+		node.log.Logf("No NAT found.")
 	} else {
-		Debugf("Discovered NAT! Trying to aquire public port mapping via UPnP...")
+		node.log.Logf("Discovered NAT! Trying to aquire public port mapping via UPnP...")
 		ifaces, _ := go_net.Interfaces()
 		// handle err
 		for _, i := range ifaces {
@@ -285,18 +286,18 @@ func (n *Node) discoverAndHandleNat(listenPort int) {
 				addr_string := fmt.Sprintf("/ip4/%s/tcp/%d", ip, listenPort)
 				localaddr, err := ma.NewMultiaddr(addr_string)
 				if err == nil {
-					Debugf("NAT: trying to establish NAT mapping for %s...", addr_string)
-					n.nat.NewMapping(localaddr)
+					node.log.Logf("NAT: trying to establish NAT mapping for %s...", addr_string)
+					node.nat.NewMapping(localaddr)
 				}
 			}
 		}
 
-		external_addr := n.ExternalAddr()
+		external_addr := node.ExternalAddr()
 
-		if external_addr != n.NetAddr {
-			Debugf("NAT: successfully created port mapping! External address is: %s", external_addr.String())
+		if external_addr != node.NetAddr {
+			node.log.Logf("NAT: successfully created port mapping! External address is: %s", external_addr.String())
 		} else {
-			Debugf("NAT: could not create port mappping. Keep trying...")
+			node.log.Logf("NAT: could not create port mappping. Keep trying...")
 			Infof("NAT:-------------------------------------------------------")
 			Infof("NAT:---------------------Warning---------------------------")
 			Infof("NAT:-------------------------------------------------------")
@@ -310,15 +311,16 @@ func (n *Node) discoverAndHandleNat(listenPort int) {
 }
 
 // NewNode creates a new node with given multiAddress listener string and identity
-func NewNode(listenAddr string, protoMux string, agent *LibP2PAgent, enableNATUPnP bool) (node *Node, err error) {
-	Debugf("Creating new node with protoMux: %s\n", protoMux)
+func NewNode(listenAddr string, protoMux string, agent *LibP2PAgent, enableNATUPnP bool, log *Logger) (node *Node, err error) {
+	var n Node
+	n.log = log
+	n.log.Logf("Creating new node with protoMux: %s\n", protoMux)
 	nodeID, _, err := agent.NodeID()
 	if err != nil {
 		return
 	}
-	Debugf("NodeID is: %v\n", nodeID)
+	n.log.Logf("NodeID is: %v\n", nodeID)
 
-	var n Node
 	listenPort, err := strconv.Atoi(strings.Split(listenAddr, "/")[4])
 	if err != nil {
 		Infof("Can't parse port from Multiaddress string: %s", listenAddr)
@@ -348,10 +350,10 @@ func NewNode(listenAddr string, protoMux string, agent *LibP2PAgent, enableNATUP
 	actionProtocolString := "/hc-action-" + protoMux + "/0.0.0"
 	kademliaProtocolString := "/hc-kademlia-" + protoMux + "/0.0.0"
 
-	Debugf("Validate protocol identifier: " + validateProtocolString)
-	Debugf("Gossip protocol identifier: " + gossipProtocolString)
-	Debugf("Action protocol identifier: " + actionProtocolString)
-	Debugf("Kademlia protocol identifier: " + kademliaProtocolString)
+	n.log.Logf("Validate protocol identifier: " + validateProtocolString)
+	n.log.Logf("Gossip protocol identifier: " + gossipProtocolString)
+	n.log.Logf("Action protocol identifier: " + actionProtocolString)
+	n.log.Logf("Kademlia protocol identifier: " + kademliaProtocolString)
 
 	n.protocols[ValidateProtocol] = &Protocol{protocol.ID(validateProtocolString), ValidateReceiver}
 	n.protocols[GossipProtocol] = &Protocol{protocol.ID(gossipProtocolString), GossipReceiver}
@@ -512,7 +514,7 @@ func (node *Node) Send(ctx context.Context, proto int, addr peer.ID, m *Message)
 	// decode the response
 	err = response.Decode(s)
 	if err != nil {
-		Debugf("failed to decode: %v err:%v ", err)
+		node.log.Logf("failed to decode: %v err:%v ", err)
 		return
 	}
 	return

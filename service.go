@@ -434,14 +434,6 @@ func (s *Service) loadDNA(path string, filename string, format string) (dnaP *DN
 func (s *Service) load(name string, format string) (hP *Holochain, err error) {
 	var h Holochain
 	root := filepath.Join(s.Path, name)
-	dna, err := s.loadDNA(filepath.Join(root, ChainDNADir), DNAFileName, format)
-	if err != nil {
-		return
-	}
-
-	h.encodingFormat = format
-	h.rootPath = root
-	h.nucleus = NewNucleus(&h, dna)
 
 	// load the config
 	var f *os.File
@@ -457,6 +449,15 @@ func (s *Service) load(name string, format string) (hP *Holochain, err error) {
 	if err = h.SetupLogging(); err != nil {
 		return
 	}
+
+	dna, err := s.loadDNA(filepath.Join(root, ChainDNADir), DNAFileName, format)
+	if err != nil {
+		return
+	}
+
+	h.encodingFormat = format
+	h.rootPath = root
+	h.nucleus = NewNucleus(&h, dna)
 
 	// try and get the holochain-specific agent info
 	agent, err := LoadAgent(root)
@@ -565,6 +566,7 @@ func _makeConfig(s *Service) (config Config, err error) {
 		BootstrapServer: s.Settings.DefaultBootstrapServer,
 		EnableNATUPnP:   s.Settings.DefaultEnableNATUPnP,
 		Loggers: Loggers{
+			Debug:      Logger{Name: "Debug", Format: "HC: %{file}.%{line}: %{message}", Enabled: false},
 			App:        Logger{Name: "App", Format: "%{color:cyan}%{message}", Enabled: true},
 			DHT:        Logger{Name: "DHT", Format: "%{color:yellow}%{time} DHT: %{message}"},
 			Gossip:     Logger{Name: "Gossip", Format: "%{color:blue}%{time} Gossip: %{message}"},
@@ -676,10 +678,10 @@ func (s *Service) MakeTestingApp(root string, encodingFormat string, initDB bool
 		if err != nil {
 			return
 		}
-
 		if err = h.SetupLogging(); err != nil {
 			return
 		}
+
 	}
 	return
 }

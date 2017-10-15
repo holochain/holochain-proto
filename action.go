@@ -117,7 +117,7 @@ func (h *Holochain) ValidateAction(a ValidatingAction, entryType string, pkg *Pa
 	// run the action's system level validations
 	err = a.SysValidation(h, def, pkg, sources)
 	if err != nil {
-		Debugf("Sys ValidateAction(%T) err:%v\n", a, err)
+		h.Debugf("Sys ValidateAction(%T) err:%v\n", a, err)
 		return
 	}
 	if !def.IsSysEntry() {
@@ -138,7 +138,7 @@ func (h *Holochain) ValidateAction(a ValidatingAction, entryType string, pkg *Pa
 
 		err = n.ValidateAction(a, def, vpkg, prepareSources(sources))
 		if err != nil {
-			Debugf("Ribosome ValidateAction(%T) err:%v\n", a, err)
+			h.Debugf("Ribosome ValidateAction(%T) err:%v\n", a, err)
 		}
 	}
 	return
@@ -207,7 +207,7 @@ func (h *Holochain) GetValidationResponse(a ValidatingAction, hash Hash) (resp V
 		var req PackagingReq
 		req, err = n.ValidatePackagingRequest(a, def)
 		if err != nil {
-			Debugf("Ribosome GetValidationPackage(%T) err:%v\n", a, err)
+			h.Debugf("Ribosome GetValidationPackage(%T) err:%v\n", a, err)
 		}
 		resp.Package, err = MakePackage(h, req)
 	}
@@ -910,7 +910,7 @@ func sysValidateEntry(h *Holochain, def *EntryDef, entry Entry, pkg *Package) (e
 		} else {
 			input = entry
 		}
-		Debugf("Validating %v against schema", input)
+		h.Debugf("Validating %v against schema", input)
 		if err = def.validator.Validate(input); err != nil {
 			return
 		}
@@ -1229,6 +1229,8 @@ func (a *ActionModAgent) Do(h *Holochain) (response interface{}, err error) {
 	if !ok {
 		err = errors.New("expecting identity and/or revocation option")
 	} else {
+
+		//TODO: synchronize this, what happens if two new agent request come in back to back?
 		h.agent = &newAgent
 		// add a new agent entry and update
 		var agentHash Hash

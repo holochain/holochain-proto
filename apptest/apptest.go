@@ -254,7 +254,7 @@ func DoTest(h *Holochain, name string, i int, t TestData, startTime time.Time, h
 		return
 	}
 
-	Debugf("------------------------------")
+	h.Debugf("------------------------------")
 	description := t.Convey
 	if description == "" {
 		description = fmt.Sprintf("%v", t)
@@ -284,13 +284,13 @@ func DoTest(h *Holochain, name string, i int, t TestData, startTime time.Time, h
 			time.Sleep(time.Millisecond * t.Wait)
 		}
 
-		Debugf("Input before replacement: %s", input)
+		h.Debugf("Input before replacement: %s", input)
 		replacements.repetition = fmt.Sprintf("%d", r)
 		replacements.r1 = strings.Trim(fmt.Sprintf("%v", history.lastResults[0]), "\"")
 		replacements.r2 = strings.Trim(fmt.Sprintf("%v", history.lastResults[1]), "\"")
 		replacements.r3 = strings.Trim(fmt.Sprintf("%v", history.lastResults[2]), "\"")
 		input = testStringReplacements(input, &replacements)
-		Debugf("Input after replacement: %s", input)
+		h.Debugf("Input after replacement: %s", input)
 		//====================
 
 		var actualResult interface{}
@@ -320,7 +320,7 @@ func DoTest(h *Holochain, name string, i int, t TestData, startTime time.Time, h
 				err = errors.New(expectedError)
 			} else {
 				// all fine
-				Debugf("%s\n\tpassed :D", comparisonString)
+				h.Debugf("%s\n\tpassed :D", comparisonString)
 				err = nil
 			}
 		} else {
@@ -334,7 +334,7 @@ func DoTest(h *Holochain, name string, i int, t TestData, startTime time.Time, h
 				var match bool
 				var comparisonString string
 				if expectedResultRegexp != "" {
-					Debugf("Test %s matching against regexp...", testID)
+					h.Debugf("Test %s matching against regexp...", testID)
 					expectedResultRegexp = testStringReplacements(expectedResultRegexp, &replacements)
 					comparisonString = fmt.Sprintf("\nTest: %s\n\tExpected regexp:\t%v\n\tGot:\t\t%v", testID, expectedResultRegexp, resultString)
 					re, matchError := regexp.Compile(expectedResultRegexp)
@@ -351,14 +351,14 @@ func DoTest(h *Holochain, name string, i int, t TestData, startTime time.Time, h
 					}
 
 				} else {
-					Debugf("Test %s matching against string...", testID)
+					h.Debugf("Test %s matching against string...", testID)
 					expectedResult = testStringReplacements(expectedResult, &replacements)
 					comparisonString = fmt.Sprintf("\nTest: %s\n\tExpected:\t%v\n\tGot:\t\t%v", testID, expectedResult, resultString)
 					match = (resultString == expectedResult)
 				}
 
 				if match {
-					Debugf("%s\n\tpassed! :D", comparisonString)
+					h.Debugf("%s\n\tpassed! :D", comparisonString)
 					passed.Log("passed! ✔")
 				} else {
 					err = errors.New(comparisonString)

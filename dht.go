@@ -678,7 +678,7 @@ func (dht *DHT) getLinks(base Hash, tag string, statusMask int) (results []Tagge
 
 // Change sends DHT change messages to the closest peers to the hash in question
 func (dht *DHT) Change(key Hash, msgType MsgType, body interface{}) (err error) {
-	Debugf("Starting %v Change for %v with body %v", msgType, key, body)
+	dht.h.Debugf("Starting %v Change for %v with body %v", msgType, key, body)
 
 	msg := dht.h.node.NewMessage(msgType, body)
 	// change in our local DHT as well as
@@ -715,7 +715,7 @@ func (dht *DHT) Change(key Hash, msgType MsgType, body interface{}) (err error) 
 
 // Query sends DHT query messages recursively to peers until one is able to respond.
 func (dht *DHT) Query(key Hash, msgType MsgType, body interface{}) (response interface{}, err error) {
-	Debugf("Starting %v Query for %v with body %v", msgType, key, body)
+	dht.h.Debugf("Starting %v Query for %v with body %v", msgType, key, body)
 
 	msg := dht.h.node.NewMessage(msgType, body)
 	// try locally first
@@ -735,7 +735,7 @@ func (dht *DHT) Query(key Hash, msgType MsgType, body interface{}) (response int
 
 	// get closest peers in the routing table
 	rtp := dht.h.node.routingTable.NearestPeers(key, AlphaValue)
-	Debugf("peers in rt: %d %s", len(rtp), rtp)
+	dht.h.Debugf("peers in rt: %d %s", len(rtp), rtp)
 	if len(rtp) == 0 {
 		Info("DHT Query with no peers in routing table!")
 		return nil, ErrHashNotFound
@@ -743,12 +743,10 @@ func (dht *DHT) Query(key Hash, msgType MsgType, body interface{}) (response int
 
 	// setup the Query
 	query := dht.h.node.newQuery(key, func(ctx context.Context, to peer.ID) (*dhtQueryResult, error) {
-		if ctx == nil {
-			Debug("fish")
-		}
+
 		response, err := dht.send(ctx, to, msg)
 		if err != nil {
-			Debugf("Query failed: %v", err)
+			dht.h.Debugf("Query failed: %v", err)
 			return nil, err
 		}
 
@@ -756,7 +754,7 @@ func (dht *DHT) Query(key Hash, msgType MsgType, body interface{}) (response int
 
 		switch t := response.(type) {
 		case GetResp:
-			Debugf("Query successful with: %v", response)
+			dht.h.Debugf("Query successful with: %v", response)
 			res.success = true
 			res.response = response
 		case CloserPeersResp:
@@ -897,13 +895,13 @@ func (dht *DHT) String() (result string) {
 // Close cleans up the DHT
 func (dht *DHT) Close() {
 	if dht.gossiping != nil {
-		Debug("Stopping gossiping")
+		dht.h.Debug("Stopping gossiping")
 		stop := dht.gossiping
 		dht.gossiping = nil
 		stop <- true
 	}
 	if dht.retrying != nil {
-		Debug("Stopping retrying")
+		dht.h.Debug("Stopping retrying")
 		stop := dht.retrying
 		dht.retrying = nil
 		stop <- true

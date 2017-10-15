@@ -139,16 +139,17 @@ func TestDebuggingSetup(t *testing.T) {
 	Convey("it should setup debugging output", t, func() {
 		// test the output of the debug log
 		var buf bytes.Buffer
-		debugLog.w = &buf
-		var enabled = debugLog.Enabled
-		debugLog.Enabled = true
+		log := &h.Config.Loggers.Debug
+		log.w = &buf
+		var enabled = log.Enabled
+		log.Enabled = true
 
-		Debug("test")
-		So(string(buf.Bytes()), ShouldEqual, "HC: holochain_test.go.146: test\n")
+		h.Debug("test")
+		So(string(buf.Bytes()), ShouldEqual, "HC: holochain_test.go.147: test\n")
 
 		// restore state of debug log
-		debugLog.w = os.Stdout
-		debugLog.Enabled = enabled
+		log.w = os.Stdout
+		log.Enabled = enabled
 	})
 }
 

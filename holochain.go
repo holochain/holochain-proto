@@ -42,6 +42,7 @@ const (
 // Loggers holds the logging structures for the different parts of the system
 type Loggers struct {
 	App        Logger
+	Debug      Logger
 	DHT        Logger
 	Gossip     Logger
 	TestPassed Logger
@@ -111,12 +112,21 @@ func Debug(m string) {
 	debugLog.Log(m)
 }
 
-// Debugf sends a formatted string to the standard debug log
+func (h *Holochain) Debug(m string) {
+	h.Config.Loggers.Debug.Log(m)
+}
+
+// Debugf sends a formatted string to the debug log
+func (h *Holochain) Debugf(m string, args ...interface{}) {
+	h.Config.Loggers.Debug.Logf(m, args...)
+}
+
+// Debugf sends a formatted string to the global debug log
 func Debugf(m string, args ...interface{}) {
 	debugLog.Logf(m, args...)
 }
 
-// Info sends a string to the standard info log
+// Info sends a string to the global info log
 func Info(m string) {
 	infoLog.Log(m)
 }
@@ -267,14 +277,14 @@ func (h *Holochain) createNode() (err error) {
 		ip = "0.0.0.0"
 	}
 	listenaddr := fmt.Sprintf("/ip4/%s/tcp/%d", ip, h.Config.Port)
-	h.node, err = NewNode(listenaddr, h.dnaHash.String(), h.Agent().(*LibP2PAgent), h.Config.EnableNATUPnP)
+	h.node, err = NewNode(listenaddr, h.dnaHash.String(), h.Agent().(*LibP2PAgent), h.Config.EnableNATUPnP, &h.Config.Loggers.Debug)
 	return
 }
 
 // Prepare sets up a holochain to run by:
 // loading the schema validators, setting up a Network node and setting up the DHT
 func (h *Holochain) Prepare() (err error) {
-	Debugf("Preparing %v", h.dnaHash)
+	h.Debugf("Preparing %v", h.dnaHash)
 
 	err = h.nucleus.dna.check()
 	if err != nil {
@@ -307,7 +317,7 @@ func (h *Holochain) Prepare() (err error) {
 
 // Activate fires up the holochain node, starting node discovery and protocols
 func (h *Holochain) Activate() (err error) {
-	Debugf("Activating  %v", h.dnaHash)
+	h.Debugf("Activating  %v", h.dnaHash)
 
 	if h.Config.EnableMDNS {
 		err = h.node.EnableMDNSDiscovery(h, time.Second)
@@ -381,6 +391,7 @@ func (h *Holochain) AgentTopHash() (id Hash) {
 
 // Top returns a hash of top header or err if not yet defined
 func (h *Holochain) Top() (top Hash, err error) {
+	//TODO: LOCK!!!
 	tp := h.chain.Hashes[len(h.chain.Hashes)-1]
 	top = tp.Clone()
 	return
@@ -494,6 +505,9 @@ func initLogger(l *Logger, envOverride string, writer io.Writer) (err error) {
 
 // SetupLogging initializes loggers as configured by the config file and environment variables
 func (h *Holochain) SetupLogging() (err error) {
+	if err = initLogger(&h.Config.Loggers.Debug, "HCLOG_DEBUG_ENABLE", nil); err != nil {
+		return
+	}
 	if err = initLogger(&h.Config.Loggers.App, "HCLOG_APP_ENABLE", nil); err != nil {
 		return
 	}
@@ -515,14 +529,15 @@ func (h *Holochain) SetupLogging() (err error) {
 	val := os.Getenv("HCLOG_PREFIX")
 	if val != "" {
 		Debugf("Using environment variable to set log prefix to: %s", val)
+		h.Config.Loggers.Debug.SetPrefix(val)
 		h.Config.Loggers.App.SetPrefix(val)
 		h.Config.Loggers.DHT.SetPrefix(val)
 		h.Config.Loggers.Gossip.SetPrefix(val)
 		h.Config.Loggers.TestPassed.SetPrefix(val)
 		h.Config.Loggers.TestFailed.SetPrefix(val)
 		h.Config.Loggers.TestInfo.SetPrefix(val)
-		debugLog.SetPrefix(val)
-		infoLog.SetPrefix(val)
+		//		debugLog.SetPrefix(val)
+		//		infoLog.SetPrefix(val)
 	}
 	return
 }
@@ -547,9 +562,9 @@ func (h *Holochain) NewEntry(now time.Time, entryType string, entry Entry) (hash
 		if entryType == DNAEntryType {
 			e = "<DNA>"
 		}
-		Debugf("NewEntry of %s added as: %s (entry: %v)", entryType, header.EntryLink, e)
+		h.Debugf("NewEntry of %s added as: %s (entry: %v)", entryType, header.EntryLink, e)
 	} else {
-		Debugf("NewEntry of %s failed with: %s (entry: %v)", entryType, err, entry)
+		h.Debugf("NewEntry of %s failed with: %s (entry: %v)", entryType, err, entry)
 	}
 
 	return
@@ -747,13 +762,13 @@ func (h *Holochain) SendAsync(proto int, to peer.ID, msg *Message, callback *Cal
 // HandleAsyncSends waits on a channel for asyncronous sends
 func (h *Holochain) HandleAsyncSends() (err error) {
 	for {
-		Debug("waiting for aysnc send response")
+		h.Debug("waiting for aysnc send response")
 		err, ok := <-h.asyncSends
 		if !ok {
-			Debug("channel closed, breaking")
+			h.Debug("channel closed, breaking")
 			break
 		}
-		Debugf("got %v", err)
+		h.Debugf("got %v", err)
 	}
 	return nil
 }
@@ -787,14 +802,14 @@ func (h *Holochain) Send(basectx context.Context, proto int, to peer.ID, message
 		// if we are sending to ourselves we should bypass the network mechanics and call
 		// the receiver directly
 		if to == h.node.HashAddr {
-			Debugf("Sending message (local):%v (fingerprint:%s)", message, f)
+			h.Debugf("Sending message (local):%v (fingerprint:%s)", message, f)
 			response, err = h.node.protocols[proto].Receiver(h, message)
-			Debugf("send result (local): %v (fp:%s)error:%v", response, f, err)
+			h.Debugf("send result (local): %v (fp:%s)error:%v", response, f, err)
 		} else {
-			Debugf("Sending message to %v (net):%v (fingerprint:%s)", to, message, f)
+			h.Debugf("Sending message to %v (net):%v (fingerprint:%s)", to, message, f)
 			var r Message
 			r, err = h.node.Send(ctx, proto, to, message)
-			Debugf("send result to %v (net): %v (fp:%s) error:%v", to, r, f, err)
+			h.Debugf("send result to %v (net): %v (fp:%s) error:%v", to, r, f, err)
 
 			if err != nil {
 				sent <- err

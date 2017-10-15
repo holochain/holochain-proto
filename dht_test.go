@@ -751,9 +751,12 @@ func TestDHTDump(t *testing.T) {
 		So(err.Error(), ShouldEqual, "no such change index")
 	})
 
+	reviewHash := commit(h, "review", "this is my bogus review of the user")
+	commit(h, "rating", fmt.Sprintf(`{"Links":[{"Base":"%s","Link":"%s","Tag":"4stars"}]}`, h.nodeIDStr, reviewHash.String()))
+
 	Convey("dht.String() should produce human readable DHT", t, func() {
 		dump := h.dht.String()
-		So(dump, ShouldContainSubstring, "DHT changes: 2")
+		So(dump, ShouldContainSubstring, "DHT changes: 4")
 		d, _ := h.dht.DumpIdx(1)
 		So(dump, ShouldContainSubstring, d)
 		d, _ = h.dht.DumpIdx(2)
@@ -764,6 +767,8 @@ func TestDHTDump(t *testing.T) {
 		pk, _ := h.agent.PubKey().Bytes()
 		So(dump, ShouldContainSubstring, fmt.Sprintf("Value: %s", string(pk)))
 		So(dump, ShouldContainSubstring, fmt.Sprintf("Sources: %s", h.nodeIDStr))
+
+		So(dump, ShouldContainSubstring, fmt.Sprintf("Linked to: %s with tag %s", reviewHash, "4stars"))
 
 	})
 }

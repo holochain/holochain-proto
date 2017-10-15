@@ -252,6 +252,7 @@ func NewDHT(h *Holochain) *DHT {
 	db.CreateIndex("idx", "idx:*", buntdb.IndexInt)
 	db.CreateIndex("peer", "peer:*", buntdb.IndexString)
 	db.CreateIndex("list", "list:*", buntdb.IndexString)
+	db.CreateIndex("entry", "entry:*", buntdb.IndexString)
 
 	dht.db = db
 	dht.retryQueue = make(chan *retry, 100)
@@ -872,8 +873,19 @@ func (dht *DHT) String() (result string) {
 			if err != nil {
 				sources = fmt.Sprintf("<err getting sources:%v>", err)
 			}
-
-			result += fmt.Sprintf("Hash--%s (status %s):\nValue: %s\nSources: %s\n\n", k, status, value, sources)
+			var links string
+			err = tx.Ascend("link", func(key, value string) bool {
+				x := strings.Split(key, ":")
+				base := x[1]
+				link := x[2]
+				tag := x[3]
+				if base == k {
+					links += fmt.Sprintf("Linked to: %s with tag %s\n", link, tag)
+					links += value + "\n"
+				}
+				return true
+			})
+			result += fmt.Sprintf("Hash--%s (status %s):\nValue: %s\nSources: %s\n%s\n", k, status, value, sources, links)
 			return true
 		})
 		return nil

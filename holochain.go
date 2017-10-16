@@ -782,7 +782,11 @@ func (h *Holochain) StartBackgroundTasks(gossipInterval time.Duration) {
 	go h.DHT().HandleGossipPuts()
 	go h.DHT().HandleGossipWiths()
 	go h.HandleAsyncSends()
-	go h.DHT().Gossip(gossipInterval)
+	if gossipInterval > 0 {
+		go h.DHT().Gossip(gossipInterval)
+	} else {
+		h.Debug("Gossip disabled")
+	}
 	go h.DHT().Retry(DefaultRetryInterval)
 }
 

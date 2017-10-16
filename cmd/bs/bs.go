@@ -88,7 +88,7 @@ type Node struct {
 }
 
 const (
-	TTL = time.Minute * 60 * 24
+	TTL = time.Minute * 15
 )
 
 func get(chain string) (result string, err error) {

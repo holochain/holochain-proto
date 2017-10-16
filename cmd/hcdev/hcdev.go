@@ -810,6 +810,7 @@ func setupApp() (app *cli.App) {
 			os.Setenv("HCLOG_APP_ENABLE", "1")
 			os.Setenv("HCLOG_DHT_ENABLE", "1")
 			os.Setenv("HCLOG_GOSSIP_ENABLE", "1")
+			os.Setenv("HCLOG_DEBUG_ENABLE", "1")
 		}
 		holo.InitializeHolochain()
 

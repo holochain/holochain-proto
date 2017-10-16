@@ -839,3 +839,54 @@ func TestDHTRetry(t *testing.T) {
 		So(len(h.dht.retryQueue), ShouldEqual, 0)
 	})
 }
+
+func TestDHTMultiNode(t *testing.T) {
+	nodesCount := 10
+	mt := setupMultiNodeTesting(nodesCount)
+	defer mt.cleanupMultiNodeTesting()
+	nodes := mt.nodes
+
+	ringConnectMutual(t, mt.ctx, mt.nodes, nodesCount)
+
+	Convey("each node should be able to get the key of others", t, func() {
+		for i := 0; i < nodesCount; i++ {
+			h1 := nodes[i]
+			for j := 0; j < nodesCount; j++ {
+				h2 := nodes[j]
+				options := GetOptions{StatusMask: StatusDefault}
+				req := GetReq{H: HashFromPeerID(h1.nodeID), StatusMask: options.StatusMask, GetMask: options.GetMask}
+				response, err := NewGetAction(req, &options).Do(h2)
+				So(err, ShouldBeNil)
+				pk, _ := h1.agent.PubKey().Bytes()
+				So(fmt.Sprintf("%v", response), ShouldEqual, fmt.Sprintf("{{%v}  [] }", pk))
+			}
+		}
+	})
+
+	hashes := []Hash{}
+	// add a bunch of data and links to that data on the key
+	for i := 0; i < nodesCount; i++ {
+		h := nodes[i]
+		hash := commit(h, "review", fmt.Sprintf("this statement by node %d (%v)", i, h.nodeID))
+		commit(h, "rating", fmt.Sprintf(`{"Links":[{"Base":"%s","Link":"%s","Tag":"statement"}]}`, h.nodeIDStr, hash.String()))
+		hashes = append(hashes, hash)
+	}
+
+	Convey("each node should be able to get statements form the other nodes including self", t, func() {
+		for i := 0; i < nodesCount; i++ {
+			h1 := nodes[i]
+			for j := 0; j < nodesCount; j++ {
+				h2 := nodes[j]
+				options := GetLinksOptions{Load: true, StatusMask: StatusLive}
+				response, err := NewGetLinksAction(
+					&LinkQuery{
+						Base:       HashFromPeerID(h1.nodeID),
+						T:          "statement",
+						StatusMask: options.StatusMask,
+					}, &options).Do(h2)
+				So(err, ShouldBeNil)
+				So(fmt.Sprintf("%v", response), ShouldEqual, fmt.Sprintf("&{[{%v this statement by node %d (%v) review  %s}]}", hashes[i], i, h1.nodeID, h1.nodeID.Pretty()))
+			}
+		}
+	})
+}

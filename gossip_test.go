@@ -382,29 +382,29 @@ func xTestGossipPropigation(t *testing.T) {
 					if len(puts) < nodesCount*2 {
 						propigated = false
 					}
-					fmt.Printf("NODE%d(%s): %d:", i, nodes[i].nodeID.Pretty()[2:4], len(puts))
-					for j := 0; j < len(puts); j++ {
-						f, _ := puts[j].M.Fingerprint()
-						fmt.Printf("%s,", f.String()[2:4])
-					}
-					fmt.Printf("\n              ")
-					nodes[i].dht.glk.RLock()
-					for k, _ := range nodes[i].dht.fingerprints {
-						fmt.Printf("%s,", k)
-					}
-					nodes[i].dht.glk.RUnlock()
-					fmt.Printf("\n    ")
-					for k, _ := range nodes[i].dht.sources {
-						fmt.Printf("%d,", findNodeIdx(nodes, k))
-					}
-					fmt.Printf("\n")
-
+					/*					fmt.Printf("NODE%d(%s): %d:", i, nodes[i].nodeID.Pretty()[2:4], len(puts))
+										for j := 0; j < len(puts); j++ {
+											f, _ := puts[j].M.Fingerprint()
+											fmt.Printf("%s,", f.String()[2:4])
+										}
+										fmt.Printf("\n              ")
+										nodes[i].dht.glk.RLock()
+										for k, _ := range nodes[i].dht.fingerprints {
+											fmt.Printf("%s,", k)
+										}
+										nodes[i].dht.glk.RUnlock()
+										fmt.Printf("\n    ")
+										for k, _ := range nodes[i].dht.sources {
+											fmt.Printf("%d,", findNodeIdx(nodes, k))
+										}
+										fmt.Printf("\n")
+					*/
 				}
 				if propigated {
 					stop <- true
 					return
 				}
-				fmt.Printf("\n")
+				//				fmt.Printf("\n")
 			}
 		}()
 		<-stop

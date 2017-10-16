@@ -753,12 +753,19 @@ func (dht *DHT) Query(key Hash, msgType MsgType, body interface{}) (response int
 		res := &dhtQueryResult{}
 
 		switch t := response.(type) {
+		case LinkQueryResp:
+			dht.h.Debugf("Query successful with: %v", response)
+			res.success = true
+			res.response = &t
 		case GetResp:
 			dht.h.Debugf("Query successful with: %v", response)
 			res.success = true
 			res.response = response
 		case CloserPeersResp:
 			res.closerPeers = peerInfos2Pis(t.CloserPeers)
+		default:
+			err = fmt.Errorf("unknown response type %T in query", t)
+			return nil, err
 		}
 		return res, nil
 	})

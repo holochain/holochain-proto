@@ -569,7 +569,7 @@ func setupApp() (app *cli.App) {
 							"-path="+devPath,
 							"-execpath="+filepath.Join(rootExecDir, roleName),
 							"-port="+strconv.Itoa(freePort),
-							"-mdns=true",
+							fmt.Sprintf("-mdns=%v", mdns),
 							"-no-nat-upnp="+nonat,
 							"-logPrefix="+logPrefix,
 							"-serverID="+serverID,

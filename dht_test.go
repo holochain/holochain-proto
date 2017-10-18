@@ -847,7 +847,7 @@ func TestDHTMultiNode(t *testing.T) {
 	nodes := mt.nodes
 
 	ringConnectMutual(t, mt.ctx, mt.nodes, nodesCount)
-
+	var connections int
 	Convey("each node should be able to get the key of others", t, func() {
 		for i := 0; i < nodesCount; i++ {
 			h1 := nodes[i]
@@ -856,11 +856,18 @@ func TestDHTMultiNode(t *testing.T) {
 				options := GetOptions{StatusMask: StatusDefault}
 				req := GetReq{H: HashFromPeerID(h1.nodeID), StatusMask: options.StatusMask, GetMask: options.GetMask}
 				response, err := NewGetAction(req, &options).Do(h2)
-				So(err, ShouldBeNil)
-				pk, _ := h1.agent.PubKey().Bytes()
-				So(fmt.Sprintf("%v", response), ShouldEqual, fmt.Sprintf("{{%v}  [] }", pk))
+				if err != nil {
+					//fmt.Printf("FAIL   : %v couldn't get from %v\n", h2.nodeID, h1.nodeID)
+				} else {
+					pk, _ := h1.agent.PubKey().Bytes()
+					if fmt.Sprintf("%v", response) == fmt.Sprintf("{{%v}  [] }", pk) {
+						connections += 1
+						//	fmt.Printf("SUCCESS: %v got from          %v\n", h2.nodeID, h1.nodeID)
+					}
+				}
 			}
 		}
+		So(connections, ShouldEqual, nodesCount*nodesCount)
 	})
 
 	hashes := []Hash{}

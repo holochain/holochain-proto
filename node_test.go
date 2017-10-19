@@ -707,9 +707,12 @@ func connectNoSync(t *testing.T, ctx context.Context, ah, bh *Holochain) {
 	}
 
 	pi := pstore.PeerInfo{ID: idB, Addrs: addrB}
-	ah.AddPeer(pi)
+	err := ah.AddPeer(pi)
+	if err != nil {
+		t.Fatal(err)
+	}
 
-	if err := a.host.Connect(ctx, pi); err != nil {
+	if err = a.host.Connect(ctx, pi); err != nil {
 		t.Fatal(err)
 	}
 }

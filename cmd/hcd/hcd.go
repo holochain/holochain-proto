@@ -104,7 +104,7 @@ func setupApp() (app *cli.App) {
 				return err
 			}
 
-			h.StartBackgroundTasks(2 * time.Second)
+			h.StartBackgroundTasks()
 
 			if verbose {
 				fmt.Printf("Serving holochain with DNA hash:%v on port %s\n", h.DNAHash(), port)

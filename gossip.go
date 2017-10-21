@@ -500,14 +500,14 @@ func (dht *DHT) gossip() (err error) {
 	return
 }
 
-// Gossip gossips every interval
-func (dht *DHT) Gossip(interval time.Duration) {
-	dht.gossiping = Ticker(interval, func() {
-		err := dht.gossip()
+// GossipTask runs a gossip and logs any errors
+func GossipTask(h *Holochain) {
+	if h.dht.gchan != nil {
+		err := h.dht.gossip()
 		if err != nil {
-			dht.glog.Logf("error: %v", err)
+			h.dht.glog.Logf("error: %v", err)
 		}
-	})
+	}
 }
 
 // HandleGossipWiths waits on a chanel for gossipWith requests

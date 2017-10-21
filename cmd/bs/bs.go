@@ -87,10 +87,6 @@ type Node struct {
 	LastSeen time.Time
 }
 
-const (
-	TTL = time.Minute * 15
-)
-
 func get(chain string) (result string, err error) {
 	err = store.View(func(tx *buntdb.Tx) error {
 		nodes := make([]holo.BSResp, 0)
@@ -101,7 +97,7 @@ func get(chain string) (result string, err error) {
 			var nd Node
 			json.Unmarshal([]byte(value), &nd)
 			if nd.HID == chain {
-				if nd.LastSeen.Add(TTL).After(now) {
+				if nd.LastSeen.Add(holo.BootstrapTTL).After(now) {
 					log.Infof("Found: %s=>%s", key, value)
 					resp := holo.BSResp{Req: nd.Req, Remote: nd.Remote, LastSeen: nd.LastSeen}
 					nodes = append(nodes, resp)

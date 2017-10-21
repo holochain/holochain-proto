@@ -358,7 +358,8 @@ func TestGossipPropigation(t *testing.T) {
 	Convey("each node should only have everybody's puts after enough propigation time", t, func() {
 
 		for i := 0; i < nodesCount; i++ {
-			nodes[i].StartBackgroundTasks(200 * time.Millisecond)
+			nodes[i].Config.gossipInterval = 200 * time.Millisecond
+			nodes[i].StartBackgroundTasks()
 		}
 
 		start := time.Now()

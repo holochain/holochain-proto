@@ -125,6 +125,12 @@ type Node struct {
 	nat          *nat.NAT
 	log          *Logger
 
+	// ticker task stoppers
+	retrying      chan bool
+	gossiping     chan bool
+	bootstrapping chan bool
+	refreshing    chan bool
+
 	// items for the kademlia implementation
 	plk   sync.Mutex
 	peers map[peer.ID]*peerTracker
@@ -147,7 +153,9 @@ const (
 )
 
 const (
-	PeerTTL = time.Minute * 10
+	PeerTTL                       = time.Minute * 10
+	DefaultRoutingRefreshInterval = time.Minute
+	DefaultGossipInterval         = time.Second * 2
 )
 
 // implement peer found function for mdns discovery
@@ -177,14 +185,14 @@ func (h *Holochain) addPeer(pi pstore.PeerInfo, confirm bool) (err error) {
 		h.node.routingTable.Update(pi.ID)
 		err = h.dht.AddGossiper(pi.ID)
 		if bootstrap {
-			h.BootstrapRouting()
+			RoutingRefreshTask(h)
 		}
 	}
 	return
 }
 
-// BootstrapRouting fills the routing table by searching for a random node
-func (h *Holochain) BootstrapRouting() {
+// RoutingRefreshTask fills the routing table by searching for a random node
+func RoutingRefreshTask(h *Holochain) {
 	s := fmt.Sprintf("%d", rand.Intn(1000000))
 	var hash Hash
 	err := hash.Sum(h.hashSpec, []byte(s))
@@ -480,6 +488,24 @@ func (node *Node) StartProtocol(h *Holochain, proto int) (err error) {
 
 // Close shuts down the node
 func (node *Node) Close() error {
+	if node.gossiping != nil {
+		node.log.Log("Stopping gossiping")
+		stop := node.gossiping
+		node.gossiping = nil
+		stop <- true
+	}
+	if node.retrying != nil {
+		node.log.Log("Stopping retrying")
+		stop := node.retrying
+		node.retrying = nil
+		stop <- true
+	}
+	if node.bootstrapping != nil {
+		node.log.Log("Stopping boostrapping")
+		stop := node.bootstrapping
+		node.bootstrapping = nil
+		stop <- true
+	}
 	return node.proc.Close()
 }
 
@@ -493,6 +519,7 @@ func (node *Node) Send(ctx context.Context, proto int, addr peer.ID, m *Message)
 
 	s, err := node.host.NewStream(ctx, addr, node.protocols[proto].ID)
 	if err != nil {
+		fmt.Printf("SENDERR in %v sending to%v:%v\n", node.HashAddr, addr, err)
 		return
 	}
 	defer s.Close()

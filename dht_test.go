@@ -792,7 +792,7 @@ func TestDHTRetry(t *testing.T) {
 		So(r, ShouldEqual, DHTChangeUnknownHashQueuedForRetry)
 
 		// pause for a few retires
-		h.DHT().Retry(time.Millisecond * 10)
+		h.node.retrying = h.TaskTicker(time.Millisecond*10, RetryTask)
 		time.Sleep(time.Millisecond * 25)
 
 		// add the entries and get them into the DHT
@@ -815,8 +815,8 @@ func TestDHTRetry(t *testing.T) {
 		So(status, ShouldEqual, StatusModified)
 
 		// stop retrying for next test
-		stop := h.dht.retrying
-		h.dht.retrying = nil
+		stop := h.node.retrying
+		h.node.retrying = nil
 		stop <- true
 
 	})
@@ -834,7 +834,7 @@ func TestDHTRetry(t *testing.T) {
 		So(len(h.dht.retryQueue), ShouldEqual, 1)
 
 		interval := time.Millisecond * 10
-		h.DHT().Retry(interval)
+		h.node.retrying = h.TaskTicker(interval, RetryTask)
 		time.Sleep(interval * (MaxRetries + 2))
 		So(len(h.dht.retryQueue), ShouldEqual, 0)
 	})

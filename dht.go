@@ -56,7 +56,6 @@ type DHT struct {
 	gossipPuts chan Put
 	glog       *Logger // the gossip logger
 	dlog       *Logger // the dht logger
-	gossips    map[peer.ID]bool
 	gchan      chan gossipWithReq
 	config     *DHTConfig
 	glk        sync.RWMutex
@@ -254,7 +253,6 @@ func NewDHT(h *Holochain) *DHT {
 	dht.db = db
 	dht.retryQueue = make(chan *retry, 100)
 
-	dht.gossips = make(map[peer.ID]bool)
 	//	dht.sources = make(map[peer.ID]bool)
 	//	dht.fingerprints = make(map[string]bool)
 	dht.gchan = make(chan gossipWithReq, GossipWithQueueSize)

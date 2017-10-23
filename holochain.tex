@@ -47,14 +47,14 @@
 \newcommand{\eqbang}{\stackrel{!}{=}}
 
 \title{Holochain \\
-\small scalable agent-centric distributed computing\\DRAFT(ALPHA 0) -- 10/23/2017}
+\small scalable agent-centric distributed computing\\DRAFT(ALPHA 0) -- 10/24/2017}
 
 \author{Eric Harris-Braun, Nicolas Luck, Arthur Brock}
 
 \affiliation{Ceptr, LLC}
 
 \begin{abstract}
-ABSTRACT : We present a scalable, agent-centric distributed computing platform.  We use a  formalism to characterize distributed systems, show how it applies to some existing distributed systems and demonstrate the benefits of shifting from a data-centric to an agent-centric model. We present a detailed formal specification of the Holochain system, along with an analysis of its systemic integrity, capacity for evolution, total system computational complexity, implications for use-cases, and current implementation status.
+ABSTRACT : We present a scalable, agent-centric distributed computing platform.  We use a  formalism to characterize distributed systems, show how it applies to some existing distributed systems, and demonstrate the benefits of shifting from a data-centric to an agent-centric model. We present a detailed formal specification of the Holochain system, along with an analysis of its systemic integrity, capacity for evolution, total system computational complexity, implications for use-cases, and current implementation status.
 
 \end{abstract}
 
@@ -63,10 +63,10 @@ ABSTRACT : We present a scalable, agent-centric distributed computing platform. 
 \section{Introduction}
 \label{sec:intro}
 
-Distributed computing platforms have achieved a new level of viability with the advent of two foundational cryptographic tools: secure hashing algorithms, and public-key encryption.  These have provided solutions to key problems in distributed computing: verifiable, tamper-proof data for sharing state across nodes in the distributed system, and confirmation of data provenance via digital signature algorithms.  The former is achieved by hash-chains, where monotonic data-stores are rendered intrinsically tamper-proof (and thus confidently sharable across nodes) by including hashes of previous entries in subsequent entries.  The latter is achieved by combining cryptographic encryption of hashes of data and using the public keys themselves as the addresses of agents, thus allowing other agents in the system to mathematically verify the data's source.
+Distributed computing platforms have achieved a new level of viability with the advent of two foundational cryptographic tools: secure hashing algorithms, and public-key encryption.  These have provided solutions to key problems in distributed computing: verifiable, tamper-proof data for sharing state across nodes in the distributed system and confirmation of data provenance via digital signature algorithms.  The former is achieved by hash-chains, where monotonic data-stores are rendered intrinsically tamper-proof (and thus confidently sharable across nodes) by including hashes of previous entries in subsequent entries.  The latter is achieved by combining cryptographic encryption of hashes of data and using the public keys themselves as the addresses of agents, thus allowing other agents in the system to mathematically verify the data's source.
 
 Though hash-chains help solve the problem of independently acting agents reliably sharing state, we see two very different approaches in their use which have deep systemic consequences.  These approaches are demonstrated by two of today's canonical distributed systems: \begin{enumerate}
-\item git\footnote{https://git-scm.com/about}:  In git all nodes can update their hash-chains as they see fit.  The degree of overlapping shared state of chain entries (known as commit objects) across all nodes is not managed by git but rather explicitly by action of the agent making pull requests and doing merges.  We call this approach \term{agent-centric} because of its focus on allowing nodes to share independently evolving data realities.
+\item git\footnote{https://git-scm.com/about}:  In git, all nodes can update their hash-chains as they see fit.  The degree of overlapping shared state of chain entries (known as commit objects) across all nodes is not managed by git but rather explicitly by action of the agent making pull requests and doing merges.  We call this approach \term{agent-centric} because of its focus on allowing nodes to share independently evolving data realities.
 \item Bitcoin\footnote{https://bitcoin.org/bitcoin.pdf}: In Bitcoin (and blockchain in general), the ``problem" is understood to be that of figuring out how to choose one block of transactions among the many variants being experienced by the mining nodes (as they collect transactions from clients in different orders), and committing that single variant to the single globally shared chain. We call this approach \term{data-centric} because of its focus on creating a single shared data reality among all nodes.
 \end{enumerate}
 
@@ -91,7 +91,11 @@ We define a simple generalized model of a distributed system $\Omega$ using hash
 \item Let $N$ be the set of elements $\{n_1,n_2,\dots n_n\}$ participating in the system. Call the elements of $N$ \term{nodes} or \term{agents}.
 \item Let each node $n$ consist of a set $S_n$ with elements $\{\sigma_1,\sigma_2,\dots\}$. Call the elements of $S_n$ the \term{state} of node $n$. For the purposes of this paper we assume $\forall \sigma_i \in S_n : \sigma_i = \{ \chain_i, D_i\}$ with $\chain_i$ being a \term{hash-chain} and $D$  a set of non-hash chain \term{data elements}.
 \item Let $H$ be a cryptographically secure hash function.
-\item Let $\tau(\sigma_i, t) = (\tau_\chain(\chain_i, t), \tau_D(D_i,t))$ where:
+\item Let there be a \term{state transition function}:
+\begin{equation}
+\tau(\sigma_i, t) = (\tau_\chain(\chain_i, t), \tau_D(D_i,t))
+\end{equation}
+where:
 \begin{enumerate}
 \item
 $\tau_\chain(\chain_i,t) = \chain_{i+1}$ where
@@ -111,14 +115,14 @@ y &= \{H(x_j) | j<i\}
 \end{equation}
 
 Call $h$ a \term{header} and note how the sequence of headers creates a chain (tree, in the general case) by linking each header to the previous header(s) and the transaction.
-\item $D_\text{i+1}=\tau_\mathrm{D}(\sigma_i,t)$.
+\item $D_\text{i+1}=\tau_\mathrm{D}(\sigma_i,t)$
 
 \end{enumerate}
 \item Let $V(t,v)$ be a function that takes $t$, along with extra validation data $v$, verifies the validity of $t$ and only if valid calls a transition function for $t$. Call $V$ a \term{validation} function.
 \label{formalism:validation}
-\item Let $I(t)$ be a function that takes a transaction $t$, evaluates it using a function $V$, and if valid uses $\tau$ to transform $S$. Call $I$ the \term{input} or \term{stimulus} function.
+\item Let $I(t)$ be a function that takes a transaction $t$, evaluates it using a function $V$, and if valid, uses $\tau$ to transform $S$. Call $I$ the \term{input} or \term{stimulus} function.
 \item Let $P(x)$ be a function that can create transactions $t$ and trigger functions $V$ and $\tau$, and $P$ itself is triggered by state changes or the passage of time.  Call $P$ the \term{processing} function.
-\item Let $C$ be a channel that allows all nodes in $N$ to communicate and over which each node has a unique address $A_n$. Call $C$ and the nodes that communicate on it the \term{network}
+\item Let $C$ be a channel that allows all nodes in $N$ to communicate and over which each node has a unique address $A_n$. Call $C$ and the nodes that communicate on it the \term{network}.
 \item Let $E(i)$ be a function that changes functions $V,I,P$.  Call $E$ the \term{evolution} function.
 \end{enumerate}
 
@@ -128,13 +132,13 @@ First we separate the agent's state into a cryptographically secured hash-chain 
 
 We define some key properties of distributed systems:
 \begin{enumerate}
-\item Call a set of nodes in $N$ for which any of the functions $T,V,P$ and $E$ have the properties of being both reliably known, and known to be identical for that set of nodes: \term{trusted} nodes with respect to the functions so known.
+\item Call a set of nodes in $N$ for which any of the functions $T,V,P$ and $E$ have the properties of being both reliably known and also known to be identical for that set of nodes: \term{trusted} nodes with respect to the functions so known.
 \item Call a channel $C$ with the property that messages in transit can be trusted to arrive exactly as sent: \term{secure}.
-\item Call a channel $C$ on which the address $A_n$ of a node $n$ is $A_n=H(pk_n)$, where $pk_n$ is the public key of the node $n$, and on which all messages include a digital signature of the message signed by sender: \term{authenticated}
+\item Call a channel $C$ on which the address $A_n$ of a node $n$ is $A_n=H(pk_n)$, where $pk_n$ is the public key of the node $n$, and on which all messages include a digital signature of the message signed by sender: \term{authenticated}.
 
 \item Call a data element that is accessible by its hash \term{content addressable}.
 \end{enumerate}
-For the purposes of this paper we assume untrusted nodes, i.e. independently acting agents solely under their own control, and an insecure channel.  We do this because the very \textit{raison d'\^etre} of the cryptographic tools mentioned above is to allow individual nodes to trust the whole system under this assumption.  The cryptography immediately makes visible in the state data when any other node in the system uses a version of the functions different from itself.  This property is often referred to as a \term{trustless} system.  However, because it simply means that the locus of trust has been shifted to the state data, rather than other nodes, we refer to it as systemic reliance on \term{intrinsic data integrity}. See \ref{sec:integrity} for a detailed discussion on trust in distributed systems.
+For the purposes of this paper we assume untrusted nodes, i.e., independently acting agents solely under their own control, and an insecure channel.  We do this because the very \textit{raison d'\^etre} of the cryptographic tools mentioned above is to allow individual nodes to trust the whole system under this assumption.  The cryptography immediately makes visible in the state data when any other node in the system uses a version of the functions different from itself.  This property is often referred to as a \term{trustless} system.  However, because it simply means that the locus of trust has been shifted to the state data, rather than other nodes, we refer to it as systemic reliance on \term{intrinsic data integrity}. See \ref{sec:integrity} for a detailed discussion on trust in distributed systems.
 
 \subsection{Data-Centric and Agent-Centric Systems}
 \label{sec:data-agent}
@@ -143,7 +147,7 @@ Using this definition, Bitcoin can be understood as that system \sbtc where:
 \begin{enumerate}
 \item $\forall n,m \in N: \chain_n\eqbang\chain_m$ where $\eqbang$ means \textit{is enforced}.
 \item $V(e,v)$ $e$ is a block and $v$ is the output from the ``proof-of-work" hash-crack algorithm, and $V$ confirms the validity of $v$, the structure and validity of $e$ according to the double-spend rules\footnote{pointer here}.
-\item $I(t,n)$ accepts transactions from clients and adds them to $D$ (the \textit{mempool}) to build a block for later use in triggering $V()$
+\item $I(t,n)$ accepts transactions from clients and adds them to $D$ (the \textit{mempool}) to build a block for later use in triggering $V()$.
 \item $P(i)$ is the \textit{mining} process including the ``proof-of-work" algorithm and composes with $V()$ and $\tau_\chain$ when the hash is cracked.
 \item $E(i)$ is not formally defined but can be mapped informally to a decision by humans operating the nodes to install new versions of the Bitcoin software.
 \end{enumerate}
@@ -152,25 +156,25 @@ The first point establishes the central aspect of Bitcoin's (and Blockchain appl
 
 By contrast, for \sgit there is no such constraint on any $\chain_n$, $\chain_m$ in nodes $n$ and $m$ matching, also $V(e,v)$ only checks the structural validity of $e$ as a commit object not it's content, and $I(t)$ can be understood to be the set of git commands available to the user, and $\tau_\chain$ the function that adds a commit object and $\tau_\textrm{D}$ the function that adds code to the \texttt{index} triggered by \texttt{add}. $E$ is, similarly to \sbtc, not formally defined for \sgit. \todo{TODO: more detailed comparison with git?}
 
-Our model of a distributed system makes one thing very clear about the difference between \sbtc and \sgit.  As the size of $\mathcal{X}_n$ grows, necessarily all nodes of \sbtc must grow in size, whereas this is not necessarily the case for \sgit.  Though this seems like a clear limitation, it comes as a direct consequence of the constraint of $\forall n,m \in N: \chain_n\eqbang\chain_m$. Interestingly this is actually considered Bitcoin's strength as it defines the heart of ``consensus" in the Blockchain world, i.e. a limitation and method to the achieve sameness of state of all nodes.
+Our model of a distributed system makes one thing very clear about the difference between \sbtc and \sgit.  As the size of $\mathcal{X}_n$ grows, necessarily all nodes of \sbtc must grow in size, whereas this is not necessarily the case for \sgit.  Though this seems like a clear limitation, it comes as a direct consequence of the constraint of $\forall n,m \in N: \chain_n\eqbang\chain_m$. Interestingly this is actually considered Bitcoin's strength as it defines the heart of ``consensus" in the Blockchain world, i.e., a limitation and method to the achieve sameness of state of all nodes.
 
-It's not surprising that a data-centric approach was used for Bitcoin.  This comes from the fact that its stated intent was to create digitally transferable ``coins", i.e. to model in a distributed digital system that property of matter known as location. On centralized computer systems this doesn't even appear as a problem, because centralized systems have been designed to allow us to think from a data-centric perspective.  They allow us to believe in a kind of data objectivity, as if data exists, like a physical object sitting someplace having a location. They allow us to think in terms of an absolute frame - as if there \textit{is} a correct truth about data and/or time sequence, and suggests that ``consensus" should converge on this truth. In fact, this is not a property of information.  Data exists always from the vantage point of an observer.  It is this fact that makes digitally transferable ``coins" a hard problem in distributed systems where there is always more than one vantage point.
+It's not surprising that a data-centric approach was used for Bitcoin.  This comes from the fact that its stated intent was to create digitally transferable ``coins," i.e., to model in a distributed digital system that property of matter known as location. On centralized computer systems this doesn't even appear as a problem because centralized systems have been designed to allow us to think from a data-centric perspective.  They allow us to believe in a kind of data objectivity, as if data exists, like a physical object sitting someplace having a location. They allow us to think in terms of an absolute frame - as if there \textit{is} a correct truth about data and/or time sequence, and suggests that ``consensus" should converge on this truth. In fact, this is not a property of information.  Data exists always from the vantage point of an observer.  It is this fact that makes digitally transferable ``coins" a hard problem in distributed systems where there is always more than one vantage point.
 
-In the distributed world, events don't happen in the same sequence for all observers.  For Blockchain specifically this is the heart of the matter: choosing which block from all the nodes receiving transactions in different orders, to use for the ``consensus," i.e. what single vantage point to enforce on all nodes.  Blockchains don't record a universal ordering of events -- they manufacture a single authoritative ordering of events, by stringing together a tiny fragment of local vantage points into one global record that has passed validation rules.
+In the distributed world, events don't happen in the same sequence for all observers.  For Blockchain specifically, this is the heart of the matter: choosing which block, from all the nodes receiving transactions in different orders, to use for the ``consensus," i.e., what single vantage point to enforce on all nodes.  Blockchains don't record a universal ordering of events -- they manufacture a single authoritative ordering of events -- by stringing together a tiny fragment of local vantage points into one global record that has passed validation rules.
 
-The use of the word consensus seems at best dubious as a description of a systemic requirement that all nodes carry identical values of $\chain_n$.  Especially when the algorithm for ensuring that sameness is essentially a digital lottery powered by expensive computation that's primary design feature is to randomize which node gets to run $V_n$ such that no node has preference to which $e$ gets added to $\chain_n$.
+The use of the word consensus seems at best dubious as a description of a systemic requirement that all nodes carry identical values of $\chain_n$.  Especially when the algorithm for ensuring that sameness is essentially a digital lottery powered by expensive computation of which the primary design feature is to randomize which node gets to run $V_n$ such that no node has preference to which $e$ gets added to $\chain_n$.
 
 Consensus as normally used implies deliberation with regard to differences and work on crafting a perspective that holds for all parties, rather than simply selecting one party's dataset at random.
 
-A more accurate term for the algorithm would be ``proof-of-luck" and for the process itself simply sameness, not consensus.  If you start from a data-centric view point, which naturally throws out the ``experience" of all agents in favor of just one, it's much harder to design them to engage in processes that actually have the real-world properties of consensus. If the constraint of keeping all nodes' states the same were adopted consciously as a fit for a specific purpose, this would not be particularly problematic.  Unfortunately the legacy of this data-centric view point has been held mostly unconsciously and is adopted by more generalized distributed computing systems, for which the intent doesn't specifically include the need to model ``digital matter" with universally absolute location.  While having the advantages of simplicity it also immediately transfers to them the scalability issues, but worse, it makes it hard to take advantages inherent in agent-centric approach.
+A more accurate term for the algorithm would be ``proof-of-luck" and for the process itself simply sameness, not consensus.  If you start from a data-centric viewpoint, which naturally throws out the ``experience" of all agents in favor of just one, it's much harder to design them to engage in processes that actually have the real-world properties of consensus. If the constraint of keeping all nodes' states the same were adopted consciously as a fit for a specific purpose, this would not be particularly problematic.  Unfortunately the legacy of this data-centric viewpoint has been held mostly unconsciously and is adopted by more generalized distributed computing systems, for which the intent doesn't specifically include the need to model ``digital matter" with universally absolute location.  While having the advantages of simplicity, it also immediately transfers to them the scalability issues, but worse, it makes it hard to take advantages inherent in agent-centric approach.
 
 \section{Generalized Distributed Computation}
 \label{sec:dist-comp}
 
-The previous section described a general formalism for distributed systems, and compared git to Bitcoin as an example of an agent-centric vs. a data-centric distributed system.  Neither of these systems, however provides generalized computation in the sense of being a framework for writing computer programs or creating applications. So, lets add the following constraints to formalism~\ref{sec:formalism} as follows:
+The previous section described a general formalism for distributed systems and compared git to Bitcoin as an example of an agent-centric vs. a data-centric distributed system.  Neither of these systems, however, provides generalized computation in the sense of being a framework for writing computer programs or creating applications. So, lets add the following constraints to formalism~\ref{sec:formalism} as follows:
 
 \begin{enumerate}
-\item With respect to a machine $M$ some values of $S_n$ can be interpreted as: executable code, and the results of code execution, and may be accessible to $M$ and the code.  Call such values the \term{machine state}.
+\item With respect to a machine $M$, some values of $S_n$ can be interpreted as: executable code and the results of code execution, and they may be accessible to $M$ and the code.  Call such values the \term{machine state}.
 \item $\exists t$ and nodes $n$ such that $I_n(t)$ will trigger execution of that code. Call such transaction values \term{calls}.
 \end{enumerate}
 
@@ -183,7 +187,7 @@ Ethereum\footnote{https://github.com/ethereum/wiki/wiki/White-Paper} provides th
 \label{holochain}
 We now proceed to describe an agent-centric distributed generalized computing system, where nodes can still confidently participate in the system as whole even though they are not constrained to maintaining the same chain state as all other nodes.
 
-In broad strokes: A Holochain application consists of a network of agents maintaining a unique source chain of their transactions, paired with a shared space implemented as a validating, monotonic, sharded, distributed hash table (DHT) where every node enforces validation rules on that data in the DHT as well as providing provenance of data from the source chains where it originated.
+In broad strokes: a Holochain application consists of a network of agents maintaining a unique source chain of their transactions, paired with a shared space implemented as a validating, monotonic, sharded, distributed hash table (DHT) where every node enforces validation rules on that data in the DHT as well as providing provenance of data from the source chains where it originated.
 
 Using our formalism, a Holochain based application \shc is defined as:
 
@@ -193,20 +197,20 @@ Using our formalism, a Holochain based application \shc is defined as:
 
 \item Let $M$ be a virtual machine used to execute code.
 
-\item Let the initial entry of all $\chain_n$ in $N$ be identical and consist in the set \hcdna $\{e_1,e_2,\dots,f_1,f_2,\dots,p_1,p_2,\dots\}$ where $e_x$ are definitions of entry types that can be added to the chain, $f_x$ are functions defined as executable on $M$ (which we also refer to as the set $\appfns = \{app_1,app_2,\dots\}$) and $p_x$ are various system properties \todo{defined later}.
+\item Let the initial entry of all $\chain_n$ in $N$ be identical and consist in the set \hcdna $\{e_1,e_2,\dots,f_1,f_2,\dots,p_1,p_2,\dots\}$ where $e_x$ are definitions of entry types that can be added to the chain, $f_x$ are functions defined as executable on $M$ (which we also refer to as the set $\appfns = \{app_1,app_2,\dots\}$), and $p_x$ are various system properties \todo{defined later}.
 
-\item Let $\hcid_n$ be the second entry of all $\chain_n$ and be set of the form $\{p,i\}$ where $p$ is the public key, and $i$ is identifying information appropriate to the use of this particular \shc. Note that though this entry is of the same format for all $\chain_n$ it's content is not the same. Call this entry the \term{agent identity} entry.
+\item Let $\hcid_n$ be the second entry of all $\chain_n$ and be a set of the form $\{p,i\}$ where $p$ is the public key and $i$ is identifying information appropriate to the use of this particular \shc. Note that though this entry is of the same format for all $\chain_n$ it's content is not the same. Call this entry the \term{agent identity} entry.
 
 \item $\forall e_x \in DNA$ let there be an $app_x \in \appfns$ which can be used to validate transactions that involve entries of type $e_x$.  Call this set $F_\mathrm{v}$ or the \term{application validation functions}.
 
-\item Let there be a function $V_\mathrm{sys}(ex,e,v)$ which checks that $e$ is of the form specified by the entry definition for $e_x \in$ \hcdna.  Call this function the \term{system entry validation function}
+\item Let there be a function $V_\mathrm{sys}(ex,e,v)$ which checks that $e$ is of the form specified by the entry definition for $e_x \in$ \hcdna.  Call this function the \term{system entry validation function}.
 
 \item Let the overall validation function $V(e,v) \equiv \bigvee_x  F_\mathrm{v}(e_x)(v) \wedge V_\mathrm{sys}(e_x,e,v)$.
 
 \item Let $F_\mathrm{I}$ be a subset of $\appfns$ distinct from $F_\mathrm{v}$ such that $\forall f_x(t) \in F_\mathrm{I}$ there exists a $t$ to $I(t)$ that will trigger $f_x(t)$. Call the functions in $F_\mathrm{I}$ the \term{exposed functions}.
 
 \item Call any functions in $\appfns$ not in $F_\mathrm{v}$ or $F_\mathrm{I}$ \term{internal functions} and allow them to be called by other functions.
-\item Let the channel $C$ be \term{authenticated}
+\item Let the channel $C$ be \term{authenticated}.
 
 \item Let $DHT$ define a distributed hash table on an authenticated channel as follows:
 \begin{enumerate}
@@ -217,7 +221,7 @@ Using our formalism, a Holochain based application \shc is defined as:
 \item $dht_\text{put}(\delta_\text{key,value})$ adds $\delta_\text{key,value}$ to $\dhtstate$
 \item $dht_\text{get}(key) = value$ of $\delta_\text{key,value}$ in $\dhtstate$
 \end{enumerate}
-\item \label{routable} Assume $x,y \in N$ and $\delta_i \in \dhtstate_x$ but $\delta_i \notin \dhtstate_y$. Allow that when $y$ calls $dht_\text{get}(key)$ $\delta_i$ will be retrieved from $x$ over channel $X$ and added to $\dhtstate_y$.
+\item \label{routable} Assume $x,y \in N$ and $\delta_i \in \dhtstate_x$ but $\delta_i \notin \dhtstate_y$. Allow that when $y$ calls $dht_\text{get}(key)$, $\delta_i$ will be retrieved from $x$ over channel $X$ and added to $\dhtstate_y$.
 \end{enumerate}
 DHT are sufficiently mature that there are a number of ways to ensure property \ref{routable}.  For our implementation we use \cite{kademlia}.
 \todo{Should this really be S/Kademlia?}
@@ -228,13 +232,13 @@ DHT are sufficiently mature that there are a number of ways to ensure property \
 \item Let $q$ and $r$ be parameters of $\hcdht$ that are to be set dependent on the characteristics deemed beneficial for the given application.
 Call $q$ the \term{neighborhood size} and $r$ the \term{redundancy factor}.
 
-\item $\forall \delta_\text{key,value} \in \dhtstate$ constrain $value$ to be of an entry type as defined in \hcdna.  Furthmore, enforce that that any function call $dht_x(y)$ which modifies $\dhtstate$ also uses $F_\mathrm{v}(y)$ and records whether $y$ is valid.  Note that this validation phase may include contacting the sources of the transactions recorded in $\dhtstate$ to gather more information about the context of the transaction, see \ref{sec:mebandprov}.
+\item $\forall \delta_\text{key,value} \in \dhtstate$ constrain $value$ to be of an entry type as defined in \hcdna.  Furthmore, enforce that any function call $dht_x(y)$ which modifies $\dhtstate$ also uses $F_\mathrm{v}(y)$ to validate $y$ and records whether it is valid.  Note that this validation phase may include contacting the source nodes involved in generating $y$ to gather more information about the context of the transaction, see \ref{sec:membandprov}.
 
 \item Enforce that all elements of $\dhtstate$ only be changed monotonically, that is, elements $\delta$ can only be added to $\dhtstate$ not removed.
 
-\item Include in $\dhtfns$ the functions defined in \ref{apdx:dhtfn}
+\item Include in $\dhtfns$ the functions defined in \ref{apdx:dhtfn}.
 
-\item Allow the sets $\delta \in \dhtstate$ to also include more elements as defined in  \ref{apdx:dhtfn}
+\item Allow the sets $\delta \in \dhtstate$ to also include more elements as defined in  \ref{apdx:dhtfn}.
 
 \item Let $d(x,y)$ be a \textit{symmetric} and \textit{unidirectional} distance metric within the hash space defined by $H$, as for example the XOR metric defined in \cite{kademlia}. Note that this metric can be applied between entries and nodes alike since the addresses of both are values of the same hash function $H$ (i.e. $\delta_{key}=H(\delta_{value})$ and $A_n=H(pk_n)$).
 
@@ -243,7 +247,7 @@ $\forall n_i \in \eta_n, n_0 \notin \eta_n:$
 \begin{equation}
 \begin{split}
 d(A_n,A_{n_0})& > d(A_n,A_{n_i})\\
-\wedge \left\vert\eta_n\right\vert &= q.
+\wedge \left\vert\eta_n\right\vert &= q
 \end{split}
 \end{equation}
 
@@ -256,9 +260,9 @@ Call $\eta_n$ a \term{neighborhood} of size $q$ in $N$ around $n$. Enforce that 
 \rho_x=\left\vert\{n_i|d(A_{n_i},\delta_{x,key}) < d(A_n,\delta_{x,key}\}\right\vert
 \end{equation}
 is greater than the \term{redundancy factor} $r$.
-Note that this results in the network adapting to changes in topology and DHT state migrations by regulating the number of network-wide redundant copies of all $\delta_i\in\dhtstate$ to match $r$. This implies the existence of $r$ partitions of N called \term{shards}\footnote{This sharding inspired the Holochain name, because if you partition the network it still retains an image of the whole in the same way that breaking a hologram results in every shard still containing an image of the original.\cite{hologram}} that each (among all their nodes $N_{Shard_i} \subset N$) hold a complete redundant copy of $\dhtstate$ :
+Note that this results in the network adapting to changes in topology and DHT state migrations by regulating the number of network-wide redundant copies of all $\delta_i\in\dhtstate$ to match $r$. This implies the existence of $r$ partitions of N called \term{shards}\footnote{This sharding inspired the Holochain name, because if you partition the network it still retains an image of the whole in the same way that cutting a hologram results in each part still containing the whole image.\cite{hologram}} that each (among all their nodes $N_{Shard_i} \subset N$) hold a complete redundant copy of $\dhtstate$ :
 \begin{equation}
-\bigcup\limits_{n\in N_{Shard_i}} \dhtstate_n = \dhtstate.
+\bigcup\limits_{n\in N_{Shard_i}} \dhtstate_n = \dhtstate
 \end{equation}
 \end{enumerate}
 
@@ -269,8 +273,8 @@ Call $\hcdht$ a \term{validating}, \term{monotonic}, \term{sharded} DHT.
 \item Let $\sysfns$ be the set of functions $\{sys_\text{commit},sys_\text{get}, \dots\}$ where:
 \begin{enumerate}
 \item $sys_\text{commit}(e)$ uses the system validation function $V(e,v)$ to add $e$ to $\chain$, and if successful calls $dht_\text{put}(H(e),e)$.
-\item $sys_\text{get}(k) = dht_\text{get}(k)$
-\item $\dots$ functions defined in \ref{apdx:sysfn}
+\item $sys_\text{get}(k) = dht_\text{get}(k)$.
+\item see additional system functions defined in \ref{apdx:sysfn}.
 \end{enumerate}
 
 \item Allow the functions in $\appfns$ defined in the \hcdna\ to call the functions in $\sysfns$.
@@ -282,9 +286,9 @@ Call $\hcdht$ a \term{validating}, \term{monotonic}, \term{sharded} DHT.
 \subsection{Systemic Integrity Through Validation}
 \label{sec:integrity}
 
-The appeal of the data-centric approach to distributed computing comes from the fact that if you can prove that all nodes reliably have the same data then that provides strong general basis from which to prove the integrity of the system as a whole.  In the case of Bitcoin, the $\chain$ holds the transactions and the unspent transaction outputs which allows nodes to verify future transactions against double-spend. In the case of Ethereum, $\chain$ holds essentially pointers to machine state \todo{better one-sentence wording for Ethereum}. Proving the consistency across all nodes of those data sets is fundamental to the integrity of those systems.
+The appeal of the data-centric approach to distributed computing comes from the fact that if you can prove that all nodes reliably have the same data then that provides strong general basis from which to prove the integrity of the system as a whole.  In the case of Bitcoin, the $\chain$ holds the transactions and the unspent transaction outputs, which allows nodes to verify future transactions against double-spend. In the case of Ethereum, $\chain$ holds essentially pointers to machine state \todo{better one-sentence wording for Ethereum}. Proving the consistency across all nodes of those data sets is fundamental to the integrity of those systems.
 
-However, because we have started with the assumption (see \ref{sec:formalism}) of distributed systems of independently acting agents, any \textit{proof} of  $\forall n,m \in N: \chain_n\eqbang\chain_m$ in blockchain based system is better understood as a \textit{choice} (hence our use of the $\eqbang$),  in that nodes use their agency to decide when to stop interacting with other nodes based on detecting that the $\chain$ state no longer matches.  This might also be called  ``proof by enforcement," and is also appropriately known as a \term{fork} because essentially it results in partitioning of the network.
+However, because we have started with the assumption (see \ref{sec:formalism}) of distributed systems of independently acting agents, any \textit{proof} of  $\forall n,m \in N: \chain_n\eqbang\chain_m$ in a blockchain based system is better understood as a \textit{choice} (hence our use of the $\eqbang$),  in that nodes use their agency to decide when to stop interacting with other nodes based on detecting that the $\chain$ state no longer matches.  This might also be called  ``proof by enforcement," and is also appropriately known as a \term{fork} because essentially it results in partitioning of the network.
 
 The heart of the matter has to do with the trust any single agent has is in the system.  In \cite{yellowpaper} Section 1.1 (Driving Factors) we read:
 \begin{quote}
@@ -294,7 +298,7 @@ Overall, I wish to provide a system such that users can be guaranteed that no ma
 The idea of ``absolute confidence" here seems important, and we attempt to understand it more formally and generally for distributed systems.
 
 \begin{enumerate}
-\item Let $\Psi_\alpha$ be a measure of the confidence an agent has in various aspects of the system it participates in, where $0 \leq \Psi \leq 1$ and 0 represents no confidence and 1 represents absolute confidence.
+\item Let $\Psi_\alpha$ be a measure of the confidence an agent has in various aspects of the system it participates in, where $0 \leq \Psi \leq 1$, 0 represents no confidence, and 1 represents absolute confidence.
 \item Let $R_n = \{\alpha_1,\alpha_2,...\dots\}$ define a set of aspects about the system with which an agent $n \in N$ measures confidence.  Call $R_n$ the \term{requirements} of $n$ with respect to $\Omega$.
 \item Let $\varepsilon_n(\alpha)$ be a thresholding function for node $n \in N$ with respect to $\alpha$ such that when $\Psi_\alpha < \varepsilon(\alpha)$ then $n$ will either stop participating in the system, or reject the participation of others (resulting in a fork).
 
@@ -308,7 +312,7 @@ The idea of ``absolute confidence" here seems important, and we attempt to under
 so any value of $\Psi \neq 1$ is rejected in $R_\mathrm{A}$ and any value $\Psi < \varepsilon(\alpha)$ is rejected in $R_\mathrm{C}$. Call $R_\mathrm{A}$ the \term{absolute requirements} and $R_\mathrm{C}$ the \term{considered requirements}.
 \end{enumerate}
 
-So we formally separated system characteristics that we have absolute confidence in ($R_A$) from those we only have considered confidence in ($R_C$). Still unclear is how to measure a concrete confidence level $\Psi_\alpha$. In real-world contexts and for real-world decisions, confidence is mainly dependent on an (human) agent's vantage point, set of data at hand and maybe even intuition. Thus we find it more adequate to call it a soft criteria. In order to comprehend this concept objectively and relate it to the notion conveyed by Woods in the quote above, we proceed by defining the measure of confidence of an aspect $\alpha$ as the conditional probability of it being the case in a given context:
+So we have formally separated system characteristics that we have absolute confidence in ($R_A$) from those we only have considered confidence in ($R_C$). Still unclear is how to measure a concrete confidence level $\Psi_\alpha$. In real-world contexts and for real-world decisions, confidence is mainly dependent on an (human) agent's vantage point, set of data at hand, and maybe even intuition. Thus we find it more adequate to call it a soft criteria. In order to comprehend this concept objectively and relate it to the notion conveyed by Woods in the quote above, we proceed by defining the measure of confidence of an aspect $\alpha$ as the conditional probability of it being the case in a given context:
 \begin{equation}
 \Psi_\alpha \equiv \mathcal{P}(\alpha | \mathcal{C})
 \end{equation}
@@ -320,20 +324,20 @@ we call $\alpha_{signature}$ which provides us with the ability to \textit{know 
 \alpha_{signature} \equiv Author_{real} = Author_{local}
 \end{equation}
 
-The appeal of this aspect is that we can check authorship locally, i.e. without the need of a 3rd party or direct trusted communication channel to the real author.
-But, the confidence in this aspect of a certain cryptographic system depends on the context $\mathcal{C}$.
+The appeal of this aspect is that we can check authorship locally, i.e., without the need of a 3rd party or direct trusted communication channel to the real author.
+But, the confidence in this aspect of a certain cryptographic system depends on the context $\mathcal{C}$:
 \begin{equation}
 \Psi_{signature} = \mathcal{P}(Author_{real} = Author_{local} | \mathcal{C})
 \end{equation}
 
-If we constrain the context to remove the possibility of an adversary gaining access to an agent's private key and also exclude the possible (future) existence of computing devices or algorithms that could easily calculate or brute force the key, we might then assign a (constructed) confidence level of 1, i.e. ``absolute confidence". Without such constraints on $\mathcal{C}$ we must admit that $\Psi_{signature}<1$, which real world events, for instance the Mt.Gox hack from 2014\footnote{"Most or all of the missing bitcoins were stolen straight out of the Mt. Gox hot wallet over time, beginning in late 2011" \cite{mt-gox}}, make clear.
+If we constrain the context to remove the possibility of an adversary gaining access to an agent's private key and also exclude the possible (future) existence of computing devices or algorithms that could easily calculate or brute force the key, we might then assign a (constructed) confidence level of 1, i.e., ``absolute confidence". Without such constraints on $\mathcal{C}$, we must admit that $\Psi_{signature}<1$, which real world events, for instance the Mt.Gox hack from 2014\footnote{"Most or all of the missing bitcoins were stolen straight out of the Mt. Gox hot wallet over time, beginning in late 2011" \cite{mt-gox}}, make clear.
 
-We aim to describe these relationships in such detail in order to point out that any set $R_A$ of \textit{absolute requirements} can't reach beyond trivial statements - statements about the content and integrity of the local state of the agent itself. Following Descarte's way of questioning the confidence in every thought, we project his famous statement \textit{cogito ergo sum} into the reference frame of multi-agent systems by stating: \textbf{Agents can only have honest confidence in the fact that they perceive a certain stimulus to be present and whether any particular abstract a priori model matches that stimulus without contradiction,} i.e. that an agent sees a certain piece of data and that it \textit{is possible to interpret it in a certain way}. Every conclusion being drawn a posteriori through the application of sophisticated models of the context is dependent on assumptions about the context that are inherent to the model. This is the heart of the agent-centric outlook, and what we claim must always be taken into account in the design of decentralized multi-agent systems, as it shows that any aspect of the system as a whole that includes assumptions about other agents and non-local events must be in $R_C$, i.e. have an a priori confidence of $\Psi<1$. Facing this truth about multi-agent systems, we find little value in trying to force an absolute truth $\forall n,m \in N: \chain_n\eqbang\chain_m$ and we instead frame the problem as:
+We aim to describe these relationships in such detail in order to point out that any set $R_A$ of \textit{absolute requirements} can't reach beyond trivial statements - statements about the content and integrity of the local state of the agent itself. Following Descarte's way of questioning the confidence in every thought, we project his famous statement \textit{cogito ergo sum} into the reference frame of multi-agent systems by stating: \textbf{Agents can only have honest confidence in the fact that they perceive a certain stimulus to be present and whether any particular abstract a priori model matches that stimulus without contradiction,} i.e., that an agent sees a certain piece of data and that it \textit{is possible to interpret it in a certain way}. Every conclusion being drawn a posteriori through the application of sophisticated models of the context is dependent on assumptions about the context that are inherent to the model. This is the heart of the agent-centric outlook, and what we claim must always be taken into account in the design of decentralized multi-agent systems, as it shows that any aspect of the system as a whole that includes assumptions about other agents and non-local events must be in $R_C$, i.e., have an a priori confidence of $\Psi<1$. Facing this truth about multi-agent systems, we find little value in trying to force an absolute truth $\forall n,m \in N: \chain_n\eqbang\chain_m$ and we instead frame the problem as:
 \\
 \begin{quote}
-We wish to provide generalized means by which decentralized multi-agent systems can be built so that
+We wish to provide generalized means by which decentralized multi-agent systems can be built so that:
 \begin{enumerate}
-\item fit-for-purpose solutions can be applied in order to optimize for application contextualized confidences $\Psi_\alpha$
+\item fit-for-purpose solutions can be applied in order to optimize for application contextualized confidences $\Psi_\alpha$,
 \item violation of any threshold $\varepsilon(\alpha)$ through the actions of other agents can be detected and managed by any agent, such that
 \item the system integrity is maintained at any point in time or, when not, there is a path to regain it (see \ref{sec:evo}).
 \end{enumerate}
@@ -343,10 +347,10 @@ We perceive the agent-centric solution to these requirements to be the holograph
 
 For example, consider two different use cases of transactions:
 \begin{enumerate}
-\item receipt of an email message where we are trying to validate it as spam or not
-\item commit of monetary transaction where we are trying to validate it against double-spend
+\item receipt of an email message where we are trying to validate it as spam or not and 
+\item commit of monetary transaction where we are trying to validate it against double-spend.
 \end{enumerate}
-These contexts have different consequences that an agent may wish to evaluate differently and may be willing to differing levels of resources to validate. We designed Holochain to allow such validation functions to be set contextually per application, and expose these contexts explicitly. Thus, one could conceivably build a Holochain application that deliberately makes choices in its validation functions to implement either all or partial characteristics of Blockchains. Holochain, therefore, can be understood as a framework that opens up a spectrum of decentralized application architectures in which Blockchain happens to be one specific instance at one end of this spectrum.
+These contexts have different consequences that an agent may wish to evaluate differently and may be willing to expend differing levels of resources to validate. We designed Holochain to allow such validation functions to be set contextually per application and expose these contexts explicitly. Thus, one could conceivably build a Holochain application that deliberately makes choices in its validation functions to implement either all or partial characteristics of Blockchains. Holochain, therefore, can be understood as a framework that opens up a spectrum of decentralized application architectures in which Blockchain happens to be one specific instance at one end of this spectrum.
 
 In the following sections we will show what categories of validation algorithms exist and how these can be stacked on top of each other in order to build decentralized systems that are able to maintain integrity without introducing an absolute truth every agent would be forced to accept or consider.
 
@@ -393,21 +397,21 @@ In the case of \sbtc\ and $\Omega_{ethereum}$, $M$ ignores the value of $n$ and 
 Giving up the data-centric fallacy of forcing one absolute truth $\forall n,m \in N: \chain_n\eqbang\chain_m$ reveals that we can't discard transaction provenance.
 Agent-centric distributed systems instead must rely on two central facts about data:
 \begin{enumerate}
-\item it originates from a source
-\item its historical sequence is local to that source 
+\item it originates from a source and
+\item its historical sequence is local to that source. 
 \end{enumerate}
 For this reason, \shc\ splits the system state data into two parts:
 \begin{enumerate}
-\item each node is responsible to maintain its own entire $\chain_n$ or \term{source chain} and be ready to confirm that state to other nodes when asked.
-\item all nodes are responsible to share portions of other node's transactions and those transaction's meta data in their \textbf{DHT shard} - meta data includes validity status, source, and optionally the source's chain headers which provide historical sequence.
+\item each node is responsible to maintain its own entire $\chain_n$ or \term{source chain} and be ready to confirm that state to other nodes when asked and
+\item all nodes are responsible to share portions of other nodes' transactions and those transactions' meta data in their \textbf{DHT shard} - meta data includes validity status, source, and optionally the source's chain headers which provide historical sequence.
 \end{enumerate} 
 
-Thus, the DHT provides distributed access to other's transactions and their
+Thus, the DHT provides distributed access to others' transactions and their
 evaluations of the validity of those transactions.
 This resembles how knowledge gets constructed within social fields and through interaction with others, as described by the sociological theory of \textit{social constructivism}.
 
 The properties of the DHT in conjunction with the hash function provide us with a
-deterministically defined set of nodes, i.e. a neighborhood, for every transaction.
+deterministically defined set of nodes, i.e., a neighborhood for every transaction.
 But one cannot construct a transaction such that it lands in a given neighborhood.
 Formally:
 \begin{equation}
@@ -440,7 +444,7 @@ thus allowing applications to appropriately land on the spectrum between permiss
 In appendix \ref{apdx:membranes}, we provide some membrane schemes that can be
 chosen either for the outer
 membrane of that application that nodes have to cross in order to talk to
-any other node within the application, or for any secondary membrane inside
+any other node within the application or for any secondary membrane inside
 the application.
 That latter means that nodes could join permissionless and participate in aspects
 of the application that are not integrity critical without further condition
@@ -448,7 +452,7 @@ but need to provide certain criteria in order to pass the membrane into applicat
 validation.
 
 Thus, Holochain applications maintain systemic integrity without introducing
-consensus and therefore (computationally expensive) absolute truth because 1) any single node uses provenance to independently verify any single transaction with the sources involved in that transaction, 2) because each Holochain application runs independently of all others, they are inherently permissioned by application specific rules for joining that application's network.
+consensus and therefore (computationally expensive) absolute truth because 1) any single node uses provenance to independently verify any single transaction with the sources involved in that transaction and 2) because each Holochain application runs independently of all others, they are inherently permissioned by application specific rules for joining that application's network.
 These both provide the benefit that any given Holochain application can tune the expense of that validation to a contextually appropriate level.
 
 
@@ -464,22 +468,22 @@ In this section we discuss the complexity of our proposed architecture for decen
 Formally describing the complexity of decentralized multi-agent systems is a non-trivial task for which more complex approaches have been suggested (\cite{multi-agent-complex}).
 This might be the reason why there happens to be unclarity and misunderstandings within communities discussing complexity and scalability of Bitcoin for example {\cite{bitcoin-complex}}.
 
-In order to be able to have a ball-park comparison between our approach and the current status quo in decentralized application architecture, we proceed by modeling the worst-case time complexity both for a single node $\Omega_{SystemNode}$ as well as for the whole system $\Omega_{System}$ and both as functions of the number of state transitions (i.e. transactions) $n$ and the number of nodes in the system $m$.
+In order to be able to have a ball-park comparison between our approach and the current status quo in decentralized application architecture, we proceed by modeling the worst-case time complexity both for a single node $\Omega_{SystemNode}$ as well as for the whole system $\Omega_{System}$ and both as functions of the number of state transitions (i.e., transactions) $n$ and the number of nodes in the system $m$.
 
 \subsection{Bitcoin}
-Let $\Omega_{Bitcoin}$ be the Bitcoin network, $n$ be the number of transactions and $m$ be the number full validating nodes (i.e. \textit{miners}\footnote{For the sake of simplicity and focusing on a lower bound of the system's complexity, we are neglecting all nodes that are not crucial for the operation of the network, such as light-clients and clients not involved in the process of validation}) within $\Omega_{Bitcoin}$.
+Let $\Omega_{Bitcoin}$ be the Bitcoin network, $n$ be the number of transactions and $m$ be the number full validating nodes (i.e., \textit{miners}\footnote{For the sake of simplicity and focusing on a lower bound of the system's complexity, we are neglecting all nodes that are not crucial for the operation of the network, such as light-clients and clients not involved in the process of validation}) within $\Omega_{Bitcoin}$.
 
 For every new transaction being issued, any given node will have to check the transaction's signature (among other checks, see. \cite{bitcoin-protocol}) and especially check if this transaction's output is not used in any other transaction to reject double-spendings, resulting in a time complexity of
 \begin{equation}
 c+n
 \end{equation}
-per transaction. The time complexity in big-O notation per node as a function of the number of transactions is therefore
+per transaction. The time complexity in big-O notation per node as a function of the number of transactions is therefore:
 \begin{equation}
-\Omega_{BitcoinNode}\in O(n^2).
+\Omega_{BitcoinNode}\in O(n^2)
 \end{equation}
 The complexity handled by one Bitcoin node does not \footnote{not inherently - that is more participants will result in more transactions but we model both values as separate parameters} depend on $m$ the number of total nodes of the system. But since every node has to validate exactly the same set of transactions, the system's time complexity as a function of number of transactions and number of nodes results as
 \begin{equation}
-\Omega_{Bitcoin}\in O(n^2m).
+\Omega_{Bitcoin}\in O(n^2m)
 \end{equation}
 
 Note that this quadratic time complexity of Bitcoin's transaction validation process is what creates its main bottleneck as this reduces the network's gossip bandwidth since every node has to validate every transaction before passing it along. In order to still have an average transaction at least flood through $90\%$ of the network, block size and time can't be pushed beyond 4MB and 12s respectively, according to \cite{scaling}.
@@ -487,9 +491,9 @@ Note that this quadratic time complexity of Bitcoin's transaction validation pro
 \subsection{Ethereum}
 Let $\Omega_{Ethereum}$ be the Ethereum main network, $n$ be the number of transactions and $m$ the number of full-clients within in the network.
 
-The time complexity of processing a single transaction on a single node is a function of the code which's execution is being triggered by the given transaction plus a constant:
+The time complexity of processing a single transaction on a single node is a function of the code that has its execution being triggered by the given transaction plus a constant:
 \begin{equation}
-c+f_{tx_i}(n,m).
+c+f_{tx_i}(n,m)
 \end{equation}
 Similarly to Bitcoin and as a result of the Blockchain design decision to maintain one single state ($\forall n,m \in N: \chain_n\eqbang\chain_m$, \textit{``This is to be avoided at all costs as the uncertainty that would ensue would likely kill all confidence in the entire system."} \cite{yellowpaper}), every node has to process every transaction being sent resulting in a time complexity per node as
 \begin{equation}
@@ -499,27 +503,27 @@ that is
 \begin{equation}
 \Omega_{EthereumNode} \in O(n \cdot f_{avg}(n,m))
 \end{equation}
-whereas Users are incentivized to hold the average complexity $f_{avg}(n,m)$
+whereas users are incentivized to hold the average complexity $f_{avg}(n,m)$
 of the code being run by Ethereum small
 since execution has to be payed for in gas and which is due to restrictions such as the \textit{block gas limit}.
 In other words, because of the complexity $\sum_{i=0}^n f_{tx_i}(n,m)$ being burdened upon all nodes of the system, other systemic properties have to keep users from running complex code on Ethereum so as to not bump into the network's limits.
 
 Again, since every node has to process the same set of all transactions, the time complexity of the whole system then is that of one node multiplied by $m$:
 \begin{equation}
-\Omega_{Ethereum} \in O(nm\cdot f_{tx_i}(n,m)).
+\Omega_{Ethereum} \in O(nm\cdot f_{tx_i}(n,m))
 \end{equation}
 
 \subsection{Blockchain}
 \label{sec:complex:blockchain}
-Both examples of Blockchain systems above do need a non-trivial computational overhead to work at all: the proof-of-work, hash-crack process also called \textit{mining}. Since this overhead is not a function of either the number of transactions nor directly of the number of nodes, it is often omitted in complexity analysis. With the total energy consumption of all Bitcoin miners today being greater than the country of Iceland \cite{mining-consumption}, neglecting the complexity of Blockchain's consensus algorithm seems like a silly mistake.
+Both examples of Blockchain systems above do need a non-trivial computational overhead in order to work at all: the proof-of-work, hash-crack process also called \textit{mining}. Since this overhead is not a function of either the number of transactions nor directly of the number of nodes, it is often omitted in complexity analysis. With the total energy consumption of all Bitcoin miners today being greater than the country of Iceland \cite{mining-consumption}, neglecting the complexity of Blockchain's consensus algorithm seems like a silly mistake.
 
 Blockchains set the block time, the average time between two blocks, as a fixed parameter that the system keeps in homeostasis by adjusting the hash-crack's difficulty according to the network's total hash-rate. For a given network with a given set of mining nodes and a given total hash-rate, the complexity of the hash-crack is constant. But as the system grows and more miners come on-line, which increases the networks total hash-rate, the difficulty needs to increase in order to keep the average block time constant.
 
 With this approach, the benefit of a higher total hash-rate $x_{HR}$ is an increased difficulty of an adversary to influence the system by creating biased blocks (which would render this party able to do double-spend attacks). That is why Blockchains have to subsidize mining, depending on a high $x_{HR}$ as to make it economically impossible for an attacker to overpower the trusted miners.
 
 So, there is a direct relationship between the network's total trusted hash-rate and its level of security against mining power attacks.
-This means that the confidence $\Psi_{Blockchain}$ any agent can have in the integrity of the system is a function of the system's hash-rate $x_{HR}$, more precisely the cost/work $cost(x_{HR})$ needed to provide it.
-Looking only at a certain transaction $t$ and given any hacker acts economically rational only, the confidence in $t$ being added to all $\chain_n$ has an upper bound in
+This means that the confidence $\Psi_{Blockchain}$ any agent can have in the integrity of the system is a function of the system's hash-rate $x_{HR}$, and more precisely, the cost/work $cost(x_{HR})$ needed to provide it.
+Looking only at a certain transaction $t$ and given any hacker acts economically rationally only, the confidence in $t$ being added to all $\chain_n$ has an upper bound in
 \begin{equation}
 \Psi_{Blockchain}(t) < min\left(1, \frac{cost(x_{HR})}{value(t)}\right)
 \end{equation}
@@ -527,7 +531,7 @@ Looking only at a certain transaction $t$ and given any hacker acts economically
 In order to keep this confidence unconstrained by the mining process and therefore the architecture of Blockchain itself, $cost(x_{HR})$ (which includes the setup of mining hardware as well as the energy consumption) has to grow linearly with the value exchanged within the system.
 
 \subsection{Holochain}
-Let $\Omega_{HC}$ be a given Holochain system and let $n$ be the sum of all public\footnote{private (see:\ref{private}) state transitions, i.e. that are confined to a local $\chain_n$, are completely within the scope of a node's agency and don't affect other parts of the system directly and can therefore be omitted for the complexity analysis of $\Omega_{HC}$ as a distributed system} (i.e. \textit{put} to the DHT) state transitions (\textit{transactions}) all agents in $\Omega_{HC}$ trigger in total and let $m$ be the number of agents (= nodes) in the system.
+Let $\Omega_{HC}$ be a given Holochain system, let $n$ be the sum of all public\footnote{private (see:\ref{private}) state transitions, i.e., that are confined to a local $\chain_n$, are completely within the scope of a node's agency and don't affect other parts of the system directly and can therefore be omitted for the complexity analysis of $\Omega_{HC}$ as a distributed system} (i.e., \textit{put} to the DHT) state transitions (\textit{transactions}), let all agents in $\Omega_{HC}$ trigger in total, and let $m$ be the number of agents (= nodes) in the system.
 
 Putting a new entry to the DHT involves finding a node that is responsible for holding that specific entry, which in our case according to \cite{kademlia} has a time complexity of \begin{equation}
 c+\lceil{log(m)}\rceil.
@@ -545,12 +549,12 @@ which implies the following whole system complexity in $O$-notation
 \Omega_{Holochain} \in O(n\cdot(log(m) + v(n,m))
 \end{equation}
 
-Now, this is the overall system complexity. In order to enable comparison, we reason that in the case of Holochain without loss of generality (i.e. dependent on the specific Holochain application) the load of the whole system is shared equally by all nodes. Without further assumptions, for any given state transition the probability of it originating at a certain node is $\frac{1}{m}$, so the term for the lookup complexity needs to be divided by $m$ to  describe the average lookup complexity per node. Other than in Blockchain systems where every node has to see every transaction, for the vast majority of state transitions one particular node is not involved at all. The stochastic closeness of the node's public key's hash with the entry's hash is what triggers the node's involvement. We assume the hash function $H$ to show a uniform distribution of hash values which results in the probability of a certain node being one of the $r$ nodes that cannot discard this entry to be $\frac{1}{m}$ times $r$.  The average time complexity being handled by an average node then is
+Now, this is the overall system complexity. In order to enable comparison, we reason that in the case of Holochain without loss of generality (i.e., dependent on the specific Holochain application), the load of the whole system is shared equally by all nodes. Without further assumptions, for any given state transition, the probability of it originating at a certain node is $\frac{1}{m}$, so the term for the lookup complexity needs to be divided by $m$ to  describe the average lookup complexity per node. Other than in Blockchain systems where every node has to see every transaction, for the vast majority of state transitions one particular node is not involved at all. The stochastic closeness of the node's public key's hash with the entry's hash is what triggers the node's involvement. We assume the hash function $H$ to show a uniform distribution of hash values which results in the probability of a certain node being one of the $r$ nodes that cannot discard this entry to be $\frac{1}{m}$ times $r$.  The average time complexity being handled by an average node then is
 \begin{equation}
 \Omega_{HolochainNode} \in
-O\left(\frac{n}{m}\cdot\left(log(m) + v(n,m)\right)\right).
+O\left(\frac{n}{m}\cdot\left(log(m) + v(n,m)\right)\right)
 \end{equation}
-Note that the factor $\frac{n}{m}$ represents the average number of state transactions per node (i.e. the load per node) and that though this is a highly application specific value, it is an a priori expected lower bound since nodes have to process at least the state transitions they produce themselves.
+Note that the factor $\frac{n}{m}$ represents the average number of state transactions per node (i.e., the load per node) and that though this is a highly application specific value, it is an \textit{a priori }expected lower bound since nodes have to process at least the state transitions they produce themselves.
 
 The only overhead that is added by the architecture of this decentralized system is the node look-up with its complexity of $log(m)$.
 
@@ -588,8 +592,8 @@ At the time of this writing we have a fully operational implementation of system
 \item 30k+ lines of go code.
 \item DHT: customized version of libp2p/ipfs's kademlia implementation.
 \item Network Transport: libp2p including end-to-end encryption.
-\item Javascript Virtual Machine: otto \\\url{https://github.com/robertkrimen/otto}
-\item Lisp Virtual Machines: zygomys \\\url{https://github.com/glycerine/zygomys}
+\item Javascript Virtual Machine: otto \\\url{https://github.com/robertkrimen/otto}.
+\item Lisp Virtual Machines: zygomys \\\url{https://github.com/glycerine/zygomys}.
 \end{enumerate}
 
 \todo{benchmarking tests}
@@ -604,9 +608,9 @@ At the time of this writing we have a fully operational implementation of system
 
 \item $dht_\text{putLink}(base,link,tag)$ where $base$ and $link$ are keys and where $tag$ is an arbitrary string, which associates the tuple \{link,tag\} with the key $base$.
 \item $dht_\text{getLinks}(base,tag)$ where $base$ is a key keys and where $tag$ is an arbitrary string, which returns the set of links on $base$ identified by $tag$.
-\item $dht_\text{mod}(key,newkey)$ where $key$ and $newkey$ are keys, which adds $newkey$ as a modifier of $\sigma_\text{key} \in \dhtstate$ and calls $dht_\text{putLink}(key,newkey,``replacedby")$
+\item $dht_\text{mod}(key,newkey)$ where $key$ and $newkey$ are keys, which adds $newkey$ as a modifier of $\sigma_\text{key} \in \dhtstate$ and calls $dht_\text{putLink}(key,newkey,``replacedby")$.
 \item $dht_\text{del}(key)$ where $key$ is a key, and marks $\sigma_\text{key} \in \dhtstate$ as deleted.
-\item \todo{modification to $dht_\text{get}$ re mod \& del}
+\item \todo{modification to $dht_\text{get}$ re mod \& del}.
 \end{enumerate}
 
 \section{$\sysfns$}
@@ -618,7 +622,7 @@ At the time of this writing we have a fully operational implementation of system
 \section{Patterns of Trust Management}
 \label{apdx:trust}
 
-Tools in Holochain available to app developers for use in Considered Requirements, some of which are also used at the system level an globally parameterized for an application.
+Tools in Holochain available to app developers for use in Considered Requirements, some of which are also used at the system level and globally parameterized for an application:
 \begin{enumerate}
 \item Countersigning \todo{TODO}
 \item Notaries \todo{TODO -- ``The network is the notary."}
@@ -653,7 +657,7 @@ Tools in Holochain available to app developers for use in Considered Requirement
   this paper.
   \item \textit{Proof-of-Presence}\\
   Use of notarized national documents/passports/identity cards within the agent
-  entry (second entry in $\chain$)
+  entry (second entry in $\chain$).
   \item \textit{Proof-of-Service}\\
   Cryptographic proof of delivery of a service / hosting of an application.
   We intend to leverage this technique with our distributed cloud hosting

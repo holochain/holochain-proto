@@ -303,7 +303,8 @@ func TestDHTSend(t *testing.T) {
 	hash, _ := NewHash("QmY8Mzg9F69e5P9AoQPYat655HEhc1TVGs11tmfNSzkqh2")
 
 	Convey("send GET_REQUEST message for non existent hash should get error", t, func() {
-		_, err := h.dht.send(nil, h.node.HashAddr, GET_REQUEST, GetReq{H: hash, StatusMask: StatusLive})
+		msg := h.node.NewMessage(GET_REQUEST, GetReq{H: hash, StatusMask: StatusLive})
+		_, err := h.dht.send(nil, h.node.HashAddr, msg)
 		So(err, ShouldEqual, ErrHashNotFound)
 	})
 
@@ -317,36 +318,40 @@ func TestDHTSend(t *testing.T) {
 	// publish the entry data to the dht
 	hash = hd.EntryLink
 	Convey("after a handled PUT_REQUEST data should be stored in DHT", t, func() {
-		r, err := h.dht.send(nil, h.node.HashAddr, PUT_REQUEST, PutReq{H: hash})
+		msg := h.node.NewMessage(PUT_REQUEST, PutReq{H: hash})
+		r, err := h.dht.send(nil, h.node.HashAddr, msg)
 		So(err, ShouldBeNil)
 		So(r, ShouldEqual, DHTChangeOK)
-		h.dht.simHandleChangeReqs()
 		hd, _ := h.chain.GetEntryHeader(hash)
 		So(hd.EntryLink.Equal(&hash), ShouldBeTrue)
 	})
 
 	Convey("send GET_REQUEST message should return content", t, func() {
-		r, err := h.dht.send(nil, h.node.HashAddr, GET_REQUEST, GetReq{H: hash, StatusMask: StatusLive})
+		msg := h.node.NewMessage(GET_REQUEST, GetReq{H: hash, StatusMask: StatusLive})
+		r, err := h.dht.send(nil, h.node.HashAddr, msg)
 		So(err, ShouldBeNil)
 		resp := r.(GetResp)
 		So(fmt.Sprintf("%v", resp.Entry), ShouldEqual, fmt.Sprintf("%v", e))
 	})
 
 	Convey("send GET_REQUEST message should return content of sys types", t, func() {
-		r, err := h.dht.send(nil, h.nodeID, GET_REQUEST, GetReq{H: h.agentHash, StatusMask: StatusLive})
+		msg := h.node.NewMessage(GET_REQUEST, GetReq{H: h.agentHash, StatusMask: StatusLive})
+		r, err := h.dht.send(nil, h.nodeID, msg)
 		So(err, ShouldBeNil)
 		resp := r.(GetResp)
 		ae, _ := h.agent.AgentEntry(nil)
 		So(fmt.Sprintf("%v", resp.Entry.Content()), ShouldEqual, fmt.Sprintf("%v", ae))
 
-		r, err = h.dht.send(nil, h.nodeID, GET_REQUEST, GetReq{H: HashFromPeerID(h.nodeID), StatusMask: StatusLive})
+		msg = h.node.NewMessage(GET_REQUEST, GetReq{H: HashFromPeerID(h.nodeID), StatusMask: StatusLive})
+		r, err = h.dht.send(nil, h.nodeID, msg)
 		So(err, ShouldBeNil)
 		resp = r.(GetResp)
 		So(fmt.Sprintf("%v", resp.Entry.Content()), ShouldEqual, fmt.Sprintf("%v", ae.PublicKey))
 
 		// for now this is an error because we presume everyone has the DNA.
 		// once we implement dna changes, this needs to be changed
-		r, err = h.dht.send(nil, h.nodeID, GET_REQUEST, GetReq{H: h.dnaHash, StatusMask: StatusLive})
+		msg = h.node.NewMessage(GET_REQUEST, GetReq{H: h.dnaHash, StatusMask: StatusLive})
+		r, err = h.dht.send(nil, h.nodeID, msg)
 		So(err, ShouldBeError)
 
 	})
@@ -372,7 +377,8 @@ func TestDHTQueryGet(t *testing.T) {
 
 	// publish the entry data to local DHT node (0)
 	hash := hd.EntryLink
-	_, err = h.dht.send(nil, h.node.HashAddr, PUT_REQUEST, PutReq{H: hash})
+	msg := h.node.NewMessage(PUT_REQUEST, PutReq{H: hash})
+	_, err = h.dht.send(nil, h.node.HashAddr, msg)
 	if err != nil {
 		panic(err)
 	}
@@ -436,7 +442,8 @@ func TestDHTKadPut(t *testing.T) {
 		// routing table should be updated
 		So(fmt.Sprintf("%v", rtp), ShouldEqual, "[<peer.ID S4BFeT> <peer.ID W4HeEG> <peer.ID UfY4We>]")
 		// and get from node should get the value
-		r, err := h.dht.send(nil, mt.nodes[3].nodeID, GET_REQUEST, GetReq{H: hash, StatusMask: StatusLive})
+		msg := h.node.NewMessage(GET_REQUEST, GetReq{H: hash, StatusMask: StatusLive})
+		r, err := h.dht.send(nil, mt.nodes[3].nodeID, msg)
 		So(err, ShouldBeNil)
 		resp := r.(GetResp)
 		So(fmt.Sprintf("%v", resp.Entry), ShouldEqual, fmt.Sprintf("%v", e))
@@ -471,9 +478,6 @@ func TestActionReceiver(t *testing.T) {
 		So(r, ShouldEqual, DHTChangeOK)
 	})
 
-	if err := h.dht.simHandleChangeReqs(); err != nil {
-		panic(err)
-	}
 	Convey("GET_REQUEST should return the requested values", t, func() {
 		m := h.node.NewMessage(GET_REQUEST, GetReq{H: hash, StatusMask: StatusLive})
 		r, err := ActionReceiver(h, m)
@@ -526,10 +530,6 @@ func TestActionReceiver(t *testing.T) {
 		r, err := ActionReceiver(h, m)
 		So(err, ShouldBeNil)
 		So(r, ShouldEqual, DHTChangeOK)
-
-		// fake the handling of change requests
-		err = h.dht.simHandleChangeReqs()
-		So(err, ShouldBeNil)
 
 		// check that it got put
 		meta, err := h.dht.getLinks(hash, "4stars", StatusLive)
@@ -603,10 +603,6 @@ func TestActionReceiver(t *testing.T) {
 		r, err := ActionReceiver(h, m)
 		So(r, ShouldEqual, DHTChangeOK)
 
-		// fake the handling of change requests
-		err = h.dht.simHandleChangeReqs()
-		So(err, ShouldBeNil)
-
 		_, err = h.dht.getLinks(hash, "4stars", StatusLive)
 		So(err.Error(), ShouldEqual, "No links for 4stars")
 
@@ -656,10 +652,6 @@ func TestActionReceiver(t *testing.T) {
 		r, err := ActionReceiver(h, m)
 		So(err, ShouldBeNil)
 		So(r, ShouldEqual, DHTChangeOK)
-
-		// fake the handling of change requests
-		err = h.dht.simHandleChangeReqs()
-		So(err, ShouldBeNil)
 
 		data, entryType, _, status, _ := h.dht.get(hash2, StatusAny, GetMaskAll)
 		var e GobEntry
@@ -752,21 +744,32 @@ func TestDHTDump(t *testing.T) {
 
 		So(strings.Index(str, fmt.Sprintf("MSG (fingerprint %v)", f)) >= 0, ShouldBeTrue)
 		So(strings.Index(str, msgStr) >= 0, ShouldBeTrue)
-
 	})
+
 	Convey("dht dump of index 99 should return err", t, func() {
 		_, err := h.dht.DumpIdx(99)
 		So(err.Error(), ShouldEqual, "no such change index")
-
 	})
-}
 
-func TestDHT2String(t *testing.T) {
-	d, _, h := PrepareTestChain("test")
-	defer CleanupTestChain(h, d)
+	reviewHash := commit(h, "review", "this is my bogus review of the user")
+	commit(h, "rating", fmt.Sprintf(`{"Links":[{"Base":"%s","Link":"%s","Tag":"4stars"}]}`, h.nodeIDStr, reviewHash.String()))
 
-	Convey("it dump should show the changes count", t, func() {
-		So(strings.Index(h.dht.String(), "DHT changes:2") >= 0, ShouldBeTrue)
+	Convey("dht.String() should produce human readable DHT", t, func() {
+		dump := h.dht.String()
+		So(dump, ShouldContainSubstring, "DHT changes: 4")
+		d, _ := h.dht.DumpIdx(1)
+		So(dump, ShouldContainSubstring, d)
+		d, _ = h.dht.DumpIdx(2)
+		So(dump, ShouldContainSubstring, d)
+
+		So(dump, ShouldContainSubstring, "DHT entries:")
+		So(dump, ShouldContainSubstring, fmt.Sprintf("Hash--%s (status 1)", h.nodeIDStr))
+		pk, _ := h.agent.PubKey().Bytes()
+		So(dump, ShouldContainSubstring, fmt.Sprintf("Value: %s", string(pk)))
+		So(dump, ShouldContainSubstring, fmt.Sprintf("Sources: %s", h.nodeIDStr))
+
+		So(dump, ShouldContainSubstring, fmt.Sprintf("Linked to: %s with tag %s", reviewHash, "4stars"))
+
 	})
 }
 
@@ -789,7 +792,7 @@ func TestDHTRetry(t *testing.T) {
 		So(r, ShouldEqual, DHTChangeUnknownHashQueuedForRetry)
 
 		// pause for a few retires
-		h.DHT().Retry(time.Millisecond * 10)
+		h.node.retrying = h.TaskTicker(time.Millisecond*10, RetryTask)
 		time.Sleep(time.Millisecond * 25)
 
 		// add the entries and get them into the DHT
@@ -812,8 +815,8 @@ func TestDHTRetry(t *testing.T) {
 		So(status, ShouldEqual, StatusModified)
 
 		// stop retrying for next test
-		stop := h.dht.retrying
-		h.dht.retrying = nil
+		stop := h.node.retrying
+		h.node.retrying = nil
 		stop <- true
 
 	})
@@ -831,42 +834,66 @@ func TestDHTRetry(t *testing.T) {
 		So(len(h.dht.retryQueue), ShouldEqual, 1)
 
 		interval := time.Millisecond * 10
-		h.DHT().Retry(interval)
+		h.node.retrying = h.TaskTicker(interval, RetryTask)
 		time.Sleep(interval * (MaxRetries + 2))
 		So(len(h.dht.retryQueue), ShouldEqual, 0)
 	})
 }
 
-/*
-func TestHandleChangeReqs(t *testing.T) {
-	d, _, h := PrepareTestChain("test")
-	defer CleanupTestChain(h,d)
+func TestDHTMultiNode(t *testing.T) {
+	nodesCount := 10
+	mt := setupMultiNodeTesting(nodesCount)
+	defer mt.cleanupMultiNodeTesting()
+	nodes := mt.nodes
 
-	now := time.Unix(1, 1) // pick a constant time so the test will always work
-	e := GobEntry{C: "{\"prime\":7}"}
-	_, hd, err := h.NewEntry(now, "primes", &e)
-	if err != nil {
-		panic(err)
-	}
-
-	m := h.node.NewMessage(PUT_REQUEST, PutReq{H: hd.EntryLink})
-	h.dht.puts <- *m
-
-	Convey("handle put request should pull data from source and verify it", t, func() {
-		err := h.dht.simHandleChangeReqs()
-		So(err, ShouldBeNil)
-		data, et,_, _, err := h.dht.get(hd.EntryLink, StatusDefault, GetMaskDefault)
-		So(err, ShouldBeNil)
-		So(et, ShouldEqual, "primes")
-		b, _ := e.Marshal()
-		So(fmt.Sprintf("%v", data), ShouldEqual, fmt.Sprintf("%v", b))
+	ringConnectMutual(t, mt.ctx, mt.nodes, nodesCount)
+	var connections int
+	Convey("each node should be able to get the key of others", t, func() {
+		for i := 0; i < nodesCount; i++ {
+			h1 := nodes[i]
+			for j := 0; j < nodesCount; j++ {
+				h2 := nodes[j]
+				options := GetOptions{StatusMask: StatusDefault}
+				req := GetReq{H: HashFromPeerID(h1.nodeID), StatusMask: options.StatusMask, GetMask: options.GetMask}
+				response, err := NewGetAction(req, &options).Do(h2)
+				if err != nil {
+					//fmt.Printf("FAIL   : %v couldn't get from %v\n", h2.nodeID, h1.nodeID)
+				} else {
+					pk, _ := h1.agent.PubKey().Bytes()
+					if fmt.Sprintf("%v", response) == fmt.Sprintf("{{%v}  [] }", pk) {
+						connections += 1
+						//	fmt.Printf("SUCCESS: %v got from          %v\n", h2.nodeID, h1.nodeID)
+					}
+				}
+			}
+		}
+		So(connections, ShouldEqual, nodesCount*nodesCount)
 	})
 
-}
-*/
+	hashes := []Hash{}
+	// add a bunch of data and links to that data on the key
+	for i := 0; i < nodesCount; i++ {
+		h := nodes[i]
+		hash := commit(h, "review", fmt.Sprintf("this statement by node %d (%v)", i, h.nodeID))
+		commit(h, "rating", fmt.Sprintf(`{"Links":[{"Base":"%s","Link":"%s","Tag":"statement"}]}`, h.nodeIDStr, hash.String()))
+		hashes = append(hashes, hash)
+	}
 
-func (dht *DHT) simHandleChangeReqs() (err error) {
-	//	m := <-dht.puts
-	//	err = dht.handleChangeReq(&m)
-	return
+	Convey("each node should be able to get statements form the other nodes including self", t, func() {
+		for i := 0; i < nodesCount; i++ {
+			h1 := nodes[i]
+			for j := 0; j < nodesCount; j++ {
+				h2 := nodes[j]
+				options := GetLinksOptions{Load: true, StatusMask: StatusLive}
+				response, err := NewGetLinksAction(
+					&LinkQuery{
+						Base:       HashFromPeerID(h1.nodeID),
+						T:          "statement",
+						StatusMask: options.StatusMask,
+					}, &options).Do(h2)
+				So(err, ShouldBeNil)
+				So(fmt.Sprintf("%v", response), ShouldEqual, fmt.Sprintf("&{[{%v this statement by node %d (%v) review  %s}]}", hashes[i], i, h1.nodeID, h1.nodeID.Pretty()))
+			}
+		}
+	})
 }

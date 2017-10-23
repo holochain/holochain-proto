@@ -55,7 +55,7 @@ func (node *Node) FindLocal(id peer.ID) pstore.PeerInfo {
 // findPeerSingle asks peer 'p' if they know where the peer with id 'id' is and respond with
 // any closer peers if not.
 func (node *Node) findPeerSingle(ctx context.Context, p peer.ID, hash Hash) (closerPeers []*pstore.PeerInfo, err error) {
-	Debugf("Sending FIND_NODE_REQUEST to %v for hash: %v\n", p, hash)
+	node.log.Logf("Sending FIND_NODE_REQUEST to %v for hash: %v\n", p, hash)
 	pmes := node.NewMessage(FIND_NODE_REQUEST, FindNodeReq{H: hash})
 	var resp Message
 	resp, err = node.Send(ctx, KademliaProtocol, p, pmes)
@@ -86,7 +86,7 @@ func (node *Node) betterPeersForHash(hash *Hash, p peer.ID, count int) []peer.ID
 
 	// no node? nil
 	if closer == nil {
-		Debugf("no closer peers to send to %v", p)
+		node.log.Logf("no closer peers to send to %v", p)
 		return nil
 	}
 
@@ -128,7 +128,7 @@ func (node *Node) FindPeer(ctx context.Context, id peer.ID) (pstore.PeerInfo, er
 	// Sanity...
 	for _, p := range peers {
 		if p == id {
-			Debug("found target peer in list of closest peers...")
+			node.log.Logf("found target peer in list of closest peers...")
 			return node.peerstore.PeerInfo(p), nil
 		}
 	}
@@ -170,7 +170,7 @@ func (node *Node) FindPeer(ctx context.Context, id peer.ID) (pstore.PeerInfo, er
 		return pstore.PeerInfo{}, err
 	}
 
-	Debugf("FindPeer %v %v", id, result.success)
+	node.log.Logf("FindPeer %v %v", id, result.success)
 	if result.peer.ID == "" {
 		return pstore.PeerInfo{}, routing.ErrNotFound
 	}
@@ -184,7 +184,7 @@ func KademliaReceiver(h *Holochain, m *Message) (response interface{}, err error
 	node := h.node
 	switch m.Type {
 	case FIND_NODE_REQUEST:
-		dht.dlog.Logf("KademliaReceiver got FIND_NODE_REQUEST: %v", m)
+		dht.dlog.Logf("KademliaReceiver got: %v", m)
 		switch t := m.Body.(type) {
 		case FindNodeReq:
 

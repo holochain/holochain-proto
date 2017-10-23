@@ -32,6 +32,7 @@ type dhtQuery struct {
 	key         Hash      // the key we're querying for
 	qfunc       queryFunc // the function to execute per peer
 	concurrency int       // the concurrency parameter
+	log         *Logger
 }
 
 type dhtQueryResult struct {
@@ -50,6 +51,7 @@ func (node *Node) newQuery(k Hash, f queryFunc) *dhtQuery {
 		node:        node,
 		qfunc:       f,
 		concurrency: maxQueryConcurrency,
+		log:         node.log,
 	}
 }
 
@@ -85,7 +87,6 @@ type dhtQueryRunner struct {
 	errs   u.MultiErr      // result errors. maybe should be a map[peer.ID]error
 
 	rateLimit chan struct{} // processing semaphore
-	//	log       logging.EventLogger
 
 	runCtx context.Context
 
@@ -149,7 +150,7 @@ func (r *dhtQueryRunner) Run(ctx context.Context, peers []peer.ID) (*dhtQueryRes
 
 		// if every query to every peer failed, something must be very wrong.
 		if len(r.errs) > 0 && len(r.errs) == r.peersSeen.Size() {
-			Debugf("query errs: %s", r.errs)
+			r.query.log.Logf("query errs: %s", r.errs)
 			err = r.errs[0]
 		}
 
@@ -171,7 +172,7 @@ func (r *dhtQueryRunner) Run(ctx context.Context, peers []peer.ID) (*dhtQueryRes
 func (r *dhtQueryRunner) addPeerToQuery(next peer.ID) {
 	// if new peer is ourselves...
 	if next == r.query.node.HashAddr {
-		Debug("addPeerToQuery skip self")
+		r.query.log.Log("addPeerToQuery skip self")
 		return
 	}
 
@@ -239,7 +240,7 @@ func (r *dhtQueryRunner) queryPeer(proc process.Process, p peer.ID) {
 	// make sure we're connected to the peer.
 	// FIXME abstract away into the network layer
 	if conns := r.query.node.host.Network().ConnsToPeer(p); len(conns) == 0 {
-		Debug("not connected. dialing.")
+		r.query.log.Log("not connected. dialing.")
 
 		/*
 			notif.PublishQueryEvent(r.runCtx, &notif.QueryEvent{
@@ -254,7 +255,7 @@ func (r *dhtQueryRunner) queryPeer(proc process.Process, p peer.ID) {
 		pi := pstore.PeerInfo{ID: p}
 
 		if err := r.query.node.host.Connect(ctx, pi); err != nil {
-			Debugf("Error connecting: %s", err)
+			r.query.log.Logf("Error connecting: %s", err)
 
 			/*
 				notif.PublishQueryEvent(r.runCtx, &notif.QueryEvent{
@@ -270,20 +271,20 @@ func (r *dhtQueryRunner) queryPeer(proc process.Process, p peer.ID) {
 			return
 		}
 		<-r.rateLimit // need to grab it again, as we deferred.
-		Debugf("connected. dial success.")
+		r.query.log.Log("connected. dial success.")
 	}
 
 	// finally, run the query against this peer
 	res, err := r.query.qfunc(ctx, p)
 
 	if err != nil {
-		Debugf("ERROR worker for: %v %v", p, err)
+		r.query.log.Logf("ERROR worker for: %v %v", p, err)
 		r.Lock()
 		r.errs = append(r.errs, err)
 		r.Unlock()
 
 	} else if res.success {
-		Debugf("SUCCESS worker for: %v %s", p, res)
+		r.query.log.Logf("SUCCESS worker for: %v %v", p, res)
 		r.Lock()
 		r.result = res
 		r.Unlock()
@@ -291,19 +292,19 @@ func (r *dhtQueryRunner) queryPeer(proc process.Process, p peer.ID) {
 		// must be async, as we're one of the children, and Close blocks.
 
 	} else if len(res.closerPeers) > 0 {
-		Debugf("PEERS CLOSER -- worker for: %v (%d closer peers)", p, len(res.closerPeers))
+		r.query.log.Logf("PEERS CLOSER -- worker for: %v (%d closer peers)", p, len(res.closerPeers))
 		for _, next := range res.closerPeers {
 			if next.ID == r.query.node.HashAddr { // dont add self.
-				Debugf("PEERS CLOSER -- worker for: %v found self", p)
+				r.query.log.Logf("PEERS CLOSER -- worker for: %v found self", p)
 				continue
 			}
 
 			// add their addresses to the dialer's peerstore
 			r.query.node.peerstore.AddAddrs(next.ID, next.Addrs, pstore.TempAddrTTL)
 			r.addPeerToQuery(next.ID)
-			Debugf("PEERS CLOSER -- worker for: %v added %v (%v)", p, next.ID, next.Addrs)
+			r.query.log.Logf("PEERS CLOSER -- worker for: %v added %v (%v)", p, next.ID, next.Addrs)
 		}
 	} else {
-		Debugf("QUERY worker for: %v - not found, and no closer peers.", p)
+		r.query.log.Logf("QUERY worker for: %v - not found, and no closer peers. (res: %v)", p, res)
 	}
 }

@@ -33,10 +33,18 @@ func toString(input interface{}) string {
 	return output
 }
 
-// TestStringReplacements inserts special values into testing input and output values for matching
-func TestStringReplacements(h *Holochain, input, r1, r2, r3 string, lastMatches *[3][]string) string {
-	output := input
+type replacements struct {
+	h          *Holochain
+	r1, r2, r3 string
+	serverID   string
+	repetition string
+	history    *history
+}
 
+// testStringReplacements inserts special values into testing input and output values for matching
+func testStringReplacements(input string, r *replacements) string {
+	output := input
+	h := r.h
 	// look for %hn% in the string and do the replacements for recent hashes
 	re := regexp.MustCompile(`(\%h([0-9]*)\%)`)
 	var matches [][]string
@@ -55,11 +63,40 @@ func TestStringReplacements(h *Holochain, input, r1, r2, r3 string, lastMatches 
 			output = strings.Replace(output, m[1], hash.String(), -1)
 		}
 	}
-	// get the top 2 hashes for substituting for %h% and %h1% in the test expectation
 
-	output = strings.Replace(output, "%r1%", r1, -1)
-	output = strings.Replace(output, "%r2%", r2, -1)
-	output = strings.Replace(output, "%r3%", r3, -1)
+	// this is a hack.  The clone id is put into the identity by hcdev we can get
+	// out with this regex without having to create more code to pass it around.
+	re = regexp.MustCompile(`.*.([0-9]+)@.*`)
+	x := re.FindStringSubmatch(string(h.Agent().Identity()))
+	var clone string
+	if len(x) > 0 {
+		clone = x[1]
+	}
+	output = strings.Replace(output, "%clone%", clone, -1)
+
+	re = regexp.MustCompile(`(\%result([0-9]+)\%)`)
+	matches = re.FindAllStringSubmatch(output, -1)
+	if len(matches) > 0 {
+		for _, m := range matches {
+			resultIdx, err := strconv.Atoi(m[2])
+			if err != nil {
+				panic(err)
+			}
+			var nthResult string
+			if len(r.history.results) > resultIdx {
+				nthResult = fmt.Sprintf("%v", r.history.results[resultIdx])
+			} else {
+				nthResult = "<bad-result-index>"
+			}
+			output = strings.Replace(output, m[1], nthResult, -1)
+		}
+	}
+
+	output = strings.Replace(output, "%server%", r.serverID, -1)
+	output = strings.Replace(output, "%reps%", r.repetition, -1)
+	output = strings.Replace(output, "%r1%", r.r1, -1)
+	output = strings.Replace(output, "%r2%", r.r2, -1)
+	output = strings.Replace(output, "%r3%", r.r3, -1)
 	output = strings.Replace(output, "%dna%", h.DNAHash().String(), -1)
 	output = strings.Replace(output, "%agent%", h.AgentHash().String(), -1)
 	output = strings.Replace(output, "%agenttop%", h.AgentTopHash().String(), -1)
@@ -82,8 +119,8 @@ func TestStringReplacements(h *Holochain, input, r1, r2, r3 string, lastMatches 
 			if matchIdx < 1 || matchIdx > 3 {
 				panic("please pick a match between 1 & 3")
 			}
-			if subMatch < len(lastMatches[matchIdx-1]) {
-				output = strings.Replace(output, m[1], lastMatches[matchIdx-1][subMatch], -1)
+			if subMatch < len(r.history.lastMatches[matchIdx-1]) {
+				output = strings.Replace(output, m[1], r.history.lastMatches[matchIdx-1][subMatch], -1)
 			}
 		}
 	}
@@ -92,7 +129,7 @@ func TestStringReplacements(h *Holochain, input, r1, r2, r3 string, lastMatches 
 }
 
 // TestScenario runs the tests of a single role in a scenario
-func TestScenario(h *Holochain, dir string, role string) (err error, testErrs []error) {
+func TestScenario(h *Holochain, dir string, role string, serverID string) (err error, testErrs []error) {
 	var config *TestConfig
 	config, err = LoadTestConfig(dir)
 	if err != nil {
@@ -121,10 +158,13 @@ func TestScenario(h *Holochain, dir string, role string) (err error, testErrs []
 	}
 
 	if config.GossipInterval > 0 {
-		h.StartBackgroundTasks(config.GossipInterval * time.Millisecond)
+		h.Config.SetGossipInterval(time.Duration(config.GossipInterval) * time.Millisecond)
+	} else {
+		h.Config.SetGossipInterval(0)
 	}
+	h.StartBackgroundTasks()
 
-	testErrs = DoTests(h, role, tests, time.Duration(config.Duration)*time.Second)
+	testErrs = DoTests(h, role, tests, time.Duration(config.Duration)*time.Second, serverID)
 
 	return
 }
@@ -137,13 +177,18 @@ func waitTill(start time.Time, till time.Duration) {
 	}
 }
 
+type history struct {
+	results     []interface{}
+	lastResults [3]interface{}
+	lastMatches [3][]string
+}
+
 // DoTests runs through all the tests in a TestData array and returns any errors encountered
 // TODO: this code can cause crazy race conditions because lastResults and lastMatches get
 // passed into go routines that run asynchronously.  We should probably reimplement this with
 // channels or some other thread-safe queues.
-func DoTests(h *Holochain, name string, tests []TestData, minTime time.Duration) (errs []error) {
-	var lastResults [3]interface{}
-	var lastMatches [3][]string
+func DoTests(h *Holochain, name string, tests []TestData, minTime time.Duration, serverID string) (errs []error) {
+	var history history
 	done := make(chan bool, len(tests))
 	startTime := time.Now()
 
@@ -156,7 +201,7 @@ func DoTests(h *Holochain, name string, tests []TestData, minTime time.Duration)
 		count++
 		go func(index int, test TestData) {
 			waitTill(startTime, test.Time*time.Millisecond)
-			err := DoTest(h, name, index, test, startTime, &lastResults, &lastMatches)
+			err := DoTest(h, name, index, test, startTime, &history, serverID)
 			if err != nil {
 				errs = append(errs, err)
 			}
@@ -170,7 +215,7 @@ func DoTests(h *Holochain, name string, tests []TestData, minTime time.Duration)
 			continue
 		}
 
-		err := DoTest(h, name, i, t, startTime, &lastResults, &lastMatches)
+		err := DoTest(h, name, i, t, startTime, &history, serverID)
 		if err != nil {
 			errs = append(errs, err)
 		}
@@ -191,7 +236,7 @@ func DoTests(h *Holochain, name string, tests []TestData, minTime time.Duration)
 }
 
 // DoTest runs a singe test.
-func DoTest(h *Holochain, name string, i int, t TestData, startTime time.Time, lastResults *[3]interface{}, lastMatches *[3][]string) (err error) {
+func DoTest(h *Holochain, name string, i int, t TestData, startTime time.Time, history *history, serverID string) (err error) {
 	info := h.Config.Loggers.TestInfo
 	passed := h.Config.Loggers.TestPassed
 	failed := h.Config.Loggers.TestFailed
@@ -212,7 +257,7 @@ func DoTest(h *Holochain, name string, i int, t TestData, startTime time.Time, l
 		return
 	}
 
-	Debugf("------------------------------")
+	h.Debugf("------------------------------")
 	description := t.Convey
 	if description == "" {
 		description = fmt.Sprintf("%v", t)
@@ -224,7 +269,11 @@ func DoTest(h *Holochain, name string, i int, t TestData, startTime time.Time, l
 	} else {
 		repetitions = t.Repeat
 	}
+
+	replacements := replacements{h: h, serverID: serverID, history: history}
+	origInput := input
 	for r := 0; r < repetitions; r++ {
+		input = origInput // gotta do this so %reps% substitution will work
 		var rStr, testID string
 		if t.Repeat > 0 {
 			rStr = fmt.Sprintf(".%d", r)
@@ -238,12 +287,13 @@ func DoTest(h *Holochain, name string, i int, t TestData, startTime time.Time, l
 			time.Sleep(time.Millisecond * t.Wait)
 		}
 
-		Debugf("Input before replacement: %s", input)
-		r1 := strings.Trim(fmt.Sprintf("%v", lastResults[0]), "\"")
-		r2 := strings.Trim(fmt.Sprintf("%v", lastResults[1]), "\"")
-		r3 := strings.Trim(fmt.Sprintf("%v", lastResults[2]), "\"")
-		input = TestStringReplacements(h, input, r1, r2, r3, lastMatches)
-		Debugf("Input after replacement: %s", input)
+		h.Debugf("Input before replacement: %s", input)
+		replacements.repetition = fmt.Sprintf("%d", r)
+		replacements.r1 = strings.Trim(fmt.Sprintf("%v", history.lastResults[0]), "\"")
+		replacements.r2 = strings.Trim(fmt.Sprintf("%v", history.lastResults[1]), "\"")
+		replacements.r3 = strings.Trim(fmt.Sprintf("%v", history.lastResults[2]), "\"")
+		input = testStringReplacements(input, &replacements)
+		h.Debugf("Input after replacement: %s", input)
 		//====================
 
 		var actualResult interface{}
@@ -261,21 +311,24 @@ func DoTest(h *Holochain, name string, i int, t TestData, startTime time.Time, l
 		var expectedResult, expectedError = t.Output, t.Err
 		var expectedResultRegexp = t.Regexp
 		//====================
-		lastResults[2] = lastResults[1]
-		lastResults[1] = lastResults[0]
-		lastResults[0] = actualResult
+		history.lastResults[2] = history.lastResults[1]
+		history.lastResults[1] = history.lastResults[0]
+		history.lastResults[0] = actualResult
+		history.results = append(history.results, actualResult)
 		if expectedError != "" {
+			expectedError = testStringReplacements(expectedError, &replacements)
 			comparisonString := fmt.Sprintf("\nTest: %s\n\tExpected error:\t%v\n\tGot error:\t\t%v", testID, expectedError, actualError)
 			if actualError == nil || (actualError.Error() != expectedError) {
 				failed.Logf("\n=====================\n%s\n\tfailed! m(\n=====================", comparisonString)
 				err = errors.New(expectedError)
 			} else {
 				// all fine
-				Debugf("%s\n\tpassed :D", comparisonString)
+				h.Debugf("%s\n\tpassed :D", comparisonString)
 				err = nil
 			}
 		} else {
 			if actualError != nil {
+				expectedResult = testStringReplacements(expectedResult, &replacements)
 				errorString := fmt.Sprintf("\nTest: %s\n\tExpected:\t%s\n\tGot Error:\t\t%s\n", testID, expectedResult, actualError)
 				err = errors.New(errorString)
 				failed.Logf(fmt.Sprintf("\n=====================\n%s\n\tfailed! m(\n=====================", errorString))
@@ -284,31 +337,31 @@ func DoTest(h *Holochain, name string, i int, t TestData, startTime time.Time, l
 				var match bool
 				var comparisonString string
 				if expectedResultRegexp != "" {
-					Debugf("Test %s matching against regexp...", testID)
-					expectedResultRegexp = TestStringReplacements(h, expectedResultRegexp, r1, r2, r3, lastMatches)
+					h.Debugf("Test %s matching against regexp...", testID)
+					expectedResultRegexp = testStringReplacements(expectedResultRegexp, &replacements)
 					comparisonString = fmt.Sprintf("\nTest: %s\n\tExpected regexp:\t%v\n\tGot:\t\t%v", testID, expectedResultRegexp, resultString)
 					re, matchError := regexp.Compile(expectedResultRegexp)
 					if matchError != nil {
 						Infof(err.Error())
 					} else {
 						matches := re.FindStringSubmatch(resultString)
-						lastMatches[2] = lastMatches[1]
-						lastMatches[1] = lastMatches[0]
-						lastMatches[0] = matches
+						history.lastMatches[2] = history.lastMatches[1]
+						history.lastMatches[1] = history.lastMatches[0]
+						history.lastMatches[0] = matches
 						if len(matches) > 0 {
 							match = true
 						}
 					}
 
 				} else {
-					Debugf("Test %s matching against string...", testID)
-					expectedResult = TestStringReplacements(h, expectedResult, r1, r2, r3, lastMatches)
+					h.Debugf("Test %s matching against string...", testID)
+					expectedResult = testStringReplacements(expectedResult, &replacements)
 					comparisonString = fmt.Sprintf("\nTest: %s\n\tExpected:\t%v\n\tGot:\t\t%v", testID, expectedResult, resultString)
 					match = (resultString == expectedResult)
 				}
 
 				if match {
-					Debugf("%s\n\tpassed! :D", comparisonString)
+					h.Debugf("%s\n\tpassed! :D", comparisonString)
 					passed.Log("passed! ✔")
 				} else {
 					err = errors.New(comparisonString)
@@ -414,7 +467,7 @@ func test(h *Holochain, one string, bridgeApps []BridgeApp) []error {
 		}
 
 		//	go h.dht.HandleChangeReqs()
-		ers := DoTests(h, name, ts, 0)
+		ers := DoTests(h, name, ts, 0, "")
 
 		// stop all the bridge web servers
 		for _, server := range bridgeAppServers {

@@ -30,7 +30,7 @@ func toPeerInfos(ps []peer.ID) []*pstore.PeerInfo {
 // Kademlia 'node lookup' operation. Returns a channel of the K closest peers
 // to the given key
 func (node *Node) GetClosestPeers(ctx context.Context, key Hash) (<-chan peer.ID, error) {
-	Debugf("Finding peers close to %v", key)
+	node.log.Logf("Finding peers close to %v", key)
 	tablepeers := node.routingTable.NearestPeers(key, AlphaValue)
 	if len(tablepeers) == 0 {
 		return nil, ErrEmptyRoutingTable
@@ -50,10 +50,10 @@ func (node *Node) GetClosestPeers(ctx context.Context, key Hash) (<-chan peer.ID
 
 		closer, err := node.closerPeersSingle(ctx, key, p)
 		if err != nil {
-			Debugf("error getting closer peers: %s", err)
+			node.log.Logf("error getting closer peers: %s", err)
 			return nil, err
 		}
-		Debugf("closerPeers: %v\n", closer)
+		node.log.Logf("closerPeers: %v\n", closer)
 		peerinfos := toPeerInfos(closer)
 
 		// For DHT query command
@@ -71,11 +71,11 @@ func (node *Node) GetClosestPeers(ctx context.Context, key Hash) (<-chan peer.ID
 		// run it!
 		res, err := query.Run(ctx, tablepeers)
 		if err != nil {
-			Debugf("closestPeers query run error: %s", err)
+			node.log.Logf("closestPeers query run error: %v", err)
 		}
 
 		if res != nil && res.finalSet != nil {
-			Debugf("closestPeers have %d in final set", res.finalSet.Size())
+			node.log.Logf("closestPeers have %d in final set", res.finalSet.Size())
 			sorted := SortClosestPeers(res.finalSet.Peers(), key)
 			if len(sorted) > KValue {
 				sorted = sorted[:KValue]

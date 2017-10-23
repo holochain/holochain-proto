@@ -75,7 +75,7 @@ func (jsr *JSRibosome) Receive(from string, msg string) (response string, err er
 	fnName := "receive"
 
 	code = fmt.Sprintf(`JSON.stringify(%s("%s",JSON.parse("%s")))`, fnName, from, jsSanitizeString(msg))
-	Debug(code)
+	jsr.h.Debug(code)
 	var v otto.Value
 	v, err = jsr.vm.Run(code)
 	if err != nil {
@@ -91,7 +91,7 @@ func (jsr *JSRibosome) ValidatePackagingRequest(action ValidatingAction, def *En
 	var code string
 	fnName := "validate" + strings.Title(action.Name()) + "Pkg"
 	code = fmt.Sprintf(`%s("%s")`, fnName, def.Name)
-	Debug(code)
+	jsr.h.Debug(code)
 	var v otto.Value
 	v, err = jsr.vm.Run(code)
 	if err != nil {
@@ -201,7 +201,7 @@ func (jsr *JSRibosome) ValidateAction(action Action, def *EntryDef, pkg *Validat
 	if err != nil {
 		return
 	}
-	Debug(code)
+	jsr.h.Debug(code)
 	err = jsr.runValidate(action.Name(), code)
 	return
 }
@@ -269,7 +269,7 @@ func (jsr *JSRibosome) validateEntry(fnName string, def *EntryDef, entry Entry, 
 	)
 
 	code := fmt.Sprintf(`%s("%s",%s,%s,%s)`, fnName, def.Name, e, hdr, srcs)
-	Debugf("%s: %s", fnName, code)
+	jsr.h.Debugf("%s: %s", fnName, code)
 	err = jsr.runValidate(fnName, code)
 	return
 }
@@ -330,12 +330,12 @@ func (jsr *JSRibosome) Call(fn *FunctionDef, params interface{}) (result interfa
 		err = errors.New("params type not implemented")
 		return
 	}
-	Debugf("JS Call: %s", code)
+	jsr.h.Debugf("JS Call: %s", code)
 	var v otto.Value
 	v, err = jsr.vm.Run(code)
 	if err == nil {
 		if v.IsObject() && v.Class() == "Error" {
-			Debugf("JS Error:\n%v", v)
+			jsr.h.Debugf("JS Error:\n%v", v)
 			var message otto.Value
 			message, err = v.Object().Get("message")
 			if err == nil {
@@ -829,7 +829,7 @@ func NewJSRibosome(h *Holochain, zome *Zome) (n Ribosome, err error) {
 			if err != nil {
 				return mkOttoErr(&jsr, err.Error())
 			}
-			Debugf("Query options: %s", string(j))
+			jsr.h.Debugf("Query options: %s", string(j))
 			err = json.Unmarshal(j, &options)
 			if err != nil {
 				return mkOttoErr(&jsr, err.Error())
@@ -922,7 +922,7 @@ func NewJSRibosome(h *Holochain, zome *Zome) (n Ribosome, err error) {
 
 		}
 		code = "[" + code + "]"
-		Debugf("Query Code:%s\n", code)
+		jsr.h.Debugf("Query Code:%s\n", code)
 		object, _ := jsr.vm.Object(code)
 		results, _ := jsr.vm.ToValue(object)
 		return results
@@ -1179,7 +1179,7 @@ func NewJSRibosome(h *Holochain, zome *Zome) (n Ribosome, err error) {
 				var l string
 				l = `Hash:"` + th.H + `"`
 				if tag == "" {
-					l += `Tag:"` + jsSanitizeString(th.T) + `"`
+					l += `,Tag:"` + jsSanitizeString(th.T) + `"`
 				}
 				if options.Load {
 					l += `,EntryType:"` + jsSanitizeString(th.EntryType) + `"`
@@ -1219,7 +1219,7 @@ func NewJSRibosome(h *Holochain, zome *Zome) (n Ribosome, err error) {
 			if err == nil {
 				js = `[` + js + `]`
 				var obj *otto.Object
-				Debugf("getLinks code:\n%s", js)
+				jsr.h.Debugf("getLinks code:\n%s", js)
 				obj, err = jsr.vm.Object(js)
 				if err == nil {
 					result = obj.Value()
@@ -1264,7 +1264,7 @@ func (jsr *JSRibosome) Run(code string) (result interface{}, err error) {
 func (jsr *JSRibosome) RunAsyncSendResponse(response AppMsg, callback string, callbackID string) (result interface{}, err error) {
 
 	code := fmt.Sprintf(`%s(JSON.parse("%s"),"%s")`, callback, jsSanitizeString(response.Body), jsSanitizeString(callbackID))
-	Debugf("Calling %s\n", code)
+	jsr.h.Debugf("Calling %s\n", code)
 	result, err = jsr.Run(code)
 
 	return

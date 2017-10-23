@@ -20,7 +20,7 @@ func TestInit(t *testing.T) {
 
 	agent := "Fred Flintstone <fred@flintstone.com>"
 
-	s, err := Init(filepath.Join(d, DefaultDirectoryName), AgentIdentity(agent), makeTestSeed(agent))
+	s, err := Init(filepath.Join(d, DefaultDirectoryName), AgentIdentity(agent), MakeTestSeed(agent))
 
 	Convey("when initializing service in a directory", t, func() {
 		So(err, ShouldBeNil)
@@ -321,7 +321,7 @@ func TestMakeTestingApp(t *testing.T) {
 		So(f, ShouldEqual, "")
 		So(err.Error(), ShouldEqual, "No DNA file in "+filepath.Join(root, ChainDNADir)+"/")
 		_, err = s.load("test", "json")
-		So(err.Error(), ShouldEqual, "open "+filepath.Join(root, ChainDNADir, DNAFileName+".json")+": no such file or directory")
+		So(err.Error(), ShouldEqual, "open "+filepath.Join(root, ConfigFileName+".json")+": no such file or directory")
 
 	})
 

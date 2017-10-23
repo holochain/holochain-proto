@@ -459,7 +459,7 @@ func TestPersistingChain(t *testing.T) {
 */
 
 func chainTestSetup() (hs HashSpec, key ic.PrivKey, now time.Time) {
-	a, _ := NewAgent(LibP2P, "agent id", makeTestSeed(""))
+	a, _ := NewAgent(LibP2P, "agent id", MakeTestSeed(""))
 	key = a.PrivKey()
 	hc := Holochain{agent: a}
 	dna := DNA{DHTConfig: DHTConfig{HashType: "sha2-256"}}

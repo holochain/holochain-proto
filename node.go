@@ -15,30 +15,26 @@ import (
 
 	goprocess "github.com/jbenet/goprocess"
 	goprocessctx "github.com/jbenet/goprocess/context"
-
 	nat "github.com/libp2p/go-libp2p-nat"
-
 	net "github.com/libp2p/go-libp2p-net"
 	peer "github.com/libp2p/go-libp2p-peer"
 	pstore "github.com/libp2p/go-libp2p-peerstore"
 	protocol "github.com/libp2p/go-libp2p-protocol"
 	swarm "github.com/libp2p/go-libp2p-swarm"
+	discovery "github.com/libp2p/go-libp2p/p2p/discovery"
 	bhost "github.com/libp2p/go-libp2p/p2p/host/basic"
 	rhost "github.com/libp2p/go-libp2p/p2p/host/routed"
-	"github.com/metacurrency/holochain/discovery"
 	. "github.com/metacurrency/holochain/hash"
 	ma "github.com/multiformats/go-multiaddr"
 	mh "github.com/multiformats/go-multihash"
 	"gopkg.in/mgo.v2/bson"
 	"io"
-
 	"math/big"
-	"sync"
-
+	"math/rand"
 	go_net "net"
 	"strconv"
 	"strings"
-
+	"sync"
 	"time"
 )
 
@@ -127,6 +123,13 @@ type Node struct {
 	peerstore    pstore.Peerstore
 	routingTable *RoutingTable
 	nat          *nat.NAT
+	log          *Logger
+
+	// ticker task stoppers
+	retrying      chan bool
+	gossiping     chan bool
+	bootstrapping chan bool
+	refreshing    chan bool
 
 	// items for the kademlia implementation
 	plk   sync.Mutex
@@ -150,26 +153,91 @@ const (
 )
 
 const (
-	PeerTTL = time.Minute * 10
+	PeerTTL                       = time.Minute * 10
+	DefaultRoutingRefreshInterval = time.Minute
+	DefaultGossipInterval         = time.Second * 2
 )
 
 // implement peer found function for mdns discovery
 func (h *Holochain) HandlePeerFound(pi pstore.PeerInfo) {
 	h.dht.dlog.Logf("discovered peer via mdns: %v", pi)
-	err := h.AddPeer(pi.ID, pi.Addrs)
+	err := h.AddPeer(pi)
 	if err != nil {
-		h.dht.dlog.Logf("error when adding peer: %v", pi)
+		h.dht.dlog.Logf("error when adding peer: %v, %v", pi, err)
 	}
 }
 
-func (h *Holochain) AddPeer(id peer.ID, addrs []ma.Multiaddr) (err error) {
-	if h.node.IsBlocked(id) {
+func (h *Holochain) addPeer(pi pstore.PeerInfo, confirm bool) (err error) {
+	// add the peer into the peerstore
+	h.node.peerstore.AddAddrs(pi.ID, pi.Addrs, PeerTTL)
+
+	// attempt a connection to see if this is actually valid
+	if confirm {
+		err = h.node.host.Connect(h.node.ctx, pi)
+	}
+	if err != nil {
+		h.dht.dlog.Logf("Clearing peer %v, connection failed (%v)\n", pi.ID, err)
+		h.node.peerstore.ClearAddrs(pi.ID)
+		err = nil
+	} else {
+		bootstrap := h.node.routingTable.IsEmpty()
+		h.dht.dlog.Logf("Adding Peer: %v\n", pi.ID)
+		h.node.routingTable.Update(pi.ID)
+		err = h.dht.AddGossiper(pi.ID)
+		if bootstrap {
+			RoutingRefreshTask(h)
+		}
+	}
+	return
+}
+
+// RoutingRefreshTask fills the routing table by searching for a random node
+func RoutingRefreshTask(h *Holochain) {
+	s := fmt.Sprintf("%d", rand.Intn(1000000))
+	var hash Hash
+	err := hash.Sum(h.hashSpec, []byte(s))
+	if err == nil {
+		h.node.FindPeer(h.node.ctx, PeerIDFromHash(hash))
+	}
+}
+
+func (node *Node) isPeerActive(id peer.ID) bool {
+	// inactive currently defined by seeing if there are any addrs in the
+	// peerstore
+	// TODO: should be something different
+	addrs := node.peerstore.Addrs(id)
+	return len(addrs) > 0
+}
+
+// filterInactviePeers removes peers from a list who are currently inactive
+// if max >  0 returns only max number of peers
+func (node *Node) filterInactviePeers(peersIn []peer.ID, max int) (peersOut []peer.ID) {
+	if max <= 0 {
+		max = len(peersIn)
+	}
+	var i int
+	for _, p := range peersIn {
+		if node.isPeerActive(p) {
+			peersOut = append(peersOut, p)
+			i += 1
+			if i == max {
+				return
+			}
+		}
+	}
+	return
+}
+
+// AddPeer adds a peer to the peerstore if it passes various checks
+func (h *Holochain) AddPeer(pi pstore.PeerInfo) (err error) {
+	h.dht.dlog.Logf("Adding Peer Req: %v my node %v\n", pi.ID, h.node.HashAddr)
+	if pi.ID == h.node.HashAddr {
+		return
+	}
+	if h.node.IsBlocked(pi.ID) {
 		err = ErrBlockedListed
 	} else {
-		Debugf("Adding Peer: %v\n", id)
-		h.node.peerstore.AddAddrs(id, addrs, PeerTTL)
-		h.node.routingTable.Update(id)
-		err = h.dht.AddGossiper(id)
+		err = h.addPeer(pi, true)
 	}
 	return
 }
@@ -200,13 +268,13 @@ func (n *Node) ExternalAddr() ma.Multiaddr {
 	}
 }
 
-func (n *Node) discoverAndHandleNat(listenPort int) {
-	Debugf("Looking for a NAT...")
-	n.nat = nat.DiscoverNAT()
-	if n.nat == nil {
-		Debugf("No NAT found.")
+func (node *Node) discoverAndHandleNat(listenPort int) {
+	node.log.Logf("Looking for a NAT...")
+	node.nat = nat.DiscoverNAT()
+	if node.nat == nil {
+		node.log.Logf("No NAT found.")
 	} else {
-		Debugf("Discovered NAT! Trying to aquire public port mapping via UPnP...")
+		node.log.Logf("Discovered NAT! Trying to aquire public port mapping via UPnP...")
 		ifaces, _ := go_net.Interfaces()
 		// handle err
 		for _, i := range ifaces {
@@ -226,18 +294,18 @@ func (n *Node) discoverAndHandleNat(listenPort int) {
 				addr_string := fmt.Sprintf("/ip4/%s/tcp/%d", ip, listenPort)
 				localaddr, err := ma.NewMultiaddr(addr_string)
 				if err == nil {
-					Debugf("NAT: trying to establish NAT mapping for %s...", addr_string)
-					n.nat.NewMapping(localaddr)
+					node.log.Logf("NAT: trying to establish NAT mapping for %s...", addr_string)
+					node.nat.NewMapping(localaddr)
 				}
 			}
 		}
 
-		external_addr := n.ExternalAddr()
+		external_addr := node.ExternalAddr()
 
-		if external_addr != n.NetAddr {
-			Debugf("NAT: successfully created port mapping! External address is: %s", external_addr.String())
+		if external_addr != node.NetAddr {
+			node.log.Logf("NAT: successfully created port mapping! External address is: %s", external_addr.String())
 		} else {
-			Debugf("NAT: could not create port mappping. Keep trying...")
+			node.log.Logf("NAT: could not create port mappping. Keep trying...")
 			Infof("NAT:-------------------------------------------------------")
 			Infof("NAT:---------------------Warning---------------------------")
 			Infof("NAT:-------------------------------------------------------")
@@ -251,14 +319,16 @@ func (n *Node) discoverAndHandleNat(listenPort int) {
 }
 
 // NewNode creates a new node with given multiAddress listener string and identity
-func NewNode(listenAddr string, protoMux string, agent *LibP2PAgent, enableNATUPnP bool) (node *Node, err error) {
-	Debugf("Creating new node with protoMux: %s\n", protoMux)
+func NewNode(listenAddr string, protoMux string, agent *LibP2PAgent, enableNATUPnP bool, log *Logger) (node *Node, err error) {
+	var n Node
+	n.log = log
+	n.log.Logf("Creating new node with protoMux: %s\n", protoMux)
 	nodeID, _, err := agent.NodeID()
 	if err != nil {
 		return
 	}
+	n.log.Logf("NodeID is: %v\n", nodeID)
 
-	var n Node
 	listenPort, err := strconv.Atoi(strings.Split(listenAddr, "/")[4])
 	if err != nil {
 		Infof("Can't parse port from Multiaddress string: %s", listenAddr)
@@ -288,10 +358,10 @@ func NewNode(listenAddr string, protoMux string, agent *LibP2PAgent, enableNATUP
 	actionProtocolString := "/hc-action-" + protoMux + "/0.0.0"
 	kademliaProtocolString := "/hc-kademlia-" + protoMux + "/0.0.0"
 
-	Debugf("Validate protocol identifier: " + validateProtocolString)
-	Debugf("Gossip protocol identifier: " + gossipProtocolString)
-	Debugf("Action protocol identifier: " + actionProtocolString)
-	Debugf("Kademlia protocol identifier: " + kademliaProtocolString)
+	n.log.Logf("Validate protocol identifier: " + validateProtocolString)
+	n.log.Logf("Gossip protocol identifier: " + gossipProtocolString)
+	n.log.Logf("Action protocol identifier: " + actionProtocolString)
+	n.log.Logf("Kademlia protocol identifier: " + kademliaProtocolString)
 
 	n.protocols[ValidateProtocol] = &Protocol{protocol.ID(validateProtocolString), ValidateReceiver}
 	n.protocols[GossipProtocol] = &Protocol{protocol.ID(gossipProtocolString), GossipReceiver}
@@ -418,6 +488,24 @@ func (node *Node) StartProtocol(h *Holochain, proto int) (err error) {
 
 // Close shuts down the node
 func (node *Node) Close() error {
+	if node.gossiping != nil {
+		node.log.Log("Stopping gossiping")
+		stop := node.gossiping
+		node.gossiping = nil
+		stop <- true
+	}
+	if node.retrying != nil {
+		node.log.Log("Stopping retrying")
+		stop := node.retrying
+		node.retrying = nil
+		stop <- true
+	}
+	if node.bootstrapping != nil {
+		node.log.Log("Stopping boostrapping")
+		stop := node.bootstrapping
+		node.bootstrapping = nil
+		stop <- true
+	}
 	return node.proc.Close()
 }
 
@@ -431,6 +519,7 @@ func (node *Node) Send(ctx context.Context, proto int, addr peer.ID, m *Message)
 
 	s, err := node.host.NewStream(ctx, addr, node.protocols[proto].ID)
 	if err != nil {
+		fmt.Printf("SENDERR in %v sending to%v:%v\n", node.HashAddr, addr, err)
 		return
 	}
 	defer s.Close()
@@ -452,7 +541,7 @@ func (node *Node) Send(ctx context.Context, proto int, addr peer.ID, m *Message)
 	// decode the response
 	err = response.Decode(s)
 	if err != nil {
-		Debugf("failed to decode: %v err:%v ", err)
+		node.log.Logf("failed to decode: %v err:%v ", err)
 		return
 	}
 	return

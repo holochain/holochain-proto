@@ -19,7 +19,6 @@ import (
 	"strconv"
 	"strings"
 	"sync"
-	"time"
 )
 
 // Holds the dht configuration options
@@ -54,11 +53,9 @@ type DHT struct {
 	h          *Holochain // pointer to the holochain this DHT is part of
 	db         *buntdb.DB
 	retryQueue chan *retry
-	retrying   chan bool
-	gossiping  chan bool
+	gossipPuts chan Put
 	glog       *Logger // the gossip logger
 	dlog       *Logger // the dht logger
-	gossips    map[peer.ID]bool
 	gchan      chan gossipWithReq
 	config     *DHTConfig
 	glk        sync.RWMutex
@@ -230,6 +227,11 @@ var ErrEntryTypeMismatch = errors.New("entry type mismatch")
 var KValue int = 10
 var AlphaValue int = 3
 
+const (
+	GossipWithQueueSize = 10
+	GossipPutQueueSize  = 1000
+)
+
 // NewDHT creates a new DHT structure
 func NewDHT(h *Holochain) *DHT {
 	dht := DHT{
@@ -246,14 +248,15 @@ func NewDHT(h *Holochain) *DHT {
 	db.CreateIndex("idx", "idx:*", buntdb.IndexInt)
 	db.CreateIndex("peer", "peer:*", buntdb.IndexString)
 	db.CreateIndex("list", "list:*", buntdb.IndexString)
+	db.CreateIndex("entry", "entry:*", buntdb.IndexString)
 
 	dht.db = db
 	dht.retryQueue = make(chan *retry, 100)
 
-	dht.gossips = make(map[peer.ID]bool)
 	//	dht.sources = make(map[peer.ID]bool)
 	//	dht.fingerprints = make(map[string]bool)
-	dht.gchan = make(chan gossipWithReq, 10)
+	dht.gchan = make(chan gossipWithReq, GossipWithQueueSize)
+	dht.gossipPuts = make(chan Put, GossipPutQueueSize)
 
 	return &dht
 }
@@ -670,10 +673,11 @@ func (dht *DHT) getLinks(base Hash, tag string, statusMask int) (results []Tagge
 
 // Change sends DHT change messages to the closest peers to the hash in question
 func (dht *DHT) Change(key Hash, msgType MsgType, body interface{}) (err error) {
-	Debugf("Starting %v Change for %v with body %v", msgType, key, body)
+	dht.h.Debugf("Starting %v Change for %v with body %v", msgType, key, body)
 
+	msg := dht.h.node.NewMessage(msgType, body)
 	// change in our local DHT as well as
-	_, err = dht.send(nil, dht.h.nodeID, msgType, body)
+	_, err = dht.send(nil, dht.h.nodeID, msg)
 
 	if err != nil {
 		dht.dlog.Logf("DHT send of %v to self failed with error: %s", msgType, err)
@@ -694,7 +698,7 @@ func (dht *DHT) Change(key Hash, msgType MsgType, body interface{}) (err error) 
 			defer cancel()
 			defer wg.Done()
 
-			_, err := dht.send(ctx, p, msgType, body)
+			_, err := dht.send(ctx, p, msg)
 			if err != nil {
 				dht.dlog.Logf("DHT send of %v failed to peer %v with error: %s", msgType, p, err)
 			}
@@ -706,10 +710,11 @@ func (dht *DHT) Change(key Hash, msgType MsgType, body interface{}) (err error) 
 
 // Query sends DHT query messages recursively to peers until one is able to respond.
 func (dht *DHT) Query(key Hash, msgType MsgType, body interface{}) (response interface{}, err error) {
-	Debugf("Starting %v Query for %v with body %v", msgType, key, body)
+	dht.h.Debugf("Starting %v Query for %v with body %v", msgType, key, body)
 
+	msg := dht.h.node.NewMessage(msgType, body)
 	// try locally first
-	response, err = dht.send(nil, dht.h.nodeID, msgType, body)
+	response, err = dht.send(nil, dht.h.nodeID, msg)
 	if err == nil {
 		// if we actually got a response (not a closer peers list) then return it
 		_, notok := response.(CloserPeersResp)
@@ -725,7 +730,7 @@ func (dht *DHT) Query(key Hash, msgType MsgType, body interface{}) (response int
 
 	// get closest peers in the routing table
 	rtp := dht.h.node.routingTable.NearestPeers(key, AlphaValue)
-	Debugf("peers in rt: %d %s", len(rtp), rtp)
+	dht.h.Debugf("peers in rt: %d %s", len(rtp), rtp)
 	if len(rtp) == 0 {
 		Info("DHT Query with no peers in routing table!")
 		return nil, ErrHashNotFound
@@ -733,24 +738,29 @@ func (dht *DHT) Query(key Hash, msgType MsgType, body interface{}) (response int
 
 	// setup the Query
 	query := dht.h.node.newQuery(key, func(ctx context.Context, to peer.ID) (*dhtQueryResult, error) {
-		if ctx == nil {
-			Debug("fish")
-		}
-		response, err := dht.send(ctx, to, msgType, body)
+
+		response, err := dht.send(ctx, to, msg)
 		if err != nil {
-			Debugf("Query failed: %v", err)
+			dht.h.Debugf("Query failed: %v", err)
 			return nil, err
 		}
 
 		res := &dhtQueryResult{}
 
 		switch t := response.(type) {
+		case LinkQueryResp:
+			dht.h.Debugf("Query successful with: %v", response)
+			res.success = true
+			res.response = &t
 		case GetResp:
-			Debugf("Query successful with: %v", response)
+			dht.h.Debugf("Query successful with: %v", response)
 			res.success = true
 			res.response = response
 		case CloserPeersResp:
 			res.closerPeers = peerInfos2Pis(t.CloserPeers)
+		default:
+			err = fmt.Errorf("unknown response type %T in query", t)
+			return nil, err
 		}
 		return res, nil
 	})
@@ -766,11 +776,11 @@ func (dht *DHT) Query(key Hash, msgType MsgType, body interface{}) (response int
 }
 
 // Send sends a message to the node
-func (dht *DHT) send(ctx context.Context, to peer.ID, t MsgType, body interface{}) (response interface{}, err error) {
+func (dht *DHT) send(ctx context.Context, to peer.ID, msg *Message) (response interface{}, err error) {
 	if ctx == nil {
 		ctx = dht.h.node.ctx
 	}
-	return dht.h.Send(ctx, ActionProtocol, to, t, body, 0)
+	return dht.h.Send(ctx, ActionProtocol, to, msg, 0)
 }
 
 // HandleChangeReqs waits on a chanel for messages to handle
@@ -824,13 +834,18 @@ func (dht *DHT) DumpIdx(idx int) (str string, err error) {
 	return
 }
 
+func statusValueToString(val string) string {
+	//TODO
+	return val
+}
+
 // String converts a DHT into a human readable string
 func (dht *DHT) String() (result string) {
 	idx, err := dht.GetIdx()
 	if err != nil {
-		return ""
+		return err.Error()
 	}
-	result += fmt.Sprintf("DHT changes:%d\n", idx)
+	result += fmt.Sprintf("DHT changes: %d\n", idx)
 	for i := 1; i <= idx; i++ {
 		str, err := dht.DumpIdx(i)
 		if err != nil {
@@ -839,38 +854,66 @@ func (dht *DHT) String() (result string) {
 			result += fmt.Sprintf("%d\n%v\n", i, str)
 		}
 	}
+
+	result += fmt.Sprintf("DHT entries:\n")
+	err = dht.db.View(func(tx *buntdb.Tx) error {
+		err = tx.Ascend("entry", func(key, value string) bool {
+			x := strings.Split(key, ":")
+			k := string(x[1])
+			var status string
+			statusVal, err := tx.Get("status:" + k)
+			if err != nil {
+				status = fmt.Sprintf("<err getting status:%v>", err)
+			} else {
+				status = statusValueToString(statusVal)
+			}
+
+			var sources string
+			sources, err = tx.Get("src:" + k)
+			if err != nil {
+				sources = fmt.Sprintf("<err getting sources:%v>", err)
+			}
+			var links string
+			err = tx.Ascend("link", func(key, value string) bool {
+				x := strings.Split(key, ":")
+				base := x[1]
+				link := x[2]
+				tag := x[3]
+				if base == k {
+					links += fmt.Sprintf("Linked to: %s with tag %s\n", link, tag)
+					links += value + "\n"
+				}
+				return true
+			})
+			result += fmt.Sprintf("Hash--%s (status %s):\nValue: %s\nSources: %s\n%s\n", k, status, value, sources, links)
+			return true
+		})
+		return nil
+	})
+
 	return
 }
 
 // Close cleans up the DHT
 func (dht *DHT) Close() {
-	if dht.gossiping != nil {
-		Debug("Stopping gossiping")
-		stop := dht.gossiping
-		dht.gossiping = nil
-		stop <- true
-	}
-	if dht.retrying != nil {
-		Debug("Stopping retrying")
-		stop := dht.retrying
-		dht.retrying = nil
-		stop <- true
-	}
 	close(dht.retryQueue)
+	dht.retryQueue = nil
 	close(dht.gchan)
+	dht.gchan = nil
+	close(dht.gossipPuts)
+	dht.gossipPuts = nil
 }
 
 // Retry starts retry processing
-func (dht *DHT) Retry(interval time.Duration) {
-	dht.retrying = Ticker(interval, func() {
-		if len(dht.retryQueue) > 0 {
-			r := <-dht.retryQueue
-			if r.retries > 0 {
-				resp, err := actionReceiver(dht.h, &r.msg, r.retries-1)
-				dht.dlog.Logf("retry %d of %v, response: %d error: %v", r.retries, r.msg, resp, err)
-			} else {
-				dht.dlog.Logf("max retries for %v, ignoring", r.msg)
-			}
+func RetryTask(h *Holochain) {
+	dht := h.dht
+	if len(dht.retryQueue) > 0 {
+		r := <-dht.retryQueue
+		if r.retries > 0 {
+			resp, err := actionReceiver(dht.h, &r.msg, r.retries-1)
+			dht.dlog.Logf("retry %d of %v, response: %d error: %v", r.retries, r.msg, resp, err)
+		} else {
+			dht.dlog.Logf("max retries for %v, ignoring", r.msg)
 		}
-	})
+	}
 }

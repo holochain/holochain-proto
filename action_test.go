@@ -173,11 +173,14 @@ func TestSysValidateMod(t *testing.T) {
 	hash := commit(h, "evenNumbers", "2")
 	_, def, _ := h.GetEntryDef("evenNumbers")
 
-	Convey("it should check that entry types match on mod", t, func() {
-		a := NewModAction("oddNumbers", &GobEntry{}, hash)
-		err := a.SysValidation(h, def, nil, []peer.ID{h.nodeID})
-		So(err, ShouldEqual, ErrEntryTypeMismatch)
-	})
+	/* This is actually bogus because it assumes we have the entry type in our chain but
+	           might be in a different chain.
+		Convey("it should check that entry types match on mod", t, func() {
+			a := NewModAction("oddNumbers", &GobEntry{}, hash)
+			err := a.SysValidation(h, def, nil, []peer.ID{h.nodeID})
+			So(err, ShouldEqual, ErrEntryTypeMismatch)
+		})
+	*/
 
 	Convey("it should check that entry isn't linking ", t, func() {
 		a := NewModAction("rating", &GobEntry{}, hash)
@@ -189,8 +192,24 @@ func TestSysValidateMod(t *testing.T) {
 	Convey("it should check that entry validates", t, func() {
 		a := NewModAction("evenNumbers", nil, hash)
 		err := a.SysValidation(h, def, nil, []peer.ID{h.nodeID})
-		So(err.Error(), ShouldEqual, "nil entry invalid")
+		So(err, ShouldEqual, ErrNilEntryInvalid)
 	})
+
+	Convey("it should check that header isn't missing", t, func() {
+		a := NewModAction("evenNumbers", &GobEntry{}, hash)
+		err := a.SysValidation(h, def, nil, []peer.ID{h.nodeID})
+		So(err, ShouldBeError)
+		So(err.Error(), ShouldEqual, "mod: missing header")
+	})
+
+	Convey("it should check that replaces is doesn't make a loop", t, func() {
+		a := NewModAction("evenNumbers", &GobEntry{}, hash)
+		a.header = &Header{EntryLink: hash}
+		err := a.SysValidation(h, def, nil, []peer.ID{h.nodeID})
+		So(err, ShouldBeError)
+		So(err.Error(), ShouldEqual, "mod: replaces must be different from original hash")
+	})
+
 }
 
 func TestSysValidateDel(t *testing.T) {

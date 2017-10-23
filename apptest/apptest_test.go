@@ -17,19 +17,44 @@ func TestTestStringReplacements(t *testing.T) {
 	d, _, h := PrepareTestChain("test")
 	defer CleanupTestChain(h, d)
 	var lastMatches = [3][]string{{"complete match", "1st submatch", "2nd submatch"}}
+	history := &history{lastMatches: lastMatches}
+	replacements := replacements{h: h, serverID: "foo", history: history, repetition: "1"}
 
 	Convey("it should replace %dna%", t, func() {
 		input := "%dna%"
-		output := TestStringReplacements(h, input, "", "", "", &lastMatches)
+		output := testStringReplacements(input, &replacements)
 		So(output, ShouldEqual, h.DNAHash().String())
 	})
 
 	Convey("it should replace %m%", t, func() {
 		input := "%m1.2%"
-		output := TestStringReplacements(h, input, "", "", "", &lastMatches)
+		output := testStringReplacements(input, &replacements)
 		So(output, ShouldEqual, "2nd submatch")
 	})
 
+	Convey("it should replace %server%", t, func() {
+		input := "%server%"
+		output := testStringReplacements(input, &replacements)
+		So(output, ShouldEqual, "foo")
+	})
+	Convey("it should replace %reps%", t, func() {
+		input := "%reps%"
+		output := testStringReplacements(input, &replacements)
+		So(output, ShouldEqual, "1")
+	})
+	Convey("it should replace %resultX%", t, func() {
+		history.results = append(history.results, "foo")
+		input := "%result0%"
+		output := testStringReplacements(input, &replacements)
+		So(output, ShouldEqual, "foo")
+		history.results = append(history.results, "bar")
+		input = "%result0%-%result1%-%result0%"
+		output = testStringReplacements(input, &replacements)
+		So(output, ShouldEqual, "foo-bar-foo")
+		input = "%result99%"
+		output = testStringReplacements(input, &replacements)
+		So(output, ShouldEqual, "<bad-result-index>")
+	})
 }
 
 func TestTest(t *testing.T) {

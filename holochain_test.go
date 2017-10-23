@@ -21,7 +21,7 @@ func TestMain(m *testing.M) {
 }
 
 func TestNewHolochain(t *testing.T) {
-	a, _ := NewAgent(LibP2P, "Joe", makeTestSeed(""))
+	a, _ := NewAgent(LibP2P, "Joe", MakeTestSeed(""))
 
 	Convey("New should fill Holochain struct with provided values and new UUID", t, func() {
 
@@ -64,11 +64,22 @@ func TestNewHolochain(t *testing.T) {
 
 }
 
+func TestSetupConfig(t *testing.T) {
+	config := Config{}
+	Convey("it should set the intervals", t, func() {
+		config.Setup()
+		So(config.gossipInterval, ShouldEqual, DefaultGossipInterval)
+		So(config.bootstrapRefreshInterval, ShouldEqual, BootstrapTTL)
+		So(config.routingRefreshInterval, ShouldEqual, DefaultRoutingRefreshInterval)
+		So(config.retryInterval, ShouldEqual, DefaultRetryInterval)
+	})
+}
+
 func TestSetupLogging(t *testing.T) {
 	d, _, h := SetupTestChain("test")
 	defer CleanupTestChain(h, d)
 	Convey("it should initialize the loggers", t, func() {
-		err := h.SetupLogging()
+		err := h.Config.SetupLogging()
 		So(err, ShouldBeNil)
 		// test some default configurations
 		So(h.Config.Loggers.App.Enabled, ShouldBeTrue)
@@ -84,7 +95,7 @@ func TestSetupLogging(t *testing.T) {
 		os.Setenv("HCLOG_GOSSIP_ENABLE", "true")
 		os.Setenv("HCLOG_PREFIX", "a prefix:")
 		h.Config.Loggers.DHT.Format = "%{message}"
-		err := h.SetupLogging()
+		err := h.Config.SetupLogging()
 		So(err, ShouldBeNil)
 		So(h.Config.Loggers.App.Enabled, ShouldBeFalse)
 		So(h.Config.Loggers.DHT.Enabled, ShouldBeTrue)
@@ -139,16 +150,17 @@ func TestDebuggingSetup(t *testing.T) {
 	Convey("it should setup debugging output", t, func() {
 		// test the output of the debug log
 		var buf bytes.Buffer
-		debugLog.w = &buf
-		var enabled = debugLog.Enabled
-		debugLog.Enabled = true
+		log := &h.Config.Loggers.Debug
+		log.w = &buf
+		var enabled = log.Enabled
+		log.Enabled = true
 
-		Debug("test")
-		So(string(buf.Bytes()), ShouldEqual, "HC: holochain_test.go.146: test\n")
+		h.Debug("test")
+		So(string(buf.Bytes()), ShouldEqual, "HC: holochain_test.go.158: test\n")
 
 		// restore state of debug log
-		debugLog.w = os.Stdout
-		debugLog.Enabled = enabled
+		log.w = os.Stdout
+		log.Enabled = enabled
 	})
 }
 
@@ -486,10 +498,6 @@ func TestCommit(t *testing.T) {
 	// add an entry onto the chain
 	hash := commit(h, "oddNumbers", "7")
 
-	if err := h.dht.simHandleChangeReqs(); err != nil {
-		panic(err)
-	}
-
 	Convey("publicly shared entries should generate a put", t, func() {
 		err := h.dht.exists(hash, StatusLive)
 		So(err, ShouldBeNil)
@@ -500,9 +508,6 @@ func TestCommit(t *testing.T) {
 	Convey("it should attach links after commit of Links entry", t, func() {
 		commit(h, "rating", fmt.Sprintf(`{"Links":[{"Base":"%s","Link":"%s","Tag":"4stars"}]}`, hash.String(), profileHash.String()))
 
-		if err := h.dht.simHandleChangeReqs(); err != nil {
-			panic(err)
-		}
 		results, err := h.dht.getLinks(hash, "4stars", StatusLive)
 		So(err, ShouldBeNil)
 		So(fmt.Sprintf("%v", results), ShouldEqual, fmt.Sprintf("[{QmYeinX5vhuA91D3v24YbgyLofw9QAxY6PoATrBHnRwbtt    %s}]", h.nodeIDStr))

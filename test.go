@@ -6,6 +6,7 @@ import (
 	. "github.com/smartystreets/goconvey/convey"
 	"io"
 	"io/ioutil"
+	"net"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -27,14 +28,14 @@ func MakeTestDirName() string {
 	return d
 }
 
-func makeTestSeed(id string) io.Reader {
+func MakeTestSeed(id string) io.Reader {
 	return strings.NewReader(id + "1234567890123456789012345678901234567890")
 }
 
 func setupTestService() (d string, s *Service) {
 	d = SetupTestDir()
 	identity := "Herbert <h@bert.com>"
-	s, err := Init(filepath.Join(d, DefaultDirectoryName), AgentIdentity(identity), makeTestSeed(identity))
+	s, err := Init(filepath.Join(d, DefaultDirectoryName), AgentIdentity(identity), MakeTestSeed(identity))
 
 	s.Settings.DefaultBootstrapServer = "localhost:3142"
 	if err != nil {
@@ -47,6 +48,25 @@ func SetupTestService() (d string, s *Service) {
 	return setupTestService()
 }
 
+// Ask the kernel for a free open port that is ready to use
+func getFreePort() (port int, err error) {
+	port = -1
+	err = nil
+
+	addr, err := net.ResolveTCPAddr("tcp", "localhost:0")
+	if err != nil {
+		return
+	}
+
+	l, err := net.ListenTCP("tcp", addr)
+	if err != nil {
+		return
+	}
+	defer l.Close()
+	port = l.Addr().(*net.TCPAddr).Port
+	return
+}
+
 func setupTestChain(name string, count int, s *Service) (h *Holochain) {
 	path := filepath.Join(s.Path, name)
 
@@ -54,7 +74,7 @@ func setupTestChain(name string, count int, s *Service) (h *Holochain) {
 	if count > 0 {
 		var err error
 		identity := string(a.Identity()) + fmt.Sprintf("%d", count)
-		a, err = NewAgent(LibP2P, AgentIdentity(identity), makeTestSeed(identity))
+		a, err = NewAgent(LibP2P, AgentIdentity(identity), MakeTestSeed(identity))
 		if err != nil {
 			panic(err)
 		}
@@ -64,7 +84,10 @@ func setupTestChain(name string, count int, s *Service) (h *Holochain) {
 	if err != nil {
 		panic(err)
 	}
-	h.Config.Port += count
+	h.Config.Port, err = getFreePort()
+	if err != nil {
+		panic(err)
+	}
 	return
 }
 

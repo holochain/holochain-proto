@@ -12,10 +12,16 @@ import (
 	"errors"
 	"fmt"
 	peer "github.com/libp2p/go-libp2p-peer"
+	pstore "github.com/libp2p/go-libp2p-peerstore"
 	ma "github.com/multiformats/go-multiaddr"
 	"io/ioutil"
 	"net/http"
 	"strings"
+	"time"
+)
+
+const (
+	BootstrapTTL = time.Minute * 5
 )
 
 type BSReq struct {
@@ -25,8 +31,9 @@ type BSReq struct {
 }
 
 type BSResp struct {
-	Req    BSReq
-	Remote string
+	Req      BSReq
+	Remote   string
+	LastSeen time.Time
 }
 
 func (h *Holochain) BSpost() (err error) {
@@ -68,8 +75,10 @@ func (h *Holochain) checkBSResponses(nodes []BSResp) (err error) {
 			if err == nil {
 				// don't "discover" ourselves
 				if r.Req.NodeID != myNodeID {
-					h.dht.dlog.Logf("discovered peer: %s (%v)", r.Req.NodeID, addr)
-					err = h.AddPeer(id, []ma.Multiaddr{addr})
+					h.dht.dlog.Logf("discovered peer via bs: %s (%v)", r.Req.NodeID, addr)
+					go func() {
+						err = h.AddPeer(pstore.PeerInfo{ID: id, Addrs: []ma.Multiaddr{addr}})
+					}()
 				}
 
 			}

@@ -71,6 +71,7 @@ type CommittingAction interface {
 	Args() []Arg
 	EntryType() string
 	Entry() Entry
+	SetHeader(header *Header)
 }
 
 // ValidatingAction provides an abstraction for grouping all the actions that participate in validation loop
@@ -88,6 +89,7 @@ var NonCallableAction error = errors.New("Not a callable action")
 var ErrNotValidForDNAType error = errors.New("Invalid action for DNA type")
 var ErrNotValidForAgentType error = errors.New("Invalid action for Agent type")
 var ErrNotValidForKeyType error = errors.New("Invalid action for Key type")
+var ErrNilEntryInvalid error = errors.New("nil entry invalid")
 
 func prepareSources(sources []peer.ID) (srcs []string) {
 	srcs = make([]string, 0)
@@ -100,6 +102,12 @@ func prepareSources(sources []peer.ID) (srcs []string) {
 // ValidateAction runs the different phases of validating an action
 func (h *Holochain) ValidateAction(a ValidatingAction, entryType string, pkg *Package, sources []peer.ID) (def *EntryDef, err error) {
 
+	defer func() {
+		if err != nil {
+			h.dht.dlog.Logf("%T Validation failed with: %v", a, err)
+		}
+	}()
+
 	var z *Zome
 	z, def, err = h.GetEntryDef(entryType)
 	if err != nil {
@@ -109,7 +117,7 @@ func (h *Holochain) ValidateAction(a ValidatingAction, entryType string, pkg *Pa
 	// run the action's system level validations
 	err = a.SysValidation(h, def, pkg, sources)
 	if err != nil {
-		Debugf("Sys ValidateAction(%T) err:%v\n", a, err)
+		h.Debugf("Sys ValidateAction(%T) err:%v\n", a, err)
 		return
 	}
 	if !def.IsSysEntry() {
@@ -130,7 +138,7 @@ func (h *Holochain) ValidateAction(a ValidatingAction, entryType string, pkg *Pa
 
 		err = n.ValidateAction(a, def, vpkg, prepareSources(sources))
 		if err != nil {
-			Debugf("Ribosome ValidateAction(%T) err:%v\n", a, err)
+			h.Debugf("Ribosome ValidateAction(%T) err:%v\n", a, err)
 		}
 	}
 	return
@@ -199,7 +207,7 @@ func (h *Holochain) GetValidationResponse(a ValidatingAction, hash Hash) (resp V
 		var req PackagingReq
 		req, err = n.ValidatePackagingRequest(a, def)
 		if err != nil {
-			Debugf("Ribosome GetValidationPackage(%T) err:%v\n", a, err)
+			h.Debugf("Ribosome GetValidationPackage(%T) err:%v\n", a, err)
 		}
 		resp.Package, err = MakePackage(h, req)
 	}
@@ -542,10 +550,12 @@ func (a *ActionSend) Do(h *Holochain) (response interface{}, err error) {
 	if a.options != nil {
 		timeout = time.Duration(a.options.Timeout) * time.Millisecond
 	}
+	msg := h.node.NewMessage(APP_MESSAGE, a.msg)
 	if a.options != nil && a.options.Callback != nil {
-		err = h.SendAsync(ActionProtocol, a.to, APP_MESSAGE, a.msg, a.options.Callback, timeout)
+		err = h.SendAsync(ActionProtocol, a.to, msg, a.options.Callback, timeout)
 	} else {
-		r, err = h.Send(h.node.ctx, ActionProtocol, a.to, APP_MESSAGE, a.msg, timeout)
+
+		r, err = h.Send(h.node.ctx, ActionProtocol, a.to, msg, timeout)
 		if err == nil {
 			response = r.(AppMsg).Body
 		}
@@ -643,6 +653,10 @@ func (a *ActionGet) Do(h *Holochain) (response interface{}, err error) {
 			if err != nil {
 				return
 			}
+			if hash.String() == a.req.H.String() {
+				err = errors.New("FollowHash loop detected")
+				return
+			}
 			req := GetReq{H: hash, StatusMask: StatusDefault, GetMask: a.options.GetMask}
 			modResp, err := NewGetAction(req, a.options).Do(h)
 			if err == nil {
@@ -726,19 +740,35 @@ func (h *Holochain) doCommit(a CommittingAction, change *StatusChange) (d *Entry
 	entry := a.Entry()
 	var l int
 	var hash Hash
+	var added bool
 
-	l, hash, header, err = h.chain.PrepareHeader(time.Now(), entryType, entry, h.agent.PrivKey(), change)
-	if err != nil {
-		return
-	}
-	//TODO	a.header = header
-	d, err = h.ValidateAction(a, entryType, nil, []peer.ID{h.nodeID})
-	if err != nil {
-		return
-	}
-	err = h.chain.addEntry(l, hash, header, entry)
-	if err != nil {
-		return
+	// retry loop incase someone sneaks a new commit in between prepareHeader and addEntry
+	for !added {
+		h.chain.lk.RLock()
+		count := len(h.chain.Headers)
+		l, hash, header, err = h.chain.prepareHeader(time.Now(), entryType, entry, h.agent.PrivKey(), change)
+		h.chain.lk.RUnlock()
+		if err != nil {
+			return
+		}
+
+		a.SetHeader(header)
+		d, err = h.ValidateAction(a, entryType, nil, []peer.ID{h.nodeID})
+		if err != nil {
+			return
+		}
+
+		h.chain.lk.Lock()
+		if count == len(h.chain.Headers) {
+			err = h.chain.addEntry(l, hash, header, entry)
+			if err == nil {
+				added = true
+			}
+		}
+		h.chain.lk.Unlock()
+		if err != nil {
+			return
+		}
 	}
 	entryHash = header.EntryLink
 	return
@@ -772,6 +802,10 @@ func (a *ActionCommit) Name() string {
 
 func (a *ActionCommit) Args() []Arg {
 	return []Arg{{Name: "entryType", Type: StringArg}, {Name: "entry", Type: EntryArg}}
+}
+
+func (a *ActionCommit) SetHeader(header *Header) {
+	a.header = header
 }
 
 func (a *ActionCommit) Do(h *Holochain) (response interface{}, err error) {
@@ -863,7 +897,7 @@ func sysValidateEntry(h *Holochain, def *EntryDef, entry Entry, pkg *Package) (e
 	}
 
 	if entry == nil {
-		err = errors.New("nil entry invalid")
+		err = ErrNilEntryInvalid
 		return
 	}
 	// see if there is a schema validator for the entry type and validate it if so
@@ -876,7 +910,7 @@ func sysValidateEntry(h *Holochain, def *EntryDef, entry Entry, pkg *Package) (e
 		} else {
 			input = entry
 		}
-		Debugf("Validating %v against schema", input)
+		h.Debugf("Validating %v against schema", input)
 		if err = def.validator.Validate(input); err != nil {
 			return
 		}
@@ -971,7 +1005,8 @@ func (a *ActionPut) SysValidation(h *Holochain, def *EntryDef, pkg *Package, sou
 
 func RunValidationPhase(h *Holochain, source peer.ID, msgType MsgType, query Hash, handler func(resp ValidateResponse) error) (err error) {
 	var r interface{}
-	r, err = h.Send(h.node.ctx, ValidateProtocol, source, msgType, ValidateQuery{H: query}, 0)
+	msg := h.node.NewMessage(msgType, ValidateQuery{H: query})
+	r, err = h.Send(h.node.ctx, ValidateProtocol, source, msg, 0)
 	if err != nil {
 		return
 	}
@@ -1054,6 +1089,10 @@ func (a *ActionMod) Args() []Arg {
 	return []Arg{{Name: "entryType", Type: StringArg}, {Name: "entry", Type: EntryArg}, {Name: "replaces", Type: HashArg}}
 }
 
+func (a *ActionMod) SetHeader(header *Header) {
+	a.header = header
+}
+
 func (a *ActionMod) Do(h *Holochain) (response interface{}, err error) {
 	var d *EntryDef
 	var entryHash Hash
@@ -1085,19 +1124,32 @@ func (a *ActionMod) SysValidation(h *Holochain, def *EntryDef, pkg *Package, sou
 		return
 	}
 
+	if a.entry == nil {
+		err = ErrNilEntryInvalid
+		return
+	}
+	if a.header == nil {
+		err = errors.New("mod: missing header")
+		return
+	}
+	if a.replaces.String() == a.header.EntryLink.String() {
+		err = errors.New("mod: replaces must be different from original hash")
+		return
+	}
 	// no need to check for virtual entries on the chain because they aren't there
 	// currently the only virtual entry is the node id
-	if !def.IsVirtualEntry() {
-		var header *Header
-		header, err = h.chain.GetEntryHeader(a.replaces)
-		if err != nil {
-			return
-		}
-		if header.Type != a.entryType {
-			err = ErrEntryTypeMismatch
-			return
-		}
-	}
+	/*
+		if !def.IsVirtualEntry() {
+			var header *Header
+			header, err = h.chain.GetEntryHeader(a.replaces)
+			if err != nil {
+				return
+			}
+			if header.Type != a.entryType {
+				err = ErrEntryTypeMismatch
+				return
+			}
+		}*/
 	err = sysValidateEntry(h, def, a.entry, pkg)
 	return
 }
@@ -1115,6 +1167,7 @@ func (a *ActionMod) Receive(dht *DHT, msg *Message, retries int) (response inter
 	err = RunValidationPhase(dht.h, msg.From, VALIDATE_MOD_REQUEST, t.N, func(resp ValidateResponse) error {
 		a := NewModAction(resp.Type, &resp.Entry, t.H)
 		a.header = &resp.Header
+
 		//@TODO what comes back from Validate Mod
 		_, err = dht.h.ValidateAction(a, resp.Type, &resp.Package, []peer.ID{from})
 		if err != nil {
@@ -1176,6 +1229,8 @@ func (a *ActionModAgent) Do(h *Holochain) (response interface{}, err error) {
 	if !ok {
 		err = errors.New("expecting identity and/or revocation option")
 	} else {
+
+		//TODO: synchronize this, what happens if two new agent request come in back to back?
 		h.agent = &newAgent
 		// add a new agent entry and update
 		var agentHash Hash
@@ -1247,6 +1302,7 @@ func (a *ActionModAgent) Do(h *Holochain) (response interface{}, err error) {
 type ActionDel struct {
 	entryType string
 	entry     DelEntry
+	header    *Header
 }
 
 func NewDelAction(entryType string, entry DelEntry) *ActionDel {
@@ -1273,6 +1329,10 @@ func (a *ActionDel) EntryType() string {
 
 func (a *ActionDel) Args() []Arg {
 	return []Arg{{Name: "hash", Type: HashArg}, {Name: "message", Type: StringArg}}
+}
+
+func (a *ActionDel) SetHeader(header *Header) {
+	a.header = header
 }
 
 func (a *ActionDel) Do(h *Holochain) (response interface{}, err error) {

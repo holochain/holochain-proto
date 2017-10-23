@@ -14,15 +14,20 @@ import (
 )
 
 func TestNewJSRibosome(t *testing.T) {
+
 	Convey("new should create a ribosome", t, func() {
-		v, err := NewJSRibosome(nil, &Zome{RibosomeType: JSRibosomeType, Code: `1 + 1`})
+		d, _, h := PrepareTestChain("test")
+		defer CleanupTestChain(h, d)
+		v, err := NewJSRibosome(h, &Zome{RibosomeType: JSRibosomeType, Code: `1 + 1`})
 		So(err, ShouldBeNil)
 		z := v.(*JSRibosome)
 		i, _ := z.lastResult.ToInteger()
 		So(i, ShouldEqual, 2)
 	})
 	Convey("new fail to create ribosome when code is bad", t, func() {
-		v, err := NewJSRibosome(nil, &Zome{RibosomeType: JSRibosomeType, Code: "\n1+ )"})
+		d, _, h := PrepareTestChain("test")
+		defer CleanupTestChain(h, d)
+		v, err := NewJSRibosome(h, &Zome{RibosomeType: JSRibosomeType, Code: "\n1+ )"})
 		So(v, ShouldBeNil)
 		So(err.Error(), ShouldEqual, "JS exec error: (anonymous): Line 2:4 Unexpected token )")
 	})
@@ -378,13 +383,15 @@ func TestJSQuery(t *testing.T) {
 }
 
 func TestJSGenesis(t *testing.T) {
+	d, _, h := PrepareTestChain("test")
+	defer CleanupTestChain(h, d)
 	Convey("it should fail if the genesis function returns false", t, func() {
-		z, _ := NewJSRibosome(nil, &Zome{RibosomeType: JSRibosomeType, Code: `function genesis() {return false}`})
+		z, _ := NewJSRibosome(h, &Zome{RibosomeType: JSRibosomeType, Code: `function genesis() {return false}`})
 		err := z.ChainGenesis()
 		So(err.Error(), ShouldEqual, "genesis failed")
 	})
 	Convey("it should work if the genesis function returns true", t, func() {
-		z, _ := NewJSRibosome(nil, &Zome{RibosomeType: JSRibosomeType, Code: `function genesis() {return true}`})
+		z, _ := NewJSRibosome(h, &Zome{RibosomeType: JSRibosomeType, Code: `function genesis() {return true}`})
 		err := z.ChainGenesis()
 		So(err, ShouldBeNil)
 	})
@@ -414,8 +421,10 @@ func TestJSBridgeGenesis(t *testing.T) {
 }
 
 func TestJSReceive(t *testing.T) {
+	d, _, h := PrepareTestChain("test")
+	defer CleanupTestChain(h, d)
 	Convey("it should call a receive function", t, func() {
-		z, _ := NewJSRibosome(nil, &Zome{RibosomeType: JSRibosomeType, Code: `function receive(from,msg) {return {foo:msg.bar}}`})
+		z, _ := NewJSRibosome(h, &Zome{RibosomeType: JSRibosomeType, Code: `function receive(from,msg) {return {foo:msg.bar}}`})
 		response, err := z.Receive("fakehash", `{"bar":"baz"}`)
 		So(err, ShouldBeNil)
 		So(response, ShouldEqual, `{"foo":"baz"}`)
@@ -453,7 +462,7 @@ func TestJSbuildValidate(t *testing.T) {
 func TestJSValidateCommit(t *testing.T) {
 	d, _, h := PrepareTestChain("test")
 	defer CleanupTestChain(h, d)
-	//	a, _ := NewAgent(LibP2P, "Joe", makeTestSeed(""))
+	//	a, _ := NewAgent(LibP2P, "Joe", MakeTestSeed(""))
 	//	h := NewHolochain(a, "some/path", "yaml", Zome{RibosomeType:JSRibosomeType,})
 	//	a := h.agent
 	h.Config.Loggers.App.Format = ""
@@ -479,7 +488,7 @@ foo
 		})
 	})
 	Convey("should run an entry value against the defined validator for string data", t, func() {
-		v, err := NewJSRibosome(nil, &Zome{RibosomeType: JSRibosomeType, Code: `function validateCommit(name,entry,header,pkg,sources) { return (entry=="fish")};`})
+		v, err := NewJSRibosome(h, &Zome{RibosomeType: JSRibosomeType, Code: `function validateCommit(name,entry,header,pkg,sources) { return (entry=="fish")};`})
 		So(err, ShouldBeNil)
 		d := EntryDef{Name: "oddNumbers", DataFormat: DataFormatString}
 
@@ -494,7 +503,7 @@ foo
 		So(err, ShouldBeNil)
 	})
 	Convey("should run an entry value against the defined validator for js data", t, func() {
-		v, err := NewJSRibosome(nil, &Zome{RibosomeType: JSRibosomeType, Code: `function validateCommit(name,entry,header,pkg,sources) { return (entry=="fish")};`})
+		v, err := NewJSRibosome(h, &Zome{RibosomeType: JSRibosomeType, Code: `function validateCommit(name,entry,header,pkg,sources) { return (entry=="fish")};`})
 		d := EntryDef{Name: "evenNumbers", DataFormat: DataFormatRawJS}
 
 		a := NewCommitAction("oddNumbers", &GobEntry{C: "\"cow\""})
@@ -508,7 +517,7 @@ foo
 		So(err, ShouldBeNil)
 	})
 	Convey("should run an entry value against the defined validator for json data", t, func() {
-		v, err := NewJSRibosome(nil, &Zome{RibosomeType: JSRibosomeType, Code: `function validateCommit(name,entry,header,pkg,sources) { return (entry.data=="fish")};`})
+		v, err := NewJSRibosome(h, &Zome{RibosomeType: JSRibosomeType, Code: `function validateCommit(name,entry,header,pkg,sources) { return (entry.data=="fish")};`})
 		d := EntryDef{Name: "evenNumbers", DataFormat: DataFormatJSON}
 
 		a := NewCommitAction("evenNumbers", &GobEntry{C: `{"data":"cow"}`})
@@ -641,10 +650,6 @@ func TestJSDHT(t *testing.T) {
 	// add an entry onto the chain
 	hash = commit(h, "oddNumbers", "7")
 
-	if err := h.dht.simHandleChangeReqs(); err != nil {
-		panic(err)
-	}
-
 	Convey("get should return entry", t, func() {
 		v, err := NewJSRibosome(h, &Zome{RibosomeType: JSRibosomeType, Code: fmt.Sprintf(`get("%s");`, hash.String())})
 		So(err, ShouldBeNil)
@@ -699,13 +704,6 @@ func TestJSDHT(t *testing.T) {
 	reviewHash := commit(h, "review", "this is my bogus review of some thing")
 
 	commit(h, "rating", fmt.Sprintf(`{"Links":[{"Base":"%s","Link":"%s","Tag":"4stars"},{"Base":"%s","Link":"%s","Tag":"4stars"}]}`, hash.String(), profileHash.String(), hash.String(), reviewHash.String()))
-
-	if err := h.dht.simHandleChangeReqs(); err != nil {
-		panic(err)
-	}
-	if err := h.dht.simHandleChangeReqs(); err != nil {
-		panic(err)
-	}
 
 	Convey("getLinks should return the Links", t, func() {
 		v, err := NewJSRibosome(h, &Zome{RibosomeType: JSRibosomeType, Code: fmt.Sprintf(`getLinks("%s","4stars");`, hash.String())})
@@ -784,9 +782,6 @@ func TestJSDHT(t *testing.T) {
 		_, err = NewHash(z.lastResult.String())
 		So(err, ShouldBeNil)
 
-		if err := h.dht.simHandleChangeReqs(); err != nil {
-			panic(err)
-		}
 		links, _ := h.dht.getLinks(hash, "4stars", StatusLive)
 		So(fmt.Sprintf("%v", links), ShouldEqual, fmt.Sprintf("[{QmWbbUf6G38hT27kmrQ5UYFbXUPTGokKvDiaQbczFYNjuN    %s}]", h.nodeIDStr))
 		links, _ = h.dht.getLinks(hash, "4stars", StatusDeleted)
@@ -824,13 +819,9 @@ func TestJSDHT(t *testing.T) {
 		profileHashStr2 := z.lastResult.String()
 
 		header := h.chain.Top()
-		So(header.EntryLink.String(), ShouldEqual, profileHashStr2)
+		So(profileHashStr2, ShouldEqual, header.EntryLink.String())
 		So(header.Change.Action, ShouldEqual, ModAction)
 		So(header.Change.Hash.String(), ShouldEqual, profileHash.String())
-
-		if err := h.dht.simHandleChangeReqs(); err != nil {
-			panic(err)
-		}
 
 		// the entry should be marked as Modifed
 		data, _, _, _, err := h.dht.get(profileHash, StatusDefault, GetMaskDefault)

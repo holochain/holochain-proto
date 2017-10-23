@@ -82,7 +82,7 @@ func TestJoin(t *testing.T) {
 		out, err := runAppWithStdoutCapture(app, []string{"hcadmin", "-path", d, "dump", "-dht", "testApp"})
 		So(err, ShouldBeNil)
 		So(out, ShouldContainSubstring, "DHT for: Qm")
-		So(out, ShouldContainSubstring, "DHT changes:2")
+		So(out, ShouldContainSubstring, "DHT changes: 2")
 	})
 }
 

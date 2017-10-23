@@ -4,6 +4,7 @@ import (
 	"fmt"
 	peer "github.com/libp2p/go-libp2p-peer"
 	. "github.com/metacurrency/holochain/hash"
+	ma "github.com/multiformats/go-multiaddr"
 	. "github.com/smartystreets/goconvey/convey"
 	"testing"
 	"time"
@@ -21,8 +22,11 @@ func TestGossipReceiver(t *testing.T) {
 }*/
 
 func TestGetGossipers(t *testing.T) {
-	d, _, h := PrepareTestChain("test")
-	defer CleanupTestChain(h, d)
+	nodesCount := 20
+	mt := setupMultiNodeTesting(nodesCount)
+	defer mt.cleanupMultiNodeTesting()
+	nodes := mt.nodes
+	h := nodes[0]
 	dht := h.dht
 	Convey("should return an empty list if none availabled", t, func() {
 		glist, err := dht.getGossipers()
@@ -30,10 +34,7 @@ func TestGetGossipers(t *testing.T) {
 		So(len(glist), ShouldEqual, 0)
 	})
 
-	start := 0
-	testPeerCount := 20
-	peers := []peer.ID{}
-	peers = addTestPeers(h, peers, start, testPeerCount)
+	starConnect(t, mt.ctx, nodes, nodesCount)
 
 	var err error
 	var glist []peer.ID
@@ -41,7 +42,7 @@ func TestGetGossipers(t *testing.T) {
 		So(h.nucleus.dna.DHTConfig.NeighborhoodSize, ShouldEqual, 0)
 		glist, err = dht.getGossipers()
 		So(err, ShouldBeNil)
-		So(len(glist), ShouldEqual, testPeerCount)
+		So(len(glist), ShouldEqual, nodesCount-1)
 	})
 
 	Convey("should return neighborhood size peers when neighborhood size is not 0", t, func() {
@@ -57,6 +58,18 @@ func TestGetGossipers(t *testing.T) {
 		So(h.node.Distance(glist[2]).Cmp(h.node.Distance(glist[3])), ShouldBeLessThanOrEqualTo, 0)
 		So(h.node.Distance(glist[3]).Cmp(h.node.Distance(glist[4])), ShouldBeLessThanOrEqualTo, 0)
 		So(h.node.Distance(glist[0]), ShouldNotEqual, h.node.Distance(glist[4]))
+	})
+
+	Convey("it should only return active gossipers.", t, func() {
+
+		// mark one of nodes previously found as closed
+		id := glist[0]
+		h.node.peerstore.ClearAddrs(id)
+		glist, err = dht.getGossipers()
+		So(err, ShouldBeNil)
+		So(len(glist), ShouldEqual, 5)
+
+		So(glist[0].Pretty(), ShouldNotEqual, id.Pretty())
 	})
 }
 
@@ -78,6 +91,11 @@ func TestGetFindGossiper(t *testing.T) {
 	})
 
 	fooAddr, _ := makePeer("peer_foo")
+	addr, err := ma.NewMultiaddr("/ip4/127.0.0.1/tcp/1234")
+	if err != nil {
+		panic(err)
+	}
+	h.node.peerstore.AddAddrs(fooAddr, []ma.Multiaddr{addr}, PeerTTL)
 
 	Convey("AddGossiper add the gossiper", t, func() {
 		err := dht.AddGossiper(fooAddr)
@@ -194,7 +212,6 @@ func TestGossipData(t *testing.T) {
 		So(r, ShouldBeFalse)
 	})
 	ActionReceiver(h, m1)
-	dht.simHandleChangeReqs()
 
 	someData := `{"firstName":"Zippy","lastName":"Pinhead"}`
 	e = GobEntry{C: someData}
@@ -207,7 +224,6 @@ func TestGossipData(t *testing.T) {
 
 	m2 := h.node.NewMessage(LINK_REQUEST, lr)
 	ActionReceiver(h, m2)
-	h.dht.simHandleChangeReqs()
 
 	Convey("fingerprints for messages should exist", t, func() {
 		f, _ := m1.Fingerprint()
@@ -218,7 +234,7 @@ func TestGossipData(t *testing.T) {
 		So(r, ShouldBeTrue)
 	})
 
-	Convey("Idx should be 5 after puts", t, func() {
+	Convey("Idx should be 4 after puts", t, func() {
 		var idx int
 		idx, err := dht.GetIdx()
 		So(err, ShouldBeNil)
@@ -231,29 +247,56 @@ func TestGossipData(t *testing.T) {
 		So(len(puts), ShouldEqual, 4)
 		So(fmt.Sprintf("%v", puts[2].M), ShouldEqual, fmt.Sprintf("%v", *m1))
 		So(fmt.Sprintf("%v", puts[3].M), ShouldEqual, fmt.Sprintf("%v", *m2))
-		So(puts[0].idx, ShouldEqual, 1)
-		So(puts[1].idx, ShouldEqual, 2)
+		So(puts[0].Idx, ShouldEqual, 1)
+		So(puts[1].Idx, ShouldEqual, 2)
 
 		puts, err = dht.GetPuts(4)
 		So(err, ShouldBeNil)
 		So(len(puts), ShouldEqual, 1)
 		So(fmt.Sprintf("%v", puts[0].M), ShouldEqual, fmt.Sprintf("%v", *m2))
-		So(puts[0].idx, ShouldEqual, 4)
+		So(puts[0].Idx, ShouldEqual, 4)
 	})
 }
 
 func TestGossip(t *testing.T) {
-	d, _, h := PrepareTestChain("test")
-	defer CleanupTestChain(h, d)
-	dht := h.dht
+	nodesCount := 2
+	mt := setupMultiNodeTesting(nodesCount)
+	defer mt.cleanupMultiNodeTesting()
+	nodes := mt.nodes
 
-	idx, _ := dht.GetIdx()
-	dht.UpdateGossiper(h.node.HashAddr, idx)
+	h1 := nodes[0]
+	h2 := nodes[1]
 
-	Convey("gossip should send a request", t, func() {
-		var err error
-		err = dht.gossip()
+	commit(h1, "oddNumbers", "3")
+	commit(h1, "oddNumbers", "5")
+	commit(h1, "oddNumbers", "7")
+
+	puts1, _ := h1.dht.GetPuts(0)
+	puts2, _ := h2.dht.GetPuts(0)
+
+	Convey("Idx after puts", t, func() {
+		So(len(puts1), ShouldEqual, 5)
+		So(len(puts2), ShouldEqual, 2)
+	})
+	ringConnect(t, mt.ctx, mt.nodes, nodesCount)
+	Convey("gossipWith should add the puts", t, func() {
+		err := h2.dht.gossipWith(h1.nodeID)
 		So(err, ShouldBeNil)
+		go h2.dht.HandleGossipPuts()
+		time.Sleep(time.Millisecond * 100)
+		puts2, _ = h2.dht.GetPuts(0)
+		So(len(puts2), ShouldEqual, 7)
+	})
+	commit(h1, "evenNumbers", "2")
+	commit(h1, "evenNumbers", "4")
+
+	Convey("gossipWith should add the puts", t, func() {
+		err := h2.dht.gossipWith(h1.nodeID)
+		So(err, ShouldBeNil)
+		go h2.dht.HandleGossipPuts()
+		time.Sleep(time.Millisecond * 100)
+		puts2, _ = h2.dht.GetPuts(0)
+		So(len(puts2), ShouldEqual, 9)
 	})
 }
 
@@ -288,8 +331,80 @@ func TestPeerLists(t *testing.T) {
 	})
 }
 
-func xTestGossipPropigation(t *testing.T) {
-	nodesCount := 7
+func TestGossipCycle(t *testing.T) {
+	nodesCount := 2
+	mt := setupMultiNodeTesting(nodesCount)
+	defer mt.cleanupMultiNodeTesting()
+	nodes := mt.nodes
+	h0 := nodes[0]
+	h1 := nodes[1]
+	ringConnect(t, mt.ctx, nodes, nodesCount)
+
+	Convey("the gossip task should schedule a gossipWithRequest", t, func() {
+		So(len(h0.dht.gchan), ShouldEqual, 0)
+		GossipTask(h0)
+		So(len(h0.dht.gchan), ShouldEqual, 1)
+	})
+
+	Convey("handling the gossipWith should result in getting puts, and a gossip back scheduled on receiving node after a delay", t, func() {
+
+		So(len(h1.dht.gchan), ShouldEqual, 0)
+		So(len(h0.dht.gossipPuts), ShouldEqual, 0)
+
+		stop, err := handleGossipWith(h0.dht)
+		So(stop, ShouldBeFalse)
+		So(err, ShouldBeNil)
+		// we got receivers puts back and scheduled
+		So(len(h0.dht.gossipPuts), ShouldEqual, 2)
+
+		So(len(h1.dht.gchan), ShouldEqual, 0)
+		time.Sleep(GossipBackPutDelay * 3)
+		// gossip back scheduled on receiver after delay
+		So(len(h1.dht.gchan), ShouldEqual, 1)
+	})
+
+	Convey("gossipWith shouldn't be rentrant with respect to the same gossiper", t, func() {
+		log := &h0.Config.Loggers.Gossip
+		log.color, log.f = log.setupColor("%{message}")
+
+		// if the code were rentrant the log would should the events in a different order
+		ShouldLog(log, "node0_starting gossipWith <peer.ID UfY4We>\nnode0_no new puts received\nnode0_finish gossipWith <peer.ID UfY4We>, err=<nil>\nnode0_starting gossipWith <peer.ID UfY4We>\nnode0_no new puts received\nnode0_finish gossipWith <peer.ID UfY4We>, err=<nil>\n", func() {
+			go h0.dht.gossipWith(h1.nodeID)
+			h0.dht.gossipWith(h1.nodeID)
+			time.Sleep(time.Millisecond * 100)
+		})
+		log.color, log.f = log.setupColor(log.Format)
+	})
+}
+
+func TestGossipErrorCases(t *testing.T) {
+	nodesCount := 2
+	mt := setupMultiNodeTesting(nodesCount)
+	defer mt.cleanupMultiNodeTesting()
+	nodes := mt.nodes
+	h0 := nodes[0]
+	h1 := nodes[1]
+	ringConnect(t, mt.ctx, nodes, nodesCount)
+	Convey("a rejected put should not break gossiping", t, func() {
+		// inject a bad put
+		hash, _ := NewHash("QmY8Mzg9F69e5P9AoQPYat655HEhc1TVGs11tmfNSzkqz2")
+		h1.dht.put(h1.node.NewMessage(PUT_REQUEST, PutReq{H: hash}), "evenNumbers", hash, h0.nodeID, []byte("bad data"), StatusLive)
+		err := h0.dht.gossipWith(h1.nodeID)
+		So(err, ShouldBeNil)
+		So(len(h0.dht.gossipPuts), ShouldEqual, 3)
+		for i := 0; i < 3; i++ {
+			stop, err := handleGossipPut(h0.dht)
+			So(stop, ShouldBeFalse)
+			So(err, ShouldBeNil)
+		}
+		err = h0.dht.gossipWith(h1.nodeID)
+		So(err, ShouldBeNil)
+		So(len(h0.dht.gossipPuts), ShouldEqual, 0)
+	})
+}
+
+func TestGossipPropigation(t *testing.T) {
+	nodesCount := 10
 	mt := setupMultiNodeTesting(nodesCount)
 	defer mt.cleanupMultiNodeTesting()
 	nodes := mt.nodes
@@ -315,12 +430,13 @@ func xTestGossipPropigation(t *testing.T) {
 	Convey("each node should only have everybody's puts after enough propigation time", t, func() {
 
 		for i := 0; i < nodesCount; i++ {
-			nodes[i].StartBackgroundTasks(50 * time.Millisecond)
+			nodes[i].Config.gossipInterval = 200 * time.Millisecond
+			nodes[i].StartBackgroundTasks()
 		}
 
 		start := time.Now()
 		propigated := false
-		ticker := time.NewTicker(51 * time.Millisecond)
+		ticker := time.NewTicker(210 * time.Millisecond)
 		stop := make(chan bool, 1)
 
 		go func() {
@@ -339,29 +455,29 @@ func xTestGossipPropigation(t *testing.T) {
 					if len(puts) < nodesCount*2 {
 						propigated = false
 					}
-					/*fmt.Printf("NODE%d(%s): %d:", i, nodes[i].nodeID.Pretty()[2:4], len(puts))
-					for j := 0; j < len(puts); j++ {
-						f, _ := puts[j].M.Fingerprint()
-						fmt.Printf("%s,", f.String()[2:4])
-					}
-					fmt.Printf("\n              ")
-					nodes[i].dht.glk.RLock()
-					for k, _ := range nodes[i].dht.fingerprints {
-						fmt.Printf("%s,", k)
-					}
-					nodes[i].dht.glk.RUnlock()
-					fmt.Printf("\n    ")
-					for k, _ := range nodes[i].dht.sources {
-						fmt.Printf("%d,", convertToIDx(nodes, k))
-					}
-					fmt.Printf("\n")
+					/*					fmt.Printf("NODE%d(%s): %d:", i, nodes[i].nodeID.Pretty()[2:4], len(puts))
+										for j := 0; j < len(puts); j++ {
+											f, _ := puts[j].M.Fingerprint()
+											fmt.Printf("%s,", f.String()[2:4])
+										}
+										fmt.Printf("\n              ")
+										nodes[i].dht.glk.RLock()
+										for k, _ := range nodes[i].dht.fingerprints {
+											fmt.Printf("%s,", k)
+										}
+										nodes[i].dht.glk.RUnlock()
+										fmt.Printf("\n    ")
+										for k, _ := range nodes[i].dht.sources {
+											fmt.Printf("%d,", findNodeIdx(nodes, k))
+										}
+										fmt.Printf("\n")
 					*/
 				}
 				if propigated {
 					stop <- true
 					return
 				}
-				//fmt.Printf("\n")
+				//				fmt.Printf("\n")
 			}
 		}()
 		<-stop
@@ -370,7 +486,7 @@ func xTestGossipPropigation(t *testing.T) {
 	})
 }
 
-func convertToIDx(nodes []*Holochain, id peer.ID) int {
+func findNodeIdx(nodes []*Holochain, id peer.ID) int {
 	for i, n := range nodes {
 		if id == n.nodeID {
 			return i

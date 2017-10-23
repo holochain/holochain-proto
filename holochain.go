@@ -507,6 +507,10 @@ func (config *Config) Setup() (err error) {
 	return
 }
 
+func (config *Config) SetGossipInterval(interval time.Duration) {
+	config.gossipInterval = interval
+}
+
 // SetupLogging initializes loggers as configured by the config file and environment variables
 func (config *Config) SetupLogging() (err error) {
 	if err = initLogger(&config.Loggers.Debug, "HCLOG_DEBUG_ENABLE", nil); err != nil {

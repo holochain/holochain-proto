@@ -158,9 +158,9 @@ func TestScenario(h *Holochain, dir string, role string, serverID string) (err e
 	}
 
 	if config.GossipInterval > 0 {
-		h.Config.gossipInterval = config.GossipInterval * time.Millisecond
+		h.Config.SetGossipInterval(time.Duration(config.GossipInterval) * time.Millisecond)
 	} else {
-		h.Config.gossipInterval = 0
+		h.Config.SetGossipInterval(0)
 	}
 	h.StartBackgroundTasks()
 

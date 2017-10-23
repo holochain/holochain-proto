@@ -26,11 +26,13 @@ func TestPostGet(t *testing.T) {
 		So(err, ShouldBeNil)
 	})
 
+	halfOfBoostrapTTL := holo.BootstrapTTL - holo.BootstrapTTL/2
+
 	Convey("it should store and retrieve and ignore old stuff", t, func() {
 		chain := "QmVGtdTZdTFaLsaj2RwdVG8jcjNNcp1DE914DKZ2kHmXax"
 		req1 := holo.BSReq{Version: 1, NodeID: "QmVGtdTZdTFaLsaj2RwdVG8jcjNNcp1DE914DKZ2kHmXHx", NodeAddr: "192.168.1.1"}
 		now := time.Now()
-		then := now.Add(-10 * time.Minute)
+		then := now.Add(-halfOfBoostrapTTL)
 
 		err := post(chain, &req1, "172.3.4.1", then)
 		So(err, ShouldBeNil)
@@ -39,7 +41,7 @@ func TestPostGet(t *testing.T) {
 		err = post(chain, &req2, "172.3.4.2", now)
 		So(err, ShouldBeNil)
 
-		wayback := now.Add(-10000 * time.Minute)
+		wayback := now.Add(-holo.BootstrapTTL * 2)
 		req3 := holo.BSReq{Version: 1, NodeID: "QmVGtdTZdTFaLsaj2RwdVG8jcjNNcp1DE914DKZ2kHmXHz", NodeAddr: "192.168.1.3"}
 		err = post(chain, &req3, "172.3.4.3", wayback)
 		So(err, ShouldBeNil)
@@ -54,7 +56,7 @@ func TestPostGet(t *testing.T) {
 		chain2 := "QmVGtdTZdTFaLsaj2RwdVG8jcjNNcp1DE914DKZ2kHmXa2"
 		node := "QmVGtdTZdTFaLsaj2RwdVG8jcjNNcp1DE914DKZ2kHmXHx"
 		now := time.Now()
-		then := now.Add(-10 * time.Minute)
+		then := now.Add(-halfOfBoostrapTTL)
 		req := holo.BSReq{Version: 1, NodeID: node, NodeAddr: "192.168.1.1"}
 		err := post(chain1, &req, "172.3.4.1", now)
 		So(err, ShouldBeNil)

@@ -691,6 +691,7 @@ func makeTestNodes(ctx context.Context, s *Service, n int) (nodes []*Holochain) 
 		nodeName := fmt.Sprintf("node%d", i)
 		os.Setenv("HCLOG_PREFIX", nodeName+"_")
 		nodes[i] = setupTestChain(nodeName, i, s)
+		nodes[i].Config.EnableMDNS = false
 		prepareTestChain(nodes[i])
 	}
 	for i := 0; i < n; i++ {

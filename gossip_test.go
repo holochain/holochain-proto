@@ -357,7 +357,7 @@ func TestGossipCycle(t *testing.T) {
 		// we got receivers puts back and scheduled
 		So(len(h0.dht.gossipPuts), ShouldEqual, 2)
 
-		//	So(len(h1.dht.gchan), ShouldEqual, 0)
+		So(len(h1.dht.gchan), ShouldEqual, 0)
 		time.Sleep(GossipBackPutDelay * 3)
 		// gossip back scheduled on receiver after delay
 		So(len(h1.dht.gchan), ShouldEqual, 1)
@@ -374,6 +374,32 @@ func TestGossipCycle(t *testing.T) {
 			time.Sleep(time.Millisecond * 100)
 		})
 		log.color, log.f = log.setupColor(log.Format)
+	})
+}
+
+func TestGossipErrorCases(t *testing.T) {
+	nodesCount := 2
+	mt := setupMultiNodeTesting(nodesCount)
+	defer mt.cleanupMultiNodeTesting()
+	nodes := mt.nodes
+	h0 := nodes[0]
+	h1 := nodes[1]
+	ringConnect(t, mt.ctx, nodes, nodesCount)
+	Convey("a rejected put should not break gossiping", t, func() {
+		// inject a bad put
+		hash, _ := NewHash("QmY8Mzg9F69e5P9AoQPYat655HEhc1TVGs11tmfNSzkqz2")
+		h1.dht.put(h1.node.NewMessage(PUT_REQUEST, PutReq{H: hash}), "evenNumbers", hash, h0.nodeID, []byte("bad data"), StatusLive)
+		err := h0.dht.gossipWith(h1.nodeID)
+		So(err, ShouldBeNil)
+		So(len(h0.dht.gossipPuts), ShouldEqual, 3)
+		for i := 0; i < 3; i++ {
+			stop, err := handleGossipPut(h0.dht)
+			So(stop, ShouldBeFalse)
+			So(err, ShouldBeNil)
+		}
+		err = h0.dht.gossipWith(h1.nodeID)
+		So(err, ShouldBeNil)
+		So(len(h0.dht.gossipPuts), ShouldEqual, 0)
 	})
 }
 

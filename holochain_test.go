@@ -64,11 +64,22 @@ func TestNewHolochain(t *testing.T) {
 
 }
 
+func TestSetupConfig(t *testing.T) {
+	config := Config{}
+	Convey("it should set the intervals", t, func() {
+		config.Setup()
+		So(config.gossipInterval, ShouldEqual, DefaultGossipInterval)
+		So(config.bootstrapRefreshInterval, ShouldEqual, BootstrapTTL)
+		So(config.routingRefreshInterval, ShouldEqual, DefaultRoutingRefreshInterval)
+		So(config.retryInterval, ShouldEqual, DefaultRetryInterval)
+	})
+}
+
 func TestSetupLogging(t *testing.T) {
 	d, _, h := SetupTestChain("test")
 	defer CleanupTestChain(h, d)
 	Convey("it should initialize the loggers", t, func() {
-		err := h.SetupLogging()
+		err := h.Config.SetupLogging()
 		So(err, ShouldBeNil)
 		// test some default configurations
 		So(h.Config.Loggers.App.Enabled, ShouldBeTrue)
@@ -84,7 +95,7 @@ func TestSetupLogging(t *testing.T) {
 		os.Setenv("HCLOG_GOSSIP_ENABLE", "true")
 		os.Setenv("HCLOG_PREFIX", "a prefix:")
 		h.Config.Loggers.DHT.Format = "%{message}"
-		err := h.SetupLogging()
+		err := h.Config.SetupLogging()
 		So(err, ShouldBeNil)
 		So(h.Config.Loggers.App.Enabled, ShouldBeFalse)
 		So(h.Config.Loggers.DHT.Enabled, ShouldBeTrue)
@@ -145,7 +156,7 @@ func TestDebuggingSetup(t *testing.T) {
 		log.Enabled = true
 
 		h.Debug("test")
-		So(string(buf.Bytes()), ShouldEqual, "HC: holochain_test.go.147: test\n")
+		So(string(buf.Bytes()), ShouldEqual, "HC: holochain_test.go.158: test\n")
 
 		// restore state of debug log
 		log.w = os.Stdout

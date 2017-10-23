@@ -59,6 +59,11 @@ type Config struct {
 	EnableNATUPnP   bool
 	BootstrapServer string
 	Loggers         Loggers
+
+	gossipInterval           time.Duration
+	bootstrapRefreshInterval time.Duration
+	routingRefreshInterval   time.Duration
+	retryInterval            time.Duration
 }
 
 // Progenitor holds data on the creator of the DNA
@@ -325,16 +330,6 @@ func (h *Holochain) Activate() (err error) {
 			return
 		}
 	}
-	if h.Config.BootstrapServer != "" {
-		e := h.BSpost()
-		if e != nil {
-			h.dht.dlog.Logf("error in BSpost: %s", e.Error())
-		}
-		e = h.BSget()
-		if e != nil {
-			h.dht.dlog.Logf("error in BSget: %s", e.Error())
-		}
-	}
 	if h.Config.PeerModeDHTNode {
 		if err = h.dht.Start(); err != nil {
 			return
@@ -503,39 +498,52 @@ func initLogger(l *Logger, envOverride string, writer io.Writer) (err error) {
 	return
 }
 
+func (config *Config) Setup() (err error) {
+	config.gossipInterval = DefaultGossipInterval
+	config.bootstrapRefreshInterval = BootstrapTTL
+	config.routingRefreshInterval = DefaultRoutingRefreshInterval
+	config.retryInterval = DefaultRetryInterval
+	err = config.SetupLogging()
+	return
+}
+
+func (config *Config) SetGossipInterval(interval time.Duration) {
+	config.gossipInterval = interval
+}
+
 // SetupLogging initializes loggers as configured by the config file and environment variables
-func (h *Holochain) SetupLogging() (err error) {
-	if err = initLogger(&h.Config.Loggers.Debug, "HCLOG_DEBUG_ENABLE", nil); err != nil {
+func (config *Config) SetupLogging() (err error) {
+	if err = initLogger(&config.Loggers.Debug, "HCLOG_DEBUG_ENABLE", nil); err != nil {
 		return
 	}
-	if err = initLogger(&h.Config.Loggers.App, "HCLOG_APP_ENABLE", nil); err != nil {
+	if err = initLogger(&config.Loggers.App, "HCLOG_APP_ENABLE", nil); err != nil {
 		return
 	}
-	if err = initLogger(&h.Config.Loggers.DHT, "HCLOG_DHT_ENABLE", nil); err != nil {
+	if err = initLogger(&config.Loggers.DHT, "HCLOG_DHT_ENABLE", nil); err != nil {
 		return
 	}
-	if err = initLogger(&h.Config.Loggers.Gossip, "HCLOG_GOSSIP_ENABLE", nil); err != nil {
+	if err = initLogger(&config.Loggers.Gossip, "HCLOG_GOSSIP_ENABLE", nil); err != nil {
 		return
 	}
-	if err = h.Config.Loggers.TestPassed.New(nil); err != nil {
+	if err = config.Loggers.TestPassed.New(nil); err != nil {
 		return
 	}
-	if err = h.Config.Loggers.TestFailed.New(os.Stderr); err != nil {
+	if err = config.Loggers.TestFailed.New(os.Stderr); err != nil {
 		return
 	}
-	if err = h.Config.Loggers.TestInfo.New(nil); err != nil {
+	if err = config.Loggers.TestInfo.New(nil); err != nil {
 		return
 	}
 	val := os.Getenv("HCLOG_PREFIX")
 	if val != "" {
 		Debugf("Using environment variable to set log prefix to: %s", val)
-		h.Config.Loggers.Debug.SetPrefix(val)
-		h.Config.Loggers.App.SetPrefix(val)
-		h.Config.Loggers.DHT.SetPrefix(val)
-		h.Config.Loggers.Gossip.SetPrefix(val)
-		h.Config.Loggers.TestPassed.SetPrefix(val)
-		h.Config.Loggers.TestFailed.SetPrefix(val)
-		h.Config.Loggers.TestInfo.SetPrefix(val)
+		config.Loggers.Debug.SetPrefix(val)
+		config.Loggers.App.SetPrefix(val)
+		config.Loggers.DHT.SetPrefix(val)
+		config.Loggers.Gossip.SetPrefix(val)
+		config.Loggers.TestPassed.SetPrefix(val)
+		config.Loggers.TestFailed.SetPrefix(val)
+		config.Loggers.TestInfo.SetPrefix(val)
 		//		debugLog.SetPrefix(val)
 		//		infoLog.SetPrefix(val)
 	}
@@ -777,17 +785,42 @@ const (
 	DefaultRetryInterval = time.Millisecond * 500
 )
 
+//TaskTicker creates a closure for a holochain task
+func (h *Holochain) TaskTicker(interval time.Duration, fn func(h *Holochain)) chan bool {
+	if interval > 0 {
+		return Ticker(interval, func() { fn(h) })
+	}
+	return nil
+}
+
 // StartBackgroundTasks sets the various background processes in motion
-func (h *Holochain) StartBackgroundTasks(gossipInterval time.Duration) {
+func (h *Holochain) StartBackgroundTasks() {
 	go h.DHT().HandleGossipPuts()
 	go h.DHT().HandleGossipWiths()
 	go h.HandleAsyncSends()
-	if gossipInterval > 0 {
-		go h.DHT().Gossip(gossipInterval)
+
+	if h.Config.gossipInterval > 0 {
+		h.node.gossiping = h.TaskTicker(h.Config.gossipInterval, GossipTask)
 	} else {
 		h.Debug("Gossip disabled")
 	}
-	go h.DHT().Retry(DefaultRetryInterval)
+	h.node.retrying = h.TaskTicker(h.Config.retryInterval, RetryTask)
+	if h.Config.BootstrapServer != "" {
+		h.node.retrying = h.TaskTicker(h.Config.bootstrapRefreshInterval, BootstrapRefreshTask)
+	}
+	h.node.refreshing = h.TaskTicker(h.Config.routingRefreshInterval, RoutingRefreshTask)
+}
+
+// BootstrapRefreshTask refreshes our node and gets nodes from the bootstrap server
+func BootstrapRefreshTask(h *Holochain) {
+	e := h.BSpost()
+	if e != nil {
+		h.dht.dlog.Logf("error in BSpost: %s", e.Error())
+	}
+	e = h.BSget()
+	if e != nil {
+		h.dht.dlog.Logf("error in BSget: %s", e.Error())
+	}
 }
 
 // Send builds a message and either delivers it locally or over the network via node.Send

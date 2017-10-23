@@ -1020,7 +1020,7 @@ func activate(h *holo.Holochain, port string) (ws *ui.WebServer, err error) {
 	if err != nil {
 		return
 	}
-	h.StartBackgroundTasks(2 * time.Second)
+	h.StartBackgroundTasks()
 	ws = ui.NewWebServer(h, port)
 	ws.Start()
 	return

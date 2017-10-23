@@ -20,6 +20,10 @@ import (
 	"time"
 )
 
+const (
+	BootstrapTTL = time.Minute * 5
+)
+
 type BSReq struct {
 	Version  int
 	NodeID   string

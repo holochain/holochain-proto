@@ -331,6 +331,78 @@ func TestPeerLists(t *testing.T) {
 	})
 }
 
+func TestGossipCycle(t *testing.T) {
+	nodesCount := 2
+	mt := setupMultiNodeTesting(nodesCount)
+	defer mt.cleanupMultiNodeTesting()
+	nodes := mt.nodes
+	h0 := nodes[0]
+	h1 := nodes[1]
+	ringConnect(t, mt.ctx, nodes, nodesCount)
+
+	Convey("the gossip task should schedule a gossipWithRequest", t, func() {
+		So(len(h0.dht.gchan), ShouldEqual, 0)
+		GossipTask(h0)
+		So(len(h0.dht.gchan), ShouldEqual, 1)
+	})
+
+	Convey("handling the gossipWith should result in getting puts, and a gossip back scheduled on receiving node after a delay", t, func() {
+
+		So(len(h1.dht.gchan), ShouldEqual, 0)
+		So(len(h0.dht.gossipPuts), ShouldEqual, 0)
+
+		stop, err := handleGossipWith(h0.dht)
+		So(stop, ShouldBeFalse)
+		So(err, ShouldBeNil)
+		// we got receivers puts back and scheduled
+		So(len(h0.dht.gossipPuts), ShouldEqual, 2)
+
+		So(len(h1.dht.gchan), ShouldEqual, 0)
+		time.Sleep(GossipBackPutDelay * 3)
+		// gossip back scheduled on receiver after delay
+		So(len(h1.dht.gchan), ShouldEqual, 1)
+	})
+
+	Convey("gossipWith shouldn't be rentrant with respect to the same gossiper", t, func() {
+		log := &h0.Config.Loggers.Gossip
+		log.color, log.f = log.setupColor("%{message}")
+
+		// if the code were rentrant the log would should the events in a different order
+		ShouldLog(log, "node0_starting gossipWith <peer.ID UfY4We>\nnode0_no new puts received\nnode0_finish gossipWith <peer.ID UfY4We>, err=<nil>\nnode0_starting gossipWith <peer.ID UfY4We>\nnode0_no new puts received\nnode0_finish gossipWith <peer.ID UfY4We>, err=<nil>\n", func() {
+			go h0.dht.gossipWith(h1.nodeID)
+			h0.dht.gossipWith(h1.nodeID)
+			time.Sleep(time.Millisecond * 100)
+		})
+		log.color, log.f = log.setupColor(log.Format)
+	})
+}
+
+func TestGossipErrorCases(t *testing.T) {
+	nodesCount := 2
+	mt := setupMultiNodeTesting(nodesCount)
+	defer mt.cleanupMultiNodeTesting()
+	nodes := mt.nodes
+	h0 := nodes[0]
+	h1 := nodes[1]
+	ringConnect(t, mt.ctx, nodes, nodesCount)
+	Convey("a rejected put should not break gossiping", t, func() {
+		// inject a bad put
+		hash, _ := NewHash("QmY8Mzg9F69e5P9AoQPYat655HEhc1TVGs11tmfNSzkqz2")
+		h1.dht.put(h1.node.NewMessage(PUT_REQUEST, PutReq{H: hash}), "evenNumbers", hash, h0.nodeID, []byte("bad data"), StatusLive)
+		err := h0.dht.gossipWith(h1.nodeID)
+		So(err, ShouldBeNil)
+		So(len(h0.dht.gossipPuts), ShouldEqual, 3)
+		for i := 0; i < 3; i++ {
+			stop, err := handleGossipPut(h0.dht)
+			So(stop, ShouldBeFalse)
+			So(err, ShouldBeNil)
+		}
+		err = h0.dht.gossipWith(h1.nodeID)
+		So(err, ShouldBeNil)
+		So(len(h0.dht.gossipPuts), ShouldEqual, 0)
+	})
+}
+
 func TestGossipPropigation(t *testing.T) {
 	nodesCount := 10
 	mt := setupMultiNodeTesting(nodesCount)
@@ -358,7 +430,8 @@ func TestGossipPropigation(t *testing.T) {
 	Convey("each node should only have everybody's puts after enough propigation time", t, func() {
 
 		for i := 0; i < nodesCount; i++ {
-			nodes[i].StartBackgroundTasks(200 * time.Millisecond)
+			nodes[i].Config.gossipInterval = 200 * time.Millisecond
+			nodes[i].StartBackgroundTasks()
 		}
 
 		start := time.Now()

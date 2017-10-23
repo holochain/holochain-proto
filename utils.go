@@ -20,6 +20,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	//	"sync"
 	"time"
 )
 
@@ -318,11 +319,20 @@ func Ticker(interval time.Duration, fn func()) (stopper chan bool) {
 	ticker := time.NewTicker(interval)
 	stopper = make(chan bool, 1)
 	go func() {
+		//	var lk sync.RWMutex
+		var stopped bool
 		for {
 			select {
 			case <-ticker.C:
-				fn()
+				//		lk.RLock()
+				if !stopped {
+					fn()
+				}
+				//		lk.Unlock()
 			case <-stopper:
+				//		lk.Lock()
+				stopped = true
+				//		lk.Unlock()
 				return
 			}
 		}

@@ -19,7 +19,6 @@ import (
 	"strconv"
 	"strings"
 	"sync"
-	"time"
 )
 
 // Holds the dht configuration options
@@ -54,12 +53,9 @@ type DHT struct {
 	h          *Holochain // pointer to the holochain this DHT is part of
 	db         *buntdb.DB
 	retryQueue chan *retry
-	retrying   chan bool
-	gossiping  chan bool
 	gossipPuts chan Put
 	glog       *Logger // the gossip logger
 	dlog       *Logger // the dht logger
-	gossips    map[peer.ID]bool
 	gchan      chan gossipWithReq
 	config     *DHTConfig
 	glk        sync.RWMutex
@@ -257,7 +253,6 @@ func NewDHT(h *Holochain) *DHT {
 	dht.db = db
 	dht.retryQueue = make(chan *retry, 100)
 
-	dht.gossips = make(map[peer.ID]bool)
 	//	dht.sources = make(map[peer.ID]bool)
 	//	dht.fingerprints = make(map[string]bool)
 	dht.gchan = make(chan gossipWithReq, GossipWithQueueSize)
@@ -901,34 +896,24 @@ func (dht *DHT) String() (result string) {
 
 // Close cleans up the DHT
 func (dht *DHT) Close() {
-	if dht.gossiping != nil {
-		dht.h.Debug("Stopping gossiping")
-		stop := dht.gossiping
-		dht.gossiping = nil
-		stop <- true
-	}
-	if dht.retrying != nil {
-		dht.h.Debug("Stopping retrying")
-		stop := dht.retrying
-		dht.retrying = nil
-		stop <- true
-	}
 	close(dht.retryQueue)
+	dht.retryQueue = nil
 	close(dht.gchan)
+	dht.gchan = nil
 	close(dht.gossipPuts)
+	dht.gossipPuts = nil
 }
 
 // Retry starts retry processing
-func (dht *DHT) Retry(interval time.Duration) {
-	dht.retrying = Ticker(interval, func() {
-		if len(dht.retryQueue) > 0 {
-			r := <-dht.retryQueue
-			if r.retries > 0 {
-				resp, err := actionReceiver(dht.h, &r.msg, r.retries-1)
-				dht.dlog.Logf("retry %d of %v, response: %d error: %v", r.retries, r.msg, resp, err)
-			} else {
-				dht.dlog.Logf("max retries for %v, ignoring", r.msg)
-			}
+func RetryTask(h *Holochain) {
+	dht := h.dht
+	if len(dht.retryQueue) > 0 {
+		r := <-dht.retryQueue
+		if r.retries > 0 {
+			resp, err := actionReceiver(dht.h, &r.msg, r.retries-1)
+			dht.dlog.Logf("retry %d of %v, response: %d error: %v", r.retries, r.msg, resp, err)
+		} else {
+			dht.dlog.Logf("max retries for %v, ignoring", r.msg)
 		}
-	})
+	}
 }

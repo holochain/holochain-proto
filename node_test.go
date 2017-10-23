@@ -555,14 +555,18 @@ func TestNodeRoutingTableBootstrap(t *testing.T) {
 	nodes := mt.nodes
 
 	rt := nodes[0].node.routingTable
-	Convey("first node added should bootstrap the routing table", t, func() {
+	Convey("it should should bootstrap the routing table", t, func() {
 		So(rt.Size(), ShouldEqual, 0)
 		So(rt.IsEmpty(), ShouldBeTrue)
+
+		// connect up all the nodes except 0
 		for i := 0; i < nodesCount-1; i++ {
 			connect(t, mt.ctx, nodes[i], nodes[i+1])
 			nodes[i].node.routingTable.Update(nodes[i+1].nodeID)
 		}
-		nodes[0].BootstrapRouting()
+
+		//now call routing refresh to boostrap the table
+		RoutingRefreshTask(nodes[0])
 		So(rt.Size(), ShouldEqual, 9)
 		So(rt.IsEmpty(), ShouldBeFalse)
 	})

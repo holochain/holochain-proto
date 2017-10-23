@@ -12,7 +12,6 @@ import (
 	"github.com/metacurrency/holochain/ui"
 	"github.com/urfave/cli"
 	"os"
-	"time"
 )
 
 const (

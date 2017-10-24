@@ -30,10 +30,10 @@ import (
 
 const (
 	// Version is the numeric version number of the holochain library
-	Version int = 16
+	Version int = 17
 
 	// VersionStr is the textual version number of the holochain library
-	VersionStr string = "16"
+	VersionStr string = "17"
 
 	// DefaultSendTimeout a time.Duration to wait by default for send to complete
 	DefaultSendTimeout = 3000 * time.Millisecond
@@ -806,6 +806,7 @@ func (h *Holochain) StartBackgroundTasks() {
 	}
 	h.node.retrying = h.TaskTicker(h.Config.retryInterval, RetryTask)
 	if h.Config.BootstrapServer != "" {
+		BootstrapRefreshTask(h)
 		h.node.retrying = h.TaskTicker(h.Config.bootstrapRefreshInterval, BootstrapRefreshTask)
 	}
 	h.node.refreshing = h.TaskTicker(h.Config.routingRefreshInterval, RoutingRefreshTask)

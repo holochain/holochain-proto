@@ -897,3 +897,34 @@ func TestDHTMultiNode(t *testing.T) {
 		}
 	})
 }
+
+func TestPutGetSetMeta(t *testing.T) {
+	d, _, h := PrepareTestChain("test")
+	defer CleanupTestChain(h, d)
+	dht := h.dht
+	Convey("initial puts should be marked for permanent storage", t, func() {
+		meta, err := dht.getMeta(h.dnaHash)
+		So(err, ShouldBeNil)
+		So(fmt.Sprintf("%v", meta), ShouldEqual, `map[status:0]`)
+		meta, err = dht.getMeta(h.agentHash)
+		So(err, ShouldBeNil)
+		So(fmt.Sprintf("%v", meta), ShouldEqual, `map[status:0]`)
+	})
+
+	hash, _ := NewHash("QmY8Mzg9F69e5P9AoQPYat655HEhc1TVGs11tmfNSzkqh2")
+	Convey("normal put should be marked for storage", t, func() {
+		err := dht.put(h.node.NewMessage(PUT_REQUEST, PutReq{H: hash}), "someType", hash, h.nodeID, []byte("some value"), StatusLive)
+		So(err, ShouldBeNil)
+		meta, err := dht.getMeta(hash)
+		So(err, ShouldBeNil)
+		So(fmt.Sprintf("%v", meta), ShouldEqual, `map[status:1]`)
+	})
+
+	Convey("set meta should change meta data", t, func() {
+		err := dht.setMeta(hash, "status", MetaStatusCached)
+		So(err, ShouldBeNil)
+		meta, err := dht.getMeta(hash)
+		So(err, ShouldBeNil)
+		So(fmt.Sprintf("%v", meta), ShouldEqual, `map[status:2]`)
+	})
+}

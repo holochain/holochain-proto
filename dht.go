@@ -281,7 +281,8 @@ func (dht *DHT) putKey(agent Agent) (err error) {
 	if err != nil {
 		return
 	}
-	if err = dht.put(dht.h.node.NewMessage(PUT_REQUEST, PutReq{H: keyHash}), KeyEntryType, keyHash, nodeID, pubKey, StatusLive); err != nil {
+	meta := map[string]interface{}{"status": MetaStatusPermanent}
+	if err = dht._put(dht.h.node.NewMessage(PUT_REQUEST, PutReq{H: keyHash}), KeyEntryType, keyHash, nodeID, pubKey, StatusLive, meta); err != nil {
 		return
 	}
 	return
@@ -289,10 +290,12 @@ func (dht *DHT) putKey(agent Agent) (err error) {
 
 // SetupDHT prepares a DHT for use by putting the genesis entries that are added by GenChain
 func (dht *DHT) SetupDHT() (err error) {
+	meta := map[string]interface{}{"status": MetaStatusPermanent}
+
 	x := ""
 	// put the holochain id so it always exists for linking
 	dna := dht.h.DNAHash()
-	err = dht.put(nil, DNAEntryType, dna, dht.h.nodeID, []byte(x), StatusLive)
+	err = dht._put(nil, DNAEntryType, dna, dht.h.nodeID, []byte(x), StatusLive, meta)
 	if err != nil {
 		return
 	}
@@ -318,16 +321,28 @@ func (dht *DHT) SetupDHT() (err error) {
 	if err != nil {
 		return
 	}
-	if err = dht.put(dht.h.node.NewMessage(PUT_REQUEST, PutReq{H: a}), AgentEntryType, a, dht.h.nodeID, b, StatusLive); err != nil {
+	if err = dht._put(dht.h.node.NewMessage(PUT_REQUEST, PutReq{H: a}), AgentEntryType, a, dht.h.nodeID, b, StatusLive, meta); err != nil {
 		return
 	}
 
 	return
 }
 
+const (
+	MetaStatusPermanent = iota
+	MetaStatusStore
+	MetaStatusCached
+)
+
 // put stores a value to the DHT store
 // N.B. This call assumes that the value has already been validated
 func (dht *DHT) put(m *Message, entryType string, key Hash, src peer.ID, value []byte, status int) (err error) {
+	meta := map[string]interface{}{"status": MetaStatusStore}
+	return dht._put(m, entryType, key, src, value, status, meta)
+}
+
+// low level put with access to non-standard meta data
+func (dht *DHT) _put(m *Message, entryType string, key Hash, src peer.ID, value []byte, status int, meta map[string]interface{}) (err error) {
 	k := key.String()
 	dht.dlog.Logf("put %s=>%s", k, string(value))
 	err = dht.db.Update(func(tx *buntdb.Tx) error {
@@ -351,8 +366,60 @@ func (dht *DHT) put(m *Message, entryType string, key Hash, src peer.ID, value [
 		if err != nil {
 			return err
 		}
+
+		err = dht._setMeta(tx, k, meta)
+		if err != nil {
+			return err
+		}
 		return err
 	})
+	return
+}
+
+// getMeta returns the meta information stored with a dht key
+func (dht *DHT) getMeta(key Hash) (meta map[string]interface{}, err error) {
+	err = dht.db.View(func(tx *buntdb.Tx) error {
+		meta, err = dht._getMeta(tx, key.String())
+		return err
+	})
+	return
+}
+
+func (dht *DHT) _getMeta(tx *buntdb.Tx, key string) (meta map[string]interface{}, err error) {
+	var val string
+	val, err = tx.Get("meta:" + key)
+	if err != nil {
+		if err == buntdb.ErrNotFound {
+			err = ErrHashNotFound
+		}
+		return
+	}
+	json.Unmarshal([]byte(val), &meta)
+	return
+}
+
+// setMeta sets an attribute of the meta information stored with a dht key
+func (dht *DHT) setMeta(key Hash, attr string, value interface{}) (err error) {
+	k := key.String()
+	err = dht.db.Update(func(tx *buntdb.Tx) error {
+		var meta, err = dht._getMeta(tx, k)
+		if err != nil {
+			return err
+		}
+		meta[attr] = value
+		err = dht._setMeta(tx, k, meta)
+		return err
+	})
+	return
+}
+
+func (dht *DHT) _setMeta(tx *buntdb.Tx, key string, meta map[string]interface{}) (err error) {
+	var b []byte
+	b, err = json.Marshal(meta)
+	if err != nil {
+		return
+	}
+	_, _, err = tx.Set("meta:"+key, string(b), nil)
 	return
 }
 

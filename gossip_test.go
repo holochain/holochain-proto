@@ -486,6 +486,85 @@ func TestGossipPropigation(t *testing.T) {
 	})
 }
 
+func TestGossipSharding(t *testing.T) {
+	nodesCount := 20
+	mt := setupMultiNodeTesting(nodesCount)
+	defer mt.cleanupMultiNodeTesting()
+	nodes := mt.nodes
+	fullConnect(t, mt.ctx, nodes, nodesCount)
+
+	nSize := 10
+	for i := 0; i < nodesCount; i++ {
+		nodes[i].nucleus.dna.DHTConfig.NeighborhoodSize = nSize
+		nodes[i].Config.gossipInterval = 200 * time.Millisecond
+		nodes[i].StartBackgroundTasks()
+
+		dht := nodes[i].dht
+		fmt.Printf("%d:%v\n", i, nodes[i].nodeID)
+
+		glist := dht.h.node.peerstore.Peers()
+		size := len(glist)
+		hlist := make([]Hash, size)
+		for j := 0; j < size; j++ {
+			h := HashFromPeerID(glist[j])
+			hlist[j] = h
+		}
+		harr := nodes[0].agentHash.SortFrom(hlist)
+		fmt.Printf("    ")
+		for j := 0; j < size; j++ {
+			fmt.Printf("%v ", harr[j].Hash.(Hash).String()[2:4])
+		}
+		fmt.Printf("    \n")
+	}
+
+	Convey("there should be at least nSize copies of each node's agent entry across the network", t, func() {
+		start := time.Now()
+		propigated := false
+		ticker := time.NewTicker(210 * time.Millisecond)
+		stop := make(chan bool, 1)
+
+		go func() {
+			for tick := range ticker.C {
+				// abort just in case in 4 seconds (only if propgation fails)
+				if tick.Sub(start) > (10 * time.Second) {
+					//fmt.Printf("Aborting!")
+					stop <- true
+					return
+				}
+
+				propigated = true
+				// count up how many copies of each agent hash have been stored
+				for i := 0; i < nodesCount; i++ {
+					agentHash := nodes[i].agentHash
+					count := 0
+					for j := 0; j < nodesCount; j++ {
+						meta, err := nodes[j].dht.getMeta(agentHash)
+						if err == nil {
+							//							fmt.Printf("meta:%v\n", meta)
+							status, ok := meta["status"]
+							if ok && int(status.(float64)) != MetaStatusCached {
+								count += 1
+							}
+						}
+					}
+					fmt.Printf("count of %d:%s = %d\n", i, nodes[i].nodeID.String()[9:11], count)
+					if count < nSize {
+						propigated = false
+						//						break
+					}
+				}
+				if propigated {
+					stop <- true
+					return
+				}
+			}
+		}()
+		<-stop
+		ticker.Stop()
+		So(propigated, ShouldBeTrue)
+	})
+}
+
 func findNodeIdx(nodes []*Holochain, id peer.ID) int {
 	for i, n := range nodes {
 		if id == n.nodeID {

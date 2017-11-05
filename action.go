@@ -1036,7 +1036,9 @@ func (a *ActionPut) Receive(dht *DHT, msg *Message, retries int) (response inter
 		var b []byte
 		b, err = entry.Marshal()
 		if err == nil {
-			err = dht.put(msg, resp.Type, t.H, msg.From, b, status)
+			metaStatus := dht.storageStatus(t.H)
+			meta := map[string]interface{}{"status": metaStatus}
+			err = dht._put(msg, resp.Type, t.H, msg.From, b, status, meta)
 		}
 		return err
 	})

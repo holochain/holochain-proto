@@ -72,14 +72,6 @@ const (
 	MaxRetries = 10
 )
 
-// Meta holds data that can be associated with a hash
-// @todo, we should also be storing the meta-data source
-type Meta struct {
-	H Hash   // hash of link-data associated
-	T string // meta-data type identifier
-	V []byte // meta-data
-}
-
 const (
 	// constants for status action type
 
@@ -333,6 +325,35 @@ const (
 	MetaStatusStore
 	MetaStatusCached
 )
+
+// storageStatus returns storage status of the given hash by looking at how close we are to it
+// compared to our gossiping neighbors
+func (dht *DHT) storageStatus(hash Hash) (metaStatus int) {
+	if dht.config.NeighborhoodSize == 0 {
+		metaStatus = MetaStatusPermanent
+	} else {
+		glist := dht.h.node.peerstore.Peers()
+		size := len(glist)
+		hlist := make([]Hash, size)
+		for i := 0; i < size; i++ {
+			h := HashFromPeerID(glist[i])
+			hlist[i] = h
+		}
+		me := HashFromPeerID(dht.h.nodeID)
+		harr := hash.SortFrom(hlist)
+		// if we find ourselves as one of the N closest peers we know of
+		// to the given hash then we store it, otherwise we cache it
+		for i := 0; i < dht.config.NeighborhoodSize; i++ {
+			hi := harr[i].Hash.(Hash)
+			if me.Equal(&hi) {
+				metaStatus = MetaStatusStore
+				return
+			}
+		}
+		metaStatus = MetaStatusCached
+	}
+	return
+}
 
 // put stores a value to the DHT store
 // N.B. This call assumes that the value has already been validated
@@ -679,15 +700,6 @@ func (dht *DHT) putLink(m *Message, base string, link string, tag string) (err e
 func (dht *DHT) delLink(m *Message, base string, link string, tag string) (err error) {
 	dht.dlog.Logf("delLink on %v link %v as %s", base, link, tag)
 	err = dht.link(m, base, link, tag, StatusDeleted)
-	return
-}
-
-func filter(ss []Meta, test func(*Meta) bool) (ret []Meta) {
-	for _, s := range ss {
-		if test(&s) {
-			ret = append(ret, s)
-		}
-	}
 	return
 }
 

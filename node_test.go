@@ -634,6 +634,16 @@ func starConnectMutual(t *testing.T, ctx context.Context, nodes []*Holochain, no
 	}
 }
 
+func fullConnect(t *testing.T, ctx context.Context, nodes []*Holochain, nodesCount int) {
+	for i := 0; i < nodesCount; i++ {
+		for j := 0; j < nodesCount; j++ {
+			if i != j {
+				connect(t, ctx, nodes[i], nodes[j])
+			}
+		}
+	}
+}
+
 func randConnect(t *testing.T, ctx context.Context, nodes []*Holochain, nodesCount, connectFromCount, connectToCount int) {
 
 	// connect nodes[1->connectFromCount] to connectToCount randomly selected nodes in

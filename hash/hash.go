@@ -196,18 +196,24 @@ func (p HashSorterArr) Less(a, b int) bool {
 // It returns a new list, where the Hashes toSort have been sorted by their
 // distance to the center Hash.
 func SortByDistance(center Hash, toSort []Hash) []Hash {
-	var hsarr HashSorterArr
-	for _, h := range toSort {
-		hd := &HashDistance{
-			Hash:     h,
-			Distance: HashXORDistance(h, center),
-		}
-		hsarr = append(hsarr, hd)
-	}
-	sort.Sort(hsarr)
+	hsarr := center.SortFrom(toSort)
 	var out []Hash
 	for _, hd := range hsarr {
 		out = append(out, hd.Hash.(Hash))
 	}
 	return out
+}
+
+// SortFrom returns a sorted HashSorterArr with distances from the center
+func (center *Hash) SortFrom(toSort []Hash) HashSorterArr {
+	var hsarr HashSorterArr
+	for _, h := range toSort {
+		hd := &HashDistance{
+			Hash:     h,
+			Distance: HashXORDistance(h, *center),
+		}
+		hsarr = append(hsarr, hd)
+	}
+	sort.Sort(hsarr)
+	return hsarr
 }

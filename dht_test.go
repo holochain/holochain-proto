@@ -928,3 +928,65 @@ func TestPutGetSetMeta(t *testing.T) {
 		So(fmt.Sprintf("%v", meta), ShouldEqual, `map[status:2]`)
 	})
 }
+
+func TestDHTStorageStatus(t *testing.T) {
+	nodesCount := 10
+	mt := setupMultiNodeTesting(nodesCount)
+	defer mt.cleanupMultiNodeTesting()
+	nodes := mt.nodes
+	fullConnect(t, mt.ctx, nodes, nodesCount)
+	for i := 0; i < nodesCount; i++ {
+		nodes[i].nucleus.dna.DHTConfig.NeighborhoodSize = 5
+	}
+
+	dht := nodes[0].dht
+	Convey("we are closest to our own address so it should be stored", t, func() {
+		So(dht.storageStatus(HashFromPeerID(dht.h.nodeID)), ShouldEqual, MetaStatusStore)
+	})
+
+	hash, _ := NewHash("QmVGtdTZdTFaLsaj2RwdVG8jcjNNcp1DE914DKZ2kHmXHx")
+	/*Sort order from hash is: W4 Vx Uf S4 Nn dx bh at Xm YA
+	  for:
+		0:<peer.ID NnRVJ2>
+	        1:<peer.ID UfY4We>
+		2:<peer.ID YA62JA>
+		3:<peer.ID S4BFeT>
+		4:<peer.ID W4HeEG>
+		5:<peer.ID dxxuES>
+		6:<peer.ID atCgbf>
+		7:<peer.ID bhHGcL>
+		8:<peer.ID VxTVxL>
+		9:<peer.ID XmWDdb>
+
+
+	for i := 0; i < len(nodes); i++ {
+		dht = nodes[i].dht
+		fmt.Printf("%d:%v\n", i, nodes[i].nodeID)
+		glist := dht.h.node.peerstore.Peers()
+		size := len(glist)
+		hlist := make([]Hash, size)
+		for j := 0; j < size; j++ {
+			h := HashFromPeerID(glist[j])
+			hlist[j] = h
+		}
+		harr := hash.SortFrom(hlist)
+		fmt.Printf("    ")
+		for j := 0; j < size; j++ {
+			fmt.Printf("%v ", harr[j].Hash.(Hash).String()[2:4])
+		}
+		fmt.Printf("    \n")
+	}*/
+
+	Convey("peers should store or cache based on how close they are to hash", t, func() {
+		So(nodes[0].dht.storageStatus(hash), ShouldEqual, MetaStatusStore)
+		So(nodes[1].dht.storageStatus(hash), ShouldEqual, MetaStatusStore)
+		So(nodes[2].dht.storageStatus(hash), ShouldEqual, MetaStatusCached)
+		So(nodes[3].dht.storageStatus(hash), ShouldEqual, MetaStatusStore)
+		So(nodes[4].dht.storageStatus(hash), ShouldEqual, MetaStatusStore)
+		So(nodes[5].dht.storageStatus(hash), ShouldEqual, MetaStatusCached)
+		So(nodes[6].dht.storageStatus(hash), ShouldEqual, MetaStatusCached)
+		So(nodes[7].dht.storageStatus(hash), ShouldEqual, MetaStatusCached)
+		So(nodes[8].dht.storageStatus(hash), ShouldEqual, MetaStatusStore)
+		So(nodes[9].dht.storageStatus(hash), ShouldEqual, MetaStatusCached)
+	})
+}

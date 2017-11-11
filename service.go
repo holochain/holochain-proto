@@ -301,6 +301,7 @@ func (s *Service) loadDNA(path string, filename string, format string) (dnaP *DN
 	dnafile := filepath.Join(path, filename+"."+format)
 	f, err := os.Open(dnafile)
 	if err != nil {
+		err = fmt.Errorf("error opening DNA file %s: %v", dnafile, err)
 		return
 	}
 	defer f.Close()
@@ -316,6 +317,7 @@ func (s *Service) loadDNA(path string, filename string, format string) (dnaP *DN
 	if dnaFile.PropertiesSchemaFile != "" {
 		propertiesSchema, err = ReadFile(path, dnaFile.PropertiesSchemaFile)
 		if err != nil {
+			err = fmt.Errorf("error reading properties Schema file %s: %v", dnaFile.PropertiesSchemaFile, err)
 			return
 		}
 		schemapath := filepath.Join(path, dnaFile.PropertiesSchemaFile)
@@ -388,10 +390,12 @@ func (s *Service) loadDNA(path string, filename string, format string) (dnaP *DN
 						Infof("DEV MODE: Found BridgeTo value '%s' and resolved to DNA Hash: %s", zome.BridgeTo, dnaHashStr)
 					}
 				} else {
+					err = fmt.Errorf("in zome: %s BridgeTo hash invalid", zome.Name)
 					return
 				}
 			}
 		}
+
 		var code []byte
 		code, err = ReadFile(zomePath, zome.CodeFile)
 		if err != nil {

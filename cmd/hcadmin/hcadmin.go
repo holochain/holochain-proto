@@ -122,7 +122,7 @@ func setupApp() (app *cli.App) {
 				name := c.Args()[1]
 				agent, err := holo.LoadAgent(root)
 				if err != nil {
-					return err
+					return fmt.Errorf("join: error loading agent (%s): %v", root, err)
 				}
 				_, err = service.Clone(srcPath, filepath.Join(root, name), agent, holo.CloneWithSameUUID, holo.InitializeDB)
 				if err == nil {
@@ -130,6 +130,8 @@ func setupApp() (app *cli.App) {
 						fmt.Printf("joined %s from %s\n", name, srcPath)
 					}
 					err = genChain(service, name)
+				} else {
+					return fmt.Errorf("join: error cloning: %v", err)
 				}
 				return err
 			},

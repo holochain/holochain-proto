@@ -1253,7 +1253,7 @@ func NewJSRibosome(h *Holochain, zome *Zome) (n Ribosome, err error) {
 func (jsr *JSRibosome) Run(code string) (result interface{}, err error) {
 	v, err := jsr.vm.Run(code)
 	if err != nil {
-		err = errors.New("JS exec error: " + err.Error())
+		err = fmt.Errorf("Error executing JavaScript: " + err.Error())
 		return
 	}
 	jsr.lastResult = &v

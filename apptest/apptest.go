@@ -456,30 +456,34 @@ func test(h *Holochain, one string, bridgeApps []BridgeApp) []error {
 		info.Log("========================================")
 		// setup the genesis entries
 		err = InitChain(h, true)
+		var ers []error
 		if err != nil {
-			panic("couldn't initialize chain for test. err:" + err.Error())
-		}
+			err = fmt.Errorf("couldn't initialize chain for test. err: %v", err)
+			failed.Log(err.Error())
+			ers = []error{err}
+		} else {
 
-		var bridgeAppServers []*ui.WebServer
-		bridgeAppServers, err = BuildBridges(h, "", bridgeApps)
-		if err != nil {
-			panic("couldn't build bridges for test. err:" + err.Error())
-		}
+			var bridgeAppServers []*ui.WebServer
+			bridgeAppServers, err = BuildBridges(h, "", bridgeApps)
+			if err != nil {
+				err = fmt.Errorf("couldn't build bridges for test. err: %v", err)
+				failed.Log(err.Error())
+				ers = []error{err}
+			} else {
+				//	go h.dht.HandleChangeReqs()
+				ers = DoTests(h, name, ts, 0, "")
 
-		//	go h.dht.HandleChangeReqs()
-		ers := DoTests(h, name, ts, 0, "")
-
-		// stop all the bridge web servers
-		for _, server := range bridgeAppServers {
-			server.Stop()
+				// stop all the bridge web servers
+				for _, server := range bridgeAppServers {
+					server.Stop()
+				}
+				// then wait for them to complete
+				for _, server := range bridgeAppServers {
+					server.Wait()
+				}
+			}
 		}
-		// then wait for them to complete
-		for _, server := range bridgeAppServers {
-			server.Wait()
-		}
-
 		errs = append(errs, ers...)
-
 		// restore the state for the next test file
 		e := h.Reset()
 		if e != nil {

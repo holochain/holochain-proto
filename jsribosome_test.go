@@ -29,7 +29,7 @@ func TestNewJSRibosome(t *testing.T) {
 		defer CleanupTestChain(h, d)
 		v, err := NewJSRibosome(h, &Zome{RibosomeType: JSRibosomeType, Code: "\n1+ )"})
 		So(v, ShouldBeNil)
-		So(err.Error(), ShouldEqual, "JS exec error: (anonymous): Line 2:4 Unexpected token )")
+		So(err.Error(), ShouldEqual, "Error executing JavaScript: (anonymous): Line 2:4 Unexpected token )")
 	})
 
 	Convey("it should have an App structure:", t, func() {

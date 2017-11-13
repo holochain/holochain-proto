@@ -110,6 +110,16 @@ func TestTest(t *testing.T) {
 		//So(err.Error(), ShouldEqual, "Test: test_0:0\n  Expected Error: bogus error\n  Got: nil\n")
 		So(err.Error(), ShouldEqual, "bogus error")
 	})
+	Convey("it should fail the tests on code with zygo syntax errors", t, func() {
+		h.Nucleus().DNA().Zomes[0].Code += "badcode)("
+		errs := Test(h, nil)
+		So(len(errs), ShouldEqual, 11)
+	})
+	Convey("it should fail the tests on code with js syntax errors", t, func() {
+		h.Nucleus().DNA().Zomes[1].Code += "badcode)("
+		errs := Test(h, nil)
+		So(len(errs), ShouldEqual, 3)
+	})
 }
 
 func TestTestOne(t *testing.T) {

@@ -427,7 +427,8 @@ func (h *Holochain) GenChain() (headerHash Hash, err error) {
 
 	defer func() {
 		if err != nil {
-			panic("cleanup after failed gen not implemented!  Error was: " + err.Error())
+			err = fmt.Errorf("Error during chain genesis: %v\n", err)
+			os.RemoveAll(h.rootPath)
 		}
 	}()
 

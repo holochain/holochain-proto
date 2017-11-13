@@ -43,7 +43,7 @@ func TestInit(t *testing.T) {
 	})
 }
 
-func TestJoin(t *testing.T) {
+func TestJoinFromSourceDir(t *testing.T) {
 	d := holo.SetupTestDir()
 	defer os.RemoveAll(d)
 	app := setupApp()
@@ -63,6 +63,48 @@ func TestJoin(t *testing.T) {
 		So(err, ShouldBeNil)
 		So(out, ShouldContainSubstring, fmt.Sprintf("hcadmin version %s \n", app.Version))
 		So(out, ShouldContainSubstring, fmt.Sprintf("joined testApp from %s/testAppSrc", d))
+		So(out, ShouldContainSubstring, "Genesis entries added and DNA hashed for new holochain with ID:")
+	})
+	app = setupApp()
+	Convey("after join status should show it", t, func() {
+		out, err := runAppWithStdoutCapture(app, []string{"hcadmin", "-path", d, "status"})
+		So(err, ShouldBeNil)
+		So(out, ShouldContainSubstring, "installed holochains:\n    testApp Qm")
+	})
+	app = setupApp()
+	Convey("after join dump -chain should show it", t, func() {
+		out, err := runAppWithStdoutCapture(app, []string{"hcadmin", "-path", d, "dump", "-chain", "testApp"})
+		So(err, ShouldBeNil)
+		So(out, ShouldContainSubstring, "Chain for: Qm")
+	})
+	app = setupApp()
+	Convey("after join dump -dht should show it", t, func() {
+		out, err := runAppWithStdoutCapture(app, []string{"hcadmin", "-path", d, "dump", "-dht", "testApp"})
+		So(err, ShouldBeNil)
+		So(out, ShouldContainSubstring, "DHT for: Qm")
+		So(out, ShouldContainSubstring, "DHT changes: 2")
+	})
+}
+
+func TestJoinFromPackage(t *testing.T) {
+	d := holo.SetupTestDir()
+	//	defer os.RemoveAll(d)
+	app := setupApp()
+	_, err := runAppWithStdoutCapture(app, []string{"hcadmin", "-path", d, "init", "test-identity"})
+	if err != nil {
+		panic(err)
+	}
+
+	err = holo.WriteFile([]byte(holo.BasicTemplateAppPackage), d, "appPackage.json")
+	if err != nil {
+		panic(err)
+	}
+	app = setupApp()
+	Convey("it should join a chain", t, func() {
+		out, err := runAppWithStdoutCapture(app, []string{"hcadmin", "-verbose", "-path", d, "join", filepath.Join(d, "appPackage.json"), "testApp"})
+		So(err, ShouldBeNil)
+		So(out, ShouldContainSubstring, fmt.Sprintf("hcadmin version %s \n", app.Version))
+		So(out, ShouldContainSubstring, fmt.Sprintf("joined testApp from %s/appPackage.json", d))
 		So(out, ShouldContainSubstring, "Genesis entries added and DNA hashed for new holochain with ID:")
 	})
 	app = setupApp()

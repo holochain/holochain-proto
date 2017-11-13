@@ -180,19 +180,19 @@ func TestPackage(t *testing.T) {
 	app := setupApp()
 	tmpTestDir, app := setupTestingApp("foo")
 	defer os.RemoveAll(tmpTestDir)
-	Convey("'package' should print a scaffold file to stdout", t, func() {
-		scaffold, err := runAppWithStdoutCapture(app, []string{"hcdev", "package"}, 2*time.Second)
+	Convey("'package' should print a appPackage file to stdout", t, func() {
+		appPackage, err := runAppWithStdoutCapture(app, []string{"hcdev", "package"}, 2*time.Second)
 		So(err, ShouldBeNil)
-		So(scaffold, ShouldContainSubstring, fmt.Sprintf(`"ScaffoldVersion": "%s"`, holo.ScaffoldVersion))
+		So(appPackage, ShouldContainSubstring, fmt.Sprintf(`"Version": "%s"`, holo.AppPackageVersion))
 	})
 	app = setupApp()
 	d := holo.SetupTestDir()
 	defer os.RemoveAll(d)
-	Convey("'package' should output a scaffold file to file", t, func() {
+	Convey("'package' should output a appPackage file to file", t, func() {
 		runAppWithStdoutCapture(app, []string{"hcdev", "package", filepath.Join(d, "scaff.json")}, 2*time.Second)
-		scaffold, err := holo.ReadFile(d, "scaff.json")
+		appPackage, err := holo.ReadFile(d, "scaff.json")
 		So(err, ShouldBeNil)
-		So(string(scaffold), ShouldContainSubstring, fmt.Sprintf(`"ScaffoldVersion": "%s"`, holo.ScaffoldVersion))
+		So(string(appPackage), ShouldContainSubstring, fmt.Sprintf(`"Version": "%s"`, holo.AppPackageVersion))
 
 	})
 }

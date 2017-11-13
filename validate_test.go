@@ -80,7 +80,7 @@ func TestValidateReceiver(t *testing.T) {
 	})
 }
 
-func TestMakePackage(t *testing.T) {
+func TestValidateMakePackage(t *testing.T) {
 	d, _, h := PrepareTestChain("test")
 	defer CleanupTestChain(h, d)
 	var emptyStringList []string

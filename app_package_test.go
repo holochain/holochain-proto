@@ -8,12 +8,12 @@ import (
 	"testing"
 )
 
-func TestLoadScaffold(t *testing.T) {
-	scaffoldBlob := bytes.NewBuffer([]byte(BasicTemplateScaffold))
-	scaffold, err := LoadScaffold(scaffoldBlob)
-	Convey("it should load dna from a scaffold blob", t, func() {
+func TestLoadAppPackage(t *testing.T) {
+	appPackageBlob := bytes.NewBuffer([]byte(BasicTemplateAppPackage))
+	appPackage, err := LoadAppPackage(appPackageBlob)
+	Convey("it should load dna from a appPackage blob", t, func() {
 		So(err, ShouldBeNil)
-		dna := scaffold.DNA
+		dna := appPackage.DNA
 		So(dna.Name, ShouldEqual, "templateApp")
 		So(dna.Properties["description"], ShouldEqual, "provides an application template")
 		So(fmt.Sprintf("%v", dna.UUID), ShouldEqual, "00000000-0000-0000-0000-000000000000")
@@ -26,16 +26,16 @@ func TestLoadScaffold(t *testing.T) {
 		So(dna.Zomes[0].Functions[0].Name, ShouldEqual, "sampleEntryCreate")
 	})
 
-	Convey("it should load tests from a scaffold blob", t, func() {
-		So(scaffold.Tests[0].Name, ShouldEqual, "sample")
-		So(scaffold.Tests[0].Tests[0].Convey, ShouldEqual, "We can create a new sampleEntry")
+	Convey("it should load tests from a appPackage blob", t, func() {
+		So(appPackage.Tests[0].Name, ShouldEqual, "sample")
+		So(appPackage.Tests[0].Tests[0].Convey, ShouldEqual, "We can create a new sampleEntry")
 	})
 
-	Convey("it should load scenarios from a scaffold blob", t, func() {
-		So(scaffold.Scenarios[0].Name, ShouldEqual, "sampleScenario")
-		So(scaffold.Scenarios[0].Roles[0].Name, ShouldEqual, "listener")
-		So(scaffold.Scenarios[0].Roles[1].Name, ShouldEqual, "speaker")
-		So(scaffold.Scenarios[0].Config.Duration, ShouldEqual, 5)
-		So(scaffold.Scenarios[0].Config.GossipInterval, ShouldEqual, 100)
+	Convey("it should load scenarios from a appPackage blob", t, func() {
+		So(appPackage.Scenarios[0].Name, ShouldEqual, "sampleScenario")
+		So(appPackage.Scenarios[0].Roles[0].Name, ShouldEqual, "listener")
+		So(appPackage.Scenarios[0].Roles[1].Name, ShouldEqual, "speaker")
+		So(appPackage.Scenarios[0].Config.Duration, ShouldEqual, 5)
+		So(appPackage.Scenarios[0].Config.GossipInterval, ShouldEqual, 100)
 	})
 }

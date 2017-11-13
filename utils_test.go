@@ -62,3 +62,12 @@ func TestTicker(t *testing.T) {
 		So(counter, ShouldEqual, 2)
 	})
 }
+
+func TestEncodingFormat(t *testing.T) {
+	Convey("it should return valid formats", t, func() {
+		So(EncodingFormat("dog.json"), ShouldEqual, "json")
+		So(EncodingFormat("/fish/cow/dog.yaml"), ShouldEqual, "yaml")
+		So(EncodingFormat("fish.toml"), ShouldEqual, "toml")
+		So(EncodingFormat("fish.xml"), ShouldEqual, "")
+	})
+}

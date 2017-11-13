@@ -268,6 +268,17 @@ func GetDuration_fromUnixTimestamp(timestamp int64) (duration time.Duration) {
 	return
 }
 
+func UpackageAppPackage(service *holo.Service, appPackagePath string, toPath string, appName string) (appPackage *holo.AppPackage, err error) {
+	sf, err := os.Open(appPackagePath)
+	if err != nil {
+		return
+	}
+	defer sf.Close()
+	encodingFormat := holo.EncodingFormat(appPackagePath)
+	appPackage, err = service.SaveFromAppPackage(sf, toPath, appName, nil, encodingFormat, false)
+	return
+}
+
 // var syncWatcher fsnotify.Watcher
 // var created_syncWatcher bool
 

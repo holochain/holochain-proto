@@ -181,12 +181,12 @@ func setupApp() (app *cli.App) {
 	}
 
 	var interactive, dumpChain, dumpDHT, initTest bool
-	var clonePath, scaffoldPath, cloneExample, outputDir string
+	var clonePath, appPackagePath, cloneExample, outputDir string
 	app.Commands = []cli.Command{
 		{
 			Name:    "init",
 			Aliases: []string{"i"},
-			Usage:   "initialize a holochain app directory: interactively, from a scaffold file or clone from another app",
+			Usage:   "initialize a holochain app directory: interactively, from a appPackage file or clone from another app",
 			Flags: []cli.Flag{
 				cli.BoolFlag{
 					Name:        "interactive",
@@ -204,9 +204,9 @@ func setupApp() (app *cli.App) {
 					Destination: &clonePath,
 				},
 				cli.StringFlag{
-					Name:        "scaffold",
-					Usage:       "path to a scaffold file from which to initialize the app",
-					Destination: &scaffoldPath,
+					Name:        "package",
+					Usage:       "path to an app package file from which to initialize the app",
+					Destination: &appPackagePath,
 				},
 				cli.StringFlag{
 					Name:        "cloneExample",
@@ -232,7 +232,7 @@ func setupApp() (app *cli.App) {
 				if clonePath != "" {
 					flags += 1
 				}
-				if scaffoldPath != "" {
+				if appPackagePath != "" {
 					flags += 1
 				}
 				if initTest {
@@ -306,28 +306,14 @@ func setupApp() (app *cli.App) {
 						return cmd.MakeErrFromErr(c, err)
 					}
 
-				} else if scaffoldPath != "" {
-					// build the app from the scaffold
-					info, err := os.Stat(scaffoldPath)
-					if err != nil {
-						return cmd.MakeErrFromErr(c, err)
-					}
-					if !info.Mode().IsRegular() {
-						return cmd.MakeErr(c, "-scaffold flag expectings a scaffold file")
-					}
-
-					sf, err := os.Open(scaffoldPath)
-					if err != nil {
-						return cmd.MakeErrFromErr(c, err)
-					}
-					defer sf.Close()
-
-					_, err = service.SaveFromScaffold(sf, devPath, name, nil, encodingFormat, false)
+				} else if appPackagePath != "" {
+					// build the app from the appPackage
+					_, err := cmd.UpackageAppPackage(service, appPackagePath, devPath, name)
 					if err != nil {
 						return cmd.MakeErrFromErr(c, err)
 					}
 
-					fmt.Printf("initialized %s from scaffold:%s\n", devPath, scaffoldPath)
+					fmt.Printf("initialized %s from appPackage:%s\n", devPath, appPackagePath)
 				} else {
 
 					// build empty app template
@@ -335,7 +321,7 @@ func setupApp() (app *cli.App) {
 					if err != nil {
 						return cmd.MakeErrFromErr(c, err)
 					}
-					scaffoldReader := bytes.NewBuffer([]byte(holo.BasicTemplateScaffold))
+					appPackageReader := bytes.NewBuffer([]byte(holo.BasicTemplateAppPackage))
 
 					var agent holo.Agent
 					agent, err = holo.LoadAgent(rootPath)
@@ -343,12 +329,12 @@ func setupApp() (app *cli.App) {
 						return cmd.MakeErrFromErr(c, err)
 					}
 
-					var scaffold *holo.Scaffold
-					scaffold, err = service.SaveFromScaffold(scaffoldReader, devPath, name, agent, encodingFormat, true)
+					var appPackage *holo.AppPackage
+					appPackage, err = service.SaveFromAppPackage(appPackageReader, devPath, name, agent, encodingFormat, true)
 					if err != nil {
 						return cmd.MakeErrFromErr(c, err)
 					}
-					fmt.Printf("initialized empty application to %s with new UUID:%v\n", devPath, scaffold.DNA.UUID)
+					fmt.Printf("initialized empty application to %s with new UUID:%v\n", devPath, appPackage.DNA.UUID)
 				}
 
 				err = os.Chdir(devPath)
@@ -660,7 +646,7 @@ func setupApp() (app *cli.App) {
 			Name:      "package",
 			Aliases:   []string{"p"},
 			ArgsUsage: "[output file]",
-			Usage:     fmt.Sprintf("writes a scaffold file of the dev path  to file or stdout"),
+			Usage:     fmt.Sprintf("writes a package file of the dev path to file or stdout"),
 			Action: func(c *cli.Context) error {
 
 				var old *os.File
@@ -677,16 +663,16 @@ func setupApp() (app *cli.App) {
 				if err != nil {
 					return cmd.MakeErrFromErr(c, err)
 				}
-				scaffold, err := service.MakeScaffold(h)
+				appPackage, err := service.MakeAppPackage(h)
 				if err != nil {
 					return cmd.MakeErrFromErr(c, err)
 				}
 
 				if len(c.Args()) == 0 {
 					os.Stdout = old
-					fmt.Printf(string(scaffold))
+					fmt.Print(string(appPackage))
 				} else {
-					err = holo.WriteFile(scaffold, c.Args().First())
+					err = holo.WriteFile(appPackage, c.Args().First())
 				}
 				if err != nil {
 					return cmd.MakeErrFromErr(c, err)

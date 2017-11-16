@@ -125,7 +125,7 @@ func setupApp() (app *cli.App) {
 		},
 		cli.StringFlag{
 			Name:        "port",
-			Usage:       "port on which to run the... something",
+			Usage:       "port on which to run the test/scenario instance",
 			Destination: &port,
 		},
 		cli.BoolFlag{
@@ -806,8 +806,9 @@ func setupApp() (app *cli.App) {
 
 		holo.Debugf("args:%v\n", c.Args())
 
+		// hcdev always enables the app debugging, and the -debug flag enables the holochain debugging
+		os.Setenv("HCLOG_APP_ENABLE", "1")
 		if debug {
-			os.Setenv("HCLOG_APP_ENABLE", "1")
 			os.Setenv("HCLOG_DHT_ENABLE", "1")
 			os.Setenv("HCLOG_GOSSIP_ENABLE", "1")
 			os.Setenv("HCLOG_DEBUG_ENABLE", "1")

@@ -82,7 +82,7 @@ func TestSetupLogging(t *testing.T) {
 		err := h.Config.SetupLogging()
 		So(err, ShouldBeNil)
 		// test some default configurations
-		So(h.Config.Loggers.App.Enabled, ShouldBeTrue)
+		So(h.Config.Loggers.App.Enabled, ShouldBeFalse)
 		So(h.Config.Loggers.DHT.Enabled, ShouldBeFalse)
 		So(h.Config.Loggers.Gossip.Enabled, ShouldBeFalse)
 		So(h.Config.Loggers.TestFailed.w, ShouldEqual, os.Stderr)

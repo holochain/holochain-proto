@@ -519,7 +519,6 @@ func (node *Node) Send(ctx context.Context, proto int, addr peer.ID, m *Message)
 
 	s, err := node.host.NewStream(ctx, addr, node.protocols[proto].ID)
 	if err != nil {
-		fmt.Printf("SENDERR in %v sending to%v:%v\n", node.HashAddr, addr, err)
 		return
 	}
 	defer s.Close()

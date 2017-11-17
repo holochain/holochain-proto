@@ -1,13 +1,11 @@
 package main
 
 import (
-	"bytes"
 	"fmt"
 	holo "github.com/metacurrency/holochain"
 	"github.com/metacurrency/holochain/cmd"
 	. "github.com/smartystreets/goconvey/convey"
 	"github.com/urfave/cli"
-	"io"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -172,13 +170,13 @@ func TestBridge(t *testing.T) {
 
 	Convey("it should bridge chains", t, func() {
 		app = setupApp()
-		out, err := runAppWithStdoutCapture(app, []string{"hcadmin", "-path", d, "bridge", "testApp1", "testApp2", "-bridgeToAppData", "some to app data"})
+		out, err := runAppWithStdoutCapture(app, []string{"hcadmin", "-debug", "-path", d, "bridge", "testApp1", "testApp2", "-bridgeToAppData", "some to app data"})
 		So(err, ShouldBeNil)
 		So(out, ShouldContainSubstring, "bridge genesis to-- other side is:"+testApp1DNA+" bridging data:some to app data\n")
 	})
 	Convey("after bridge status should show it", t, func() {
 		app = setupApp()
-		out, err := runAppWithStdoutCapture(app, []string{"hcadmin", "-path", d, "status"})
+		out, err := runAppWithStdoutCapture(app, []string{"hcadmin", "-debug", "-path", d, "status"})
 		So(err, ShouldBeNil)
 		So(out, ShouldContainSubstring, "testApp1 "+testApp1DNA+"\n        bridged to: "+testApp2DNA)
 		So(out, ShouldContainSubstring, "testApp2 "+testApp2DNA+"\n        bridged from by token:")
@@ -186,26 +184,5 @@ func TestBridge(t *testing.T) {
 }
 
 func runAppWithStdoutCapture(app *cli.App, args []string) (out string, err error) {
-	os.Args = args
-
-	old := os.Stdout // keep backup of the real stdout
-	r, w, _ := os.Pipe()
-	os.Stdout = w
-
-	go func() { err = app.Run(os.Args) }()
-	time.Sleep(time.Second * 5)
-
-	outC := make(chan string)
-	// copy the output in a separate goroutine so printing can't block indefinitely
-	go func() {
-		var buf bytes.Buffer
-		io.Copy(&buf, r)
-		outC <- buf.String()
-	}()
-
-	// back to normal state
-	w.Close()
-	os.Stdout = old // restoring the real stdout
-	out = <-outC
-	return
+	return cmd.RunAppWithStdoutCapture(app, args, time.Second*5)
 }

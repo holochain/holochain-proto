@@ -1,14 +1,12 @@
 package main
 
 import (
-	"bytes"
 	"fmt"
 	"github.com/davecgh/go-spew/spew"
 	holo "github.com/metacurrency/holochain"
 	"github.com/metacurrency/holochain/cmd"
 	. "github.com/smartystreets/goconvey/convey"
 	"github.com/urfave/cli"
-	"io"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -181,15 +179,15 @@ func TestPackage(t *testing.T) {
 	tmpTestDir, app := setupTestingApp("foo")
 	defer os.RemoveAll(tmpTestDir)
 	Convey("'package' should print a appPackage file to stdout", t, func() {
-		appPackage, err := runAppWithStdoutCapture(app, []string{"hcdev", "package"}, 2*time.Second)
+		appPackage, err := cmd.RunAppWithStdoutCapture(app, []string{"hcdev", "package"}, 2*time.Second)
 		So(err, ShouldBeNil)
 		So(appPackage, ShouldContainSubstring, fmt.Sprintf(`"Version": "%s"`, holo.AppPackageVersion))
 	})
 	app = setupApp()
 	d := holo.SetupTestDir()
 	defer os.RemoveAll(d)
-	Convey("'package' should output a appPackage file to file", t, func() {
-		runAppWithStdoutCapture(app, []string{"hcdev", "package", filepath.Join(d, "scaff.json")}, 2*time.Second)
+	Convey("'package' should output an appPackage file to a file", t, func() {
+		cmd.RunAppWithStdoutCapture(app, []string{"hcdev", "package", filepath.Join(d, "scaff.json")}, 2*time.Second)
 		appPackage, err := holo.ReadFile(d, "scaff.json")
 		So(err, ShouldBeNil)
 		So(string(appPackage), ShouldContainSubstring, fmt.Sprintf(`"Version": "%s"`, holo.AppPackageVersion))
@@ -203,44 +201,29 @@ func TestWeb(t *testing.T) {
 	defer os.RemoveAll(tmpTestDir)
 
 	Convey("'web' should run a webserver", t, func() {
-		out, err := runAppWithStdoutCapture(app, []string{"hcdev", "-no-nat-upnp", "web"}, 30*time.Second)
+		out, err := cmd.RunAppWithStdoutCapture(app, []string{"hcdev", "-no-nat-upnp", "web"}, 5*time.Second)
 		So(err, ShouldBeNil)
 		So(out, ShouldContainSubstring, "on port:4141")
 		So(out, ShouldContainSubstring, "Serving holochain with DNA hash:")
+		// it should include app level debug but not holochain debug
+		So(out, ShouldContainSubstring, "running zyZome genesis")
+		So(out, ShouldNotContainSubstring, "NewEntry of %dna added as: QmR")
+	})
+	app = setupApp()
+
+	Convey("'web -debug' should run a webserver and include holochain debug info", t, func() {
+		out, err := cmd.RunAppWithStdoutCapture(app, []string{"hcdev", "-debug", "-no-nat-upnp", "web", "4142"}, 5*time.Second)
+		So(err, ShouldBeNil)
+		So(out, ShouldContainSubstring, "running zyZome genesis")
+		So(out, ShouldContainSubstring, "NewEntry of %dna added as: Qm")
 	})
 	app = setupApp()
 
 	Convey("'web' not in an app directory should produce error", t, func() {
-		out, err := runAppWithStdoutCapture(app, []string{"hcdev", "-path", tmpTestDir, "web"}, 1*time.Second)
+		out, err := cmd.RunAppWithStdoutCapture(app, []string{"hcdev", "-path", tmpTestDir, "web"}, 1*time.Second)
 		So(err, ShouldBeError)
 		So(out, ShouldContainSubstring, "doesn't look like a holochain app")
 	})
-}
-
-func runAppWithStdoutCapture(app *cli.App, args []string, wait time.Duration) (out string, err error) {
-	os.Args = args
-
-	old := os.Stdout // keep backup of the real stdout
-	r, w, _ := os.Pipe()
-	os.Stdout = w
-
-	go func() { err = app.Run(os.Args) }()
-
-	outC := make(chan string)
-	// copy the output in a separate goroutine so printing can't block indefinitely
-	go func() {
-		var buf bytes.Buffer
-		io.Copy(&buf, r)
-		outC <- buf.String()
-	}()
-
-	time.Sleep(wait)
-
-	// back to normal state
-	w.Close()
-	os.Stdout = old // restoring the real stdout
-	out = <-outC
-	return
 }
 
 func setupTestingApp(name string) (string, *cli.App) {
@@ -260,6 +243,11 @@ func setupTestingApp(name string) (string, *cli.App) {
 	if err != nil {
 		panic(err)
 	}
+
+	// cleanup env flags set
+	os.Unsetenv("HOLOCHAINCONFIG_ENABLENATUPNP")
+	os.Unsetenv("HOLOCHAINCONFIG_BOOTSTRAP")
+	os.Unsetenv("HOLOCHAINCONFIG_ENABLEMDNS")
 
 	err = os.Chdir(filepath.Join(tmpTestDir, name))
 	if err != nil {

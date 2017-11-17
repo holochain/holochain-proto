@@ -109,27 +109,52 @@ func setupApp() (app *cli.App) {
 		{
 			Name:      "join",
 			Aliases:   []string{"j"},
-			ArgsUsage: "src-path holochain-name",
-			Usage:     "joins a holochain by copying an instance from a source and generating genesis blocks",
+			ArgsUsage: "path holochain-name",
+			Usage:     "joins a holochain by installing an instance from an app package (or source directory) and generating genesis entries",
 			Action: func(c *cli.Context) error {
 				srcPath := c.Args().First()
 				if srcPath == "" {
-					return errors.New("join: missing required source path argument")
+					return errors.New("join: missing required package/source path argument")
 				}
 				if len(c.Args()) == 1 {
 					return errors.New("join: missing required holochain-name argument")
 				}
 				name := c.Args()[1]
-				agent, err := holo.LoadAgent(root)
+
+				info, err := os.Stat(srcPath)
 				if err != nil {
-					return err
+					return fmt.Errorf("join: %v", err)
 				}
-				_, err = service.Clone(srcPath, filepath.Join(root, name), agent, holo.CloneWithSameUUID, holo.InitializeDB)
-				if err == nil {
-					if verbose {
-						fmt.Printf("joined %s from %s\n", name, srcPath)
+
+				// assume a regular file is a package
+				if info.Mode().IsRegular() {
+
+					dstPath := filepath.Join(root, name)
+					_, err := cmd.UpackageAppPackage(service, srcPath, dstPath, name)
+
+					if err != nil {
+						return fmt.Errorf("join: error unpackaging %s: %v", srcPath, err)
 					}
-					err = genChain(service, name)
+					err = service.InitAppDir(dstPath, "json")
+					if err != nil {
+						return fmt.Errorf("join: error initializing the app: %v", err)
+					}
+				} else {
+					agent, err := holo.LoadAgent(root)
+					if err != nil {
+						return fmt.Errorf("join: error loading agent (%s): %v", root, err)
+					}
+					_, err = service.Clone(srcPath, filepath.Join(root, name), agent, holo.CloneWithSameUUID, holo.InitializeDB)
+					if err != nil {
+						return fmt.Errorf("join: error cloning from source directory %s: %v", srcPath, err)
+					}
+				}
+				err = genChain(service, name)
+				if err != nil {
+					return fmt.Errorf("join: error in chain genesis: %v", err)
+				}
+				if verbose {
+					fmt.Printf("joined %s from %s\n", name, srcPath)
 				}
 				return err
 			},

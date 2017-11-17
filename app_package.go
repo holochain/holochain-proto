@@ -1,7 +1,7 @@
 // Copyright (C) 2013-2017, The MetaCurrency Project (Eric Harris-Braun, Arthur Brock, et. al.)
 // Use of this source code is governed by GPLv3 found in the LICENSE file
 //----------------------------------------------------------------------------------------
-// Scaffold implements loading DNA and other app information from a scaffold structure
+// AppPackage implements loading DNA and other app information from an AppPackage structure
 
 package holochain
 
@@ -10,44 +10,44 @@ import (
 )
 
 const (
-	ScaffoldVersion = "0.0.3"
+	AppPackageVersion = "0.0.0"
 )
 
-type ScaffoldUIFile struct {
+type AppPackageUIFile struct {
 	FileName string
 	Data     string
 	Encoding string
 }
 
-type ScaffoldTests struct {
+type AppPackageTests struct {
 	Name  string
 	Tests []TestData
 }
 
-type ScaffoldScenario struct {
+type AppPackageScenario struct {
 	Name   string
-	Roles  []ScaffoldTests
+	Roles  []AppPackageTests
 	Config TestConfig
 }
 
-type Scaffold struct {
-	ScaffoldVersion string
-	Generator       string
-	DNA             DNA
-	Tests           []ScaffoldTests
-	UI              []ScaffoldUIFile
-	Scenarios       []ScaffoldScenario
+type AppPackage struct {
+	Version   string
+	Generator string
+	DNA       DNA
+	Tests     []AppPackageTests
+	UI        []AppPackageUIFile
+	Scenarios []AppPackageScenario
 }
 
-// LoadScaffold decodes DNA and other scaffold data from scaffold file (via an io.reader)
-func LoadScaffold(reader io.Reader) (scaffoldP *Scaffold, err error) {
-	var scaffold Scaffold
-	err = Decode(reader, "yml", &scaffold)
+// LoadAppPackage decodes DNA and other appPackage data from appPackage file (via an io.reader)
+func LoadAppPackage(reader io.Reader) (appPackageP *AppPackage, err error) {
+	var appPackage AppPackage
+	err = Decode(reader, "yml", &appPackage)
 	if err != nil {
 		return
 	}
-	scaffoldP = &scaffold
-	scaffold.DNA.PropertiesSchema = `{
+	appPackageP = &appPackage
+	appPackage.DNA.PropertiesSchema = `{
 	"title": "Properties Schema",
 	"type": "object",
 	"properties": {
@@ -63,14 +63,14 @@ func LoadScaffold(reader io.Reader) (scaffoldP *Scaffold, err error) {
 	return
 }
 
-var BasicTemplateScaffold string = `{
- # Scaffold Version
- # The hc-scaffold schema version of this file.
-"ScaffoldVersion": "` + ScaffoldVersion + `",
+var BasicTemplateAppPackage string = `{
+ # AppPackage Version
+ # The app package schema version of this file.
+"Version": "` + AppPackageVersion + `",
 "Generator": "holochain",
 
 "DNA": {
-  # This is a holochain scaffold yaml definition. http://ceptr.org/projects/holochain
+  # This is a holochain application package yaml definition. http://ceptr.org/projects/holochain
 
   # DNA File Version
   # Version indicator for changes to DNA

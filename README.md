@@ -176,7 +176,7 @@ $ hcd <CHAIN_NAME> [PORT]
 
 The `hcdev` tool allows you to:
 
-1. generate new holochain application source files by cloning from an existing application, from the a [scaffold file](https://github.com/metacurrency/hc-scaffold), or a simple empty template.
+1. generate new holochain application source files by cloning from an existing application, from the a [package file](https://github.com/metacurrency/hc-scaffold), or a simple empty template.
 2. run stand-alone or multi-node scenario tests
 3. run a holochain and serve it's UI for testing purposes
 4. dump out chain and dht data for inspection

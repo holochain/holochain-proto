@@ -364,28 +364,28 @@ func TestMakeTestingApp(t *testing.T) {
 	})
 }
 
-func TestSaveFromScaffold(t *testing.T) {
+func TestSaveFromAppPackage(t *testing.T) {
 	d, s := setupTestService()
 	defer CleanupTestDir(d)
 	name := "test"
 	root := filepath.Join(s.Path, name)
 
-	Convey("it should write out a scaffold file to a directory tree with JSON encoding", t, func() {
-		scaffoldReader := bytes.NewBuffer([]byte(BasicTemplateScaffold))
+	Convey("it should write out a appPackage file to a directory tree with JSON encoding", t, func() {
+		appPackageReader := bytes.NewBuffer([]byte(BasicTemplateAppPackage))
 
-		scaffold, err := s.SaveFromScaffold(scaffoldReader, root, "appName", nil, "json", false)
+		appPackage, err := s.SaveFromAppPackage(appPackageReader, root, "appName", nil, "json", false)
 		So(err, ShouldBeNil)
-		So(scaffold, ShouldNotBeNil)
-		So(scaffold.ScaffoldVersion, ShouldEqual, ScaffoldVersion)
-		So(scaffold.DNA.Name, ShouldEqual, "appName")
+		So(appPackage, ShouldNotBeNil)
+		So(appPackage.Version, ShouldEqual, AppPackageVersion)
+		So(appPackage.DNA.Name, ShouldEqual, "appName")
 		So(DirExists(root), ShouldBeTrue)
 		So(DirExists(root, ChainDNADir), ShouldBeTrue)
 		So(DirExists(root, ChainUIDir), ShouldBeTrue)
 		So(DirExists(root, ChainTestDir), ShouldBeTrue)
-		So(DirExists(root, ChainTestDir, scaffold.Scenarios[0].Name), ShouldBeTrue)
-		So(FileExists(root, ChainTestDir, scaffold.Scenarios[0].Name, scaffold.Scenarios[0].Roles[0].Name+".json"), ShouldBeTrue)
-		So(FileExists(root, ChainTestDir, scaffold.Scenarios[0].Name, scaffold.Scenarios[0].Roles[1].Name+".json"), ShouldBeTrue)
-		So(FileExists(root, ChainTestDir, scaffold.Scenarios[0].Name, "_config.json"), ShouldBeTrue)
+		So(DirExists(root, ChainTestDir, appPackage.Scenarios[0].Name), ShouldBeTrue)
+		So(FileExists(root, ChainTestDir, appPackage.Scenarios[0].Name, appPackage.Scenarios[0].Roles[0].Name+".json"), ShouldBeTrue)
+		So(FileExists(root, ChainTestDir, appPackage.Scenarios[0].Name, appPackage.Scenarios[0].Roles[1].Name+".json"), ShouldBeTrue)
+		So(FileExists(root, ChainTestDir, appPackage.Scenarios[0].Name, "_config.json"), ShouldBeTrue)
 
 		So(DirExists(root, ChainDNADir, "sampleZome"), ShouldBeTrue)
 		So(FileExists(root, ChainDNADir, "sampleZome", "sampleEntry.json"), ShouldBeTrue)
@@ -399,24 +399,24 @@ func TestSaveFromScaffold(t *testing.T) {
 		So(FileExists(root, PrivKeyFileName), ShouldBeTrue)
 	})
 
-	Convey("it should write out a scaffold file to a directory tree with toml encoding", t, func() {
-		scaffoldReader := bytes.NewBuffer([]byte(BasicTemplateScaffold))
+	Convey("it should write out a appPackage file to a directory tree with toml encoding", t, func() {
+		appPackageReader := bytes.NewBuffer([]byte(BasicTemplateAppPackage))
 
 		root2 := filepath.Join(s.Path, name+"2")
 
-		scaffold, err := s.SaveFromScaffold(scaffoldReader, root2, "appName", nil, "toml", false)
+		appPackage, err := s.SaveFromAppPackage(appPackageReader, root2, "appName", nil, "toml", false)
 		So(err, ShouldBeNil)
-		So(scaffold, ShouldNotBeNil)
-		So(scaffold.ScaffoldVersion, ShouldEqual, ScaffoldVersion)
+		So(appPackage, ShouldNotBeNil)
+		So(appPackage.Version, ShouldEqual, AppPackageVersion)
 		So(DirExists(root2), ShouldBeTrue)
 		So(FileExists(root2, ChainDNADir, DNAFileName+".toml"), ShouldBeTrue)
 		// the reset of the files are still saved as json...
 	})
 
-	Convey("it should write out a scaffold file to a directory tree with binary UI files", t, func() {
-		scaffoldReader := bytes.NewBuffer([]byte(TestingAppScaffold()))
+	Convey("it should write out a appPackage file to a directory tree with binary UI files", t, func() {
+		appPackageReader := bytes.NewBuffer([]byte(TestingAppAppPackage()))
 
-		_, err := s.SaveFromScaffold(scaffoldReader, root+"3", "appName2", nil, "json", false)
+		_, err := s.SaveFromAppPackage(appPackageReader, root+"3", "appName2", nil, "json", false)
 		root3 := filepath.Join(s.Path, name+"3")
 
 		So(err, ShouldBeNil)
@@ -458,7 +458,7 @@ func TestMakeConfig(t *testing.T) {
 	})
 }
 
-func TestMakeScaffold(t *testing.T) {
+func TestMakeAppPackage(t *testing.T) {
 	d, s := setupTestService()
 	defer CleanupTestDir(d)
 	name := "test"
@@ -467,28 +467,28 @@ func TestMakeScaffold(t *testing.T) {
 	if err != nil {
 		panic(err)
 	}
-	Convey("make scaffold should produce a scaffold file for holochain", t, func() {
-		scaffoldBlob, err := s.MakeScaffold(h)
+	Convey("make appPackage should produce a appPackage file for holochain", t, func() {
+		packageBlob, err := s.MakeAppPackage(h)
 		So(err, ShouldBeNil)
-		scaffoldReader := bytes.NewBuffer(scaffoldBlob)
+		appPackageReader := bytes.NewBuffer(packageBlob)
 		if err != nil {
 			panic(err)
 		}
-		root = filepath.Join(s.Path, "appFromScaffold")
-		scaffold, err := s.SaveFromScaffold(scaffoldReader, root, "appFromScaffold", nil, "json", false)
+		root = filepath.Join(s.Path, "appFromAppPackage")
+		appPackage, err := s.SaveFromAppPackage(appPackageReader, root, "appFromAppPackage", nil, "json", false)
 		So(err, ShouldBeNil)
-		So(scaffold, ShouldNotBeNil)
-		So(scaffold.ScaffoldVersion, ShouldEqual, ScaffoldVersion)
-		So(scaffold.DNA.Name, ShouldEqual, "appFromScaffold")
+		So(appPackage, ShouldNotBeNil)
+		So(appPackage.Version, ShouldEqual, AppPackageVersion)
+		So(appPackage.DNA.Name, ShouldEqual, "appFromAppPackage")
 
 		So(DirExists(root), ShouldBeTrue)
 		So(DirExists(root, ChainDNADir), ShouldBeTrue)
 		So(DirExists(root, ChainUIDir), ShouldBeTrue)
 		So(DirExists(root, ChainTestDir), ShouldBeTrue)
-		So(DirExists(root, ChainTestDir, scaffold.Scenarios[0].Name), ShouldBeTrue)
-		So(FileExists(root, ChainTestDir, scaffold.Scenarios[0].Name, scaffold.Scenarios[0].Roles[0].Name+".json"), ShouldBeTrue)
-		So(FileExists(root, ChainTestDir, scaffold.Scenarios[0].Name, scaffold.Scenarios[0].Roles[1].Name+".json"), ShouldBeTrue)
-		So(FileExists(root, ChainTestDir, scaffold.Scenarios[0].Name, TestConfigFileName), ShouldBeTrue)
+		So(DirExists(root, ChainTestDir, appPackage.Scenarios[0].Name), ShouldBeTrue)
+		So(FileExists(root, ChainTestDir, appPackage.Scenarios[0].Name, appPackage.Scenarios[0].Roles[0].Name+".json"), ShouldBeTrue)
+		So(FileExists(root, ChainTestDir, appPackage.Scenarios[0].Name, appPackage.Scenarios[0].Roles[1].Name+".json"), ShouldBeTrue)
+		So(FileExists(root, ChainTestDir, appPackage.Scenarios[0].Name, TestConfigFileName), ShouldBeTrue)
 
 		So(DirExists(root, ChainDNADir, "jsSampleZome"), ShouldBeTrue)
 		So(FileExists(root, ChainDNADir, "jsSampleZome", "profile.json"), ShouldBeTrue)

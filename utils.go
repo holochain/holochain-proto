@@ -263,6 +263,17 @@ func Decode(reader io.Reader, format string, data interface{}) (err error) {
 	return
 }
 
+// EncodingFormat returns the files format if supported otherwise ""
+func EncodingFormat(file string) (f string) {
+	s := strings.Split(file, ".")
+	f = s[len(s)-1]
+	if f == "json" || f == "yml" || f == "yaml" || f == "toml" {
+		return
+	}
+	f = ""
+	return
+}
+
 // ByteEncoder encodes anything using gob
 func ByteEncoder(data interface{}) (b []byte, err error) {
 	var buf bytes.Buffer

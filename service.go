@@ -256,12 +256,10 @@ func findDNA(path string) (f string, err error) {
 		return
 	}
 	for _, fn := range matches {
-		s := strings.Split(fn, ".")
-		f = s[len(s)-1]
-		if f == "json" || f == "yml" || f == "yaml" || f == "toml" {
+		f = EncodingFormat(fn)
+		if f != "" {
 			break
 		}
-		f = ""
 	}
 
 	if f == "" {
@@ -301,6 +299,7 @@ func (s *Service) loadDNA(path string, filename string, format string) (dnaP *DN
 	dnafile := filepath.Join(path, filename+"."+format)
 	f, err := os.Open(dnafile)
 	if err != nil {
+		err = fmt.Errorf("error opening DNA file %s: %v", dnafile, err)
 		return
 	}
 	defer f.Close()
@@ -316,6 +315,7 @@ func (s *Service) loadDNA(path string, filename string, format string) (dnaP *DN
 	if dnaFile.PropertiesSchemaFile != "" {
 		propertiesSchema, err = ReadFile(path, dnaFile.PropertiesSchemaFile)
 		if err != nil {
+			err = fmt.Errorf("error reading properties Schema file %s: %v", dnaFile.PropertiesSchemaFile, err)
 			return
 		}
 		schemapath := filepath.Join(path, dnaFile.PropertiesSchemaFile)
@@ -388,10 +388,12 @@ func (s *Service) loadDNA(path string, filename string, format string) (dnaP *DN
 						Infof("DEV MODE: Found BridgeTo value '%s' and resolved to DNA Hash: %s", zome.BridgeTo, dnaHashStr)
 					}
 				} else {
+					err = fmt.Errorf("in zome: %s BridgeTo hash invalid", zome.Name)
 					return
 				}
 			}
 		}
+
 		var code []byte
 		code, err = ReadFile(zomePath, zome.CodeFile)
 		if err != nil {
@@ -632,17 +634,47 @@ func makeConfig(h *Holochain, s *Service) (err error) {
 	return
 }
 
+func (service *Service) InitAppDir(root string, encodingFormat string) (err error) {
+	var config Config
+	config, err = _makeConfig(service)
+	if err != nil {
+		return
+	}
+	p := filepath.Join(root, ConfigFileName+"."+encodingFormat)
+	var f, f1 *os.File
+	f, err = os.Create(p)
+	if err != nil {
+		return
+	}
+	defer f.Close()
+
+	if err = Encode(f, encodingFormat, &config); err != nil {
+		return
+	}
+
+	if err = os.MkdirAll(filepath.Join(root, ChainDataDir), os.ModePerm); err != nil {
+		return
+	}
+
+	f1, err = os.Create(filepath.Join(root, ChainDataDir, StoreFileName))
+	if err != nil {
+		return
+	}
+	defer f1.Close()
+	return
+}
+
 // MakeTestingApp generates a holochain used for testing purposes
 func (s *Service) MakeTestingApp(root string, encodingFormat string, initDB bool, newUUID bool, agent Agent) (h *Holochain, err error) {
 	if DirExists(root) {
 		return nil, mkErr(root + " already exists")
 	}
 
-	scaffoldReader := bytes.NewBuffer([]byte(TestingAppScaffold()))
+	appPackageReader := bytes.NewBuffer([]byte(TestingAppAppPackage()))
 
 	name := filepath.Base(root)
 
-	_, err = s.SaveFromScaffold(scaffoldReader, root, "test", agent, encodingFormat, newUUID)
+	_, err = s.SaveFromAppPackage(appPackageReader, root, "test", agent, encodingFormat, newUUID)
 	if err != nil {
 		return
 	}
@@ -930,12 +962,12 @@ func (s *Service) saveDNAFile(root string, dna *DNA, encodingFormat string, over
 	return
 }
 
-// MakeScaffold creates out a scaffold blob from a given holochain
-func (service *Service) MakeScaffold(h *Holochain) (data []byte, err error) {
-	scaffold := Scaffold{
-		ScaffoldVersion: ScaffoldVersion,
-		Generator:       "holochain " + VersionStr,
-		DNA:             *h.nucleus.dna,
+// MakeAppPackage creates a package blob from a given holochain
+func (service *Service) MakeAppPackage(h *Holochain) (data []byte, err error) {
+	appPackage := AppPackage{
+		Version:   AppPackageVersion,
+		Generator: "holochain " + VersionStr,
+		DNA:       *h.nucleus.dna,
 	}
 
 	var testsmap map[string][]TestData
@@ -943,9 +975,9 @@ func (service *Service) MakeScaffold(h *Holochain) (data []byte, err error) {
 	if err != nil {
 		return
 	}
-	scaffold.Tests = make([]ScaffoldTests, 0)
+	appPackage.Tests = make([]AppPackageTests, 0)
 	for name, t := range testsmap {
-		scaffold.Tests = append(scaffold.Tests, ScaffoldTests{Name: name, Tests: t})
+		appPackage.Tests = append(appPackage.Tests, AppPackageTests{Name: name, Tests: t})
 	}
 
 	var scenarioFiles map[string]*os.FileInfo
@@ -953,7 +985,7 @@ func (service *Service) MakeScaffold(h *Holochain) (data []byte, err error) {
 	if err != nil {
 		return
 	}
-	scaffold.Scenarios = make([]ScaffoldScenario, 0)
+	appPackage.Scenarios = make([]AppPackageScenario, 0)
 	for name, _ := range scenarioFiles {
 		scenarioPath := filepath.Join(h.TestPath(), name)
 		var rolemap map[string][]TestData
@@ -961,13 +993,13 @@ func (service *Service) MakeScaffold(h *Holochain) (data []byte, err error) {
 		if err != nil {
 			return
 		}
-		roles := make([]ScaffoldTests, 0)
+		roles := make([]AppPackageTests, 0)
 		for name, tests := range rolemap {
 			roles = append(roles,
-				ScaffoldTests{Name: name, Tests: tests})
+				AppPackageTests{Name: name, Tests: tests})
 
 		}
-		scenario := ScaffoldScenario{Name: name, Roles: roles}
+		scenario := AppPackageScenario{Name: name, Roles: roles}
 		if FileExists(scenarioPath, TestConfigFileName) {
 			var config *TestConfig
 			config, err = LoadTestConfig(scenarioPath)
@@ -976,7 +1008,7 @@ func (service *Service) MakeScaffold(h *Holochain) (data []byte, err error) {
 			}
 			scenario.Config = *config
 		}
-		scaffold.Scenarios = append(scaffold.Scenarios, scenario)
+		appPackage.Scenarios = append(appPackage.Scenarios, scenario)
 	}
 
 	var files []os.FileInfo
@@ -985,7 +1017,7 @@ func (service *Service) MakeScaffold(h *Holochain) (data []byte, err error) {
 		return
 	}
 
-	scaffold.UI = make([]ScaffoldUIFile, 0)
+	appPackage.UI = make([]AppPackageUIFile, 0)
 	for _, f := range files {
 		// TODO handle subdirectories
 		if f.Mode().IsRegular() {
@@ -994,7 +1026,7 @@ func (service *Service) MakeScaffold(h *Holochain) (data []byte, err error) {
 			if err != nil {
 				return
 			}
-			uiFile := ScaffoldUIFile{FileName: f.Name()}
+			uiFile := AppPackageUIFile{FileName: f.Name()}
 			contentType := http.DetectContentType(file)
 			if encodeAsBinary(contentType) {
 				uiFile.Data = base64.StdEncoding.EncodeToString([]byte(file))
@@ -1003,12 +1035,12 @@ func (service *Service) MakeScaffold(h *Holochain) (data []byte, err error) {
 			} else {
 				uiFile.Data = string(file)
 			}
-			scaffold.UI = append(scaffold.UI, uiFile)
+			appPackage.UI = append(appPackage.UI, uiFile)
 
 		}
 	}
 
-	data, err = json.MarshalIndent(scaffold, "", "  ")
+	data, err = json.MarshalIndent(appPackage, "", "  ")
 	return
 }
 
@@ -1019,13 +1051,13 @@ func encodeAsBinary(contentType string) bool {
 	return true
 }
 
-// SaveFromScaffold writes out a holochain application based on scaffold file to path
-func (service *Service) SaveFromScaffold(reader io.Reader, path string, name string, agent Agent, encodingFormat string, newUUID bool) (scaffold *Scaffold, err error) {
-	scaffold, err = LoadScaffold(reader)
+// SaveFromAppPackage writes out a holochain application based on appPackage file to path
+func (service *Service) SaveFromAppPackage(reader io.Reader, path string, name string, agent Agent, encodingFormat string, newUUID bool) (appPackage *AppPackage, err error) {
+	appPackage, err = LoadAppPackage(reader)
 	if err != nil {
 		return
 	}
-	err = service.saveFromScaffold(scaffold, path, name, encodingFormat, newUUID)
+	err = service.saveFromAppPackage(appPackage, path, name, encodingFormat, newUUID)
 	if err != nil {
 		return
 	}
@@ -1039,9 +1071,9 @@ func (service *Service) SaveFromScaffold(reader io.Reader, path string, name str
 	return
 }
 
-func (service *Service) saveFromScaffold(scaffold *Scaffold, path string, name string, encodingFormat string, newUUID bool) (err error) {
+func (service *Service) saveFromAppPackage(appPackage *AppPackage, path string, name string, encodingFormat string, newUUID bool) (err error) {
 
-	dna := &scaffold.DNA
+	dna := &appPackage.DNA
 	err = MakeDirs(path)
 	if err != nil {
 		return
@@ -1057,7 +1089,7 @@ func (service *Service) saveFromScaffold(scaffold *Scaffold, path string, name s
 	}
 
 	testPath := filepath.Join(path, ChainTestDir)
-	for _, test := range scaffold.Tests {
+	for _, test := range appPackage.Tests {
 		p := filepath.Join(testPath, test.Name+".json")
 		var f *os.File
 		f, err = os.Create(p)
@@ -1071,7 +1103,7 @@ func (service *Service) saveFromScaffold(scaffold *Scaffold, path string, name s
 		}
 	}
 
-	for _, scenario := range scaffold.Scenarios {
+	for _, scenario := range appPackage.Scenarios {
 		scenarioPath := filepath.Join(testPath, scenario.Name)
 		err = os.MkdirAll(scenarioPath, os.ModePerm)
 		if err != nil {
@@ -1103,7 +1135,7 @@ func (service *Service) saveFromScaffold(scaffold *Scaffold, path string, name s
 	}
 
 	p := filepath.Join(path, ChainUIDir)
-	for _, ui := range scaffold.UI {
+	for _, ui := range appPackage.UI {
 		var data []byte
 		if ui.Encoding == "base64" {
 			data, err = base64.StdEncoding.DecodeString(ui.Data)
@@ -1257,9 +1289,9 @@ func GetAllTestRoles(path string) (roleNameList []string, err error) {
 	return
 }
 
-func TestingAppScaffold() string {
+func TestingAppAppPackage() string {
 	return `{
-"ScaffoldVersion": "` + ScaffoldVersion + `",
+"Version": "` + AppPackageVersion + `",
 "Generator": "holochain service.go",
 "DNA": {
   "Version": 1,

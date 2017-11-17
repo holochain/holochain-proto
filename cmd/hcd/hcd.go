@@ -49,19 +49,15 @@ func setupApp() (app *cli.App) {
 			Usage:       "verbose output",
 			Destination: &verbose,
 		},
-		cli.BoolFlag{
-			Name:        "no-nat-upnp",
-			Usage:       "whether to stop hcd from creating a port mapping through NAT via UPnP",
-			Destination: &nonatupnp,
-		},
 	}
 
 	app.Before = func(c *cli.Context) error {
+		// for hcd the -debug flag enables the app level debugging
 		if debug {
-			os.Setenv("DEBUG", "1")
+			os.Setenv("HCLOG_APP_ENABLE", "1")
 		}
 		if verbose {
-			fmt.Printf("hc version %s \n", app.Version)
+			fmt.Printf("hcd version %s \n", app.Version)
 		}
 		var err error
 		root, err = cmd.GetHolochainRoot(root)
@@ -71,12 +67,6 @@ func setupApp() (app *cli.App) {
 		service, err = cmd.GetService(root)
 		if err != nil {
 			return err
-		}
-		if nonatupnp == false {
-			err = os.Setenv("HOLOCHAINCONFIG_ENABLENATUPNP", "true")
-			if err != nil {
-				return err
-			}
 		}
 		return nil
 	}
@@ -105,9 +95,7 @@ func setupApp() (app *cli.App) {
 
 			h.StartBackgroundTasks()
 
-			if verbose {
-				fmt.Printf("Serving holochain with DNA hash:%v on port %s\n", h.DNAHash(), port)
-			}
+			fmt.Printf("Serving holochain with DNA hash:%v on port %s\n", h.DNAHash(), port)
 
 			ws := ui.NewWebServer(h, port)
 			ws.Start()

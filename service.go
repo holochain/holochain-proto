@@ -48,8 +48,9 @@ const (
 	DefaultPort            = 6283
 	DefaultBootstrapServer = "bootstrap.holochain.net:10000"
 
-	HC_BOOTSTRAPSERVER = "HC_BOOTSTRAPSERVER"
-	HC_ENABLEMDNS      = "HC_DEFAULT_ENABLEMDNS"
+	DefaultBootstrapServerEnvVar = "HC_DEFAULT_BOOTSTRAPSERVER"
+	DefaultEnableMDNSEnvVar      = "HC_DEFAULT_ENABLEMDNS"
+	DefaultEnableNATUPnPEnvVar   = "HC_DEFAULT_ENABLENATUPNP"
 
 	//HC_BOOTSTRAPPORT						= "HC_BOOTSTRAPPORT"
 
@@ -166,14 +167,19 @@ func Init(root string, identity AgentIdentity, seed io.Reader) (service *Service
 		Path: root,
 	}
 
-	if os.Getenv(HC_BOOTSTRAPSERVER) != "" {
-		s.Settings.DefaultBootstrapServer = os.Getenv(HC_BOOTSTRAPSERVER)
-		Infof("Using %s--configuring default bootstrap server as: %s\n", HC_BOOTSTRAPSERVER, s.Settings.DefaultBootstrapServer)
+	if os.Getenv(DefaultBootstrapServerEnvVar) != "" {
+		s.Settings.DefaultBootstrapServer = os.Getenv(DefaultBootstrapServerEnvVar)
+		Infof("Using %s--configuring default bootstrap server as: %s\n", DefaultBootstrapServerEnvVar, s.Settings.DefaultBootstrapServer)
 	}
 
-	if os.Getenv(HC_ENABLEMDNS) != "" && os.Getenv(HC_ENABLEMDNS) != "false" {
+	if os.Getenv(DefaultEnableMDNSEnvVar) != "" && os.Getenv(DefaultEnableMDNSEnvVar) != "false" {
 		s.Settings.DefaultEnableMDNS = true
-		Infof("Using %s--configuring default MDNS use as: %v.\n", HC_ENABLEMDNS, s.Settings.DefaultEnableMDNS)
+		Infof("Using %s--configuring default MDNS use as: %v.\n", DefaultEnableMDNSEnvVar, s.Settings.DefaultEnableMDNS)
+	}
+
+	if os.Getenv(DefaultEnableNATUPnPEnvVar) != "" && os.Getenv(DefaultEnableNATUPnPEnvVar) != "false" {
+		s.Settings.DefaultEnableNATUPnP = true
+		Infof("Using %s--configuring default MDNS use as: %v.\n", DefaultEnableNATUPnPEnvVar, s.Settings.DefaultEnableNATUPnP)
 	}
 
 	err = writeToml(root, SysFileName, s.Settings, false)
@@ -567,7 +573,7 @@ func _makeConfig(s *Service) (config Config, err error) {
 		EnableNATUPnP:   s.Settings.DefaultEnableNATUPnP,
 		Loggers: Loggers{
 			Debug:      Logger{Name: "Debug", Format: "HC: %{file}.%{line}: %{message}", Enabled: false},
-			App:        Logger{Name: "App", Format: "%{color:cyan}%{message}", Enabled: true},
+			App:        Logger{Name: "App", Format: "%{color:cyan}%{message}", Enabled: false},
 			DHT:        Logger{Name: "DHT", Format: "%{color:yellow}%{time} DHT: %{message}"},
 			Gossip:     Logger{Name: "Gossip", Format: "%{color:blue}%{time} Gossip: %{message}"},
 			TestPassed: Logger{Name: "TestPassed", Format: "%{color:green}%{message}", Enabled: true},
@@ -1616,7 +1622,10 @@ function validateModPkg(entry_type) { return null}
 function validateDelPkg(entry_type) { return null}
 function validateLinkPkg(entry_type) { return null}
 
-function genesis() {return true}
+function genesis() {
+  debug("running jsZome genesis")
+  return true
+}
 function bridgeGenesis(side,app,data) {return true}
 
 function receive(from,message) {
@@ -1670,7 +1679,10 @@ function asyncPing(message,id) {
 (defn validateModPkg [entryType] nil)
 (defn validateDelPkg [entryType] nil)
 (defn validateLinkPkg [entryType] nil)
-(defn genesis [] true)
+(defn genesis []
+  (debug "running zyZome genesis")
+  true
+)
 (defn bridgeGenesis [side app data] (begin (debug (concat "bridge genesis " (cond (== side HC_Bridge_From) "from" "to") "-- other side is:" app " bridging data:" data))  true))
 (defn receive [from message]
 	(hash pong: (hget message %ping)))

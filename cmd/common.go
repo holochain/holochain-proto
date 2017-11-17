@@ -7,9 +7,11 @@
 package cmd
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"github.com/urfave/cli"
+	"io"
 	"net"
 	"os"
 	"os/exec"
@@ -93,6 +95,33 @@ func OsExecPipes_noRun(args ...string) *exec.Cmd {
 	// cmd.Stdin = os.Stdin
 
 	return cmd
+}
+
+// RunAppWithStdoutCapture runs a cli.App and captures the stdout
+func RunAppWithStdoutCapture(app *cli.App, args []string, wait time.Duration) (out string, err error) {
+	os.Args = args
+
+	old := os.Stdout // keep backup of the real stdout
+	r, w, _ := os.Pipe()
+	os.Stdout = w
+
+	go func() { err = app.Run(os.Args) }()
+
+	outC := make(chan string)
+	// copy the output in a separate goroutine so printing can't block indefinitely
+	go func() {
+		var buf bytes.Buffer
+		io.Copy(&buf, r)
+		outC <- buf.String()
+	}()
+
+	time.Sleep(wait)
+
+	// back to normal state
+	w.Close()
+	os.Stdout = old // restoring the real stdout
+	out = <-outC
+	return
 }
 
 var configExtensionList []string

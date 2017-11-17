@@ -1,17 +1,21 @@
 package main
 
 import (
-	"bytes"
 	holo "github.com/metacurrency/holochain"
+	"github.com/metacurrency/holochain/cmd"
 	. "github.com/smartystreets/goconvey/convey"
-	_ "github.com/urfave/cli"
-	"io"
+	"github.com/urfave/cli"
 	"io/ioutil"
 	"os"
 	"path/filepath"
 	"testing"
 	"time"
 )
+
+func TestMain(m *testing.M) {
+	holo.InitializeHolochain()
+	os.Exit(m.Run())
+}
 
 func TestSetupApp(t *testing.T) {
 	app := setupApp()
@@ -21,12 +25,24 @@ func TestSetupApp(t *testing.T) {
 }
 
 func TestWeb(t *testing.T) {
-	holo.InitializeHolochain()
-	tmpTestDir, err := ioutil.TempDir("", "holochain.testing.hcdev")
+	tmpTestDir, s, h, app := setupTestingApp("testApp")
+	defer os.RemoveAll(tmpTestDir)
+
+	Convey("it should run a webserver", t, func() {
+		out, err := cmd.RunAppWithStdoutCapture(app, []string{"hcd", "-path", s.Path, "testApp"}, 5*time.Second)
+		So(err, ShouldBeNil)
+
+		So(out, ShouldContainSubstring, h.DNAHash().String()+" on port 3141")
+		So(out, ShouldContainSubstring, "Serving holochain with DNA hash:")
+		So(out, ShouldNotContainSubstring, "running zyZome genesis")
+	})
+}
+
+func setupTestingApp(name string) (string, *holo.Service, *holo.Holochain, *cli.App) {
+	tmpTestDir, err := ioutil.TempDir("", "holochain.testing.hcd")
 	if err != nil {
 		panic(err)
 	}
-	defer os.RemoveAll(tmpTestDir)
 
 	err = os.Chdir(tmpTestDir)
 	if err != nil {
@@ -38,38 +54,12 @@ func TestWeb(t *testing.T) {
 	if err != nil {
 		panic(err)
 	}
-	root := filepath.Join(s.Path, "testApp")
+	root := filepath.Join(s.Path, name)
 	h, err := s.MakeTestingApp(root, "json", holo.InitializeDB, holo.CloneWithNewUUID, nil)
 	if err != nil {
 		panic(err)
 	}
 	h.GenChain()
 	app := setupApp()
-
-	Convey("it should run a webserver", t, func() {
-		os.Args = []string{"hcd", "-path", s.Path, "-verbose", "-no-nat-upnp",  "testApp"}
-
-		old := os.Stdout // keep backup of the real stdout
-		r, w, _ := os.Pipe()
-		os.Stdout = w
-
-		go app.Run(os.Args)
-		time.Sleep(time.Second * 10)
-
-		outC := make(chan string)
-		// copy the output in a separate goroutine so printing can't block indefinitely
-		go func() {
-			var buf bytes.Buffer
-			io.Copy(&buf, r)
-			outC <- buf.String()
-		}()
-
-		// back to normal state
-		w.Close()
-		os.Stdout = old // restoring the real stdout
-		out := <-outC
-
-		So(out, ShouldContainSubstring, h.DNAHash().String()+" on port 3141")
-		So(out, ShouldContainSubstring, "Serving holochain with DNA hash:")
-	})
+	return tmpTestDir, s, h, app
 }

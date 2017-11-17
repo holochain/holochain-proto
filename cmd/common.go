@@ -128,7 +128,7 @@ var configExtensionList []string
 
 func GetConfigExtensionList() (conExtList []string) {
 	if configExtensionList == nil {
-		configExtensionList = []string{"json", "toml", "yaml"}
+		configExtensionList = []string{"json", "toml", "yaml", "yml"}
 	}
 	return configExtensionList
 }

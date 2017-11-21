@@ -54,6 +54,9 @@ func TestTestStringReplacements(t *testing.T) {
 		input = "%result99%"
 		output = testStringReplacements(input, &replacements)
 		So(output, ShouldEqual, "<bad-result-index>")
+		input = "{\"%result%\":0}"
+		output = testStringReplacements(input, &replacements)
+		So(output, ShouldEqual, "foo")
 	})
 }
 
@@ -93,14 +96,6 @@ func TestTest(t *testing.T) {
 		So(err, ShouldBeNil)
 	})
 
-	Convey("it should fail the test on incorrect input types", t, func() {
-		os.Remove(filepath.Join(d, ".holochain", "test", "test", "test_0.json"))
-		err := WriteFile([]byte(`[{"Zome":"zySampleZome","FnName":"addEven","Input":2,"Output":"%h%","Err":""}]`), d, ".holochain", "test", "test", "test_0.json")
-		So(err, ShouldBeNil)
-		err = Test(h, nil)[0]
-		So(err, ShouldNotBeNil)
-		So(err.Error(), ShouldEqual, "Input was not an expected type: float64")
-	})
 	Convey("it should fail the test on incorrect data", t, func() {
 		os.Remove(filepath.Join(d, ".holochain", "test", "test", "test_0.json"))
 		err := WriteFile([]byte(`[{"Zome":"zySampleZome","FnName":"addEven","Input":"2","Output":"","Err":"bogus error"}]`), d, ".holochain", "test", "test", "test_0.json")

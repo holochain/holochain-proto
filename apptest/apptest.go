@@ -41,6 +41,26 @@ type replacements struct {
 	history    *history
 }
 
+func replaceWithResultsFromHistory(output string, re *regexp.Regexp, r *replacements) string {
+	matches := re.FindAllStringSubmatch(output, -1)
+	if len(matches) > 0 {
+		for _, m := range matches {
+			resultIdx, err := strconv.Atoi(m[2])
+			if err != nil {
+				panic(err)
+			}
+			var nthResult string
+			if len(r.history.results) > resultIdx {
+				nthResult = fmt.Sprintf("%v", r.history.results[resultIdx])
+			} else {
+				nthResult = "<bad-result-index>"
+			}
+			output = strings.Replace(output, m[1], nthResult, -1)
+		}
+	}
+	return output
+}
+
 // testStringReplacements inserts special values into testing input and output values for matching
 func testStringReplacements(input string, r *replacements) string {
 	output := input
@@ -75,22 +95,11 @@ func testStringReplacements(input string, r *replacements) string {
 	output = strings.Replace(output, "%clone%", clone, -1)
 
 	re = regexp.MustCompile(`(\%result([0-9]+)\%)`)
-	matches = re.FindAllStringSubmatch(output, -1)
-	if len(matches) > 0 {
-		for _, m := range matches {
-			resultIdx, err := strconv.Atoi(m[2])
-			if err != nil {
-				panic(err)
-			}
-			var nthResult string
-			if len(r.history.results) > resultIdx {
-				nthResult = fmt.Sprintf("%v", r.history.results[resultIdx])
-			} else {
-				nthResult = "<bad-result-index>"
-			}
-			output = strings.Replace(output, m[1], nthResult, -1)
-		}
-	}
+	output = replaceWithResultsFromHistory(output, re, r)
+
+	// this allows us to replace json results
+	re = regexp.MustCompile(`(\{"\%result\%":([0-9]+)\})`)
+	output = replaceWithResultsFromHistory(output, re, r)
 
 	output = strings.Replace(output, "%server%", r.serverID, -1)
 	output = strings.Replace(output, "%reps%", r.repetition, -1)
@@ -235,26 +244,77 @@ func DoTests(h *Holochain, name string, tests []TestData, minTime time.Duration,
 	return
 }
 
+func toStringByType(data interface{}) (output string, err error) {
+	switch t := data.(type) {
+	case string:
+		output = t
+	case map[string]interface{}:
+		inputByteArray, err := json.Marshal(data)
+		if err == nil {
+			output = string(inputByteArray)
+		}
+	default:
+		output = fmt.Sprintf("%v", data)
+	}
+	return
+}
+
 // DoTest runs a singe test.
 func DoTest(h *Holochain, name string, i int, t TestData, startTime time.Time, history *history, serverID string) (err error) {
 	info := h.Config.Loggers.TestInfo
 	passed := h.Config.Loggers.TestPassed
 	failed := h.Config.Loggers.TestFailed
 
-	var input string
-	switch inputType := t.Input.(type) {
-	case string:
-		input = t.Input.(string)
-	case map[string]interface{}:
-		inputByteArray, err := json.Marshal(t.Input)
-		if err == nil {
-			input = string(inputByteArray)
+	// set up the input and output values by converting them according the
+	// the function's defined calling type.
+	var byType bool
+	var input, output string
+	if t.Raw {
+		byType = true
+	} else {
+		var zome *Zome
+		zome, err = h.GetZome(t.Zome)
+		if err != nil {
+			err = fmt.Errorf("error getting zome %s: %v", t.Zome, err)
+			return
 		}
-	default:
-		err = fmt.Errorf("Input was not an expected type: %T", inputType)
+		var fndef *FunctionDef
+		fndef, err = zome.GetFunctionDef(t.FnName)
+		if err != nil {
+			err = fmt.Errorf("error getting function definition for %s: %v", t.FnName, err)
+			return
+		}
+		if fndef.CallingType == JSON_CALLING {
+			var b []byte
+			b, err = json.Marshal(t.Input)
+			if err != nil {
+				err = fmt.Errorf("error converting Input '%v' to JSON: %v", t.Input, err)
+				return
+			}
+			input = string(b)
+			b, err = json.Marshal(t.Output)
+			if err != nil {
+				err = fmt.Errorf("error converting Input '%s' to JSON: %v", t.Input, err)
+				return
+			}
+			output = string(b)
+
+		} else {
+			byType = true
+		}
+
 	}
-	if err != nil {
-		return
+	if byType {
+		input, err = toStringByType(t.Input)
+		if err != nil {
+			err = fmt.Errorf("error converting Input '%s' to string:%v", t.Input, err)
+			return
+		}
+		output, err = toStringByType(t.Output)
+		if err != nil {
+			err = fmt.Errorf("error converting Output '%v' to string:%v", t.Output, err)
+			return
+		}
 	}
 
 	h.Debugf("------------------------------")
@@ -308,7 +368,7 @@ func DoTest(h *Holochain, name string, i int, t TestData, startTime time.Time, h
 		} else {
 			actualResult, actualError = h.Call(t.Zome, t.FnName, input, t.Exposure)
 		}
-		var expectedResult, expectedError = t.Output, t.Err
+		var expectedResult, expectedError = output, t.Err
 		var expectedResultRegexp = t.Regexp
 		//====================
 		history.lastResults[2] = history.lastResults[1]

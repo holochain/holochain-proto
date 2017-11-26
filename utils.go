@@ -263,6 +263,27 @@ func Decode(reader io.Reader, format string, data interface{}) (err error) {
 	return
 }
 
+// DecodeFile decodes a file based on the extension and the data type
+func DecodeFile(data interface{}, pathParts ...string) (err error) {
+	file := filepath.Join(pathParts...)
+	format := EncodingFormat(file)
+	if format == "" {
+		err = fmt.Errorf("unknown encoding format: %s", file)
+		return
+	}
+	var f *os.File
+	f, err = os.Open(file)
+	if err != nil {
+		return
+	}
+	defer f.Close()
+	err = Decode(f, format, data)
+	if err != nil {
+		return
+	}
+	return
+}
+
 // EncodingFormat returns the files format if supported otherwise ""
 func EncodingFormat(file string) (f string) {
 	s := strings.Split(file, ".")

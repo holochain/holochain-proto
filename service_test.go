@@ -250,66 +250,6 @@ func TestCloneNoDB(t *testing.T) {
 	})
 }
 
-func TestCloneResolveDNA(t *testing.T) {
-	d, s, bridgeToH := SetupTestChain("bridgeToApp")
-	defer CleanupTestChain(bridgeToH, d)
-
-	DNAHash, err := DNAHashofUngenedChain(bridgeToH)
-	if err != nil {
-		panic(err)
-	}
-
-	devAppPath := filepath.Join(s.Path, "devApp")
-	_, err = s.MakeTestingApp(devAppPath, "json", InitializeDB, CloneWithNewUUID, nil)
-	if err != nil {
-		panic(err)
-	}
-
-	// set the bridgeTo value to the name of the app to resolve
-	var dnaFile DNAFile
-	dnafile := filepath.Join(devAppPath, ChainDNADir, DNAFileName+".json")
-	f, err := os.Open(dnafile)
-	if err != nil {
-		panic(err)
-	}
-	defer f.Close()
-	err = Decode(f, "json", &dnaFile)
-	if err != nil {
-		panic(err)
-	}
-	dnaFile.Zomes[0].BridgeTo = "bridgeToApp"
-	f2, err := os.Create(dnafile)
-	if err != nil {
-		panic(err)
-	}
-	defer f2.Close()
-	err = Encode(f2, "json", dnaFile)
-
-	agent, err := LoadAgent(s.Path)
-	if err != nil {
-		panic(err)
-	}
-
-	root := filepath.Join(s.Path, "test")
-	Convey("it should create a chain resolving the bridgeTo DNA Hash from when in dev mode", t, func() {
-		h, err := s.Clone(devAppPath, root, agent, CloneWithNewUUID, SkipInitializeDB)
-		So(err, ShouldBeError)
-
-		IsDevMode = true
-		h, err = s.Clone(devAppPath, root, agent, CloneWithNewUUID, SkipInitializeDB)
-		So(err, ShouldBeNil)
-		So(h.nucleus.dna.Zomes[0].BridgeTo.String(), ShouldEqual, "")
-
-		root = filepath.Join(s.Path, "test2")
-		DevDNAResolveMap = make(map[string]string)
-		DevDNAResolveMap["bridgeToApp"] = DNAHash.String()
-
-		h, err = s.Clone(devAppPath, root, agent, CloneWithNewUUID, SkipInitializeDB)
-		So(err, ShouldBeNil)
-		So(h.nucleus.dna.Zomes[0].BridgeTo.String(), ShouldEqual, DNAHash.String())
-	})
-}
-
 func TestMakeTestingApp(t *testing.T) {
 	d, s := setupTestService()
 	defer CleanupTestDir(d)

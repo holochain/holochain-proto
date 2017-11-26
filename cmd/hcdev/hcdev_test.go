@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"fmt"
 	"github.com/davecgh/go-spew/spew"
 	holo "github.com/metacurrency/holochain"
@@ -226,17 +227,57 @@ func TestWeb(t *testing.T) {
 	})
 }
 
-func setupTestingApp(name string) (string, *cli.App) {
+func TestBridging(t *testing.T) {
+	os.Setenv("HC_TESTING", "true")
+	tmpTestDir, app := setupTestingApp("foo", "bar")
+	defer os.RemoveAll(tmpTestDir)
+
+	// bridging to ourselves for this test, so write out a bridgeSpecFile to use
+	bridgeSourceDir := filepath.Join(tmpTestDir, "bar")
+	data := []BridgeSpec{BridgeSpec{Path: bridgeSourceDir, Side: holo.BridgeTo, BridgeZome: "jsSampleZome", BridgeGenesisDataTo: "some data 314"}}
+	var b bytes.Buffer
+	err := holo.Encode(&b, "json", data)
+	if err != nil {
+		panic(err)
+	}
+	if err := holo.WriteFile(b.Bytes(), tmpTestDir, "specs.json"); err != nil {
+		panic(err)
+	}
+
+	Convey("bridgeSpecsFile path should setup bridging", t, func() {
+		out, err := cmd.RunAppWithStdoutCapture(app, []string{"hcdev", "-bridgeSpecs", filepath.Join(tmpTestDir, "specs.json"), "-no-nat-upnp", "web"}, 5*time.Second)
+		So(err, ShouldBeNil)
+		//So(out, ShouldContainSubstring, fmt.Sprintf("bridging to %s using zome: jsSampleZome", bridgeSourceDir))
+		So(out, ShouldContainSubstring, fmt.Sprintf("Copying bridge chain bar to:"))
+		So(out, ShouldContainSubstring, fmt.Sprintf("bridge genesis to-- other side is:")) // getting the DNA is a pain so skip it.
+		So(out, ShouldContainSubstring, fmt.Sprintf("bridging data:some data 314"))
+	})
+}
+
+func setupTestingApp(names ...string) (string, *cli.App) {
 	tmpTestDir, err := ioutil.TempDir("", "holochain.testing.hcdev")
 	if err != nil {
 		panic(err)
 	}
 
-	err = os.Chdir(tmpTestDir)
+	app := setupApp()
+
+	for _, name := range names {
+		_setupTestingApp(name, app, tmpTestDir)
+	}
+
+	err = os.Chdir(filepath.Join(tmpTestDir, names[0]))
 	if err != nil {
 		panic(err)
 	}
-	app := setupApp()
+	return tmpTestDir, app
+}
+
+func _setupTestingApp(name string, app *cli.App, tmpTestDir string) {
+	err := os.Chdir(tmpTestDir)
+	if err != nil {
+		panic(err)
+	}
 
 	os.Args = []string{"hcdev", "init", "-test", name}
 	err = app.Run(os.Args)
@@ -248,10 +289,4 @@ func setupTestingApp(name string) (string, *cli.App) {
 	os.Unsetenv("HOLOCHAINCONFIG_ENABLENATUPNP")
 	os.Unsetenv("HOLOCHAINCONFIG_BOOTSTRAP")
 	os.Unsetenv("HOLOCHAINCONFIG_ENABLEMDNS")
-
-	err = os.Chdir(filepath.Join(tmpTestDir, name))
-	if err != nil {
-		panic(err)
-	}
-	return tmpTestDir, app
 }

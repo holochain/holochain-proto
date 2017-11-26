@@ -38,7 +38,7 @@ func (z *Zome) GetEntryDef(entryName string) (e *EntryDef, err error) {
 func (z *Zome) GetPrivateEntryDefs() (privateDefs []EntryDef) {
 	privateDefs = make([]EntryDef, 0)
 	for _, def := range z.Entries {
-		if def.Sharing == "private" {
+		if def.Sharing == Private {
 			privateDefs = append(privateDefs, def)
 		}
 	}

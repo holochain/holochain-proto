@@ -32,12 +32,16 @@ func TestBridgeCall(t *testing.T) {
 	})
 
 	fakeToApp, _ := NewHash("QmVGtdTZdTFaLsaj2RwdVG8jcjNNcp1DE914DKZ2kHmXHy")
+	url := "http://localhost:31415"
+	Convey("it should fail on an unknown bridging zome", t, func() {
+		err := h.AddBridgeAsCaller("fooZome", fakeToApp, token, url, "app data")
+		So(err.Error(), ShouldEqual, "error getting bridging zome: unknown zome: fooZome")
+	})
+
 	Convey("it should call the bridgeGenesis function when bridging on the from side", t, func() {
-		h.nucleus.dna.Zomes[0].BridgeTo = fakeToApp
-		h.nucleus.dna.Zomes[0].BridgeTo = fakeToApp
+		bridgeZome := h.nucleus.dna.Zomes[0].Name
 		ShouldLog(h.nucleus.alog, `bridge genesis from-- other side is:`+fakeToApp.String()+` bridging data:app data`, func() {
-			url := "http://localhost:31415"
-			err := h.AddBridgeAsCaller(fakeToApp, token, url, "app data")
+			err := h.AddBridgeAsCaller(bridgeZome, fakeToApp, token, url, "app data")
 			So(err, ShouldBeNil)
 		})
 	})
@@ -90,8 +94,8 @@ func TestBridgeStore(t *testing.T) {
 	hash, _ := NewHash("QmVGtdTZdTFaLsaj2RwdVG8jcjNNcp1DE914DKZ2kHmXHw")
 	token := "some token"
 	url := "http://localhost:31415"
-	Convey("it should add a token to the bridged apps list", t, func() {
-		err := h.AddBridgeAsCaller(hash, token, url, "")
+	Convey("it should add ba token to the bridged apps list", t, func() {
+		err := h.AddBridgeAsCaller("jsSampleZome", hash, token, url, "")
 		So(err, ShouldBeNil)
 		t, u, err := h.GetBridgeToken(hash)
 		So(err, ShouldBeNil)
@@ -113,7 +117,7 @@ func TestBridgeGetBridges(t *testing.T) {
 	fakeToApp, _ := NewHash("QmVGtdTZdTFaLsaj2RwdVG8jcjNNcp1DE914DKZ2kHmXHw")
 	token := "some token"
 	url := "http://localhost:31415"
-	err := h.AddBridgeAsCaller(fakeToApp, token, url, "")
+	err := h.AddBridgeAsCaller("jsSampleZome", fakeToApp, token, url, "")
 	if err != nil {
 		panic(err)
 	}

@@ -127,7 +127,7 @@ type TestData struct {
 	Zome     string        // the zome in which to find the function
 	FnName   string        // the function to call
 	Input    interface{}   // the function's input
-	Output   string        // the expected output to match against (full match)
+	Output   interface{}   // the expected output to match against (full match)
 	Err      string        // the expected error to match against
 	Regexp   string        // the expected out to match again (regular expression)
 	Time     time.Duration // offset in milliseconds from the start of the test at which to run this test.
@@ -1482,7 +1482,7 @@ func TestingAppAppPackage() string {
         "Zome":   "zySampleZome",
         "FnName": "addPrime",
         "Input":  {"prime":7},
-        "Output": "\"%h%\""},
+        "Output": "%h%"},
     {
         "Zome":   "zySampleZome",
         "FnName": "addPrime",
@@ -1492,7 +1492,7 @@ func TestingAppAppPackage() string {
 	"Zome":   "jsSampleZome",
 	"FnName": "addProfile",
 	"Input":  {"firstName":"Art","lastName":"Brock"},
-	"Output": "\"%h%\""},
+	"Output": "%h%"},
     {
 	"Zome":   "zySampleZome",
 	"FnName": "getDNA",
@@ -1533,6 +1533,13 @@ func TestingAppAppPackage() string {
 	"Input":  "unexposed(\"this is a\")",
 	"Output": "this is a fish",
 	"Raw":    true
+    },
+    {
+	"Convey": "test the output of a function that returns json",
+	"Zome":   "jsSampleZome",
+	"FnName": "testJsonFn2",
+	"Input": "",
+	"Output": ["a":"b"]
     }
 ]}],
 "UI":[

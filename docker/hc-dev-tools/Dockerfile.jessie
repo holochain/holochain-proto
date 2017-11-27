@@ -2,16 +2,14 @@ FROM golang
 # UID argument specified by docker build --build-arg uid=<uid> and defaults to 1000
 ARG uid=${UID_MIN:-1000}
 
+# Install packages, cache dependencies of holochain
 RUN apt-get update && apt-get install -y \
   git \
   make \
   sudo \
-\
-# Cache dependencies of holochain
-&& go get -v -d github.com/metacurrency/holochain/cmd/hc \
-&& make -C "${GOPATH}/src/github.com/metacurrency/holochain" deps \
-&& rm -rf ${GOPATH}/src/github.com/metacurrency/holochain
-
+  && go get -v -d github.com/metacurrency/holochain/cmd/hcd \
+  && make -C "${GOPATH}/src/github.com/metacurrency/holochain" deps \
+  && rm -rf ${GOPATH}/src/github.com/metacurrency/holochain
 # Use checked out version of holochain
 COPY . ${GOPATH}/src/github.com/metacurrency/holochain
 RUN make -C "${GOPATH}/src/github.com/metacurrency/holochain"

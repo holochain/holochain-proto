@@ -98,7 +98,7 @@ func TestTest(t *testing.T) {
 
 	Convey("it should fail the test on incorrect data", t, func() {
 		os.Remove(filepath.Join(d, ".holochain", "test", "test", "test_0.json"))
-		err := WriteFile([]byte(`[{"Zome":"zySampleZome","FnName":"addEven","Input":"2","Output":"","Err":"bogus error"}]`), d, ".holochain", "test", "test", "test_0.json")
+		err := WriteFile([]byte(`{"Tests":[{"Zome":"zySampleZome","FnName":"addEven","Input":"2","Output":"","Err":"bogus error"}]}`), d, ".holochain", "test", "test", "test_0.json")
 		So(err, ShouldBeNil)
 		err = Test(h, nil)[0]
 		So(err, ShouldNotBeNil)
@@ -108,7 +108,7 @@ func TestTest(t *testing.T) {
 	Convey("it should fail the tests on code with zygo syntax errors", t, func() {
 		h.Nucleus().DNA().Zomes[0].Code += "badcode)("
 		errs := Test(h, nil)
-		So(len(errs), ShouldEqual, 11)
+		So(len(errs), ShouldEqual, 12)
 	})
 	Convey("it should fail the tests on code with js syntax errors", t, func() {
 		h.Nucleus().DNA().Zomes[1].Code += "badcode)("

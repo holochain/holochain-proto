@@ -39,6 +39,7 @@ type replacements struct {
 	serverID   string
 	repetition string
 	history    *history
+	fixtures   TestFixtures
 }
 
 func replaceWithResultsFromHistory(output string, re *regexp.Regexp, r *replacements) string {
@@ -101,6 +102,10 @@ func testStringReplacements(input string, r *replacements) string {
 	re = regexp.MustCompile(`(\{"\%result\%":([0-9]+)\})`)
 	output = replaceWithResultsFromHistory(output, re, r)
 
+	for i, f := range r.fixtures.Agents {
+		output = strings.Replace(output, "%agent"+fmt.Sprintf("%d", i)+"%", f.Hash, -1)
+		output = strings.Replace(output, "%agent"+fmt.Sprintf("%d", i)+"_str%", f.Identity, -1)
+	}
 	output = strings.Replace(output, "%server%", r.serverID, -1)
 	output = strings.Replace(output, "%reps%", r.repetition, -1)
 	output = strings.Replace(output, "%r1%", r.r1, -1)
@@ -144,8 +149,8 @@ func TestScenario(h *Holochain, dir string, role string, serverID string) (err e
 	if err != nil {
 		return
 	}
-	var tests []TestData
-	tests, err = LoadTestFile(dir, role+".json")
+	var testSet TestSet
+	testSet, err = LoadTestFile(dir, role+".json")
 	if err != nil {
 		return
 	}
@@ -173,7 +178,7 @@ func TestScenario(h *Holochain, dir string, role string, serverID string) (err e
 	}
 	h.StartBackgroundTasks()
 
-	testErrs = DoTests(h, role, tests, time.Duration(config.Duration)*time.Second, serverID)
+	testErrs = DoTests(h, role, testSet, time.Duration(config.Duration)*time.Second, serverID)
 
 	return
 }
@@ -192,12 +197,13 @@ type history struct {
 	lastMatches [3][]string
 }
 
-// DoTests runs through all the tests in a TestData array and returns any errors encountered
+// DoTests runs through all the tests in a TestSet and returns any errors encountered
 // TODO: this code can cause crazy race conditions because lastResults and lastMatches get
 // passed into go routines that run asynchronously.  We should probably reimplement this with
 // channels or some other thread-safe queues.
-func DoTests(h *Holochain, name string, tests []TestData, minTime time.Duration, serverID string) (errs []error) {
+func DoTests(h *Holochain, name string, testSet TestSet, minTime time.Duration, serverID string) (errs []error) {
 	var history history
+	tests := testSet.Tests
 	done := make(chan bool, len(tests))
 	startTime := time.Now()
 
@@ -210,7 +216,7 @@ func DoTests(h *Holochain, name string, tests []TestData, minTime time.Duration,
 		count++
 		go func(index int, test TestData) {
 			waitTill(startTime, test.Time*time.Millisecond)
-			err := DoTest(h, name, index, test, startTime, &history, serverID)
+			err := DoTest(h, name, index, testSet.Fixtures, test, startTime, &history, serverID)
 			if err != nil {
 				errs = append(errs, err)
 			}
@@ -224,7 +230,7 @@ func DoTests(h *Holochain, name string, tests []TestData, minTime time.Duration,
 			continue
 		}
 
-		err := DoTest(h, name, i, t, startTime, &history, serverID)
+		err := DoTest(h, name, i, testSet.Fixtures, t, startTime, &history, serverID)
 		if err != nil {
 			errs = append(errs, err)
 		}
@@ -260,7 +266,7 @@ func toStringByType(data interface{}) (output string, err error) {
 }
 
 // DoTest runs a singe test.
-func DoTest(h *Holochain, name string, i int, t TestData, startTime time.Time, history *history, serverID string) (err error) {
+func DoTest(h *Holochain, name string, i int, fixtures TestFixtures, t TestData, startTime time.Time, history *history, serverID string) (err error) {
 	info := h.Config.Loggers.TestInfo
 	passed := h.Config.Loggers.TestPassed
 	failed := h.Config.Loggers.TestFailed
@@ -330,7 +336,7 @@ func DoTest(h *Holochain, name string, i int, t TestData, startTime time.Time, h
 		repetitions = t.Repeat
 	}
 
-	replacements := replacements{h: h, serverID: serverID, history: history}
+	replacements := replacements{h: h, serverID: serverID, history: history, fixtures: fixtures}
 	origInput := input
 	for r := 0; r < repetitions; r++ {
 		input = origInput // gotta do this so %reps% substitution will work
@@ -507,6 +513,7 @@ func test(h *Holochain, one string, bridgeApps []BridgeApp) []error {
 	passed := h.Config.Loggers.TestPassed
 	failed := h.Config.Loggers.TestFailed
 
+	defaultIdentity := h.Agent().Identity()
 	for name, ts := range tests {
 		if one != "" && name != one {
 			continue
@@ -515,6 +522,12 @@ func test(h *Holochain, one string, bridgeApps []BridgeApp) []error {
 		info.Logf("Test: '%s' starting...", name)
 		info.Log("========================================")
 		// setup the genesis entries
+		if ts.Identity != "" {
+			id := AgentIdentity(ts.Identity)
+			h.Agent().SetIdentity(id)
+		} else {
+			h.Agent().SetIdentity(defaultIdentity)
+		}
 		err = InitChain(h, true)
 		var ers []error
 		if err != nil {

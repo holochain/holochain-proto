@@ -518,6 +518,7 @@ func TestLoadTestFiles(t *testing.T) {
 		tests, err := LoadTestFiles(path)
 		So(err, ShouldBeNil)
 		So(len(tests), ShouldEqual, 2)
+		So(tests["testSet1"].Identity, ShouldEqual, "123-456-7890")
 	})
 }
 

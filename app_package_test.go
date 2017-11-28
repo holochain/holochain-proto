@@ -34,7 +34,11 @@ func TestLoadAppPackage(t *testing.T) {
 	Convey("it should load scenarios from a appPackage blob", t, func() {
 		So(appPackage.Scenarios[0].Name, ShouldEqual, "sampleScenario")
 		So(appPackage.Scenarios[0].Roles[0].Name, ShouldEqual, "listener")
+		So(len(appPackage.Scenarios[0].Roles[0].TestSet.Tests), ShouldEqual, 1)
+		So(appPackage.Scenarios[0].Roles[0].TestSet.Tests[0].Convey, ShouldEqual, "add listener test here")
 		So(appPackage.Scenarios[0].Roles[1].Name, ShouldEqual, "speaker")
+		So(len(appPackage.Scenarios[0].Roles[1].TestSet.Tests), ShouldEqual, 1)
+		So(appPackage.Scenarios[0].Roles[1].TestSet.Tests[0].Convey, ShouldEqual, "add speaker test here")
 		So(appPackage.Scenarios[0].Config.Duration, ShouldEqual, 5)
 		So(appPackage.Scenarios[0].Config.GossipInterval, ShouldEqual, 100)
 	})

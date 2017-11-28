@@ -183,11 +183,11 @@ var BasicTemplateAppPackage string = `{
         {"Name":"sampleScenario",
          "Roles":[
              {"Name":"listener",
-              "Tests":[
-                  {"Convey":"add listener test here"}]},
+              "TestSet":{"Tests":[
+                  {"Convey":"add listener test here"}]}},
              {"Name":"speaker",
-              "Tests":[
-                  {"Convey":"add speaker test here"}]}],
+              "TestSet":{"Tests":[
+                  {"Convey":"add speaker test here"}]}}],
          "Config":{"Duration":5,"GossipInterval":100}}]
 }
 `

@@ -1596,16 +1596,16 @@ func TestingAppAppPackage() string {
         {"Name":"sampleScenario",
          "Roles":[
              {"Name":"speaker",
-              "Tests":[
+              "TestSet":{"Tests":[
                   {"Convey":"add an odd",
                    "Zome":   "jsSampleZome",
 	           "FnName": "addOdd",
 	           "Input":  "7",
 	           "Output": "%h%"
                   }
-               ]},
+               ]}},
              {"Name":"listener",
-              "Tests":[
+              "TestSet":{"Tests":[
                   {"Convey":"confirm prime exists",
                    "Zome":   "zySampleZome",
 	           "FnName": "confirmOdd",
@@ -1613,7 +1613,7 @@ func TestingAppAppPackage() string {
 	           "Output": "true",
                    "Time" : 1500
                   }
-               ]},
+               ]}}
           ],
          "Config":{"Duration":5,"GossipInterval":300}}]
 }

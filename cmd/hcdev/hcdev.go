@@ -19,7 +19,6 @@ import (
 	"os"
 	"os/exec"
 	"os/user"
-	"path"
 	"path/filepath"
 	"strconv"
 	"time"
@@ -807,7 +806,7 @@ func setupApp() (app *cli.App) {
 				return err
 			}
 		}
-		name = path.Base(devPath)
+		name = filepath.Base(devPath)
 
 		if cmd.IsAppDir(devPath) == nil {
 			appInitialized = true

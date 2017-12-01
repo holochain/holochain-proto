@@ -11,10 +11,10 @@ import (
 	"fmt"
 	. "github.com/metacurrency/holochain"
 	"github.com/metacurrency/holochain/ui"
+	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
-
 	"time"
 )
 
@@ -36,10 +36,10 @@ func toString(input interface{}) string {
 type replacements struct {
 	h          *Holochain
 	r1, r2, r3 string
-	serverID   string
 	repetition string
 	history    *history
 	fixtures   TestFixtures
+	pairs      map[string]string
 }
 
 func replaceWithResultsFromHistory(output string, re *regexp.Regexp, r *replacements) string {
@@ -85,16 +85,6 @@ func testStringReplacements(input string, r *replacements) string {
 		}
 	}
 
-	// this is a hack.  The clone id is put into the identity by hcdev we can get
-	// out with this regex without having to create more code to pass it around.
-	re = regexp.MustCompile(`.*.([0-9]+)@.*`)
-	x := re.FindStringSubmatch(string(h.Agent().Identity()))
-	var clone string
-	if len(x) > 0 {
-		clone = x[1]
-	}
-	output = strings.Replace(output, "%clone%", clone, -1)
-
 	re = regexp.MustCompile(`(\%result([0-9]+)\%)`)
 	output = replaceWithResultsFromHistory(output, re, r)
 
@@ -106,7 +96,6 @@ func testStringReplacements(input string, r *replacements) string {
 		output = strings.Replace(output, "%agent"+fmt.Sprintf("%d", i)+"%", f.Hash, -1)
 		output = strings.Replace(output, "%agent"+fmt.Sprintf("%d", i)+"_str%", f.Identity, -1)
 	}
-	output = strings.Replace(output, "%server%", r.serverID, -1)
 	output = strings.Replace(output, "%reps%", r.repetition, -1)
 	output = strings.Replace(output, "%r1%", r.r1, -1)
 	output = strings.Replace(output, "%r2%", r.r2, -1)
@@ -116,6 +105,10 @@ func testStringReplacements(input string, r *replacements) string {
 	output = strings.Replace(output, "%agenttop%", h.AgentTopHash().String(), -1)
 	output = strings.Replace(output, "%agentstr%", string(h.Agent().Identity()), -1)
 	output = strings.Replace(output, "%key%", h.NodeIDStr(), -1)
+
+	for key, val := range r.pairs {
+		output = strings.Replace(output, key, val, -1)
+	}
 
 	// look for %mx.y% in the string and do the replacements from last matches
 	re = regexp.MustCompile(`(\%m([0-9])\.([0-9])\%)`)
@@ -143,8 +136,10 @@ func testStringReplacements(input string, r *replacements) string {
 }
 
 // TestScenario runs the tests of a single role in a scenario
-func TestScenario(h *Holochain, dir string, role string, serverID string) (err error, testErrs []error) {
+func TestScenario(h *Holochain, scenario string, role string, replacementPairs map[string]string) (err error, testErrs []error) {
 	var config *TestConfig
+	dir := filepath.Join(h.TestPath(), scenario)
+
 	config, err = LoadTestConfig(dir)
 	if err != nil {
 		return
@@ -155,19 +150,9 @@ func TestScenario(h *Holochain, dir string, role string, serverID string) (err e
 		return
 	}
 
-	// setup the genesis entries
-	err = h.Reset()
+	err = initChainForTest(h, true)
 	if err != nil {
-		panic("reset err")
-	}
-
-	_, err = h.GenChain()
-	if err != nil {
-		panic("gen err " + err.Error())
-	}
-
-	err = h.Activate()
-	if err != nil {
+		err = fmt.Errorf("Error initializing chain for scenario role %s: %v", role, err)
 		return
 	}
 
@@ -178,7 +163,7 @@ func TestScenario(h *Holochain, dir string, role string, serverID string) (err e
 	}
 	h.StartBackgroundTasks()
 
-	testErrs = DoTests(h, role, testSet, time.Duration(config.Duration)*time.Second, serverID)
+	testErrs = DoTests(h, role, testSet, time.Duration(config.Duration)*time.Second, replacementPairs)
 
 	return
 }
@@ -201,7 +186,7 @@ type history struct {
 // TODO: this code can cause crazy race conditions because lastResults and lastMatches get
 // passed into go routines that run asynchronously.  We should probably reimplement this with
 // channels or some other thread-safe queues.
-func DoTests(h *Holochain, name string, testSet TestSet, minTime time.Duration, serverID string) (errs []error) {
+func DoTests(h *Holochain, name string, testSet TestSet, minTime time.Duration, replacementPairs map[string]string) (errs []error) {
 	var history history
 	tests := testSet.Tests
 	done := make(chan bool, len(tests))
@@ -216,7 +201,7 @@ func DoTests(h *Holochain, name string, testSet TestSet, minTime time.Duration, 
 		count++
 		go func(index int, test TestData) {
 			waitTill(startTime, test.Time*time.Millisecond)
-			err := DoTest(h, name, index, testSet.Fixtures, test, startTime, &history, serverID)
+			err := DoTest(h, name, index, testSet.Fixtures, test, startTime, &history, replacementPairs)
 			if err != nil {
 				errs = append(errs, err)
 			}
@@ -230,7 +215,7 @@ func DoTests(h *Holochain, name string, testSet TestSet, minTime time.Duration, 
 			continue
 		}
 
-		err := DoTest(h, name, i, testSet.Fixtures, t, startTime, &history, serverID)
+		err := DoTest(h, name, i, testSet.Fixtures, t, startTime, &history, replacementPairs)
 		if err != nil {
 			errs = append(errs, err)
 		}
@@ -266,7 +251,7 @@ func toStringByType(data interface{}) (output string, err error) {
 }
 
 // DoTest runs a singe test.
-func DoTest(h *Holochain, name string, i int, fixtures TestFixtures, t TestData, startTime time.Time, history *history, serverID string) (err error) {
+func DoTest(h *Holochain, name string, i int, fixtures TestFixtures, t TestData, startTime time.Time, history *history, replacementPairs map[string]string) (err error) {
 	info := h.Config.Loggers.TestInfo
 	passed := h.Config.Loggers.TestPassed
 	failed := h.Config.Loggers.TestFailed
@@ -336,7 +321,7 @@ func DoTest(h *Holochain, name string, i int, fixtures TestFixtures, t TestData,
 		repetitions = t.Repeat
 	}
 
-	replacements := replacements{h: h, serverID: serverID, history: history, fixtures: fixtures}
+	replacements := replacements{h: h, history: history, fixtures: fixtures, pairs: replacementPairs}
 	origInput := input
 	for r := 0; r < repetitions; r++ {
 		input = origInput // gotta do this so %reps% substitution will work
@@ -453,7 +438,7 @@ func TestOne(h *Holochain, one string, bridgeApps []BridgeApp) []error {
 	return test(h, one, bridgeApps)
 }
 
-func InitChain(h *Holochain, reset bool) (err error) {
+func initChainForTest(h *Holochain, reset bool) (err error) {
 	if reset {
 		err = h.Reset()
 		if err != nil {
@@ -476,7 +461,7 @@ func BuildBridges(h *Holochain, port string, bridgeApps []BridgeApp) (bridgeAppS
 
 	// setup any bridges
 	for i, app := range bridgeApps {
-		InitChain(app.H, true)
+		err = initChainForTest(app.H, true)
 		if err != nil {
 			err = fmt.Errorf("couldn't initialize bridge for %s for test. err:%v", app.H.DNAHash().String(), err.Error())
 			return
@@ -528,7 +513,7 @@ func test(h *Holochain, one string, bridgeApps []BridgeApp) []error {
 		} else {
 			h.Agent().SetIdentity(defaultIdentity)
 		}
-		err = InitChain(h, true)
+		err = initChainForTest(h, true)
 		var ers []error
 		if err != nil {
 			err = fmt.Errorf("couldn't initialize chain for test. err: %v", err)
@@ -544,7 +529,7 @@ func test(h *Holochain, one string, bridgeApps []BridgeApp) []error {
 				ers = []error{err}
 			} else {
 				//	go h.dht.HandleChangeReqs()
-				ers = DoTests(h, name, ts, 0, "")
+				ers = DoTests(h, name, ts, 0, nil)
 
 				// stop all the bridge web servers
 				for _, server := range bridgeAppServers {

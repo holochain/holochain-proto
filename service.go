@@ -1285,7 +1285,7 @@ func GetTestScenarios(h *Holochain) (scenarios map[string]*os.FileInfo, err erro
 	return scenarios, err
 }
 
-// GetScenarioDataMap returns a map of TestData object
+// GetTestScenarioRoles returns a list of scenario roles
 func GetTestScenarioRoles(h *Holochain, scenarioName string) (roleNameList []string, err error) {
 	return GetAllTestRoles(filepath.Join(h.TestPath(), scenarioName))
 }
@@ -1602,6 +1602,12 @@ func TestingAppAppPackage() string {
 	           "FnName": "addOdd",
 	           "Input":  "7",
 	           "Output": "%h%"
+                  },
+                  {"Convey":"raw function with scenario substitutions that fails",
+                   "Zome":   "jsSampleZome",
+	           "Raw": true,
+	           "Input": "'foo'",
+	           "Output":  "%server% %listener_hash% %listener_str%"
                   }
                ]}},
              {"Name":"listener",

@@ -18,7 +18,7 @@ func TestTestStringReplacements(t *testing.T) {
 	defer CleanupTestChain(h, d)
 	var lastMatches = [3][]string{{"complete match", "1st submatch", "2nd submatch"}}
 	history := &history{lastMatches: lastMatches}
-	replacements := replacements{h: h, serverID: "foo", history: history, repetition: "1"}
+	replacements := replacements{h: h, history: history, repetition: "1"}
 
 	Convey("it should replace %dna%", t, func() {
 		input := "%dna%"
@@ -32,11 +32,6 @@ func TestTestStringReplacements(t *testing.T) {
 		So(output, ShouldEqual, "2nd submatch")
 	})
 
-	Convey("it should replace %server%", t, func() {
-		input := "%server%"
-		output := testStringReplacements(input, &replacements)
-		So(output, ShouldEqual, "foo")
-	})
 	Convey("it should replace %reps%", t, func() {
 		input := "%reps%"
 		output := testStringReplacements(input, &replacements)
@@ -57,6 +52,12 @@ func TestTestStringReplacements(t *testing.T) {
 		input = "{\"%result%\":0}"
 		output = testStringReplacements(input, &replacements)
 		So(output, ShouldEqual, "foo")
+	})
+	Convey("it should replace values in the pairs list", t, func() {
+		input := "%fish%"
+		replacements.pairs = map[string]string{"%fish%": "doggy"}
+		output := testStringReplacements(input, &replacements)
+		So(output, ShouldEqual, "doggy")
 	})
 }
 
@@ -120,7 +121,9 @@ func TestTest(t *testing.T) {
 func TestTestOne(t *testing.T) {
 	d, _, h := SetupTestChain("test")
 	defer CleanupTestChain(h, d)
-	if os.Getenv("DEBUG") != "" {
+
+	_, requested := DebuggingRequestedViaEnv()
+	if !requested {
 		h.Config.Loggers.TestPassed.Enabled = false
 		h.Config.Loggers.TestFailed.Enabled = false
 		h.Config.Loggers.TestInfo.Enabled = false
@@ -134,6 +137,26 @@ Test 'testSet1.0' t+0ms: { zySampleZome addEven 2 %h%   0s 0s  false 0}
 `, func() {
 			err := TestOne(h, "testSet1", nil)
 			So(err, ShouldBeNil)
+		})
+	})
+}
+
+func TestTestScenario(t *testing.T) {
+	d, _, h := SetupTestChain("test")
+	defer CleanupTestChain(h, d)
+
+	_, requested := DebuggingRequestedViaEnv()
+	if !requested {
+		h.Config.Loggers.TestPassed.Enabled = false
+		h.Config.Loggers.TestFailed.Enabled = false
+		h.Config.Loggers.TestInfo.Enabled = false
+	}
+	Convey("it should run a test scenario", t, func() {
+		// the sample scenario is supposed to fail
+		ShouldLog(&h.Config.Loggers.TestFailed, `server_foo`, func() {
+			err, errs := TestScenario(h, "sampleScenario", "speaker", map[string]string{"%server%": "server_foo"})
+			So(err, ShouldBeNil)
+			So(len(errs), ShouldEqual, 1)
 		})
 	})
 }

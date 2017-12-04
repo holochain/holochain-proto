@@ -697,8 +697,7 @@ func (s *Service) MakeTestingApp(root string, encodingFormat string, initDB bool
 	appPackageReader := bytes.NewBuffer([]byte(TestingAppAppPackage()))
 
 	name := filepath.Base(root)
-
-	_, err = s.SaveFromAppPackage(appPackageReader, root, "test", agent, encodingFormat, newUUID)
+	_, err = s.SaveFromAppPackage(appPackageReader, root, "test", agent, TestingAppDecodingFormat, encodingFormat, newUUID)
 	if err != nil {
 		return
 	}
@@ -1076,8 +1075,8 @@ func encodeAsBinary(contentType string) bool {
 }
 
 // SaveFromAppPackage writes out a holochain application based on appPackage file to path
-func (service *Service) SaveFromAppPackage(reader io.Reader, path string, name string, agent Agent, encodingFormat string, newUUID bool) (appPackage *AppPackage, err error) {
-	appPackage, err = LoadAppPackage(reader)
+func (service *Service) SaveFromAppPackage(reader io.Reader, path string, name string, agent Agent, decodingFormat string, encodingFormat string, newUUID bool) (appPackage *AppPackage, err error) {
+	appPackage, err = LoadAppPackage(reader, decodingFormat)
 	if err != nil {
 		return
 	}
@@ -1313,6 +1312,10 @@ func GetAllTestRoles(path string) (roleNameList []string, err error) {
 	return
 }
 
+const (
+	TestingAppDecodingFormat = "json"
+)
+
 func TestingAppAppPackage() string {
 	return `{
 "Version": "` + AppPackageVersion + `",
@@ -1407,7 +1410,7 @@ func TestingAppAppPackage() string {
                 },
                 {
                     "Name": "myIdentity",
-                    "CallingType": "string",
+                    "CallingType": "string"
                 }
             ],
       "Code": "` + jsSanitizeString(zygoZomeCode) + `"
@@ -1431,7 +1434,7 @@ func TestingAppAppPackage() string {
                 },
                 {
                     "Name": "rating",
-                    "DataFormat": "links",
+                    "DataFormat": "links"
                 },
                 {
                     "Name": "review",
@@ -1440,7 +1443,7 @@ func TestingAppAppPackage() string {
                 },
                 {
                     "Name": "secret",
-                    "DataFormat": "string",
+                    "DataFormat": "string"
                 }
             ],
             "Functions": [
@@ -1490,37 +1493,44 @@ func TestingAppAppPackage() string {
         "Zome":   "zySampleZome",
         "FnName": "addEven",
         "Input":  "2",
-        "Output": "%h%"},
+        "Output": "%h%"
+    },
     {
         "Zome":   "zySampleZome",
         "FnName": "addEven",
         "Input":  "4",
-        "Output": "%h%"},
+        "Output": "%h%"
+    },
     {
         "Zome":   "zySampleZome",
         "FnName": "addEven",
         "Input":  "5",
-        "Err":    "Error calling 'commit': Validation Failed"},
+        "Err":    "Error calling 'commit': Validation Failed"
+    },
     {
         "Zome":   "zySampleZome",
         "FnName": "addPrime",
         "Input":  {"prime":7},
-        "Output": "%h%"},
+        "Output": "%h%"
+    },
     {
         "Zome":   "zySampleZome",
         "FnName": "addPrime",
         "Input":  {"prime":4},
-        "Err":    "Error calling 'commit': Validation Failed"},
+        "Err":    "Error calling 'commit': Validation Failed"
+    },
     {
 	"Zome":   "jsSampleZome",
 	"FnName": "addProfile",
 	"Input":  {"firstName":"Art","lastName":"Brock"},
-	"Output": "%h%"},
+	"Output": "%h%"
+    },
     {
 	"Zome":   "zySampleZome",
 	"FnName": "getDNA",
 	"Input":  "",
-	"Output": "%dna%"},
+	"Output": "%dna%"
+    },
     {
 	"Zome":     "zySampleZome",
 	"FnName":   "getDNA",
@@ -1544,22 +1554,26 @@ func TestingAppAppPackage() string {
 	"Zome":   "jsSampleZome",
 	"FnName": "addOdd",
 	"Input":  "7",
-	"Output": "%h%"},
+	"Output": "%h%"
+    },
     {
 	"Zome":   "jsSampleZome",
 	"FnName": "addOdd",
 	"Input":  "2",
-	"Err":    "Validation Failed"},
+	"Err":    "Validation Failed"
+    },
     {
 	"Zome":   "zySampleZome",
 	"FnName": "confirmOdd",
 	"Input":  "9",
-	"Output": "false"},
+	"Output": "false"
+    },
     {
 	"Zome":   "zySampleZome",
 	"FnName": "confirmOdd",
 	"Input":  "7",
-	"Output": "true"},
+	"Output": "true"
+    },
     {
 	"Zome":   "jsSampleZome",
 	"Input":  "unexposed(\"this is a\")",
@@ -1571,7 +1585,7 @@ func TestingAppAppPackage() string {
 	"Zome":   "jsSampleZome",
 	"FnName": "testJsonFn2",
 	"Input": "",
-	"Output": ["a":"b"]
+	"Output": [{"a":"b"}]
     },
     {
    	"Convey": "agent fixture substitution works",

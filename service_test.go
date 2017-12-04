@@ -373,7 +373,7 @@ func TestSaveFromAppPackage(t *testing.T) {
 	Convey("it should write out a appPackage file to a directory tree with JSON encoding", t, func() {
 		appPackageReader := bytes.NewBuffer([]byte(BasicTemplateAppPackage))
 
-		appPackage, err := s.SaveFromAppPackage(appPackageReader, root, "appName", nil, "json", false)
+		appPackage, err := s.SaveFromAppPackage(appPackageReader, root, "appName", nil, BasicTemplateAppPackageFormat, "json", false)
 		So(err, ShouldBeNil)
 		So(appPackage, ShouldNotBeNil)
 		So(appPackage.Version, ShouldEqual, AppPackageVersion)
@@ -404,7 +404,7 @@ func TestSaveFromAppPackage(t *testing.T) {
 
 		root2 := filepath.Join(s.Path, name+"2")
 
-		appPackage, err := s.SaveFromAppPackage(appPackageReader, root2, "appName", nil, "toml", false)
+		appPackage, err := s.SaveFromAppPackage(appPackageReader, root2, "appName", nil, BasicTemplateAppPackageFormat, "toml", false)
 		So(err, ShouldBeNil)
 		So(appPackage, ShouldNotBeNil)
 		So(appPackage.Version, ShouldEqual, AppPackageVersion)
@@ -416,7 +416,7 @@ func TestSaveFromAppPackage(t *testing.T) {
 	Convey("it should write out a appPackage file to a directory tree with binary UI files", t, func() {
 		appPackageReader := bytes.NewBuffer([]byte(TestingAppAppPackage()))
 
-		_, err := s.SaveFromAppPackage(appPackageReader, root+"3", "appName2", nil, "json", false)
+		_, err := s.SaveFromAppPackage(appPackageReader, root+"3", "appName2", nil, TestingAppDecodingFormat, "json", false)
 		root3 := filepath.Join(s.Path, name+"3")
 
 		So(err, ShouldBeNil)
@@ -475,7 +475,7 @@ func TestMakeAppPackage(t *testing.T) {
 			panic(err)
 		}
 		root = filepath.Join(s.Path, "appFromAppPackage")
-		appPackage, err := s.SaveFromAppPackage(appPackageReader, root, "appFromAppPackage", nil, "json", false)
+		appPackage, err := s.SaveFromAppPackage(appPackageReader, root, "appFromAppPackage", nil, "json", "json", false)
 		So(err, ShouldBeNil)
 		So(appPackage, ShouldNotBeNil)
 		So(appPackage.Version, ShouldEqual, AppPackageVersion)

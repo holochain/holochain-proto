@@ -10,7 +10,7 @@ import (
 
 func TestLoadAppPackage(t *testing.T) {
 	appPackageBlob := bytes.NewBuffer([]byte(BasicTemplateAppPackage))
-	appPackage, err := LoadAppPackage(appPackageBlob)
+	appPackage, err := LoadAppPackage(appPackageBlob, BasicTemplateAppPackageFormat)
 	Convey("it should load dna from a appPackage blob", t, func() {
 		So(err, ShouldBeNil)
 		dna := appPackage.DNA

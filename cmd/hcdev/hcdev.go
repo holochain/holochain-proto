@@ -853,21 +853,8 @@ func setupApp() (app *cli.App) {
 				rootPath = filepath.Join(userPath, holo.DefaultDirectoryName+"dev")
 			}
 		}
+		identity = getIdentity(agentID, serverID)
 		if !holo.IsInitialized(rootPath) {
-			var host, username string
-			host = getHostName(serverID)
-
-			if agentID != "" {
-				username = agentID
-			} else {
-				username = sysUser.Username
-			}
-			if username == "" {
-				username = "test"
-			}
-
-			identity = username + "@" + host
-
 			service, err = holo.Init(rootPath, holo.AgentIdentity(identity), holo.MakeTestSeed(identity))
 			if err != nil {
 				return err
@@ -932,6 +919,7 @@ func getHolochain(c *cli.Context, service *holo.Service, identity string) (h *ho
 
 	if identity != "" {
 		agent.SetIdentity(holo.AgentIdentity(identity))
+		agent.GenKeys(holo.MakeTestSeed(identity))
 	}
 
 	bridgeApps = make([]holo.BridgeApp, 0)
@@ -981,6 +969,10 @@ func getHolochain(c *cli.Context, service *holo.Service, identity string) (h *ho
 	h, err = service.Load(name)
 	if err != nil {
 		return
+	}
+	if verbose {
+		fmt.Printf("Identity: %s\n", h.Agent().Identity())
+		fmt.Printf("NodeID: %s\n", h.NodeIDStr())
 	}
 	return
 }
@@ -1067,5 +1059,22 @@ func getHostName(serverID string) (host string) {
 	if host == "" {
 		host = "example.com"
 	}
+	return
+}
+
+func getIdentity(agentID, serverID string) (identity string) {
+	var host, username string
+	host = getHostName(serverID)
+
+	if agentID != "" {
+		username = agentID
+	} else {
+		username = sysUser.Username
+	}
+	if username == "" {
+		username = "test"
+	}
+
+	identity = username + "@" + host
 	return
 }

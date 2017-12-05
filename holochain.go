@@ -807,7 +807,7 @@ func (h *Holochain) StartBackgroundTasks() {
 	}
 	h.node.retrying = h.TaskTicker(h.Config.retryInterval, RetryTask)
 	if h.Config.BootstrapServer != "" {
-		BootstrapRefreshTask(h)
+		go BootstrapRefreshTask(h)
 		h.node.retrying = h.TaskTicker(h.Config.bootstrapRefreshInterval, BootstrapRefreshTask)
 	}
 	h.node.refreshing = h.TaskTicker(h.Config.routingRefreshInterval, RoutingRefreshTask)

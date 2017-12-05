@@ -20,6 +20,7 @@ import (
 	"os/exec"
 	"os/user"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"time"
 	// fsnotify	"github.com/fsnotify/fsnotify"
@@ -385,19 +386,52 @@ func setupApp() (app *cli.App) {
 
 					holo.Debug("test: scenario")
 
-					dir := filepath.Join(h.TestPath(), args[0])
+					scenario := args[0]
 					role := args[1]
-					holo.Debugf("test: scenario(%v, %v)\n", dir, role)
+					holo.Debugf("test: scenario(%v, %v)\n", scenario, role)
 
-					holo.Debugf("test: scenario(%v, %v): paused at: %v\n", dir, role, time.Now())
+					holo.Debugf("test: scenario(%v, %v): paused at: %v\n", scenario, role, time.Now())
 
 					if syncPauseUntil != 0 {
 						// IntFlag converts the string into int64 anyway. This explicit conversion is valid
 						time.Sleep(cmd.GetDuration_fromUnixTimestamp(int64(syncPauseUntil)))
 					}
-					holo.Debugf("test: scenario(%v, %v): continuing at: %v\n", dir, role, time.Now())
+					holo.Debugf("test: scenario(%v, %v): continuing at: %v\n", scenario, role, time.Now())
+					pairs := map[string]string{"%server%": serverID}
 
-					err, errs = TestScenario(h, dir, role, serverID)
+					// The clone id is put into the identity by scenario call so we get
+					// out with this regex
+					re := regexp.MustCompile(`.*.([0-9]+)@.*`)
+					x := re.FindStringSubmatch(string(h.Agent().Identity()))
+					var clone string
+					if len(x) > 0 {
+						clone = x[1]
+						pairs["%clone%"] = clone
+					} else {
+
+						// if there isn't a clone then we can do role substitutions
+						var roles []string
+						roles, err = holo.GetTestScenarioRoles(h, scenario)
+						if err != nil {
+							return cmd.MakeErrFromErr(c, err)
+						}
+						host := getHostName(serverID)
+						for _, role := range roles {
+							var id, hash string
+							id = role + "@" + host
+							agent, err := holo.NewAgent(holo.LibP2P, holo.AgentIdentity(id), holo.MakeTestSeed(id))
+							if err != nil {
+								return cmd.MakeErrFromErr(c, err)
+							}
+							_, hash, err = agent.NodeID()
+							if err != nil {
+								return cmd.MakeErrFromErr(c, err)
+							}
+							pairs["%"+role+"_str%"] = id
+							pairs["%"+role+"_key%"] = hash
+						}
+					}
+					err, errs = TestScenario(h, scenario, role, pairs)
 					if err != nil {
 						return cmd.MakeErrFromErr(c, err)
 					}
@@ -821,14 +855,7 @@ func setupApp() (app *cli.App) {
 		}
 		if !holo.IsInitialized(rootPath) {
 			var host, username string
-			if serverID != "" {
-				host = serverID
-			} else {
-				host, _ = os.Hostname()
-			}
-			if host == "" {
-				host = "example.com"
-			}
+			host = getHostName(serverID)
 
 			if agentID != "" {
 				username = agentID
@@ -1027,6 +1054,18 @@ func doClone(s *holo.Service, clonePath, devPath string) (err error) {
 	_, err = s.Clone(clonePath, devPath, agent, holo.CloneWithSameUUID, holo.SkipInitializeDB)
 	if err != nil {
 		return
+	}
+	return
+}
+
+func getHostName(serverID string) (host string) {
+	if serverID != "" {
+		host = serverID
+	} else {
+		host, _ = os.Hostname()
+	}
+	if host == "" {
+		host = "example.com"
 	}
 	return
 }

@@ -902,6 +902,7 @@ func (dht *DHT) Close() {
 	dht.gchan = nil
 	close(dht.gossipPuts)
 	dht.gossipPuts = nil
+	dht.db.Close()
 }
 
 // Retry starts retry processing

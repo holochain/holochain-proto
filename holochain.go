@@ -699,6 +699,10 @@ func (h *Holochain) Reset() (err error) {
 		h.node.Close()
 	}
 
+	if h.dht != nil {
+		h.dht.Close()
+	}
+
 	err = os.RemoveAll(h.DBPath())
 	if err != nil {
 		return
@@ -716,9 +720,7 @@ func (h *Holochain) Reset() (err error) {
 	if err != nil {
 		panic(err)
 	}
-	if h.dht != nil {
-		h.dht.Close()
-	}
+
 	h.dht = NewDHT(h)
 	if h.asyncSends != nil {
 		close(h.asyncSends)

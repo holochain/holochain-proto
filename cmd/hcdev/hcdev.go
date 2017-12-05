@@ -307,7 +307,7 @@ func setupApp() (app *cli.App) {
 
 				} else if appPackagePath != "" {
 					// build the app from the appPackage
-					_, err := cmd.UpackageAppPackage(service, appPackagePath, devPath, name)
+					_, err := cmd.UpackageAppPackage(service, appPackagePath, devPath, name, encodingFormat)
 					if err != nil {
 						return cmd.MakeErrFromErr(c, err)
 					}
@@ -329,7 +329,7 @@ func setupApp() (app *cli.App) {
 					}
 
 					var appPackage *holo.AppPackage
-					appPackage, err = service.SaveFromAppPackage(appPackageReader, devPath, name, agent, encodingFormat, true)
+					appPackage, err = service.SaveFromAppPackage(appPackageReader, devPath, name, agent, holo.BasicTemplateAppPackageFormat, encodingFormat, true)
 					if err != nil {
 						return cmd.MakeErrFromErr(c, err)
 					}

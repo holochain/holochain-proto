@@ -130,7 +130,7 @@ func setupApp() (app *cli.App) {
 				if info.Mode().IsRegular() {
 
 					dstPath := filepath.Join(root, name)
-					_, err := cmd.UpackageAppPackage(service, srcPath, dstPath, name)
+					_, err := cmd.UpackageAppPackage(service, srcPath, dstPath, name, "json")
 
 					if err != nil {
 						return fmt.Errorf("join: error unpackaging %s: %v", srcPath, err)

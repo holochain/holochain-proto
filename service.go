@@ -121,6 +121,24 @@ type DNAFile struct {
 	Progenitor           Progenitor
 }
 
+// AgentFixture defines an agent for the purposes of tests
+type AgentFixture struct {
+	Hash     string
+	Identity string
+}
+
+// TestFixtures defines data needed to run tests
+type TestFixtures struct {
+	Agents []AgentFixture
+}
+
+// TestSet holds a set of tests plus configuration and fixture data for those tests
+type TestSet struct {
+	Tests    []TestData
+	Identity string
+	Fixtures TestFixtures
+}
+
 // TestData holds a test entry for a chain
 type TestData struct {
 	Convey   string        // a human readable description of the tests intent
@@ -679,8 +697,7 @@ func (s *Service) MakeTestingApp(root string, encodingFormat string, initDB bool
 	appPackageReader := bytes.NewBuffer([]byte(TestingAppAppPackage()))
 
 	name := filepath.Base(root)
-
-	_, err = s.SaveFromAppPackage(appPackageReader, root, "test", agent, encodingFormat, newUUID)
+	_, err = s.SaveFromAppPackage(appPackageReader, root, "test", agent, TestingAppDecodingFormat, encodingFormat, newUUID)
 	if err != nil {
 		return
 	}
@@ -976,14 +993,14 @@ func (service *Service) MakeAppPackage(h *Holochain) (data []byte, err error) {
 		DNA:       *h.nucleus.dna,
 	}
 
-	var testsmap map[string][]TestData
+	var testsmap map[string]TestSet
 	testsmap, err = LoadTestFiles(h.TestPath())
 	if err != nil {
 		return
 	}
-	appPackage.Tests = make([]AppPackageTests, 0)
+	appPackage.TestSets = make([]AppPackageTests, 0)
 	for name, t := range testsmap {
-		appPackage.Tests = append(appPackage.Tests, AppPackageTests{Name: name, Tests: t})
+		appPackage.TestSets = append(appPackage.TestSets, AppPackageTests{Name: name, TestSet: t})
 	}
 
 	var scenarioFiles map[string]*os.FileInfo
@@ -994,7 +1011,7 @@ func (service *Service) MakeAppPackage(h *Holochain) (data []byte, err error) {
 	appPackage.Scenarios = make([]AppPackageScenario, 0)
 	for name, _ := range scenarioFiles {
 		scenarioPath := filepath.Join(h.TestPath(), name)
-		var rolemap map[string][]TestData
+		var rolemap map[string]TestSet
 		rolemap, err = LoadTestFiles(scenarioPath)
 		if err != nil {
 			return
@@ -1002,7 +1019,7 @@ func (service *Service) MakeAppPackage(h *Holochain) (data []byte, err error) {
 		roles := make([]AppPackageTests, 0)
 		for name, tests := range rolemap {
 			roles = append(roles,
-				AppPackageTests{Name: name, Tests: tests})
+				AppPackageTests{Name: name, TestSet: tests})
 
 		}
 		scenario := AppPackageScenario{Name: name, Roles: roles}
@@ -1058,8 +1075,8 @@ func encodeAsBinary(contentType string) bool {
 }
 
 // SaveFromAppPackage writes out a holochain application based on appPackage file to path
-func (service *Service) SaveFromAppPackage(reader io.Reader, path string, name string, agent Agent, encodingFormat string, newUUID bool) (appPackage *AppPackage, err error) {
-	appPackage, err = LoadAppPackage(reader)
+func (service *Service) SaveFromAppPackage(reader io.Reader, path string, name string, agent Agent, decodingFormat string, encodingFormat string, newUUID bool) (appPackage *AppPackage, err error) {
+	appPackage, err = LoadAppPackage(reader, decodingFormat)
 	if err != nil {
 		return
 	}
@@ -1095,7 +1112,7 @@ func (service *Service) saveFromAppPackage(appPackage *AppPackage, path string, 
 	}
 
 	testPath := filepath.Join(path, ChainTestDir)
-	for _, test := range appPackage.Tests {
+	for _, test := range appPackage.TestSets {
 		p := filepath.Join(testPath, test.Name+".json")
 		var f *os.File
 		f, err = os.Create(p)
@@ -1103,7 +1120,7 @@ func (service *Service) saveFromAppPackage(appPackage *AppPackage, path string, 
 			return
 		}
 		defer f.Close()
-		err = Encode(f, "json", test.Tests)
+		err = Encode(f, "json", test.TestSet)
 		if err != nil {
 			return
 		}
@@ -1123,7 +1140,7 @@ func (service *Service) saveFromAppPackage(appPackage *AppPackage, path string, 
 				return
 			}
 			defer f.Close()
-			err = Encode(f, "json", &role.Tests)
+			err = Encode(f, "json", &role.TestSet)
 			if err != nil {
 				return
 			}
@@ -1183,16 +1200,16 @@ func MakeDirs(devPath string) error {
 }
 
 // LoadTestFile unmarshals test json data
-func LoadTestFile(dir string, file string) (tests []TestData, err error) {
+func LoadTestFile(dir string, file string) (tests TestSet, err error) {
 	var v []byte
 	v, err = ReadFile(dir, file)
 	if err != nil {
-		return nil, err
+		return
 	}
 	err = json.Unmarshal(v, &tests)
 
 	if err != nil {
-		return nil, err
+		return
 	}
 	return
 }
@@ -1219,14 +1236,14 @@ func LoadTestConfig(dir string) (config *TestConfig, err error) {
 }
 
 // LoadTestFiles searches a path for .json test files and loads them into an array
-func LoadTestFiles(path string) (map[string][]TestData, error) {
+func LoadTestFiles(path string) (map[string]TestSet, error) {
 	files, err := ioutil.ReadDir(path)
 	if err != nil {
 		return nil, err
 	}
 
 	re := regexp.MustCompile(`(.*)\.json`)
-	var tests = make(map[string][]TestData)
+	var tests = make(map[string]TestSet)
 	for _, f := range files {
 		if f.Mode().IsRegular() {
 			x := re.FindStringSubmatch(f.Name())
@@ -1294,6 +1311,10 @@ func GetAllTestRoles(path string) (roleNameList []string, err error) {
 	}
 	return
 }
+
+const (
+	TestingAppDecodingFormat = "json"
+)
 
 func TestingAppAppPackage() string {
 	return `{
@@ -1386,6 +1407,10 @@ func TestingAppAppPackage() string {
                     "Name": "testJsonFn2",
                     "CallingType": "json",
                     "Exposure": ""
+                },
+                {
+                    "Name": "myIdentity",
+                    "CallingType": "string"
                 }
             ],
       "Code": "` + jsSanitizeString(zygoZomeCode) + `"
@@ -1409,7 +1434,7 @@ func TestingAppAppPackage() string {
                 },
                 {
                     "Name": "rating",
-                    "DataFormat": "links",
+                    "DataFormat": "links"
                 },
                 {
                     "Name": "review",
@@ -1418,7 +1443,7 @@ func TestingAppAppPackage() string {
                 },
                 {
                     "Name": "secret",
-                    "DataFormat": "string",
+                    "DataFormat": "string"
                 }
             ],
             "Functions": [
@@ -1461,73 +1486,94 @@ func TestingAppAppPackage() string {
       "Code": "` + jsSanitizeString(jsZomeCode) + `"
     }
   ]},
-"Tests":[{"Name":"testSet1","Tests":
-[
+"TestSets":[{"Name":"testSet1","TestSet":{
+"Identity": "123-456-7890",
+"Tests":[
     {
         "Zome":   "zySampleZome",
         "FnName": "addEven",
         "Input":  "2",
-        "Output": "%h%"},
+        "Output": "%h%"
+    },
     {
         "Zome":   "zySampleZome",
         "FnName": "addEven",
         "Input":  "4",
-        "Output": "%h%"},
+        "Output": "%h%"
+    },
     {
         "Zome":   "zySampleZome",
         "FnName": "addEven",
         "Input":  "5",
-        "Err":    "Error calling 'commit': Validation Failed"},
+        "Err":    "Error calling 'commit': Validation Failed"
+    },
     {
         "Zome":   "zySampleZome",
         "FnName": "addPrime",
         "Input":  {"prime":7},
-        "Output": "%h%"},
+        "Output": "%h%"
+    },
     {
         "Zome":   "zySampleZome",
         "FnName": "addPrime",
         "Input":  {"prime":4},
-        "Err":    "Error calling 'commit': Validation Failed"},
+        "Err":    "Error calling 'commit': Validation Failed"
+    },
     {
 	"Zome":   "jsSampleZome",
 	"FnName": "addProfile",
 	"Input":  {"firstName":"Art","lastName":"Brock"},
-	"Output": "%h%"},
+	"Output": "%h%"
+    },
     {
 	"Zome":   "zySampleZome",
 	"FnName": "getDNA",
 	"Input":  "",
-	"Output": "%dna%"},
+	"Output": "%dna%"
+    },
     {
 	"Zome":     "zySampleZome",
 	"FnName":   "getDNA",
 	"Input":    "",
 	"Err":      "function not available",
 	"Exposure":  "public"
+    },
+    {
+	"Zome":     "zySampleZome",
+	"FnName":   "myIdentity",
+	"Input":    "",
+	"Output":   "123-456-7890"
     }
-]
-},{"Name":"testSet2","Tests":
-[
+]}},
+{"Name":"testSet2","TestSet":{
+"Fixtures":{
+  "Agents":[{"Hash":"QmVGtdTZdTFaLsaj2RwdVG8jcjNNcp1DE914DKZ2kHmXHx","Identity":"agent@foo.com"}]
+},
+"Tests":[
     {
 	"Zome":   "jsSampleZome",
 	"FnName": "addOdd",
 	"Input":  "7",
-	"Output": "%h%"},
+	"Output": "%h%"
+    },
     {
 	"Zome":   "jsSampleZome",
 	"FnName": "addOdd",
 	"Input":  "2",
-	"Err":    "Validation Failed"},
+	"Err":    "Validation Failed"
+    },
     {
 	"Zome":   "zySampleZome",
 	"FnName": "confirmOdd",
 	"Input":  "9",
-	"Output": "false"},
+	"Output": "false"
+    },
     {
 	"Zome":   "zySampleZome",
 	"FnName": "confirmOdd",
 	"Input":  "7",
-	"Output": "true"},
+	"Output": "true"
+    },
     {
 	"Zome":   "jsSampleZome",
 	"Input":  "unexposed(\"this is a\")",
@@ -1539,9 +1585,16 @@ func TestingAppAppPackage() string {
 	"Zome":   "jsSampleZome",
 	"FnName": "testJsonFn2",
 	"Input": "",
-	"Output": ["a":"b"]
+	"Output": [{"a":"b"}]
+    },
+    {
+   	"Convey": "agent fixture substitution works",
+	"Zome":   "jsSampleZome",
+	"Input":  "\"%agent0%--%agent0_str%\"",
+	"Output": "QmVGtdTZdTFaLsaj2RwdVG8jcjNNcp1DE914DKZ2kHmXHx--agent@foo.com",
+	"Raw":    true
     }
-]}],
+]}}],
 "UI":[
 {"FileName":"index.html",
  "Data":"` + jsSanitizeString(SampleHTML) + `"
@@ -1557,16 +1610,16 @@ func TestingAppAppPackage() string {
         {"Name":"sampleScenario",
          "Roles":[
              {"Name":"speaker",
-              "Tests":[
+              "TestSet":{"Tests":[
                   {"Convey":"add an odd",
                    "Zome":   "jsSampleZome",
 	           "FnName": "addOdd",
 	           "Input":  "7",
 	           "Output": "%h%"
                   }
-               ]},
+               ]}},
              {"Name":"listener",
-              "Tests":[
+              "TestSet":{"Tests":[
                   {"Convey":"confirm prime exists",
                    "Zome":   "zySampleZome",
 	           "FnName": "confirmOdd",
@@ -1574,7 +1627,7 @@ func TestingAppAppPackage() string {
 	           "Output": "true",
                    "Time" : 1500
                   }
-               ]},
+               ]}}
           ],
          "Config":{"Duration":5,"GossipInterval":300}}]
 }
@@ -1732,6 +1785,8 @@ function asyncPing(message,id) {
 (defn asyncPing [message,id]
   (debug (concat "async result of message with " id " was:" (str message)))
 )
+
+(defn myIdentity [x] App_Agent_String)
 `
 
 	SampleHTML = `

@@ -10,7 +10,7 @@ import (
 )
 
 const (
-	AppPackageVersion = "0.0.0"
+	AppPackageVersion = "0.0.1"
 )
 
 type AppPackageUIFile struct {
@@ -20,8 +20,8 @@ type AppPackageUIFile struct {
 }
 
 type AppPackageTests struct {
-	Name  string
-	Tests []TestData
+	Name    string
+	TestSet TestSet
 }
 
 type AppPackageScenario struct {
@@ -34,15 +34,15 @@ type AppPackage struct {
 	Version   string
 	Generator string
 	DNA       DNA
-	Tests     []AppPackageTests
+	TestSets  []AppPackageTests
 	UI        []AppPackageUIFile
 	Scenarios []AppPackageScenario
 }
 
 // LoadAppPackage decodes DNA and other appPackage data from appPackage file (via an io.reader)
-func LoadAppPackage(reader io.Reader) (appPackageP *AppPackage, err error) {
+func LoadAppPackage(reader io.Reader, encodingFormat string) (appPackageP *AppPackage, err error) {
 	var appPackage AppPackage
-	err = Decode(reader, "yml", &appPackage)
+	err = Decode(reader, encodingFormat, &appPackage)
 	if err != nil {
 		return
 	}
@@ -62,6 +62,10 @@ func LoadAppPackage(reader io.Reader) (appPackageP *AppPackage, err error) {
 `
 	return
 }
+
+const (
+	BasicTemplateAppPackageFormat = "yml"
+)
 
 var BasicTemplateAppPackage string = `{
  # AppPackage Version
@@ -168,9 +172,9 @@ var BasicTemplateAppPackage string = `{
       "Code": "'use strict';\n\n// -----------------------------------------------------------------\n//  This stub Zome code file was auto-generated\n// -----------------------------------------------------------------\n\n/**\n * Called only when your source chain is generated\n * @return {boolean} success\n */\nfunction genesis() {\n  // any genesis code here\n  return true;\n}\n\n// -----------------------------------------------------------------\n//  validation functions for every DHT entry change\n// -----------------------------------------------------------------\n\n/**\n * Called to validate any changes to the DHT\n * @param {string} entryName - the name of entry being modified\n * @param {*} entry - the entry data to be set\n * @param {?} header - ?\n * @param {?} pkg - ?\n * @param {?} sources - ?\n * @return {boolean} is valid?\n */\nfunction validateCommit (entryName, entry, header, pkg, sources) {\n  switch (entryName) {\n    case \"sampleEntry\":\n      // validation code here\n      return false;\n    default:\n      // invalid entry name!!\n      return false;\n  }\n}\n\n/**\n * Called to validate any changes to the DHT\n * @param {string} entryName - the name of entry being modified\n * @param {*}entry - the entry data to be set\n * @param {?} header - ?\n * @param {?} pkg - ?\n * @param {?} sources - ?\n * @return {boolean} is valid?\n */\nfunction validatePut (entryName, entry, header, pkg, sources) {\n  switch (entryName) {\n    case \"sampleEntry\":\n      // validation code here\n      return false;\ndefault:\n      // invalid entry name!!\n      return false;\n  }\n}\n\n/**\n * Called to validate any changes to the DHT\n * @param {string} entryName - the name of entry being modified\n * @param {*} entry- the entry data to be set\n * @param {?} header - ?\n * @param {*} replaces - the old entry data\n * @param {?} pkg - ?\n * @param {?} sources - ?\n * @return {boolean} is valid?\n */\nfunction validateMod (entryName, entry, header, replaces, pkg, sources) {\n  switch (entryName) {\n    case \"sampleEntry\":\n      // validation code here\n      return false;\n    default:\n      // invalid entry name!!\n      return false;\n  }\n}\n\n/**\n * Called to validate any changes to the DHT\n * @param {string} entryName - the name of entry being modified\n * @param {string} hash - the hash of the entry to remove\n * @param {?} pkg - ?\n * @param {?} sources - ?\n * @return {boolean} is valid?\n */\nfunction validateDel (entryName,hash, pkg, sources) {\n  switch (entryName) {\n    case \"sampleEntry\":\n      // validation code here\nreturn false;\n    default:\n      // invalid entry name!!\n      return false;\n  }\n}\n\n/**\n * Called to get the data needed to validate\n * @param {string} entryName - the name of entry to validate\n * @return {*} the data required for validation\n */\nfunction validatePutPkg (entryName) {\n  return null;\n}\n\n/**\n * Called to get the data needed to validate\n * @param {string} entryName - the name of entry to validate\n * @return {*} the data required for validation\n */\nfunction validateModPkg (entryName) {\n  return null;\n}\n\n/**\n * Called to get the data needed to validate\n * @param {string} entryName - the name of entry to validate\n * @return {*} the data required for validation\n */\nfunction validateDelPkg (entryName) {\n  return null;\n}"
     }
   ]},
-"Tests":[{
+"TestSets":[{
   "Name":"sample",
-  "Tests":[{"Convey":"We can create a new sampleEntry","FnName": "sampleEntryCreate","Input": {"body": "this is the entry body","stamp":12345},"Output":"\"%h1%\"","Exposure":"public"}]}
+  "TestSet":{"Tests":[{"Convey":"We can create a new sampleEntry","FnName": "sampleEntryCreate","Input": {"body": "this is the entry body","stamp":12345},"Output":"\"%h1%\"","Exposure":"public"}]}}
    ],
 "UI":[
 {"FileName":"index.html",
@@ -183,11 +187,11 @@ var BasicTemplateAppPackage string = `{
         {"Name":"sampleScenario",
          "Roles":[
              {"Name":"listener",
-              "Tests":[
-                  {"Convey":"add listener test here"}]},
+              "TestSet":{"Tests":[
+                  {"Convey":"add listener test here"}]}},
              {"Name":"speaker",
-              "Tests":[
-                  {"Convey":"add speaker test here"}]}],
+              "TestSet":{"Tests":[
+                  {"Convey":"add speaker test here"}]}}],
          "Config":{"Duration":5,"GossipInterval":100}}]
 }
 `

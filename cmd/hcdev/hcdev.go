@@ -431,7 +431,6 @@ func setupApp() (app *cli.App) {
 							pairs["%"+role+"_key%"] = hash
 						}
 					}
-					fmt.Printf("PAIRS:%v\n", pairs)
 					err, errs = TestScenario(h, scenario, role, pairs)
 					if err != nil {
 						return cmd.MakeErrFromErr(c, err)

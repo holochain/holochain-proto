@@ -10,7 +10,7 @@ import (
 )
 
 const (
-	AppPackageVersion = "0.0.0"
+	AppPackageVersion = "0.0.1"
 )
 
 type AppPackageUIFile struct {
@@ -40,9 +40,9 @@ type AppPackage struct {
 }
 
 // LoadAppPackage decodes DNA and other appPackage data from appPackage file (via an io.reader)
-func LoadAppPackage(reader io.Reader) (appPackageP *AppPackage, err error) {
+func LoadAppPackage(reader io.Reader, encodingFormat string) (appPackageP *AppPackage, err error) {
 	var appPackage AppPackage
-	err = Decode(reader, "yml", &appPackage)
+	err = Decode(reader, encodingFormat, &appPackage)
 	if err != nil {
 		return
 	}
@@ -62,6 +62,10 @@ func LoadAppPackage(reader io.Reader) (appPackageP *AppPackage, err error) {
 `
 	return
 }
+
+const (
+	BasicTemplateAppPackageFormat = "yml"
+)
 
 var BasicTemplateAppPackage string = `{
  # AppPackage Version

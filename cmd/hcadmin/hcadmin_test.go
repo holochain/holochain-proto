@@ -93,16 +93,16 @@ func TestJoinFromPackage(t *testing.T) {
 		panic(err)
 	}
 
-	err = holo.WriteFile([]byte(holo.BasicTemplateAppPackage), d, "appPackage.json")
+	err = holo.WriteFile([]byte(holo.BasicTemplateAppPackage), d, "appPackage."+holo.BasicTemplateAppPackageFormat)
 	if err != nil {
 		panic(err)
 	}
 	app = setupApp()
 	Convey("it should join a chain", t, func() {
-		out, err := runAppWithStdoutCapture(app, []string{"hcadmin", "-verbose", "-path", d, "join", filepath.Join(d, "appPackage.json"), "testApp"})
+		out, err := runAppWithStdoutCapture(app, []string{"hcadmin", "-verbose", "-path", d, "join", filepath.Join(d, "appPackage."+holo.BasicTemplateAppPackageFormat), "testApp"})
 		So(err, ShouldBeNil)
 		So(out, ShouldContainSubstring, fmt.Sprintf("hcadmin version %s \n", app.Version))
-		So(out, ShouldContainSubstring, fmt.Sprintf("joined testApp from %s/appPackage.json", d))
+		So(out, ShouldContainSubstring, fmt.Sprintf("joined testApp from %s/appPackage."+holo.BasicTemplateAppPackageFormat, d))
 		So(out, ShouldContainSubstring, "Genesis entries added and DNA hashed for new holochain with ID:")
 	})
 	app = setupApp()

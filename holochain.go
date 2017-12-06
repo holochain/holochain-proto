@@ -694,18 +694,7 @@ func (h *Holochain) Reset() (err error) {
 	h.agentHash = Hash{}
 	h.agentTopHash = Hash{}
 
-	if h.chain != nil {
-		h.chain.Close()
-		h.chain = nil
-	}
-
-	if h.node != nil {
-		h.node.Close()
-	}
-
-	if h.dht != nil {
-		h.dht.Close()
-	}
+	h.Close()
 
 	err = os.RemoveAll(h.DBPath())
 	if err != nil {

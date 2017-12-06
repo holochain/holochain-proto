@@ -540,7 +540,7 @@ func (node *Node) Send(ctx context.Context, proto int, addr peer.ID, m *Message)
 	// decode the response
 	err = response.Decode(s)
 	if err != nil {
-		node.log.Logf("failed to decode: %v err:%v ", err)
+		node.log.Logf("failed to decode with err:%v ", err)
 		return
 	}
 	return

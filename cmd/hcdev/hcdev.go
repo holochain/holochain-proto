@@ -973,10 +973,11 @@ func getHolochain(c *cli.Context, service *holo.Service, identity string) (h *ho
 	}
 
 	fmt.Printf("Copying chain to: %s\n", rootPath)
-	_, err = service.Clone(devPath, filepath.Join(rootPath, name), agent, holo.CloneWithSameUUID, holo.InitializeDB)
+	h, err = service.Clone(devPath, filepath.Join(rootPath, name), agent, holo.CloneWithSameUUID, holo.InitializeDB)
 	if err != nil {
 		return
 	}
+	h.Close()
 
 	h, err = service.Load(name)
 	if err != nil {

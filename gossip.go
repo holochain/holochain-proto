@@ -488,10 +488,12 @@ func (dht *DHT) gossip() (err error) {
 
 // GossipTask runs a gossip and logs any errors
 func GossipTask(h *Holochain) {
-	if h.dht.gchan != nil {
-		err := h.dht.gossip()
-		if err != nil {
-			h.dht.glog.Logf("error: %v", err)
+	if h.dht != nil {
+		if h.dht.gchan != nil {
+			err := h.dht.gossip()
+			if err != nil {
+				h.dht.glog.Logf("error: %v", err)
+			}
 		}
 	}
 }

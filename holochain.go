@@ -715,7 +715,6 @@ func (h *Holochain) Reset() (err error) {
 		panic(err)
 	}
 
-	h.dht = NewDHT(h)
 	if h.asyncSends != nil {
 		close(h.asyncSends)
 		h.asyncSends = nil

@@ -11,6 +11,8 @@ import (
 	"fmt"
 	. "github.com/metacurrency/holochain"
 	"github.com/metacurrency/holochain/ui"
+	"github.com/struCoder/pidusage"
+	"os"
 	"path/filepath"
 	"regexp"
 	"strconv"
@@ -136,7 +138,7 @@ func testStringReplacements(input string, r *replacements) string {
 }
 
 // TestScenario runs the tests of a single role in a scenario
-func TestScenario(h *Holochain, scenario string, role string, replacementPairs map[string]string) (err error, testErrs []error) {
+func TestScenario(h *Holochain, scenario string, role string, replacementPairs map[string]string, benchmarks bool) (err error, testErrs []error) {
 	var config *TestConfig
 	dir := filepath.Join(h.TestPath(), scenario)
 
@@ -163,7 +165,7 @@ func TestScenario(h *Holochain, scenario string, role string, replacementPairs m
 	}
 	h.StartBackgroundTasks()
 
-	testErrs = DoTests(h, role, testSet, time.Duration(config.Duration)*time.Second, replacementPairs)
+	testErrs = DoTests(h, role, testSet, time.Duration(config.Duration)*time.Second, replacementPairs, benchmarks)
 
 	return
 }
@@ -182,15 +184,69 @@ type history struct {
 	lastMatches [3][]string
 }
 
+type benchmark struct {
+	ElapsedTime time.Duration
+	CPU         float64
+	Memory      float64
+	ChainGrowth int64
+	DHTGrowth   int64
+	Bandwidth   int64
+	start       time.Time
+	h           *Holochain
+}
+
+// StartBench returns a benchmark data struct set up so that a subsequent call to
+// EndBench can then complete and set the values
+func StartBench(h *Holochain) benchmark {
+	b := benchmark{
+		h:           h,
+		start:       time.Now(),
+		ChainGrowth: FileSize(h.DBPath(), StoreFileName),
+		DHTGrowth:   FileSize(h.DBPath(), DHTStoreFileName),
+	}
+	sysInfo, err := pidusage.GetStat(os.Getpid())
+	if err != nil {
+		panic("unable to start benchmark: " + err.Error())
+	}
+	b.CPU = sysInfo.CPU
+	b.Memory = sysInfo.Memory
+	return b
+}
+
+// End completes setting the values of the passed in benchmark struct which must
+// be initialized by a call to StartBench
+func (b *benchmark) End() {
+	sysInfo, err := pidusage.GetStat(os.Getpid())
+	if err != nil {
+		panic("unable to get cpu/memory data on end benchmark: " + err.Error())
+	}
+
+	// if it went by too fast assume a value of one
+	if sysInfo.CPU == 0 {
+		b.CPU = 1
+	} else {
+		b.CPU = sysInfo.CPU - b.CPU
+	}
+	b.ElapsedTime = time.Now().Sub(b.start)
+	b.ChainGrowth = FileSize(b.h.DBPath(), StoreFileName) - b.ChainGrowth
+	b.DHTGrowth = FileSize(b.h.DBPath(), DHTStoreFileName) - b.DHTGrowth
+	return
+}
+
 // DoTests runs through all the tests in a TestSet and returns any errors encountered
 // TODO: this code can cause crazy race conditions because lastResults and lastMatches get
 // passed into go routines that run asynchronously.  We should probably reimplement this with
 // channels or some other thread-safe queues.
-func DoTests(h *Holochain, name string, testSet TestSet, minTime time.Duration, replacementPairs map[string]string) (errs []error) {
+func DoTests(h *Holochain, name string, testSet TestSet, minTime time.Duration, replacementPairs map[string]string, recordBenchmarks bool) (errs []error) {
 	var history history
 	tests := testSet.Tests
 	done := make(chan bool, len(tests))
 	startTime := time.Now()
+
+	var benchmarks map[string]*benchmark
+	if recordBenchmarks {
+		benchmarks = make(map[string]*benchmark)
+	}
 
 	var count int
 	// queue up any timed tests into go routines
@@ -201,7 +257,7 @@ func DoTests(h *Holochain, name string, testSet TestSet, minTime time.Duration, 
 		count++
 		go func(index int, test TestData) {
 			waitTill(startTime, test.Time*time.Millisecond)
-			err := DoTest(h, name, index, testSet.Fixtures, test, startTime, &history, replacementPairs)
+			err := DoTest(h, name, index, testSet.Fixtures, test, startTime, &history, replacementPairs, benchmarks)
 			if err != nil {
 				errs = append(errs, err)
 			}
@@ -215,7 +271,7 @@ func DoTests(h *Holochain, name string, testSet TestSet, minTime time.Duration, 
 			continue
 		}
 
-		err := DoTest(h, name, i, testSet.Fixtures, t, startTime, &history, replacementPairs)
+		err := DoTest(h, name, i, testSet.Fixtures, t, startTime, &history, replacementPairs, benchmarks)
 		if err != nil {
 			errs = append(errs, err)
 		}
@@ -232,7 +288,27 @@ func DoTests(h *Holochain, name string, testSet TestSet, minTime time.Duration, 
 		waitTill(startTime, minTime)
 	}
 
+	if recordBenchmarks {
+		var total benchmark
+		for _, b := range benchmarks {
+			total.ElapsedTime += b.ElapsedTime
+			total.ChainGrowth += b.ChainGrowth
+			total.DHTGrowth += b.DHTGrowth
+			total.CPU += b.CPU
+		}
+		info := h.Config.Loggers.TestInfo
+		info.Logf(`Benchmark Summary:
+   Total elapsed time: %v
+   Total chain growth: %.2fK bytes
+   Total DHT growth: %.2fK bytes
+   Total CPU use: %v
+`, total.ElapsedTime, toK(total.ChainGrowth), toK(total.DHTGrowth), "-")
+	}
 	return
+}
+
+func toK(bytes int64) float64 {
+	return float64(bytes) / 1024.0
 }
 
 func toStringByType(data interface{}) (output string, err error) {
@@ -251,7 +327,7 @@ func toStringByType(data interface{}) (output string, err error) {
 }
 
 // DoTest runs a singe test.
-func DoTest(h *Holochain, name string, i int, fixtures TestFixtures, t TestData, startTime time.Time, history *history, replacementPairs map[string]string) (err error) {
+func DoTest(h *Holochain, name string, i int, fixtures TestFixtures, t TestData, startTime time.Time, history *history, replacementPairs map[string]string, benchmarks map[string]*benchmark) (err error) {
 	info := h.Config.Loggers.TestInfo
 	passed := h.Config.Loggers.TestPassed
 	failed := h.Config.Loggers.TestFailed
@@ -349,6 +425,10 @@ func DoTest(h *Holochain, name string, i int, fixtures TestFixtures, t TestData,
 
 		var actualResult interface{}
 		var actualError error
+		var b benchmark
+		if benchmarks != nil {
+			b = StartBench(h)
+		}
 		if t.Raw {
 			n, _, err := h.MakeRibosome(t.Zome)
 			if err != nil {
@@ -359,6 +439,17 @@ func DoTest(h *Holochain, name string, i int, fixtures TestFixtures, t TestData,
 		} else {
 			actualResult, actualError = h.Call(t.Zome, t.FnName, input, t.Exposure)
 		}
+		if benchmarks != nil {
+			b.End()
+			benchmarks[testID] = &b
+			info.Logf(`Benchmark for %s:
+   Elapsed time: %v
+   Chain growth: %.2fK bytes
+   DHT growth: %.2fK bytes
+   CPU: %v
+`, testID, b.ElapsedTime, toK(b.ChainGrowth), toK(b.DHTGrowth), "-")
+		}
+
 		var expectedResult, expectedError = output, t.Err
 		var expectedResultRegexp = t.Regexp
 		//====================
@@ -427,15 +518,15 @@ func DoTest(h *Holochain, name string, i int, fixtures TestFixtures, t TestData,
 // Test loops through each of the test files in path calling the functions specified
 // This function is useful only in the context of developing a holochain and will return
 // an error if the chain has already been started (i.e. has genesis entries)
-func Test(h *Holochain, bridgeApps []BridgeApp) []error {
-	return test(h, "", bridgeApps)
+func Test(h *Holochain, bridgeApps []BridgeApp, benchmarks bool) []error {
+	return test(h, "", bridgeApps, benchmarks)
 }
 
 // TestOne tests a single test file
 // This function is useful only in the context of developing a holochain and will return
 // an error if the chain has already been started (i.e. has genesis entries)
-func TestOne(h *Holochain, one string, bridgeApps []BridgeApp) []error {
-	return test(h, one, bridgeApps)
+func TestOne(h *Holochain, one string, bridgeApps []BridgeApp, benchmarks bool) []error {
+	return test(h, one, bridgeApps, benchmarks)
 }
 
 func initChainForTest(h *Holochain, reset bool) (err error) {
@@ -478,7 +569,7 @@ func BuildBridges(h *Holochain, port string, bridgeApps []BridgeApp) (bridgeAppS
 	return
 }
 
-func test(h *Holochain, one string, bridgeApps []BridgeApp) []error {
+func test(h *Holochain, one string, bridgeApps []BridgeApp, benchmarks bool) []error {
 
 	var err error
 	var errs []error
@@ -529,7 +620,7 @@ func test(h *Holochain, one string, bridgeApps []BridgeApp) []error {
 				ers = []error{err}
 			} else {
 				//	go h.dht.HandleChangeReqs()
-				ers = DoTests(h, name, ts, 0, nil)
+				ers = DoTests(h, name, ts, 0, nil, benchmarks)
 
 				// stop all the bridge web servers
 				for _, server := range bridgeAppServers {

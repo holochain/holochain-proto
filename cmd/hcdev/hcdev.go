@@ -180,7 +180,7 @@ func setupApp() (app *cli.App) {
 		},
 	}
 
-	var interactive, dumpChain, dumpDHT, initTest bool
+	var interactive, dumpChain, dumpDHT, initTest, benchmarks bool
 	var clonePath, appPackagePath, cloneExample, outputDir string
 	app.Commands = []cli.Command{
 		{
@@ -361,6 +361,11 @@ func setupApp() (app *cli.App) {
 					Usage:       "unix timestamp - sync tests to run at this time",
 					Destination: &syncPauseUntil,
 				},
+				cli.BoolFlag{
+					Name:        "benchmarks",
+					Usage:       "calculate benchmarks during test",
+					Destination: &benchmarks,
+				},
 			},
 			Action: func(c *cli.Context) error {
 				holo.Debug("test: start")
@@ -431,16 +436,16 @@ func setupApp() (app *cli.App) {
 							pairs["%"+role+"_key%"] = hash
 						}
 					}
-					err, errs = TestScenario(h, scenario, role, pairs)
+					err, errs = TestScenario(h, scenario, role, pairs, benchmarks)
 					if err != nil {
 						return cmd.MakeErrFromErr(c, err)
 					}
 					//holo.Debugf("testScenario: h: %v\n", spew.Sdump(h))
 
 				} else if len(args) == 1 {
-					errs = TestOne(h, args[0], bridgeApps)
+					errs = TestOne(h, args[0], bridgeApps, benchmarks)
 				} else if len(args) == 0 {
-					errs = Test(h, bridgeApps)
+					errs = Test(h, bridgeApps, benchmarks)
 				} else {
 					return cmd.MakeErr(c, "expected 0 args (run all stand-alone tests), 1 arg (a single stand-alone test) or 2 args (scenario and role)")
 				}
@@ -465,6 +470,11 @@ func setupApp() (app *cli.App) {
 					Name:        "outputDir",
 					Usage:       "directory to send output",
 					Destination: &outputDir,
+				},
+				cli.BoolFlag{
+					Name:        "benchmarks",
+					Usage:       "calculate benchmarks during scenario test",
+					Destination: &benchmarks,
 				},
 			},
 			Action: func(c *cli.Context) error {
@@ -593,6 +603,9 @@ func setupApp() (app *cli.App) {
 							"-logPrefix="+logPrefix,
 							"-serverID="+serverID,
 							"-agentID="+agentID,
+
+							fmt.Sprintf("-benchmarks=%v", benchmarks),
+
 							fmt.Sprintf("-bootstrapServer=%v", bootstrapServer),
 							fmt.Sprintf("-keepalive=%v", keepalive),
 							"test",

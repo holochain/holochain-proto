@@ -136,18 +136,20 @@ func CleanupTestChain(h *Holochain, d string) {
 	CleanupTestDir(d)
 }
 
-func ShouldLog(log *Logger, message string, fn func()) {
+func ShouldLog(log *Logger, fn func(), messages ...string) {
 	var buf bytes.Buffer
 	w := log.w
 	log.w = &buf
 	e := log.Enabled
 	log.Enabled = true
 	fn()
-	matched := strings.Index(buf.String(), message) >= 0
-	if matched {
-		So(matched, ShouldBeTrue)
-	} else {
-		So(buf.String(), ShouldEqual, message)
+	for _, message := range messages {
+		matched := strings.Index(buf.String(), message) >= 0
+		if matched {
+			So(matched, ShouldBeTrue)
+		} else {
+			So(buf.String(), ShouldEqual, message)
+		}
 	}
 	log.Enabled = e
 	log.w = w

@@ -21,10 +21,10 @@ func TestBridgeCall(t *testing.T) {
 
 	fakeFromApp, _ := NewHash("QmVGtdTZdTFaLsaj2RwdVG8jcjNNcp1DE914DKZ2kHmXHx")
 	Convey("it should call the bridgeGenesis function when bridging on the to side", t, func() {
-		ShouldLog(h.nucleus.alog, `bridge genesis to-- other side is:`+fakeFromApp.String()+` bridging data:app data`, func() {
+		ShouldLog(h.nucleus.alog, func() {
 			token, err = h.AddBridgeAsCallee(fakeFromApp, "app data")
 			So(err, ShouldBeNil)
-		})
+		}, `bridge genesis to-- other side is:`+fakeFromApp.String()+` bridging data:app data`)
 		c := Capability{Token: token, db: h.bridgeDB}
 		bridgeSpecStr, err := c.Validate(nil)
 		So(err, ShouldBeNil)
@@ -35,11 +35,11 @@ func TestBridgeCall(t *testing.T) {
 	Convey("it should call the bridgeGenesis function when bridging on the from side", t, func() {
 		h.nucleus.dna.Zomes[0].BridgeTo = fakeToApp
 		h.nucleus.dna.Zomes[0].BridgeTo = fakeToApp
-		ShouldLog(h.nucleus.alog, `bridge genesis from-- other side is:`+fakeToApp.String()+` bridging data:app data`, func() {
+		ShouldLog(h.nucleus.alog, func() {
 			url := "http://localhost:31415"
 			err := h.AddBridgeAsCaller(fakeToApp, token, url, "app data")
 			So(err, ShouldBeNil)
-		})
+		}, `bridge genesis from-- other side is:`+fakeToApp.String()+` bridging data:app data`)
 	})
 
 	Convey("it should call the bridged function", t, func() {

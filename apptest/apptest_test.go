@@ -130,14 +130,14 @@ func TestTestOne(t *testing.T) {
 	}
 	Convey("it should validate on test data", t, func() {
 
-		ShouldLog(&h.Config.Loggers.TestInfo, `========================================
+		ShouldLog(&h.Config.Loggers.TestInfo, func() {
+			err := TestOne(h, "testSet1", nil)
+			So(err, ShouldBeNil)
+		}, `========================================
 Test: 'testSet1' starting...
 ========================================
 Test 'testSet1.0' t+0ms: { zySampleZome addEven 2 %h%   0s 0s  false 0}
-`, func() {
-			err := TestOne(h, "testSet1", nil)
-			So(err, ShouldBeNil)
-		})
+`)
 	})
 }
 
@@ -153,10 +153,10 @@ func TestTestScenario(t *testing.T) {
 	}
 	Convey("it should run a test scenario", t, func() {
 		// the sample scenario is supposed to fail
-		ShouldLog(&h.Config.Loggers.TestFailed, `server_foo`, func() {
+		ShouldLog(&h.Config.Loggers.TestFailed, func() {
 			err, errs := TestScenario(h, "sampleScenario", "speaker", map[string]string{"%server%": "server_foo"})
 			So(err, ShouldBeNil)
 			So(len(errs), ShouldEqual, 1)
-		})
+		}, `server_foo`)
 	})
 }

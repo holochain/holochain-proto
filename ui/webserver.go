@@ -189,7 +189,7 @@ func (ws *WebServer) Start() {
 	// set router
 	ws.log.Logf("Starting server on localhost:%s\n", ws.port)
 
-	ws.server = &http.Server{Addr: ":" + ws.port, Handler: mux}
+	ws.server = &http.Server{Addr: "0.0.0.0:" + ws.port, Handler: mux}
 
 	go func() {
 		if err := ws.server.ListenAndServe(); err != nil {

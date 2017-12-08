@@ -28,7 +28,7 @@ func setupApp() (app *cli.App) {
 	app.Usage = fmt.Sprintf("serve a chain to the web on localhost:<port> (defaults to %s)", defaultPort)
 	app.ArgsUsage = "holochain-name [port]"
 
-	app.Version = fmt.Sprintf("0.0.1 (holochain %s)", holo.VersionStr)
+	app.Version = fmt.Sprintf("0.0.3 (holochain %s)", holo.VersionStr)
 
 	var root string
 	var service *holo.Service

@@ -64,7 +64,7 @@ Which you choose depends on your preference and your purpose.  If you intend to 
 3. Install the command line tool suite with:
 
 ```bash
-$ go get -d github.com/metacurrency/holochain
+$ go get -d -v github.com/metacurrency/holochain
 $ cd $GOPATH/src/github.com/metacurrency/holochain
 $ make
 ```

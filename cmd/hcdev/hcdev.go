@@ -180,8 +180,8 @@ func setupApp() (app *cli.App) {
 		},
 	}
 
-	var interactive, dumpChain, dumpDHT, initTest bool
-	var clonePath, appPackagePath, cloneExample, outputDir string
+	var interactive, dumpChain, dumpDHT, initTest, fromDevelop bool
+	var clonePath, appPackagePath, cloneExample, outputDir, fromBranch string
 	app.Commands = []cli.Command{
 		{
 			Name:    "init",
@@ -212,6 +212,16 @@ func setupApp() (app *cli.App) {
 					Name:        "cloneExample",
 					Usage:       "example from github.com/holochain to clone from",
 					Destination: &cloneExample,
+				},
+				cli.StringFlag{
+					Name:        "fromBranch",
+					Usage:       "specify branch to use with cloneExample",
+					Destination: &fromBranch,
+				},
+				cli.BoolFlag{
+					Name:        "fromDevelop",
+					Usage:       "specify that cloneExample should use the 'develop' branch",
+					Destination: &fromDevelop,
 				},
 			},
 			ArgsUsage: "<name>",
@@ -293,12 +303,29 @@ func setupApp() (app *cli.App) {
 					if err != nil {
 						return cmd.MakeErrFromErr(c, err)
 					}
+					if fromDevelop {
+						fromBranch = "develop"
+					}
 					command := exec.Command("git", "clone", fmt.Sprintf("git://github.com/Holochain/%s.git", cloneExample))
 					out, err := command.CombinedOutput()
 					fmt.Printf("git: %s\n", string(out))
 					if err != nil {
 						return cmd.MakeErrFromErr(c, err)
 					}
+
+					if fromBranch != "" {
+						err = os.Chdir(filepath.Join(tmpCopyDir, cloneExample))
+						if err != nil {
+							return cmd.MakeErrFromErr(c, err)
+						}
+						command := exec.Command("git", "checkout", fromBranch)
+						out, err := command.CombinedOutput()
+						fmt.Printf("git: %s\n", string(out))
+						if err != nil {
+							return cmd.MakeErrFromErr(c, err)
+						}
+					}
+
 					clonePath := filepath.Join(tmpCopyDir, cloneExample)
 					fmt.Printf("cloning %s from github.com/Holochain/%s\n", name, cloneExample)
 					err = doClone(service, clonePath, devPath)

@@ -200,6 +200,10 @@ func TestWeb(t *testing.T) {
 	tmpTestDir, app := setupTestingApp("foo")
 	defer os.RemoveAll(tmpTestDir)
 
+	os.Unsetenv("HCLOG_DHT_ENABLE")
+	os.Unsetenv("HCLOG_GOSSIP_ENABLE")
+	os.Unsetenv("HCLOG_DEBUG_ENABLE")
+
 	Convey("'web' should run a webserver", t, func() {
 		out, err := cmd.RunAppWithStdoutCapture(app, []string{"hcdev", "-no-nat-upnp", "web"}, 5*time.Second)
 		So(err, ShouldBeNil)
@@ -207,7 +211,7 @@ func TestWeb(t *testing.T) {
 		So(out, ShouldContainSubstring, "Serving holochain with DNA hash:")
 		// it should include app level debug but not holochain debug
 		So(out, ShouldContainSubstring, "running zyZome genesis")
-		So(out, ShouldNotContainSubstring, "NewEntry of %dna added as: QmR")
+		So(out, ShouldNotContainSubstring, "NewEntry of %dna added as: Qm")
 	})
 	app = setupApp()
 
@@ -223,6 +227,25 @@ func TestWeb(t *testing.T) {
 		out, err := cmd.RunAppWithStdoutCapture(app, []string{"hcdev", "-path", tmpTestDir, "web"}, 1*time.Second)
 		So(err, ShouldBeError)
 		So(out, ShouldContainSubstring, "doesn't look like a holochain app")
+	})
+}
+
+func TestIdenity(t *testing.T) {
+	os.Setenv("HC_TESTING", "true")
+	tmpTestDir, app := setupTestingApp("foo")
+	defer os.RemoveAll(tmpTestDir)
+	Convey("it should create default from users config", t, func() {
+		host, _ := os.Hostname()
+		So(getIdentity("", ""), ShouldEqual, sysUser.Username+"@"+host)
+	})
+	Convey("it should use params", t, func() {
+		So(getIdentity("foo", "bar"), ShouldEqual, "foo@bar")
+	})
+	Convey("verbose should show the identity and nodeid", t, func() {
+		out, err := cmd.RunAppWithStdoutCapture(app, []string{"hcdev", "-agentID=foo", "-serverID=bar", "-verbose", "web"}, 1*time.Second)
+		So(err, ShouldBeNil)
+		So(out, ShouldContainSubstring, "Identity: foo")
+		So(out, ShouldContainSubstring, "NodeID: QmNQq6JDkxoYFzWVi5C4fVQ47zbFpUDiRg2AF8XE6CDDow")
 	})
 }
 

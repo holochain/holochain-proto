@@ -215,7 +215,7 @@ func setupApp() (app *cli.App) {
 				},
 				cli.StringFlag{
 					Name:        "fromBranch",
-					Usage:       "specify a specify branch name whith cloneExample",
+					Usage:       "specify branch to use with cloneExample",
 					Destination: &fromBranch,
 				},
 				cli.BoolFlag{

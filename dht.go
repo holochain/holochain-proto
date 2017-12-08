@@ -902,12 +902,14 @@ func (dht *DHT) Close() {
 	dht.gchan = nil
 	close(dht.gossipPuts)
 	dht.gossipPuts = nil
+	dht.db.Close()
+	dht.db = nil
 }
 
 // Retry starts retry processing
 func RetryTask(h *Holochain) {
 	dht := h.dht
-	if len(dht.retryQueue) > 0 {
+	if dht != nil && len(dht.retryQueue) > 0 {
 		r := <-dht.retryQueue
 		if r.retries > 0 {
 			resp, err := actionReceiver(dht.h, &r.msg, r.retries-1)

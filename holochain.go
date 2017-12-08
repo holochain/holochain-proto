@@ -673,14 +673,17 @@ func (h *Holochain) GetZome(zName string) (z *Zome, err error) {
 
 // Close releases the resources associated with a holochain
 func (h *Holochain) Close() {
-	if h.chain.s != nil {
-		h.chain.s.Close()
+	if h.chain != nil {
+		h.chain.Close()
+		h.chain = nil
 	}
 	if h.dht != nil {
 		h.dht.Close()
+		h.dht = nil
 	}
 	if h.node != nil {
 		h.node.Close()
+		h.node = nil
 	}
 }
 
@@ -691,13 +694,7 @@ func (h *Holochain) Reset() (err error) {
 	h.agentHash = Hash{}
 	h.agentTopHash = Hash{}
 
-	if h.chain.s != nil {
-		h.chain.s.Close()
-	}
-
-	if h.node != nil {
-		h.node.Close()
-	}
+	h.Close()
 
 	err = os.RemoveAll(h.DBPath())
 	if err != nil {
@@ -707,6 +704,7 @@ func (h *Holochain) Reset() (err error) {
 	if err = os.MkdirAll(h.DBPath(), os.ModePerm); err != nil {
 		return
 	}
+
 	h.chain, err = NewChainFromFile(h.hashSpec, filepath.Join(h.DBPath(), StoreFileName))
 	if err != nil {
 		return
@@ -716,10 +714,7 @@ func (h *Holochain) Reset() (err error) {
 	if err != nil {
 		panic(err)
 	}
-	if h.dht != nil {
-		h.dht.Close()
-	}
-	h.dht = NewDHT(h)
+
 	if h.asyncSends != nil {
 		close(h.asyncSends)
 		h.asyncSends = nil

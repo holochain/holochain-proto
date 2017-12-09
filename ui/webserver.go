@@ -132,9 +132,9 @@ func (ws *WebServer) Start() {
 		ws.log.Logf(" result: %v\n", result)
 		switch t := result.(type) {
 		case string:
-			fmt.Fprintf(w, t)
+			fmt.Fprint(w, t)
 		case []byte:
-			fmt.Fprintf(w, string(t))
+			fmt.Fprint(w, string(t))
 		default:
 			err = fmt.Errorf("Unknown type from Call of %s:%s", zome, function)
 		}
@@ -178,9 +178,9 @@ func (ws *WebServer) Start() {
 		ws.log.Logf(" result: %v\n", result)
 		switch t := result.(type) {
 		case string:
-			fmt.Fprintf(w, t)
+			fmt.Fprint(w, t)
 		case []byte:
-			fmt.Fprintf(w, string(t))
+			fmt.Fprint(w, string(t))
 		default:
 			err = fmt.Errorf("Unknown type from Call of %s:%s", zome, function)
 		}

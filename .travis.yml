@@ -8,9 +8,11 @@ services:
   - docker
 
 before_install:
-  - cd docker
-  - docker build -t "philipbeadle/holochain_test" .
-  - cd ..
+  - if [ "$TRAVIS_BRANCH" == "322-process-for-keeping-dockerfile-up-to-date" ]; then
+    cd docker
+    docker build -t "metacurrency/holochain" .
+    cd ..
+    fi
 
 script:
   - make

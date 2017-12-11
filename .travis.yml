@@ -7,6 +7,11 @@ go:
 services:
   - docker
 
+before_install:
+  - cd docker
+  - docker build -t "philipbeadle/holochain_test" .
+  - cd ..
+
 script:
   - make
   # - TEST_FLAGS='-v -coverprofile=$(pkg_path)/coverage.txt -covermode=atomic' make -e test
@@ -18,8 +23,6 @@ cache:
 after_success:
   # - bash <(curl -s https://codecov.io/bash)
   - if [ "$TRAVIS_BRANCH" == "322-process-for-keeping-dockerfile-up-to-date" ]; then
-    cd docker
-    docker build -t "metacurrency/holochain" .
     docker login -u "$DOCKER_USERNAME" -p "$DOCKER_PASSWORD";
     docker push metacurrency/holochain;
     fi

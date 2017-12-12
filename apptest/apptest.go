@@ -190,7 +190,7 @@ type benchmark struct {
 	Memory      float64
 	ChainGrowth int64
 	DHTGrowth   int64
-	Bandwidth   int64
+	BytesSent   int64
 	start       time.Time
 	h           *Holochain
 }
@@ -210,12 +210,20 @@ func StartBench(h *Holochain) benchmark {
 	}
 	b.CPU = sysInfo.CPU
 	b.Memory = sysInfo.Memory
+	BytesSentChan = make(chan int64, 100)
+	go func() {
+		for BytesSentChan != nil {
+			b.BytesSent += <-BytesSentChan
+		}
+	}()
 	return b
 }
 
 // End completes setting the values of the passed in benchmark struct which must
 // be initialized by a call to StartBench
 func (b *benchmark) End() {
+	bs := BytesSentChan
+	BytesSentChan = nil
 	sysInfo, err := pidusage.GetStat(os.Getpid())
 	if err != nil {
 		panic("unable to get cpu/memory data on end benchmark: " + err.Error())
@@ -230,6 +238,9 @@ func (b *benchmark) End() {
 	b.ElapsedTime = time.Now().Sub(b.start)
 	b.ChainGrowth = FileSize(b.h.DBPath(), StoreFileName) - b.ChainGrowth
 	b.DHTGrowth = FileSize(b.h.DBPath(), DHTStoreFileName) - b.DHTGrowth
+	for len(bs) > 0 {
+		b.BytesSent += <-bs
+	}
 	return
 }
 
@@ -295,14 +306,16 @@ func DoTests(h *Holochain, name string, testSet TestSet, minTime time.Duration, 
 			total.ChainGrowth += b.ChainGrowth
 			total.DHTGrowth += b.DHTGrowth
 			total.CPU += b.CPU
+			total.BytesSent += b.BytesSent
 		}
 		info := h.Config.Loggers.TestInfo
 		info.Logf(`Benchmark Summary:
    Total elapsed time: %v
    Total chain growth: %.2fK bytes
    Total DHT growth: %.2fK bytes
+   Total Bytes sent: %v
    Total CPU use: %v
-`, total.ElapsedTime, toK(total.ChainGrowth), toK(total.DHTGrowth), "-")
+`, total.ElapsedTime, toK(total.ChainGrowth), toK(total.DHTGrowth), toK(total.BytesSent), "-")
 	}
 	return
 }
@@ -446,8 +459,9 @@ func DoTest(h *Holochain, name string, i int, fixtures TestFixtures, t TestData,
    Elapsed time: %v
    Chain growth: %.2fK bytes
    DHT growth: %.2fK bytes
+   BytesSent: %v
    CPU: %v
-`, testID, b.ElapsedTime, toK(b.ChainGrowth), toK(b.DHTGrowth), "-")
+`, testID, b.ElapsedTime, toK(b.ChainGrowth), toK(b.DHTGrowth), toK(b.BytesSent), "-")
 		}
 
 		var expectedResult, expectedError = output, t.Err

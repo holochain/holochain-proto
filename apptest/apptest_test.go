@@ -167,20 +167,31 @@ func TestTestBenchmark(t *testing.T) {
 	d, _, h := PrepareTestChain("test")
 	defer CleanupTestChain(h, d)
 
-	Convey("it should calculate benchmark data", t, func() {
+	Convey("it should calculate time passed benchmark data", t, func() {
 		benchmark := StartBench(h)
 		time.Sleep(time.Millisecond)
 		benchmark.End()
 		So(benchmark.ElapsedTime, ShouldBeGreaterThanOrEqualTo, time.Millisecond)
 		So(benchmark.ChainGrowth, ShouldEqual, 0)
 		So(benchmark.DHTGrowth, ShouldEqual, 0)
+		So(benchmark.BytesSent, ShouldEqual, 0)
+	})
 
-		benchmark = StartBench(h)
+	Convey("it should calculate file size growth benchmark data", t, func() {
+		benchmark := StartBench(h)
 		commit(h, "oddNumbers", "7")
 		benchmark.End()
 		So(benchmark.ChainGrowth, ShouldBeGreaterThan, 0)
 		So(benchmark.DHTGrowth, ShouldBeGreaterThan, 0)
 		So(benchmark.CPU, ShouldBeGreaterThan, 0)
+	})
+
+	Convey("it should calculate file size growth benchmark data", t, func() {
+		benchmark := StartBench(h)
+		BytesSentChan <- int64(100)
+		BytesSentChan <- int64(200)
+		benchmark.End()
+		So(benchmark.BytesSent, ShouldEqual, 300)
 	})
 }
 
@@ -205,11 +216,13 @@ func TestTestBenchmarks(t *testing.T) {
 			`Elapsed time:`,
 			`Chain growth:`,
 			`DHT growth:`,
+			`Bytes sent:`,
 			`Benchmark Summary:`,
 			`Total elapsed time:`,
 			`Total chain growth:`,
 			`Total DHT growth:`,
 			`Total CPU use:`,
+			`Total Bytes sent:`,
 		)
 	})
 }

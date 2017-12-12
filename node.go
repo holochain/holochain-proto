@@ -112,6 +112,8 @@ type Message struct {
 	Body interface{}
 }
 
+var BytesSentChan chan int64
+
 // Node represents a node in the network
 type Node struct {
 	HashAddr     peer.ID
@@ -457,9 +459,13 @@ func (node *Node) respondWith(s net.Stream, err error, body interface{}) {
 	if err != nil {
 		Infof("Response failed: unable to encode message: %v", m)
 	}
-	_, err = s.Write(data)
+	var n int
+	n, err = s.Write(data)
 	if err != nil {
 		Infof("Response failed: write returned error: %v", err)
+	}
+	if BytesSentChan != nil {
+		BytesSentChan <- int64(n)
 	}
 }
 
@@ -535,6 +541,9 @@ func (node *Node) Send(ctx context.Context, proto int, addr peer.ID, m *Message)
 	}
 	if n != len(data) {
 		err = errors.New("unable to send all data")
+	}
+	if BytesSentChan != nil {
+		BytesSentChan <- int64(n)
 	}
 
 	// decode the response

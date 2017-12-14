@@ -162,10 +162,12 @@ const (
 
 // implement peer found function for mdns discovery
 func (h *Holochain) HandlePeerFound(pi pstore.PeerInfo) {
-	h.dht.dlog.Logf("discovered peer via mdns: %v", pi)
-	err := h.AddPeer(pi)
-	if err != nil {
-		h.dht.dlog.Logf("error when adding peer: %v, %v", pi, err)
+	if h.dht != nil {
+		h.dht.dlog.Logf("discovered peer via mdns: %v", pi)
+		err := h.AddPeer(pi)
+		if err != nil {
+			h.dht.dlog.Logf("error when adding peer: %v, %v", pi, err)
+		}
 	}
 }
 
@@ -549,7 +551,7 @@ func (node *Node) Send(ctx context.Context, proto int, addr peer.ID, m *Message)
 	// decode the response
 	err = response.Decode(s)
 	if err != nil {
-		node.log.Logf("failed to decode: %v err:%v ", err)
+		node.log.Logf("failed to decode with err:%v ", err)
 		return
 	}
 	return

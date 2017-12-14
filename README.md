@@ -64,7 +64,7 @@ Which you choose depends on your preference and your purpose.  If you intend to 
 3. Install the command line tool suite with:
 
 ```bash
-$ go get -d github.com/metacurrency/holochain
+$ go get -d -v github.com/metacurrency/holochain
 $ cd $GOPATH/src/github.com/metacurrency/holochain
 $ make
 ```
@@ -93,7 +93,7 @@ For example, add the following to the end of your shell profile (usually `~/.bas
 First you'll need to install some necessary programs if you don't already have them.
 * [Download Go](https://golang.org/dl/). Download the "Archive" or "Installer" for version 1.8 or later for Windows and your CPU. The "Source" download does not contain an executable.
 * [Install Windows git](https://git-scm.com/downloads). Be sure to select the appropriate options so that git is accessible from the Windows command line.
-* [Install GnuWin32 make](http://gnuwin32.sourceforge.net/packages/make.htm#download).
+* Optional: [Install GnuWin32 make](http://gnuwin32.sourceforge.net/packages/make.htm#download).
 
 Next, in your Control Panel, select *System>Advanced system settings>Environment Variables...* and under *System Variables* do the following:
 1. Add a new entry with the name `GOPATH` and the value `%USERPROFILE%\go` (Or your Go workspace folder).

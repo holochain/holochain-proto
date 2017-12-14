@@ -1,17 +1,30 @@
-os:
-  - linux
+sudo: required
 
 language: go
 go:
   - 1.8
 
+services:
+  - docker
+
+before_install:
+    - if [ "$TRAVIS_BRANCH" == "master" ]; then
+      cd docker;
+      docker build -t "metacurrency/holochain" .;
+      cd ..;
+      fi
+
 script:
   - make hcdev
   - TEST_FLAGS='-v -coverprofile=$(pkg_path)/coverage.txt -covermode=atomic' make -e test
 
-after_success:
-  - bash <(curl -s https://codecov.io/bash)
-
 cache:
     directories:
         - $GOPATH/src/gx
+
+after_success:
+  - bash <(curl -s https://codecov.io/bash)
+  - if [ "$TRAVIS_BRANCH" == "master" ]; then
+    docker login -u "$DOCKER_USERNAME" -p "$DOCKER_PASSWORD";
+    docker push metacurrency/holochain;
+    fi

@@ -135,6 +135,15 @@ func TestInit(t *testing.T) {
 		err = app.Run(os.Args)
 		So(err, ShouldBeNil)
 		So(cmd.IsFile(filepath.Join(tmpTestDir, "clutter", "dna", "clutter", "clutter.js")), ShouldBeTrue)
+		// or from a branch
+		err = os.Chdir(tmpTestDir)
+		if err != nil {
+			panic(err)
+		}
+		os.Args = []string{"hcdev", "init", "-cloneExample=clutter", "-fromDevelop", "clutter2"}
+		err = app.Run(os.Args)
+		So(err, ShouldBeNil)
+		So(cmd.IsFile(filepath.Join(tmpTestDir, "clutter2", "dna", "clutter", "clutter.js")), ShouldBeTrue)
 
 		// or with a specified name
 		err = os.Chdir(tmpTestDir)

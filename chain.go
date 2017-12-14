@@ -553,3 +553,9 @@ func (c *Chain) String() string {
 func (c *Chain) Length() int {
 	return len(c.Headers)
 }
+
+// Close the chain's file
+func (c *Chain) Close() {
+	c.s.Close()
+	c.s = nil
+}

@@ -166,3 +166,16 @@ func compareFile(path1 string, path2 string, fileName string) bool {
 	}
 	return (string(src) == string(dst)) && (string(src) != "")
 }
+
+func SetIdentity(h *Holochain, identity AgentIdentity) {
+	agent := h.Agent()
+	SetAgentIdentity(agent, identity)
+	h.nodeID, h.nodeIDStr, _ = agent.NodeID()
+}
+
+func SetAgentIdentity(agent Agent, identity AgentIdentity) {
+	agent.SetIdentity(identity)
+	var seed io.Reader
+	seed = MakeTestSeed(string(identity))
+	agent.GenKeys(seed)
+}

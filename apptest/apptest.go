@@ -151,6 +151,9 @@ func TestScenario(h *Holochain, scenario string, role string, replacementPairs m
 	if err != nil {
 		return
 	}
+	if testSet.Identity != "" {
+		SetIdentity(h, AgentIdentity(testSet.Identity))
+	}
 
 	err = initChainForTest(h, true)
 	if err != nil {
@@ -612,12 +615,12 @@ func test(h *Holochain, one string, bridgeApps []BridgeApp, benchmarks bool) []e
 		info.Logf("Test: '%s' starting...", name)
 		info.Log("========================================")
 		// setup the genesis entries
+		identity := defaultIdentity
 		if ts.Identity != "" {
-			id := AgentIdentity(ts.Identity)
-			h.Agent().SetIdentity(id)
-		} else {
-			h.Agent().SetIdentity(defaultIdentity)
+			identity = AgentIdentity(ts.Identity)
 		}
+		SetIdentity(h, identity)
+		h.Debugf("Setting identity to:%v", h.Agent().Identity())
 		err = initChainForTest(h, true)
 		var ers []error
 		if err != nil {

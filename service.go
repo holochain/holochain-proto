@@ -134,25 +134,27 @@ type TestFixtures struct {
 
 // TestSet holds a set of tests plus configuration and fixture data for those tests
 type TestSet struct {
-	Tests    []TestData
-	Identity string
-	Fixtures TestFixtures
+	Tests     []TestData
+	Identity  string
+	Fixtures  TestFixtures
+	Benchmark bool // activate benchmarking for all tests
 }
 
 // TestData holds a test entry for a chain
 type TestData struct {
-	Convey   string        // a human readable description of the tests intent
-	Zome     string        // the zome in which to find the function
-	FnName   string        // the function to call
-	Input    interface{}   // the function's input
-	Output   interface{}   // the expected output to match against (full match)
-	Err      string        // the expected error to match against
-	Regexp   string        // the expected out to match again (regular expression)
-	Time     time.Duration // offset in milliseconds from the start of the test at which to run this test.
-	Wait     time.Duration // time in milliseconds to wait before running this test from when the previous ran
-	Exposure string        // the exposure context for the test call (defaults to ZOME_EXPOSURE)
-	Raw      bool          // set to true if we should ignore fnName and just call input as raw code in the zome, useful for testing helper functions and validation functions
-	Repeat   int           // number of times to repeat this test, useful for scenario testing
+	Convey    string        // a human readable description of the tests intent
+	Zome      string        // the zome in which to find the function
+	FnName    string        // the function to call
+	Input     interface{}   // the function's input
+	Output    interface{}   // the expected output to match against (full match)
+	Err       string        // the expected error to match against
+	Regexp    string        // the expected out to match again (regular expression)
+	Time      time.Duration // offset in milliseconds from the start of the test at which to run this test.
+	Wait      time.Duration // time in milliseconds to wait before running this test from when the previous ran
+	Exposure  string        // the exposure context for the test call (defaults to ZOME_EXPOSURE)
+	Raw       bool          // set to true if we should ignore fnName and just call input as raw code in the zome, useful for testing helper functions and validation functions
+	Repeat    int           // number of times to repeat this test, useful for scenario testing
+	Benchmark bool          // activate benchmarking for this test
 }
 
 // IsDevMode is used to enable certain functionality when developing holochains, for example,

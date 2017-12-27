@@ -183,7 +183,7 @@ func TestTestBenchmark(t *testing.T) {
 		benchmark.End()
 		So(benchmark.ChainGrowth, ShouldBeGreaterThan, 0)
 		So(benchmark.DHTGrowth, ShouldBeGreaterThan, 0)
-		So(benchmark.CPU, ShouldBeGreaterThan, 0)
+		So(benchmark.CPU, ShouldBeGreaterThanOrEqualTo, 0)
 	})
 
 	Convey("it should calculate file size growth benchmark data", t, func() {

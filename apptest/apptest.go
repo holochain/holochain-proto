@@ -82,8 +82,14 @@ func testStringReplacements(input string, r *replacements) string {
 					panic(err)
 				}
 			}
-			hash := h.Chain().Nth(hashIdx).EntryLink
-			output = strings.Replace(output, m[1], hash.String(), -1)
+			entry := h.Chain().Nth(hashIdx)
+			var hash string
+			if entry != nil {
+				hash = entry.EntryLink.String()
+			} else {
+				hash = fmt.Sprintf("<%d: entry doesn't exist>", hashIdx)
+			}
+			output = strings.Replace(output, m[1], hash, -1)
 		}
 	}
 
@@ -453,6 +459,8 @@ func DoTest(h *Holochain, name string, i int, fixtures TestFixtures, t TestData,
 		if t.Wait > 0 {
 			info.Logf("   waiting %dms...", t.Wait)
 			time.Sleep(time.Millisecond * t.Wait)
+			elapsed := time.Now().Sub(startTime) / time.Millisecond
+			info.Logf("   test '%s.%d%s' continuing at t+%dms", name, i, rStr, elapsed)
 		}
 
 		h.Debugf("Input before replacement: %s", input)

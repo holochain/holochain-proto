@@ -3,7 +3,7 @@ package holochain
 import (
 	"encoding/json"
 	"fmt"
-	zygo "github.com/glycerine/zygomys/repl"
+	zygo "github.com/glycerine/zygomys/zygo"
 	peer "github.com/libp2p/go-libp2p-peer"
 	. "github.com/metacurrency/holochain/hash"
 	. "github.com/smartystreets/goconvey/convey"

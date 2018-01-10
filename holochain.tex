@@ -47,7 +47,7 @@
 \newcommand{\eqbang}{\stackrel{!}{=}}
 
 \title{Holochain \\
-\small scalable agent-centric distributed computing\\DRAFT(ALPHA 0) -- 10/24/2017}
+\small scalable agent-centric distributed computing\\DRAFT(ALPHA 0) -- 1/10/2018}
 
 \author{Eric Harris-Braun, Nicolas Luck, Arthur Brock}
 
@@ -154,19 +154,27 @@ Using this definition, Bitcoin can be understood as that system \sbtc where:
 
 The first point establishes the central aspect of Bitcoin's (and Blockchain applications' in general) strategy for solving or avoiding problems otherwise encountered in decentralized systems, and that is by trying to maintain a network state in which all nodes \textbf{should} have the same (local) chain.
 
-By contrast, for \sgit there is no such constraint on any $\chain_n$, $\chain_m$ in nodes $n$ and $m$ matching, also $V(e,v)$ only checks the structural validity of $e$ as a commit object not it's content, and $I(t)$ can be understood to be the set of git commands available to the user, and $\tau_\chain$ the function that adds a commit object and $\tau_\textrm{D}$ the function that adds code to the \texttt{index} triggered by \texttt{add}. $E$ is, similarly to \sbtc, not formally defined for \sgit. \todo{TODO: more detailed comparison with git?}
+By contrast, for \sgit there is no such constraint on any $\chain_n$, $\chain_m$ in nodes $n$ and $m$ matching, as git's core intent is to allow different agents act autonomously and divergently on a shared code-base, which would be impossible if the states always had to match.   
 
-Our model of a distributed system makes one thing very clear about the difference between \sbtc and \sgit.  As the size of $\mathcal{X}_n$ grows, necessarily all nodes of \sbtc must grow in size, whereas this is not necessarily the case for \sgit.  Though this seems like a clear limitation, it comes as a direct consequence of the constraint of $\forall n,m \in N: \chain_n\eqbang\chain_m$. Interestingly this is actually considered Bitcoin's strength as it defines the heart of ``consensus" in the Blockchain world, i.e., a limitation and method to the achieve sameness of state of all nodes.
+Through the lens of the formalisim the some other aspects of \sgit can be understood as follows:
+\begin{enumerate}
+\item the validation function $V(e,v)$ by default only checks the structural validity of $e$ as a commit object not it's content (though note that git does also support signing of commits which is also part of the validation)
+\item the stimulus function $I(t)$ for \sgit consists of the set of git commands available to the user
+\item the state transition function $\tau_\chain$ is the internal git function that adds a commit object and $\tau_\textrm{D}$ is the git function that adds code to the \texttt{index} triggered by \texttt{add}
+\item $E$ is, similarly to \sbtc, not formally defined for \sgit.
+\end{enumerate} 
 
-It's not surprising that a data-centric approach was used for Bitcoin.  This comes from the fact that its stated intent was to create digitally transferable ``coins," i.e., to model in a distributed digital system that property of matter known as location. On centralized computer systems this doesn't even appear as a problem because centralized systems have been designed to allow us to think from a data-centric perspective.  They allow us to believe in a kind of data objectivity, as if data exists, like a physical object sitting someplace having a location. They allow us to think in terms of an absolute frame - as if there \textit{is} a correct truth about data and/or time sequence, and suggests that ``consensus" should converge on this truth. In fact, this is not a property of information.  Data exists always from the vantage point of an observer.  It is this fact that makes digitally transferable ``coins" a hard problem in distributed systems where there is always more than one vantage point.
+We leave a more in depth application of the formalism to \sgit as an excercise for the reader, however we underscore that the core difference between  \sbtc and \sgit lies in the formers constraint of $\forall n,m \in N: \chain_n\eqbang\chain_m$.  One direct consequence of this for \sbtc is that as the size of $\mathcal{X}_n$ grows, necessarily all nodes of \sbtc must grow in size, whereas this is not necessarily the case for \sgit, and in it lies the core of Bitcoin's scalability issues.
+
+It's not surprising that a data-centric approach was used for Bitcoin.  This comes from the fact that its stated intent was to create digitally transferable ``coins," i.e., to model in a distributed digital system that property of matter known as location. On centralized computer systems this doesn't even appear as a problem because centralized systems have been designed to allow us to think from a data-centric perspective.  They allow us to believe in a kind of data objectivity, as if data exists, like a physical object sitting someplace having a location. They allow us to think in terms of an absolute frame - as if there \textit{is} a correct truth about data and/or time sequence, and suggests that ``consensus" should converge on this truth. In fact, this is not a property of information.  Data exists always from the vantage point of an observer.  It is this fact that makes digitally transferable ``coins" a \textit{hard problem} in distributed systems where consist entirely of multiple vantage points by definition.
 
 In the distributed world, events don't happen in the same sequence for all observers.  For Blockchain specifically, this is the heart of the matter: choosing which block, from all the nodes receiving transactions in different orders, to use for the ``consensus," i.e., what single vantage point to enforce on all nodes.  Blockchains don't record a universal ordering of events -- they manufacture a single authoritative ordering of events -- by stringing together a tiny fragment of local vantage points into one global record that has passed validation rules.
 
 The use of the word consensus seems at best dubious as a description of a systemic requirement that all nodes carry identical values of $\chain_n$.  Especially when the algorithm for ensuring that sameness is essentially a digital lottery powered by expensive computation of which the primary design feature is to randomize which node gets to run $V_n$ such that no node has preference to which $e$ gets added to $\chain_n$.
 
-Consensus as normally used implies deliberation with regard to differences and work on crafting a perspective that holds for all parties, rather than simply selecting one party's dataset at random.
+The term consensus, as normally used, implies deliberation with regard to differences and work on crafting a perspective that holds for all parties, rather than simply selecting one party's dataset at random.  In contrast, as a more agent-centric distributed system, git's \text1it{merge} command provides for a processes more recognizable as consensus, however it's not automated.
 
-A more accurate term for the algorithm would be ``proof-of-luck" and for the process itself simply sameness, not consensus.  If you start from a data-centric viewpoint, which naturally throws out the ``experience" of all agents in favor of just one, it's much harder to design them to engage in processes that actually have the real-world properties of consensus. If the constraint of keeping all nodes' states the same were adopted consciously as a fit for a specific purpose, this would not be particularly problematic.  Unfortunately the legacy of this data-centric viewpoint has been held mostly unconsciously and is adopted by more generalized distributed computing systems, for which the intent doesn't specifically include the need to model ``digital matter" with universally absolute location.  While having the advantages of simplicity, it also immediately transfers to them the scalability issues, but worse, it makes it hard to take advantages inherent in agent-centric approach.
+Perhaps a more accurate term for \sbtc's the hash-crack algorithm would be ``proof-of-luck" and for the process itself simply sameness, not consensus.  If you start from a data-centric viewpoint, which naturally throws out the ``experience" of all agents in favor of just one, it's much harder to design them to engage in processes that actually have the real-world properties of consensus. If the constraint of keeping all nodes' states the same were adopted consciously as a fit for a specific purpose, this would not be particularly problematic.  Unfortunately the legacy of this data-centric viewpoint has been held mostly unconsciously and is adopted by more generalized distributed computing systems, for which the intent doesn't specifically include the need to model ``digital matter" with universally absolute location.  While having the advantages of conceptual simplicity, it also immediately creates scalability issues, but worse, it makes it hard to take advantages inherent in the agent-centric approach.
 
 \section{Generalized Distributed Computation}
 \label{sec:dist-comp}
@@ -179,9 +187,12 @@ The previous section described a general formalism for distributed systems and c
 \end{enumerate}
 
 \subsection{Ethereum}
-Ethereum\footnote{https://github.com/ethereum/wiki/wiki/White-Paper} provides the current premier example of generalized distributed computing using the Blockchain model. It lives up to the constraints listed above as described by Wood \cite{yellowpaper} where the bulk of the paper can be understood as a specification of a validation function $V_n()$ and the described state transition function $\sigma_\text{t+1} \equiv \Upsilon(\sigma,T)$ as a specification of how constraints above are met. Unfortunately the data-centric legacy inherent in Ethereum is immediately observable in its  high compute cost\footnote{link to that article} and difficulty in scaling\footnote{anther link}.
+Ethereum\footnote{https://github.com/ethereum/wiki/wiki/White-Paper} provides the current premier example of generalized distributed computing using the Blockchain model. The Ethereum approach comes from an ontology of replicating the data certainty of single physical computer, on top of the stratum of a bunch distributed nodes using the blockchain strategy of creating a single data reality in a cryptographic chain, but commiting computations, instead of just monetary transactions as in bitcoin, into the blocks.
+ 
+This approach does live up to the constraints listed above as described by Wood \cite{yellowpaper} where the bulk of that paper can be understood as a specification of a validation function $V_n()$ and the described state transition function $\sigma_\text{t+1} \equiv \Upsilon(\sigma,T)$ as a specification of how constraints above are met. 
 
-\todo{TODO: flesh out more exactly how this is a data-centric approach to the constraints above}
+Unfortunately the data-centric legacy inherited by Ethereum from the blockchain model, is immediately observable in its high compute cost\footnote{link to our benchmarkng} and difficulty in scaling\footnote{find a scholarly article }.
+
 
 \subsection{Holochain}
 \label{holochain}
@@ -197,7 +208,7 @@ Using our formalism, a Holochain based application \shc is defined as:
 
 \item Let $M$ be a virtual machine used to execute code.
 
-\item Let the initial entry of all $\chain_n$ in $N$ be identical and consist in the set \hcdna $\{e_1,e_2,\dots,f_1,f_2,\dots,p_1,p_2,\dots\}$ where $e_x$ are definitions of entry types that can be added to the chain, $f_x$ are functions defined as executable on $M$ (which we also refer to as the set $\appfns = \{app_1,app_2,\dots\}$), and $p_x$ are various system properties \todo{defined later}.
+\item Let the initial entry of all $\chain_n$ in $N$ be identical and consist in the set \hcdna $\{e_1,e_2,\dots,f_1,f_2,\dots,p_1,p_2,\dots\}$ where $e_x$ are definitions of entry types that can be added to the chain, $f_x$ are functions defined as executable on $M$ (which we also refer to as the set $\appfns = \{app_1,app_2,\dots\}$), and $p_x$ are  system properties which among other things declare the expected operating parameters of the application being specificed.  For example the redundancy factor as defined below is set as one such property.
 
 \item Let $\hcid_n$ be the second entry of all $\chain_n$ and be a set of the form $\{p,i\}$ where $p$ is the public key and $i$ is identifying information appropriate to the use of this particular \shc. Note that though this entry is of the same format for all $\chain_n$ it's content is not the same. Call this entry the \term{agent identity} entry.
 
@@ -223,8 +234,7 @@ Using our formalism, a Holochain based application \shc is defined as:
 \end{enumerate}
 \item \label{routable} Assume $x,y \in N$ and $\delta_i \in \dhtstate_x$ but $\delta_i \notin \dhtstate_y$. Allow that when $y$ calls $dht_\text{get}(key)$, $\delta_i$ will be retrieved from $x$ over channel $X$ and added to $\dhtstate_y$.
 \end{enumerate}
-DHT are sufficiently mature that there are a number of ways to ensure property \ref{routable}.  For our implementation we use \cite{kademlia}.
-\todo{Should this really be S/Kademlia?}
+DHT are sufficiently mature that there are a number of ways to ensure property \ref{routable}.  For our current alpha version we use a modified version of \cite{kademlia} as implemented in \cite{libp2p}.
 
 \item Let $\hcdht$ augment $DHT$ as follows:
 \begin{enumerate}
@@ -280,13 +290,13 @@ Call $\hcdht$ a \term{validating}, \term{monotonic}, \term{sharded} DHT.
 \item Allow the functions in $\appfns$ defined in the \hcdna\ to call the functions in $\sysfns$.
 \item Let $m$ be an arbitrary message. Include in $\sysfns$ the function $sys_\text{send}(A_\text{to},m)$ which when called on $n_\text{from}$ will trigger the function $app_\text{receive}(A_\text{from},m)$ in the \hcdna\ on the node $n_\text{to}$. Call this mechanism \term{node-to-node messaging}.
 \item \label{private} Allow that the definition of entries in \hcdna\ can mark entry types as \term{private}. Enforce that if an entry $\sigma_x$ is of such a type then $\sigma_x \notin \dhtstate$. Note however that entries of such type can be sent as node-to-node messages.
-\item Let the system processing function $P(i)$ \todo{TODO}
+\item Let the system processing function $P(i)$ be a set of functions in $\appfns$ to be registered in the system as callbacks based on various criteria, e.g. notification of rejected puts to the DHT, passage of time, etc.  
 \end{enumerate}
 
 \subsection{Systemic Integrity Through Validation}
 \label{sec:integrity}
 
-The appeal of the data-centric approach to distributed computing comes from the fact that if you can prove that all nodes reliably have the same data then that provides strong general basis from which to prove the integrity of the system as a whole.  In the case of Bitcoin, the $\chain$ holds the transactions and the unspent transaction outputs, which allows nodes to verify future transactions against double-spend. In the case of Ethereum, $\chain$ holds essentially pointers to machine state \todo{better one-sentence wording for Ethereum}. Proving the consistency across all nodes of those data sets is fundamental to the integrity of those systems.
+The appeal of the data-centric approach to distributed computing comes from the fact that if you can prove that all nodes reliably have the same data then that provides strong general basis from which to prove the integrity of the system as a whole.  In the case of Bitcoin, the $\chain$ holds the transactions and the unspent transaction outputs, which allows nodes to verify future transactions against double-spend. In the case of Ethereum, $\chain$ holds what ammounts to pointers to machine state. Proving the consistency across all nodes of those data sets is fundamental to the integrity of those systems.
 
 However, because we have started with the assumption (see \ref{sec:formalism}) of distributed systems of independently acting agents, any \textit{proof} of  $\forall n,m \in N: \chain_n\eqbang\chain_m$ in a blockchain based system is better understood as a \textit{choice} (hence our use of the $\eqbang$),  in that nodes use their agency to decide when to stop interacting with other nodes based on detecting that the $\chain$ state no longer matches.  This might also be called  ``proof by enforcement," and is also appropriately known as a \term{fork} because essentially it results in partitioning of the network.
 
@@ -596,9 +606,9 @@ At the time of this writing we have a fully operational implementation of system
 \item Lisp Virtual Machines: zygomys \\\url{https://github.com/glycerine/zygomys}.
 \end{enumerate}
 
-\todo{benchmarking tests}
+Additionally we have created a benchmarking suites to examine the processing, bandwidth and storage used in various scenarios, and compared these with Ethereum applications in similar scenarios.  These can be seen here: \\\url{https://github.com/holochain/benchmarks}
 
-\todo{scalability tests}
+We have yet to implement scalability tests for large scale applications, but it is in our roadmap.\todo{TODO}
 
 \appendix
 
@@ -747,6 +757,11 @@ Bitcoin Wiki
 Juan Benet
 \textit{IPFS - Content Addressed, Versioned, P2P File System (DRAFT 3)}
 \\\url{https://ipfs.io/ipfs/QmR7GSQM93Cx5eAg6a6yRzNde1FQv7uL6X1o4k7zrJa3LX/ipfs.draft3.pdf}
+
+\bibitem[LibP2P]{libp2p}
+Juan Benet, David Dias
+\textit{libp2p Specification}
+\\\url{https://github.com/libp2p/specs}
 
 \bibitem[Oxford]{provenance}
 Oxford 

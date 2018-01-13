@@ -208,6 +208,7 @@ type benchmark struct {
 	ChainGrowth int64
 	DHTGrowth   int64
 	BytesSent   int64
+	GossipSent  int64
 	start       time.Time
 	h           *Holochain
 	process     *process.Process
@@ -237,19 +238,37 @@ func StartBench(h *Holochain) *benchmark {
 	}
 	b.CPU = times.Total()
 	//	b.Memory = sysInfo.Memory
-	BytesSentChan = make(chan int64, 100)
+	BytesSentChan = make(chan BytesSent, 100)
 	go func() {
 		for BytesSentChan != nil {
-			b.BytesSent += <-BytesSentChan
+			b.updateBytesSent(BytesSentChan)
 		}
 	}()
 	return &b
 }
 
+func (b *benchmark) updateBytesSent(bsc chan BytesSent) {
+	bs := <-bsc
+	switch bs.MsgType {
+	case GOSSIP_REQUEST:
+		fallthrough
+	case VALIDATE_PUT_REQUEST:
+		fallthrough
+	case VALIDATE_LINK_REQUEST:
+		fallthrough
+	case VALIDATE_DEL_REQUEST:
+		fallthrough
+	case VALIDATE_MOD_REQUEST:
+		b.GossipSent += bs.Bytes
+	default:
+		b.BytesSent += bs.Bytes
+	}
+}
+
 // End completes setting the values of the passed in benchmark struct which must
 // be initialized by a call to StartBench
 func (b *benchmark) End() {
-	bs := BytesSentChan
+	bsc := BytesSentChan
 	BytesSentChan = nil
 	times, err := b.process.Times()
 	if err != nil {
@@ -261,9 +280,10 @@ func (b *benchmark) End() {
 	b.ElapsedTime = time.Now().Sub(b.start)
 	b.ChainGrowth = FileSize(b.h.DBPath(), StoreFileName) - b.ChainGrowth
 	b.DHTGrowth = FileSize(b.h.DBPath(), DHTStoreFileName) - b.DHTGrowth
-	for len(bs) > 0 {
-		b.BytesSent += <-bs
+	for len(bsc) > 0 {
+		b.updateBytesSent(bsc)
 	}
+
 	return
 }
 
@@ -333,14 +353,16 @@ func logBenchmarkTotals(log *Logger, benchmarks map[string]*benchmark) {
 		total.DHTGrowth += b.DHTGrowth
 		total.CPU += b.CPU
 		total.BytesSent += b.BytesSent
+		total.GossipSent += b.GossipSent
 	}
 	log.Logf(`Benchmark Summary:
    Total elapsed time: %v
    Total chain growth: %.2fK bytes
    Total DHT growth: %.2fK bytes
    Total Bytes sent: %.2fK
+   Total Gossip sent: %.2fK
    Total CPU use: %.2fms
-`, total.ElapsedTime, toK(total.ChainGrowth), toK(total.DHTGrowth), toK(total.BytesSent), total.CPU*1000)
+`, total.ElapsedTime, toK(total.ChainGrowth), toK(total.DHTGrowth), toK(total.BytesSent), toK(total.GossipSent), total.CPU*1000)
 
 }
 
@@ -350,8 +372,9 @@ func logBenchmark(log *Logger, name string, b *benchmark) {
    Chain growth: %.2fK bytes
    DHT growth: %.2fK bytes
    BytesSent: %.2fK
+   GossipSent: %.2fK
    CPU: %.2fms
-`, name, b.ElapsedTime, toK(b.ChainGrowth), toK(b.DHTGrowth), toK(b.BytesSent), b.CPU*1000)
+`, name, b.ElapsedTime, toK(b.ChainGrowth), toK(b.DHTGrowth), toK(b.BytesSent), toK(b.GossipSent), b.CPU*1000)
 }
 
 func toK(bytes int64) float64 {

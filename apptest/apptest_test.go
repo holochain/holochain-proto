@@ -186,12 +186,14 @@ func TestTestBenchmark(t *testing.T) {
 		So(benchmark.CPU, ShouldBeGreaterThanOrEqualTo, 0)
 	})
 
-	Convey("it should calculate file size growth benchmark data", t, func() {
+	Convey("it should calculate data sent growth benchmark data", t, func() {
 		benchmark := StartBench(h)
-		BytesSentChan <- int64(100)
-		BytesSentChan <- int64(200)
+		BytesSentChan <- BytesSent{Bytes: int64(100), MsgType: PUT_REQUEST}
+		BytesSentChan <- BytesSent{Bytes: int64(500), MsgType: GOSSIP_REQUEST}
+		BytesSentChan <- BytesSent{Bytes: int64(200), MsgType: GET_REQUEST}
 		benchmark.End()
 		So(benchmark.BytesSent, ShouldEqual, 300)
+		So(benchmark.GossipSent, ShouldEqual, 500)
 	})
 }
 

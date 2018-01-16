@@ -21,5 +21,5 @@ cache:
   - $GOPATH/src/gx
 after_success:
 - bash <(curl -s https://codecov.io/bash)
-- if [ "$TRAVIS_BRANCH" == "master" ]; then docker login -u "$DOCKER_USERNAME" -p
+- if [ "$TRAVIS_BRANCH" == "543-encrypted-variables" ]; then docker login -u "$DOCKER_USERNAME" -p
   "$DOCKER_PASSWORD"; docker push metacurrency/holochain; fi

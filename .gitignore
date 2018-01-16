@@ -44,3 +44,4 @@ floospace/
 coverage.txt
 uitest@holochain.org/
 clutter/
+node_modules/

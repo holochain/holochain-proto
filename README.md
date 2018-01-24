@@ -110,28 +110,20 @@ Using docker, you don't have to install Go first. Our docker scripts manage inst
     2. See [Docker Getting Started](https://docs.docker.com/engine/getstarted/step_one/) for help.
     3. It is recommended to add your user to the `docker` group as in: [Post Installation Steps](https://docs.docker.com/engine/installation/linux/linux-postinstall/), rather than use `sudo` before all script commands. Holochain Apps cannot exploit the kinds of security concerns mentioned in the Post Installation Steps document.
 &nbsp;
-2. Confirm that docker installation and permissions are working by running:
-```bash
-$ docker info
-```
+1. Confirm that docker installation and permissions are working by running:
+	```bash
+		$ docker info
+	```
 
-3. Get our holochain repository from github:
-```bash
-$ git clone https://github.com/metacurrency/holochain.git holochain
-$ cd holochain
-```
-4. Build the holochain core with all dependencies
-```bash
-$ docker/build
-```
-  * the first time build is run on a machine, it will download Alpine unix, and install all holochain dependencies.
-  * During development cycles, docker/build will just compile changes made to the holochain go code, and run tests
-
-5. To run holochain in your new environment, suitable to continue the walkthrough below in [usage](#usage)
-```bash
-$ docker/run
-```
-6. This will put you into an new command shell that may behave differently than what you're used to. To exit this holochain (Alpine) shell, press `Ctrl-D` or type `exit`
+1. Pull our holochain image from docker hub:
+	```bash
+		$ docker pull metacurrency/holochain
+	```
+1. To run holochain in your new environment, suitable to continue the walkthrough below in [usage](#usage)
+	```bash
+		$ docker run --rm -it --name clutter -p 3141:3141 metacurrency/holochain
+	```
+1. This will put you into an new command shell that may behave differently than what you're used to. To exit this holochain (Alpine) shell, press `Ctrl-D` or type `exit`
 
 ## Usage
 These instructions are for using the holochain command line tool suite: `hcadmin`, `hcdev` and `hcd`.  They should work equally well for Go based or docker based installation.
@@ -153,7 +145,7 @@ The instructions below walk you through the basic steps necessary to run a holoc
 #### Initializing the Holochain environment
 
 ```bash
-$ hcadmin init 'your@emailaddress.here'
+	$ hcadmin init 'your@emailaddress.here'
 ```
 This command creates a `~/.holochain` directory for storing all chain data, along with initial public/private key pairs based on the identity string provided as the second argument.
 

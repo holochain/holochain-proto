@@ -701,6 +701,17 @@ func TestJSDHT(t *testing.T) {
 	})
 
 	profileHash := commit(h, "profile", `{"firstName":"Zippy","lastName":"Pinhead"}`)
+
+	Convey("get should parsed JSON object of JSON type entries", t, func() {
+		v, err := NewJSRibosome(h, &Zome{RibosomeType: JSRibosomeType, Code: fmt.Sprintf(`get("%s");`, profileHash.String())})
+		So(err, ShouldBeNil)
+		z := v.(*JSRibosome)
+		So(z.lastResult.Class(), ShouldEqual, "Object")
+		x, err := z.lastResult.Export()
+		So(err, ShouldBeNil)
+		So(fmt.Sprintf("%v", x), ShouldEqual, `map[firstName:Zippy lastName:Pinhead]`)
+	})
+
 	reviewHash := commit(h, "review", "this is my bogus review of some thing")
 
 	commit(h, "rating", fmt.Sprintf(`{"Links":[{"Base":"%s","Link":"%s","Tag":"4stars"},{"Base":"%s","Link":"%s","Tag":"4stars"}]}`, hash.String(), profileHash.String(), hash.String(), reviewHash.String()))
@@ -833,7 +844,7 @@ func TestJSDHT(t *testing.T) {
 		z = v.(*JSRibosome)
 		x, err := z.lastResult.Export()
 		So(err, ShouldBeNil)
-		So(fmt.Sprintf("%v", x), ShouldEqual, `{"firstName":"Zippy","lastName":"ThePinhead"}`)
+		So(fmt.Sprintf("%v", x), ShouldEqual, `map[firstName:Zippy lastName:ThePinhead]`)
 	})
 
 	Convey("remove function should mark item deleted", t, func() {

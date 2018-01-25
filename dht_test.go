@@ -513,7 +513,7 @@ func TestActionReceiver(t *testing.T) {
 		resp = r.(GetResp)
 		So(fmt.Sprintf("%v", resp.Entry), ShouldEqual, fmt.Sprintf("%v", e))
 		So(fmt.Sprintf("%v", resp.Sources), ShouldEqual, fmt.Sprintf("[%v]", h.nodeIDStr))
-		So(resp.EntryType, ShouldEqual, "")
+		So(resp.EntryType, ShouldEqual, "evenNumbers") // you allways get the entry type even if not in getmask at this level (ActionReceiver) because we have to be able to look up the definition to interpret the contents
 	})
 
 	someData := `{"firstName":"Zippy","lastName":"Pinhead"}`
@@ -857,12 +857,17 @@ func TestDHTMultiNode(t *testing.T) {
 				req := GetReq{H: HashFromPeerID(h1.nodeID), StatusMask: options.StatusMask, GetMask: options.GetMask}
 				response, err := NewGetAction(req, &options).Do(h2)
 				if err != nil {
-					//fmt.Printf("FAIL   : %v couldn't get from %v\n", h2.nodeID, h1.nodeID)
+					//					fmt.Printf("FAIL   : %v couldn't get from %v err: %err\n", h2.nodeID, h1.nodeID, err)
 				} else {
+					responseStr := fmt.Sprintf("%v", response)
 					pk, _ := h1.agent.PubKey().Bytes()
-					if fmt.Sprintf("%v", response) == fmt.Sprintf("{{%v}  [] }", pk) {
+					expectedResponseStr := fmt.Sprintf("{{%v} %s [] }", pk, `%%key`)
+					if responseStr == expectedResponseStr {
 						connections += 1
-						//	fmt.Printf("SUCCESS: %v got from          %v\n", h2.nodeID, h1.nodeID)
+						//						fmt.Printf("SUCCESS: %v got from          %v\n", h2.nodeID, h1.nodeID)
+					} else {
+						//						fmt.Printf("Expected:%s\n", expectedResponseStr)
+						//						fmt.Printf("Got     :%s\n", responseStr)
 					}
 				}
 			}

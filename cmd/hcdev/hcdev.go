@@ -180,8 +180,9 @@ func setupApp() (app *cli.App) {
 		},
 	}
 
-	var interactive, dumpChain, dumpDHT, initTest, fromDevelop bool
+	var interactive, dumpChain, dumpDHT, initTest, fromDevelop, benchmarks bool
 	var clonePath, appPackagePath, cloneExample, outputDir, fromBranch string
+
 	app.Commands = []cli.Command{
 		{
 			Name:    "init",
@@ -388,6 +389,11 @@ func setupApp() (app *cli.App) {
 					Usage:       "unix timestamp - sync tests to run at this time",
 					Destination: &syncPauseUntil,
 				},
+				cli.BoolFlag{
+					Name:        "benchmarks",
+					Usage:       "calculate benchmarks during test",
+					Destination: &benchmarks,
+				},
 			},
 			Action: func(c *cli.Context) error {
 				holo.Debug("test: start")
@@ -434,40 +440,24 @@ func setupApp() (app *cli.App) {
 					if len(x) > 0 {
 						clone = x[1]
 						pairs["%clone%"] = clone
-					} else {
-
-						// if there isn't a clone then we can do role substitutions
-						var roles []string
-						roles, err = holo.GetTestScenarioRoles(h, scenario)
-						if err != nil {
-							return cmd.MakeErrFromErr(c, err)
-						}
-						host := getHostName(serverID)
-						for _, role := range roles {
-							var id, hash string
-							id = role + "@" + host
-							agent, err := holo.NewAgent(holo.LibP2P, holo.AgentIdentity(id), holo.MakeTestSeed(id))
-							if err != nil {
-								return cmd.MakeErrFromErr(c, err)
-							}
-							_, hash, err = agent.NodeID()
-							if err != nil {
-								return cmd.MakeErrFromErr(c, err)
-							}
-							pairs["%"+role+"_str%"] = id
-							pairs["%"+role+"_key%"] = hash
-						}
 					}
-					err, errs = TestScenario(h, scenario, role, pairs)
+
+					host := getHostName(serverID)
+					err = addRolesToPairs(h, scenario, host, pairs)
+					if err != nil {
+						return cmd.MakeErrFromErr(c, err)
+					}
+
+					err, errs = TestScenario(h, scenario, role, pairs, benchmarks)
 					if err != nil {
 						return cmd.MakeErrFromErr(c, err)
 					}
 					//holo.Debugf("testScenario: h: %v\n", spew.Sdump(h))
 
 				} else if len(args) == 1 {
-					errs = TestOne(h, args[0], bridgeApps)
+					errs = TestOne(h, args[0], bridgeApps, benchmarks)
 				} else if len(args) == 0 {
-					errs = Test(h, bridgeApps)
+					errs = Test(h, bridgeApps, benchmarks)
 				} else {
 					return cmd.MakeErr(c, "expected 0 args (run all stand-alone tests), 1 arg (a single stand-alone test) or 2 args (scenario and role)")
 				}
@@ -492,6 +482,11 @@ func setupApp() (app *cli.App) {
 					Name:        "outputDir",
 					Usage:       "directory to send output",
 					Destination: &outputDir,
+				},
+				cli.BoolFlag{
+					Name:        "benchmarks",
+					Usage:       "calculate benchmarks during scenario test",
+					Destination: &benchmarks,
 				},
 			},
 			Action: func(c *cli.Context) error {
@@ -620,9 +615,11 @@ func setupApp() (app *cli.App) {
 							"-logPrefix="+logPrefix,
 							"-serverID="+serverID,
 							"-agentID="+agentID,
+
 							fmt.Sprintf("-bootstrapServer=%v", bootstrapServer),
 							fmt.Sprintf("-keepalive=%v", keepalive),
 							"test",
+							fmt.Sprintf("-benchmarks=%v", benchmarks),
 							fmt.Sprintf("-syncPauseUntil=%v", secondsFromNowPlusDelay),
 							scenarioName,
 							originalRoleName,
@@ -945,8 +942,7 @@ func getHolochain(c *cli.Context, service *holo.Service, identity string) (h *ho
 	}
 
 	if identity != "" {
-		agent.SetIdentity(holo.AgentIdentity(identity))
-		agent.GenKeys(holo.MakeTestSeed(identity))
+		holo.SetAgentIdentity(agent, holo.AgentIdentity(identity))
 	}
 
 	bridgeApps = make([]holo.BridgeApp, 0)
@@ -1104,5 +1100,71 @@ func getIdentity(agentID, serverID string) (identity string) {
 	}
 
 	identity = username + "@" + host
+	return
+}
+
+func addRolesToPairs(h *holo.Holochain, scenario string, host string, pairs map[string]string) (err error) {
+
+	var roles []string
+	roles, err = holo.GetTestScenarioRoles(h, scenario)
+	if err != nil {
+		return
+	}
+
+	dir := filepath.Join(h.TestPath(), scenario)
+	var config *holo.TestConfig
+	config, err = holo.LoadTestConfig(dir)
+	if err != nil {
+		return
+	}
+
+	cloneRoles := make(map[string]holo.CloneSpec)
+	for _, spec := range config.Clone {
+		cloneRoles[spec.Role] = spec
+	}
+
+	for _, role := range roles {
+
+		var testSet holo.TestSet
+		testSet, err = holo.LoadTestFile(dir, role+".json")
+		if err != nil {
+			return
+		}
+		spec, isClone := cloneRoles[role]
+
+		if testSet.Identity != "" {
+			if isClone {
+				err = fmt.Errorf("can't both clone and specify an identity: role %s", role)
+				return
+			}
+			err = addRoleToPairs(h, role, testSet.Identity, pairs)
+		} else {
+			if isClone {
+				origRole := role
+				for i := 0; i < spec.Number; i++ {
+					role = fmt.Sprintf("%s.%d", origRole, i)
+					err = addRoleToPairs(h, role, fmt.Sprintf("%s@%s", role, host), pairs)
+				}
+			} else {
+				err = addRoleToPairs(h, role, role+"@"+host, pairs)
+			}
+		}
+
+	}
+	return
+}
+func addRoleToPairs(h *holo.Holochain, role string, id string, pairs map[string]string) (err error) {
+	var agent holo.Agent
+	agent, err = holo.NewAgent(holo.LibP2P, holo.AgentIdentity(id), holo.MakeTestSeed(id))
+	if err != nil {
+		return
+	}
+	var hash string
+	_, hash, err = agent.NodeID()
+	if err != nil {
+		return
+	}
+	pairs["%"+role+"_str%"] = id
+	pairs["%"+role+"_key%"] = hash
 	return
 }

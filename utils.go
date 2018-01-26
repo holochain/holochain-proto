@@ -121,6 +121,15 @@ func FileExists(pathParts ...string) bool {
 	return info.Mode().IsRegular()
 }
 
+func FileSize(pathParts ...string) int64 {
+	path := filepath.Join(pathParts...)
+	info, err := os.Stat(path)
+	if err != nil {
+		return 0
+	}
+	return info.Size()
+}
+
 func filePerms(pathParts ...string) (perms os.FileMode, err error) {
 	var fi os.FileInfo
 	fi, err = os.Stat(filepath.Join(pathParts...))

@@ -174,7 +174,7 @@ var BasicTemplateAppPackage string = `{
   ]},
 "TestSets":[{
   "Name":"sample",
-  "TestSet":{"Tests":[{"Convey":"We can create a new sampleEntry","FnName": "sampleEntryCreate","Input": {"body": "this is the entry body","stamp":12345},"Output":"\"%h1%\"","Exposure":"public"}]}}
+  "TestSet":{"Tests":[{"Convey":"We can create a new sampleEntry","FnName": "sampleEntryCreate","Input": {"content": "this is the entry body","stamp":12345},"Output":"\"%h1%\"","Exposure":"public"}]}}
    ],
 "UI":[
 {"FileName":"index.html",

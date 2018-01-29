@@ -140,8 +140,7 @@ var BasicTemplateAppPackage string = `{
           "Required": true, # Is this entry required?
           "DataFormat": "json", # What type of data should this entry store?
           "Sharing": "public", # Should this entry be publicly accessible?
-          "Schema": "{\n	\"title\": \"sampleEntry Schema\",\n	\"type\": \"object\",\n	\"properties\": {\n		\"content\": {\n			\"type\": \"string\"\n		},\n		\"timestamp\": {\n			\"type\": \"integer\"\n		}\n	},\n    \"required\": [\"content\", \"timestamp\"]\n}",
-          "_": "cr"
+          "Schema": "{\n	\"title\": \"sampleEntry Schema\",\n	\"type\": \"object\",\n	\"properties\": {\n		\"content\": {\n			\"type\": \"string\"\n		},\n		\"timestamp\": {\n			\"type\": \"integer\"\n		}\n	},\n    \"required\": [\"content\", \"timestamp\"]\n}"
         }
       ],
 
@@ -151,14 +150,12 @@ var BasicTemplateAppPackage string = `{
         {
           "Name": "sampleEntryCreate", # The name of this function.
           "CallingType": "json", # Data format for parameters passed to this function.
-          "Exposure": "public", # Level to which is this function exposed.
-          "_": "c:sampleEntry"
+          "Exposure": "public" # Level to which is this function exposed.
         },
         {
           "Name": "sampleEntryRead", # The name of this function.
           "CallingType": "json", # Data format for parameters passed to this function.
-          "Exposure": "public", # Level to which is this function exposed.
-          "_": "r:sampleEntry"
+          "Exposure": "public" # Level to which is this function exposed.
         },
         {
           "Name": "doSampleAction", # The name of this function.

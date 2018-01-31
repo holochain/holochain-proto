@@ -61,6 +61,11 @@ type Action interface {
 	Args() []Arg
 }
 
+type ArgsAction interface {
+	Args() []Arg
+	Do(h *Holochain) (response interface{}, err error)
+}
+
 // CommittingAction provides an abstraction for grouping actions which carry Entry data
 type CommittingAction interface {
 	Name() string
@@ -426,7 +431,7 @@ func (a *ActionVerifySignature) Args() []Arg {
 	return []Arg{{Name: "signature", Type: StringArg}, {Name: "data", Type: StringArg}, {Name: "pubKey", Type: StringArg}}
 }
 
-func (a *ActionVerifySignature) Do(h *Holochain) (response bool, err error) {
+func (a *ActionVerifySignature) Do(h *Holochain) (response interface{}, err error) {
 	var b bool
 	var pubKeyIC ic.PubKey
 	var sig []byte

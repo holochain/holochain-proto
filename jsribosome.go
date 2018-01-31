@@ -357,6 +357,9 @@ func jsProcessArgs(jsr *JSRibosome, args []Arg, oArgs []otto.Value) (err error) 
 
 	// check arg types
 	for i, arg := range oArgs {
+		if arg.IsUndefined() && args[i].Optional {
+			return
+		}
 		switch args[i].Type {
 		case StringArg:
 			if arg.IsString() {
@@ -492,8 +495,12 @@ func jsProcessArgs(jsr *JSRibosome, args []Arg, oArgs []otto.Value) (err error) 
 	return
 }
 
+const (
+	HolochainErrorPrefix = "Holochain Error"
+)
+
 func mkOttoErr(jsr *JSRibosome, msg string) otto.Value {
-	return jsr.vm.MakeCustomError("HolochainError", msg)
+	return jsr.vm.MakeCustomError(HolochainErrorPrefix, msg)
 }
 
 func numInterfaceToInt(num interface{}) (val int, ok bool) {
@@ -511,6 +518,11 @@ func numInterfaceToInt(num interface{}) (val int, ok bool) {
 	return
 }
 
+type fnData struct {
+	a  ArgsAction
+	fn func([]Arg, ArgsAction, otto.FunctionCall) (otto.Value, error)
+}
+
 // NewJSRibosome factory function to build a javascript execution environment for a zome
 func NewJSRibosome(h *Holochain, zome *Zome) (n Ribosome, err error) {
 	jsr := JSRibosome{
@@ -519,729 +531,711 @@ func NewJSRibosome(h *Holochain, zome *Zome) (n Ribosome, err error) {
 		vm:   otto.New(),
 	}
 
-	err = jsr.vm.Set("property", func(call otto.FunctionCall) otto.Value {
-		a := &ActionProperty{}
-		args := a.Args()
-		err := jsProcessArgs(&jsr, args, call.ArgumentList)
-		if err != nil {
-			return mkOttoErr(&jsr, err.Error())
-		}
+	funcs := map[string]fnData{
+		"property": fnData{
+			a: &ActionProperty{},
+			fn: func(args []Arg, _a ArgsAction, call otto.FunctionCall) (result otto.Value, err error) {
+				a := _a.(*ActionProperty)
+				a.prop = args[0].value.(string)
 
-		a.prop = args[0].value.(string)
-
-		var p interface{}
-		p, err = a.Do(h)
-		if err != nil {
-			return otto.UndefinedValue()
-		}
-		result, _ := jsr.vm.ToValue(p)
-		return result
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	err = jsr.vm.Set("debug", func(call otto.FunctionCall) otto.Value {
-		a := &ActionDebug{}
-		args := a.Args()
-		err := jsProcessArgs(&jsr, args, call.ArgumentList)
-		if err != nil {
-			return mkOttoErr(&jsr, err.Error())
-		}
-		a.msg = args[0].value.(string)
-		a.Do(h)
-		return otto.UndefinedValue()
-	})
-
-	err = jsr.vm.Set("makeHash", func(call otto.FunctionCall) otto.Value {
-		a := &ActionMakeHash{}
-		args := a.Args()
-		err := jsProcessArgs(&jsr, args, call.ArgumentList)
-		if err != nil {
-			return mkOttoErr(&jsr, err.Error())
-		}
-		a.entryType = args[0].value.(string)
-		a.entry = &GobEntry{C: args[1].value.(string)}
-		var r interface{}
-		r, err = a.Do(h)
-		if err != nil {
-			return mkOttoErr(&jsr, err.Error())
-		}
-		var entryHash Hash
-		if r != nil {
-			entryHash = r.(Hash)
-		}
-		result, _ := jsr.vm.ToValue(entryHash.String())
-		return result
-	})
-
-	//===========================================================================
-	err = jsr.vm.Set("getBridges", func(call otto.FunctionCall) otto.Value {
-		a := &ActionGetBridges{}
-		args := a.Args()
-		err := jsProcessArgs(&jsr, args, call.ArgumentList)
-		if err != nil {
-			return mkOttoErr(&jsr, err.Error())
-		}
-		r, err := a.Do(h)
-		if err != nil {
-			return mkOttoErr(&jsr, err.Error())
-		}
-		var code string
-		for i, b := range r.([]Bridge) {
-			if i > 0 {
-				code += ","
-			}
-			if b.Side == BridgeTo {
-				code += fmt.Sprintf(`{Side:%d,Token:"%s"}`, b.Side, b.Token)
-			} else {
-				code += fmt.Sprintf(`{Side:%d,ToApp:"%s"}`, b.Side, b.ToApp.String())
-			}
-		}
-		code = "[" + code + "]"
-		object, _ := jsr.vm.Object(code)
-		result, _ := jsr.vm.ToValue(object)
-
-		return result
-	})
-
-	//===========================================================================
-	err = jsr.vm.Set("sign", func(call otto.FunctionCall) otto.Value {
-		a := &ActionSign{}
-		args := a.Args()
-		err := jsProcessArgs(&jsr, args, call.ArgumentList)
-		if err != nil {
-			return mkOttoErr(&jsr, err.Error())
-		}
-
-		a.doc = []byte(args[0].value.(string))
-		var r interface{}
-		r, err = a.Do(h)
-		if err != nil {
-			return mkOttoErr(&jsr, err.Error())
-		}
-		var signature []byte
-		if r != nil {
-			signature = r.([]byte)
-		}
-		result, _ := jsr.vm.ToValue(string(signature))
-		return result
-	})
-
-	err = jsr.vm.Set("verifySignature", func(call otto.FunctionCall) otto.Value {
-
-		a := &ActionVerifySignature{}
-		args := a.Args()
-		err := jsProcessArgs(&jsr, args, call.ArgumentList)
-		if err != nil {
-			return mkOttoErr(&jsr, err.Error())
-		}
-		a.signature = args[0].value.(string)
-		a.data = args[1].value.(string)
-		a.pubKey = args[2].value.(string)
-		var r bool
-		r, err = a.Do(h)
-		if err != nil {
-			return mkOttoErr(&jsr, err.Error())
-		}
-		var result otto.Value
-		result, err = jsr.vm.ToValue(r)
-
-		if err != nil {
-			return mkOttoErr(&jsr, err.Error())
-		}
-		return result
-	})
-
-	//============================================================================
-
-	err = jsr.vm.Set("send", func(call otto.FunctionCall) otto.Value {
-		a := &ActionSend{}
-		args := a.Args()
-		err := jsProcessArgs(&jsr, args, call.ArgumentList)
-		if err != nil {
-			return mkOttoErr(&jsr, err.Error())
-		}
-
-		a.to, err = peer.IDB58Decode(args[0].value.(Hash).String())
-		if err != nil {
-			return mkOttoErr(&jsr, err.Error())
-		}
-		msg := args[1].value.(map[string]interface{})
-		var j []byte
-		j, err = json.Marshal(msg)
-		if err != nil {
-			return mkOttoErr(&jsr, err.Error())
-		}
-
-		a.msg.ZomeType = jsr.zome.Name
-		a.msg.Body = string(j)
-
-		if args[2].value != nil {
-			a.options = &SendOptions{}
-			opts := args[2].value.(map[string]interface{})
-			cbmap, ok := opts["Callback"]
-			if ok {
-				callback := Callback{zomeType: zome.Name}
-				v, ok := cbmap.(map[string]interface{})["Function"]
-				if !ok {
-					return mkOttoErr(&jsr, "callback option requires Function")
+				var p interface{}
+				p, err = a.Do(h)
+				if err != nil {
+					return otto.UndefinedValue(), nil
 				}
-				callback.Function = v.(string)
-				v, ok = cbmap.(map[string]interface{})["ID"]
-				if !ok {
-					return mkOttoErr(&jsr, "callback option requires ID")
+				result, err = jsr.vm.ToValue(p)
+				return
+			},
+		},
+		"debug": fnData{
+			a: &ActionDebug{},
+			fn: func(args []Arg, _a ArgsAction, call otto.FunctionCall) (result otto.Value, err error) {
+				a := _a.(*ActionDebug)
+				a.msg = args[0].value.(string)
+				a.Do(h)
+				return otto.UndefinedValue(), nil
+			},
+		},
+		"makeHash": fnData{
+			a: &ActionMakeHash{},
+			fn: func(args []Arg, _a ArgsAction, call otto.FunctionCall) (result otto.Value, err error) {
+				a := _a.(*ActionMakeHash)
+				a.entryType = args[0].value.(string)
+				a.entry = &GobEntry{C: args[1].value.(string)}
+				var r interface{}
+				r, err = a.Do(h)
+				if err != nil {
+					return
 				}
-				callback.ID = v.(string)
-				a.options.Callback = &callback
-			}
-			timeout, ok := opts["Timeout"]
-			if ok {
-				a.options.Timeout = int(timeout.(int64))
-			}
-		}
+				var entryHash Hash
+				if r != nil {
+					entryHash = r.(Hash)
+				}
+				result, _ = jsr.vm.ToValue(entryHash.String())
+				return result, nil
+			},
+		},
+		"getBridges": fnData{
+			a: &ActionGetBridges{},
+			fn: func(args []Arg, _a ArgsAction, call otto.FunctionCall) (result otto.Value, err error) {
+				a := _a.(*ActionGetBridges)
+				var r interface{}
+				r, err = a.Do(h)
+				if err != nil {
+					return
+				}
+				var code string
+				for i, b := range r.([]Bridge) {
+					if i > 0 {
+						code += ","
+					}
+					if b.Side == BridgeTo {
+						code += fmt.Sprintf(`{Side:%d,Token:"%s"}`, b.Side, b.Token)
+					} else {
+						code += fmt.Sprintf(`{Side:%d,ToApp:"%s"}`, b.Side, b.ToApp.String())
+					}
+				}
+				code = "[" + code + "]"
+				object, _ := jsr.vm.Object(code)
+				result, _ = jsr.vm.ToValue(object)
+				return
+			},
+		},
+		"sign": fnData{
+			a: &ActionSign{},
+			fn: func(args []Arg, _a ArgsAction, call otto.FunctionCall) (result otto.Value, err error) {
+				a := _a.(*ActionSign)
+				a.doc = []byte(args[0].value.(string))
+				var r interface{}
+				r, err = a.Do(h)
+				if err != nil {
+					return
+				}
+				var signature []byte
+				if r != nil {
+					signature = r.([]byte)
+				}
+				result, _ = jsr.vm.ToValue(string(signature))
+				return
+			},
+		},
+		"verifySignature": fnData{
+			a: &ActionVerifySignature{},
+			fn: func(args []Arg, _a ArgsAction, call otto.FunctionCall) (result otto.Value, err error) {
+				a := _a.(*ActionVerifySignature)
+				a.signature = args[0].value.(string)
+				a.data = args[1].value.(string)
+				a.pubKey = args[2].value.(string)
+				var r interface{}
+				r, err = a.Do(h)
+				if err != nil {
+					return
+				}
+				result, err = jsr.vm.ToValue(r)
+				if err != nil {
+					return
+				}
+				return
+			},
+		},
+		"send": fnData{
+			a: &ActionSend{},
+			fn: func(args []Arg, _a ArgsAction, call otto.FunctionCall) (result otto.Value, err error) {
+				a := _a.(*ActionSend)
+				a.to, err = peer.IDB58Decode(args[0].value.(Hash).String())
+				if err != nil {
+					return
+				}
+				msg := args[1].value.(map[string]interface{})
+				var j []byte
+				j, err = json.Marshal(msg)
+				if err != nil {
+					return
+				}
 
-		var r interface{}
-		r, err = a.Do(h)
-		if err != nil {
-			return mkOttoErr(&jsr, err.Error())
-		}
-		var result otto.Value
-		result, err = jsr.vm.ToValue(r)
+				a.msg.ZomeType = jsr.zome.Name
+				a.msg.Body = string(j)
 
-		if err != nil {
-			return mkOttoErr(&jsr, err.Error())
-		}
-		return result
-	})
+				if args[2].value != nil {
+					a.options = &SendOptions{}
+					opts := args[2].value.(map[string]interface{})
+					cbmap, ok := opts["Callback"]
+					if ok {
+						callback := Callback{zomeType: zome.Name}
+						v, ok := cbmap.(map[string]interface{})["Function"]
+						if !ok {
+							err = errors.New("callback option requires Function")
+							return
+						}
+						callback.Function = v.(string)
+						v, ok = cbmap.(map[string]interface{})["ID"]
+						if !ok {
+							err = errors.New("callback option requires ID")
+							return
+						}
+						callback.ID = v.(string)
+						a.options.Callback = &callback
+					}
+					timeout, ok := opts["Timeout"]
+					if ok {
+						a.options.Timeout = int(timeout.(int64))
+					}
+				}
 
-	err = jsr.vm.Set("call", func(call otto.FunctionCall) otto.Value {
-		a := &ActionCall{}
-		args := a.Args()
-		err := jsProcessArgs(&jsr, args, call.ArgumentList)
-		if err != nil {
-			return mkOttoErr(&jsr, err.Error())
-		}
-		a.zome = args[0].value.(string)
-		var zome *Zome
-		zome, err = h.GetZome(a.zome)
-		if err != nil {
-			return mkOttoErr(&jsr, err.Error())
-		}
-		a.function = args[1].value.(string)
-		var fn *FunctionDef
-		fn, err = zome.GetFunctionDef(a.function)
-		if err != nil {
-			return mkOttoErr(&jsr, err.Error())
-		}
-		if fn.CallingType == JSON_CALLING {
-			/* this is a mistake.
-			if !call.ArgumentList[2].IsObject() {
-						return mkOttoErr(&jsr, "function calling type requires object argument type")
-					}*/
-		}
-		a.args = args[2].value.(string)
+				var r interface{}
+				r, err = a.Do(h)
+				if err != nil {
+					return
+				}
+				result, err = jsr.vm.ToValue(r)
+				return
+			},
+		},
+		"call": fnData{
+			a: &ActionCall{},
+			fn: func(args []Arg, _a ArgsAction, call otto.FunctionCall) (result otto.Value, err error) {
+				a := _a.(*ActionCall)
+				a.zome = args[0].value.(string)
+				var zome *Zome
+				zome, err = h.GetZome(a.zome)
+				if err != nil {
+					return
+				}
+				a.function = args[1].value.(string)
+				var fn *FunctionDef
+				fn, err = zome.GetFunctionDef(a.function)
+				if err != nil {
+					return
+				}
+				if fn.CallingType == JSON_CALLING {
+					/* this is a mistake.
+					if !call.ArgumentList[2].IsObject() {
+								return mkOttoErr(&jsr, "function calling type requires object argument type")
+							}*/
+				}
+				a.args = args[2].value.(string)
 
-		var r interface{}
-		r, err = a.Do(h)
-		if err != nil {
-			return mkOttoErr(&jsr, err.Error())
-		}
-		var result otto.Value
-		result, err = jsr.vm.ToValue(r)
+				var r interface{}
+				r, err = a.Do(h)
+				if err != nil {
+					return
+				}
 
-		if err != nil {
-			return mkOttoErr(&jsr, err.Error())
-		}
-		return result
-	})
+				result, err = jsr.vm.ToValue(r)
+				return
+			},
+		},
+		"bridge": fnData{
+			a: &ActionBridge{},
+			fn: func(args []Arg, _a ArgsAction, call otto.FunctionCall) (result otto.Value, err error) {
+				a := _a.(*ActionBridge)
+				hash := args[0].value.(Hash)
+				a.token, a.url, err = h.GetBridgeToken(hash)
+				if err != nil {
+					return
+				}
 
-	err = jsr.vm.Set("bridge", func(call otto.FunctionCall) otto.Value {
-		a := &ActionBridge{}
-		args := a.Args()
-		err := jsProcessArgs(&jsr, args, call.ArgumentList)
-		if err != nil {
-			return mkOttoErr(&jsr, err.Error())
-		}
-		hash := args[0].value.(Hash)
-		a.token, a.url, err = h.GetBridgeToken(hash)
-		if err != nil {
-			return mkOttoErr(&jsr, err.Error())
-		}
+				a.zome = args[1].value.(string)
+				a.function = args[2].value.(string)
+				a.args = args[3].value.(string)
 
-		a.zome = args[1].value.(string)
-		a.function = args[2].value.(string)
-		a.args = args[3].value.(string)
+				var r interface{}
+				r, err = a.Do(h)
+				if err != nil {
+					return
+				}
+				result, err = jsr.vm.ToValue(r)
+				return
+			},
+		},
+		"commit": fnData{
+			a: &ActionCommit{},
+			fn: func(args []Arg, _a ArgsAction, call otto.FunctionCall) (result otto.Value, err error) {
+				entryType := args[0].value.(string)
+				entryStr := args[1].value.(string)
+				var r interface{}
+				entry := GobEntry{C: entryStr}
+				r, err = NewCommitAction(entryType, &entry).Do(h)
+				if err != nil {
+					return
+				}
+				var entryHash Hash
+				if r != nil {
+					entryHash = r.(Hash)
+				}
 
-		var r interface{}
-		r, err = a.Do(h)
-		if err != nil {
-			return mkOttoErr(&jsr, err.Error())
-		}
-		var result otto.Value
-		result, err = jsr.vm.ToValue(r)
-
-		if err != nil {
-			return mkOttoErr(&jsr, err.Error())
-		}
-		return result
-	})
-
-	err = jsr.vm.Set("commit", func(call otto.FunctionCall) otto.Value {
-		var a Action = &ActionCommit{}
-		args := a.Args()
-		err := jsProcessArgs(&jsr, args, call.ArgumentList)
-		if err != nil {
-			return mkOttoErr(&jsr, err.Error())
-		}
-
-		entryType := args[0].value.(string)
-		entryStr := args[1].value.(string)
-		var r interface{}
-		entry := GobEntry{C: entryStr}
-		r, err = NewCommitAction(entryType, &entry).Do(h)
-		if err != nil {
-			return mkOttoErr(&jsr, err.Error())
-		}
-		var entryHash Hash
-		if r != nil {
-			entryHash = r.(Hash)
-		}
-
-		result, _ := jsr.vm.ToValue(entryHash.String())
-		return result
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	err = jsr.vm.Set("query", func(call otto.FunctionCall) otto.Value {
-		a := &ActionQuery{}
-		args := a.Args()
-		err := jsProcessArgs(&jsr, args, call.ArgumentList)
-		if err != nil {
-			return mkOttoErr(&jsr, err.Error())
-		}
-
-		if len(call.ArgumentList) == 1 {
-			options := QueryOptions{}
-			var j []byte
-			j, err = json.Marshal(args[0].value)
-			if err != nil {
-				return mkOttoErr(&jsr, err.Error())
-			}
-			jsr.h.Debugf("Query options: %s", string(j))
-			err = json.Unmarshal(j, &options)
-			if err != nil {
-				return mkOttoErr(&jsr, err.Error())
-			}
-			a.options = &options
-		}
-		r, err := a.Do(h)
-		if err != nil {
-			return mkOttoErr(&jsr, err.Error())
-		}
-		qr := r.([]QueryResult)
-
-		defs := make(map[string]*EntryDef)
-		var code string
-		for i, result := range qr {
-			if i > 0 {
-				code += ","
-			}
-			var entryCode, hashCode, headerCode string
-			var returnCount int
-			if a.options.Return.Hashes {
-				returnCount += 1
-				hashCode = `"` + result.Header.EntryLink.String() + `"`
-			}
-			if a.options.Return.Headers {
-				returnCount += 1
-				headerCode = fmt.Sprintf(
-					`{Type:"%s",Time:"%v",EntryLink:"%s",HeaderLink:"%s",TypeLink:"%s",}`,
-					jsSanitizeString(result.Header.Type),
-					result.Header.Time,
-					result.Header.EntryLink.String(),
-					result.Header.HeaderLink.String(),
-					result.Header.TypeLink.String(),
-				)
-			}
-			if a.options.Return.Entries {
-				returnCount += 1
-
-				var def *EntryDef
-				var ok bool
-				def, ok = defs[result.Header.Type]
-				if !ok {
-					_, def, err = h.GetEntryDef(result.Header.Type)
+				result, err = jsr.vm.ToValue(entryHash.String())
+				return
+			},
+		},
+		"query": fnData{
+			a: &ActionQuery{},
+			fn: func(args []Arg, _a ArgsAction, call otto.FunctionCall) (result otto.Value, err error) {
+				a := _a.(*ActionQuery)
+				if len(call.ArgumentList) == 1 {
+					options := QueryOptions{}
+					var j []byte
+					j, err = json.Marshal(args[0].value)
 					if err != nil {
-						return mkOttoErr(&jsr, err.Error())
+						return
 					}
-					defs[result.Header.Type] = def
-				}
-				r := result.Entry.Content()
-				switch def.DataFormat {
-				case DataFormatRawJS:
-					entryCode = r.(string)
-				case DataFormatString:
-					entryCode = fmt.Sprintf(`"%s"`, jsSanitizeString(r.(string)))
-				case DataFormatLinks:
-					fallthrough
-				case DataFormatJSON:
-					entryCode = fmt.Sprintf(`JSON.parse("%s")`, jsSanitizeString(r.(string)))
-				case DataFormatSysAgent:
-					j, err := json.Marshal(r.(AgentEntry))
+					jsr.h.Debugf("Query options: %s", string(j))
+					err = json.Unmarshal(j, &options)
 					if err != nil {
-						return mkOttoErr(&jsr, err.Error())
+						return
 					}
-					entryCode = fmt.Sprintf(`JSON.parse("%s")`, jsSanitizeString(string(j)))
-				default:
-					return mkOttoErr(&jsr, "data format not implemented: "+def.DataFormat)
+					a.options = &options
 				}
-			}
-			if returnCount == 1 {
-				code += entryCode + hashCode + headerCode
-			} else {
-				var c string
-				if entryCode != "" {
-					c += "Entry:" + entryCode
+				var r interface{}
+				r, err = a.Do(h)
+				if err != nil {
+					return
 				}
-				if hashCode != "" {
-					if c != "" {
-						c += ","
+				qr := r.([]QueryResult)
+
+				defs := make(map[string]*EntryDef)
+				var code string
+				for i, qresult := range qr {
+					if i > 0 {
+						code += ","
 					}
-					c += "Hash:" + hashCode
-				}
-				if headerCode != "" {
-					if c != "" {
-						c += ","
+					var entryCode, hashCode, headerCode string
+					var returnCount int
+					if a.options.Return.Hashes {
+						returnCount += 1
+						hashCode = `"` + qresult.Header.EntryLink.String() + `"`
 					}
-					c += "Header:" + headerCode
+					if a.options.Return.Headers {
+						returnCount += 1
+						headerCode = fmt.Sprintf(
+							`{Type:"%s",Time:"%v",EntryLink:"%s",HeaderLink:"%s",TypeLink:"%s",}`,
+							jsSanitizeString(qresult.Header.Type),
+							qresult.Header.Time,
+							qresult.Header.EntryLink.String(),
+							qresult.Header.HeaderLink.String(),
+							qresult.Header.TypeLink.String(),
+						)
+					}
+					if a.options.Return.Entries {
+						returnCount += 1
+
+						var def *EntryDef
+						var ok bool
+						def, ok = defs[qresult.Header.Type]
+						if !ok {
+							_, def, err = h.GetEntryDef(qresult.Header.Type)
+							if err != nil {
+								return
+							}
+							defs[qresult.Header.Type] = def
+						}
+						r := qresult.Entry.Content()
+						switch def.DataFormat {
+						case DataFormatRawJS:
+							entryCode = r.(string)
+						case DataFormatString:
+							entryCode = fmt.Sprintf(`"%s"`, jsSanitizeString(r.(string)))
+						case DataFormatLinks:
+							fallthrough
+						case DataFormatJSON:
+							entryCode = fmt.Sprintf(`JSON.parse("%s")`, jsSanitizeString(r.(string)))
+						case DataFormatSysAgent:
+							var j []byte
+							j, err = json.Marshal(r.(AgentEntry))
+							if err != nil {
+								return
+							}
+							entryCode = fmt.Sprintf(`JSON.parse("%s")`, jsSanitizeString(string(j)))
+						default:
+							err = errors.New("data format not implemented: " + def.DataFormat)
+							return
+						}
+					}
+					if returnCount == 1 {
+						code += entryCode + hashCode + headerCode
+					} else {
+						var c string
+						if entryCode != "" {
+							c += "Entry:" + entryCode
+						}
+						if hashCode != "" {
+							if c != "" {
+								c += ","
+							}
+							c += "Hash:" + hashCode
+						}
+						if headerCode != "" {
+							if c != "" {
+								c += ","
+							}
+							c += "Header:" + headerCode
+						}
+						code += "{" + c + "}"
+					}
+
 				}
-				code += "{" + c + "}"
-			}
-
-		}
-		code = "[" + code + "]"
-		jsr.h.Debugf("Query Code:%s\n", code)
-		object, _ := jsr.vm.Object(code)
-		results, _ := jsr.vm.ToValue(object)
-		return results
-	})
-
-	err = jsr.vm.Set("get", func(call otto.FunctionCall) (result otto.Value) {
-		var a Action = &ActionGet{}
-		args := a.Args()
-		err := jsProcessArgs(&jsr, args, call.ArgumentList)
-		if err != nil {
-			return mkOttoErr(&jsr, err.Error())
-		}
-
-		options := GetOptions{StatusMask: StatusDefault}
-		if len(call.ArgumentList) == 2 {
-			opts := args[1].value.(map[string]interface{})
-			mask, ok := opts["StatusMask"]
-			if ok {
-				// otto returns int64 or float64 depending on whether
-				// the mask was returned by constant or addition so
-				maskval, ok := numInterfaceToInt(mask)
-				if !ok {
-					return mkOttoErr(&jsr, fmt.Sprintf("expecting int StatusMask attribute, got %T", mask))
+				code = "[" + code + "]"
+				jsr.h.Debugf("Query Code:%s\n", code)
+				object, _ := jsr.vm.Object(code)
+				result, err = jsr.vm.ToValue(object)
+				return
+			},
+		},
+		"get": fnData{
+			a: &ActionGet{},
+			fn: func(args []Arg, _a ArgsAction, call otto.FunctionCall) (result otto.Value, err error) {
+				options := GetOptions{StatusMask: StatusDefault}
+				if len(call.ArgumentList) == 2 {
+					opts, ok := args[1].value.(map[string]interface{})
+					if ok {
+						mask, ok := opts["StatusMask"]
+						if ok {
+							// otto returns int64 or float64 depending on whether
+							// the mask was returned by constant or addition so
+							maskval, ok := numInterfaceToInt(mask)
+							if !ok {
+								err = errors.New(fmt.Sprintf("expecting int StatusMask attribute, got %T", mask))
+								return
+							}
+							options.StatusMask = int(maskval)
+						}
+						mask, ok = opts["GetMask"]
+						if ok {
+							maskval, ok := numInterfaceToInt(mask)
+							if !ok {
+								err = errors.New(fmt.Sprintf("expecting int GetMask attribute, got %T", mask))
+								return
+							}
+							options.GetMask = int(maskval)
+						}
+						local, ok := opts["Local"]
+						if ok {
+							options.Local = local.(bool)
+						}
+					}
 				}
-				options.StatusMask = int(maskval)
-			}
-			mask, ok = opts["GetMask"]
-			if ok {
-				maskval, ok := numInterfaceToInt(mask)
-				if !ok {
-
-					return mkOttoErr(&jsr, fmt.Sprintf("expecting int GetMask attribute, got %T", mask))
+				req := GetReq{H: args[0].value.(Hash), StatusMask: options.StatusMask, GetMask: options.GetMask}
+				var r interface{}
+				r, err = NewGetAction(req, &options).Do(h)
+				mask := options.GetMask
+				if mask == GetMaskDefault {
+					mask = GetMaskEntry
 				}
-				options.GetMask = int(maskval)
-			}
-			local, ok := opts["Local"]
-			if ok {
-				options.Local = local.(bool)
-			}
-		}
-		req := GetReq{H: args[0].value.(Hash), StatusMask: options.StatusMask, GetMask: options.GetMask}
-		var r interface{}
-		r, err = NewGetAction(req, &options).Do(h)
-		mask := options.GetMask
-		if mask == GetMaskDefault {
-			mask = GetMaskEntry
-		}
-		if err == nil {
-			getResp := r.(GetResp)
-			var singleValueReturn bool
-			if mask&GetMaskEntry != 0 {
-				if GetMaskEntry == mask {
-					singleValueReturn = true
-					result, err = jsr.vm.ToValue(getResp.Entry.Content())
+				if err == nil {
+					getResp := r.(GetResp)
+					var singleValueReturn bool
+					if mask&GetMaskEntry != 0 {
+						if GetMaskEntry == mask {
+							singleValueReturn = true
+							result, err = jsr.vm.ToValue(getResp.Entry.Content())
+						}
+					}
+					if mask&GetMaskEntryType != 0 {
+						if GetMaskEntryType == mask {
+							singleValueReturn = true
+							result, err = jsr.vm.ToValue(getResp.EntryType)
+						}
+					}
+					if mask&GetMaskSources != 0 {
+						if GetMaskSources == mask {
+							singleValueReturn = true
+							result, err = jsr.vm.ToValue(getResp.Sources)
+						}
+					}
+					if err == nil && !singleValueReturn {
+						respObj := make(map[string]interface{})
+						if mask&GetMaskEntry != 0 {
+							respObj["Entry"] = getResp.Entry.Content()
+						}
+						if mask&GetMaskEntryType != 0 {
+							respObj["EntryType"] = getResp.EntryType
+						}
+						if mask&GetMaskSources != 0 {
+							respObj["Sources"] = getResp.Sources
+						}
+						result, err = jsr.vm.ToValue(respObj)
+					}
+
 				}
-			}
-			if mask&GetMaskEntryType != 0 {
-				if GetMaskEntryType == mask {
-					singleValueReturn = true
-					result, err = jsr.vm.ToValue(getResp.EntryType)
+				return
+			},
+		},
+		"update": fnData{
+			a: &ActionMod{},
+			fn: func(args []Arg, _a ArgsAction, call otto.FunctionCall) (result otto.Value, err error) {
+				entryType := args[0].value.(string)
+				entryStr := args[1].value.(string)
+				replaces := args[2].value.(Hash)
+
+				entry := GobEntry{C: entryStr}
+				var resp interface{}
+				resp, err = NewModAction(entryType, &entry, replaces).Do(h)
+				if err != nil {
+					return
 				}
-			}
-			if mask&GetMaskSources != 0 {
-				if GetMaskSources == mask {
-					singleValueReturn = true
-					result, err = jsr.vm.ToValue(getResp.Sources)
-				}
-			}
-			if err == nil && !singleValueReturn {
-				respObj := make(map[string]interface{})
-				if mask&GetMaskEntry != 0 {
-					respObj["Entry"] = getResp.Entry.Content()
-				}
-				if mask&GetMaskEntryType != 0 {
-					respObj["EntryType"] = getResp.EntryType
-				}
-				if mask&GetMaskSources != 0 {
-					respObj["Sources"] = getResp.Sources
-				}
-				result, err = jsr.vm.ToValue(respObj)
-			}
-			return
-		}
-
-		if err != nil {
-			return mkOttoErr(&jsr, err.Error())
-		}
-		panic("Shouldn't get here!")
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	err = jsr.vm.Set("update", func(call otto.FunctionCall) (result otto.Value) {
-		var a Action = &ActionMod{}
-		args := a.Args()
-		err := jsProcessArgs(&jsr, args, call.ArgumentList)
-		if err != nil {
-			return mkOttoErr(&jsr, err.Error())
-		}
-		entryType := args[0].value.(string)
-		entryStr := args[1].value.(string)
-		replaces := args[2].value.(Hash)
-
-		entry := GobEntry{C: entryStr}
-		resp, err := NewModAction(entryType, &entry, replaces).Do(h)
-		if err != nil {
-			return mkOttoErr(&jsr, err.Error())
-		}
-		var entryHash Hash
-		if resp != nil {
-			entryHash = resp.(Hash)
-		}
-		result, _ = jsr.vm.ToValue(entryHash.String())
-
-		return
-
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	err = jsr.vm.Set("updateAgent", func(call otto.FunctionCall) (result otto.Value) {
-		a := &ActionModAgent{}
-		//		var a Action = &ActionModAgent{}
-		args := a.Args()
-		err := jsProcessArgs(&jsr, args, call.ArgumentList)
-		if err != nil {
-			return mkOttoErr(&jsr, err.Error())
-		}
-		opts := args[0].value.(map[string]interface{})
-		id, idok := opts["Identity"]
-		if idok {
-			a.Identity = AgentIdentity(id.(string))
-		}
-		rev, revok := opts["Revocation"]
-		if revok {
-			a.Revocation = rev.(string)
-		}
-
-		resp, err := a.Do(h)
-		if err != nil {
-			return mkOttoErr(&jsr, err.Error())
-		}
-		var agentEntryHash Hash
-		if resp != nil {
-			agentEntryHash = resp.(Hash)
-		}
-		if revok {
-			// TODO there should be a better way to set a variable inside that vm.
-			// also worried about the re-entrancy here...
-			_, err = jsr.vm.Run(`App.Key.Hash="` + h.nodeIDStr + `"`)
-			if err != nil {
-				return mkOttoErr(&jsr, err.Error())
-			}
-		}
-
-		// there's always a new agent entry
-		_, err = jsr.vm.Run(`App.Agent.TopHash="` + h.agentTopHash.String() + `"`)
-		if err != nil {
-			return mkOttoErr(&jsr, err.Error())
-		}
-
-		// but not always a new identity to update
-		if idok {
-			_, err = jsr.vm.Run(`App.Agent.String="` + jsSanitizeString(id.(string)) + `"`)
-			if err != nil {
-				return mkOttoErr(&jsr, err.Error())
-			}
-		}
-
-		result, _ = jsr.vm.ToValue(agentEntryHash.String())
-
-		return
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	err = jsr.vm.Set("remove", func(call otto.FunctionCall) (result otto.Value) {
-		var a Action = &ActionDel{}
-		args := a.Args()
-		err := jsProcessArgs(&jsr, args, call.ArgumentList)
-		if err != nil {
-			return mkOttoErr(&jsr, err.Error())
-		}
-		entry := DelEntry{
-			Hash:    args[0].value.(Hash),
-			Message: args[1].value.(string),
-		}
-		header, err := h.chain.GetEntryHeader(entry.Hash)
-		if err == nil {
-			var resp interface{}
-			resp, err = NewDelAction(header.Type, entry).Do(h)
-			if err == nil {
 				var entryHash Hash
 				if resp != nil {
 					entryHash = resp.(Hash)
 				}
-				result, _ = jsr.vm.ToValue(entryHash.String())
+				result, err = jsr.vm.ToValue(entryHash.String())
 				return
-			}
-		}
-		result = mkOttoErr(&jsr, err.Error())
-		return
-
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	err = jsr.vm.Set("getLinks", func(call otto.FunctionCall) (result otto.Value) {
-		var a Action = &ActionGetLinks{}
-		args := a.Args()
-		err := jsProcessArgs(&jsr, args, call.ArgumentList)
-		if err != nil {
-			return jsr.vm.MakeCustomError("HolochainError", err.Error())
-		}
-		base := args[0].value.(Hash)
-		tag := args[1].value.(string)
-
-		l := len(call.ArgumentList)
-		options := GetLinksOptions{Load: false, StatusMask: StatusLive}
-		if l == 3 {
-			opts := args[2].value.(map[string]interface{})
-			load, ok := opts["Load"]
-			if ok {
-				loadval, ok := load.(bool)
-				if !ok {
-					return mkOttoErr(&jsr, fmt.Sprintf("expecting boolean Load attribute in object, got %T", load))
+			},
+		},
+		"updateAgent": fnData{
+			a: &ActionModAgent{},
+			fn: func(args []Arg, _a ArgsAction, call otto.FunctionCall) (result otto.Value, err error) {
+				a := _a.(*ActionModAgent)
+				opts := args[0].value.(map[string]interface{})
+				id, idok := opts["Identity"]
+				if idok {
+					a.Identity = AgentIdentity(id.(string))
 				}
-				options.Load = loadval
-			}
-			mask, ok := opts["StatusMask"]
-			if ok {
-				maskval, ok := numInterfaceToInt(mask)
-				if !ok {
-					return mkOttoErr(&jsr, fmt.Sprintf("expecting int StatusMask attribute in object, got %T", mask))
+				rev, revok := opts["Revocation"]
+				if revok {
+					a.Revocation = rev.(string)
 				}
-				options.StatusMask = int(maskval)
-			}
-		}
-		var response interface{}
-
-		response, err = NewGetLinksAction(&LinkQuery{Base: base, T: tag, StatusMask: options.StatusMask}, &options).Do(h)
-
-		if err == nil {
-			// we build up our response by creating the javascript object
-			// that we want and using otto to create it with vm.
-			// TODO: is there a faster way to do this?
-			lqr := response.(*LinkQueryResp)
-			var js string
-			for i, th := range lqr.Links {
-				var l string
-				l = `Hash:"` + th.H + `"`
-				if tag == "" {
-					l += `,Tag:"` + jsSanitizeString(th.T) + `"`
+				var resp interface{}
+				resp, err = a.Do(h)
+				if err != nil {
+					return
 				}
-				if options.Load {
-					l += `,EntryType:"` + jsSanitizeString(th.EntryType) + `"`
-					l += `,Source:"` + jsSanitizeString(th.Source) + `"`
-					_, def, err := h.GetEntryDef(th.EntryType)
+				var agentEntryHash Hash
+				if resp != nil {
+					agentEntryHash = resp.(Hash)
+				}
+				if revok {
+					// TODO there should be a better way to set a variable inside that vm.
+					// also worried about the re-entrancy here...
+					_, err = jsr.vm.Run(`App.Key.Hash="` + h.nodeIDStr + `"`)
 					if err != nil {
-						break
-					}
-					var entry string
-					switch def.DataFormat {
-					case DataFormatRawJS:
-						entry = th.E
-					case DataFormatRawZygo:
-						fallthrough
-					case DataFormatString:
-						entry = `"` + jsSanitizeString(th.E) + `"`
-					case DataFormatSysKey:
-						entry = fmt.Sprintf("%v", th.E)
-					case DataFormatSysAgent:
-						fallthrough
-					case DataFormatLinks:
-						fallthrough
-					case DataFormatJSON:
-						entry = `JSON.parse("` + jsSanitizeString(th.E) + `")`
-					default:
-						err = errors.New("data format not implemented: " + def.DataFormat)
 						return
 					}
+				}
 
-					l += `,Entry:` + entry
+				// there's always a new agent entry
+				_, err = jsr.vm.Run(`App.Agent.TopHash="` + h.agentTopHash.String() + `"`)
+				if err != nil {
+					return
 				}
-				if i > 0 {
-					js += ","
+
+				// but not always a new identity to update
+				if idok {
+					_, err = jsr.vm.Run(`App.Agent.String="` + jsSanitizeString(id.(string)) + `"`)
+					if err != nil {
+						return
+					}
 				}
-				js += `{` + l + `}`
-			}
-			if err == nil {
-				js = `[` + js + `]`
-				var obj *otto.Object
-				jsr.h.Debugf("getLinks code:\n%s", js)
-				obj, err = jsr.vm.Object(js)
+
+				result, err = jsr.vm.ToValue(agentEntryHash.String())
+
+				return
+			},
+		},
+		"remove": fnData{
+			a: &ActionDel{},
+			fn: func(args []Arg, _a ArgsAction, call otto.FunctionCall) (result otto.Value, err error) {
+				entry := DelEntry{
+					Hash:    args[0].value.(Hash),
+					Message: args[1].value.(string),
+				}
+				var header *Header
+				header, err = h.chain.GetEntryHeader(entry.Hash)
 				if err == nil {
-					result = obj.Value()
+					var resp interface{}
+					resp, err = NewDelAction(header.Type, entry).Do(h)
+					if err == nil {
+						var entryHash Hash
+						if resp != nil {
+							entryHash = resp.(Hash)
+						}
+						result, err = jsr.vm.ToValue(entryHash.String())
+					}
 				}
-			}
-		}
+				return
+			},
+		},
+		"getLinks": fnData{
+			a: &ActionGetLinks{},
+			fn: func(args []Arg, _a ArgsAction, call otto.FunctionCall) (result otto.Value, err error) {
+				base := args[0].value.(Hash)
+				tag := args[1].value.(string)
 
+				l := len(call.ArgumentList)
+				options := GetLinksOptions{Load: false, StatusMask: StatusLive}
+				if l == 3 {
+					opts, ok := args[2].value.(map[string]interface{})
+					if ok {
+						load, ok := opts["Load"]
+						if ok {
+							loadval, ok := load.(bool)
+							if !ok {
+								err = errors.New(fmt.Sprintf("expecting boolean Load attribute in object, got %T", load))
+								return
+							}
+							options.Load = loadval
+						}
+						mask, ok := opts["StatusMask"]
+						if ok {
+							maskval, ok := numInterfaceToInt(mask)
+							if !ok {
+								err = errors.New(fmt.Sprintf("expecting int StatusMask attribute in object, got %T", mask))
+								return
+							}
+							options.StatusMask = int(maskval)
+						}
+					}
+				}
+				var response interface{}
+				response, err = NewGetLinksAction(&LinkQuery{Base: base, T: tag, StatusMask: options.StatusMask}, &options).Do(h)
+
+				if err == nil {
+					// we build up our response by creating the javascript object
+					// that we want and using otto to create it with vm.
+					// TODO: is there a faster way to do this?
+					lqr := response.(*LinkQueryResp)
+					var js string
+					for i, th := range lqr.Links {
+						var l string
+						l = `Hash:"` + th.H + `"`
+						if tag == "" {
+							l += `,Tag:"` + jsSanitizeString(th.T) + `"`
+						}
+						if options.Load {
+							l += `,EntryType:"` + jsSanitizeString(th.EntryType) + `"`
+							l += `,Source:"` + jsSanitizeString(th.Source) + `"`
+							var def *EntryDef
+							_, def, err = h.GetEntryDef(th.EntryType)
+							if err != nil {
+								break
+							}
+							var entry string
+							switch def.DataFormat {
+							case DataFormatRawJS:
+								entry = th.E
+							case DataFormatRawZygo:
+								fallthrough
+							case DataFormatString:
+								entry = `"` + jsSanitizeString(th.E) + `"`
+							case DataFormatSysKey:
+								entry = fmt.Sprintf("%v", th.E)
+							case DataFormatSysAgent:
+								fallthrough
+							case DataFormatLinks:
+								fallthrough
+							case DataFormatJSON:
+								entry = `JSON.parse("` + jsSanitizeString(th.E) + `")`
+							default:
+								err = errors.New("data format not implemented: " + def.DataFormat)
+								return
+							}
+
+							l += `,Entry:` + entry
+						}
+						if i > 0 {
+							js += ","
+						}
+						js += `{` + l + `}`
+					}
+					if err == nil {
+						js = `[` + js + `]`
+						var obj *otto.Object
+						jsr.h.Debugf("getLinks code:\n%s", js)
+						obj, err = jsr.vm.Object(js)
+						if err == nil {
+							result = obj.Value()
+						}
+					}
+				}
+				return
+			},
+		},
+	}
+
+	var fnPrefix string
+	var returnErrors bool
+	val, ok := zome.Config["returnErrors"]
+	if ok {
+		returnErrors, ok = val.(bool)
+		if !ok {
+			err = errors.New("Expected returnErrors config value to be boolean")
+			return nil, err
+		}
+	}
+	if !returnErrors {
+		fnPrefix = "__"
+	}
+
+	for name, data := range funcs {
+		wfn := makeJSFN(&jsr, name, data)
+		err = jsr.vm.Set(fnPrefix+name, wfn)
 		if err != nil {
-			result = mkOttoErr(&jsr, err.Error())
+			return nil, err
 		}
-
-		return
-	})
-	if err != nil {
-		return nil, err
 	}
 
 	l := JSLibrary
 	if h != nil {
 		l += fmt.Sprintf(`var App = {Name:"%s",DNA:{Hash:"%s"},Agent:{Hash:"%s",TopHash:"%s",String:"%s"},Key:{Hash:"%s"}};`, h.Name(), h.dnaHash, h.agentHash, h.agentTopHash, jsSanitizeString(string(h.Agent().Identity())), h.nodeIDStr)
 	}
+
+	if !returnErrors {
+		l += `
+		function checkForError(func, rtn) {
+		    if ((typeof rtn === 'object') && rtn.name == "` + HolochainErrorPrefix + `") {
+		        var errsrc = new getErrorSource(4);
+		        throw {
+		            name: "` + HolochainErrorPrefix + `",
+		            function: func,
+		            errorMessage: rtn.message,
+		            source: errsrc,
+		            toString: function () { return JSON.stringify(this); }
+		        }
+		    }
+		    return rtn;
+		}
+
+		function getErrorSource(depth) {
+		    try {
+		        //Throw an error to generate a stack trace
+		        throw new Error();
+		    }
+		    catch (e) {
+		        // get the Xth line of the stack trace
+		        var line = e.stack.split('\n')[depth];
+
+		        // pull out the useful data
+		        var reg = /at (.*) \(.*:(.*):(.*)\)/g.exec(line);
+		        if (reg) {
+		            this.functionName = reg[1];
+		            this.line = reg[2];
+		            this.column = reg[3];
+		        }
+		    }
+		}`
+
+		for name, data := range funcs {
+			args := data.a.Args()
+			var argstr string
+			switch len(args) {
+			case 1:
+				argstr = "a"
+			case 2:
+				argstr = "a,b"
+			case 3:
+				argstr = "a,b,c"
+			case 4:
+				argstr = "a,b,c,d"
+			}
+			l += fmt.Sprintf(`function %s(%s){return checkForError("%s",__%s(%s))}`, name, argstr, name, name, argstr)
+		}
+	}
+
+	l += `
+// helper function to determine if value returned from holochain function is an error
+function isErr(result) {
+    return ((typeof result === 'object') && result.name == "Holochain Error");
+}`
+
 	_, err = jsr.Run(l + zome.Code)
 	if err != nil {
 		return
@@ -1250,11 +1244,29 @@ func NewJSRibosome(h *Holochain, zome *Zome) (n Ribosome, err error) {
 	return
 }
 
+func makeJSFN(jsr *JSRibosome, name string, data fnData) func(call otto.FunctionCall) (result otto.Value) {
+	return func(call otto.FunctionCall) (result otto.Value) {
+		fn := data.fn
+		args := data.a.Args()
+		err := jsProcessArgs(jsr, args, call.ArgumentList)
+		if err == nil {
+			result, err = fn(args, data.a, call)
+		}
+		if err != nil {
+			result = mkOttoErr(jsr, err.Error())
+		}
+		return result
+	}
+}
+
 // Run executes javascript code
 func (jsr *JSRibosome) Run(code string) (result interface{}, err error) {
 	v, err := jsr.vm.Run(code)
 	if err != nil {
-		err = fmt.Errorf("Error executing JavaScript: " + err.Error())
+		errStr := err.Error()
+		if !strings.HasPrefix(errStr, "{") {
+			err = fmt.Errorf("Error executing JavaScript: " + errStr)
+		}
 		return
 	}
 	jsr.lastResult = &v

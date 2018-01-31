@@ -106,6 +106,7 @@ type ZomeFile struct {
 	Functions    []FunctionDef
 	BridgeFuncs  []string // functions in zome that can be bridged to by fromApp
 	BridgeTo     string   // dna Hash of toApp that this zome is a client of
+	Config       map[string]interface{}
 }
 
 type DNAFile struct {
@@ -147,7 +148,7 @@ type TestData struct {
 	FnName    string        // the function to call
 	Input     interface{}   // the function's input
 	Output    interface{}   // the expected output to match against (full match)
-	Err       string        // the expected error to match against
+	Err       interface{}   // the expected error to match against
 	Regexp    string        // the expected out to match again (regular expression)
 	Time      time.Duration // offset in milliseconds from the start of the test at which to run this test.
 	Wait      time.Duration // time in milliseconds to wait before running this test from when the previous ran
@@ -392,6 +393,7 @@ func (s *Service) loadDNA(path string, filename string, format string) (dnaP *DN
 		dna.Zomes[i].Description = zome.Description
 		dna.Zomes[i].RibosomeType = zome.RibosomeType
 		dna.Zomes[i].Functions = zome.Functions
+		dna.Zomes[i].Config = zome.Config
 		dna.Zomes[i].BridgeFuncs = zome.BridgeFuncs
 		if zome.BridgeTo != "" {
 			dna.Zomes[i].BridgeTo, err = NewHash(zome.BridgeTo)
@@ -957,6 +959,7 @@ func (s *Service) saveDNAFile(root string, dna *DNA, encodingFormat string, over
 			Functions:    z.Functions,
 			BridgeFuncs:  z.BridgeFuncs,
 			BridgeTo:     z.BridgeTo.String(),
+			Config:       z.Config,
 		}
 
 		for _, e := range z.Entries {
@@ -1562,7 +1565,7 @@ func TestingAppAppPackage() string {
 	"Zome":   "jsSampleZome",
 	"FnName": "addOdd",
 	"Input":  "2",
-	"Err":    "Validation Failed"
+	"Err":    {"errorMessage":"Validation Failed","function":"commit","name":"Holochain Error","source":{"column":"28","functionName":"addOdd","line":"45"}}
     },
     {
 	"Zome":   "zySampleZome",

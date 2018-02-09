@@ -183,6 +183,38 @@ func TestBridge(t *testing.T) {
 	})
 }
 
+func TestDumpChainAsJSON(t *testing.T) {
+	Convey("Given a joined chain", t, func() {
+		d := holo.SetupTestDir()
+		defer os.RemoveAll(d)
+
+		app := setupApp()
+		_, err := runAppWithStdoutCapture(app, []string{"hcadmin", "-path", d, "init", "test-identity"})
+		if err != nil {
+			panic(err)
+		}
+
+		err = holo.WriteFile([]byte(holo.BasicTemplateAppPackage), d, "appPackage."+holo.BasicTemplateAppPackageFormat)
+		if err != nil {
+			panic(err)
+		}
+
+		app = setupApp()
+		_, err = runAppWithStdoutCapture(app, []string{"hcadmin", "-verbose", "-path", d, "join", filepath.Join(d, "appPackage."+holo.BasicTemplateAppPackageFormat), "testApp"})
+		if err != nil {
+			panic(err)
+		}
+
+		Convey("dump -chain -json should show chain entries as a json", func() {
+			app = setupApp()
+			out, err := runAppWithStdoutCapture(app, []string{"hcadmin", "-path", d, "dump", "-chain", "-json", "testApp"})
+			fmt.Println(out)
+			So(err, ShouldBeNil)
+			So(out, ShouldContainSubstring, "{\n    \"%dna\": {")
+		})
+	})
+}
+
 func runAppWithStdoutCapture(app *cli.App, args []string) (out string, err error) {
 	return cmd.RunAppWithStdoutCapture(app, args, time.Second*5)
 }

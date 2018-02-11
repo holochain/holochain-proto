@@ -557,8 +557,8 @@ func (c *Chain) JSON() string {
 	c.lk.RLock()
 	defer c.lk.RUnlock()
 	l := len(c.Headers)
-	firstDefaultEntry := false
-	lastDefaultEntry := false
+	firstEntry := false
+	lastEntry := false
 
 	var buffer bytes.Buffer
 
@@ -569,26 +569,29 @@ func (c *Chain) JSON() string {
 		hash := c.Hashes[i]
 
 		e := c.Entries[i]
+		lastEntry = (i == l-1)
+
 		switch hdr.Type {
 		case KeyEntryType, AgentEntryType, DNAEntryType:
-			e.(*GobEntry).appendNamedEntryAsJSON(hdr, &hash, &buffer)
+			buffer.WriteString("\"" + hdr.Type + "\":")
+			appendEntryAsJSON(&buffer, hdr, &hash, e.(*GobEntry))
+			if !lastEntry {
+				buffer.WriteString(",")
+			}
 		default:
-			if !firstDefaultEntry {
+			if !firstEntry {
 				buffer.WriteString("\"entries\":[")
-				firstDefaultEntry = true
+				firstEntry = true
 			}
 
-			lastDefaultEntry = (i == l-1)
-			e.(*GobEntry).appendDefaultEntryAsJSON(hdr, &hash, &buffer, lastDefaultEntry)
+			appendEntryAsJSON(&buffer, hdr, &hash, e.(*GobEntry))
 
-			if lastDefaultEntry {
+			if lastEntry {
 				buffer.WriteString("]")
+			} else {
+				buffer.WriteString(",")
 			}
 		}
-	}
-
-	if !firstDefaultEntry {
-		buffer.WriteString("\"entries\":[]")
 	}
 
 	buffer.WriteString("}")
@@ -611,54 +614,39 @@ func (c *Chain) Close() {
 	c.s = nil
 }
 
-func (g *GobEntry) appendNamedEntryAsJSON(hdr *Header, hash *Hash, buffer *bytes.Buffer) {
-	buffer.WriteString("\"" + hdr.Type + "\":{")
+func appendEntryAsJSON(buffer *bytes.Buffer, hdr *Header, hash *Hash, g *GobEntry) {
+	buffer.WriteString("{")
 	appendEntryHeaderAsJSON(buffer, hdr, hash)
-	buffer.WriteString(",\"content\":")
+	buffer.WriteString(",")
+	appendEntryContentAsJSON(buffer, hdr, g)
+	buffer.WriteString("}")
+}
+
+func appendEntryHeaderAsJSON(buffer *bytes.Buffer, hdr *Header, hash *Hash) {
+	buffer.WriteString("\"header\":{")
+	buffer.WriteString("\"type\":" + "\"" + hdr.Type + "\",")
+	buffer.WriteString(fmt.Sprintf("\"hash\":\"%v\",", hash))
+	buffer.WriteString(fmt.Sprintf("\"time\":\"%v\",", hdr.Time))
+	buffer.WriteString(fmt.Sprintf("\"nextHeader\":\"%v\",", hdr.HeaderLink))
+	buffer.WriteString(fmt.Sprintf("\"next\":\"%v: %v\",", hdr.Type, hdr.TypeLink))
+	buffer.WriteString(fmt.Sprintf("\"entry\":\"%v\"", hdr.EntryLink))
+	buffer.WriteString("}")
+}
+
+func appendEntryContentAsJSON(buffer *bytes.Buffer, hdr *Header, g *GobEntry) {
+	buffer.WriteString("\"content\":")
 
 	switch g.C.(type) {
 	case []uint8:
 		buffer.WriteString(fmt.Sprintf("%s", g.C))
 	default:
-		b, err := json.Marshal(g.C)
+		result, err := json.Marshal(g.C)
 		if err != nil {
 			fmt.Printf("Error: %s", err)
 			return
 		}
-		buffer.WriteString(string(b))
+		buffer.WriteString(string(result))
 	}
-
-	buffer.WriteString("},")
-}
-
-func (g *GobEntry) appendDefaultEntryAsJSON(hdr *Header, hash *Hash, buffer *bytes.Buffer, finalEntry bool) {
-	buffer.WriteString("{")
-	appendEntryHeaderAsJSON(buffer, hdr, hash)
-
-	b, err := json.Marshal(g.C)
-	if err != nil {
-		fmt.Printf("Error: %s", err)
-		return
-	}
-
-	buffer.WriteString(",\"content\":")
-	buffer.WriteString(string(b))
-	buffer.WriteString("}")
-
-	if !finalEntry {
-		buffer.WriteString(",")
-	}
-}
-
-func appendEntryHeaderAsJSON(b *bytes.Buffer, hdr *Header, hash *Hash) {
-	b.WriteString("\"header\":{")
-	b.WriteString("\"type\":" + "\"" + hdr.Type + "\",")
-	b.WriteString(fmt.Sprintf("\"hash\":\"%v\",", hash))
-	b.WriteString(fmt.Sprintf("\"time\":\"%v\",", hdr.Time))
-	b.WriteString(fmt.Sprintf("\"nextHeader\":\"%v\",", hdr.HeaderLink))
-	b.WriteString(fmt.Sprintf("\"next\":\"%v: %v\",", hdr.Type, hdr.TypeLink))
-	b.WriteString(fmt.Sprintf("\"entry\":\"%v\"", hdr.EntryLink))
-	b.WriteString("}")
 }
 
 func prettyPrintJSON(b []byte) ([]byte, error) {

@@ -496,7 +496,7 @@ func jsProcessArgs(jsr *JSRibosome, args []Arg, oArgs []otto.Value) (err error) 
 }
 
 const (
-	HolochainErrorPrefix = "Holochain Error"
+	HolochainErrorPrefix = "HolochainError"
 )
 
 func mkOttoErr(jsr *JSRibosome, msg string) otto.Value {
@@ -1233,7 +1233,7 @@ func NewJSRibosome(h *Holochain, zome *Zome) (n Ribosome, err error) {
 	l += `
 // helper function to determine if value returned from holochain function is an error
 function isErr(result) {
-    return ((typeof result === 'object') && result.name == "Holochain Error");
+    return ((typeof result === 'object') && result.name == "` + HolochainErrorPrefix + `");
 }`
 
 	_, err = jsr.Run(l + zome.Code)

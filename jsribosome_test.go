@@ -264,7 +264,7 @@ func TestNewJSRibosome(t *testing.T) {
 		})
 		Convey("bridge", func() {
 			_, err := z.Run(`bridge("QmVGtdTZdTFaLsaj2RwdVG8jcjNNcp1DE914DKZ2kHmXHw","zySampleZome","testStrFn1","foo")`)
-			So(err.Error(), ShouldEqual, `{"errorMessage":"no active bridge","function":"bridge","name":"Holochain Error","source":{}}`)
+			So(err.Error(), ShouldEqual, `{"errorMessage":"no active bridge","function":"bridge","name":"HolochainError","source":{}}`)
 
 			// TODO
 			// This test can't work because of the import cycle that we can't import
@@ -371,7 +371,7 @@ func TestJSQuery(t *testing.T) {
 		}, `[{"Identity":"Herbert \u003ch@bert.com\u003e","PublicKey":"CAESIHLUfxjdoEfk8byjsBR+FXxYpYrFTviSBf2BbC0boylT","Revocation":null}]`)
 
 		_, err := z.Run(`debug(query({Constrain:{EntryTypes:["%dna"]}}))`)
-		So(err.Error(), ShouldEqual, `{"errorMessage":"data format not implemented: _DNA","function":"query","name":"Holochain Error","source":{}}`)
+		So(err.Error(), ShouldEqual, `{"errorMessage":"data format not implemented: _DNA","function":"query","name":"HolochainError","source":{}}`)
 
 		ShouldLog(h.nucleus.alog, func() {
 			_, err := z.Run(`debug(query({Constrain:{EntryTypes:["rating"]}}))`)
@@ -640,7 +640,7 @@ func TestJSDHT(t *testing.T) {
 	hash, _ := NewHash("QmY8Mzg9F69e5P9AoQPYat6x5HEhc1TVGs11tmfNSzkqh2")
 	Convey("get should return hash not found if it doesn't exist", t, func() {
 		_, err := NewJSRibosome(h, &Zome{RibosomeType: JSRibosomeType, Code: fmt.Sprintf(`get("%s");`, hash.String())})
-		So(err.Error(), ShouldEqual, `{"errorMessage":"hash not found","function":"get","name":"Holochain Error","source":{}}`)
+		So(err.Error(), ShouldEqual, `{"errorMessage":"hash not found","function":"get","name":"HolochainError","source":{}}`)
 	})
 
 	// add an entry onto the chain
@@ -841,7 +841,7 @@ func TestJSDHT(t *testing.T) {
 		So(err, ShouldBeNil)
 
 		v, err = NewJSRibosome(h, &Zome{RibosomeType: JSRibosomeType, Code: fmt.Sprintf(`get("%s");`, hash.String())})
-		So(err.Error(), ShouldEqual, `{"errorMessage":"hash deleted","function":"get","name":"Holochain Error","source":{}}`)
+		So(err.Error(), ShouldEqual, `{"errorMessage":"hash deleted","function":"get","name":"HolochainError","source":{}}`)
 
 		v, err = NewJSRibosome(h, &Zome{RibosomeType: JSRibosomeType, Code: fmt.Sprintf(`get("%s",{StatusMask:HC.Status.Deleted});`, hash.String())})
 		So(err, ShouldBeNil)
@@ -855,7 +855,7 @@ func TestJSDHT(t *testing.T) {
 	Convey("updateAgent function without options should fail", t, func() {
 		_, err := NewJSRibosome(h, &Zome{RibosomeType: JSRibosomeType,
 			Code: fmt.Sprintf(`updateAgent({})`)})
-		So(err.Error(), ShouldEqual, `{"errorMessage":"expecting identity and/or revocation option","function":"updateAgent","name":"Holochain Error","source":{}}`)
+		So(err.Error(), ShouldEqual, `{"errorMessage":"expecting identity and/or revocation option","function":"updateAgent","name":"HolochainError","source":{}}`)
 	})
 
 	Convey("updateAgent function should commit a new agent entry", t, func() {

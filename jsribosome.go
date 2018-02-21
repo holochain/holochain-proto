@@ -735,9 +735,10 @@ func NewJSRibosome(h *Holochain, zome *Zome) (n Ribosome, err error) {
 			return mkOttoErr(&jsr, err.Error())
 		}
 		if fn.CallingType == JSON_CALLING {
+			/* this is a mistake.
 			if !call.ArgumentList[2].IsObject() {
-				return mkOttoErr(&jsr, "function calling type requires object argument type")
-			}
+						return mkOttoErr(&jsr, "function calling type requires object argument type")
+					}*/
 		}
 		a.args = args[2].value.(string)
 

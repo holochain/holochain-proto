@@ -8,11 +8,12 @@ package main
 import (
 	"errors"
 	"fmt"
+	"os"
+	"path/filepath"
+
 	holo "github.com/metacurrency/holochain"
 	"github.com/metacurrency/holochain/cmd"
 	"github.com/urfave/cli"
-	"os"
-	"path/filepath"
 )
 
 var debug bool
@@ -24,7 +25,7 @@ func setupApp() (app *cli.App) {
 	app.Usage = "holochain administration tool"
 	app.Version = fmt.Sprintf("0.0.3 (holochain %s)", holo.VersionStr)
 
-	var dumpChain, dumpDHT bool
+	var dumpChain, dumpDHT, json bool
 	var root string
 	var service *holo.Service
 	var bridgeToAppData, bridgeFromAppData string
@@ -85,6 +86,11 @@ func setupApp() (app *cli.App) {
 					Name:        "dht",
 					Destination: &dumpDHT,
 				},
+				cli.BoolFlag{
+					Name:        "json",
+					Destination: &json,
+					Usage:       "Dump as JSON string",
+				},
 			},
 			Action: func(c *cli.Context) error {
 				h, err := cmd.GetHolochain(c.Args().First(), service, "dump")
@@ -97,7 +103,11 @@ func setupApp() (app *cli.App) {
 				}
 				dnaHash := h.DNAHash()
 				if dumpChain {
-					fmt.Printf("Chain for: %s\n%v", dnaHash, h.Chain())
+					if json {
+						fmt.Println(h.Chain().JSON())
+					} else {
+						fmt.Printf("Chain for: %s\n%v", dnaHash, h.Chain())
+					}
 				}
 				if dumpDHT {
 					fmt.Printf("DHT for: %s\n%v", dnaHash, h.DHT())

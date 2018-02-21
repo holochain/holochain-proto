@@ -264,7 +264,7 @@ uptime(n) \in [0,1]\\
 \end{split}
 \end{equation}
 
-Call the union of such sets $V_\delta$ from a given node's Enforceperspective the \term{overlap list}.
+Call the union of such sets $V_\delta$, from a given node's perspective, the \term{overlap list}.
 
 \item \label{hc:shards} Allow every node $n$ to discard every $\delta_x \in \dhtstate_n$ if the number of closer (with regards to $d(x,y)$) nodes greater than $q$.
 Note that this results in the network adapting to changes in topology and DHT state migrations by regulating the number of network-wide redundant copies of all $\delta_i\in\dhtstate$ to match $r$ according to node uptime. This implies the existence of $q$ partitions of N called \term{shards}\footnote{This sharding inspired the Holochain name, because if you partition the network it still retains an image of the whole in the same way that cutting a hologram results in each part still containing the whole image.\cite{hologram}} that each (among all their nodes $N_{Shard_i} \subset N$) hold a complete redundant copy of $\dhtstate$ :

@@ -59,9 +59,23 @@ Which you choose depends on your preference and your purpose.  If you intend to 
 
 ### Go Based Install
 
+#### Unix
+(Unix includes macOS and Linux.)
+
 1. [Download Go](https://golang.org/dl/). Download the "Archive" or "Installer" for version 1.8 or later for your CPU and OS. The "Source" download does not contain an executable and step 3 will fail.
 2. [Install Go](https://golang.org/doc/install) on your system.  See platform specific instructions and hints below for making this work.
-3. Install the command line tool suite with:
+3. Setup your path (Almost all installation problems that have been reported stem from skipping this step.)
+
+    * Export the `$GOPATH` variable in your shell profile.
+    * Add `$GOPATH/bin` to your `$PATH` in your shell profile.
+
+    For example, add the following to the end of your shell profile (usually `~/.bashrc` or `~/.bash_profile`):
+````bash
+        export GOPATH="$HOME/go"
+        export PATH="$GOPATH/bin:$PATH"
+````
+
+4. Install the command line tool suite with:
 
 ```bash
 $ go get -d -v github.com/metacurrency/holochain
@@ -69,25 +83,12 @@ $ cd $GOPATH/src/github.com/metacurrency/holochain
 $ make
 ```
 
-4. Test that it works (should look something like this):
+5. Test that it works (should look something like this):
 
 ```bash
 $ hcadmin -v
 hcadmin version 0.0.x (holochain y)
 ```
-
-#### Unix
-(Unix includes macOS and Linux.)
-You'll need to have a working environment set up for [Go](http://golang.org) version 1.8 or later. See the [installation instructions for Go](http://golang.org/doc/install.html).
-
-Most importantly you'll need to: (Almost all installation problems that have been reported stem from skipping one of these steps.)
-1. Export the `$GOPATH` variable in your shell profile.
-2. Add `$GOPATH/bin` to your `$PATH` in your shell profile.
-
-For example, add the following to the end of your shell profile (usually `~/.bashrc` or `~/.bash_profile`):
-
-    export GOPATH="$HOME/go"
-    export PATH="$GOPATH/bin:$PATH"
 
 #### Windows
 First you'll need to install some necessary programs if you don't already have them.

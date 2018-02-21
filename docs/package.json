@@ -1,0 +1,17 @@
+{
+	"name": "holochain-docs-compiler",
+	"version": "0.0.0",
+	"description": "compile Holochain Core documentation to a set of publishable HTML files",
+	"main": "compile.js",
+	"author": "Raymond Powell",
+	"dependencies": {
+		"ejs": "latest"
+	},
+	"repository": {
+		"type": "git",
+		"url": "git@gitlab.holochain.net:holo/private-holo-credit-sale.git"
+	},
+	"scripts": {
+		"test": "mocha --exit --timeout 15000"
+	}
+}

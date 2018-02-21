@@ -6,7 +6,6 @@ import (
 	"path/filepath"
 	"reflect"
 	"regexp"
-	"strings"
 	"testing"
 	"time"
 
@@ -435,14 +434,18 @@ func TestChain2JSON(t *testing.T) {
 	c := NewChain(hashSpec)
 
 	Convey("it should dump empty JSON object for empty chain", t, func() {
-		So(c.JSON(), ShouldEqual, "{}")
+		json, err := c.JSON()
+		So(err, ShouldBeNil)
+		So(json, ShouldEqual, "{}")
 	})
 
 	e := GobEntry{C: "dna entry"}
 	c.AddEntry(now, DNAEntryType, &e, key)
 
 	Convey("it should dump a DNA entry as JSON", t, func() {
-		json := normaliseJSON(c.JSON())
+		json, err := c.JSON()
+		So(err, ShouldBeNil)
+		json = NormaliseJSON(json)
 		matched, err := regexp.MatchString(`{"%dna":{"header":{.*},"content":"dna entry"}}`, json)
 		So(err, ShouldBeNil)
 		So(matched, ShouldBeTrue)
@@ -452,7 +455,9 @@ func TestChain2JSON(t *testing.T) {
 	c.AddEntry(now, AgentEntryType, &e, key)
 
 	Convey("it should dump a Agent entry as JSON", t, func() {
-		json := normaliseJSON(c.JSON())
+		json, err := c.JSON()
+		So(err, ShouldBeNil)
+		json = NormaliseJSON(json)
 		matched, err := regexp.MatchString(`{"%dna":{"header":{.*},"content":"dna entry"},"%agent":{"header":{.*},"content":"agent entry"}}`, json)
 		So(err, ShouldBeNil)
 		So(matched, ShouldBeTrue)
@@ -462,7 +467,9 @@ func TestChain2JSON(t *testing.T) {
 	c.AddEntry(now, "handle", &e, key)
 
 	Convey("it should dump chain with entries as JSON", t, func() {
-		json := normaliseJSON(c.JSON())
+		json, err := c.JSON()
+		So(err, ShouldBeNil)
+		json = NormaliseJSON(json)
 		matched, err := regexp.MatchString(`{"%dna":{.*},"%agent":{.*},"entries":\[{"header":{"type":"handle",.*"},"content":"chain entry"}\]}`, json)
 		So(err, ShouldBeNil)
 		So(matched, ShouldBeTrue)
@@ -510,10 +517,4 @@ func chainTestSetup() (hs HashSpec, key ic.PrivKey, now time.Time) {
 	hP.PrepareHashType()
 	hs = hP.hashSpec
 	return
-}
-
-func normaliseJSON(json string) string {
-	json = strings.Replace(json, "\n", "", -1)
-	json = strings.Replace(json, "    ", "", -1)
-	return strings.Replace(json, ": ", ":", -1)
 }

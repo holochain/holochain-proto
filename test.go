@@ -179,3 +179,9 @@ func SetAgentIdentity(agent Agent, identity AgentIdentity) {
 	seed = MakeTestSeed(string(identity))
 	agent.GenKeys(seed)
 }
+
+func NormaliseJSON(json string) string {
+	json = strings.Replace(json, "\n", "", -1)
+	json = strings.Replace(json, "    ", "", -1)
+	return strings.Replace(json, ": ", ":", -1)
+}

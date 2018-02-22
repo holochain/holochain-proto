@@ -553,7 +553,7 @@ func (c *Chain) String() string {
 }
 
 // JSON converts a chain to a json string dump of the headers and entries
-func (c *Chain) JSON() string {
+func (c *Chain) JSON() (string, error) {
 	c.lk.RLock()
 	defer c.lk.RUnlock()
 	l := len(c.Headers)
@@ -595,12 +595,7 @@ func (c *Chain) JSON() string {
 	}
 
 	buffer.WriteString("}")
-
-	json, err := prettyPrintJSON(buffer.Bytes())
-	if err != nil {
-		return errorAsJSON(err.Error())
-	}
-	return string(json)
+	return PrettyPrintJSON(buffer.Bytes())
 }
 
 // Length returns the number of entries in the chain
@@ -647,14 +642,4 @@ func appendEntryContentAsJSON(buffer *bytes.Buffer, hdr *Header, g *GobEntry) {
 		}
 		buffer.WriteString(string(result))
 	}
-}
-
-func prettyPrintJSON(b []byte) ([]byte, error) {
-	var out bytes.Buffer
-	err := json.Indent(&out, b, "", "    ")
-	return out.Bytes(), err
-}
-
-func errorAsJSON(err string) string {
-	return "{\"error\":" + err + "}"
 }

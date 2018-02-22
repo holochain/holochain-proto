@@ -104,13 +104,19 @@ func setupApp() (app *cli.App) {
 				dnaHash := h.DNAHash()
 				if dumpChain {
 					if json {
-						fmt.Println(h.Chain().JSON())
+						dump, _ := h.Chain().JSON()
+						fmt.Println(dump)
 					} else {
 						fmt.Printf("Chain for: %s\n%v", dnaHash, h.Chain())
 					}
 				}
 				if dumpDHT {
-					fmt.Printf("DHT for: %s\n%v", dnaHash, h.DHT())
+					if json {
+						dump, _ := h.DHT().JSON()
+						fmt.Println(dump)
+					} else {
+						fmt.Printf("DHT for: %s\n%v", dnaHash, h.DHT())
+					}
 				}
 
 				return nil

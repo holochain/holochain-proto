@@ -1,6 +1,6 @@
 <%- include("header.ejs") %>
 
-<%- library.function_heading("commit", ["entryType", "entryData"]) %>
+<%- library.function_heading("commit", [ { name: "entryType", type: "string" }, { name: "entryData", type: "object" }]) %>
 
 <p>
 Attempts to commit an entry to your local, source chain. It will cause callback to your <%- library.function_link("validate") %> function. Returns either an error or the hash of the committed entry upon success.

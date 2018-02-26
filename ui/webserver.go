@@ -125,8 +125,6 @@ func (ws *WebServer) Start() {
 		result, err := ws.call(zome, function, args)
 		if err != nil {
 			ws.log.Logf("call of %s:%s resulted in error: %v\n", zome, function, err)
-			http.Error(w, err.Error(), 500)
-
 			return
 		}
 		ws.log.Logf(" result: %v\n", result)

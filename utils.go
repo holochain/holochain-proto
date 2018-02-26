@@ -11,15 +11,17 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/BurntSushi/toml"
-	"github.com/ghodss/yaml"
-	"github.com/lestrrat/go-jsschema"
-	"github.com/lestrrat/go-jsval/builder"
 	"io"
 	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
+	"unicode"
+
+	"github.com/BurntSushi/toml"
+	"github.com/ghodss/yaml"
+	"github.com/lestrrat/go-jsschema"
+	"github.com/lestrrat/go-jsval/builder"
 	//	"sync"
 	"time"
 )
@@ -358,4 +360,27 @@ func Ticker(interval time.Duration, fn func()) (stopper chan bool) {
 		}
 	}()
 	return
+}
+
+// PrettyPrintJSON for human reability.
+func PrettyPrintJSON(b []byte) (string, error) {
+	var out bytes.Buffer
+	err := json.Indent(&out, b, "", "    ")
+
+	if err != nil {
+		return "", err
+	}
+	return string(out.Bytes()), nil
+}
+
+// EscapeJSONValue removed characters from a JSON value to avoid parsing issues.
+func EscapeJSONValue(json string) string {
+	cleanStr := strings.Map(func(r rune) rune {
+		if unicode.IsPrint(r) && !unicode.IsControl(r) && !unicode.IsSymbol(r) {
+			return r
+		}
+		return ' '
+	}, json)
+
+	return strings.Replace(cleanStr, `"`, `\"`, -1)
 }

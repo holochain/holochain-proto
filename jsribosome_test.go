@@ -705,7 +705,9 @@ func TestJSDHT(t *testing.T) {
 		So(z.lastResult.Class(), ShouldEqual, "Object")
 		x, err := z.lastResult.Export()
 		So(err, ShouldBeNil)
-		So(fmt.Sprintf("%v", x), ShouldEqual, `map[firstName:Zippy lastName:Pinhead]`)
+		y := x.(map[string]interface{})
+		So(y["firstName"], ShouldEqual, "Zippy")
+		So(y["lastName"], ShouldEqual, "Pinhead")
 	})
 
 	reviewHash := commit(h, "review", "this is my bogus review of some thing")
@@ -840,7 +842,10 @@ func TestJSDHT(t *testing.T) {
 		z = v.(*JSRibosome)
 		x, err := z.lastResult.Export()
 		So(err, ShouldBeNil)
-		So(fmt.Sprintf("%v", x), ShouldEqual, `map[firstName:Zippy lastName:ThePinhead]`)
+
+		y := x.(map[string]interface{})
+		So(y["firstName"], ShouldEqual, "Zippy")
+		So(y["lastName"], ShouldEqual, "ThePinhead")
 	})
 
 	Convey("remove function should mark item deleted", t, func() {

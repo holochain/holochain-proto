@@ -1486,6 +1486,11 @@ func TestingAppAppPackage() string {
                     "Name": "testJsonFn2",
                     "CallingType": "json",
                     "Exposure": ""
+                },
+                {
+                    "Name": "throwError",
+                    "CallingType": "string",
+                    "Exposure": "public"
                 }
             ],
       "Code": "` + jsSanitizeString(jsZomeCode) + `"
@@ -1687,6 +1692,7 @@ function testJsonFn2(x){ return [{a:'b'}] };
 function getProperty(x) {return property(x)};
 function addOdd(x) {return commit("oddNumbers",x);}
 function addProfile(x) {return commit("profile",x);}
+function throwError(x) {throw new Error(x)}
 function validatePut(entry_type,entry,header,pkg,sources) {
   return validate(entry_type,entry,header,sources);
 }

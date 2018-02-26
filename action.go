@@ -61,6 +61,11 @@ type Action interface {
 	Args() []Arg
 }
 
+type ArgsAction interface {
+	Args() []Arg
+	Do(h *Holochain) (response interface{}, err error)
+}
+
 // CommittingAction provides an abstraction for grouping actions which carry Entry data
 type CommittingAction interface {
 	Name() string
@@ -426,7 +431,7 @@ func (a *ActionVerifySignature) Args() []Arg {
 	return []Arg{{Name: "signature", Type: StringArg}, {Name: "data", Type: StringArg}, {Name: "pubKey", Type: StringArg}}
 }
 
-func (a *ActionVerifySignature) Do(h *Holochain) (response bool, err error) {
+func (a *ActionVerifySignature) Do(h *Holochain) (response interface{}, err error) {
 	var b bool
 	var pubKeyIC ic.PubKey
 	var sig []byte
@@ -633,9 +638,7 @@ func (a *ActionGet) Do(h *Holochain) (response interface{}, err error) {
 		}
 		resp := GetResp{Entry: *entry.(*GobEntry)}
 		mask := a.options.GetMask
-		if (mask & GetMaskEntryType) != 0 {
-			resp.EntryType = entryType
-		}
+		resp.EntryType = entryType
 		if (mask & GetMaskEntry) != 0 {
 			resp.Entry = *entry.(*GobEntry)
 			resp.EntryType = entryType
@@ -689,18 +692,12 @@ func (a *ActionGet) Receive(dht *DHT, msg *Message, retries int) (response inter
 		mask = GetMaskEntry
 	}
 	resp := GetResp{}
-	var entryType string
 
 	// always get the entry type despite what the mas says because we need it for the switch below.
-	entryData, entryType, resp.Sources, _, err = dht.get(req.H, req.StatusMask, req.GetMask|GetMaskEntryType)
-	if (mask & GetMaskEntryType) != 0 {
-		resp.EntryType = entryType
-	}
-
+	entryData, resp.EntryType, resp.Sources, _, err = dht.get(req.H, req.StatusMask, req.GetMask|GetMaskEntryType)
 	if err == nil {
 		if (mask & GetMaskEntry) != 0 {
-			resp.EntryType = entryType
-			switch entryType {
+			switch resp.EntryType {
 			case DNAEntryType:
 				// TODO: make this add the requester to the blockedlist rather than panicing, see ticket #421
 				err = errors.New("nobody should actually get the DNA!")

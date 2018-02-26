@@ -66,7 +66,8 @@ func TestWebServer(t *testing.T) {
 		b, err = ioutil.ReadAll(resp.Body)
 		So(err, ShouldBeNil)
 		So(resp.StatusCode, ShouldEqual, 400)
-		So(string(b), ShouldEqual, "Validation Failed\n")
+		So(string(b), ShouldEqual, `{"errorMessage":"Validation Failed","function":"commit","name":"HolochainError","source":{"column":"28","functionName":"addOdd","line":"45"}}
+`)
 	})
 
 	Convey("it should return app thrown errors from call functions as 400", t, func() {

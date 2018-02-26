@@ -638,9 +638,7 @@ func (a *ActionGet) Do(h *Holochain) (response interface{}, err error) {
 		}
 		resp := GetResp{Entry: *entry.(*GobEntry)}
 		mask := a.options.GetMask
-		if (mask & GetMaskEntryType) != 0 {
-			resp.EntryType = entryType
-		}
+		resp.EntryType = entryType
 		if (mask & GetMaskEntry) != 0 {
 			resp.Entry = *entry.(*GobEntry)
 		}
@@ -703,6 +701,7 @@ func (a *ActionGet) Receive(dht *DHT, msg *Message, retries int) (response inter
 
 	if err == nil {
 		if (mask & GetMaskEntry) != 0 {
+			resp.EntryType = entryType
 			switch entryType {
 			case DNAEntryType:
 				// TODO: make this add the requester to the blockedlist rather than panicing, see ticket #421

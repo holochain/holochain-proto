@@ -523,6 +523,21 @@ type fnData struct {
 	fn func([]Arg, ArgsAction, otto.FunctionCall) (otto.Value, error)
 }
 
+func makeOttoObjectFromGetResp(h *Holochain, jsr *JSRibosome, getResp *GetResp) (result interface{}, err error) {
+	_, def, err := h.GetEntryDef(getResp.EntryType)
+	if err != nil {
+		return
+	}
+	if def.DataFormat == DataFormatJSON {
+		json := getResp.Entry.Content().(string)
+		code := `(` + json + `)`
+		result, err = jsr.vm.Object(code)
+	} else {
+		result = getResp.Entry.Content()
+	}
+	return
+}
+
 // NewJSRibosome factory function to build a javascript execution environment for a zome
 func NewJSRibosome(h *Holochain, zome *Zome) (n Ribosome, err error) {
 	jsr := JSRibosome{
@@ -927,7 +942,12 @@ func NewJSRibosome(h *Holochain, zome *Zome) (n Ribosome, err error) {
 					if mask&GetMaskEntry != 0 {
 						if GetMaskEntry == mask {
 							singleValueReturn = true
-							result, err = jsr.vm.ToValue(getResp.Entry.Content())
+							var entry interface{}
+							entry, err = makeOttoObjectFromGetResp(h, &jsr, &getResp)
+							if err != nil {
+								return
+							}
+							result, err = jsr.vm.ToValue(entry)
 						}
 					}
 					if mask&GetMaskEntryType != 0 {
@@ -945,7 +965,12 @@ func NewJSRibosome(h *Holochain, zome *Zome) (n Ribosome, err error) {
 					if err == nil && !singleValueReturn {
 						respObj := make(map[string]interface{})
 						if mask&GetMaskEntry != 0 {
-							respObj["Entry"] = getResp.Entry.Content()
+							var entry interface{}
+							entry, err = makeOttoObjectFromGetResp(h, &jsr, &getResp)
+							if err != nil {
+								return
+							}
+							respObj["Entry"] = entry
 						}
 						if mask&GetMaskEntryType != 0 {
 							respObj["EntryType"] = getResp.EntryType

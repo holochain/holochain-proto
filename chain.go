@@ -533,6 +533,7 @@ func (c *Chain) String() string {
 		hdr := c.Headers[i]
 		hash := c.Hashes[i]
 		r += fmt.Sprintf("%s:%s @ %v\n", hdr.Type, hash, hdr.Time)
+		r += fmt.Sprintf("    Sig: %v\n", hdr.Sig)
 		r += fmt.Sprintf("    Next Header: %v\n", hdr.HeaderLink)
 		r += fmt.Sprintf("    Next %s: %v\n", hdr.Type, hdr.TypeLink)
 		r += fmt.Sprintf("    Entry: %v\n", hdr.EntryLink)
@@ -620,6 +621,7 @@ func appendEntryAsJSON(buffer *bytes.Buffer, hdr *Header, hash *Hash, g *GobEntr
 func appendEntryHeaderAsJSON(buffer *bytes.Buffer, hdr *Header, hash *Hash) {
 	buffer.WriteString("\"header\":{")
 	buffer.WriteString("\"type\":" + "\"" + hdr.Type + "\",")
+	buffer.WriteString(fmt.Sprintf("\"signature\":\"%v\",", hdr.Sig))
 	buffer.WriteString(fmt.Sprintf("\"hash\":\"%v\",", hash))
 	buffer.WriteString(fmt.Sprintf("\"time\":\"%v\",", hdr.Time))
 	buffer.WriteString(fmt.Sprintf("\"nextHeader\":\"%v\",", hdr.HeaderLink))

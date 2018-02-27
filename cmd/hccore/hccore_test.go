@@ -6,7 +6,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/metacurrency/holochain/cmd"
+	"github.com/Holochain/holochain-proto/cmd"
 
 	. "github.com/smartystreets/goconvey/convey"
 	_ "github.com/urfave/cli"

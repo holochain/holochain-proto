@@ -1,9 +1,8 @@
 #!/bin/bash
-holochainBinDir="$GOPATH/src/github.com/metacurrency/holochain/bin"
+holochainBinDir="$GOPATH/src/github.com/Holochain/holochain-proto/bin"
 
 $holochainBinDir/holochain.app.findAppDir
 
 docker --version > /dev/null || { echo "docker does not appear to be installed"  && exit 1 ; }
 
 echo "HC: $HOLOCHAIN_APPNAME found in $HOLOCHAIN_APPDIR"
-

@@ -5,13 +5,13 @@ endif
 GOBIN = $(value GOPATH)/bin
 
 ifeq ($(OS),Windows_NT)
-$(warning using hardcoded repo of github.com/metacurrency/holochain)
-REPO = github.com/metacurrency/holochain
+$(warning using hardcoded repo of github.com/Holochain/holochain-proto)
+REPO = github.com/Holochain/holochain-proto
 else
 REPO = $(CURDIR:$(GOPATH)/src/%=%)
 endif
 # Remove a $(GOPATH)/src/ from the beginning of the current directory.
-# Likely to be github.com/metacurrency/holochain
+# Likely to be github.com/Holochain/holochain-proto
 
 go_packages = . ./ui ./apptest $(sort $(dir $(wildcard ./cmd/*/)))
 # List of directories containing go packages

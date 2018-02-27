@@ -2,8 +2,8 @@ package main
 
 import (
 	"fmt"
-	holo "github.com/metacurrency/holochain"
-	"github.com/metacurrency/holochain/cmd"
+	holo "github.com/Holochain/holochain-proto"
+	"github.com/Holochain/holochain-proto/cmd"
 	. "github.com/smartystreets/goconvey/convey"
 	"github.com/urfave/cli"
 	"os"

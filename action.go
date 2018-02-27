@@ -1,4 +1,4 @@
-// Copyright (C) 2013-2017, The MetaCurrency Project (Eric Harris-Braun, Arthur Brock, et. al.)
+// Copyright (C) 2013-2018, The MetaCurrency Project (Eric Harris-Braun, Arthur Brock, et. al.)
 // Use of this source code is governed by GPLv3 found in the LICENSE file
 //----------------------------------------------------------------------------------------
 //
@@ -9,10 +9,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	. "github.com/Holochain/holochain-proto/hash"
 	b58 "github.com/jbenet/go-base58"
 	ic "github.com/libp2p/go-libp2p-crypto"
 	peer "github.com/libp2p/go-libp2p-peer"
-	. "github.com/metacurrency/holochain/hash"
 	"io/ioutil"
 	"net/http"
 	"reflect"

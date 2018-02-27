@@ -2,8 +2,8 @@ package ui
 
 import (
 	"bytes"
-	. "github.com/metacurrency/holochain"
-	. "github.com/metacurrency/holochain/hash"
+	. "github.com/Holochain/holochain-proto"
+	. "github.com/Holochain/holochain-proto/hash"
 	. "github.com/smartystreets/goconvey/convey"
 	"io/ioutil"
 	"net/http"

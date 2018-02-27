@@ -6,8 +6,8 @@
 
 FROM golang as build
 
-run go get -d -v github.com/metacurrency/holochain
-run cd $GOPATH/src/github.com/metacurrency/holochain && make
+run go get -d -v github.com/Holochain/holochain-proto
+run cd $GOPATH/src/github.com/Holochain/holochain-proto && make
 
 # Stage 1 - Copy holochain tools into a minimal image
 

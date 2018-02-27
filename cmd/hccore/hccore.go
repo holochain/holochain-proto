@@ -1,9 +1,9 @@
-// Copyright (C) 2013-2017, The MetaCurrency Project (Eric Harris-Braun, Arthur Brock, et. al.)
+// Copyright (C) 2013-2018, The MetaCurrency Project (Eric Harris-Braun, Arthur Brock, et. al.)
 // Use of this source code is governed by GPLv3 found in the LICENSE file
 //---------------------------------------------------------------------------------------
 // command line interface to developing and testing holochain applications
 
-// Copyright (C) 2013-2017, The MetaCurrency Project (Eric Harris-Braun, Arthur Brock, et. al.)
+// Copyright (C) 2013-2018, The MetaCurrency Project (Eric Harris-Braun, Arthur Brock, et. al.)
 // Use of this source code is governed by GPLv3 found in the LICENSE file
 //---------------------------------------------------------------------------------------
 // command line interface to developing and testing holochain applications
@@ -12,7 +12,7 @@ package main
 
 import (
 	"fmt"
-	"github.com/metacurrency/holochain/cmd"
+	"github.com/Holochain/holochain-proto/cmd"
 	"github.com/urfave/cli"
 	"os"
 	"os/exec"

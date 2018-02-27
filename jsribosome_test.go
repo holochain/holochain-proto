@@ -3,10 +3,10 @@ package holochain
 import (
 	"encoding/json"
 	"fmt"
+	. "github.com/Holochain/holochain-proto/hash"
 	b58 "github.com/jbenet/go-base58"
 	ic "github.com/libp2p/go-libp2p-crypto"
 	peer "github.com/libp2p/go-libp2p-peer"
-	. "github.com/metacurrency/holochain/hash"
 	"github.com/robertkrimen/otto"
 	. "github.com/smartystreets/goconvey/convey"
 	"strings"
@@ -770,8 +770,8 @@ func TestJSDHT(t *testing.T) {
 		z := v.(*JSRibosome)
 		So(z.lastResult.Class(), ShouldEqual, "Array")
 		links, _ := z.lastResult.Export()
-		l0 := links.([]map[string]interface{})[0]
-		l1 := links.([]map[string]interface{})[1]
+		l0 := links.([]map[string]interface{})[1]
+		l1 := links.([]map[string]interface{})[0]
 		So(l1["Hash"], ShouldEqual, h.agentHash.String())
 		lp := l1["Entry"].(map[string]interface{})
 		So(fmt.Sprintf("%v", lp["Identity"]), ShouldEqual, "Herbert <h@bert.com>")

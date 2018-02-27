@@ -3,9 +3,9 @@ package holochain
 import (
 	"context"
 	"fmt"
+	. "github.com/Holochain/holochain-proto/hash"
 	pstore "github.com/libp2p/go-libp2p-peerstore"
 	routing "github.com/libp2p/go-libp2p-routing"
-	. "github.com/metacurrency/holochain/hash"
 	. "github.com/smartystreets/goconvey/convey"
 	"testing"
 	"time"

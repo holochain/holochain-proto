@@ -13,6 +13,7 @@ import (
 	"errors"
 	"fmt"
 
+	. "github.com/Holochain/holochain-proto/hash"
 	goprocess "github.com/jbenet/goprocess"
 	goprocessctx "github.com/jbenet/goprocess/context"
 	nat "github.com/libp2p/go-libp2p-nat"
@@ -24,7 +25,6 @@ import (
 	discovery "github.com/libp2p/go-libp2p/p2p/discovery"
 	bhost "github.com/libp2p/go-libp2p/p2p/host/basic"
 	rhost "github.com/libp2p/go-libp2p/p2p/host/routed"
-	. "github.com/metacurrency/holochain/hash"
 	ma "github.com/multiformats/go-multiaddr"
 	mh "github.com/multiformats/go-multihash"
 	"gopkg.in/mgo.v2/bson"

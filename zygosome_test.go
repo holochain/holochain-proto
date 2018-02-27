@@ -3,9 +3,9 @@ package holochain
 import (
 	"encoding/json"
 	"fmt"
+	. "github.com/Holochain/holochain-proto/hash"
 	zygo "github.com/glycerine/zygomys/zygo"
 	peer "github.com/libp2p/go-libp2p-peer"
-	. "github.com/metacurrency/holochain/hash"
 	. "github.com/smartystreets/goconvey/convey"
 	"strings"
 	"testing"

@@ -1,4 +1,4 @@
-// Copyright (C) 2013-2017, The MetaCurrency Project (Eric Harris-Braun, Arthur Brock, et. al.)
+// Copyright (C) 2013-2018, The MetaCurrency Project (Eric Harris-Braun, Arthur Brock, et. al.)
 // Use of this source code is governed by GPLv3 found in the LICENSE file
 //---------------------------------------------------------------------------------------
 // command line interface to developing and testing holochain applications
@@ -9,11 +9,11 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	holo "github.com/metacurrency/holochain"
-	. "github.com/metacurrency/holochain/apptest"
-	"github.com/metacurrency/holochain/cmd"
-	hash "github.com/metacurrency/holochain/hash"
-	"github.com/metacurrency/holochain/ui"
+	holo "github.com/Holochain/holochain-proto"
+	. "github.com/Holochain/holochain-proto/apptest"
+	"github.com/Holochain/holochain-proto/cmd"
+	hash "github.com/Holochain/holochain-proto/hash"
+	"github.com/Holochain/holochain-proto/ui"
 	"github.com/urfave/cli"
 	"io/ioutil"
 	"os"

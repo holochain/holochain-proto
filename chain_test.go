@@ -9,8 +9,8 @@ import (
 	"testing"
 	"time"
 
+	. "github.com/Holochain/holochain-proto/hash"
 	ic "github.com/libp2p/go-libp2p-crypto"
-	. "github.com/metacurrency/holochain/hash"
 	. "github.com/smartystreets/goconvey/convey"
 )
 

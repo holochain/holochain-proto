@@ -263,7 +263,7 @@ func TestDump(t *testing.T) {
 	Convey("create an app dna", t, func() {
 		tmpTestDir, app := setupTestingApp("foo")
 		defer os.RemoveAll(tmpTestDir)
-		_, err := cmd.RunAppWithStdoutCapture(app, []string{"hcdev", "-no-nat-upnp", "web"}, 1*time.Second)
+		_, err := cmd.RunAppWithStdoutCapture(app, []string{"hcdev", "-no-nat-upnp", "--port", "6141", "web"}, 1*time.Second)
 
 		So(err, ShouldBeNil)
 

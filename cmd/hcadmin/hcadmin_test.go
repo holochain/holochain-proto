@@ -2,15 +2,16 @@ package main
 
 import (
 	"fmt"
-	holo "github.com/Holochain/holochain-proto"
-	"github.com/Holochain/holochain-proto/cmd"
-	. "github.com/smartystreets/goconvey/convey"
-	"github.com/urfave/cli"
 	"os"
 	"path/filepath"
 	"regexp"
 	"testing"
 	"time"
+
+	holo "github.com/Holochain/holochain-proto"
+	"github.com/Holochain/holochain-proto/cmd"
+	. "github.com/smartystreets/goconvey/convey"
+	"github.com/urfave/cli"
 )
 
 func TestSetupApp(t *testing.T) {
@@ -205,12 +206,22 @@ func TestDumpChainAsJSON(t *testing.T) {
 			panic(err)
 		}
 
-		Convey("dump -chain -json should show chain entries as a json", func() {
-			app = setupApp()
-			out, err := runAppWithStdoutCapture(app, []string{"hcadmin", "-path", d, "dump", "-chain", "-json", "testApp"})
-			fmt.Println(out)
+		Convey("dump --chain --json should show chain entries as a json string", func() {
+			app := setupApp()
+			out, err := cmd.RunAppWithStdoutCapture(app, []string{"hcadmin", "-path", d, "dump", "--chain", "--json", "testApp"}, 1*time.Second)
+
 			So(err, ShouldBeNil)
 			So(out, ShouldContainSubstring, "{\n    \"%dna\": {")
+			So(out, ShouldContainSubstring, ",\n    \"%agent\": {")
+		})
+
+		Convey("dump --dht --json should show dht entries as a json string", func() {
+			app := setupApp()
+			out, err := cmd.RunAppWithStdoutCapture(app, []string{"hcadmin", "-path", d, "dump", "--dht", "--json", "testApp"}, 1*time.Second)
+
+			So(err, ShouldBeNil)
+			So(out, ShouldContainSubstring, "\"dht_changes\": [")
+			So(out, ShouldContainSubstring, "\"dht_entries\": [")
 		})
 	})
 }

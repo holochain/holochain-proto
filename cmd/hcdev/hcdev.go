@@ -9,12 +9,6 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	holo "github.com/Holochain/holochain-proto"
-	. "github.com/Holochain/holochain-proto/apptest"
-	"github.com/Holochain/holochain-proto/cmd"
-	hash "github.com/Holochain/holochain-proto/hash"
-	"github.com/Holochain/holochain-proto/ui"
-	"github.com/urfave/cli"
 	"io/ioutil"
 	"os"
 	"os/exec"
@@ -23,6 +17,13 @@ import (
 	"regexp"
 	"strconv"
 	"time"
+
+	holo "github.com/Holochain/holochain-proto"
+	. "github.com/Holochain/holochain-proto/apptest"
+	"github.com/Holochain/holochain-proto/cmd"
+	hash "github.com/Holochain/holochain-proto/hash"
+	"github.com/Holochain/holochain-proto/ui"
+	"github.com/urfave/cli"
 	// fsnotify	"github.com/fsnotify/fsnotify"
 	//spew "github.com/davecgh/go-spew/spew"
 )
@@ -180,7 +181,7 @@ func setupApp() (app *cli.App) {
 		},
 	}
 
-	var interactive, dumpChain, dumpDHT, initTest, fromDevelop, benchmarks bool
+	var interactive, dumpChain, dumpDHT, initTest, fromDevelop, benchmarks, json bool
 	var clonePath, appPackagePath, cloneExample, outputDir, fromBranch string
 
 	app.Commands = []cli.Command{
@@ -753,6 +754,11 @@ func setupApp() (app *cli.App) {
 					Destination: &dumpDHT,
 				},
 				cli.BoolFlag{
+					Name:        "json",
+					Destination: &json,
+					Usage:       "Dump chain or dht as JSON string",
+				},
+				cli.BoolFlag{
 					Name:        "test",
 					Destination: &dumpTest,
 				},
@@ -799,10 +805,20 @@ func setupApp() (app *cli.App) {
 
 				dnaHash := h.DNAHash()
 				if dumpChain {
-					fmt.Printf("Chain for: %s\n%v", dnaHash, h.Chain())
+					if json {
+						dump, _ := h.Chain().JSON()
+						fmt.Println(dump)
+					} else {
+						fmt.Printf("Chain for: %s\n%v", dnaHash, h.Chain())
+					}
 				}
 				if dumpDHT {
-					fmt.Printf("DHT for: %s\n%v", dnaHash, h.DHT().String())
+					if json {
+						dump, _ := h.DHT().JSON()
+						fmt.Println(dump)
+					} else {
+						fmt.Printf("DHT for: %s\n%v", dnaHash, h.DHT().String())
+					}
 				}
 
 				return nil

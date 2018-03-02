@@ -104,7 +104,7 @@ type ZomeFile struct {
 	RibosomeType string
 	BridgeFuncs  []string // functions in zome that can be bridged to by fromApp
 	BridgeTo     string   // dna Hash of toApp that this zome is a client of
-  Config       map[string]interface{}
+  	Config       map[string]interface{}
 	Entries      []EntryDefFile
 	Functions    []FunctionDef
 }

@@ -5,6 +5,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"strconv"
 	"testing"
 	"time"
 
@@ -263,7 +264,12 @@ func TestDump(t *testing.T) {
 	Convey("create an app dna", t, func() {
 		tmpTestDir, app := setupTestingApp("foo")
 		defer os.RemoveAll(tmpTestDir)
-		_, err := cmd.RunAppWithStdoutCapture(app, []string{"hcdev", "-no-nat-upnp", "--port", "6141", "web"}, 1*time.Second)
+
+		port, err := cmd.GetFreePort()
+		So(err, ShouldBeNil)
+
+		portArgument := strconv.Itoa(port)
+		_, err = cmd.RunAppWithStdoutCapture(app, []string{"hcdev", "-no-nat-upnp", "--port", portArgument, "web"}, 1*time.Second)
 
 		So(err, ShouldBeNil)
 

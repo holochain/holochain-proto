@@ -43,8 +43,8 @@ type Chain struct {
 	Headers  []*Header
 	Entries  []Entry
 	TypeTops map[string]int // pointer to index of top of a given type
-	Hmap     map[string]int // map header hashes to index number
-	Emap     map[string]int // map entry hashes to index number
+	Hmap     map[Hash]int   // map header hashes to index number
+	Emap     map[Hash]int   // map entry hashes to index number
 
 	//---
 
@@ -60,8 +60,8 @@ func NewChain(hashSpec HashSpec) (chain *Chain) {
 		Entries:  make([]Entry, 0),
 		Hashes:   make([]Hash, 0),
 		TypeTops: make(map[string]int),
-		Hmap:     make(map[string]int),
-		Emap:     make(map[string]int),
+		Hmap:     make(map[Hash]int),
+		Emap:     make(map[Hash]int),
 		hashSpec: hashSpec,
 	}
 	chain = &c
@@ -114,7 +114,7 @@ func NewChainFromFile(spec HashSpec, path string) (c *Chain, err error) {
 			}
 
 			c.Hashes = append(c.Hashes, hash)
-			c.Hmap[hash.String()] = i
+			c.Hmap[hash] = i
 
 			// finally validate that it all hashes out correctly
 			/*			err = c.Validate(h)
@@ -231,8 +231,8 @@ func (c *Chain) addEntry(entryIdx int, hash Hash, header *Header, e Entry) (err 
 	c.Headers = append(c.Headers, header)
 	c.Entries = append(c.Entries, &g)
 	c.TypeTops[header.Type] = entryIdx
-	c.Emap[header.EntryLink.String()] = entryIdx
-	c.Hmap[hash.String()] = entryIdx
+	c.Emap[header.EntryLink] = entryIdx
+	c.Hmap[hash] = entryIdx
 
 	if c.s != nil {
 		err = writePair(c.s, header, &g)
@@ -245,7 +245,7 @@ func (c *Chain) addEntry(entryIdx int, hash Hash, header *Header, e Entry) (err 
 func (c *Chain) Get(h Hash) (header *Header, err error) {
 	c.lk.RLock()
 	defer c.lk.RUnlock()
-	i, ok := c.Hmap[h.String()]
+	i, ok := c.Hmap[h]
 	if ok {
 		header = c.Headers[i]
 	} else {
@@ -258,7 +258,7 @@ func (c *Chain) Get(h Hash) (header *Header, err error) {
 func (c *Chain) GetEntry(h Hash) (entry Entry, entryType string, err error) {
 	c.lk.RLock()
 	defer c.lk.RUnlock()
-	i, ok := c.Emap[h.String()]
+	i, ok := c.Emap[h]
 	if ok {
 		entry = c.Entries[i]
 		entryType = c.Headers[i].Type
@@ -272,7 +272,7 @@ func (c *Chain) GetEntry(h Hash) (entry Entry, entryType string, err error) {
 func (c *Chain) GetEntryHeader(h Hash) (header *Header, err error) {
 	c.lk.RLock()
 	defer c.lk.RUnlock()
-	i, ok := c.Emap[h.String()]
+	i, ok := c.Emap[h]
 	if ok {
 		header = c.Headers[i]
 	} else {
@@ -408,14 +408,13 @@ func (c *Chain) MarshalChain(writer io.Writer, flags int64, whitelistTypes []str
 func (c *Chain) addPair(header *Header, entry Entry, i int) {
 	if header != nil {
 		if i > 0 {
-			s := header.HeaderLink.String()
-			h, _ := NewHash(s)
+			h := header.HeaderLink
 			c.Hashes = append(c.Hashes, h)
-			c.Hmap[s] = i - 1
+			c.Hmap[h] = i - 1
 		}
 		c.Headers = append(c.Headers, header)
 		c.TypeTops[header.Type] = i
-		c.Emap[header.EntryLink.String()] = i
+		c.Emap[header.EntryLink] = i
 	}
 	if entry != nil {
 		c.Entries = append(c.Entries, entry)
@@ -452,12 +451,12 @@ func UnmarshalChain(hashSpec HashSpec, reader io.Reader) (flags int64, c *Chain,
 	if (flags & ChainMarshalFlagsNoHeaders) == 0 {
 		// decode final hash
 		var h Hash
-		err = h.UnmarshalHash(reader)
+		h, err = UnmarshalHash(reader)
 		if err != nil {
 			return
 		}
 		c.Hashes = append(c.Hashes, h)
-		c.Hmap[h.String()] = int(i - 1)
+		c.Hmap[h] = int(i - 1)
 	}
 	return
 }
@@ -498,7 +497,7 @@ func (c *Chain) Validate(skipEntries bool) (err error) {
 			nexth = c.Hashes[i]
 		}
 
-		if !hash.Equal(&nexth) {
+		if !hash.Equal(nexth) {
 			err = fmt.Errorf("header hash mismatch at link %d", i)
 			return
 		}
@@ -509,12 +508,12 @@ func (c *Chain) Validate(skipEntries bool) (err error) {
 			if err != nil {
 				return
 			}
-			err = hash.Sum(c.hashSpec, b)
+			hash, err = Sum(c.hashSpec, b)
 			if err != nil {
 				return
 			}
 
-			if !bytes.Equal(hash.H, hd.EntryLink.H) {
+			if !hash.Equal(hd.EntryLink) {
 				err = fmt.Errorf("entry hash mismatch at link %d", i)
 				return
 			}

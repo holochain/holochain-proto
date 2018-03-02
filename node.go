@@ -204,7 +204,7 @@ func (h *Holochain) addPeer(pi pstore.PeerInfo, confirm bool) (err error) {
 func RoutingRefreshTask(h *Holochain) {
 	s := fmt.Sprintf("%d", rand.Intn(1000000))
 	var hash Hash
-	err := hash.Sum(h.hashSpec, []byte(s))
+	hash, err := Sum(h.hashSpec, []byte(s))
 	if err == nil {
 		h.node.FindPeer(h.node.ctx, PeerIDFromHash(hash))
 	}
@@ -438,7 +438,10 @@ func (m *Message) Fingerprint() (f Hash, err error) {
 		if err != nil {
 			return
 		}
-		f.H, err = mh.Sum(data, mh.SHA2_256, -1)
+		// TODO should just use hash.Sum Code and length not available?
+		var multiH mh.Multihash
+		multiH, err = mh.Sum(data, mh.SHA2_256, -1)
+		f = Hash(multiH)
 	} else {
 		f = NullHash()
 	}

@@ -14,7 +14,7 @@ import (
 	. "github.com/smartystreets/goconvey/convey"
 )
 
-func TestNewChain(t *testing.T) {
+func TestChainNew(t *testing.T) {
 	hashSpec, _, _ := chainTestSetup()
 	Convey("it should make an empty chain", t, func() {
 		c := NewChain(hashSpec)
@@ -24,7 +24,7 @@ func TestNewChain(t *testing.T) {
 
 }
 
-func TestNewChainFromFile(t *testing.T) {
+func TestChainNewChainFromFile(t *testing.T) {
 	d := SetupTestDir()
 	defer CleanupTestDir(d)
 	hashSpec, key, now := chainTestSetup()
@@ -63,7 +63,7 @@ func TestNewChainFromFile(t *testing.T) {
 	})
 }
 
-func TestTop(t *testing.T) {
+func TestChainTop(t *testing.T) {
 	hashSpec, key, now := chainTestSetup()
 	c := NewChain(hashSpec)
 	var hash *Hash
@@ -107,7 +107,7 @@ func TestTop(t *testing.T) {
 
 }
 
-func TestTopType(t *testing.T) {
+func TestChainTopType(t *testing.T) {
 	hashSpec, _, _ := chainTestSetup()
 	c := NewChain(hashSpec)
 	Convey("it should return nil for an empty chain", t, func() {
@@ -119,7 +119,7 @@ func TestTopType(t *testing.T) {
 	})
 }
 
-func TestAddEntry(t *testing.T) {
+func TestChainAddEntry(t *testing.T) {
 	hashSpec, key, now := chainTestSetup()
 	c := NewChain(hashSpec)
 
@@ -130,11 +130,11 @@ func TestAddEntry(t *testing.T) {
 		So(len(c.Headers), ShouldEqual, 1)
 		So(len(c.Entries), ShouldEqual, 1)
 		So(c.TypeTops["entryTypeFoo"], ShouldEqual, 0)
-		So(hash.Equal(&c.Hashes[0]), ShouldBeTrue)
+		So(hash.Equal(c.Hashes[0]), ShouldBeTrue)
 	})
 }
 
-func TestGet(t *testing.T) {
+func TestChainGet(t *testing.T) {
 	hashSpec, key, now := chainTestSetup()
 	c := NewChain(hashSpec)
 
@@ -181,7 +181,7 @@ func TestGet(t *testing.T) {
 	})
 }
 
-func TestMarshalChain(t *testing.T) {
+func TestChainMarshalChain(t *testing.T) {
 	hashSpec, key, now := chainTestSetup()
 	c := NewChain(hashSpec)
 	var emptyStringList []string
@@ -351,7 +351,7 @@ func TestWalkChain(t *testing.T) {
 	})
 }
 
-func TestValidateChain(t *testing.T) {
+func TestChainValidateChain(t *testing.T) {
 	hashSpec, key, now := chainTestSetup()
 	c := NewChain(hashSpec)
 	e := GobEntry{C: "some data"}
@@ -394,13 +394,15 @@ func TestValidateChain(t *testing.T) {
 		So(err.Error(), ShouldEqual, "header hash mismatch at link 0")
 
 		c.Headers[0].HeaderLink = NullHash() // restore
-		val := c.Headers[0].EntryLink.H[2]
-		c.Headers[0].EntryLink.H[2] = 3 // tweak
+		before := c.Headers[0].EntryLink
+		tweak := []byte(before)
+		tweak[5] = 3 // tweak
+		c.Headers[0].EntryLink = Hash(tweak)
 		err = c.Validate(false)
 		So(err.Error(), ShouldEqual, "header hash mismatch at link 0")
 
-		c.Headers[0].EntryLink.H[2] = val // restore
-		val = c.Headers[0].Sig.S[0]
+		c.Headers[0].EntryLink = before // restore
+		val := c.Headers[0].Sig.S[0]
 		c.Headers[0].Sig.S[0] = 99 // tweak
 		err = c.Validate(false)
 		So(err.Error(), ShouldEqual, "header hash mismatch at link 0")

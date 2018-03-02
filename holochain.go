@@ -164,7 +164,6 @@ func InitializeHolochain() {
 	if !_holochainInitialized {
 		gob.Register(Header{})
 		gob.Register(AgentEntry{})
-		gob.Register(Hash{})
 		gob.Register(PutReq{})
 		gob.Register(GetReq{})
 		gob.Register(GetResp{})
@@ -690,9 +689,9 @@ func (h *Holochain) Close() {
 // Reset deletes all chain and dht data and resets data structures
 func (h *Holochain) Reset() (err error) {
 
-	h.dnaHash = Hash{}
-	h.agentHash = Hash{}
-	h.agentTopHash = Hash{}
+	h.dnaHash = NullHash()
+	h.agentHash = NullHash()
+	h.agentTopHash = NullHash()
 
 	h.Close()
 

@@ -202,14 +202,14 @@ func TestPrepareHashType(t *testing.T) {
 		err := h.PrepareHashType()
 		So(err, ShouldBeNil)
 		var hash Hash
-		err = hash.Sum(h.hashSpec, []byte("test data"))
+		hash, err = Sum(h.hashSpec, []byte("test data"))
 		So(err, ShouldBeNil)
 		So(hash.String(), ShouldEqual, "5duC28CW416wX42vses7TeTeRYwku9")
 
 		h.nucleus.dna.DHTConfig.HashType = "blake2b-256"
 		err = h.PrepareHashType()
 		So(err, ShouldBeNil)
-		err = hash.Sum(h.hashSpec, []byte("test data"))
+		hash, err = Sum(h.hashSpec, []byte("test data"))
 		So(err, ShouldBeNil)
 		So(hash.String(), ShouldEqual, "2DrjgbL49zKmX4P7UgdopSCC7MhfVUySNbRHBQzdDuXgaJSNEg")
 	})
@@ -247,15 +247,15 @@ func TestNewEntry(t *testing.T) {
 	Convey("the returned header hash is the SHA256 of the byte encoded header", t, func() {
 		b, _ := header.Marshal()
 		var hh Hash
-		err = hh.Sum(h.hashSpec, b)
+		hh, err = Sum(h.hashSpec, b)
 		So(err, ShouldBeNil)
 		So(headerHash.String(), ShouldEqual, hh.String())
 	})
 
 	Convey("it should have signed the entry with my key", t, func() {
 		sig := header.Sig
-		hash := header.EntryLink.H
-		valid, err := h.agent.PrivKey().GetPublic().Verify(hash, sig.S)
+		hash := header.EntryLink
+		valid, err := h.agent.PrivKey().GetPublic().Verify([]byte(hash), sig.S)
 		So(err, ShouldBeNil)
 		So(valid, ShouldBeTrue)
 	})
@@ -272,7 +272,7 @@ func TestNewEntry(t *testing.T) {
 		Convey("and the returned header should hash to the same value", func() {
 			b, _ := (h2).Marshal()
 			var hh Hash
-			err = hh.Sum(h.hashSpec, b)
+			hh, err = Sum(h.hashSpec, b)
 			So(err, ShouldBeNil)
 			So(headerHash.String(), ShouldEqual, hh.String())
 		})
@@ -290,7 +290,7 @@ func TestNewEntry(t *testing.T) {
 	Convey("Top should still work", t, func() {
 		hash, err := h.Top()
 		So(err, ShouldBeNil)
-		So(hash.Equal(&headerHash), ShouldBeTrue)
+		So(hash.Equal(headerHash), ShouldBeTrue)
 	})
 
 	e = GobEntry{C: "more data"}

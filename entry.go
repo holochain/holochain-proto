@@ -169,7 +169,7 @@ func (e *GobEntry) Sum(s HashSpec) (h Hash, err error) {
 	}
 
 	// calculate the entry's hash and store it in the header
-	err = h.Sum(s, m)
+	h, err = Sum(s, m)
 	if err != nil {
 		return
 	}

@@ -81,15 +81,11 @@ func incIdx(tx *buntdb.Tx, m *Message) (index string, err error) {
 
 	if m != nil {
 		var b []byte
-
 		b, err = ByteEncoder(m)
 		if err != nil {
 			return
 		}
 		msg = string(b)
-
-		var decodedMessage interface{}
-		err = ByteDecoder(b, decodedMessage)
 	}
 	_, _, err = tx.Set("idx:"+index, msg, nil)
 	if err != nil {

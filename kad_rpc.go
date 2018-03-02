@@ -193,7 +193,7 @@ func KademliaReceiver(h *Holochain, m *Message) (response interface{}, err error
 			resp := CloserPeersResp{}
 			// if looking for self... special case where we send it on CloserPeers.
 			x := HashFromPeerID(node.HashAddr)
-			if x.Equal(&t.H) {
+			if x.Equal(t.H) {
 				closest = []peer.ID{node.HashAddr}
 			} else {
 				closest = node.betterPeersForHash(&t.H, p, CloserPeerCount)

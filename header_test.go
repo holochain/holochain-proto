@@ -11,7 +11,7 @@ import (
 	"time"
 )
 
-func TestNewHeader(t *testing.T) {
+func TestHeaderNew(t *testing.T) {
 	h, key, now := chainTestSetup()
 
 	Convey("it should make a header and return its hash", t, func() {
@@ -23,7 +23,7 @@ func TestNewHeader(t *testing.T) {
 		// encode the header and create a hash of it
 		b, _ := header.Marshal()
 		var h2 Hash
-		h2.Sum(h, b)
+		h2, _ = Sum(h, b)
 		So(h2.String(), ShouldEqual, hash.String())
 	})
 
@@ -37,12 +37,12 @@ func TestNewHeader(t *testing.T) {
 		// encode the header and create a hash of it
 		b, _ := header.Marshal()
 		var h2 Hash
-		h2.Sum(h, b)
+		h2, _ = Sum(h, b)
 		So(h2.String(), ShouldEqual, hash.String())
 	})
 }
 
-func TestMarshalHeader(t *testing.T) {
+func TestHeaderMarshal(t *testing.T) {
 	h, key, now := chainTestSetup()
 
 	e := GobEntry{C: "some  data"}
@@ -90,7 +90,7 @@ func TestMarshalSignature(t *testing.T) {
 
 func testHeader(h HashSpec, t string, entry Entry, key ic.PrivKey, now time.Time) *Header {
 	hd := mkTestHeader(t)
-	sig, err := key.Sign(hd.EntryLink.H)
+	sig, err := key.Sign([]byte(hd.EntryLink))
 	if err != nil {
 		panic(err)
 	}

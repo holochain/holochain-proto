@@ -56,7 +56,7 @@ func newHeader(hashSpec HashSpec, now time.Time, t string, entry Entry, privKey 
 	}
 
 	// sign the hash of the entry
-	sig, err := privKey.Sign(hd.EntryLink.H)
+	sig, err := privKey.Sign([]byte(hd.EntryLink))
 	if err != nil {
 		return
 	}
@@ -75,7 +75,7 @@ func newHeader(hashSpec HashSpec, now time.Time, t string, entry Entry, privKey 
 func (hd *Header) Sum(spec HashSpec) (hash Hash, b []byte, err error) {
 	b, err = hd.Marshal()
 	if err == nil {
-		err = hash.Sum(spec, b)
+		hash, err = Sum(spec, b)
 	}
 	return
 }
@@ -192,17 +192,17 @@ func UnmarshalHeader(reader io.Reader, hd *Header, hashSize int) (err error) {
 	}
 	hd.Time.UnmarshalBinary(b)
 
-	err = hd.HeaderLink.UnmarshalHash(reader)
+	hd.HeaderLink, err = UnmarshalHash(reader)
 	if err != nil {
 		return
 	}
 
-	err = hd.EntryLink.UnmarshalHash(reader)
+	hd.EntryLink, err = UnmarshalHash(reader)
 	if err != nil {
 		return
 	}
 
-	err = hd.TypeLink.UnmarshalHash(reader)
+	hd.TypeLink, err = UnmarshalHash(reader)
 	if err != nil {
 		return
 	}
@@ -217,7 +217,7 @@ func UnmarshalHeader(reader io.Reader, hd *Header, hashSize int) (err error) {
 		return
 	}
 
-	err = hd.Change.Hash.UnmarshalHash(reader)
+	hd.Change.Hash, err = UnmarshalHash(reader)
 	if err != nil {
 		return
 	}

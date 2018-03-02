@@ -105,10 +105,10 @@ func TestPutGetModDel(t *testing.T) {
 	})
 
 	Convey("mod should move the hash to the modified status and record replacedBy link", t, func() {
-		m := h.node.NewMessage(MOD_REQUEST, hash)
-
 		newhashStr := "QmY8Mzg9F69e5P9AoQPYat655HEhc1TVGs11tmfNSzkqh4"
 		newhash, _ := NewHash(newhashStr)
+
+		m := h.node.NewMessage(MOD_REQUEST, ModReq{H: hash, N: newhash})
 
 		err := dht.mod(m, hash, newhash)
 		So(err, ShouldBeNil)
@@ -137,7 +137,7 @@ func TestPutGetModDel(t *testing.T) {
 	})
 
 	Convey("del should move the hash to the deleted status", t, func() {
-		m := h.node.NewMessage(DEL_REQUEST, hash)
+		m := h.node.NewMessage(DEL_REQUEST, DelReq{H: hash})
 
 		err := dht.del(m, hash)
 		So(err, ShouldBeNil)
@@ -327,7 +327,7 @@ func TestDHTSend(t *testing.T) {
 		So(err, ShouldBeNil)
 		So(r, ShouldEqual, DHTChangeOK)
 		hd, _ := h.chain.GetEntryHeader(hash)
-		So(hd.EntryLink.Equal(&hash), ShouldBeTrue)
+		So(hd.EntryLink.Equal(hash), ShouldBeTrue)
 	})
 
 	Convey("send GET_REQUEST message should return content", t, func() {

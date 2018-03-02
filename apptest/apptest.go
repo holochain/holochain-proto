@@ -9,8 +9,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	. "github.com/metacurrency/holochain"
-	"github.com/metacurrency/holochain/ui"
+	. "github.com/Holochain/holochain-proto"
+	"github.com/Holochain/holochain-proto/ui"
 	"github.com/shirou/gopsutil/process"
 	"os"
 	"path/filepath"
@@ -517,7 +517,16 @@ func DoTest(h *Holochain, name string, i int, fixtures TestFixtures, t TestData,
 			logBenchmark(info, testID, b)
 		}
 
-		var expectedResult, expectedError = output, t.Err
+		var expectedResult, expectedErrorRaw = output, t.Err
+		var expectedError string
+
+		if expectedErrorRaw != nil {
+			expectedError, err = toStringByType(expectedErrorRaw)
+			if err != nil {
+				panic("unable to covert expected error to string")
+			}
+		}
+
 		var expectedResultRegexp = t.Regexp
 		//====================
 		history.lastResults[2] = history.lastResults[1]

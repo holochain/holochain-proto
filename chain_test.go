@@ -3,13 +3,15 @@ package holochain
 import (
 	"bytes"
 	"fmt"
-	ic "github.com/libp2p/go-libp2p-crypto"
-	. "github.com/metacurrency/holochain/hash"
-	. "github.com/smartystreets/goconvey/convey"
 	"path/filepath"
 	"reflect"
+	"regexp"
 	"testing"
 	"time"
+
+	. "github.com/Holochain/holochain-proto/hash"
+	ic "github.com/libp2p/go-libp2p-crypto"
+	. "github.com/smartystreets/goconvey/convey"
 )
 
 func TestNewChain(t *testing.T) {
@@ -424,6 +426,53 @@ func TestChain2String(t *testing.T) {
 
 	Convey("it should dump a chain to text", t, func() {
 		So(c.String(), ShouldNotEqual, "")
+	})
+}
+
+func TestChain2JSON(t *testing.T) {
+	hashSpec, key, now := chainTestSetup()
+	c := NewChain(hashSpec)
+
+	Convey("it should dump empty JSON object for empty chain", t, func() {
+		json, err := c.JSON()
+		So(err, ShouldBeNil)
+		So(json, ShouldEqual, "{}")
+	})
+
+	e := GobEntry{C: "dna entry"}
+	c.AddEntry(now, DNAEntryType, &e, key)
+
+	Convey("it should dump a DNA entry as JSON", t, func() {
+		json, err := c.JSON()
+		So(err, ShouldBeNil)
+		json = NormaliseJSON(json)
+		matched, err := regexp.MatchString(`{"%dna":{"header":{.*},"content":"dna entry"}}`, json)
+		So(err, ShouldBeNil)
+		So(matched, ShouldBeTrue)
+	})
+
+	e = GobEntry{C: "agent entry"}
+	c.AddEntry(now, AgentEntryType, &e, key)
+
+	Convey("it should dump a Agent entry as JSON", t, func() {
+		json, err := c.JSON()
+		So(err, ShouldBeNil)
+		json = NormaliseJSON(json)
+		matched, err := regexp.MatchString(`{"%dna":{"header":{.*},"content":"dna entry"},"%agent":{"header":{.*},"content":"agent entry"}}`, json)
+		So(err, ShouldBeNil)
+		So(matched, ShouldBeTrue)
+	})
+
+	e = GobEntry{C: "chain entry"}
+	c.AddEntry(now, "handle", &e, key)
+
+	Convey("it should dump chain with entries as JSON", t, func() {
+		json, err := c.JSON()
+		So(err, ShouldBeNil)
+		json = NormaliseJSON(json)
+		matched, err := regexp.MatchString(`{"%dna":{.*},"%agent":{.*},"entries":\[{"header":{"type":"handle",.*"},"content":"chain entry"}\]}`, json)
+		So(err, ShouldBeNil)
+		So(matched, ShouldBeTrue)
 	})
 }
 

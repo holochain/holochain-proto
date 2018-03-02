@@ -9,14 +9,17 @@ package holochain
 import (
 	"bytes"
 	"encoding/binary"
+	"encoding/json"
 	"errors"
 	"fmt"
-	ic "github.com/libp2p/go-libp2p-crypto"
-	. "github.com/metacurrency/holochain/hash"
 	"io"
 	"os"
 	"sync"
 	"time"
+
+	ic "github.com/libp2p/go-libp2p-crypto"
+
+	. "github.com/Holochain/holochain-proto/hash"
 )
 
 // WalkerFn a function type for call Walk
@@ -530,6 +533,7 @@ func (c *Chain) String() string {
 		hdr := c.Headers[i]
 		hash := c.Hashes[i]
 		r += fmt.Sprintf("%s:%s @ %v\n", hdr.Type, hash, hdr.Time)
+		r += fmt.Sprintf("    Sig: %v\n", hdr.Sig)
 		r += fmt.Sprintf("    Next Header: %v\n", hdr.HeaderLink)
 		r += fmt.Sprintf("    Next %s: %v\n", hdr.Type, hdr.TypeLink)
 		r += fmt.Sprintf("    Entry: %v\n", hdr.EntryLink)
@@ -549,6 +553,52 @@ func (c *Chain) String() string {
 	return r
 }
 
+// JSON converts a chain to a json string dump of the headers and entries
+func (c *Chain) JSON() (string, error) {
+	c.lk.RLock()
+	defer c.lk.RUnlock()
+	l := len(c.Headers)
+	firstEntry := false
+	lastEntry := false
+
+	var buffer bytes.Buffer
+
+	buffer.WriteString("{")
+
+	for i := 0; i < l; i++ {
+		hdr := c.Headers[i]
+		hash := c.Hashes[i]
+
+		e := c.Entries[i]
+		lastEntry = (i == l-1)
+
+		switch hdr.Type {
+		case KeyEntryType, AgentEntryType, DNAEntryType:
+			buffer.WriteString("\"" + hdr.Type + "\":")
+			appendEntryAsJSON(&buffer, hdr, &hash, e.(*GobEntry))
+			if !lastEntry {
+				buffer.WriteString(",")
+			}
+		default:
+			if !firstEntry {
+				buffer.WriteString("\"entries\":[")
+				firstEntry = true
+			}
+
+			appendEntryAsJSON(&buffer, hdr, &hash, e.(*GobEntry))
+
+			if lastEntry {
+				buffer.WriteString("]")
+			} else {
+				buffer.WriteString(",")
+			}
+		}
+	}
+
+	buffer.WriteString("}")
+	return PrettyPrintJSON(buffer.Bytes())
+}
+
 // Length returns the number of entries in the chain
 func (c *Chain) Length() int {
 	return len(c.Headers)
@@ -558,4 +608,40 @@ func (c *Chain) Length() int {
 func (c *Chain) Close() {
 	c.s.Close()
 	c.s = nil
+}
+
+func appendEntryAsJSON(buffer *bytes.Buffer, hdr *Header, hash *Hash, g *GobEntry) {
+	buffer.WriteString("{")
+	appendEntryHeaderAsJSON(buffer, hdr, hash)
+	buffer.WriteString(",")
+	appendEntryContentAsJSON(buffer, hdr, g)
+	buffer.WriteString("}")
+}
+
+func appendEntryHeaderAsJSON(buffer *bytes.Buffer, hdr *Header, hash *Hash) {
+	buffer.WriteString("\"header\":{")
+	buffer.WriteString("\"type\":" + "\"" + hdr.Type + "\",")
+	buffer.WriteString(fmt.Sprintf("\"signature\":\"%v\",", hdr.Sig))
+	buffer.WriteString(fmt.Sprintf("\"hash\":\"%v\",", hash))
+	buffer.WriteString(fmt.Sprintf("\"time\":\"%v\",", hdr.Time))
+	buffer.WriteString(fmt.Sprintf("\"nextHeader\":\"%v\",", hdr.HeaderLink))
+	buffer.WriteString(fmt.Sprintf("\"next\":\"%v: %v\",", hdr.Type, hdr.TypeLink))
+	buffer.WriteString(fmt.Sprintf("\"entry\":\"%v\"", hdr.EntryLink))
+	buffer.WriteString("}")
+}
+
+func appendEntryContentAsJSON(buffer *bytes.Buffer, hdr *Header, g *GobEntry) {
+	buffer.WriteString("\"content\":")
+
+	switch g.C.(type) {
+	case []uint8:
+		buffer.WriteString(fmt.Sprintf("%s", g.C))
+	default:
+		result, err := json.Marshal(g.C)
+		if err != nil {
+			fmt.Printf("Error: %s", err)
+			return
+		}
+		buffer.WriteString(string(result))
+	}
 }

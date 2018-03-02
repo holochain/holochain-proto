@@ -3,10 +3,10 @@ package holochain
 import (
 	"encoding/json"
 	"fmt"
+	. "github.com/Holochain/holochain-proto/hash"
 	b58 "github.com/jbenet/go-base58"
 	ic "github.com/libp2p/go-libp2p-crypto"
 	peer "github.com/libp2p/go-libp2p-peer"
-	. "github.com/metacurrency/holochain/hash"
 	"github.com/robertkrimen/otto"
 	. "github.com/smartystreets/goconvey/convey"
 	"strings"
@@ -29,7 +29,7 @@ func TestNewJSRibosome(t *testing.T) {
 		defer CleanupTestChain(h, d)
 		v, err := NewJSRibosome(h, &Zome{RibosomeType: JSRibosomeType, Code: "\n1+ )"})
 		So(v, ShouldBeNil)
-		So(err.Error(), ShouldEqual, "Error executing JavaScript: (anonymous): Line 2:4 Unexpected token )")
+		So(err.Error(), ShouldEqual, "Error executing JavaScript: (anonymous): Line 38:4 Unexpected token )")
 	})
 
 	Convey("it should have an App structure:", t, func() {
@@ -264,9 +264,7 @@ func TestNewJSRibosome(t *testing.T) {
 		})
 		Convey("bridge", func() {
 			_, err := z.Run(`bridge("QmVGtdTZdTFaLsaj2RwdVG8jcjNNcp1DE914DKZ2kHmXHw","zySampleZome","testStrFn1","foo")`)
-			So(err, ShouldBeNil)
-			result := z.lastResult.String()
-			So(result, ShouldEqual, "HolochainError: no active bridge")
+			So(err.Error(), ShouldEqual, `{"errorMessage":"no active bridge","function":"bridge","name":"HolochainError","source":{}}`)
 
 			// TODO
 			// This test can't work because of the import cycle that we can't import
@@ -371,10 +369,10 @@ func TestJSQuery(t *testing.T) {
 			_, err := z.Run(`debug(query({Constrain:{EntryTypes:["%agent"]}}))`)
 			So(err, ShouldBeNil)
 		}, `[{"Identity":"Herbert \u003ch@bert.com\u003e","PublicKey":"CAESIHLUfxjdoEfk8byjsBR+FXxYpYrFTviSBf2BbC0boylT","Revocation":null}]`)
-		ShouldLog(h.nucleus.alog, func() {
-			_, err := z.Run(`debug(query({Constrain:{EntryTypes:["%dna"]}}))`)
-			So(err, ShouldBeNil)
-		}, `{"message":"data format not implemented: _DNA","name":"HolochainError"}`)
+
+		_, err := z.Run(`debug(query({Constrain:{EntryTypes:["%dna"]}}))`)
+		So(err.Error(), ShouldEqual, `{"errorMessage":"data format not implemented: _DNA","function":"query","name":"HolochainError","source":{}}`)
+
 		ShouldLog(h.nucleus.alog, func() {
 			_, err := z.Run(`debug(query({Constrain:{EntryTypes:["rating"]}}))`)
 			So(err, ShouldBeNil)
@@ -641,10 +639,8 @@ func TestJSDHT(t *testing.T) {
 
 	hash, _ := NewHash("QmY8Mzg9F69e5P9AoQPYat6x5HEhc1TVGs11tmfNSzkqh2")
 	Convey("get should return hash not found if it doesn't exist", t, func() {
-		v, err := NewJSRibosome(h, &Zome{RibosomeType: JSRibosomeType, Code: fmt.Sprintf(`get("%s");`, hash.String())})
-		So(err, ShouldBeNil)
-		z := v.(*JSRibosome)
-		So(z.lastResult.String(), ShouldEqual, "HolochainError: hash not found")
+		_, err := NewJSRibosome(h, &Zome{RibosomeType: JSRibosomeType, Code: fmt.Sprintf(`get("%s");`, hash.String())})
+		So(err.Error(), ShouldEqual, `{"errorMessage":"hash not found","function":"get","name":"HolochainError","source":{}}`)
 	})
 
 	// add an entry onto the chain
@@ -701,6 +697,19 @@ func TestJSDHT(t *testing.T) {
 	})
 
 	profileHash := commit(h, "profile", `{"firstName":"Zippy","lastName":"Pinhead"}`)
+
+	Convey("get should parsed JSON object of JSON type entries", t, func() {
+		v, err := NewJSRibosome(h, &Zome{RibosomeType: JSRibosomeType, Code: fmt.Sprintf(`get("%s");`, profileHash.String())})
+		So(err, ShouldBeNil)
+		z := v.(*JSRibosome)
+		So(z.lastResult.Class(), ShouldEqual, "Object")
+		x, err := z.lastResult.Export()
+		So(err, ShouldBeNil)
+		y := x.(map[string]interface{})
+		So(y["firstName"], ShouldEqual, "Zippy")
+		So(y["lastName"], ShouldEqual, "Pinhead")
+	})
+
 	reviewHash := commit(h, "review", "this is my bogus review of some thing")
 
 	commit(h, "rating", fmt.Sprintf(`{"Links":[{"Base":"%s","Link":"%s","Tag":"4stars"},{"Base":"%s","Link":"%s","Tag":"4stars"}]}`, hash.String(), profileHash.String(), hash.String(), reviewHash.String()))
@@ -761,8 +770,8 @@ func TestJSDHT(t *testing.T) {
 		z := v.(*JSRibosome)
 		So(z.lastResult.Class(), ShouldEqual, "Array")
 		links, _ := z.lastResult.Export()
-		l0 := links.([]map[string]interface{})[0]
-		l1 := links.([]map[string]interface{})[1]
+		l0 := links.([]map[string]interface{})[1]
+		l1 := links.([]map[string]interface{})[0]
 		So(l1["Hash"], ShouldEqual, h.agentHash.String())
 		lp := l1["Entry"].(map[string]interface{})
 		So(fmt.Sprintf("%v", lp["Identity"]), ShouldEqual, "Herbert <h@bert.com>")
@@ -833,7 +842,10 @@ func TestJSDHT(t *testing.T) {
 		z = v.(*JSRibosome)
 		x, err := z.lastResult.Export()
 		So(err, ShouldBeNil)
-		So(fmt.Sprintf("%v", x), ShouldEqual, `{"firstName":"Zippy","lastName":"ThePinhead"}`)
+
+		y := x.(map[string]interface{})
+		So(y["firstName"], ShouldEqual, "Zippy")
+		So(y["lastName"], ShouldEqual, "ThePinhead")
 	})
 
 	Convey("remove function should mark item deleted", t, func() {
@@ -845,9 +857,7 @@ func TestJSDHT(t *testing.T) {
 		So(err, ShouldBeNil)
 
 		v, err = NewJSRibosome(h, &Zome{RibosomeType: JSRibosomeType, Code: fmt.Sprintf(`get("%s");`, hash.String())})
-		So(err, ShouldBeNil)
-		z = v.(*JSRibosome)
-		So(z.lastResult.String(), ShouldEqual, "HolochainError: hash deleted")
+		So(err.Error(), ShouldEqual, `{"errorMessage":"hash deleted","function":"get","name":"HolochainError","source":{}}`)
 
 		v, err = NewJSRibosome(h, &Zome{RibosomeType: JSRibosomeType, Code: fmt.Sprintf(`get("%s",{StatusMask:HC.Status.Deleted});`, hash.String())})
 		So(err, ShouldBeNil)
@@ -859,12 +869,9 @@ func TestJSDHT(t *testing.T) {
 	})
 
 	Convey("updateAgent function without options should fail", t, func() {
-		v, err := NewJSRibosome(h, &Zome{RibosomeType: JSRibosomeType,
+		_, err := NewJSRibosome(h, &Zome{RibosomeType: JSRibosomeType,
 			Code: fmt.Sprintf(`updateAgent({})`)})
-		So(err, ShouldBeNil)
-		z := v.(*JSRibosome)
-		x := z.lastResult.String()
-		So(x, ShouldEqual, "HolochainError: expecting identity and/or revocation option")
+		So(err.Error(), ShouldEqual, `{"errorMessage":"expecting identity and/or revocation option","function":"updateAgent","name":"HolochainError","source":{}}`)
 	})
 
 	Convey("updateAgent function should commit a new agent entry", t, func() {

@@ -9,8 +9,8 @@ package holochain
 import (
 	"bytes"
 	"encoding/binary"
+	. "github.com/Holochain/holochain-proto/hash"
 	ic "github.com/libp2p/go-libp2p-crypto"
-	. "github.com/metacurrency/holochain/hash"
 	"io"
 	"time"
 )

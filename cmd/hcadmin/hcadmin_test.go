@@ -2,8 +2,8 @@ package main
 
 import (
 	"fmt"
-	holo "github.com/metacurrency/holochain"
-	"github.com/metacurrency/holochain/cmd"
+	holo "github.com/Holochain/holochain-proto"
+	"github.com/Holochain/holochain-proto/cmd"
 	. "github.com/smartystreets/goconvey/convey"
 	"github.com/urfave/cli"
 	"os"
@@ -180,6 +180,38 @@ func TestBridge(t *testing.T) {
 		So(err, ShouldBeNil)
 		So(out, ShouldContainSubstring, "testApp1 "+testApp1DNA+"\n        bridged to: "+testApp2DNA)
 		So(out, ShouldContainSubstring, "testApp2 "+testApp2DNA+"\n        bridged from by token:")
+	})
+}
+
+func TestDumpChainAsJSON(t *testing.T) {
+	Convey("Given a joined chain", t, func() {
+		d := holo.SetupTestDir()
+		defer os.RemoveAll(d)
+
+		app := setupApp()
+		_, err := runAppWithStdoutCapture(app, []string{"hcadmin", "-path", d, "init", "test-identity"})
+		if err != nil {
+			panic(err)
+		}
+
+		err = holo.WriteFile([]byte(holo.BasicTemplateAppPackage), d, "appPackage."+holo.BasicTemplateAppPackageFormat)
+		if err != nil {
+			panic(err)
+		}
+
+		app = setupApp()
+		_, err = runAppWithStdoutCapture(app, []string{"hcadmin", "-verbose", "-path", d, "join", filepath.Join(d, "appPackage."+holo.BasicTemplateAppPackageFormat), "testApp"})
+		if err != nil {
+			panic(err)
+		}
+
+		Convey("dump -chain -json should show chain entries as a json", func() {
+			app = setupApp()
+			out, err := runAppWithStdoutCapture(app, []string{"hcadmin", "-path", d, "dump", "-chain", "-json", "testApp"})
+			fmt.Println(out)
+			So(err, ShouldBeNil)
+			So(out, ShouldContainSubstring, "{\n    \"%dna\": {")
+		})
 	})
 }
 

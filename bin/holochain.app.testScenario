@@ -1,7 +1,7 @@
 #!/bin/bash
 echo "HC: $0"
 
-holochainBinDir="$GOPATH/src/github.com/metacurrency/holochain/bin"
+holochainBinDir="$GOPATH/src/github.com/Holochain/holochain-proto/bin"
 
 scenarioName=$1
 
@@ -33,7 +33,7 @@ cp $HOLOCHAIN_SYSTEM_BIN/../docker/app.docker/Dockerfile.BASE $HOLOCHAIN_APPDIR/
 #build the image to use as the base for the bs instance and hc instances
 
 holochainImageTag="holochain.app.testing.$HOLOCHAIN_APP_MACHINENAME"
-docker image inspect metacurrency/holochain/core.docker.forapptests || { printf "HC: no current docker image for testing app.\n\n  run: $ holochain.system.buildImageForAppTests" && exit 1 ; }
+docker image inspect Holochain/holochain-proto/core.docker.forapptests || { printf "HC: no current docker image for testing app.\n\n  run: $ holochain.system.buildImageForAppTests" && exit 1 ; }
 docker build --no-cache=true -f $HOLOCHAIN_APPDIR/runtime/docker/Dockerfile.BASE -t $holochainImageTag $HOLOCHAIN_APPDIR
 
 

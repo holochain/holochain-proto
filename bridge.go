@@ -1,4 +1,4 @@
-// Copyright (C) 2013-2017, The MetaCurrency Project (Eric Harris-Braun, Arthur Brock, et. al.)
+// Copyright (C) 2013-2018, The MetaCurrency Project (Eric Harris-Braun, Arthur Brock, et. al.)
 // Use of this source code is governed by GPLv3 found in the LICENSE file
 //----------------------------------------------------------------------------------------
 // implements the abstractions and functions for application bridging
@@ -10,7 +10,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	. "github.com/metacurrency/holochain/hash"
+	. "github.com/Holochain/holochain-proto/hash"
 	"github.com/tidwall/buntdb"
 	"path/filepath"
 	"strings"

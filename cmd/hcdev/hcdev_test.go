@@ -269,7 +269,7 @@ func TestDump(t *testing.T) {
 		So(err, ShouldBeNil)
 
 		portArgument := strconv.Itoa(port)
-		_, err = cmd.RunAppWithStdoutCapture(app, []string{"hcdev", "-no-nat-upnp", "--port", portArgument, "web"}, 1*time.Second)
+		_, err = cmd.RunAppWithStdoutCapture(app, []string{"hcdev", "-no-nat-upnp", "web", portArgument}, 1*time.Second)
 
 		So(err, ShouldBeNil)
 

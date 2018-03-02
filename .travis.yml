@@ -9,19 +9,15 @@ env:
   - secure: KU/2msclYm1J9KQidXgRl63uEYev7op/kr5w37KNJaCTqmYUHk/090+4SQmEFf0csHNCeyqmHD4tTHQ4oKsIsmfmuC4EQkEmBvwBbQVT9+lmWM1cuHRZRnSudDa4UT36OVLc+iyR2wkTYcaDan6ZaYmd9tDW8pfyOP7TxH3rf/9TqACnKKjMeHyINxgijTqiSGNnBQaNyTiBa/y/60Eg78eqq3zVPZKkae6dqAJtHqrFJTLbE4rlfHcrkmYsZhUIcyXAzw/+elz4gKC4llPXQ9mpxruBJxI+LVOoFmaqTdXpYa/Bsc9PteJOQQdecPWS0XkbV6T7Y44gAtlevsbyedSv0tmVniM4jXTnsMJ0f3gZzV5kXLM2A5rpw3gIkdqtg+a3GkVIy229Ljz1KH17o6nf1AAndqrh7wCOMXTHt1xxC+26vExnAIcyDQHpzx/Y4vmGUAhJJujIfh9Ld4YYdI2r9dP3i8N8qxFZyuQ9Lh3S1AMdIf5sBRTr6rPnZtU0UC5HYWxlGhfv7eWuMydUX2zLOmgHQXkY9/Jp+4YJ3H/Ge1qf8UtfhZBxMJM6sYdplNVpNE6NE1CemprPc7A2AotUdGlUFdGGuxLSat8tPlLe0wlf31EhdskSOf35fUJuVSJDxb4x4Flan0O42qKAgjRT+OVYB4R9/8MWQi/k8+Y=
 services:
 - docker
-before_install:
-- if [ "$TRAVIS_BRANCH" == "master" ]; then cd docker; docker build -t "metacurrency/holochain" .; cd ..; fi
-- if [ "$TRAVIS_BRANCH" == "develop" ]; then cd docker; docker build -t "metacurrency/holochain:develop" .; cd ..; fi
 script:
 - make hcdev
-- TEST_FLAGS='-v -coverprofile=$(pkg_path)/coverage.txt -covermode=atomic' make -e
-  test
+- TEST_FLAGS='-v -coverprofile=$(pkg_path)/coverage.txt -covermode=atomic' make -e test
 cache:
   directories:
   - $GOPATH/src/gx
 after_success:
 - bash <(curl -s https://codecov.io/bash)
-- if [ "$TRAVIS_BRANCH" == "master" ]; then docker login -u "$DOCKER_USERNAME" -p
-  "$DOCKER_PASSWORD"; docker push metacurrency/holochain; fi
-- if [ "$TRAVIS_BRANCH" == "develop" ]; then docker login -u "$DOCKER_USERNAME" -p
-  "$DOCKER_PASSWORD"; docker push metacurrency/holochain:develop; fi
+- if [ "$TRAVIS_BRANCH" == "master" ]; then cd docker; docker build -t "metacurrency/holochain" .; cd ..; fi
+- if [ "$TRAVIS_BRANCH" == "master" ]; then docker login -u "$DOCKER_USERNAME" -p "$DOCKER_PASSWORD"; docker push metacurrency/holochain; fi
+- if [ "$TRAVIS_BRANCH" == "develop" ]; then cd docker; docker build -t "metacurrency/holochain:develop" .; cd ..; fi
+- if [ "$TRAVIS_BRANCH" == "develop" ]; then docker login -u "$DOCKER_USERNAME" -p "$DOCKER_PASSWORD"; docker push metacurrency/holochain:develop; fi

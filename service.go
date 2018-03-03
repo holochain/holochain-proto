@@ -101,12 +101,12 @@ type ZomeFile struct {
 	Name         string
 	Description  string
 	CodeFile     string
-	Entries      []EntryDefFile
 	RibosomeType string
-	Functions    []FunctionDef
 	BridgeFuncs  []string // functions in zome that can be bridged to by fromApp
 	BridgeTo     string   // dna Hash of toApp that this zome is a client of
-	Config       map[string]interface{}
+  	Config       map[string]interface{}
+	Entries      []EntryDefFile
+	Functions    []FunctionDef
 }
 
 type DNAFile struct {
@@ -116,10 +116,10 @@ type DNAFile struct {
 	Properties           map[string]string
 	PropertiesSchemaFile string
 	BasedOn              Hash // references hash of another holochain that these schemas and code are derived from
-	Zomes                []ZomeFile
 	RequiresVersion      int
 	DHTConfig            DHTConfig
 	Progenitor           Progenitor
+	Zomes                []ZomeFile
 }
 
 // AgentFixture defines an agent for the purposes of tests

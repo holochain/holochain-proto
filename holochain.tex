@@ -255,22 +255,18 @@ Call $r$ the \term{resilience factor}.
 \label{dht:metrics}
 \item Allow that each node can maintain a set $M = \{m_n, \dots \}$ of metrics $m_n$ about other nodes, where each $m_n$ contains both a node's direct experience of $n$ with respect to that metric, as well as the experience of other nodes of $n$.  Enforce that one such metric kept is \textit{•}{uptime} which keeps track of the percentage of time a node is experienced to be available.   Call the process of nodes sharing these metrics \term{gossip} and refer to \ref{sec:gossip} for details.
 
-\item  Enforce that $\forall \delta \in \dhtstate$ each node maintains a set $V_\delta = \{n_1,\dots,n_q\}$ of nodes also close to each node expected to hold $\delta$ so that resiliency is maintained taking into account node uptimes according to:
+\item  Enforce that $\forall \delta \in \dhtstate_n$ each node $n$ maintains a set $V_\delta = \{n_1,\dots,n_q\}$ of $q$ closest nodes to $\delta$ as seen from $n$, which are \textit{expected by n} to also hold $\delta$. Resiliency is maintained by taking into account node uptimes and choosing the value of $q$ so that:
 \begin{equation}
-\begin{split}
-\sum_{i=0}^q uptime(n_i)\geq r\\
-uptime(n) \in [0,1]\\
-|V_r|=q
-\end{split}
+\sum_{i=0}^q uptime(n_i)\geq r
 \end{equation}
+whith $uptime(n) \in [0,1]$.
 
-Call the union of such sets $V_\delta$, from a given node's perspective, the \term{overlap list}.
+Call the union of such sets $V_\delta$, from a given node's perspective, the \term{overlap list} and also note that $q\geq r$.
 
-\item \label{hc:shards} Allow every node $n$ to discard every $\delta_x \in \dhtstate_n$ if the number of closer (with regards to $d(x,y)$) nodes is greater than $q$.
-Note that this results in the network adapting to changes in topology and DHT state migrations by regulating the number of network-wide redundant copies of all $\delta_i\in\dhtstate$ to match $r$ according to node uptime. This implies the existence of $q$ partitions of N called \term{shards}\footnote{This sharding inspired the Holochain name, because if you partition the network it still retains an image of the whole in the same way that cutting a hologram results in each part still containing the whole image.\cite{hologram}} that each (among all their nodes $N_{Shard_i} \subset N$) hold a complete redundant copy of $\dhtstate$ :
-\begin{equation}
-\bigcup\limits_{n\in N_{Shard_i}} \dhtstate_n = \dhtstate
-\end{equation}
+\item \label{hc:shards} Allow every node $n$ to discard every $\delta_x \in \dhtstate_n$ if the number of closer (with regards to $d(x,y)$) nodes is greater than $q$
+(i.e. if other nodes are able to construct their $V_\delta$ sets without including $n$, which in turn means there are enough other nodes responsible for holding $\delta$ in their $\Delta_m$ to have the system meet the resilience set by $r$ even without $n$ participating in storing $\delta$).
+Note that this results in the network adapting to changes in topology and DHT state migrations by regulating the number of network-wide redundant copies of all $\delta_i\in\dhtstate$ to match $r$ according to node uptime.
+
 \end{enumerate}
 
 Call $\hcdht$ a \term{validating}, \term{monotonic}, \term{sharded} DHT.

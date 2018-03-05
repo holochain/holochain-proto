@@ -665,9 +665,6 @@ func (dht *DHT) getLinks(base Hash, tag string, statusMask int) (results []Tagge
 			return true
 		})
 
-		if len(results) == 0 {
-			err = fmt.Errorf("No links for %s", tag)
-		}
 		return err
 	})
 	return

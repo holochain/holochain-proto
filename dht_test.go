@@ -222,8 +222,8 @@ func TestLinking(t *testing.T) {
 
 	Convey("It should store and retrieve links values on a base", t, func() {
 		data, err := dht.getLinks(base, "tag foo", StatusLive)
-		So(err, ShouldNotBeNil)
-		So(err.Error(), ShouldEqual, "No links for tag foo")
+		So(err, ShouldBeNil)
+		So(len(data), ShouldEqual, 0)
 
 		err = dht.putLink(fakeMsg, baseStr, linkHash1Str, "tag foo")
 		So(err, ShouldBeNil)
@@ -283,7 +283,8 @@ func TestLinking(t *testing.T) {
 		err := dht.delLink(fakeMsg, baseStr, linkHash1Str, "tag bar")
 		So(err, ShouldBeNil)
 		data, err := dht.getLinks(base, "tag bar", StatusLive)
-		So(err.Error(), ShouldEqual, "No links for tag bar")
+		So(err, ShouldBeNil)
+		So(len(data), ShouldEqual, 0)
 
 		err = dht.delLink(fakeMsg, baseStr, linkHash1Str, "tag foo")
 		So(err, ShouldBeNil)
@@ -294,7 +295,8 @@ func TestLinking(t *testing.T) {
 		err = dht.delLink(fakeMsg, baseStr, linkHash2Str, "tag foo")
 		So(err, ShouldBeNil)
 		data, err = dht.getLinks(base, "tag foo", StatusLive)
-		So(err.Error(), ShouldEqual, "No links for tag foo")
+		So(err, ShouldBeNil)
+		So(len(data), ShouldEqual, 0)
 	})
 }
 
@@ -605,10 +607,11 @@ func TestActionReceiver(t *testing.T) {
 		r, err := ActionReceiver(h, m)
 		So(r, ShouldEqual, DHTChangeOK)
 
-		_, err = h.dht.getLinks(hash, "4stars", StatusLive)
-		So(err.Error(), ShouldEqual, "No links for 4stars")
+		results, err := h.dht.getLinks(hash, "4stars", StatusLive)
+		So(err, ShouldBeNil)
+		So(len(results), ShouldEqual, 0)
 
-		results, err := h.dht.getLinks(hash, "4stars", StatusDeleted)
+		results, err = h.dht.getLinks(hash, "4stars", StatusDeleted)
 		So(err, ShouldBeNil)
 		So(len(results), ShouldEqual, 1)
 	})

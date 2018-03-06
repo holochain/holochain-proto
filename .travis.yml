@@ -17,7 +17,7 @@ cache:
   - $GOPATH/src/gx
 after_success:
 - bash <(curl -s https://codecov.io/bash)
-- if [ "$TRAVIS_BRANCH" == "589-docker-updates" ]; then cd docker; docker build --build-arg BRANCH=master -t "holochain/holochain-proto" .; cd ..; fi
-- if [ "$TRAVIS_BRANCH" == "589-docker-updates" ]; then docker login -u "$DOCKER_USERNAME" -p "$DOCKER_PASSWORD"; docker push holochain/holochain-proto; fi
+- if [ "$TRAVIS_BRANCH" == "master" ]; then cd docker; docker build --build-arg BRANCH=master -t "holochain/holochain-proto" .; cd ..; fi
+- if [ "$TRAVIS_BRANCH" == "master" ]; then docker login -u "$DOCKER_USERNAME" -p "$DOCKER_PASSWORD"; docker push holochain/holochain-proto; fi
 - if [ "$TRAVIS_BRANCH" == "develop" ]; then cd docker; docker build -t "holochain/holochain-proto:develop" .; cd ..; fi
 - if [ "$TRAVIS_BRANCH" == "develop" ]; then docker login -u "$DOCKER_USERNAME" -p "$DOCKER_PASSWORD"; docker push holochain/holochain-proto:develop; fi

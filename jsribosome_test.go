@@ -32,6 +32,19 @@ func TestNewJSRibosome(t *testing.T) {
 		So(err.Error(), ShouldEqual, "Error executing JavaScript: (anonymous): Line 38:4 Unexpected token )")
 	})
 
+	Convey("you can set the error handling configuration", t, func() {
+		d, _, h := PrepareTestChain("test")
+		defer CleanupTestChain(h, d)
+		_, err := NewJSRibosome(h, &Zome{RibosomeType: JSRibosomeType, Config: map[string]interface{}{"ErrorHandling": ErrHandlingReturnErrorsStr}})
+		So(err, ShouldBeNil)
+		_, err = NewJSRibosome(h, &Zome{RibosomeType: JSRibosomeType, Config: map[string]interface{}{"ErrorHandling": ErrHandlingThrowErrorsStr}})
+		So(err, ShouldBeNil)
+		_, err = NewJSRibosome(h, &Zome{RibosomeType: JSRibosomeType, Config: map[string]interface{}{"ErrorHandling": 2}})
+		So(err.Error(), ShouldEqual, "Expected ErrorHandling config value to be string")
+		_, err = NewJSRibosome(h, &Zome{RibosomeType: JSRibosomeType, Config: map[string]interface{}{"ErrorHandling": "fish"}})
+		So(err.Error(), ShouldEqual, "Expected ErrorHandling config value to be 'throwErrors' or 'returnErrorValue', was: 'fish'")
+	})
+
 	Convey("it should have an App structure:", t, func() {
 		d, _, h := PrepareTestChain("test")
 		defer CleanupTestChain(h, d)

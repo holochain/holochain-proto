@@ -18,6 +18,9 @@ import (
 
 const (
 	JSRibosomeType = "js"
+
+	ErrHandlingReturnErrorsStr = "returnErrorValue"
+	ErrHandlingThrowErrorsStr  = "throwErrors"
 )
 
 // JSRibosome holds data needed for the Javascript VM
@@ -1178,13 +1181,23 @@ func NewJSRibosome(h *Holochain, zome *Zome) (n Ribosome, err error) {
 
 	var fnPrefix string
 	var returnErrors bool
-	val, ok := zome.Config["returnErrors"]
+	val, ok := zome.Config["ErrorHandling"]
 	if ok {
-		returnErrors, ok = val.(bool)
+		var errHandling string
+		errHandling, ok = val.(string)
 		if !ok {
-			err = errors.New("Expected returnErrors config value to be boolean")
+			err = errors.New("Expected ErrorHandling config value to be string")
 			return nil, err
 		}
+		switch errHandling {
+		case ErrHandlingThrowErrorsStr:
+		case ErrHandlingReturnErrorsStr:
+			returnErrors = true
+		default:
+			err = fmt.Errorf("Expected ErrorHandling config value to be '%s' or '%s', was: '%s'", ErrHandlingThrowErrorsStr, ErrHandlingReturnErrorsStr, errHandling)
+			return nil, err
+		}
+
 	}
 	if !returnErrors {
 		fnPrefix = "__"

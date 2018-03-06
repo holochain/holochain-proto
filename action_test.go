@@ -269,6 +269,13 @@ func TestActionGet(t *testing.T) {
 		m := h.node.NewMessage(GET_REQUEST, GetReq{H: hash})
 		_, err := ActionReceiver(h, m)
 		So(err, ShouldEqual, ErrHashNotFound)
+
+		options := GetOptions{}
+		a := ActionGet{GetReq{H: hash}, &options}
+		response, err := a.Do(h)
+		So(err, ShouldEqual, ErrHashNotFound)
+		So(fmt.Sprintf("%v", response), ShouldEqual, "<nil>")
+
 	})
 
 	commit(h, "oddNumbers", "3")
@@ -289,6 +296,21 @@ func TestActionGet(t *testing.T) {
 		So(len(resp.CloserPeers), ShouldEqual, 1)
 		So(peer.ID(resp.CloserPeers[0].ID).Pretty(), ShouldEqual, "QmUfY4WeqD3UUfczjdkoFQGEgCAVNf7rgFfjdeTbr7JF1C")
 	})
+
+	Convey("do should return not found if it doesn't exist and we are connected", t, func() {
+		hash, err := NewHash("QmY8Mzg9F69e5P9AoQPYat655HEhc1TVGs11tmfNSzfrom")
+		if err != nil {
+			panic(err)
+		}
+
+		options := GetOptions{}
+		a := ActionGet{GetReq{H: hash}, &options}
+		response, err := a.Do(h)
+		So(err, ShouldEqual, ErrHashNotFound)
+		So(response, ShouldBeNil)
+
+	})
+
 }
 
 func TestActionGetLocal(t *testing.T) {

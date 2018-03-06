@@ -5,9 +5,9 @@
 # Stage 0 (build) - Build the holochain tools
 
 FROM golang as build
-
-run go get -d -v github.com/Holochain/holochain-proto
-run cd $GOPATH/src/github.com/Holochain/holochain-proto && make
+ARG BRANCH=develop
+RUN go get -d -v github.com/Holochain/holochain-proto
+RUN cd $GOPATH/src/github.com/Holochain/holochain-proto && git checkout $BRANCH && make
 
 # Stage 1 - Copy holochain tools into a minimal image
 

@@ -89,7 +89,7 @@ func setupApp() (app *cli.App) {
 				cli.BoolFlag{
 					Name:        "json",
 					Destination: &json,
-					Usage:       "Dump as JSON string",
+					Usage:       "Dump chain or dht as JSON string",
 				},
 			},
 			Action: func(c *cli.Context) error {

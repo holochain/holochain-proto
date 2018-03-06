@@ -9,15 +9,16 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	. "github.com/Holochain/holochain-proto"
-	"github.com/Holochain/holochain-proto/ui"
-	"github.com/shirou/gopsutil/process"
 	"os"
 	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
 	"time"
+
+	. "github.com/Holochain/holochain-proto"
+	"github.com/Holochain/holochain-proto/ui"
+	"github.com/shirou/gopsutil/process"
 )
 
 func toString(input interface{}) string {
@@ -502,7 +503,7 @@ func DoTest(h *Holochain, name string, i int, fixtures TestFixtures, t TestData,
 			b = StartBench(h)
 		}
 		if t.Raw {
-			n, _, err := h.MakeRibosome(t.Zome)
+			n, err := h.MakeRibosome(t.Zome)
 			if err != nil {
 				actualError = err
 			} else {

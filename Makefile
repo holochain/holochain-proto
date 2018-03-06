@@ -41,7 +41,7 @@ endef
 
 all: deps
 	$(foreach pkg_path,$(go_packages),go get $(pkg_path) ${new_line})
-	gx-go rewrite --undo
+	gx-go rewrite
 hcd: deps
 	go get $(REPO)/cmd/hcd
 	gx-go rewrite --undo

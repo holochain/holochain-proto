@@ -9,14 +9,15 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	. "github.com/Holochain/holochain-proto/hash"
-	b58 "github.com/jbenet/go-base58"
-	ic "github.com/libp2p/go-libp2p-crypto"
-	peer "github.com/libp2p/go-libp2p-peer"
+	b58 "gx/ipfs/QmT8rehPR3F6bmwL6zjUN8XpiDBFFpMP2myPdC6ApsWfJf/go-base58"
+	peer "gx/ipfs/QmXYjuNuxVzXKJCfWasQk1RqkhVLDM9jtUKhqc2WPQmFSB/go-libp2p-peer"
+	ic "gx/ipfs/QmaPbCnUMBohSGo3KnxEa2bHqyJVVeEEcwtqJAYxerieBo/go-libp2p-crypto"
 	"io/ioutil"
 	"net/http"
 	"reflect"
 	"time"
+
+	. "github.com/Holochain/holochain-proto/hash"
 )
 
 type ArgType int8
@@ -114,7 +115,12 @@ func (h *Holochain) ValidateAction(a ValidatingAction, entryType string, pkg *Pa
 	}()
 
 	var z *Zome
-	z, def, err = h.GetEntryDef(entryType)
+	def, err = h.GetEntryDef(entryType)
+	if err != nil {
+		return
+	}
+	// @TODO this makes the incorrect assumption that entry type strings are unique across zomes
+	z, err = h.GetZomeForEntryType(entryType)
 	if err != nil {
 		return
 	}
@@ -193,11 +199,16 @@ func (h *Holochain) GetValidationResponse(a ValidatingAction, hash Hash) (resp V
 		// app defined entry types
 		var def *EntryDef
 		var z *Zome
-		z, def, err = h.GetEntryDef(resp.Type)
+		def, err = h.GetEntryDef(resp.Type)
 		if err != nil {
 			return
 		}
 		err = a.CheckValidationRequest(def)
+		if err != nil {
+			return
+		}
+		// @TODO this makes the incorrect assumption that entry type strings are unique across zomes
+		z, err = h.GetZomeForEntryType(resp.Type)
 		if err != nil {
 			return
 		}
@@ -571,7 +582,7 @@ func (a *ActionSend) Do(h *Holochain) (response interface{}, err error) {
 func (a *ActionSend) Receive(dht *DHT, msg *Message, retries int) (response interface{}, err error) {
 	t := msg.Body.(AppMsg)
 	var r Ribosome
-	r, _, err = dht.h.MakeRibosome(t.ZomeType)
+	r, err = dht.h.MakeRibosome(t.ZomeType)
 	if err != nil {
 		return
 	}

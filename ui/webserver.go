@@ -12,7 +12,7 @@ import (
 	"errors"
 	"fmt"
 	holo "github.com/Holochain/holochain-proto"
-	websocket "github.com/gorilla/websocket"
+	websocket "gx/ipfs/QmZH5VXfAJouGMyCCHTRPGCT3e5MG9Lu78Ln3YAYW1XTts/websocket"
 	"io/ioutil"
 	"net/http"
 	"os"

@@ -17,12 +17,12 @@ import (
 	//notif "github.com/libp2p/go-libp2p-routing/notifications"
 	. "github.com/Holochain/holochain-proto/hash"
 	queue "github.com/Holochain/holochain-proto/peerqueue"
-	u "github.com/ipfs/go-ipfs-util"
-	process "github.com/jbenet/goprocess"
-	ctxproc "github.com/jbenet/goprocess/context"
-	peer "github.com/libp2p/go-libp2p-peer"
-	pset "github.com/libp2p/go-libp2p-peer/peerset"
-	pstore "github.com/libp2p/go-libp2p-peerstore"
+	pstore "gx/ipfs/QmPgDWmTmuzvP7QE5zwo1TmjbJme9pmZHNujB2453jkCTr/go-libp2p-peerstore"
+	process "gx/ipfs/QmSF8fPo3jgVBAy8fpdjjYqgG87dkJgUprRBHRd2tmfgpP/goprocess"
+	ctxproc "gx/ipfs/QmSF8fPo3jgVBAy8fpdjjYqgG87dkJgUprRBHRd2tmfgpP/goprocess/context"
+	u "gx/ipfs/QmSU6eubNdhXjFBJBSksTp8kv8YRub8mGAPv8tVJHmL2EU/go-ipfs-util"
+	peer "gx/ipfs/QmXYjuNuxVzXKJCfWasQk1RqkhVLDM9jtUKhqc2WPQmFSB/go-libp2p-peer"
+	pset "gx/ipfs/QmXYjuNuxVzXKJCfWasQk1RqkhVLDM9jtUKhqc2WPQmFSB/go-libp2p-peer/peerset"
 )
 
 var maxQueryConcurrency = AlphaValue

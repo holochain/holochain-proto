@@ -72,6 +72,11 @@ func TestNewZygoRibosome(t *testing.T) {
 		So(err, ShouldBeNil)
 		z := v.(*ZygoRibosome)
 
+		_, err = z.Run("HC_Error_HashNotFound")
+		So(err, ShouldBeNil)
+		x := z.lastResult
+		So(x, ShouldEqual, zygo.SexpNull)
+
 		_, err = z.Run("HC_Version")
 		So(err, ShouldBeNil)
 		s := z.lastResult.(*zygo.SexpStr).S

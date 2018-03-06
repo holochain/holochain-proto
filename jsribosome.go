@@ -279,6 +279,7 @@ func (jsr *JSRibosome) validateEntry(fnName string, def *EntryDef, entry Entry, 
 
 const (
 	JSLibrary = `var HC={Version:` + `"` + VersionStr + "\"" +
+		`Error:{HashNotFound:undefined}` +
 		`,Status:{Live:` + StatusLiveVal +
 		`,Rejected:` + StatusRejectedVal +
 		`,Deleted:` + StatusDeletedVal +

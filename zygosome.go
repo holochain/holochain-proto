@@ -373,6 +373,7 @@ func (z *ZygoRibosome) Call(fn *FunctionDef, params interface{}) (result interfa
 // all Ribosome implementations.
 const (
 	ZygoLibrary = `(def HC_Version "` + VersionStr + `")` +
+		`(def HC_Error_HashNotFound nil)` +
 		`(def HC_Status_Live ` + StatusLiveVal + ")" +
 		`(def HC_Status_Rejected ` + StatusRejectedVal + ")" +
 		`(def HC_Status_Deleted ` + StatusDeletedVal + ")" +

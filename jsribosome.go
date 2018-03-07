@@ -279,7 +279,7 @@ func (jsr *JSRibosome) validateEntry(fnName string, def *EntryDef, entry Entry, 
 
 const (
 	JSLibrary = `var HC={Version:` + `"` + VersionStr + "\"" +
-		`Error:{HashNotFound:undefined}` +
+		`HashNotFound:null` +
 		`,Status:{Live:` + StatusLiveVal +
 		`,Rejected:` + StatusRejectedVal +
 		`,Deleted:` + StatusDeletedVal +
@@ -940,7 +940,12 @@ func NewJSRibosome(h *Holochain, zome *Zome) (n Ribosome, err error) {
 				if mask == GetMaskDefault {
 					mask = GetMaskEntry
 				}
-				if err == nil {
+				if err == ErrHashNotFound {
+					// if the hash wasn't found this isn't actually an error
+					// so return nil which is the same as HC.HashNotFound
+					err = nil
+					result = otto.NullValue()
+				} else if err == nil {
 					getResp := r.(GetResp)
 					var singleValueReturn bool
 					if mask&GetMaskEntry != 0 {
@@ -1220,7 +1225,7 @@ func NewJSRibosome(h *Holochain, zome *Zome) (n Ribosome, err error) {
 	if !returnErrors {
 		l += `
 		function checkForError(func, rtn) {
-		    if ((typeof rtn === 'object') && rtn.name == "` + HolochainErrorPrefix + `") {
+		    if (rtn != null && (typeof rtn === 'object') && rtn.name == "` + HolochainErrorPrefix + `") {
 		        var errsrc = new getErrorSource(4);
 		        throw {
 		            name: "` + HolochainErrorPrefix + `",
@@ -1272,7 +1277,7 @@ func NewJSRibosome(h *Holochain, zome *Zome) (n Ribosome, err error) {
 	l += `
 // helper function to determine if value returned from holochain function is an error
 function isErr(result) {
-    return ((typeof result === 'object') && result.name == "` + HolochainErrorPrefix + `");
+    return (result != null && (typeof result === 'object') && result.name == "` + HolochainErrorPrefix + `");
 }`
 
 	_, err = jsr.Run(l + zome.Code)

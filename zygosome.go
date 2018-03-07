@@ -373,7 +373,7 @@ func (z *ZygoRibosome) Call(fn *FunctionDef, params interface{}) (result interfa
 // all Ribosome implementations.
 const (
 	ZygoLibrary = `(def HC_Version "` + VersionStr + `")` +
-		`(def HC_Error_HashNotFound nil)` +
+		`(def HC_HashNotFound nil)` +
 		`(def HC_Status_Live ` + StatusLiveVal + ")" +
 		`(def HC_Status_Rejected ` + StatusRejectedVal + ")" +
 		`(def HC_Status_Deleted ` + StatusDeletedVal + ")" +
@@ -1023,7 +1023,12 @@ func NewZygoRibosome(h *Holochain, zome *Zome) (n Ribosome, err error) {
 			}
 			var resultValue zygo.Sexp
 			resultValue = zygo.SexpNull
-			if err == nil {
+			if err == ErrHashNotFound {
+				// if the hash wasn't found this isn't actually an error
+				// so return nil which is the same as HC_HashNotFound
+				err = nil
+				return zygo.SexpNull, err
+			} else if err == nil {
 				getResp := r.(GetResp)
 				var entryStr string
 				var singleValueReturn bool

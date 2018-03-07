@@ -94,10 +94,10 @@ func TestNewJSRibosome(t *testing.T) {
 		So(err, ShouldBeNil)
 		z := v.(*JSRibosome)
 
-		_, err = z.Run("HC.Error.HashNotFound")
+		_, err = z.Run("HC.HashNotFound")
 		So(err, ShouldBeNil)
 		s, _ := z.lastResult.ToString()
-		So(s, ShouldEqual, "undefined")
+		So(s, ShouldEqual, "null")
 
 		_, err = z.Run("HC.Version")
 		So(err, ShouldBeNil)
@@ -656,8 +656,8 @@ func TestJSDHT(t *testing.T) {
 	defer CleanupTestChain(h, d)
 
 	hash, _ := NewHash("QmY8Mzg9F69e5P9AoQPYat6x5HEhc1TVGs11tmfNSzkqh2")
-	Convey("get should return hash not found if it doesn't exist", t, func() {
-		v, err := NewJSRibosome(h, &Zome{RibosomeType: JSRibosomeType, Code: fmt.Sprintf(`get("%s")==HC.NullHash;`, hash.String())})
+	Convey("get should return HC.HashNotFound if it doesn't exist", t, func() {
+		v, err := NewJSRibosome(h, &Zome{RibosomeType: JSRibosomeType, Code: fmt.Sprintf(`get("%s")===HC.HashNotFound;`, hash.String())})
 
 		So(err, ShouldBeNil)
 		z := v.(*JSRibosome)

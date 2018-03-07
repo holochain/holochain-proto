@@ -72,6 +72,11 @@ func TestNewZygoRibosome(t *testing.T) {
 		So(err, ShouldBeNil)
 		z := v.(*ZygoRibosome)
 
+		_, err = z.Run("HC_HashNotFound")
+		So(err, ShouldBeNil)
+		x := z.lastResult
+		So(x, ShouldEqual, zygo.SexpNull)
+
 		_, err = z.Run("HC_Version")
 		So(err, ShouldBeNil)
 		s := z.lastResult.(*zygo.SexpStr).S
@@ -533,13 +538,13 @@ func TestZygoDHT(t *testing.T) {
 	defer CleanupTestChain(h, d)
 
 	hash, _ := NewHash("QmY8Mzg9F69e5P9AoQPYat6x5HEhc1TVGs11tmfNSzkqh2")
-	Convey("get should return hash not found if it doesn't exist", t, func() {
-		v, err := NewZygoRibosome(h, &Zome{RibosomeType: ZygoRibosomeType, Code: fmt.Sprintf(`(get "%s")`, hash.String())})
+	Convey("get should return HC_HashNotFound if it doesn't exist", t, func() {
+		v, err := NewZygoRibosome(h, &Zome{RibosomeType: ZygoRibosomeType, Code: fmt.Sprintf(`(== (get "%s") HC_HashNotFound)`, hash.String())})
 		So(err, ShouldBeNil)
 		z := v.(*ZygoRibosome)
-		r, err := z.lastResult.(*zygo.SexpHash).HashGet(z.env, z.env.MakeSymbol("error"))
+		r := z.lastResult.(*zygo.SexpBool)
 		So(err, ShouldBeNil)
-		So(r.(*zygo.SexpStr).S, ShouldEqual, "hash not found")
+		So(r.Val, ShouldEqual, true)
 	})
 	// add an entry onto the chain
 	hash = commit(h, "evenNumbers", "2")

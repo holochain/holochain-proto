@@ -104,7 +104,7 @@ type ZomeFile struct {
 	RibosomeType string
 	BridgeFuncs  []string // functions in zome that can be bridged to by fromApp
 	BridgeTo     string   // dna Hash of toApp that this zome is a client of
-  	Config       map[string]interface{}
+	Config       map[string]interface{}
 	Entries      []EntryDefFile
 	Functions    []FunctionDef
 }
@@ -1767,7 +1767,7 @@ function asyncPing(message,id) {
 (defn confirmOdd [x]
   (letseq [h (makeHash "oddNumbers" x)
            r (get h)
-           err (hget r %error "")]
+           err (cond (hash? r) (hget r %error "") "found")]
      (cond (== err "") "true" "false")
   )
 )

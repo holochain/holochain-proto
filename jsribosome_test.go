@@ -94,9 +94,14 @@ func TestNewJSRibosome(t *testing.T) {
 		So(err, ShouldBeNil)
 		z := v.(*JSRibosome)
 
-		_, err = z.Run("HC.Version")
+		_, err = z.Run("HC.HashNotFound")
 		So(err, ShouldBeNil)
 		s, _ := z.lastResult.ToString()
+		So(s, ShouldEqual, "null")
+
+		_, err = z.Run("HC.Version")
+		So(err, ShouldBeNil)
+		s, _ = z.lastResult.ToString()
 		So(s, ShouldEqual, VersionStr)
 
 		_, err = z.Run("HC.Status.Deleted")
@@ -651,9 +656,14 @@ func TestJSDHT(t *testing.T) {
 	defer CleanupTestChain(h, d)
 
 	hash, _ := NewHash("QmY8Mzg9F69e5P9AoQPYat6x5HEhc1TVGs11tmfNSzkqh2")
-	Convey("get should return hash not found if it doesn't exist", t, func() {
-		_, err := NewJSRibosome(h, &Zome{RibosomeType: JSRibosomeType, Code: fmt.Sprintf(`get("%s");`, hash.String())})
-		So(err.Error(), ShouldEqual, `{"errorMessage":"hash not found","function":"get","name":"HolochainError","source":{}}`)
+	Convey("get should return HC.HashNotFound if it doesn't exist", t, func() {
+		v, err := NewJSRibosome(h, &Zome{RibosomeType: JSRibosomeType, Code: fmt.Sprintf(`get("%s")===HC.HashNotFound;`, hash.String())})
+
+		So(err, ShouldBeNil)
+		z := v.(*JSRibosome)
+		x, err := z.lastResult.Export()
+		So(err, ShouldBeNil)
+		So(fmt.Sprintf("%v", x), ShouldEqual, `true`)
 	})
 
 	// add an entry onto the chain

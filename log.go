@@ -8,7 +8,6 @@ package holochain
 
 import (
 	"fmt"
-	"github.com/fatih/color"
 	"io"
 	"os"
 	"path/filepath"
@@ -16,6 +15,8 @@ import (
 	"runtime"
 	"strings"
 	"time"
+
+	"github.com/fatih/color"
 )
 
 // Logger holds logger configuration
@@ -112,9 +113,9 @@ func (l *Logger) New(w io.Writer) (err error) {
 	return
 }
 
-func (l *Logger) SetPrefix(prefixFormat string) {
-	l.PrefixColor, l.Prefix = l.setupColor(prefixFormat)
-}
+//func (l *Logger) SetPrefix(prefixFormat string) {
+//	l.PrefixColor, l.Prefix = l.setupColor(prefixFormat)
+//}
 
 func (l *Logger) parse(m string) (output string) {
 	var t *time.Time

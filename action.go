@@ -114,7 +114,12 @@ func (h *Holochain) ValidateAction(a ValidatingAction, entryType string, pkg *Pa
 	}()
 
 	var z *Zome
-	z, def, err = h.GetEntryDef(entryType)
+	def, err = h.GetEntryDef(entryType)
+	if err != nil {
+		return
+	}
+	// @TODO this makes the incorrect assumption that entry type strings are unique across zomes
+	z, err = h.GetZomeForEntryType(entryType)
 	if err != nil {
 		return
 	}
@@ -192,12 +197,17 @@ func (h *Holochain) GetValidationResponse(a ValidatingAction, hash Hash) (resp V
 	default:
 		// app defined entry types
 		var def *EntryDef
-		var z *Zome
-		z, def, err = h.GetEntryDef(resp.Type)
+		def, err = h.GetEntryDef(resp.Type)
 		if err != nil {
 			return
 		}
 		err = a.CheckValidationRequest(def)
+		if err != nil {
+			return
+		}
+		var z *Zome
+		// @TODO this makes the incorrect assumption that entry type strings are unique across zomes
+		z, err = h.GetZomeForEntryType(resp.Type)
 		if err != nil {
 			return
 		}
@@ -571,7 +581,7 @@ func (a *ActionSend) Do(h *Holochain) (response interface{}, err error) {
 func (a *ActionSend) Receive(dht *DHT, msg *Message, retries int) (response interface{}, err error) {
 	t := msg.Body.(AppMsg)
 	var r Ribosome
-	r, _, err = dht.h.MakeRibosome(t.ZomeType)
+	r, err = dht.h.MakeRibosome(t.ZomeType)
 	if err != nil {
 		return
 	}

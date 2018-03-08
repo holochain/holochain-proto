@@ -483,7 +483,7 @@ func zyProcessArgs(z *ZygoRibosome, args []Arg, zyArgs []zygo.Sexp) (err error) 
 			// don't have to do checking because the previous time through the loop
 			// should have done it
 			entryType := zyArgs[i-1].(*zygo.SexpStr).S
-			_, def, err := z.h.GetEntryDef(entryType)
+			def, err := z.h.GetEntryDef(entryType)
 			if err != nil {
 				return err
 			}
@@ -923,7 +923,7 @@ func NewZygoRibosome(h *Holochain, zome *Zome) (n Ribosome, err error) {
 					var ok bool
 					def, ok = defs[result.Header.Type]
 					if !ok {
-						_, def, err = h.GetEntryDef(result.Header.Type)
+						def, err = h.GetEntryDef(result.Header.Type)
 						if err != nil {
 							return zygo.SexpNull, err
 						}

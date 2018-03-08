@@ -589,7 +589,7 @@ func (h *Holochain) Walk(fn WalkerFn, entriesToo bool) (err error) {
 
 // GetEntryDef returns an EntryDef of the given name
 // @TODO this makes the incorrect assumption that entry type strings are unique across zomes
-func (h *Holochain) GetEntryDef(t string) (zome *Zome, d *EntryDef, err error) {
+func (h *Holochain) GetEntryDef(t string) (d *EntryDef, err error) {
 	if t == DNAEntryType {
 		d = DNAEntryDef
 		return
@@ -603,9 +603,24 @@ func (h *Holochain) GetEntryDef(t string) (zome *Zome, d *EntryDef, err error) {
 	for _, z := range h.nucleus.dna.Zomes {
 		d, err = z.GetEntryDef(t)
 		if err == nil {
+			return
+		}
+	}
+	return
+}
+
+// GetZomeForEntryType returns the zome for a given EntryType
+// @TODO this makes the incorrect assumption that entry type strings are unique across zomes
+func (h *Holochain) GetZomeForEntryType(t string) (zome *Zome, err error) {
+	for _, z := range h.nucleus.dna.Zomes {
+		_, err = z.GetEntryDef(t)
+		if err == nil {
 			zome = &z
 			return
 		}
+	}
+	if err == nil {
+		err = errors.New("no zome with entry type: " + t)
 	}
 	return
 }
@@ -620,7 +635,11 @@ func (h *Holochain) GetPrivateEntryDefs() (privateDefs []EntryDef) {
 
 // Call executes an exposed function
 func (h *Holochain) Call(zomeType string, function string, arguments interface{}, exposureContext string) (result interface{}, err error) {
-	n, z, err := h.MakeRibosome(zomeType)
+	n, err := h.MakeRibosome(zomeType)
+	if err != nil {
+		return
+	}
+	z, err := h.GetZome(zomeType)
 	if err != nil {
 		return
 	}
@@ -637,8 +656,8 @@ func (h *Holochain) Call(zomeType string, function string, arguments interface{}
 }
 
 // MakeRibosome creates a Ribosome object based on the zome type
-func (h *Holochain) MakeRibosome(t string) (r Ribosome, z *Zome, err error) {
-	z, err = h.GetZome(t)
+func (h *Holochain) MakeRibosome(t string) (r Ribosome, err error) {
+	z, err := h.GetZome(t)
 	if err != nil {
 		return
 	}
@@ -746,7 +765,7 @@ func (h *Holochain) SendAsync(proto int, to peer.ID, msg *Message, callback *Cal
 		response, err = h.Send(h.node.ctx, proto, to, msg, timeout)
 		if err == nil {
 			var r Ribosome
-			r, _, err := h.MakeRibosome(callback.zomeType)
+			r, err := h.MakeRibosome(callback.zomeType)
 			if err == nil {
 				switch t := response.(type) {
 				case AppMsg:
@@ -942,7 +961,7 @@ func (h *Holochain) Query(options *QueryOptions) (results []QueryResult, err err
 		var ok bool
 		def, ok = defs[header.Type]
 		if !ok {
-			_, def, err = h.GetEntryDef(header.Type)
+			def, err = h.GetEntryDef(header.Type)
 			if err != nil {
 				return
 			}

@@ -454,13 +454,12 @@ func TestMakeRibosome(t *testing.T) {
 	defer CleanupTestChain(h, d)
 
 	Convey("it should fail if the zome isn't defined in the DNA", t, func() {
-		_, _, err := h.MakeRibosome("bogusZome")
+		_, err := h.MakeRibosome("bogusZome")
 		So(err.Error(), ShouldEqual, "unknown zome: bogusZome")
 	})
-	Convey("it should make a ribosome based on the type and return the zome def", t, func() {
-		v, zome, err := h.MakeRibosome("zySampleZome")
+	Convey("it should make a ribosome based on the type", t, func() {
+		v, err := h.MakeRibosome("zySampleZome")
 		So(err, ShouldBeNil)
-		So(zome.Name, ShouldEqual, "zySampleZome")
 		z := v.(*ZygoRibosome)
 		_, err = z.env.Run()
 		So(err, ShouldBeNil)
@@ -695,34 +694,29 @@ func TestGetEntryDef(t *testing.T) {
 	d, _, h := SetupTestChain("test")
 	defer CleanupTestDir(d)
 	Convey("it should fail on bad entry types", t, func() {
-		_, _, err := h.GetEntryDef("foobar")
+		_, err := h.GetEntryDef("foobar")
 		So(err, ShouldBeError)
 		So(err.Error(), ShouldEqual, "no definition for entry type: foobar")
 	})
 	Convey("it should get entry definitions", t, func() {
-		zome, def, err := h.GetEntryDef("evenNumbers")
+		def, err := h.GetEntryDef("evenNumbers")
 		So(err, ShouldBeNil)
-		So(zome.Name, ShouldEqual, "zySampleZome")
 		So(fmt.Sprintf("%v", def), ShouldEqual, "&{evenNumbers zygo public  <nil>}")
 	})
 	Convey("it should get sys entry definitions", t, func() {
-		zome, def, err := h.GetEntryDef(DNAEntryType)
+		def, err := h.GetEntryDef(DNAEntryType)
 		So(err, ShouldBeNil)
-		So(zome, ShouldBeNil)
 		So(def, ShouldEqual, DNAEntryDef)
-		zome, def, err = h.GetEntryDef(AgentEntryType)
+		def, err = h.GetEntryDef(AgentEntryType)
 		So(err, ShouldBeNil)
-		So(zome, ShouldBeNil)
 		So(def, ShouldEqual, AgentEntryDef)
-		zome, def, err = h.GetEntryDef(KeyEntryType)
+		def, err = h.GetEntryDef(KeyEntryType)
 		So(err, ShouldBeNil)
-		So(zome, ShouldBeNil)
 		So(def, ShouldEqual, KeyEntryDef)
 	})
 	Convey("it should get private entry definition", t, func() {
-		zome, def, err := h.GetEntryDef("privateData")
+		def, err := h.GetEntryDef("privateData")
 		So(err, ShouldBeNil)
-		So(zome, ShouldNotBeNil)
 		So(def, ShouldNotBeNil)
 	})
 }
@@ -731,7 +725,7 @@ func TestGetPrivateEntryDefs(t *testing.T) {
 	d, _, h := SetupTestChain("test")
 	defer CleanupTestDir(d)
 	Convey("it should contain only private entry definition", t, func() {
-		_, privateData, _ := h.GetEntryDef("privateData")
+		privateData, _ := h.GetEntryDef("privateData")
 		privateDefs := h.GetPrivateEntryDefs()
 		So(len(privateDefs), ShouldEqual, 1)
 		So(privateDefs[0].Name, ShouldEqual, privateData.Name)

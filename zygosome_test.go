@@ -502,12 +502,15 @@ func TestZygoExposeCall(t *testing.T) {
 	d, _, h := PrepareTestChain("test")
 	defer CleanupTestChain(h, d)
 
-	v, zome, err := h.MakeRibosome("zySampleZome")
+	v, err := h.MakeRibosome("zySampleZome")
 	if err != nil {
 		panic(err)
 	}
 	z := v.(*ZygoRibosome)
-
+	zome, err := h.GetZome("zySampleZome")
+	if err != nil {
+		panic(err)
+	}
 	Convey("should allow calling exposed STRING based functions", t, func() {
 		cater, _ := zome.GetFunctionDef("testStrFn1")
 		result, err := z.Call(cater, "fish \"zippy\"")

@@ -237,7 +237,7 @@ func (dht *DHT) getGossipers() (glist []peer.ID, err error) {
 		})
 		return nil
 	})
-	ns := dht.config.NeighborhoodSize
+	ns := dht.config.RedundancyFactor
 	if ns > 1 {
 		size := len(glist)
 		hlist := make([]Hash, size)

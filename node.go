@@ -196,6 +196,7 @@ func (h *Holochain) addPeer(pi pstore.PeerInfo, confirm bool) (err error) {
 		if bootstrap {
 			RoutingRefreshTask(h)
 		}
+		h.world.AddNode(pi)
 	}
 	return
 }
@@ -666,11 +667,14 @@ func (errResp ErrorResponse) DecodeResponseError() (err error) {
 	return
 }
 
+func distance(id peer.ID, hash Hash) *big.Int {
+	h := HashFromPeerID(id)
+	return HashXORDistance(h, hash)
+}
+
 // Distance returns the nodes peer distance to another node for purposes of gossip
 func (node *Node) Distance(id peer.ID) *big.Int {
-	h := HashFromPeerID(id)
-	nh := HashFromPeerID(node.HashAddr)
-	return HashXORDistance(nh, h)
+	return distance(id, HashFromPeerID(node.HashAddr))
 }
 
 // Context return node's context

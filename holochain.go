@@ -89,6 +89,7 @@ type Holochain struct {
 	nucleus          *Nucleus
 	node             *Node
 	chain            *Chain // This node's local source chain
+	world            *World
 	bridgeDB         *buntdb.DB
 	validateProtocol *Protocol
 	gossipProtocol   *Protocol
@@ -106,6 +107,10 @@ func (h *Holochain) Chain() (n *Chain) {
 
 func (h *Holochain) Name() string {
 	return h.nucleus.dna.Name
+}
+
+func (h *Holochain) World() *World {
+	return h.world
 }
 
 var debugLog Logger
@@ -308,6 +313,8 @@ func (h *Holochain) Prepare() (err error) {
 
 	h.dht = NewDHT(h)
 	h.nucleus.h = h
+
+	h.world = NewWorld(h.node.HashAddr)
 
 	var peerList PeerList
 	peerList, err = h.dht.getList(BlockedList)

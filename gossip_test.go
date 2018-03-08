@@ -38,15 +38,15 @@ func TestGetGossipers(t *testing.T) {
 
 	var err error
 	var glist []peer.ID
-	Convey("should return all peers when neighborhood size is 0", t, func() {
-		So(h.nucleus.dna.DHTConfig.NeighborhoodSize, ShouldEqual, 0)
+	Convey("should return all peers when redundancy factor is 0", t, func() {
+		So(h.nucleus.dna.DHTConfig.RedundancyFactor, ShouldEqual, 0)
 		glist, err = dht.getGossipers()
 		So(err, ShouldBeNil)
 		So(len(glist), ShouldEqual, nodesCount-1)
 	})
 
 	Convey("should return neighborhood size peers when neighborhood size is not 0", t, func() {
-		h.nucleus.dna.DHTConfig.NeighborhoodSize = 5
+		h.nucleus.dna.DHTConfig.RedundancyFactor = 5
 		glist, err = dht.getGossipers()
 		So(err, ShouldBeNil)
 		So(len(glist), ShouldEqual, 5)

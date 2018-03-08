@@ -113,13 +113,7 @@ func (h *Holochain) ValidateAction(a ValidatingAction, entryType string, pkg *Pa
 		}
 	}()
 
-	var z *Zome
 	def, err = h.GetEntryDef(entryType)
-	if err != nil {
-		return
-	}
-	// @TODO this makes the incorrect assumption that entry type strings are unique across zomes
-	z, err = h.GetZomeForEntryType(entryType)
 	if err != nil {
 		return
 	}
@@ -140,6 +134,12 @@ func (h *Holochain) ValidateAction(a ValidatingAction, entryType string, pkg *Pa
 		}
 
 		// run the action's app level validations
+		// @TODO this makes the incorrect assumption that entry type strings are unique across zomes
+		var z *Zome
+		z, err = h.GetZomeForEntryType(entryType)
+		if err != nil {
+			return
+		}
 		var n Ribosome
 		n, err = z.MakeRibosome(h)
 		if err != nil {

@@ -149,6 +149,7 @@ type TestData struct {
 	Input     interface{}   // the function's input
 	Output    interface{}   // the expected output to match against (full match)
 	Err       interface{}   // the expected error to match against
+	ErrMsg    string        // the expected error message to match against
 	Regexp    string        // the expected out to match again (regular expression)
 	Time      time.Duration // offset in milliseconds from the start of the test at which to run this test.
 	Wait      time.Duration // time in milliseconds to wait before running this test from when the previous ran

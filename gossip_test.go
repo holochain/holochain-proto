@@ -351,8 +351,9 @@ func TestGossipCycle(t *testing.T) {
 		So(len(h1.dht.gchan), ShouldEqual, 0)
 		So(len(h0.dht.gossipPuts), ShouldEqual, 0)
 
-		stop, err := handleGossipWith(h0.dht)
-		So(stop, ShouldBeFalse)
+		x, ok := <-h0.dht.gchan
+		So(ok, ShouldBeTrue)
+		err := handleGossipWith(h0.dht, x)
 		So(err, ShouldBeNil)
 		// we got receivers puts back and scheduled
 		So(len(h0.dht.gossipPuts), ShouldEqual, 2)
@@ -393,8 +394,9 @@ func TestGossipErrorCases(t *testing.T) {
 		So(err, ShouldBeNil)
 		So(len(h0.dht.gossipPuts), ShouldEqual, 3)
 		for i := 0; i < 3; i++ {
-			stop, err := handleGossipPut(h0.dht)
-			So(stop, ShouldBeFalse)
+			x, ok := <-h0.dht.gossipPuts
+			So(ok, ShouldBeTrue)
+			err := handleGossipPut(h0.dht, x)
 			So(err, ShouldBeNil)
 		}
 		err = h0.dht.gossipWith(h1.nodeID)

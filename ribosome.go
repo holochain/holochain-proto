@@ -43,6 +43,12 @@ const (
 	BridgeTo      = 1
 	BridgeFromStr = "0"
 	BridgeToStr   = "1"
+
+	BundleCancelReasonUserCancel = "userCancel"
+	BundleCancelReasonTimeout    = "timeout"
+
+	BundleCancelResponseOK     = ""
+	BundleCancelResponseCommit = "commit"
 )
 
 var ValidationFailedErr = errors.New("Validation Failed")
@@ -73,6 +79,7 @@ type Ribosome interface {
 	Call(fn *FunctionDef, params interface{}) (interface{}, error)
 	Run(code string) (result interface{}, err error)
 	RunAsyncSendResponse(response AppMsg, callback string, callbackID string) (result interface{}, err error)
+	BundleCanceled(reason string) (response string, err error)
 }
 
 var ribosomeFactories = make(map[string]RibosomeFactory)

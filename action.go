@@ -357,6 +357,88 @@ func (a *ActionMakeHash) Do(h *Holochain) (response interface{}, err error) {
 }
 
 //------------------------------------------------------------
+// StartBundle
+
+const (
+	DefaultBundleTimeout = 5000
+)
+
+type ActionStartBundle struct {
+	timeout   int64
+	userParam string
+}
+
+func NewStartBundleAction(timeout int, userParam string) *ActionStartBundle {
+	a := ActionStartBundle{timeout: int64(timeout), userParam: userParam}
+	if timeout == 0 {
+		a.timeout = DefaultBundleTimeout
+	}
+	return &a
+}
+
+func (a *ActionStartBundle) Name() string {
+	return "bundleStart"
+}
+
+func (a *ActionStartBundle) Args() []Arg {
+	return []Arg{{Name: "timeout", Type: IntArg}, {Name: "userParam", Type: StringArg}}
+}
+
+func (a *ActionStartBundle) Do(h *Holochain) (response interface{}, err error) {
+	err = h.Chain().StartBundle(a.userParam)
+	return
+}
+
+//------------------------------------------------------------
+// CloseBundle
+
+type ActionCloseBundle struct {
+	commit bool
+}
+
+func NewCloseBundleAction(commit bool) *ActionCloseBundle {
+	a := ActionCloseBundle{commit: commit}
+	return &a
+}
+
+func (a *ActionCloseBundle) Name() string {
+	return "bundleClose"
+}
+
+func (a *ActionCloseBundle) Args() []Arg {
+	return []Arg{{Name: "commit", Type: BoolArg}}
+}
+
+func (a *ActionCloseBundle) Do(h *Holochain) (response interface{}, err error) {
+
+	isCancel := !a.commit
+	// if this is a cancel call all the bundleCancel routines
+	if isCancel {
+		for _, zome := range h.nucleus.dna.Zomes {
+			var r Ribosome
+			r, _, err = h.MakeRibosome(zome.Name)
+			if err != nil {
+				continue
+			}
+			var result string
+			result, err = r.BundleCanceled(BundleCancelReasonUserCancel)
+			if err != nil {
+				Debugf("error in %s.bundleCanceled():%v", zome.Name, err)
+				continue
+			}
+			if result == BundleCancelResponseCommit {
+				Debugf("%s.bundleCanceled() overrode cancel", zome.Name)
+				err = nil
+				return
+			}
+		}
+	}
+	err = h.Chain().CloseBundle(a.commit)
+
+	return
+}
+
+//------------------------------------------------------------
 // GetBridges
 
 type ActionGetBridges struct {
@@ -741,12 +823,18 @@ func (h *Holochain) doCommit(a CommittingAction, change *StatusChange) (d *Entry
 	var hash Hash
 	var added bool
 
+	chain := h.Chain()
+	bundle := chain.BundleStarted()
+	if bundle != nil {
+		chain = bundle.chain
+	}
+
 	// retry loop incase someone sneaks a new commit in between prepareHeader and addEntry
 	for !added {
-		h.chain.lk.RLock()
-		count := len(h.chain.Headers)
-		l, hash, header, err = h.chain.prepareHeader(time.Now(), entryType, entry, h.agent.PrivKey(), change)
-		h.chain.lk.RUnlock()
+		chain.lk.RLock()
+		count := len(chain.Headers)
+		l, hash, header, err = chain.prepareHeader(time.Now(), entryType, entry, h.agent.PrivKey(), change)
+		chain.lk.RUnlock()
 		if err != nil {
 			return
 		}
@@ -757,14 +845,14 @@ func (h *Holochain) doCommit(a CommittingAction, change *StatusChange) (d *Entry
 			return
 		}
 
-		h.chain.lk.Lock()
-		if count == len(h.chain.Headers) {
-			err = h.chain.addEntry(l, hash, header, entry)
+		chain.lk.Lock()
+		if count == len(chain.Headers) {
+			err = chain.addEntry(l, hash, header, entry)
 			if err == nil {
 				added = true
 			}
 		}
-		h.chain.lk.Unlock()
+		chain.lk.Unlock()
 		if err != nil {
 			return
 		}

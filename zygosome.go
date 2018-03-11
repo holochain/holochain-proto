@@ -103,6 +103,11 @@ func (z *ZygoRibosome) Receive(from string, msg string) (response string, err er
 	return
 }
 
+// BundleCancel calls the app bundleCanceled function
+func (z *ZygoRibosome) BundleCanceled(reason string) (response string, err error) {
+	return
+}
+
 // ValidatePackagingRequest calls the app for a validation packaging request for an action
 func (z *ZygoRibosome) ValidatePackagingRequest(action ValidatingAction, def *EntryDef) (req PackagingReq, err error) {
 	var code string

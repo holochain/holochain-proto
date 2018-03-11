@@ -1737,6 +1737,17 @@ function genesis() {
 }
 function bridgeGenesis(side,app,data) {return true}
 
+function bundleCanceled(reason,userParam) {
+     debug(userParam+"debug message during bundleCanceled with reason: "+reason);
+  if (userParam == 'debugit') {
+     debug("debug message during bundleCanceled with reason: "+reason);
+  } else if (userParam == 'cancelit') {
+     debug("debug message during bundleCanceled: canceling cancel!");
+     return HC.BundleCancel.Response.Commit
+  }
+  return HC.BundleCancel.Response.OK
+}
+
 function receive(from,message) {
   // if the message requests blocking run an infinite loop
   // this is used by the async send test to force the condition where

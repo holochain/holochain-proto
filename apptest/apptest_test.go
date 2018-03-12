@@ -138,7 +138,7 @@ func TestTestOne(t *testing.T) {
 		}, `========================================
 Test: 'testSet1' starting...
 ========================================
-Test 'testSet1.0' t+0ms: { zySampleZome addEven 2 %h% <nil>  0s 0s  false 0 false}
+Test 'testSet1.0' t+0ms: { zySampleZome addEven 2 %h% <nil>   0s 0s  false 0 false}
 `)
 	})
 }

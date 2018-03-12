@@ -517,16 +517,19 @@ func DoTest(h *Holochain, name string, i int, fixtures TestFixtures, t TestData,
 			logBenchmark(info, testID, b)
 		}
 
-		var expectedResult, expectedErrorRaw = output, t.Err
+		var expectedResult = output
+		var expectedErrorObject = t.Err
+		var expectedErrorMessage = t.ErrMsg
 		var expectedError string
 
-		if expectedErrorRaw != nil {
-			expectedError, err = toStringByType(expectedErrorRaw)
+		if expectedErrorObject != nil {
+			expectedError, err = toStringByType(expectedErrorObject)
 			if err != nil {
 				panic("unable to covert expected error to string")
 			}
+		} else if expectedErrorMessage != "" {
+			expectedError = expectedErrorMessage
 		}
-
 		var expectedResultRegexp = t.Regexp
 		//====================
 		history.lastResults[2] = history.lastResults[1]
@@ -536,7 +539,19 @@ func DoTest(h *Holochain, name string, i int, fixtures TestFixtures, t TestData,
 		if expectedError != "" {
 			expectedError = testStringReplacements(expectedError, &replacements)
 			comparisonString := fmt.Sprintf("\nTest: %s\n\tExpected error:\t%v\n\tGot error:\t\t%v", testID, expectedError, actualError)
-			if actualError == nil || (actualError.Error() != expectedError) {
+			var actualErrorStr string
+			if actualError != nil {
+				actualErrorStr = actualError.Error()
+				if expectedErrorMessage != "" {
+					re := regexp.MustCompile(`"errorMessage":"([^"]+)"`)
+					x := re.FindStringSubmatch(actualErrorStr)
+					if len(x) == 0 {
+						panic("expected to find an error message in " + actualErrorStr)
+					}
+					actualErrorStr = x[1]
+				}
+			}
+			if actualError == nil || (actualErrorStr != expectedError) {
 				failed.Logf("\n=====================\n%s\n\tfailed! m(\n=====================", comparisonString)
 				err = errors.New(expectedError)
 			} else {

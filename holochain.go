@@ -30,10 +30,10 @@ import (
 
 const (
 	// Version is the numeric version number of the holochain library
-	Version int = 21
+	Version int = 22
 
 	// VersionStr is the textual version number of the holochain library
-	VersionStr string = "21"
+	VersionStr string = "22"
 
 	// DefaultSendTimeout a time.Duration to wait by default for send to complete
 	DefaultSendTimeout = 3000 * time.Millisecond

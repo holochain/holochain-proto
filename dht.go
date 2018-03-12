@@ -768,6 +768,7 @@ func (dht *DHT) Query(key Hash, msgType MsgType, body interface{}) (response int
 	var result *dhtQueryResult
 	result, err = query.Run(dht.h.node.ctx, rtp)
 	if err != nil {
+
 		return nil, err
 	}
 	response = result.response

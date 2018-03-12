@@ -1574,6 +1574,12 @@ func TestingAppAppPackage() string {
 	"Err":    {"errorMessage":"Validation Failed","function":"commit","name":"` + HolochainErrorPrefix + `","source":{"column":"28","functionName":"addOdd","line":"45"}}
     },
     {
+	"Zome":   "jsSampleZome",
+	"FnName": "addOdd",
+	"Input":  "2",
+	"ErrMsg":  "Validation Failed"
+    },
+    {
 	"Zome":   "zySampleZome",
 	"FnName": "confirmOdd",
 	"Input":  "9",

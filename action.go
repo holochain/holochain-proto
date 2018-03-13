@@ -729,23 +729,35 @@ func (a *ActionGet) Args() []Arg {
 	return []Arg{{Name: "hash", Type: HashArg}, {Name: "options", Type: MapArg, MapType: reflect.TypeOf(GetOptions{}), Optional: true}}
 }
 
+func (a *ActionGet) getLocal(chain *Chain) (resp GetResp, err error) {
+	var entry Entry
+	var entryType string
+	entry, entryType, err = chain.GetEntry(a.req.H)
+	if err != nil {
+		return
+	}
+	resp = GetResp{Entry: *entry.(*GobEntry)}
+	mask := a.options.GetMask
+	resp.EntryType = entryType
+	if (mask & GetMaskEntry) != 0 {
+		resp.Entry = *entry.(*GobEntry)
+		resp.EntryType = entryType
+	}
+	return
+}
+
 func (a *ActionGet) Do(h *Holochain) (response interface{}, err error) {
 	if a.options.Local {
-		var entry Entry
-		var entryType string
-		entry, entryType, err = h.chain.GetEntry(a.req.H)
-		if err != nil {
+		response, err = a.getLocal(h.chain)
+		return
+	}
+	if a.options.Bundle {
+		bundle := h.Chain().BundleStarted()
+		if bundle == nil {
+			err = ErrBundleNotStarted
 			return
 		}
-		resp := GetResp{Entry: *entry.(*GobEntry)}
-		mask := a.options.GetMask
-		resp.EntryType = entryType
-		if (mask & GetMaskEntry) != 0 {
-			resp.Entry = *entry.(*GobEntry)
-			resp.EntryType = entryType
-		}
-
-		response = resp
+		response, err = a.getLocal(bundle.chain)
 		return
 	}
 	rsp, err := h.dht.Query(a.req.H, GET_REQUEST, a.req)

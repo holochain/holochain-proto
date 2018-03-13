@@ -339,6 +339,19 @@ func TestActionGetLocal(t *testing.T) {
 		getResp := rsp.(GetResp)
 		So(getResp.Entry.Content().(string), ShouldEqual, "31415")
 	})
+
+	Convey("it should get local bundle values", t, func() {
+		_, err := NewStartBundleAction(0, "myBundle").Do(h)
+		So(err, ShouldBeNil)
+		hash := commit(h, "oddNumbers", "3141")
+		req := GetReq{H: hash, GetMask: GetMaskEntry}
+		_, err = NewGetAction(req, &GetOptions{GetMask: req.GetMask, Local: true}).Do(h)
+		So(err, ShouldEqual, ErrHashNotFound)
+		rsp, err := NewGetAction(req, &GetOptions{GetMask: req.GetMask, Bundle: true}).Do(h)
+		So(err, ShouldBeNil)
+		getResp := rsp.(GetResp)
+		So(getResp.Entry.Content().(string), ShouldEqual, "3141")
+	})
 }
 
 func TestActionBundle(t *testing.T) {

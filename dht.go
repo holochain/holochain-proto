@@ -183,6 +183,7 @@ type GetOptions struct {
 	StatusMask int  // mask of which status of entries to return
 	GetMask    int  // mask of what to include in the response
 	Local      bool // bool if get should happen from chain not DHT
+	Bundle     bool // bool if get should happen from bundle not DHT
 }
 
 // GetLinksOptions options to holochain level GetLinks functions

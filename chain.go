@@ -43,6 +43,7 @@ type Bundle struct {
 	idx       int
 	userParam string
 	chain     *Chain
+	sharing   []CommittingAction
 }
 
 // Chain structure for providing in-memory access to chain data, entries headers and hashes
@@ -662,6 +663,7 @@ func (c *Chain) StartBundle(userParam interface{}) (err error) {
 		chain:     NewChain(c.hashSpec),
 		userParam: string(j),
 	}
+	bundle.sharing = make([]CommittingAction, 0)
 	bundle.chain.bundleOf = c
 	c.bundle = &bundle
 	return

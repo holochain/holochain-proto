@@ -651,8 +651,8 @@ func TestActionReceiver(t *testing.T) {
 	Convey("DELETE_REQUEST should set status of hash to deleted", t, func() {
 		entry := DelEntry{Hash: hash2, Message: "expired"}
 		a := NewDelAction("evenNumbers", entry)
-		_, _, entryHash, err := h.doCommit(a, &StatusChange{Action: DelAction, Hash: hash2})
-
+		_, err := h.doCommit(a, &StatusChange{Action: DelAction, Hash: hash2})
+		entryHash := a.header.EntryLink
 		m := h.node.NewMessage(DEL_REQUEST, DelReq{H: hash2, By: entryHash})
 		r, err := ActionReceiver(h, m)
 		So(err, ShouldBeNil)

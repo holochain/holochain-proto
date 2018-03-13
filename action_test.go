@@ -351,6 +351,7 @@ func TestActionBundle(t *testing.T) {
 		a = NewStartBundleAction(123, "myBundle")
 		So(a.timeout, ShouldEqual, 123)
 	})
+
 	Convey("starting a bundle should set the bundle start point", t, func() {
 		c := h.Chain()
 		So(c.BundleStarted(), ShouldBeNil)
@@ -359,16 +360,23 @@ func TestActionBundle(t *testing.T) {
 		So(err, ShouldBeNil)
 		So(c.BundleStarted().idx, ShouldEqual, c.Length()-1)
 	})
+	var hash Hash
 	Convey("commit actions should commit to bundle after it's started", t, func() {
 		So(h.chain.Length(), ShouldEqual, 2)
 		So(h.chain.bundle.chain.Length(), ShouldEqual, 0)
-		_, err := NewCommitAction("oddNumbers", &GobEntry{C: `7`}).Do(h)
+		result, err := NewCommitAction("oddNumbers", &GobEntry{C: `99`}).Do(h)
 		if err != nil {
 			panic(err)
 		}
 		So(h.chain.Length(), ShouldEqual, 2)
 		So(h.chain.bundle.chain.Length(), ShouldEqual, 1)
+		hash = result.(Hash)
 	})
+	Convey("but those commits should not show in the DHT", t, func() {
+		_, _, _, _, err := h.dht.get(hash, StatusDefault, GetMaskDefault)
+		So(err, ShouldEqual, ErrHashNotFound)
+	})
+
 	Convey("closing a bundle should commit its entries to the chain", t, func() {
 		So(h.chain.Length(), ShouldEqual, 2)
 		a := NewCloseBundleAction(true)
@@ -377,6 +385,15 @@ func TestActionBundle(t *testing.T) {
 		So(err, ShouldBeNil)
 		So(h.chain.Length(), ShouldEqual, 3)
 	})
+	Convey("and those commits should now show in the DHT", t, func() {
+		data, _, _, _, err := h.dht.get(hash, StatusDefault, GetMaskDefault)
+		So(err, ShouldBeNil)
+		var e GobEntry
+		err = e.Unmarshal(data)
+
+		So(e.C, ShouldEqual, "99")
+	})
+
 	Convey("canceling a bundle should not commit entries to chain and should execute the bundleCanceled callback", t, func() {
 		So(h.chain.Length(), ShouldEqual, 3)
 

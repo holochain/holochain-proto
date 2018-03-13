@@ -77,6 +77,8 @@ type CommittingAction interface {
 	EntryType() string
 	Entry() Entry
 	SetHeader(header *Header)
+	GetHeader() (header *Header)
+	Share(h *Holochain, def *EntryDef) (err error)
 }
 
 // ValidatingAction provides an abstraction for grouping all the actions that participate in validation loop
@@ -411,6 +413,12 @@ func (a *ActionCloseBundle) Args() []Arg {
 
 func (a *ActionCloseBundle) Do(h *Holochain) (response interface{}, err error) {
 
+	bundle := h.Chain().BundleStarted()
+	if bundle == nil {
+		err = ErrBundleNotStarted
+		return
+	}
+
 	isCancel := !a.commit
 	// if this is a cancel call all the bundleCancel routines
 	if isCancel {
@@ -434,7 +442,18 @@ func (a *ActionCloseBundle) Do(h *Holochain) (response interface{}, err error) {
 		}
 	}
 	err = h.Chain().CloseBundle(a.commit)
-
+	if err == nil {
+		// if there wasn't an error closing the bundle share all the commits
+		for _, a := range bundle.sharing {
+			_, def, err := h.GetEntryDef(a.GetHeader().Type)
+			if err != nil {
+				h.dht.dlog.Logf("Error getting entry def in close bundle:%v", err)
+				err = nil
+			} else {
+				err = a.Share(h, def)
+			}
+		}
+	}
 	return
 }
 
@@ -815,12 +834,13 @@ func (a *ActionGet) Receive(dht *DHT, msg *Message, retries int) (response inter
 }
 
 // doCommit adds an entry to the local chain after validating the action it's part of
-func (h *Holochain) doCommit(a CommittingAction, change *StatusChange) (d *EntryDef, header *Header, entryHash Hash, err error) {
+func (h *Holochain) doCommit(a CommittingAction, change *StatusChange) (d *EntryDef, err error) {
 
 	entryType := a.EntryType()
 	entry := a.Entry()
 	var l int
 	var hash Hash
+	var header *Header
 	var added bool
 
 	chain := h.Chain()
@@ -857,7 +877,6 @@ func (h *Holochain) doCommit(a CommittingAction, change *StatusChange) (d *Entry
 			return
 		}
 	}
-	entryHash = header.EntryLink
 	return
 }
 
@@ -895,15 +914,26 @@ func (a *ActionCommit) SetHeader(header *Header) {
 	a.header = header
 }
 
+func (a *ActionCommit) GetHeader() (header *Header) {
+	return a.header
+}
+
 func (a *ActionCommit) Do(h *Holochain) (response interface{}, err error) {
 	var d *EntryDef
-	var entryHash Hash
-	//	var header *Header
-	d, _, entryHash, err = h.doCommit(a, nil)
+	d, err = h.doCommit(a, nil)
 	if err != nil {
 		return
 	}
-	if d.DataFormat == DataFormatLinks {
+	err = DoShare(a, h, d)
+	if err != nil {
+		return
+	}
+	response = a.header.EntryLink
+	return
+}
+
+func (a *ActionCommit) Share(h *Holochain, def *EntryDef) (err error) {
+	if def.DataFormat == DataFormatLinks {
 		// if this is a Link entry we have to send the DHT Link message
 		var le LinksEntry
 		entryStr := a.entry.Content().(string)
@@ -917,20 +947,29 @@ func (a *ActionCommit) Do(h *Holochain) (response interface{}, err error) {
 			_, exists := bases[l.Base]
 			if !exists {
 				b, _ := NewHash(l.Base)
-				h.dht.Change(b, LINK_REQUEST, LinkReq{Base: b, Links: entryHash})
+				h.dht.Change(b, LINK_REQUEST, LinkReq{Base: b, Links: a.header.EntryLink})
 				//TODO errors from the send??
 				bases[l.Base] = true
 			}
 		}
-	} else if d.Sharing == Public {
+	} else if def.Sharing == Public {
 		// otherwise we check to see if it's a public entry and if so send the DHT put message
-		err = h.dht.Change(entryHash, PUT_REQUEST, PutReq{H: entryHash})
+		err = h.dht.Change(a.header.EntryLink, PUT_REQUEST, PutReq{H: a.header.EntryLink})
 		if err == ErrEmptyRoutingTable {
 			// will still have committed locally and can gossip later
 			err = nil
 		}
 	}
-	response = entryHash
+	return
+}
+
+func DoShare(a CommittingAction, h *Holochain, def *EntryDef) (err error) {
+	bundle := h.Chain().BundleStarted()
+	if bundle == nil {
+		err = a.Share(h, def)
+	} else {
+		bundle.sharing = append(bundle.sharing, a)
+	}
 	return
 }
 
@@ -1180,20 +1219,31 @@ func (a *ActionMod) SetHeader(header *Header) {
 	a.header = header
 }
 
+func (a *ActionMod) GetHeader() (header *Header) {
+	return a.header
+}
+
 func (a *ActionMod) Do(h *Holochain) (response interface{}, err error) {
 	var d *EntryDef
-	var entryHash Hash
-	d, a.header, entryHash, err = h.doCommit(a, &StatusChange{Action: ModAction, Hash: a.replaces})
+	d, err = h.doCommit(a, &StatusChange{Action: ModAction, Hash: a.replaces})
 	if err != nil {
 		return
 	}
-	if d.Sharing == Public {
+	err = DoShare(a, h, d)
+	if err != nil {
+		return
+	}
+	response = a.header.EntryLink
+	return
+}
+
+func (a *ActionMod) Share(h *Holochain, def *EntryDef) (err error) {
+	if def.Sharing == Public {
 		// if it's a public entry send the DHT MOD & PUT messages
 		// TODO handle errors better!!
-		h.dht.Change(entryHash, PUT_REQUEST, PutReq{H: entryHash})
-		h.dht.Change(a.replaces, MOD_REQUEST, ModReq{H: a.replaces, N: entryHash})
+		h.dht.Change(a.header.EntryLink, PUT_REQUEST, PutReq{H: a.header.EntryLink})
+		h.dht.Change(a.replaces, MOD_REQUEST, ModReq{H: a.replaces, N: a.header.EntryLink})
 	}
-	response = entryHash
 	return
 }
 
@@ -1422,21 +1472,30 @@ func (a *ActionDel) SetHeader(header *Header) {
 	a.header = header
 }
 
+func (a *ActionDel) GetHeader() (header *Header) {
+	return a.header
+}
+
 func (a *ActionDel) Do(h *Holochain) (response interface{}, err error) {
 	var d *EntryDef
-	var entryHash Hash
 
-	d, _, entryHash, err = h.doCommit(a, &StatusChange{Action: DelAction, Hash: a.entry.Hash})
+	d, err = h.doCommit(a, &StatusChange{Action: DelAction, Hash: a.entry.Hash})
 	if err != nil {
 		return
 	}
-
-	if d.Sharing == Public {
-		// if it's a public entry send the DHT DEL
-		h.dht.Change(a.entry.Hash, DEL_REQUEST, DelReq{H: a.entry.Hash, By: entryHash})
+	err = DoShare(a, h, d)
+	if err != nil {
+		return
 	}
-	response = entryHash
+	response = a.header.EntryLink
+	return
+}
 
+func (a *ActionDel) Share(h *Holochain, def *EntryDef) (err error) {
+	if def.Sharing == Public {
+		// if it's a public entry send the DHT DEL
+		h.dht.Change(a.entry.Hash, DEL_REQUEST, DelReq{H: a.entry.Hash, By: a.header.EntryLink})
+	}
 	return
 }
 

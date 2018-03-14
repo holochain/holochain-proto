@@ -689,6 +689,19 @@ func TestQuery(t *testing.T) {
 		So(results[0].Entry.Content(), ShouldEqual, `{"firstName":"Pebbles","lastName":"Flintstone"}`)
 		So(results[1].Entry.Content(), ShouldEqual, `{"firstName":"Zerbina","lastName":"Pinhead"}`)
 	})
+	Convey("query from bundle", t, func() {
+		q := &QueryOptions{Bundle: true}
+		_, err := h.Query(q)
+		So(err, ShouldEqual, ErrBundleNotStarted)
+		h.Chain().StartBundle(0)
+		results, err := h.Query(q)
+		So(err, ShouldBeNil)
+		So(len(results), ShouldEqual, 0)
+		commit(h, "secret", "flam")
+		results, err = h.Query(q)
+		So(err, ShouldBeNil)
+		So(len(results), ShouldEqual, 1)
+	})
 }
 
 func TestGetEntryDef(t *testing.T) {

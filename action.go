@@ -514,13 +514,13 @@ func (a *ActionSign) Do(h *Holochain) (response interface{}, err error) {
 //------------------------------------------------------------
 // VerifySignature
 type ActionVerifySignature struct {
-	signature string
-	data      string
-	pubKey    string
+	b58signature string
+	data         string
+	b58pubKey    string
 }
 
 func NewVerifySignatureAction(signature string, data string, pubKey string) *ActionVerifySignature {
-	a := ActionVerifySignature{signature: signature, data: data, pubKey: pubKey}
+	a := ActionVerifySignature{b58signature: signature, data: data, b58pubKey: pubKey}
 	return &a
 }
 
@@ -535,10 +535,9 @@ func (a *ActionVerifySignature) Args() []Arg {
 func (a *ActionVerifySignature) Do(h *Holochain) (response interface{}, err error) {
 	var b bool
 	var pubKeyIC ic.PubKey
-	var sig []byte
-	sig = b58.Decode(a.signature)
+	sig := SignatureFromB58String(a.b58signature)
 	var pubKeyBytes []byte
-	pubKeyBytes = b58.Decode(a.pubKey)
+	pubKeyBytes = b58.Decode(a.b58pubKey)
 	pubKeyIC, err = ic.UnmarshalPublicKey(pubKeyBytes)
 	if err != nil {
 		return

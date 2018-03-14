@@ -881,9 +881,9 @@ func (h *Holochain) Sign(doc []byte) (sig []byte, err error) {
 }
 
 //VerifySignature uses the signature, data(doc) and signatory's public key to Verify the sign in contents of doc
-func (h *Holochain) VerifySignature(signature []byte, data string, pubKey ic.PubKey) (matches bool, err error) {
+func (h *Holochain) VerifySignature(signature Signature, data string, pubKey ic.PubKey) (matches bool, err error) {
 
-	matches, err = pubKey.Verify([]byte(data), signature)
+	matches, err = pubKey.Verify([]byte(data), signature.S)
 	if err != nil {
 		return
 	}

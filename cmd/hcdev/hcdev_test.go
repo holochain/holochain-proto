@@ -126,36 +126,36 @@ func TestInit(t *testing.T) {
 		So(cmd.IsDir(tmpTestDir, holo.ChainDataDir), ShouldBeFalse)
 	})
 
-	Convey("'init bar --cloneExample=clutter' should copy files from github", t, func() {
+	Convey("'init bar --cloneExample=HoloWorld' should copy files from github", t, func() {
 		err = os.Chdir(tmpTestDir)
 		if err != nil {
 			panic(err)
 		}
 
 		// it should clone with the same name as the repo
-		os.Args = []string{"hcdev", "init", "-cloneExample=clutter"}
+		os.Args = []string{"hcdev", "init", "-cloneExample=HoloWorld"}
 		err = app.Run(os.Args)
 		So(err, ShouldBeNil)
-		So(cmd.IsFile(filepath.Join(tmpTestDir, "clutter", "dna", "clutter", "clutter.js")), ShouldBeTrue)
+		So(cmd.IsFile(filepath.Join(tmpTestDir, "HoloWorld", "dna", "HoloWorld", "HoloWorld.js")), ShouldBeTrue)
 		// or from a branch
 		err = os.Chdir(tmpTestDir)
 		if err != nil {
 			panic(err)
 		}
-		os.Args = []string{"hcdev", "init", "-cloneExample=clutter", "-fromDevelop", "clutter2"}
+		os.Args = []string{"hcdev", "init", "-cloneExample=HoloWorld", "-fromDevelop", "HoloWorld2"}
 		err = app.Run(os.Args)
 		So(err, ShouldBeNil)
-		So(cmd.IsFile(filepath.Join(tmpTestDir, "clutter2", "dna", "clutter", "clutter.js")), ShouldBeTrue)
+		So(cmd.IsFile(filepath.Join(tmpTestDir, "HoloWorld2", "dna", "HoloWorld", "HoloWorld.js")), ShouldBeTrue)
 
 		// or with a specified name
 		err = os.Chdir(tmpTestDir)
 		if err != nil {
 			panic(err)
 		}
-		os.Args = []string{"hcdev", "init", "-cloneExample=clutter", "myClutter"}
+		os.Args = []string{"hcdev", "init", "-cloneExample=HoloWorld", "myHoloWorld"}
 		err = app.Run(os.Args)
 		So(err, ShouldBeNil)
-		So(cmd.IsFile(filepath.Join(tmpTestDir, "myClutter", "dna", "clutter", "clutter.js")), ShouldBeTrue)
+		So(cmd.IsFile(filepath.Join(tmpTestDir, "myHoloWorld", "dna", "HoloWorld", "HoloWorld.js")), ShouldBeTrue)
 		So(cmd.IsDir(tmpTestDir, holo.ChainDataDir), ShouldBeFalse)
 
 		// but fail if the directory is already there
@@ -163,7 +163,7 @@ func TestInit(t *testing.T) {
 		if err != nil {
 			panic(err)
 		}
-		os.Args = []string{"hcdev", "init", "-cloneExample=clutter"}
+		os.Args = []string{"hcdev", "init", "-cloneExample=HoloWorld"}
 		err = app.Run(os.Args)
 		So(err, ShouldNotBeNil)
 		So(os.Getenv("HC_TESTING_EXITERR"), ShouldEqual, "1")

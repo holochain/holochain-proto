@@ -101,7 +101,7 @@ func SignatureFromB58String(encoded string) (sig Signature) {
 // ToJSON serializes a header to JSON
 func (hd *Header) ToJSON() (result string, err error) {
 	result = fmt.Sprintf(
-		`{Type:"%s",Time:"%v",EntryLink:"%s",HeaderLink:"%s",TypeLink:"%s",Signature:"%s"}`,
+		`{"Type":"%s","Time":"%v","EntryLink":"%s","HeaderLink":"%s","TypeLink":"%s","Signature":"%s"}`,
 		jsSanitizeString(hd.Type),
 		hd.Time,
 		hd.EntryLink.String(),

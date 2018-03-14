@@ -49,7 +49,8 @@ func TestHeaderToJSON(t *testing.T) {
 		hd := testHeader(h, "evenNumbers", &e, key, now)
 		j, err := hd.ToJSON()
 		So(err, ShouldBeNil)
-		So(j, ShouldEqual, `{Type:"evenNumbers",Time:"1969-12-31 19:00:01.000000001 -0500 EST",EntryLink:"QmNiCwBNA8MWDADTFVq1BonUEJbS2SvjAoNkZZrhEwcuU2",HeaderLink:"QmNiCwBNA8MWDADTFVq1BonUEJbS2SvjAoNkZZrhEwcuUi",TypeLink:"1",Signature:"3eDinUfqsX4V2iuwFvFNSwyy4KEugYj6DPpssjrAsabkVvozBrWrLJRuA9AXhiN8R3MzZvyLfW2BV8zKDevSDiVR"}`)
+		So(j, ShouldStartWith, `{"Type":"evenNumbers","Time":"`)
+		So(j, ShouldEndWith, `","EntryLink":"QmNiCwBNA8MWDADTFVq1BonUEJbS2SvjAoNkZZrhEwcuU2","HeaderLink":"QmNiCwBNA8MWDADTFVq1BonUEJbS2SvjAoNkZZrhEwcuUi","TypeLink":"1","Signature":"3eDinUfqsX4V2iuwFvFNSwyy4KEugYj6DPpssjrAsabkVvozBrWrLJRuA9AXhiN8R3MzZvyLfW2BV8zKDevSDiVR"}`)
 	})
 }
 

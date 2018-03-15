@@ -53,6 +53,15 @@ func TestValidateAction(t *testing.T) {
 		So(err, ShouldEqual, ErrNotValidForDNAType)
 	})
 
+	Convey("modifying a headers entry should fail", t, func() {
+		hd := h.Chain().Top()
+		j, _ := hd.ToJSON()
+		entryStr := fmt.Sprintf(`[{"Header":%s,"Role":"someRole"}]`, j)
+		am := NewModAction(HeadersEntryType, &GobEntry{C: entryStr}, HashFromPeerID(h.nodeID))
+		_, err = h.ValidateAction(am, am.entryType, nil, []peer.ID{h.nodeID})
+		So(err, ShouldEqual, ErrNotValidForHeadersType)
+	})
+
 	Convey("deleting all sys entry types should fail", t, func() {
 		a := NewDelAction(DNAEntryType, DelEntry{})
 		_, err = h.ValidateAction(a, a.entryType, nil, []peer.ID{h.nodeID})
@@ -63,6 +72,9 @@ func TestValidateAction(t *testing.T) {
 		a.entryType = AgentEntryType
 		_, err = h.ValidateAction(a, a.entryType, nil, []peer.ID{h.nodeID})
 		So(err, ShouldEqual, ErrNotValidForAgentType)
+		a.entryType = HeadersEntryType
+		_, err = h.ValidateAction(a, a.entryType, nil, []peer.ID{h.nodeID})
+		So(err, ShouldEqual, ErrNotValidForHeadersType)
 	})
 }
 
@@ -165,6 +177,26 @@ func TestSysValidateEntry(t *testing.T) {
 		So(err, ShouldNotBeNil)
 		So(err.Error(), ShouldEqual, "invalid links entry: missing Tag")
 	})
+
+	Convey("validate headers entry should fail if it doesn't match the headers entry schema", t, func() {
+		err := sysValidateEntry(h, HeadersEntryDef, &GobEntry{C: ""}, nil)
+		So(err, ShouldNotBeNil)
+		So(err.Error(), ShouldEqual, "unexpected end of JSON input")
+
+		err = sysValidateEntry(h, HeadersEntryDef, &GobEntry{C: `{"Fish":2}`}, nil)
+		So(err, ShouldNotBeNil)
+		So(err.Error(), ShouldEqual, "validator %header failed: value must be a slice (was: map[string]interface {})")
+
+	})
+
+	Convey("validate headers entry should succeed on valid entry", t, func() {
+		hd := h.Chain().Top()
+		j, _ := hd.ToJSON()
+		entryStr := fmt.Sprintf(`[{"Header":%s,"Role":"someRole"}]`, j)
+		err := sysValidateEntry(h, HeadersEntryDef, &GobEntry{C: entryStr}, nil)
+		So(err, ShouldBeNil)
+	})
+
 }
 
 func TestSysValidateMod(t *testing.T) {
@@ -187,7 +219,7 @@ func TestSysValidateMod(t *testing.T) {
 		a := NewModAction("rating", &GobEntry{}, hash)
 		_, ratingsDef, _ := h.GetEntryDef("rating")
 		err := a.SysValidation(h, ratingsDef, nil, []peer.ID{h.nodeID})
-		So(err.Error(), ShouldEqual, "Can't mod Links entry")
+		So(err, ShouldEqual, ErrModInvalidForLinks)
 	})
 
 	Convey("it should check that entry validates", t, func() {
@@ -200,7 +232,7 @@ func TestSysValidateMod(t *testing.T) {
 		a := NewModAction("evenNumbers", &GobEntry{}, hash)
 		err := a.SysValidation(h, def, nil, []peer.ID{h.nodeID})
 		So(err, ShouldBeError)
-		So(err.Error(), ShouldEqual, "mod: missing header")
+		So(err, ShouldEqual, ErrModMissingHeader)
 	})
 
 	Convey("it should check that replaces is doesn't make a loop", t, func() {
@@ -208,7 +240,7 @@ func TestSysValidateMod(t *testing.T) {
 		a.header = &Header{EntryLink: hash}
 		err := a.SysValidation(h, def, nil, []peer.ID{h.nodeID})
 		So(err, ShouldBeError)
-		So(err.Error(), ShouldEqual, "mod: replaces must be different from original hash")
+		So(err, ShouldEqual, ErrModReplacesHashNotDifferent)
 	})
 
 }
@@ -230,7 +262,7 @@ func TestSysValidateDel(t *testing.T) {
 		a := NewDelAction("rating", DelEntry{Hash: hash})
 		_, ratingsDef, _ := h.GetEntryDef("rating")
 		err := a.SysValidation(h, ratingsDef, nil, []peer.ID{h.nodeID})
-		So(err.Error(), ShouldEqual, "Can't del Links entry")
+		So(err, ShouldEqual, ErrDelInvalidForLinks)
 	})
 }
 

@@ -205,6 +205,21 @@ func TestGetValidationResponse(t *testing.T) {
 		So(fmt.Sprintf("%v", resp.Entry.Content()), ShouldEqual, fmt.Sprintf("%v", pk))
 		So(fmt.Sprintf("%v", resp.Package), ShouldEqual, fmt.Sprintf("%v", Package{}))
 	})
+
+	Convey("headers entry type should return empty package with the entry", t, func() {
+		hd := h.Chain().Top()
+		j, _ := hd.ToJSON()
+		entryStr := fmt.Sprintf(`[{"Header":%s,"Role":"someRole"}]`, j)
+		hash := commit(h, HeadersEntryType, entryStr)
+		hd = h.Chain().Top()
+		e := &GobEntry{C: entryStr}
+		a := NewPutAction(HeadersEntryType, e, hd)
+		resp, err := h.GetValidationResponse(a, hash)
+		So(err, ShouldBeNil)
+		So(resp.Type, ShouldEqual, HeadersEntryType)
+		So(fmt.Sprintf("%v", resp.Entry.Content()), ShouldEqual, entryStr)
+		So(fmt.Sprintf("%v", resp.Package), ShouldEqual, fmt.Sprintf("%v", Package{}))
+	})
 }
 
 func TestMakeValidatePackage(t *testing.T) {

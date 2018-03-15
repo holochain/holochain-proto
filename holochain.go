@@ -590,21 +590,22 @@ func (h *Holochain) Walk(fn WalkerFn, entriesToo bool) (err error) {
 // GetEntryDef returns an EntryDef of the given name
 // @TODO this makes the incorrect assumption that entry type strings are unique across zomes
 func (h *Holochain) GetEntryDef(t string) (zome *Zome, d *EntryDef, err error) {
-	if t == DNAEntryType {
+	switch t {
+	case DNAEntryType:
 		d = DNAEntryDef
-		return
-	} else if t == AgentEntryType {
+	case AgentEntryType:
 		d = AgentEntryDef
-		return
-	} else if t == KeyEntryType {
+	case KeyEntryType:
 		d = KeyEntryDef
-		return
-	}
-	for _, z := range h.nucleus.dna.Zomes {
-		d, err = z.GetEntryDef(t)
-		if err == nil {
-			zome = &z
-			return
+	case HeadersEntryType:
+		d = HeadersEntryDef
+	default:
+		for _, z := range h.nucleus.dna.Zomes {
+			d, err = z.GetEntryDef(t)
+			if err == nil {
+				zome = &z
+				return
+			}
 		}
 	}
 	return

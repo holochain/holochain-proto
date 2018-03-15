@@ -21,9 +21,10 @@ const (
 
 	// System defined entry types
 
-	DNAEntryType   = SysEntryTypePrefix + "dna"
-	AgentEntryType = SysEntryTypePrefix + "agent"
-	KeyEntryType   = VirtualEntryTypePrefix + "key" // virtual entry type, not actually on the chain
+	DNAEntryType     = SysEntryTypePrefix + "dna"
+	AgentEntryType   = SysEntryTypePrefix + "agent"
+	HeadersEntryType = SysEntryTypePrefix + "header"
+	KeyEntryType     = VirtualEntryTypePrefix + "key" // virtual entry type, not actually on the chain
 
 	// Entry type formats
 
@@ -81,6 +82,94 @@ type EntryDef struct {
 var DNAEntryDef = &EntryDef{Name: DNAEntryType, DataFormat: DataFormatSysDNA}
 var AgentEntryDef = &EntryDef{Name: AgentEntryType, DataFormat: DataFormatSysAgent}
 var KeyEntryDef = &EntryDef{Name: KeyEntryType, DataFormat: DataFormatSysKey}
+
+const (
+	HeadersEntrySchema = `
+{
+  "$id": "http://example.com/example.json",
+  "type": "array",
+  "definitions": {},
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "items": {
+    "$id": "http://example.com/example.json/items",
+    "type": "object",
+    "properties": {
+      "Header": {
+        "$id": "http://example.com/example.json/items/properties/Header",
+        "type": "object",
+        "properties": {
+          "Type": {
+            "$id": "http://example.com/example.json/items/properties/Header/properties/Type",
+            "type": "string",
+            "title": "The Type Schema ",
+            "default": "",
+            "examples": [
+              "evenNumbers"
+            ]
+          },
+          "Time": {
+            "$id": "http://example.com/example.json/items/properties/Header/properties/Time",
+            "type": "string",
+            "title": "The Time Schema ",
+            "default": "",
+            "examples": [
+              "1969-12-31 19:00:01.000000001 -0500 EST"
+            ]
+          },
+          "EntryLink": {
+            "$id": "http://example.com/example.json/items/properties/Header/properties/EntryLink",
+            "type": "string",
+            "title": "The Entrylink Schema ",
+            "default": "",
+            "examples": [
+              "QmNiCwBNA8MWDADTFVq1BonUEJbS2SvjAoNkZZrhEwcuU2"
+            ]
+          },
+          "HeaderLink": {
+            "$id": "http://example.com/example.json/items/properties/Header/properties/HeaderLink",
+            "type": "string",
+            "title": "The Headerlink Schema ",
+            "default": "",
+            "examples": [
+              "QmNiCwBNA8MWDADTFVq1BonUEJbS2SvjAoNkZZrhEwcuUi"
+            ]
+          },
+          "TypeLink": {
+            "$id": "http://example.com/example.json/items/properties/Header/properties/TypeLink",
+            "type": "string",
+            "title": "The Typelink Schema ",
+            "default": "",
+            "examples": [
+              "1"
+            ]
+          },
+          "Signature": {
+            "$id": "http://example.com/example.json/items/properties/Header/properties/Signature",
+            "type": "string",
+            "title": "The Signature Schema ",
+            "default": "",
+            "examples": [
+              "3eDinUfqsX4V2iuwFvFNSwyy4KEugYj6DPpssjrAsabkVvozBrWrLJRuA9AXhiN8R3MzZvyLfW2BV8zKDevSDiVR"
+            ]
+          }
+        }
+      },
+      "Role": {
+        "$id": "http://example.com/example.json/items/properties/Role",
+        "type": "string",
+        "title": "The Role Schema ",
+        "default": "",
+        "examples": [
+          "someRole"
+        ]
+      }
+    }
+  }
+}
+`
+)
+
+var HeadersEntryDef = &EntryDef{Name: HeadersEntryType, DataFormat: DataFormatJSON, Sharing: Public, Schema: HeadersEntrySchema}
 
 // Entry describes serialization and deserialziation of entry data
 type Entry interface {

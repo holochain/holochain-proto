@@ -718,6 +718,10 @@ func TestGetEntryDef(t *testing.T) {
 		So(err, ShouldBeNil)
 		So(zome, ShouldBeNil)
 		So(def, ShouldEqual, KeyEntryDef)
+		zome, def, err = h.GetEntryDef(HeadersEntryType)
+		So(err, ShouldBeNil)
+		So(zome, ShouldBeNil)
+		So(def, ShouldEqual, HeadersEntryDef)
 	})
 	Convey("it should get private entry definition", t, func() {
 		zome, def, err := h.GetEntryDef("privateData")

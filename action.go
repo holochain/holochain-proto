@@ -94,6 +94,12 @@ var NonCallableAction error = errors.New("Not a callable action")
 var ErrNotValidForDNAType error = errors.New("Invalid action for DNA type")
 var ErrNotValidForAgentType error = errors.New("Invalid action for Agent type")
 var ErrNotValidForKeyType error = errors.New("Invalid action for Key type")
+var ErrNotValidForHeadersType error = errors.New("Invalid action for Headers type")
+var ErrModInvalidForLinks error = errors.New("mod: invalid for Links entry")
+var ErrModMissingHeader error = errors.New("mod: missing header")
+var ErrModReplacesHashNotDifferent error = errors.New("mod: replaces must be different from original hash")
+var ErrDelInvalidForLinks error = errors.New("del: invalid for Links entry")
+
 var ErrNilEntryInvalid error = errors.New("nil entry invalid")
 
 func prepareSources(sources []peer.ID) (srcs []string) {
@@ -184,6 +190,8 @@ func (h *Holochain) GetValidationResponse(a ValidatingAction, hash Hash) (resp V
 		return
 	case KeyEntryType:
 		// if key entry there no extra info to return in the package so do nothing
+	case HeadersEntryType:
+		// if headers entry there no extra info to return in the package so do nothing
 	case AgentEntryType:
 		// if agent, the package to return is the entry-type chain
 		// so that sys validation can confirm this agent entry in the chain
@@ -892,6 +900,8 @@ func sysValidateEntry(h *Holochain, def *EntryDef, entry Entry, pkg *Package) (e
 		}
 
 		// TODO check anything in the package
+	case HeadersEntryType:
+		// TODO check signatures!
 	}
 
 	if entry == nil {
@@ -1113,12 +1123,15 @@ func (a *ActionMod) SysValidation(h *Holochain, def *EntryDef, pkg *Package, sou
 	case DNAEntryType:
 		err = ErrNotValidForDNAType
 		return
+	case HeadersEntryType:
+		err = ErrNotValidForHeadersType
+		return
 	case KeyEntryType:
 	case AgentEntryType:
 	}
 
 	if def.DataFormat == DataFormatLinks {
-		err = errors.New("Can't mod Links entry")
+		err = ErrModInvalidForLinks
 		return
 	}
 
@@ -1127,11 +1140,11 @@ func (a *ActionMod) SysValidation(h *Holochain, def *EntryDef, pkg *Package, sou
 		return
 	}
 	if a.header == nil {
-		err = errors.New("mod: missing header")
+		err = ErrModMissingHeader
 		return
 	}
 	if a.replaces.String() == a.header.EntryLink.String() {
-		err = errors.New("mod: replaces must be different from original hash")
+		err = ErrModReplacesHashNotDifferent
 		return
 	}
 	// no need to check for virtual entries on the chain because they aren't there
@@ -1362,10 +1375,13 @@ func (a *ActionDel) SysValidation(h *Holochain, def *EntryDef, pkg *Package, sou
 	case AgentEntryType:
 		err = ErrNotValidForAgentType
 		return
+	case HeadersEntryType:
+		err = ErrNotValidForHeadersType
+		return
 	}
 
 	if def.DataFormat == DataFormatLinks {
-		err = errors.New("Can't del Links entry")
+		err = ErrDelInvalidForLinks
 		return
 	}
 

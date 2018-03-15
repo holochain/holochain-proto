@@ -1147,6 +1147,7 @@ func NewJSRibosome(h *Holochain, zome *Zome) (n Ribosome, err error) {
 							case DataFormatString:
 								entry = `"` + jsSanitizeString(th.E) + `"`
 							case DataFormatSysKey:
+								//TODO: this is broken, should be some real key format.
 								entry = fmt.Sprintf("%v", th.E)
 							case DataFormatSysAgent:
 								fallthrough

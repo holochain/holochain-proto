@@ -5,7 +5,6 @@ import (
 	"fmt"
 	. "github.com/Holochain/holochain-proto/hash"
 	b58 "github.com/jbenet/go-base58"
-	ic "github.com/libp2p/go-libp2p-crypto"
 	peer "github.com/libp2p/go-libp2p-peer"
 	. "github.com/smartystreets/goconvey/convey"
 	"testing"
@@ -90,11 +89,11 @@ func TestSysValidateEntry(t *testing.T) {
 		err = sysValidateEntry(h, KeyEntryDef, e, nil)
 		So(err, ShouldEqual, ValidationFailedErr)
 
-		e.C = []byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 1, 2, 3, 4, 5, 6}
+		e.C = "not b58 encoded public key!"
 		err = sysValidateEntry(h, KeyEntryDef, e, nil)
 		So(err, ShouldEqual, ValidationFailedErr)
 
-		pk, _ := ic.MarshalPublicKey(h.agent.PubKey())
+		pk, _ := h.agent.EncodePubKey()
 		e.C = pk
 		err = sysValidateEntry(h, KeyEntryDef, e, nil)
 		So(err, ShouldBeNil)
@@ -106,33 +105,37 @@ func TestSysValidateEntry(t *testing.T) {
 		So(err, ShouldEqual, ValidationFailedErr)
 
 		// bad agent entry (empty)
-		e.C = AgentEntry{}
+		e.C = ""
 		err = sysValidateEntry(h, AgentEntryDef, e, nil)
 		So(err, ShouldEqual, ValidationFailedErr)
 
 		ae, _ := h.agent.AgentEntry(nil)
 		// bad public key
-		ae.PublicKey = nil
-		e.C = ae
+		ae.PublicKey = ""
+		a, _ := ae.ToJSON()
+		e.C = a
 		err = sysValidateEntry(h, AgentEntryDef, e, nil)
 		So(err, ShouldEqual, ValidationFailedErr)
 
 		ae, _ = h.agent.AgentEntry(nil)
 		// bad public key
-		ae.PublicKey = []byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 1, 2, 3, 4, 5, 6}
-		e.C = ae
+		ae.PublicKey = "not b58 encoded public key!"
+		a, _ = ae.ToJSON()
+		e.C = a
 		err = sysValidateEntry(h, AgentEntryDef, e, nil)
 		So(err, ShouldEqual, ValidationFailedErr)
 
 		ae, _ = h.agent.AgentEntry(nil)
 		// bad revocation
-		ae.Revocation = []byte{1, 2, 3}
-		e.C = ae
+		ae.Revocation = string([]byte{1, 2, 3})
+		a, _ = ae.ToJSON()
+		e.C = a
 		err = sysValidateEntry(h, AgentEntryDef, e, nil)
 		So(err, ShouldEqual, ValidationFailedErr)
 
 		ae, _ = h.agent.AgentEntry(nil)
-		e.C = ae
+		a, _ = ae.ToJSON()
+		e.C = a
 		err = sysValidateEntry(h, AgentEntryDef, e, nil)
 		So(err, ShouldBeNil)
 	})
@@ -317,7 +320,7 @@ func TestActionGet(t *testing.T) {
 		r, err := ActionReceiver(h, m)
 		So(err, ShouldBeNil)
 		resp := r.(GetResp)
-		So(fmt.Sprintf("%v", resp.Entry), ShouldEqual, fmt.Sprintf("%v", e))
+		So(resp.Entry.Content().(string), ShouldEqual, "3")
 	})
 
 	ringConnect(t, mt.ctx, mt.nodes, nodesCount)
@@ -392,13 +395,12 @@ func TestActionSigning(t *testing.T) {
 
 		So(b58sig, ShouldEqual, b58.Encode(sig))
 	})
-
-	var pubKeyBytes []byte
-	pubKeyBytes, err = ic.MarshalPublicKey(h.agent.PubKey())
+	var pubKey string
+	pubKey, err = h.agent.EncodePubKey()
 	if err != nil {
 		panic(err)
 	}
-	pubKey := b58.Encode(pubKeyBytes)
+
 	Convey("verify signture action should test a signature", t, func() {
 		result, err := NewVerifySignatureAction(b58sig, string([]byte("3")), pubKey).Do(h)
 		So(err, ShouldBeNil)

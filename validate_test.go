@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"fmt"
 	. "github.com/Holochain/holochain-proto/hash"
-	ic "github.com/libp2p/go-libp2p-crypto"
 	. "github.com/smartystreets/goconvey/convey"
 	"strings"
 	"testing"
@@ -197,12 +196,12 @@ func TestGetValidationResponse(t *testing.T) {
 		So(err, ShouldBeNil)
 		So(resp.Type, ShouldEqual, KeyEntryType)
 
-		pk, err := ic.MarshalPublicKey(h.agent.PubKey())
+		pk, err := h.agent.EncodePubKey()
 		if err != nil {
 			panic(err)
 		}
 
-		So(fmt.Sprintf("%v", resp.Entry.Content()), ShouldEqual, fmt.Sprintf("%v", pk))
+		So(string(resp.Entry.Content().(string)), ShouldEqual, pk)
 		So(fmt.Sprintf("%v", resp.Package), ShouldEqual, fmt.Sprintf("%v", Package{}))
 	})
 

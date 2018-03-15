@@ -405,7 +405,12 @@ func (h *Holochain) AddAgentEntry(revocation Revocation) (headerHash, agentHash 
 	if err != nil {
 		return
 	}
-	e := GobEntry{C: entry}
+	var j string
+	j, err = entry.ToJSON()
+	if err != nil {
+		return
+	}
+	e := GobEntry{C: j}
 
 	var agentHeader *Header
 	headerHash, agentHeader, err = h.NewEntry(time.Now(), AgentEntryType, &e)

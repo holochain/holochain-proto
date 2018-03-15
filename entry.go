@@ -28,14 +28,13 @@ const (
 
 	// Entry type formats
 
-	DataFormatLinks    = "links"
-	DataFormatJSON     = "json"
-	DataFormatString   = "string"
-	DataFormatRawJS    = "js"
-	DataFormatRawZygo  = "zygo"
-	DataFormatSysDNA   = "_DNA"
-	DataFormatSysAgent = "_agent"
-	DataFormatSysKey   = "_key"
+	DataFormatLinks   = "links"
+	DataFormatJSON    = "json"
+	DataFormatString  = "string"
+	DataFormatRawJS   = "js"
+	DataFormatRawZygo = "zygo"
+	DataFormatSysDNA  = "_DNA"
+	DataFormatSysKey  = "_key"
 
 	// Entry sharing types
 
@@ -47,8 +46,8 @@ const (
 // AgentEntry structure for building AgentEntryType entries
 type AgentEntry struct {
 	Identity   AgentIdentity
-	Revocation []byte // marshaled revocation
-	PublicKey  []byte // marshaled public key
+	Revocation string // marshaled revocation
+	PublicKey  string // marshaled public key
 }
 
 // LinksEntry holds one or more links
@@ -79,11 +78,35 @@ type EntryDef struct {
 	validator  SchemaValidator
 }
 
-var DNAEntryDef = &EntryDef{Name: DNAEntryType, DataFormat: DataFormatSysDNA}
-var AgentEntryDef = &EntryDef{Name: AgentEntryType, DataFormat: DataFormatSysAgent}
-var KeyEntryDef = &EntryDef{Name: KeyEntryType, DataFormat: DataFormatSysKey}
-
 const (
+	AgentEntrySchema = `
+{
+  "$id": "http://example.com/example.json",
+  "type": "object",
+  "definitions": {},
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "properties": {
+    "Identity": {
+      "$id": "/properties/Identity",
+      "type": "string",
+      "title": "The Identity Schema ",
+      "default": ""
+    },
+    "Revocation": {
+      "$id": "/properties/Revocation",
+      "type": "string",
+      "title": "The Revocation Schema ",
+      "default": ""
+    },
+    "PublicKey": {
+      "$id": "/properties/PublicKey",
+      "type": "string",
+      "title": "The Publickey Schema ",
+      "default": ""
+    }
+  },
+  "required": ["Identity", "PublicKey"]
+}`
 	HeadersEntrySchema = `
 {
   "$id": "http://example.com/example.json",
@@ -152,7 +175,8 @@ const (
               "3eDinUfqsX4V2iuwFvFNSwyy4KEugYj6DPpssjrAsabkVvozBrWrLJRuA9AXhiN8R3MzZvyLfW2BV8zKDevSDiVR"
             ]
           }
-        }
+        },
+        "required": ["Type", "Time", "EntryLink","HeaderLink","TypeLink","Signature"]
       },
       "Role": {
         "$id": "http://example.com/example.json/items/properties/Role",
@@ -163,12 +187,16 @@ const (
           "someRole"
         ]
       }
-    }
+    },
+    "required": ["Header"]
   }
 }
 `
 )
 
+var DNAEntryDef = &EntryDef{Name: DNAEntryType, DataFormat: DataFormatSysDNA}
+var AgentEntryDef = &EntryDef{Name: AgentEntryType, DataFormat: DataFormatJSON, Sharing: Public, Schema: AgentEntrySchema}
+var KeyEntryDef = &EntryDef{Name: KeyEntryType, DataFormat: DataFormatSysKey}
 var HeadersEntryDef = &EntryDef{Name: HeadersEntryType, DataFormat: DataFormatJSON, Sharing: Public, Schema: HeadersEntrySchema}
 
 // Entry describes serialization and deserialziation of entry data
@@ -311,5 +339,17 @@ func (d *EntryDef) BuildJSONSchemaValidatorFromString(schema string) (err error)
 	}
 	validator.v.SetName(d.Name)
 	d.validator = validator
+	return
+}
+
+func (ae *AgentEntry) ToJSON() (encodedEntry string, err error) {
+	var j []byte
+	j, err = json.Marshal(ae)
+	encodedEntry = string(j)
+	return
+}
+
+func AgentEntryFromJSON(j string) (entry AgentEntry, err error) {
+	err = json.Unmarshal([]byte(j), &entry)
 	return
 }

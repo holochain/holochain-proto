@@ -99,6 +99,26 @@ func TestNewJSRibosome(t *testing.T) {
 		s, _ := z.lastResult.ToString()
 		So(s, ShouldEqual, "null")
 
+		_, err = z.Run("HC.SysEntryType.DNA")
+		So(err, ShouldBeNil)
+		s, _ = z.lastResult.ToString()
+		So(s, ShouldEqual, DNAEntryType)
+
+		_, err = z.Run("HC.SysEntryType.Agent")
+		So(err, ShouldBeNil)
+		s, _ = z.lastResult.ToString()
+		So(s, ShouldEqual, AgentEntryType)
+
+		_, err = z.Run("HC.SysEntryType.Key")
+		So(err, ShouldBeNil)
+		s, _ = z.lastResult.ToString()
+		So(s, ShouldEqual, KeyEntryType)
+
+		_, err = z.Run("HC.SysEntryType.Headers")
+		So(err, ShouldBeNil)
+		s, _ = z.lastResult.ToString()
+		So(s, ShouldEqual, HeadersEntryType)
+
 		_, err = z.Run("HC.Version")
 		So(err, ShouldBeNil)
 		s, _ = z.lastResult.ToString()

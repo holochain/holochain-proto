@@ -279,6 +279,12 @@ func (jsr *JSRibosome) validateEntry(fnName string, def *EntryDef, entry Entry, 
 
 const (
 	JSLibrary = `var HC={Version:` + `"` + VersionStr + "\"" +
+		`SysEntryType:{` +
+		`DNA:"` + DNAEntryType + `",` +
+		`Agent:"` + AgentEntryType + `",` +
+		`Key:"` + KeyEntryType + `",` +
+		`Headers:"` + HeadersEntryType + `"` +
+		`}` +
 		`HashNotFound:null` +
 		`,Status:{Live:` + StatusLiveVal +
 		`,Rejected:` + StatusRejectedVal +

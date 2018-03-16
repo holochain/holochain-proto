@@ -2,16 +2,18 @@ package holochain
 
 import (
 	"fmt"
-	ic "github.com/libp2p/go-libp2p-crypto"
-	peer "github.com/libp2p/go-libp2p-peer"
-	. "github.com/metacurrency/holochain/hash"
-	. "github.com/smartystreets/goconvey/convey"
-	"github.com/tidwall/buntdb"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
 	"time"
+
+	. "github.com/Holochain/holochain-proto/hash"
+	ic "github.com/libp2p/go-libp2p-crypto"
+	peer "github.com/libp2p/go-libp2p-peer"
+	. "github.com/smartystreets/goconvey/convey"
+	"github.com/tidwall/buntdb"
 )
 
 func TestNewDHT(t *testing.T) {
@@ -220,8 +222,8 @@ func TestLinking(t *testing.T) {
 
 	Convey("It should store and retrieve links values on a base", t, func() {
 		data, err := dht.getLinks(base, "tag foo", StatusLive)
-		So(err, ShouldNotBeNil)
-		So(err.Error(), ShouldEqual, "No links for tag foo")
+		So(err, ShouldBeNil)
+		So(len(data), ShouldEqual, 0)
 
 		err = dht.putLink(fakeMsg, baseStr, linkHash1Str, "tag foo")
 		So(err, ShouldBeNil)
@@ -281,7 +283,8 @@ func TestLinking(t *testing.T) {
 		err := dht.delLink(fakeMsg, baseStr, linkHash1Str, "tag bar")
 		So(err, ShouldBeNil)
 		data, err := dht.getLinks(base, "tag bar", StatusLive)
-		So(err.Error(), ShouldEqual, "No links for tag bar")
+		So(err, ShouldBeNil)
+		So(len(data), ShouldEqual, 0)
 
 		err = dht.delLink(fakeMsg, baseStr, linkHash1Str, "tag foo")
 		So(err, ShouldBeNil)
@@ -292,7 +295,8 @@ func TestLinking(t *testing.T) {
 		err = dht.delLink(fakeMsg, baseStr, linkHash2Str, "tag foo")
 		So(err, ShouldBeNil)
 		data, err = dht.getLinks(base, "tag foo", StatusLive)
-		So(err.Error(), ShouldEqual, "No links for tag foo")
+		So(err, ShouldBeNil)
+		So(len(data), ShouldEqual, 0)
 	})
 }
 
@@ -505,7 +509,7 @@ func TestActionReceiver(t *testing.T) {
 		resp = r.(GetResp)
 		So(resp.Entry.C, ShouldBeNil)
 		So(fmt.Sprintf("%v", resp.Sources), ShouldEqual, fmt.Sprintf("[%v]", h.nodeIDStr))
-		So(resp.EntryType, ShouldEqual, "")
+		So(resp.EntryType, ShouldEqual, "evenNumbers") // you allways get the entry type even if not in getmask at this level (ActionReceiver) because we have to be able to look up the definition to interpret the contents
 
 		m = h.node.NewMessage(GET_REQUEST, GetReq{H: hash, GetMask: GetMaskEntry + GetMaskSources})
 		r, err = ActionReceiver(h, m)
@@ -513,7 +517,7 @@ func TestActionReceiver(t *testing.T) {
 		resp = r.(GetResp)
 		So(fmt.Sprintf("%v", resp.Entry), ShouldEqual, fmt.Sprintf("%v", e))
 		So(fmt.Sprintf("%v", resp.Sources), ShouldEqual, fmt.Sprintf("[%v]", h.nodeIDStr))
-		So(resp.EntryType, ShouldEqual, "")
+		So(resp.EntryType, ShouldEqual, "evenNumbers") // you allways get the entry type even if not in getmask at this level (ActionReceiver) because we have to be able to look up the definition to interpret the contents
 	})
 
 	someData := `{"firstName":"Zippy","lastName":"Pinhead"}`
@@ -603,10 +607,11 @@ func TestActionReceiver(t *testing.T) {
 		r, err := ActionReceiver(h, m)
 		So(r, ShouldEqual, DHTChangeOK)
 
-		_, err = h.dht.getLinks(hash, "4stars", StatusLive)
-		So(err.Error(), ShouldEqual, "No links for 4stars")
+		results, err := h.dht.getLinks(hash, "4stars", StatusLive)
+		So(err, ShouldBeNil)
+		So(len(results), ShouldEqual, 0)
 
-		results, err := h.dht.getLinks(hash, "4stars", StatusDeleted)
+		results, err = h.dht.getLinks(hash, "4stars", StatusDeleted)
 		So(err, ShouldBeNil)
 		So(len(results), ShouldEqual, 1)
 	})
@@ -769,7 +774,20 @@ func TestDHTDump(t *testing.T) {
 		So(dump, ShouldContainSubstring, fmt.Sprintf("Sources: %s", h.nodeIDStr))
 
 		So(dump, ShouldContainSubstring, fmt.Sprintf("Linked to: %s with tag %s", reviewHash, "4stars"))
+	})
 
+	Convey("dht.JSON() should output DHT formatted as JSON string", t, func() {
+		dump, err := h.dht.JSON()
+		So(err, ShouldBeNil)
+		d, _ := h.dht.DumpIdxJSON(1)
+		So(NormaliseJSON(dump), ShouldContainSubstring, NormaliseJSON(d))
+		d, _ = h.dht.DumpIdxJSON(2)
+		So(NormaliseJSON(dump), ShouldContainSubstring, NormaliseJSON(d))
+
+		json := NormaliseJSON(dump)
+		matched, err := regexp.MatchString(`{"dht_changes":\[.*\],"dht_entries":\[.*\]}`, json)
+		So(err, ShouldBeNil)
+		So(matched, ShouldBeTrue)
 	})
 }
 
@@ -857,12 +875,17 @@ func TestDHTMultiNode(t *testing.T) {
 				req := GetReq{H: HashFromPeerID(h1.nodeID), StatusMask: options.StatusMask, GetMask: options.GetMask}
 				response, err := NewGetAction(req, &options).Do(h2)
 				if err != nil {
-					//fmt.Printf("FAIL   : %v couldn't get from %v\n", h2.nodeID, h1.nodeID)
+					//          fmt.Printf("FAIL   : %v couldn't get from %v err: %err\n", h2.nodeID, h1.nodeID, err)
 				} else {
+					responseStr := fmt.Sprintf("%v", response)
 					pk, _ := h1.agent.PubKey().Bytes()
-					if fmt.Sprintf("%v", response) == fmt.Sprintf("{{%v}  [] }", pk) {
+					expectedResponseStr := fmt.Sprintf("{{%v} %s [] }", pk, `%%key`)
+					if responseStr == expectedResponseStr {
 						connections += 1
-						//	fmt.Printf("SUCCESS: %v got from          %v\n", h2.nodeID, h1.nodeID)
+						//            fmt.Printf("SUCCESS: %v got from          %v\n", h2.nodeID, h1.nodeID)
+					} else {
+						//            fmt.Printf("Expected:%s\n", expectedResponseStr)
+						//            fmt.Printf("Got     :%s\n", responseStr)
 					}
 				}
 			}

@@ -1,4 +1,4 @@
-// Copyright (C) 2013-2017, The MetaCurrency Project (Eric Harris-Braun, Arthur Brock, et. al.)
+// Copyright (C) 2013-2018, The MetaCurrency Project (Eric Harris-Braun, Arthur Brock, et. al.)
 // Use of this source code is governed by GPLv3 found in the LICENSE file
 //---------------------------------------------------------------------------------------
 // command line interface to running holochain applications
@@ -8,11 +8,12 @@ package main
 import (
 	"errors"
 	"fmt"
-	holo "github.com/metacurrency/holochain"
-	"github.com/metacurrency/holochain/cmd"
-	"github.com/urfave/cli"
 	"os"
 	"path/filepath"
+
+	holo "github.com/Holochain/holochain-proto"
+	"github.com/Holochain/holochain-proto/cmd"
+	"github.com/urfave/cli"
 )
 
 var debug bool
@@ -22,9 +23,9 @@ func setupApp() (app *cli.App) {
 	app = cli.NewApp()
 	app.Name = "hcadmin"
 	app.Usage = "holochain administration tool"
-	app.Version = fmt.Sprintf("0.0.2 (holochain %s)", holo.VersionStr)
+	app.Version = fmt.Sprintf("0.0.3 (holochain %s)", holo.VersionStr)
 
-	var dumpChain, dumpDHT bool
+	var dumpChain, dumpDHT, json bool
 	var root string
 	var service *holo.Service
 	var bridgeToAppData, bridgeFromAppData string
@@ -85,6 +86,11 @@ func setupApp() (app *cli.App) {
 					Name:        "dht",
 					Destination: &dumpDHT,
 				},
+				cli.BoolFlag{
+					Name:        "json",
+					Destination: &json,
+					Usage:       "Dump chain or dht as JSON string",
+				},
 			},
 			Action: func(c *cli.Context) error {
 				h, err := cmd.GetHolochain(c.Args().First(), service, "dump")
@@ -97,10 +103,20 @@ func setupApp() (app *cli.App) {
 				}
 				dnaHash := h.DNAHash()
 				if dumpChain {
-					fmt.Printf("Chain for: %s\n%v", dnaHash, h.Chain())
+					if json {
+						dump, _ := h.Chain().JSON()
+						fmt.Println(dump)
+					} else {
+						fmt.Printf("Chain for: %s\n%v", dnaHash, h.Chain())
+					}
 				}
 				if dumpDHT {
-					fmt.Printf("DHT for: %s\n%v", dnaHash, h.DHT())
+					if json {
+						dump, _ := h.DHT().JSON()
+						fmt.Println(dump)
+					} else {
+						fmt.Printf("DHT for: %s\n%v", dnaHash, h.DHT())
+					}
 				}
 
 				return nil
@@ -130,7 +146,7 @@ func setupApp() (app *cli.App) {
 				if info.Mode().IsRegular() {
 
 					dstPath := filepath.Join(root, name)
-					_, err := cmd.UpackageAppPackage(service, srcPath, dstPath, name)
+					_, err := cmd.UpackageAppPackage(service, srcPath, dstPath, name, "json")
 
 					if err != nil {
 						return fmt.Errorf("join: error unpackaging %s: %v", srcPath, err)

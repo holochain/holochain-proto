@@ -1,4 +1,4 @@
-// Copyright (C) 2013-2017, The MetaCurrency Project (Eric Harris-Braun, Arthur Brock, et. al.)
+// Copyright (C) 2013-2018, The MetaCurrency Project (Eric Harris-Braun, Arthur Brock, et. al.)
 // Use of this source code is governed by GPLv3 found in the LICENSE file
 //----------------------------------------------------------------------------------------
 
@@ -11,8 +11,8 @@ import (
 	_ "encoding/json"
 	"errors"
 	"fmt"
+	holo "github.com/Holochain/holochain-proto"
 	websocket "github.com/gorilla/websocket"
-	holo "github.com/metacurrency/holochain"
 	"io/ioutil"
 	"net/http"
 	"os"
@@ -125,16 +125,14 @@ func (ws *WebServer) Start() {
 		result, err := ws.call(zome, function, args)
 		if err != nil {
 			ws.log.Logf("call of %s:%s resulted in error: %v\n", zome, function, err)
-			http.Error(w, err.Error(), 500)
-
 			return
 		}
 		ws.log.Logf(" result: %v\n", result)
 		switch t := result.(type) {
 		case string:
-			fmt.Fprintf(w, t)
+			fmt.Fprint(w, t)
 		case []byte:
-			fmt.Fprintf(w, string(t))
+			fmt.Fprint(w, string(t))
 		default:
 			err = fmt.Errorf("Unknown type from Call of %s:%s", zome, function)
 		}
@@ -178,9 +176,9 @@ func (ws *WebServer) Start() {
 		ws.log.Logf(" result: %v\n", result)
 		switch t := result.(type) {
 		case string:
-			fmt.Fprintf(w, t)
+			fmt.Fprint(w, t)
 		case []byte:
-			fmt.Fprintf(w, string(t))
+			fmt.Fprint(w, string(t))
 		default:
 			err = fmt.Errorf("Unknown type from Call of %s:%s", zome, function)
 		}

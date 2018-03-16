@@ -13,6 +13,7 @@ import (
 	"errors"
 	"fmt"
 
+	. "github.com/Holochain/holochain-proto/hash"
 	goprocess "github.com/jbenet/goprocess"
 	goprocessctx "github.com/jbenet/goprocess/context"
 	nat "github.com/libp2p/go-libp2p-nat"
@@ -24,7 +25,6 @@ import (
 	discovery "github.com/libp2p/go-libp2p/p2p/discovery"
 	bhost "github.com/libp2p/go-libp2p/p2p/host/basic"
 	rhost "github.com/libp2p/go-libp2p/p2p/host/routed"
-	. "github.com/metacurrency/holochain/hash"
 	ma "github.com/multiformats/go-multiaddr"
 	mh "github.com/multiformats/go-multihash"
 	"gopkg.in/mgo.v2/bson"
@@ -112,6 +112,13 @@ type Message struct {
 	Body interface{}
 }
 
+type BytesSent struct {
+	Bytes   int64
+	MsgType MsgType
+}
+
+var BytesSentChan chan BytesSent
+
 // Node represents a node in the network
 type Node struct {
 	HashAddr     peer.ID
@@ -160,10 +167,12 @@ const (
 
 // implement peer found function for mdns discovery
 func (h *Holochain) HandlePeerFound(pi pstore.PeerInfo) {
-	h.dht.dlog.Logf("discovered peer via mdns: %v", pi)
-	err := h.AddPeer(pi)
-	if err != nil {
-		h.dht.dlog.Logf("error when adding peer: %v, %v", pi, err)
+	if h.dht != nil {
+		h.dht.dlog.Logf("discovered peer via mdns: %v", pi)
+		err := h.AddPeer(pi)
+		if err != nil {
+			h.dht.dlog.Logf("error when adding peer: %v, %v", pi, err)
+		}
 	}
 }
 
@@ -457,9 +466,14 @@ func (node *Node) respondWith(s net.Stream, err error, body interface{}) {
 	if err != nil {
 		Infof("Response failed: unable to encode message: %v", m)
 	}
-	_, err = s.Write(data)
+	var n int
+	n, err = s.Write(data)
 	if err != nil {
 		Infof("Response failed: write returned error: %v", err)
+	}
+	if BytesSentChan != nil {
+		b := BytesSent{Bytes: int64(n), MsgType: m.Type}
+		BytesSentChan <- b
 	}
 }
 
@@ -536,11 +550,15 @@ func (node *Node) Send(ctx context.Context, proto int, addr peer.ID, m *Message)
 	if n != len(data) {
 		err = errors.New("unable to send all data")
 	}
+	if BytesSentChan != nil {
+		b := BytesSent{Bytes: int64(n), MsgType: m.Type}
+		BytesSentChan <- b
+	}
 
 	// decode the response
 	err = response.Decode(s)
 	if err != nil {
-		node.log.Logf("failed to decode: %v err:%v ", err)
+		node.log.Logf("failed to decode with err:%v ", err)
 		return
 	}
 	return

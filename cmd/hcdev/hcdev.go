@@ -1,4 +1,4 @@
-// Copyright (C) 2013-2017, The MetaCurrency Project (Eric Harris-Braun, Arthur Brock, et. al.)
+// Copyright (C) 2013-2018, The MetaCurrency Project (Eric Harris-Braun, Arthur Brock, et. al.)
 // Use of this source code is governed by GPLv3 found in the LICENSE file
 //---------------------------------------------------------------------------------------
 // command line interface to developing and testing holochain applications
@@ -8,19 +8,21 @@ package main
 import (
 	"bytes"
 	"fmt"
-	holo "github.com/metacurrency/holochain"
-	. "github.com/metacurrency/holochain/apptest"
-	"github.com/metacurrency/holochain/cmd"
-	"github.com/metacurrency/holochain/ui"
-	"github.com/urfave/cli"
 	"io/ioutil"
 	"os"
 	"os/exec"
 	"os/user"
-	"path"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"time"
+
+	holo "github.com/Holochain/holochain-proto"
+	. "github.com/Holochain/holochain-proto/apptest"
+	"github.com/Holochain/holochain-proto/cmd"
+	hash "github.com/Holochain/holochain-proto/hash"
+	"github.com/Holochain/holochain-proto/ui"
+	"github.com/urfave/cli"
 	// fsnotify	"github.com/fsnotify/fsnotify"
 	//spew "github.com/davecgh/go-spew/spew"
 )
@@ -164,8 +166,9 @@ func setupApp() (app *cli.App) {
 		},
 	}
 
-	var interactive, dumpChain, dumpDHT, initTest bool
-	var clonePath, appPackagePath, cloneExample, outputDir string
+	var interactive, dumpChain, dumpDHT, initTest, fromDevelop, benchmarks, json bool
+	var clonePath, appPackagePath, cloneExample, outputDir, fromBranch string
+
 	app.Commands = []cli.Command{
 		{
 			Name:    "init",
@@ -196,6 +199,16 @@ func setupApp() (app *cli.App) {
 					Name:        "cloneExample",
 					Usage:       "example from github.com/holochain to clone from",
 					Destination: &cloneExample,
+				},
+				cli.StringFlag{
+					Name:        "fromBranch",
+					Usage:       "specify branch to use with cloneExample",
+					Destination: &fromBranch,
+				},
+				cli.BoolFlag{
+					Name:        "fromDevelop",
+					Usage:       "specify that cloneExample should use the 'develop' branch",
+					Destination: &fromDevelop,
 				},
 			},
 			ArgsUsage: "<name>",
@@ -277,12 +290,29 @@ func setupApp() (app *cli.App) {
 					if err != nil {
 						return cmd.MakeErrFromErr(c, err)
 					}
+					if fromDevelop {
+						fromBranch = "develop"
+					}
 					command := exec.Command("git", "clone", fmt.Sprintf("git://github.com/Holochain/%s.git", cloneExample))
 					out, err := command.CombinedOutput()
 					fmt.Printf("git: %s\n", string(out))
 					if err != nil {
 						return cmd.MakeErrFromErr(c, err)
 					}
+
+					if fromBranch != "" {
+						err = os.Chdir(filepath.Join(tmpCopyDir, cloneExample))
+						if err != nil {
+							return cmd.MakeErrFromErr(c, err)
+						}
+						command := exec.Command("git", "checkout", fromBranch)
+						out, err := command.CombinedOutput()
+						fmt.Printf("git: %s\n", string(out))
+						if err != nil {
+							return cmd.MakeErrFromErr(c, err)
+						}
+					}
+
 					clonePath := filepath.Join(tmpCopyDir, cloneExample)
 					fmt.Printf("cloning %s from github.com/Holochain/%s\n", name, cloneExample)
 					err = doClone(service, clonePath, devPath)
@@ -292,7 +322,7 @@ func setupApp() (app *cli.App) {
 
 				} else if appPackagePath != "" {
 					// build the app from the appPackage
-					_, err := cmd.UpackageAppPackage(service, appPackagePath, devPath, name)
+					_, err := cmd.UpackageAppPackage(service, appPackagePath, devPath, name, encodingFormat)
 					if err != nil {
 						return cmd.MakeErrFromErr(c, err)
 					}
@@ -314,7 +344,7 @@ func setupApp() (app *cli.App) {
 					}
 
 					var appPackage *holo.AppPackage
-					appPackage, err = service.SaveFromAppPackage(appPackageReader, devPath, name, agent, encodingFormat, true)
+					appPackage, err = service.SaveFromAppPackage(appPackageReader, devPath, name, agent, holo.BasicTemplateAppPackageFormat, encodingFormat, true)
 					if err != nil {
 						return cmd.MakeErrFromErr(c, err)
 					}
@@ -345,6 +375,11 @@ func setupApp() (app *cli.App) {
 					Usage:       "unix timestamp - sync tests to run at this time",
 					Destination: &syncPauseUntil,
 				},
+				cli.BoolFlag{
+					Name:        "benchmarks",
+					Usage:       "calculate benchmarks during test",
+					Destination: &benchmarks,
+				},
 			},
 			Action: func(c *cli.Context) error {
 				holo.Debug("test: start")
@@ -370,28 +405,45 @@ func setupApp() (app *cli.App) {
 
 					holo.Debug("test: scenario")
 
-					dir := filepath.Join(h.TestPath(), args[0])
+					scenario := args[0]
 					role := args[1]
-					holo.Debugf("test: scenario(%v, %v)\n", dir, role)
+					holo.Debugf("test: scenario(%v, %v)\n", scenario, role)
 
-					holo.Debugf("test: scenario(%v, %v): paused at: %v\n", dir, role, time.Now())
+					holo.Debugf("test: scenario(%v, %v): paused at: %v\n", scenario, role, time.Now())
 
 					if syncPauseUntil != 0 {
 						// IntFlag converts the string into int64 anyway. This explicit conversion is valid
 						time.Sleep(cmd.GetDuration_fromUnixTimestamp(int64(syncPauseUntil)))
 					}
-					holo.Debugf("test: scenario(%v, %v): continuing at: %v\n", dir, role, time.Now())
+					holo.Debugf("test: scenario(%v, %v): continuing at: %v\n", scenario, role, time.Now())
+					pairs := map[string]string{"%server%": serverID}
 
-					err, errs = TestScenario(h, dir, role, serverID)
+					// The clone id is put into the identity by scenario call so we get
+					// out with this regex
+					re := regexp.MustCompile(`.*.([0-9]+)@.*`)
+					x := re.FindStringSubmatch(string(h.Agent().Identity()))
+					var clone string
+					if len(x) > 0 {
+						clone = x[1]
+						pairs["%clone%"] = clone
+					}
+
+					host := getHostName(serverID)
+					err = addRolesToPairs(h, scenario, host, pairs)
+					if err != nil {
+						return cmd.MakeErrFromErr(c, err)
+					}
+
+					err, errs = TestScenario(h, scenario, role, pairs, benchmarks)
 					if err != nil {
 						return cmd.MakeErrFromErr(c, err)
 					}
 					//holo.Debugf("testScenario: h: %v\n", spew.Sdump(h))
 
 				} else if len(args) == 1 {
-					errs = TestOne(h, args[0], bridgeApps)
+					errs = TestOne(h, args[0], bridgeApps, benchmarks)
 				} else if len(args) == 0 {
-					errs = Test(h, bridgeApps)
+					errs = Test(h, bridgeApps, benchmarks)
 				} else {
 					return cmd.MakeErr(c, "expected 0 args (run all stand-alone tests), 1 arg (a single stand-alone test) or 2 args (scenario and role)")
 				}
@@ -416,6 +468,11 @@ func setupApp() (app *cli.App) {
 					Name:        "outputDir",
 					Usage:       "directory to send output",
 					Destination: &outputDir,
+				},
+				cli.BoolFlag{
+					Name:        "benchmarks",
+					Usage:       "calculate benchmarks during scenario test",
+					Destination: &benchmarks,
 				},
 			},
 			Action: func(c *cli.Context) error {
@@ -546,9 +603,11 @@ func setupApp() (app *cli.App) {
 							"-logPrefix="+logPrefix,
 							"-serverID="+serverID,
 							"-agentID="+agentID,
+
 							fmt.Sprintf("-bootstrapServer=%v", bootstrapServer),
 							fmt.Sprintf("-keepalive=%v", keepalive),
 							"test",
+							fmt.Sprintf("-benchmarks=%v", benchmarks),
 							fmt.Sprintf("-syncPauseUntil=%v", secondsFromNowPlusDelay),
 							scenarioName,
 							originalRoleName,
@@ -682,6 +741,11 @@ func setupApp() (app *cli.App) {
 					Destination: &dumpDHT,
 				},
 				cli.BoolFlag{
+					Name:        "json",
+					Destination: &json,
+					Usage:       "Dump chain or dht as JSON string",
+				},
+				cli.BoolFlag{
 					Name:        "test",
 					Destination: &dumpTest,
 				},
@@ -728,10 +792,20 @@ func setupApp() (app *cli.App) {
 
 				dnaHash := h.DNAHash()
 				if dumpChain {
-					fmt.Printf("Chain for: %s\n%v", dnaHash, h.Chain())
+					if json {
+						dump, _ := h.Chain().JSON()
+						fmt.Println(dump)
+					} else {
+						fmt.Printf("Chain for: %s\n%v", dnaHash, h.Chain())
+					}
 				}
 				if dumpDHT {
-					fmt.Printf("DHT for: %s\n%v", dnaHash, h.DHT().String())
+					if json {
+						dump, _ := h.DHT().JSON()
+						fmt.Println(dump)
+					} else {
+						fmt.Printf("DHT for: %s\n%v", dnaHash, h.DHT().String())
+					}
 				}
 
 				return nil
@@ -793,7 +867,7 @@ func setupApp() (app *cli.App) {
 				return err
 			}
 		}
-		name = path.Base(devPath)
+		name = filepath.Base(devPath)
 
 		if cmd.IsAppDir(devPath) == nil {
 			appInitialized = true
@@ -806,28 +880,8 @@ func setupApp() (app *cli.App) {
 				rootPath = filepath.Join(userPath, holo.DefaultDirectoryName+"dev")
 			}
 		}
+		identity = getIdentity(agentID, serverID)
 		if !holo.IsInitialized(rootPath) {
-			var host, username string
-			if serverID != "" {
-				host = serverID
-			} else {
-				host, _ = os.Hostname()
-			}
-			if host == "" {
-				host = "example.com"
-			}
-
-			if agentID != "" {
-				username = agentID
-			} else {
-				username = sysUser.Username
-			}
-			if username == "" {
-				username = "test"
-			}
-
-			identity = username + "@" + host
-
 			service, err = holo.Init(rootPath, holo.AgentIdentity(identity), holo.MakeTestSeed(identity))
 			if err != nil {
 				return err
@@ -891,7 +945,7 @@ func getHolochain(c *cli.Context, service *holo.Service, identity string) (h *ho
 	}
 
 	if identity != "" {
-		agent.SetIdentity(holo.AgentIdentity(identity))
+		holo.SetAgentIdentity(agent, holo.AgentIdentity(identity))
 	}
 
 	bridgeApps, err = getBridgedApps(service, agent)
@@ -900,14 +954,19 @@ func getHolochain(c *cli.Context, service *holo.Service, identity string) (h *ho
 	}
 
 	fmt.Printf("Copying chain to: %s\n", rootPath)
-	_, err = service.Clone(devPath, filepath.Join(rootPath, name), agent, holo.CloneWithSameUUID, holo.InitializeDB)
+	h, err = service.Clone(devPath, filepath.Join(rootPath, name), agent, holo.CloneWithSameUUID, holo.InitializeDB)
 	if err != nil {
 		return
 	}
+	h.Close()
 
 	h, err = service.Load(name)
 	if err != nil {
 		return
+	}
+	if verbose {
+		fmt.Printf("Identity: %s\n", h.Agent().Identity())
+		fmt.Printf("NodeID: %s\n", h.NodeIDStr())
 	}
 	return
 }
@@ -1033,5 +1092,100 @@ func loadBridgeSpecs() (specs []BridgeSpec, err error) {
 	if bridgeSpecsFile != "" {
 		err = holo.DecodeFile(&specs, bridgeSpecsFile)
 	}
+	return
+}
+
+func getHostName(serverID string) (host string) {
+	if serverID != "" {
+		host = serverID
+	} else {
+		host, _ = os.Hostname()
+	}
+	if host == "" {
+		host = "example.com"
+	}
+	return
+}
+
+func getIdentity(agentID, serverID string) (identity string) {
+	var host, username string
+	host = getHostName(serverID)
+
+	if agentID != "" {
+		username = agentID
+	} else {
+		username = sysUser.Username
+	}
+	if username == "" {
+		username = "test"
+	}
+
+	identity = username + "@" + host
+	return
+}
+
+func addRolesToPairs(h *holo.Holochain, scenario string, host string, pairs map[string]string) (err error) {
+
+	var roles []string
+	roles, err = holo.GetTestScenarioRoles(h, scenario)
+	if err != nil {
+		return
+	}
+
+	dir := filepath.Join(h.TestPath(), scenario)
+	var config *holo.TestConfig
+	config, err = holo.LoadTestConfig(dir)
+	if err != nil {
+		return
+	}
+
+	cloneRoles := make(map[string]holo.CloneSpec)
+	for _, spec := range config.Clone {
+		cloneRoles[spec.Role] = spec
+	}
+
+	for _, role := range roles {
+
+		var testSet holo.TestSet
+		testSet, err = holo.LoadTestFile(dir, role+".json")
+		if err != nil {
+			return
+		}
+		spec, isClone := cloneRoles[role]
+
+		if testSet.Identity != "" {
+			if isClone {
+				err = fmt.Errorf("can't both clone and specify an identity: role %s", role)
+				return
+			}
+			err = addRoleToPairs(h, role, testSet.Identity, pairs)
+		} else {
+			if isClone {
+				origRole := role
+				for i := 0; i < spec.Number; i++ {
+					role = fmt.Sprintf("%s.%d", origRole, i)
+					err = addRoleToPairs(h, role, fmt.Sprintf("%s@%s", role, host), pairs)
+				}
+			} else {
+				err = addRoleToPairs(h, role, role+"@"+host, pairs)
+			}
+		}
+
+	}
+	return
+}
+func addRoleToPairs(h *holo.Holochain, role string, id string, pairs map[string]string) (err error) {
+	var agent holo.Agent
+	agent, err = holo.NewAgent(holo.LibP2P, holo.AgentIdentity(id), holo.MakeTestSeed(id))
+	if err != nil {
+		return
+	}
+	var hash string
+	_, hash, err = agent.NodeID()
+	if err != nil {
+		return
+	}
+	pairs["%"+role+"_str%"] = id
+	pairs["%"+role+"_key%"] = hash
 	return
 }

@@ -9,12 +9,14 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	. "github.com/metacurrency/holochain"
-	"github.com/metacurrency/holochain/ui"
+	. "github.com/Holochain/holochain-proto"
+	"github.com/Holochain/holochain-proto/ui"
+	"github.com/shirou/gopsutil/process"
+	"os"
+	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
-
 	"time"
 )
 
@@ -36,9 +38,30 @@ func toString(input interface{}) string {
 type replacements struct {
 	h          *Holochain
 	r1, r2, r3 string
-	serverID   string
 	repetition string
 	history    *history
+	fixtures   TestFixtures
+	pairs      map[string]string
+}
+
+func replaceWithResultsFromHistory(output string, re *regexp.Regexp, r *replacements) string {
+	matches := re.FindAllStringSubmatch(output, -1)
+	if len(matches) > 0 {
+		for _, m := range matches {
+			resultIdx, err := strconv.Atoi(m[2])
+			if err != nil {
+				panic(err)
+			}
+			var nthResult string
+			if len(r.history.results) > resultIdx {
+				nthResult = fmt.Sprintf("%v", r.history.results[resultIdx])
+			} else {
+				nthResult = "<bad-result-index>"
+			}
+			output = strings.Replace(output, m[1], nthResult, -1)
+		}
+	}
+	return output
 }
 
 // testStringReplacements inserts special values into testing input and output values for matching
@@ -59,40 +82,28 @@ func testStringReplacements(input string, r *replacements) string {
 					panic(err)
 				}
 			}
-			hash := h.Chain().Nth(hashIdx).EntryLink
-			output = strings.Replace(output, m[1], hash.String(), -1)
+			entry := h.Chain().Nth(hashIdx)
+			var hash string
+			if entry != nil {
+				hash = entry.EntryLink.String()
+			} else {
+				hash = fmt.Sprintf("<%d: entry doesn't exist>", hashIdx)
+			}
+			output = strings.Replace(output, m[1], hash, -1)
 		}
 	}
-
-	// this is a hack.  The clone id is put into the identity by hcdev we can get
-	// out with this regex without having to create more code to pass it around.
-	re = regexp.MustCompile(`.*.([0-9]+)@.*`)
-	x := re.FindStringSubmatch(string(h.Agent().Identity()))
-	var clone string
-	if len(x) > 0 {
-		clone = x[1]
-	}
-	output = strings.Replace(output, "%clone%", clone, -1)
 
 	re = regexp.MustCompile(`(\%result([0-9]+)\%)`)
-	matches = re.FindAllStringSubmatch(output, -1)
-	if len(matches) > 0 {
-		for _, m := range matches {
-			resultIdx, err := strconv.Atoi(m[2])
-			if err != nil {
-				panic(err)
-			}
-			var nthResult string
-			if len(r.history.results) > resultIdx {
-				nthResult = fmt.Sprintf("%v", r.history.results[resultIdx])
-			} else {
-				nthResult = "<bad-result-index>"
-			}
-			output = strings.Replace(output, m[1], nthResult, -1)
-		}
-	}
+	output = replaceWithResultsFromHistory(output, re, r)
 
-	output = strings.Replace(output, "%server%", r.serverID, -1)
+	// this allows us to replace json results
+	re = regexp.MustCompile(`(\{"\%result\%":([0-9]+)\})`)
+	output = replaceWithResultsFromHistory(output, re, r)
+
+	for i, f := range r.fixtures.Agents {
+		output = strings.Replace(output, "%agent"+fmt.Sprintf("%d", i)+"%", f.Hash, -1)
+		output = strings.Replace(output, "%agent"+fmt.Sprintf("%d", i)+"_str%", f.Identity, -1)
+	}
 	output = strings.Replace(output, "%reps%", r.repetition, -1)
 	output = strings.Replace(output, "%r1%", r.r1, -1)
 	output = strings.Replace(output, "%r2%", r.r2, -1)
@@ -102,6 +113,10 @@ func testStringReplacements(input string, r *replacements) string {
 	output = strings.Replace(output, "%agenttop%", h.AgentTopHash().String(), -1)
 	output = strings.Replace(output, "%agentstr%", string(h.Agent().Identity()), -1)
 	output = strings.Replace(output, "%key%", h.NodeIDStr(), -1)
+
+	for key, val := range r.pairs {
+		output = strings.Replace(output, key, val, -1)
+	}
 
 	// look for %mx.y% in the string and do the replacements from last matches
 	re = regexp.MustCompile(`(\%m([0-9])\.([0-9])\%)`)
@@ -129,31 +144,26 @@ func testStringReplacements(input string, r *replacements) string {
 }
 
 // TestScenario runs the tests of a single role in a scenario
-func TestScenario(h *Holochain, dir string, role string, serverID string) (err error, testErrs []error) {
+func TestScenario(h *Holochain, scenario string, role string, replacementPairs map[string]string, benchmarks bool) (err error, testErrs []error) {
 	var config *TestConfig
+	dir := filepath.Join(h.TestPath(), scenario)
+
 	config, err = LoadTestConfig(dir)
 	if err != nil {
 		return
 	}
-	var tests []TestData
-	tests, err = LoadTestFile(dir, role+".json")
+	var testSet TestSet
+	testSet, err = LoadTestFile(dir, role+".json")
 	if err != nil {
 		return
 	}
-
-	// setup the genesis entries
-	err = h.Reset()
-	if err != nil {
-		panic("reset err")
+	if testSet.Identity != "" {
+		SetIdentity(h, AgentIdentity(testSet.Identity))
 	}
 
-	_, err = h.GenChain()
+	err = initChainForTest(h, true)
 	if err != nil {
-		panic("gen err " + err.Error())
-	}
-
-	err = h.Activate()
-	if err != nil {
+		err = fmt.Errorf("Error initializing chain for scenario role %s: %v", role, err)
 		return
 	}
 
@@ -164,7 +174,15 @@ func TestScenario(h *Holochain, dir string, role string, serverID string) (err e
 	}
 	h.StartBackgroundTasks()
 
-	testErrs = DoTests(h, role, tests, time.Duration(config.Duration)*time.Second, serverID)
+	var b *benchmark
+	if benchmarks {
+		b = StartBench(h)
+	}
+	testErrs = DoTests(h, role, testSet, time.Duration(config.Duration)*time.Second, replacementPairs)
+	if benchmarks {
+		b.End()
+		logBenchmark(&h.Config.Loggers.TestInfo, fmt.Sprintf("%s-%s", scenario, role), b)
+	}
 
 	return
 }
@@ -183,14 +201,103 @@ type history struct {
 	lastMatches [3][]string
 }
 
-// DoTests runs through all the tests in a TestData array and returns any errors encountered
+type benchmark struct {
+	ElapsedTime time.Duration
+	CPU         float64
+	Memory      float64
+	ChainGrowth int64
+	DHTGrowth   int64
+	BytesSent   int64
+	GossipSent  int64
+	start       time.Time
+	h           *Holochain
+	process     *process.Process
+}
+
+// StartBench returns a benchmark data struct set up so that a subsequent call to
+// EndBench can then complete and set the values
+func StartBench(h *Holochain) *benchmark {
+	if BytesSentChan != nil {
+		panic("Benchmarking already started, can't restart!")
+	}
+	b := benchmark{
+		h:           h,
+		start:       time.Now(),
+		ChainGrowth: FileSize(h.DBPath(), StoreFileName),
+		DHTGrowth:   FileSize(h.DBPath(), DHTStoreFileName),
+	}
+
+	process, err := process.NewProcess(int32(os.Getpid()))
+	if err != nil {
+		panic("unable to get process at start benchmark: " + err.Error())
+	}
+	b.process = process
+	times, err := process.Times()
+	if err != nil {
+		panic("failed to get times: " + err.Error())
+	}
+	b.CPU = times.Total()
+	//	b.Memory = sysInfo.Memory
+	BytesSentChan = make(chan BytesSent, 100)
+	go func() {
+		for BytesSentChan != nil {
+			b.updateBytesSent(BytesSentChan)
+		}
+	}()
+	return &b
+}
+
+func (b *benchmark) updateBytesSent(bsc chan BytesSent) {
+	bs := <-bsc
+	switch bs.MsgType {
+	case GOSSIP_REQUEST:
+		fallthrough
+	case VALIDATE_PUT_REQUEST:
+		fallthrough
+	case VALIDATE_LINK_REQUEST:
+		fallthrough
+	case VALIDATE_DEL_REQUEST:
+		fallthrough
+	case VALIDATE_MOD_REQUEST:
+		b.GossipSent += bs.Bytes
+	default:
+		b.BytesSent += bs.Bytes
+	}
+}
+
+// End completes setting the values of the passed in benchmark struct which must
+// be initialized by a call to StartBench
+func (b *benchmark) End() {
+	bsc := BytesSentChan
+	BytesSentChan = nil
+	times, err := b.process.Times()
+	if err != nil {
+		panic("unable to get cpu/memory data on end benchmark: " + err.Error())
+	}
+
+	b.CPU = times.Total() - b.CPU
+
+	b.ElapsedTime = time.Now().Sub(b.start)
+	b.ChainGrowth = FileSize(b.h.DBPath(), StoreFileName) - b.ChainGrowth
+	b.DHTGrowth = FileSize(b.h.DBPath(), DHTStoreFileName) - b.DHTGrowth
+	for len(bsc) > 0 {
+		b.updateBytesSent(bsc)
+	}
+
+	return
+}
+
+// DoTests runs through all the tests in a TestSet and returns any errors encountered
 // TODO: this code can cause crazy race conditions because lastResults and lastMatches get
 // passed into go routines that run asynchronously.  We should probably reimplement this with
 // channels or some other thread-safe queues.
-func DoTests(h *Holochain, name string, tests []TestData, minTime time.Duration, serverID string) (errs []error) {
+func DoTests(h *Holochain, name string, testSet TestSet, minTime time.Duration, replacementPairs map[string]string) (errs []error) {
 	var history history
+	tests := testSet.Tests
 	done := make(chan bool, len(tests))
 	startTime := time.Now()
+
+	benchmarks := make(map[string]*benchmark)
 
 	var count int
 	// queue up any timed tests into go routines
@@ -201,7 +308,7 @@ func DoTests(h *Holochain, name string, tests []TestData, minTime time.Duration,
 		count++
 		go func(index int, test TestData) {
 			waitTill(startTime, test.Time*time.Millisecond)
-			err := DoTest(h, name, index, test, startTime, &history, serverID)
+			err := DoTest(h, name, index, testSet.Fixtures, test, startTime, &history, replacementPairs, benchmarks, testSet.Benchmark)
 			if err != nil {
 				errs = append(errs, err)
 			}
@@ -215,7 +322,7 @@ func DoTests(h *Holochain, name string, tests []TestData, minTime time.Duration,
 			continue
 		}
 
-		err := DoTest(h, name, i, t, startTime, &history, serverID)
+		err := DoTest(h, name, i, testSet.Fixtures, t, startTime, &history, replacementPairs, benchmarks, testSet.Benchmark)
 		if err != nil {
 			errs = append(errs, err)
 		}
@@ -232,29 +339,119 @@ func DoTests(h *Holochain, name string, tests []TestData, minTime time.Duration,
 		waitTill(startTime, minTime)
 	}
 
+	if len(benchmarks) > 0 {
+		logBenchmarkTotals(&h.Config.Loggers.TestInfo, benchmarks)
+	}
+	return
+}
+
+func logBenchmarkTotals(log *Logger, benchmarks map[string]*benchmark) {
+	var total benchmark
+	for _, b := range benchmarks {
+		total.ElapsedTime += b.ElapsedTime
+		total.ChainGrowth += b.ChainGrowth
+		total.DHTGrowth += b.DHTGrowth
+		total.CPU += b.CPU
+		total.BytesSent += b.BytesSent
+		total.GossipSent += b.GossipSent
+	}
+	log.Logf(`Benchmark Summary:
+   Total elapsed time: %v
+   Total chain growth: %.2fK bytes
+   Total DHT growth: %.2fK bytes
+   Total Bytes sent: %.2fK
+   Total Gossip sent: %.2fK
+   Total CPU use: %.2fms
+`, total.ElapsedTime, toK(total.ChainGrowth), toK(total.DHTGrowth), toK(total.BytesSent), toK(total.GossipSent), total.CPU*1000)
+
+}
+
+func logBenchmark(log *Logger, name string, b *benchmark) {
+	log.Logf(`Benchmark for %s:
+   Elapsed time: %v
+   Chain growth: %.2fK bytes
+   DHT growth: %.2fK bytes
+   BytesSent: %.2fK
+   GossipSent: %.2fK
+   CPU: %.2fms
+`, name, b.ElapsedTime, toK(b.ChainGrowth), toK(b.DHTGrowth), toK(b.BytesSent), toK(b.GossipSent), b.CPU*1000)
+}
+
+func toK(bytes int64) float64 {
+	return float64(bytes) / 1024.0
+}
+
+func toStringByType(data interface{}) (output string, err error) {
+	switch t := data.(type) {
+	case string:
+		output = t
+	case map[string]interface{}:
+		inputByteArray, err := json.Marshal(data)
+		if err == nil {
+			output = string(inputByteArray)
+		}
+	default:
+		output = fmt.Sprintf("%v", data)
+	}
 	return
 }
 
 // DoTest runs a singe test.
-func DoTest(h *Holochain, name string, i int, t TestData, startTime time.Time, history *history, serverID string) (err error) {
-	info := h.Config.Loggers.TestInfo
-	passed := h.Config.Loggers.TestPassed
-	failed := h.Config.Loggers.TestFailed
+func DoTest(h *Holochain, name string, i int, fixtures TestFixtures, t TestData, startTime time.Time, history *history, replacementPairs map[string]string, benchmarks map[string]*benchmark, benchmarkAllTests bool) (err error) {
+	info := &h.Config.Loggers.TestInfo
+	passed := &h.Config.Loggers.TestPassed
+	failed := &h.Config.Loggers.TestFailed
 
-	var input string
-	switch inputType := t.Input.(type) {
-	case string:
-		input = t.Input.(string)
-	case map[string]interface{}:
-		inputByteArray, err := json.Marshal(t.Input)
-		if err == nil {
-			input = string(inputByteArray)
+	// set up the input and output values by converting them according the
+	// the function's defined calling type.
+	var byType bool
+	var input, output string
+	if t.Raw {
+		byType = true
+	} else {
+		var zome *Zome
+		zome, err = h.GetZome(t.Zome)
+		if err != nil {
+			err = fmt.Errorf("error getting zome %s: %v", t.Zome, err)
+			return
 		}
-	default:
-		err = fmt.Errorf("Input was not an expected type: %T", inputType)
+		var fndef *FunctionDef
+		fndef, err = zome.GetFunctionDef(t.FnName)
+		if err != nil {
+			err = fmt.Errorf("error getting function definition for %s: %v", t.FnName, err)
+			return
+		}
+		if fndef.CallingType == JSON_CALLING {
+			var b []byte
+			b, err = json.Marshal(t.Input)
+			if err != nil {
+				err = fmt.Errorf("error converting Input '%v' to JSON: %v", t.Input, err)
+				return
+			}
+			input = string(b)
+			b, err = json.Marshal(t.Output)
+			if err != nil {
+				err = fmt.Errorf("error converting Input '%s' to JSON: %v", t.Input, err)
+				return
+			}
+			output = string(b)
+
+		} else {
+			byType = true
+		}
+
 	}
-	if err != nil {
-		return
+	if byType {
+		input, err = toStringByType(t.Input)
+		if err != nil {
+			err = fmt.Errorf("error converting Input '%s' to string:%v", t.Input, err)
+			return
+		}
+		output, err = toStringByType(t.Output)
+		if err != nil {
+			err = fmt.Errorf("error converting Output '%v' to string:%v", t.Output, err)
+			return
+		}
 	}
 
 	h.Debugf("------------------------------")
@@ -270,7 +467,7 @@ func DoTest(h *Holochain, name string, i int, t TestData, startTime time.Time, h
 		repetitions = t.Repeat
 	}
 
-	replacements := replacements{h: h, serverID: serverID, history: history}
+	replacements := replacements{h: h, history: history, fixtures: fixtures, pairs: replacementPairs}
 	origInput := input
 	for r := 0; r < repetitions; r++ {
 		input = origInput // gotta do this so %reps% substitution will work
@@ -285,6 +482,8 @@ func DoTest(h *Holochain, name string, i int, t TestData, startTime time.Time, h
 		if t.Wait > 0 {
 			info.Logf("   waiting %dms...", t.Wait)
 			time.Sleep(time.Millisecond * t.Wait)
+			elapsed := time.Now().Sub(startTime) / time.Millisecond
+			info.Logf("   test '%s.%d%s' continuing at t+%dms", name, i, rStr, elapsed)
 		}
 
 		h.Debugf("Input before replacement: %s", input)
@@ -298,6 +497,10 @@ func DoTest(h *Holochain, name string, i int, t TestData, startTime time.Time, h
 
 		var actualResult interface{}
 		var actualError error
+		var b *benchmark
+		if benchmarkAllTests || t.Benchmark {
+			b = StartBench(h)
+		}
 		if t.Raw {
 			n, _, err := h.MakeRibosome(t.Zome)
 			if err != nil {
@@ -308,7 +511,25 @@ func DoTest(h *Holochain, name string, i int, t TestData, startTime time.Time, h
 		} else {
 			actualResult, actualError = h.Call(t.Zome, t.FnName, input, t.Exposure)
 		}
-		var expectedResult, expectedError = t.Output, t.Err
+		if benchmarkAllTests || t.Benchmark {
+			b.End()
+			benchmarks[testID] = b
+			logBenchmark(info, testID, b)
+		}
+
+		var expectedResult = output
+		var expectedErrorObject = t.Err
+		var expectedErrorMessage = t.ErrMsg
+		var expectedError string
+
+		if expectedErrorObject != nil {
+			expectedError, err = toStringByType(expectedErrorObject)
+			if err != nil {
+				panic("unable to covert expected error to string")
+			}
+		} else if expectedErrorMessage != "" {
+			expectedError = expectedErrorMessage
+		}
 		var expectedResultRegexp = t.Regexp
 		//====================
 		history.lastResults[2] = history.lastResults[1]
@@ -318,7 +539,19 @@ func DoTest(h *Holochain, name string, i int, t TestData, startTime time.Time, h
 		if expectedError != "" {
 			expectedError = testStringReplacements(expectedError, &replacements)
 			comparisonString := fmt.Sprintf("\nTest: %s\n\tExpected error:\t%v\n\tGot error:\t\t%v", testID, expectedError, actualError)
-			if actualError == nil || (actualError.Error() != expectedError) {
+			var actualErrorStr string
+			if actualError != nil {
+				actualErrorStr = actualError.Error()
+				if expectedErrorMessage != "" {
+					re := regexp.MustCompile(`"errorMessage":"([^"]+)"`)
+					x := re.FindStringSubmatch(actualErrorStr)
+					if len(x) == 0 {
+						panic("expected to find an error message in " + actualErrorStr)
+					}
+					actualErrorStr = x[1]
+				}
+			}
+			if actualError == nil || (actualErrorStr != expectedError) {
 				failed.Logf("\n=====================\n%s\n\tfailed! m(\n=====================", comparisonString)
 				err = errors.New(expectedError)
 			} else {
@@ -376,18 +609,18 @@ func DoTest(h *Holochain, name string, i int, t TestData, startTime time.Time, h
 // Test loops through each of the test files in path calling the functions specified
 // This function is useful only in the context of developing a holochain and will return
 // an error if the chain has already been started (i.e. has genesis entries)
-func Test(h *Holochain, bridgeApps []BridgeApp) []error {
-	return test(h, "", bridgeApps)
+func Test(h *Holochain, bridgeApps []BridgeApp, forceBenchmark bool) []error {
+	return test(h, "", bridgeApps, false)
 }
 
 // TestOne tests a single test file
 // This function is useful only in the context of developing a holochain and will return
 // an error if the chain has already been started (i.e. has genesis entries)
-func TestOne(h *Holochain, one string, bridgeApps []BridgeApp) []error {
-	return test(h, one, bridgeApps)
+func TestOne(h *Holochain, one string, bridgeApps []BridgeApp, forceBenchmark bool) []error {
+	return test(h, one, bridgeApps, forceBenchmark)
 }
 
-func InitChain(h *Holochain, reset bool) (err error) {
+func initChainForTest(h *Holochain, reset bool) (err error) {
 	if reset {
 		err = h.Reset()
 		if err != nil {
@@ -410,7 +643,7 @@ func BuildBridges(h *Holochain, port string, bridgeApps []BridgeApp) (bridgeAppS
 
 	// setup any bridges
 	for i, app := range bridgeApps {
-		InitChain(app.H, true)
+		err = initChainForTest(app.H, true)
 		if err != nil {
 			err = fmt.Errorf("couldn't initialize bridge for %s for test. err:%v", app.H.DNAHash().String(), err.Error())
 			return
@@ -427,7 +660,7 @@ func BuildBridges(h *Holochain, port string, bridgeApps []BridgeApp) (bridgeAppS
 	return
 }
 
-func test(h *Holochain, one string, bridgeApps []BridgeApp) []error {
+func test(h *Holochain, one string, bridgeApps []BridgeApp, forceBenchmark bool) []error {
 
 	var err error
 	var errs []error
@@ -447,7 +680,11 @@ func test(h *Holochain, one string, bridgeApps []BridgeApp) []error {
 	passed := h.Config.Loggers.TestPassed
 	failed := h.Config.Loggers.TestFailed
 
+	defaultIdentity := h.Agent().Identity()
 	for name, ts := range tests {
+		if forceBenchmark {
+			ts.Benchmark = true
+		}
 		if one != "" && name != one {
 			continue
 		}
@@ -455,7 +692,13 @@ func test(h *Holochain, one string, bridgeApps []BridgeApp) []error {
 		info.Logf("Test: '%s' starting...", name)
 		info.Log("========================================")
 		// setup the genesis entries
-		err = InitChain(h, true)
+		identity := defaultIdentity
+		if ts.Identity != "" {
+			identity = AgentIdentity(ts.Identity)
+		}
+		SetIdentity(h, identity)
+		h.Debugf("Setting identity to:%v", h.Agent().Identity())
+		err = initChainForTest(h, true)
 		var ers []error
 		if err != nil {
 			err = fmt.Errorf("couldn't initialize chain for test. err: %v", err)
@@ -471,7 +714,7 @@ func test(h *Holochain, one string, bridgeApps []BridgeApp) []error {
 				ers = []error{err}
 			} else {
 				//	go h.dht.HandleChangeReqs()
-				ers = DoTests(h, name, ts, 0, "")
+				ers = DoTests(h, name, ts, 0, nil)
 
 				// stop all the bridge web servers
 				for _, server := range bridgeAppServers {

@@ -3,9 +3,9 @@ package holochain
 import (
 	"encoding/json"
 	"fmt"
-	zygo "github.com/glycerine/zygomys/repl"
+	. "github.com/Holochain/holochain-proto/hash"
+	zygo "github.com/glycerine/zygomys/zygo"
 	peer "github.com/libp2p/go-libp2p-peer"
-	. "github.com/metacurrency/holochain/hash"
 	. "github.com/smartystreets/goconvey/convey"
 	"strings"
 	"testing"
@@ -72,6 +72,11 @@ func TestNewZygoRibosome(t *testing.T) {
 		So(err, ShouldBeNil)
 		z := v.(*ZygoRibosome)
 
+		_, err = z.Run("HC_HashNotFound")
+		So(err, ShouldBeNil)
+		x := z.lastResult
+		So(x, ShouldEqual, zygo.SexpNull)
+
 		_, err = z.Run("HC_Version")
 		So(err, ShouldBeNil)
 		s := z.lastResult.(*zygo.SexpStr).S
@@ -134,10 +139,10 @@ func TestNewZygoRibosome(t *testing.T) {
 			So(err, ShouldBeNil)
 			So(z.lastResult.(*zygo.SexpStr).S, ShouldEqual, "a bogus test holochain")
 
-			ShouldLog(&infoLog, "Warning: Getting special properties via property() is deprecated as of 3. Returning nil values.  Use App* instead\n", func() {
+			ShouldLog(&infoLog, func() {
 				_, err = z.Run(`(property "` + ID_PROPERTY + `")`)
 				So(err, ShouldBeNil)
-			})
+			}, "Warning: Getting special properties via property() is deprecated as of 3. Returning nil values.  Use App* instead\n")
 
 		})
 
@@ -180,10 +185,10 @@ func TestNewZygoRibosome(t *testing.T) {
 				panic(err)
 			}
 
-			ShouldLog(h.nucleus.alog, fmt.Sprintf(`[ (hash Side:0 ToApp:"QmY8Mzg9F69e5P9AoQPYat655HEhc1TVGs11tmfNSzkqto")  (hash Side:1 Token:"%s")]`, token), func() {
+			ShouldLog(h.nucleus.alog, func() {
 				_, err := z.Run(`(testGetBridges)`)
 				So(err, ShouldBeNil)
-			})
+			}, fmt.Sprintf(`[ (hash Side:0 ToApp:"QmY8Mzg9F69e5P9AoQPYat655HEhc1TVGs11tmfNSzkqto")  (hash Side:1 Token:"%s")]`, token))
 
 		})
 
@@ -216,18 +221,18 @@ func TestNewZygoRibosome(t *testing.T) {
 		})
 
 		Convey("send", func() {
-			ShouldLog(h.nucleus.alog, `result was: "{\"pong\":\"foobar\"}"`, func() {
+			ShouldLog(h.nucleus.alog, func() {
 				_, err := z.Run(`(debug (concat "result was: " (str (hget (send App_Key_Hash (hash ping: "foobar")) %result))))`)
 				So(err, ShouldBeNil)
-			})
+			}, `result was: "{\"pong\":\"foobar\"}"`)
 		})
 		Convey("send async", func() {
-			ShouldLog(h.nucleus.alog, `async result of message with 123 was: (hash pong:"foobar")`, func() {
+			ShouldLog(h.nucleus.alog, func() {
 				_, err := z.Run(`(send App_Key_Hash (hash ping: "foobar") (hash Callback: (hash Function: "asyncPing" ID:"123")))`)
 				So(err, ShouldBeNil)
 				err = <-h.asyncSends
 				So(err, ShouldBeNil)
-			})
+			}, `async result of message with 123 was: (hash pong:"foobar")`)
 		})
 	})
 }
@@ -251,34 +256,34 @@ func TestZygoQuery(t *testing.T) {
 		commit(h, "secret", "bar")
 		commit(h, "profile", `{"firstName":"Zippy","lastName":"Pinhead"}`)
 
-		ShouldLog(h.nucleus.alog, `["2" "4"]`, func() {
+		ShouldLog(h.nucleus.alog, func() {
 			_, err := z.Run(`(debug (str (query (hash Constrain: (hash EntryTypes: ["evenNumbers"])))))`)
 			So(err, ShouldBeNil)
-		})
-		ShouldLog(h.nucleus.alog, `["QmQzp4h9pvLVJHUx6rFxxC4ViqgnznYqXvoa9HsJgACMmi" "QmS4bKx7zZt6qoX2om5M5ik3X2k4Fco2nFx82CDJ3iVKj2"]`, func() {
+		}, `["2" "4"]`)
+		ShouldLog(h.nucleus.alog, func() {
 			_, err := z.Run(`(debug (str (query (hash Return: (hash Hashes: true) Constrain: (hash EntryTypes:["evenNumbers"])))))`)
 			So(err, ShouldBeNil)
-		})
-		ShouldLog(h.nucleus.alog, `[ (hash Hash:"QmQzp4h9pvLVJHUx6rFxxC4ViqgnznYqXvoa9HsJgACMmi" Entry:"2")  (hash Hash:"QmS4bKx7zZt6qoX2om5M5ik3X2k4Fco2nFx82CDJ3iVKj2" Entry:"4")]`, func() {
+		}, `["QmQzp4h9pvLVJHUx6rFxxC4ViqgnznYqXvoa9HsJgACMmi" "QmS4bKx7zZt6qoX2om5M5ik3X2k4Fco2nFx82CDJ3iVKj2"]`)
+		ShouldLog(h.nucleus.alog, func() {
 			_, err := z.Run(`(debug (str (query ( hash Return: (hash Hashes:true Entries:true) Constrain: (hash EntryTypes: ["evenNumbers"])))))`)
 			So(err, ShouldBeNil)
-		})
-		ShouldLog(h.nucleus.alog, `"Type":"evenNumbers","EntryLink":"QmQzp4h9pvLVJHUx6rFxxC4ViqgnznYqXvoa9HsJgACMmi","HeaderLink":"Qm`, func() {
+		}, `[ (hash Hash:"QmQzp4h9pvLVJHUx6rFxxC4ViqgnznYqXvoa9HsJgACMmi" Entry:"2")  (hash Hash:"QmS4bKx7zZt6qoX2om5M5ik3X2k4Fco2nFx82CDJ3iVKj2" Entry:"4")]`)
+		ShouldLog(h.nucleus.alog, func() {
 			_, err := z.Run(`(debug (query (hash Return: (hash Headers:true Entries:true) Constrain: (hash EntryTypes: ["evenNumbers"]))))`)
 			So(err, ShouldBeNil)
-		})
-		ShouldLog(h.nucleus.alog, `["foo","bar"]`, func() {
+		}, `"Type":"evenNumbers","EntryLink":"QmQzp4h9pvLVJHUx6rFxxC4ViqgnznYqXvoa9HsJgACMmi","HeaderLink":"Qm`)
+		ShouldLog(h.nucleus.alog, func() {
 			_, err := z.Run(`(debug (query (hash Constrain: (hash EntryTypes: ["secret"]))))`)
 			So(err, ShouldBeNil)
-		})
-		ShouldLog(h.nucleus.alog, `["{\"firstName\":\"Zippy\",\"lastName\":\"Pinhead\"}"]`, func() {
+		}, `["foo","bar"]`)
+		ShouldLog(h.nucleus.alog, func() {
 			_, err := z.Run(`(debug (str (query (hash Constrain: (hash EntryTypes: ["profile"])))))`)
 			So(err, ShouldBeNil)
-		})
-		ShouldLog(h.nucleus.alog, `["{\"Identity\":\"Herbert \\u003ch@bert.com\\u003e\",\"Revocation\":null,\"PublicKey\":\"CAESIHLUfxjdoEfk8byjsBR+FXxYpYrFTviSBf2BbC0boylT\"}"]`, func() {
+		}, `["{\"firstName\":\"Zippy\",\"lastName\":\"Pinhead\"}"]`)
+		ShouldLog(h.nucleus.alog, func() {
 			_, err := z.Run(`(debug (str (query (hash Constrain: (hash EntryTypes: ["%agent"])))))`)
 			So(err, ShouldBeNil)
-		})
+		}, `["{\"Identity\":\"Herbert \\u003ch@bert.com\\u003e\",\"Revocation\":null,\"PublicKey\":\"CAESIHLUfxjdoEfk8byjsBR+FXxYpYrFTviSBf2BbC0boylT\"}"]`)
 	})
 }
 func TestZygoGenesis(t *testing.T) {
@@ -302,20 +307,20 @@ func TestZygoBridgeGenesis(t *testing.T) {
 
 	fakeToApp, _ := NewHash("QmVGtdTZdTFaLsaj2RwdVG8jcjNNcp1DE914DKZ2kHmXHx")
 	Convey("it should fail if the bridge genesis function returns false", t, func() {
-		ShouldLog(&h.Config.Loggers.App, h.dnaHash.String()+" test data", func() {
+		ShouldLog(&h.Config.Loggers.App, func() {
 			z, err := NewZygoRibosome(h, &Zome{RibosomeType: ZygoRibosomeType, Code: `(defn bridgeGenesis [side app data] (begin (debug (concat app " " data)) false))`})
 			So(err, ShouldBeNil)
 			err = z.BridgeGenesis(BridgeFrom, h.dnaHash, "test data")
 			So(err.Error(), ShouldEqual, "bridgeGenesis failed")
-		})
+		}, h.dnaHash.String()+" test data")
 	})
 	Convey("it should work if the bridge genesis function returns true", t, func() {
-		ShouldLog(&h.Config.Loggers.App, fakeToApp.String()+" test data", func() {
+		ShouldLog(&h.Config.Loggers.App, func() {
 			z, err := NewZygoRibosome(h, &Zome{RibosomeType: ZygoRibosomeType, Code: `(defn bridgeGenesis [side app data] (begin (debug (concat app " " data)) true))`})
 			So(err, ShouldBeNil)
 			err = z.BridgeGenesis(BridgeTo, fakeToApp, "test data")
 			So(err, ShouldBeNil)
-		})
+		}, fakeToApp.String()+" test data")
 	})
 }
 
@@ -380,17 +385,17 @@ func TestZyValidateCommit(t *testing.T) {
 		v, err := NewZygoRibosome(&h, &Zome{RibosomeType: ZygoRibosomeType, Code: `(defn validateCommit [name entry header pkg sources] (debug name) (debug entry) (debug header) (debug sources) (debug pkg) true)`})
 		So(err, ShouldBeNil)
 		d := EntryDef{Name: "evenNumbers", DataFormat: DataFormatString}
-		ShouldLog(&h.Config.Loggers.App, `evenNumbers
-foo
-{"EntryLink":"QmNiCwBNA8MWDADTFVq1BonUEJbS2SvjAoNkZZrhEwcuU2","Type":"evenNumbers","Time":"1970-01-01T00:00:01Z"}
-["fakehashvalue"]
-{"Atype":"hash"}
-`, func() {
+		ShouldLog(&h.Config.Loggers.App, func() {
 			a := NewCommitAction("oddNumbers", &GobEntry{C: "foo"})
 			a.header = &hdr
 			err = v.ValidateAction(a, &d, nil, []string{"fakehashvalue"})
 			So(err, ShouldBeNil)
-		})
+		}, `evenNumbers
+foo
+{"EntryLink":"QmNiCwBNA8MWDADTFVq1BonUEJbS2SvjAoNkZZrhEwcuU2","Type":"evenNumbers","Time":"1970-01-01T00:00:01Z"}
+["fakehashvalue"]
+{"Atype":"hash"}
+`)
 	})
 	Convey("should run an entry value against the defined validator for string data", t, func() {
 		v, err := NewZygoRibosome(&h, &Zome{RibosomeType: ZygoRibosomeType, Code: `(defn validateCommit [name entry header pkg sources] (cond (== entry "fish") true false))`})
@@ -533,13 +538,13 @@ func TestZygoDHT(t *testing.T) {
 	defer CleanupTestChain(h, d)
 
 	hash, _ := NewHash("QmY8Mzg9F69e5P9AoQPYat6x5HEhc1TVGs11tmfNSzkqh2")
-	Convey("get should return hash not found if it doesn't exist", t, func() {
-		v, err := NewZygoRibosome(h, &Zome{RibosomeType: ZygoRibosomeType, Code: fmt.Sprintf(`(get "%s")`, hash.String())})
+	Convey("get should return HC_HashNotFound if it doesn't exist", t, func() {
+		v, err := NewZygoRibosome(h, &Zome{RibosomeType: ZygoRibosomeType, Code: fmt.Sprintf(`(== (get "%s") HC_HashNotFound)`, hash.String())})
 		So(err, ShouldBeNil)
 		z := v.(*ZygoRibosome)
-		r, err := z.lastResult.(*zygo.SexpHash).HashGet(z.env, z.env.MakeSymbol("error"))
+		r := z.lastResult.(*zygo.SexpBool)
 		So(err, ShouldBeNil)
-		So(r.(*zygo.SexpStr).S, ShouldEqual, "hash not found")
+		So(r.Val, ShouldEqual, true)
 	})
 	// add an entry onto the chain
 	hash = commit(h, "evenNumbers", "2")
@@ -554,10 +559,10 @@ func TestZygoDHT(t *testing.T) {
 	})
 
 	Convey("get should return entry of sys types", t, func() {
-		ShouldLog(h.nucleus.alog, `{"result":"{\"Identity\":\"Herbert \\u003ch@bert.com\\u003e\",\"Revocation\":null,\"PublicKey\":\"CAESIHLUfxjdoEfk8byjsBR+FXxYpYrFTviSBf2BbC0boylT\"}"}`, func() {
+		ShouldLog(h.nucleus.alog, func() {
 			_, err := NewZygoRibosome(h, &Zome{RibosomeType: ZygoRibosomeType, Code: fmt.Sprintf(`(debug (get "%s"))`, h.agentHash.String())})
 			So(err, ShouldBeNil)
-		})
+		}, `{"result":"{\"Identity\":\"Herbert \\u003ch@bert.com\\u003e\",\"Revocation\":null,\"PublicKey\":\"CAESIHLUfxjdoEfk8byjsBR+FXxYpYrFTviSBf2BbC0boylT\"}"}`)
 	})
 
 	Convey("get should return entry type", t, func() {

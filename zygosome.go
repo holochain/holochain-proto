@@ -1,4 +1,4 @@
-// Copyright (C) 2013-2017, The MetaCurrency Project (Eric Harris-Braun, Arthur Brock, et. al.)
+// Copyright (C) 2013-2018, The MetaCurrency Project (Eric Harris-Braun, Arthur Brock, et. al.)
 // Use of this source code is governed by GPLv3 found in the LICENSE file
 //----------------------------------------------------------------------------------------
 // ZygoRibosome implements a zygomys use of the Ribosome interface
@@ -9,9 +9,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	zygo "github.com/glycerine/zygomys/repl"
+	. "github.com/Holochain/holochain-proto/hash"
+	zygo "github.com/glycerine/zygomys/zygo"
 	peer "github.com/libp2p/go-libp2p-peer"
-	. "github.com/metacurrency/holochain/hash"
 	"math"
 	"regexp"
 	"strconv"
@@ -27,7 +27,7 @@ const (
 type ZygoRibosome struct {
 	h          *Holochain
 	zome       *Zome
-	env        *zygo.Glisp
+	env        *zygo.Zlisp
 	lastResult zygo.Sexp
 	library    string
 }
@@ -373,6 +373,7 @@ func (z *ZygoRibosome) Call(fn *FunctionDef, params interface{}) (result interfa
 // all Ribosome implementations.
 const (
 	ZygoLibrary = `(def HC_Version "` + VersionStr + `")` +
+		`(def HC_HashNotFound nil)` +
 		`(def HC_Status_Live ` + StatusLiveVal + ")" +
 		`(def HC_Status_Rejected ` + StatusRejectedVal + ")" +
 		`(def HC_Status_Deleted ` + StatusDeletedVal + ")" +
@@ -396,7 +397,7 @@ const (
 		`(def HC_PkgReq_ChainOpt_Full "` + PkgReqChainOptFullStr + "\")"
 )
 
-func makeResult(env *zygo.Glisp, resultValue zygo.Sexp, resultError error) (zygo.Sexp, error) {
+func makeResult(env *zygo.Zlisp, resultValue zygo.Sexp, resultError error) (zygo.Sexp, error) {
 	result, err := zygo.MakeHash(nil, "hash", env)
 	if err != nil {
 		return nil, err
@@ -566,11 +567,11 @@ func NewZygoRibosome(h *Holochain, zome *Zome) (n Ribosome, err error) {
 	z := ZygoRibosome{
 		h:    h,
 		zome: zome,
-		env:  zygo.NewGlispSandbox(),
+		env:  zygo.NewZlispSandbox(),
 	}
 
 	z.env.AddFunction("version",
-		func(env *zygo.Glisp, name string, args []zygo.Sexp) (zygo.Sexp, error) {
+		func(env *zygo.Zlisp, name string, args []zygo.Sexp) (zygo.Sexp, error) {
 			return &zygo.SexpStr{S: VersionStr}, nil
 		})
 
@@ -587,7 +588,7 @@ func NewZygoRibosome(h *Holochain, zome *Zome) (n Ribosome, err error) {
 	// use a closure so that the registered zygo function can call Expose on the correct ZygoRibosome obj
 
 	z.env.AddFunction("property",
-		func(env *zygo.Glisp, name string, zyargs []zygo.Sexp) (zygo.Sexp, error) {
+		func(env *zygo.Zlisp, name string, zyargs []zygo.Sexp) (zygo.Sexp, error) {
 			a := &ActionProperty{}
 			args := a.Args()
 			err := zyProcessArgs(&z, args, zyargs)
@@ -608,7 +609,7 @@ func NewZygoRibosome(h *Holochain, zome *Zome) (n Ribosome, err error) {
 		})
 
 	z.env.AddFunction("debug",
-		func(env *zygo.Glisp, name string, zyargs []zygo.Sexp) (zygo.Sexp, error) {
+		func(env *zygo.Zlisp, name string, zyargs []zygo.Sexp) (zygo.Sexp, error) {
 			a := &ActionDebug{}
 			args := a.Args()
 			err := zyProcessArgs(&z, args, zyargs)
@@ -621,7 +622,7 @@ func NewZygoRibosome(h *Holochain, zome *Zome) (n Ribosome, err error) {
 		})
 
 	z.env.AddFunction("makeHash",
-		func(env *zygo.Glisp, name string, zyargs []zygo.Sexp) (zygo.Sexp, error) {
+		func(env *zygo.Zlisp, name string, zyargs []zygo.Sexp) (zygo.Sexp, error) {
 			a := &ActionMakeHash{}
 			args := a.Args()
 			err := zyProcessArgs(&z, args, zyargs)
@@ -644,7 +645,7 @@ func NewZygoRibosome(h *Holochain, zome *Zome) (n Ribosome, err error) {
 		})
 
 	z.env.AddFunction("getBridges",
-		func(env *zygo.Glisp, name string, zyargs []zygo.Sexp) (zygo.Sexp, error) {
+		func(env *zygo.Zlisp, name string, zyargs []zygo.Sexp) (zygo.Sexp, error) {
 			a := &ActionGetBridges{}
 			args := a.Args()
 			err := zyProcessArgs(&z, args, zyargs)
@@ -690,7 +691,7 @@ func NewZygoRibosome(h *Holochain, zome *Zome) (n Ribosome, err error) {
 		})
 
 	z.env.AddFunction("send",
-		func(env *zygo.Glisp, name string, zyargs []zygo.Sexp) (zygo.Sexp, error) {
+		func(env *zygo.Zlisp, name string, zyargs []zygo.Sexp) (zygo.Sexp, error) {
 			a := &ActionSend{}
 			args := a.Args()
 			err := zyProcessArgs(&z, args, zyargs)
@@ -754,7 +755,7 @@ func NewZygoRibosome(h *Holochain, zome *Zome) (n Ribosome, err error) {
 		})
 
 	z.env.AddFunction("call",
-		func(env *zygo.Glisp, name string, zyargs []zygo.Sexp) (zygo.Sexp, error) {
+		func(env *zygo.Zlisp, name string, zyargs []zygo.Sexp) (zygo.Sexp, error) {
 			a := &ActionCall{}
 			args := a.Args()
 			err := zyProcessArgs(&z, args, zyargs)
@@ -793,7 +794,7 @@ func NewZygoRibosome(h *Holochain, zome *Zome) (n Ribosome, err error) {
 		})
 
 	z.env.AddFunction("bridge",
-		func(env *zygo.Glisp, name string, zyargs []zygo.Sexp) (zygo.Sexp, error) {
+		func(env *zygo.Zlisp, name string, zyargs []zygo.Sexp) (zygo.Sexp, error) {
 			a := &ActionBridge{}
 			args := a.Args()
 			err := zyProcessArgs(&z, args, zyargs)
@@ -820,7 +821,7 @@ func NewZygoRibosome(h *Holochain, zome *Zome) (n Ribosome, err error) {
 		})
 
 	z.env.AddFunction("commit",
-		func(env *zygo.Glisp, name string, zyargs []zygo.Sexp) (zygo.Sexp, error) {
+		func(env *zygo.Zlisp, name string, zyargs []zygo.Sexp) (zygo.Sexp, error) {
 			var a Action = &ActionCommit{}
 			args := a.Args()
 			err := zyProcessArgs(&z, args, zyargs)
@@ -844,7 +845,7 @@ func NewZygoRibosome(h *Holochain, zome *Zome) (n Ribosome, err error) {
 		})
 
 	z.env.AddFunction("query",
-		func(env *zygo.Glisp, name string, zyargs []zygo.Sexp) (zygo.Sexp, error) {
+		func(env *zygo.Zlisp, name string, zyargs []zygo.Sexp) (zygo.Sexp, error) {
 			a := &ActionQuery{}
 			args := a.Args()
 			err := zyProcessArgs(&z, args, zyargs)
@@ -978,7 +979,7 @@ func NewZygoRibosome(h *Holochain, zome *Zome) (n Ribosome, err error) {
 		})
 
 	z.env.AddFunction("get",
-		func(env *zygo.Glisp, name string, zyargs []zygo.Sexp) (zygo.Sexp, error) {
+		func(env *zygo.Zlisp, name string, zyargs []zygo.Sexp) (zygo.Sexp, error) {
 			var a Action = &ActionGet{}
 			args := a.Args()
 			err := zyProcessArgs(&z, args, zyargs)
@@ -1022,7 +1023,12 @@ func NewZygoRibosome(h *Holochain, zome *Zome) (n Ribosome, err error) {
 			}
 			var resultValue zygo.Sexp
 			resultValue = zygo.SexpNull
-			if err == nil {
+			if err == ErrHashNotFound {
+				// if the hash wasn't found this isn't actually an error
+				// so return nil which is the same as HC_HashNotFound
+				err = nil
+				return zygo.SexpNull, err
+			} else if err == nil {
 				getResp := r.(GetResp)
 				var entryStr string
 				var singleValueReturn bool
@@ -1077,7 +1083,7 @@ func NewZygoRibosome(h *Holochain, zome *Zome) (n Ribosome, err error) {
 		})
 
 	z.env.AddFunction("update",
-		func(env *zygo.Glisp, name string, zyargs []zygo.Sexp) (zygo.Sexp, error) {
+		func(env *zygo.Zlisp, name string, zyargs []zygo.Sexp) (zygo.Sexp, error) {
 			var a Action = &ActionMod{}
 			args := a.Args()
 			err := zyProcessArgs(&z, args, zyargs)
@@ -1102,7 +1108,7 @@ func NewZygoRibosome(h *Holochain, zome *Zome) (n Ribosome, err error) {
 		})
 
 	z.env.AddFunction("updateAgent",
-		func(env *zygo.Glisp, name string, zyargs []zygo.Sexp) (zygo.Sexp, error) {
+		func(env *zygo.Zlisp, name string, zyargs []zygo.Sexp) (zygo.Sexp, error) {
 			a := &ActionModAgent{}
 			//		var a Action = &ActionModAgent{}
 			args := a.Args()
@@ -1146,7 +1152,7 @@ func NewZygoRibosome(h *Holochain, zome *Zome) (n Ribosome, err error) {
 		})
 
 	z.env.AddFunction("remove",
-		func(env *zygo.Glisp, name string, zyargs []zygo.Sexp) (zygo.Sexp, error) {
+		func(env *zygo.Zlisp, name string, zyargs []zygo.Sexp) (zygo.Sexp, error) {
 			var a Action = &ActionDel{}
 			args := a.Args()
 			err := zyProcessArgs(&z, args, zyargs)
@@ -1173,7 +1179,7 @@ func NewZygoRibosome(h *Holochain, zome *Zome) (n Ribosome, err error) {
 		})
 
 	z.env.AddFunction("getLinks",
-		func(env *zygo.Glisp, name string, zyargs []zygo.Sexp) (zygo.Sexp, error) {
+		func(env *zygo.Zlisp, name string, zyargs []zygo.Sexp) (zygo.Sexp, error) {
 			var a Action = &ActionGetLinks{}
 			args := a.Args()
 			err := zyProcessArgs(&z, args, zyargs)
@@ -1289,7 +1295,7 @@ func isPrime(t int64) bool {
 
 func addExtras(z *ZygoRibosome) {
 	z.env.AddFunction("isprime",
-		func(env *zygo.Glisp, name string, args []zygo.Sexp) (zygo.Sexp, error) {
+		func(env *zygo.Zlisp, name string, args []zygo.Sexp) (zygo.Sexp, error) {
 
 			switch t := args[0].(type) {
 			case *zygo.SexpInt:
@@ -1300,7 +1306,7 @@ func addExtras(z *ZygoRibosome) {
 			}
 		})
 	z.env.AddFunction("atoi",
-		func(env *zygo.Glisp, name string, args []zygo.Sexp) (zygo.Sexp, error) {
+		func(env *zygo.Zlisp, name string, args []zygo.Sexp) (zygo.Sexp, error) {
 
 			var i int64
 			var e error

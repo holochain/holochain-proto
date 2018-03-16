@@ -1,4 +1,4 @@
-// Copyright (C) 2013-2017, The MetaCurrency Project (Eric Harris-Braun, Arthur Brock, et. al.)
+// Copyright (C) 2013-2018, The MetaCurrency Project (Eric Harris-Braun, Arthur Brock, et. al.)
 // Use of this source code is governed by GPLv3 found in the LICENSE file
 //----------------------------------------------------------------------------------------
 //
@@ -9,10 +9,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	. "github.com/Holochain/holochain-proto/hash"
 	b58 "github.com/jbenet/go-base58"
 	ic "github.com/libp2p/go-libp2p-crypto"
 	peer "github.com/libp2p/go-libp2p-peer"
-	. "github.com/metacurrency/holochain/hash"
 	"io/ioutil"
 	"net/http"
 	"reflect"
@@ -59,6 +59,11 @@ type Action interface {
 	Do(h *Holochain) (response interface{}, err error)
 	Receive(dht *DHT, msg *Message, retries int) (response interface{}, err error)
 	Args() []Arg
+}
+
+type ArgsAction interface {
+	Args() []Arg
+	Do(h *Holochain) (response interface{}, err error)
 }
 
 // CommittingAction provides an abstraction for grouping actions which carry Entry data
@@ -408,13 +413,13 @@ func (a *ActionSign) Do(h *Holochain) (response interface{}, err error) {
 //------------------------------------------------------------
 // VerifySignature
 type ActionVerifySignature struct {
-	signature string
-	data      string
-	pubKey    string
+	b58signature string
+	data         string
+	b58pubKey    string
 }
 
 func NewVerifySignatureAction(signature string, data string, pubKey string) *ActionVerifySignature {
-	a := ActionVerifySignature{signature: signature, data: data, pubKey: pubKey}
+	a := ActionVerifySignature{b58signature: signature, data: data, b58pubKey: pubKey}
 	return &a
 }
 
@@ -426,13 +431,12 @@ func (a *ActionVerifySignature) Args() []Arg {
 	return []Arg{{Name: "signature", Type: StringArg}, {Name: "data", Type: StringArg}, {Name: "pubKey", Type: StringArg}}
 }
 
-func (a *ActionVerifySignature) Do(h *Holochain) (response bool, err error) {
+func (a *ActionVerifySignature) Do(h *Holochain) (response interface{}, err error) {
 	var b bool
 	var pubKeyIC ic.PubKey
-	var sig []byte
-	sig = b58.Decode(a.signature)
+	sig := SignatureFromB58String(a.b58signature)
 	var pubKeyBytes []byte
-	pubKeyBytes = b58.Decode(a.pubKey)
+	pubKeyBytes = b58.Decode(a.b58pubKey)
 	pubKeyIC, err = ic.UnmarshalPublicKey(pubKeyBytes)
 	if err != nil {
 		return
@@ -633,11 +637,10 @@ func (a *ActionGet) Do(h *Holochain) (response interface{}, err error) {
 		}
 		resp := GetResp{Entry: *entry.(*GobEntry)}
 		mask := a.options.GetMask
-		if (mask & GetMaskEntryType) != 0 {
-			resp.EntryType = entryType
-		}
+		resp.EntryType = entryType
 		if (mask & GetMaskEntry) != 0 {
 			resp.Entry = *entry.(*GobEntry)
+			resp.EntryType = entryType
 		}
 
 		response = resp
@@ -688,17 +691,12 @@ func (a *ActionGet) Receive(dht *DHT, msg *Message, retries int) (response inter
 		mask = GetMaskEntry
 	}
 	resp := GetResp{}
-	var entryType string
 
 	// always get the entry type despite what the mas says because we need it for the switch below.
-	entryData, entryType, resp.Sources, _, err = dht.get(req.H, req.StatusMask, req.GetMask|GetMaskEntryType)
-	if (mask & GetMaskEntryType) != 0 {
-		resp.EntryType = entryType
-	}
-
+	entryData, resp.EntryType, resp.Sources, _, err = dht.get(req.H, req.StatusMask, req.GetMask|GetMaskEntryType)
 	if err == nil {
 		if (mask & GetMaskEntry) != 0 {
-			switch entryType {
+			switch resp.EntryType {
 			case DNAEntryType:
 				// TODO: make this add the requester to the blockedlist rather than panicing, see ticket #421
 				err = errors.New("nobody should actually get the DNA!")

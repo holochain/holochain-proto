@@ -42,3 +42,6 @@ floospace/
 # temporary files
 *.swp
 coverage.txt
+uitest@holochain.org/
+clutter/
+node_modules/

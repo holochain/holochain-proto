@@ -1,4 +1,4 @@
-// Copyright (C) 2013-2017, The MetaCurrency Project (Eric Harris-Braun, Arthur Brock, et. al.)
+// Copyright (C) 2013-2018, The MetaCurrency Project (Eric Harris-Braun, Arthur Brock, et. al.)
 // Use of this source code is governed by GPLv3 found in the LICENSE file
 //----------------------------------------------------------------------------------------
 
@@ -49,7 +49,12 @@ func (h *Holochain) BSpost() (err error) {
 	b, err = json.Marshal(req)
 	//var resp *http.Response
 	if err == nil {
-		_, err = http.Post(url, "application/json", bytes.NewBuffer(b))
+		var resp *http.Response
+		resp, err = http.Post(url, "application/json", bytes.NewBuffer(b))
+		if err == nil {
+			resp.Body.Close()
+		}
+
 	}
 	return
 }
@@ -97,10 +102,20 @@ func (h *Holochain) BSget() (err error) {
 	}
 	id := h.DNAHash()
 	url := fmt.Sprintf("http://%s/%s", host, id.String())
+
+	var req *http.Request
+
+	req, err = http.NewRequest("GET", url, nil)
+	if err != nil {
+		return
+	}
+	req.Close = true
+	client := http.DefaultClient
 	var resp *http.Response
-	resp, err = http.Get(url)
+	resp, err = client.Do(req)
+
+	//	resp, err = http.Get(url)
 	if err == nil {
-		defer resp.Body.Close()
 		var b []byte
 		b, err = ioutil.ReadAll(resp.Body)
 		if err == nil {
@@ -111,6 +126,8 @@ func (h *Holochain) BSget() (err error) {
 
 			}
 		}
+		resp.Body.Close()
+
 	}
 	return
 }

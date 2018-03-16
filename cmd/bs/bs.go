@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	holo "github.com/metacurrency/holochain"
+	holo "github.com/Holochain/holochain-proto"
 	"github.com/op/go-logging"
 	"github.com/tidwall/buntdb"
 	"github.com/urfave/cli"
@@ -210,10 +210,21 @@ func getCompleteConnectionList(response http.ResponseWriter, request *http.Reque
 }
 
 func serve(port int) (err error) {
-	http.HandleFunc("/", h)
-	http.HandleFunc("/getCompleteConnectionList", getCompleteConnectionList)
+
+	mux := http.NewServeMux()
+
+	mux.HandleFunc("/", h)
+	mux.HandleFunc("/getCompleteConnectionList", getCompleteConnectionList)
 
 	log.Infof("starting up on port %d", port)
-	err = http.ListenAndServe(fmt.Sprintf(":%d", port), nil) // set listen port
+
+	s := &http.Server{
+		Addr:           fmt.Sprintf(":%d", port), // set listen port
+		Handler:        mux,
+		ReadTimeout:    10 * time.Second,
+		WriteTimeout:   10 * time.Second,
+		MaxHeaderBytes: 1 << 20,
+	}
+	err = s.ListenAndServe()
 	return
 }

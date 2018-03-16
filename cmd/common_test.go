@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	holo "github.com/metacurrency/holochain"
+	holo "github.com/Holochain/holochain-proto"
 )
 
 func TestIsAppDir(t *testing.T) {

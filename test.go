@@ -136,18 +136,20 @@ func CleanupTestChain(h *Holochain, d string) {
 	CleanupTestDir(d)
 }
 
-func ShouldLog(log *Logger, message string, fn func()) {
+func ShouldLog(log *Logger, fn func(), messages ...string) {
 	var buf bytes.Buffer
 	w := log.w
 	log.w = &buf
 	e := log.Enabled
 	log.Enabled = true
 	fn()
-	matched := strings.Index(buf.String(), message) >= 0
-	if matched {
-		So(matched, ShouldBeTrue)
-	} else {
-		So(buf.String(), ShouldEqual, message)
+	for _, message := range messages {
+		matched := strings.Index(buf.String(), message) >= 0
+		if matched {
+			So(matched, ShouldBeTrue)
+		} else {
+			So(buf.String(), ShouldEqual, message)
+		}
 	}
 	log.Enabled = e
 	log.w = w
@@ -163,4 +165,23 @@ func compareFile(path1 string, path2 string, fileName string) bool {
 		panic(err)
 	}
 	return (string(src) == string(dst)) && (string(src) != "")
+}
+
+func SetIdentity(h *Holochain, identity AgentIdentity) {
+	agent := h.Agent()
+	SetAgentIdentity(agent, identity)
+	h.nodeID, h.nodeIDStr, _ = agent.NodeID()
+}
+
+func SetAgentIdentity(agent Agent, identity AgentIdentity) {
+	agent.SetIdentity(identity)
+	var seed io.Reader
+	seed = MakeTestSeed(string(identity))
+	agent.GenKeys(seed)
+}
+
+func NormaliseJSON(json string) string {
+	json = strings.Replace(json, "\n", "", -1)
+	json = strings.Replace(json, "    ", "", -1)
+	return strings.Replace(json, ": ", ":", -1)
 }

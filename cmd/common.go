@@ -1,4 +1,4 @@
-// Copyright (C) 2013-2017, The MetaCurrency Project (Eric Harris-Braun, Arthur Brock, et. al.)
+// Copyright (C) 2013-2018, The MetaCurrency Project (Eric Harris-Braun, Arthur Brock, et. al.)
 // Use of this source code is governed by GPLv3 found in the LICENSE file
 //----------------------------------------------------------------------------------------
 
@@ -20,7 +20,7 @@ import (
 	"syscall"
 	"time"
 
-	holo "github.com/metacurrency/holochain"
+	holo "github.com/Holochain/holochain-proto"
 )
 
 var ErrServiceUninitialized = errors.New("service not initialized, run 'hcadmin init'")
@@ -128,7 +128,7 @@ var configExtensionList []string
 
 func GetConfigExtensionList() (conExtList []string) {
 	if configExtensionList == nil {
-		configExtensionList = []string{"json", "toml", "yaml"}
+		configExtensionList = []string{"json", "toml", "yaml", "yml"}
 	}
 	return configExtensionList
 }
@@ -222,7 +222,7 @@ func Die(message string) {
 
 func GolangHolochainDir(subPath ...string) (path string, err error) {
 	err = nil
-	joinable := append([]string{os.Getenv("GOPATH"), "src/github.com/metacurrency/holochain"}, subPath...)
+	joinable := append([]string{os.Getenv("GOPATH"), "src/github.com/Holochain/holochain-proto"}, subPath...)
 	path = filepath.Join(joinable...)
 	return
 }
@@ -297,14 +297,14 @@ func GetDuration_fromUnixTimestamp(timestamp int64) (duration time.Duration) {
 	return
 }
 
-func UpackageAppPackage(service *holo.Service, appPackagePath string, toPath string, appName string) (appPackage *holo.AppPackage, err error) {
+func UpackageAppPackage(service *holo.Service, appPackagePath string, toPath string, appName string, encodingFormat string) (appPackage *holo.AppPackage, err error) {
 	sf, err := os.Open(appPackagePath)
 	if err != nil {
 		return
 	}
 	defer sf.Close()
-	encodingFormat := holo.EncodingFormat(appPackagePath)
-	appPackage, err = service.SaveFromAppPackage(sf, toPath, appName, nil, encodingFormat, false)
+	decodingFormat := holo.EncodingFormat(appPackagePath)
+	appPackage, err = service.SaveFromAppPackage(sf, toPath, appName, nil, decodingFormat, encodingFormat, false)
 	return
 }
 

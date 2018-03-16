@@ -1,13 +1,13 @@
 #!/bin/bash
-holochainBinDir="$GOPATH/src/github.com/metacurrency/holochain/bin"
+holochainBinDir="$GOPATH/src/github.com/Holochain/holochain-proto/bin"
 
 
 FILE=".hc/immutable"
 if [ ! -d $FILE ]; then
-   
+
   # check if we are in root dir, in which case, die
   [ $PWD == "/" ] && echo "HC: this does not appear to be a holochain directory" && exit 1
-   
+
   # check up a directory
    cd ..
    . $holochainBinDir/holochain.app.findAppDir

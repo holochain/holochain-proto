@@ -1,4 +1,4 @@
-// Copyright (C) 2013-2017, The MetaCurrency Project (Eric Harris-Braun, Arthur Brock, et. al.)
+// Copyright (C) 2013-2018, The MetaCurrency Project (Eric Harris-Braun, Arthur Brock, et. al.)
 // Use of this source code is governed by GPLv3 found in the LICENSE file
 //
 // This code is adapted from the libp2p project, specifically:
@@ -13,16 +13,15 @@ import (
 	"sync"
 
 	todoctr "github.com/ipfs/go-todocounter"
-	routing "github.com/libp2p/go-libp2p-routing"
 	//notif "github.com/libp2p/go-libp2p-routing/notifications"
+	. "github.com/Holochain/holochain-proto/hash"
+	queue "github.com/Holochain/holochain-proto/peerqueue"
 	u "github.com/ipfs/go-ipfs-util"
 	process "github.com/jbenet/goprocess"
 	ctxproc "github.com/jbenet/goprocess/context"
 	peer "github.com/libp2p/go-libp2p-peer"
 	pset "github.com/libp2p/go-libp2p-peer/peerset"
 	pstore "github.com/libp2p/go-libp2p-peerstore"
-	. "github.com/metacurrency/holochain/hash"
-	queue "github.com/metacurrency/holochain/peerqueue"
 )
 
 var maxQueryConcurrency = AlphaValue
@@ -133,7 +132,7 @@ func (r *dhtQueryRunner) Run(ctx context.Context, peers []peer.ID) (*dhtQueryRes
 	// so workers are working.
 
 	// wait until they're done.
-	err := routing.ErrNotFound
+	err := ErrHashNotFound
 
 	// now, if the context finishes, close the proc.
 	// we have to do it here because the logic before is setup, which
@@ -146,7 +145,7 @@ func (r *dhtQueryRunner) Run(ctx context.Context, peers []peer.ID) (*dhtQueryRes
 		r.RLock()
 		defer r.RUnlock()
 
-		err = routing.ErrNotFound
+		err = ErrHashNotFound
 
 		// if every query to every peer failed, something must be very wrong.
 		if len(r.errs) > 0 && len(r.errs) == r.peersSeen.Size() {

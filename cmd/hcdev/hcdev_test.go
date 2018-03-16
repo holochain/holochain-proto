@@ -3,16 +3,18 @@ package main
 import (
 	"bytes"
 	"fmt"
-	"github.com/davecgh/go-spew/spew"
-	holo "github.com/metacurrency/holochain"
-	"github.com/metacurrency/holochain/cmd"
-	. "github.com/smartystreets/goconvey/convey"
-	"github.com/urfave/cli"
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"strconv"
 	"testing"
 	"time"
+
+	holo "github.com/Holochain/holochain-proto"
+	"github.com/Holochain/holochain-proto/cmd"
+	"github.com/davecgh/go-spew/spew"
+	. "github.com/smartystreets/goconvey/convey"
+	"github.com/urfave/cli"
 )
 
 func TestSetupApp(t *testing.T) {
@@ -125,27 +127,36 @@ func TestInit(t *testing.T) {
 		So(cmd.IsDir(tmpTestDir, holo.ChainDataDir), ShouldBeFalse)
 	})
 
-	Convey("'init bar --cloneExample=clutter' should copy files from github", t, func() {
+	Convey("'init bar --cloneExample=HoloWorld' should copy files from github", t, func() {
 		err = os.Chdir(tmpTestDir)
 		if err != nil {
 			panic(err)
 		}
 
 		// it should clone with the same name as the repo
-		os.Args = []string{"hcdev", "init", "-cloneExample=clutter"}
+		os.Args = []string{"hcdev", "init", "-cloneExample=HoloWorld"}
 		err = app.Run(os.Args)
 		So(err, ShouldBeNil)
-		So(cmd.IsFile(filepath.Join(tmpTestDir, "clutter", "dna", "clutter", "clutter.js")), ShouldBeTrue)
+		So(cmd.IsFile(filepath.Join(tmpTestDir, "HoloWorld", "dna", "HoloWorld", "HoloWorld.js")), ShouldBeTrue)
+		// or from a branch
+		err = os.Chdir(tmpTestDir)
+		if err != nil {
+			panic(err)
+		}
+		os.Args = []string{"hcdev", "init", "-cloneExample=HoloWorld", "-fromDevelop", "HoloWorld2"}
+		err = app.Run(os.Args)
+		So(err, ShouldBeNil)
+		So(cmd.IsFile(filepath.Join(tmpTestDir, "HoloWorld2", "dna", "HoloWorld", "HoloWorld.js")), ShouldBeTrue)
 
 		// or with a specified name
 		err = os.Chdir(tmpTestDir)
 		if err != nil {
 			panic(err)
 		}
-		os.Args = []string{"hcdev", "init", "-cloneExample=clutter", "myClutter"}
+		os.Args = []string{"hcdev", "init", "-cloneExample=HoloWorld", "myHoloWorld"}
 		err = app.Run(os.Args)
 		So(err, ShouldBeNil)
-		So(cmd.IsFile(filepath.Join(tmpTestDir, "myClutter", "dna", "clutter", "clutter.js")), ShouldBeTrue)
+		So(cmd.IsFile(filepath.Join(tmpTestDir, "myHoloWorld", "dna", "HoloWorld", "HoloWorld.js")), ShouldBeTrue)
 		So(cmd.IsDir(tmpTestDir, holo.ChainDataDir), ShouldBeFalse)
 
 		// but fail if the directory is already there
@@ -153,7 +164,7 @@ func TestInit(t *testing.T) {
 		if err != nil {
 			panic(err)
 		}
-		os.Args = []string{"hcdev", "init", "-cloneExample=clutter"}
+		os.Args = []string{"hcdev", "init", "-cloneExample=HoloWorld"}
 		err = app.Run(os.Args)
 		So(err, ShouldNotBeNil)
 		So(os.Getenv("HC_TESTING_EXITERR"), ShouldEqual, "1")
@@ -201,6 +212,10 @@ func TestWeb(t *testing.T) {
 	tmpTestDir, app := setupTestingApp("foo")
 	defer os.RemoveAll(tmpTestDir)
 
+	os.Unsetenv("HCLOG_DHT_ENABLE")
+	os.Unsetenv("HCLOG_GOSSIP_ENABLE")
+	os.Unsetenv("HCLOG_DEBUG_ENABLE")
+
 	Convey("'web' should run a webserver", t, func() {
 		out, err := cmd.RunAppWithStdoutCapture(app, []string{"hcdev", "-no-nat-upnp", "web"}, 5*time.Second)
 		So(err, ShouldBeNil)
@@ -208,7 +223,7 @@ func TestWeb(t *testing.T) {
 		So(out, ShouldContainSubstring, "Serving holochain with DNA hash:")
 		// it should include app level debug but not holochain debug
 		So(out, ShouldContainSubstring, "running zyZome genesis")
-		So(out, ShouldNotContainSubstring, "NewEntry of %dna added as: QmR")
+		So(out, ShouldNotContainSubstring, "NewEntry of %dna added as: Qm")
 	})
 	app = setupApp()
 
@@ -227,6 +242,72 @@ func TestWeb(t *testing.T) {
 	})
 }
 
+func TestIdenity(t *testing.T) {
+	os.Setenv("HC_TESTING", "true")
+	tmpTestDir, app := setupTestingApp("foo")
+	defer os.RemoveAll(tmpTestDir)
+	Convey("it should create default from users config", t, func() {
+		host, _ := os.Hostname()
+		So(getIdentity("", ""), ShouldEqual, sysUser.Username+"@"+host)
+	})
+	Convey("it should use params", t, func() {
+		So(getIdentity("foo", "bar"), ShouldEqual, "foo@bar")
+	})
+	Convey("verbose should show the identity and nodeid", t, func() {
+		out, err := cmd.RunAppWithStdoutCapture(app, []string{"hcdev", "-agentID=foo", "-serverID=bar", "-verbose", "web"}, 1*time.Second)
+		So(err, ShouldBeNil)
+		So(out, ShouldContainSubstring, "Identity: foo")
+		So(out, ShouldContainSubstring, "NodeID: QmNQq6JDkxoYFzWVi5C4fVQ47zbFpUDiRg2AF8XE6CDDow")
+	})
+}
+
+func TestDump(t *testing.T) {
+	Convey("create an app dna", t, func() {
+		tmpTestDir, app := setupTestingApp("foo")
+		defer os.RemoveAll(tmpTestDir)
+
+		port, err := cmd.GetFreePort()
+		So(err, ShouldBeNil)
+
+		portArgument := strconv.Itoa(port)
+		_, err = cmd.RunAppWithStdoutCapture(app, []string{"hcdev", "-no-nat-upnp", "web", portArgument}, 1*time.Second)
+
+		So(err, ShouldBeNil)
+
+		Convey("dump --chain should show chain entries as a human readable string", func() {
+			out, err := cmd.RunAppWithStdoutCapture(app, []string{"hcdev", "-path", tmpTestDir + "/foo", "dump", "--chain"}, 1*time.Second)
+
+			So(err, ShouldBeNil)
+			So(out, ShouldContainSubstring, "%dna:")
+			So(out, ShouldContainSubstring, "%agent:")
+		})
+
+		Convey("dump --dht should show chain entries as a human readable string", func() {
+			out, err := cmd.RunAppWithStdoutCapture(app, []string{"hcdev", "-path", tmpTestDir + "/foo", "dump", "--dht"}, 1*time.Second)
+
+			So(err, ShouldBeNil)
+			So(out, ShouldContainSubstring, "DHT changes: 2")
+			So(out, ShouldContainSubstring, "DHT entries:")
+		})
+
+		Convey("dump --chain --json should show chain entries as JSON string", func() {
+			out, err := cmd.RunAppWithStdoutCapture(app, []string{"hcdev", "-path", tmpTestDir + "/foo", "dump", "--chain", "--json"}, 1*time.Second)
+
+			So(err, ShouldBeNil)
+			So(out, ShouldContainSubstring, "{\n    \"%dna\": {")
+			So(out, ShouldContainSubstring, ",\n    \"%agent\": {")
+		})
+
+		Convey("dump --dht --json should show chain entries as JSON string", func() {
+			out, err := cmd.RunAppWithStdoutCapture(app, []string{"hcdev", "-path", tmpTestDir + "/foo", "dump", "--dht", "--json"}, 1*time.Second)
+
+			So(err, ShouldBeNil)
+			So(out, ShouldContainSubstring, "\"dht_changes\": [")
+			So(out, ShouldContainSubstring, "\"dht_entries\": [")
+		})
+	})
+}
+
 func TestBridging(t *testing.T) {
 	os.Setenv("HC_TESTING", "true")
 	tmpTestDir, app := setupTestingApp("foo", "bar")
@@ -237,6 +318,7 @@ func TestBridging(t *testing.T) {
 	data := []BridgeSpec{BridgeSpec{Path: bridgeSourceDir, Side: holo.BridgeTo, BridgeZome: "jsSampleZome", BridgeGenesisDataTo: "some data 314"}}
 	var b bytes.Buffer
 	err := holo.Encode(&b, "json", data)
+
 	if err != nil {
 		panic(err)
 	}

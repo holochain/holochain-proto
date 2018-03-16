@@ -2,8 +2,8 @@ package holochain
 
 import (
 	"fmt"
+	. "github.com/Holochain/holochain-proto/hash"
 	peer "github.com/libp2p/go-libp2p-peer"
-	. "github.com/metacurrency/holochain/hash"
 	ma "github.com/multiformats/go-multiaddr"
 	. "github.com/smartystreets/goconvey/convey"
 	"testing"
@@ -368,11 +368,11 @@ func TestGossipCycle(t *testing.T) {
 		log.color, log.f = log.setupColor("%{message}")
 
 		// if the code were rentrant the log would should the events in a different order
-		ShouldLog(log, "node0_starting gossipWith <peer.ID UfY4We>\nnode0_no new puts received\nnode0_finish gossipWith <peer.ID UfY4We>, err=<nil>\nnode0_starting gossipWith <peer.ID UfY4We>\nnode0_no new puts received\nnode0_finish gossipWith <peer.ID UfY4We>, err=<nil>\n", func() {
+		ShouldLog(log, func() {
 			go h0.dht.gossipWith(h1.nodeID)
 			h0.dht.gossipWith(h1.nodeID)
 			time.Sleep(time.Millisecond * 100)
-		})
+		}, "node0_starting gossipWith <peer.ID UfY4We>\nnode0_no new puts received\nnode0_finish gossipWith <peer.ID UfY4We>, err=<nil>\nnode0_starting gossipWith <peer.ID UfY4We>\nnode0_no new puts received\nnode0_finish gossipWith <peer.ID UfY4We>, err=<nil>\n")
 		log.color, log.f = log.setupColor(log.Format)
 	})
 }

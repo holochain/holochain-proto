@@ -4,8 +4,8 @@ import (
 	"bytes"
 	"crypto/rand"
 	"fmt"
+	. "github.com/Holochain/holochain-proto/hash"
 	ic "github.com/libp2p/go-libp2p-crypto"
-	. "github.com/metacurrency/holochain/hash"
 	. "github.com/smartystreets/goconvey/convey"
 	"testing"
 	"time"
@@ -42,6 +42,18 @@ func TestNewHeader(t *testing.T) {
 	})
 }
 
+func TestHeaderToJSON(t *testing.T) {
+	h, key, now := chainTestSetup()
+	Convey("it should convert a header to JSON", t, func() {
+		e := GobEntry{C: "1234"}
+		hd := testHeader(h, "evenNumbers", &e, key, now)
+		j, err := hd.ToJSON()
+		So(err, ShouldBeNil)
+		So(j, ShouldStartWith, `{"Type":"evenNumbers","Time":"`)
+		So(j, ShouldEndWith, `","EntryLink":"QmNiCwBNA8MWDADTFVq1BonUEJbS2SvjAoNkZZrhEwcuU2","HeaderLink":"QmNiCwBNA8MWDADTFVq1BonUEJbS2SvjAoNkZZrhEwcuUi","TypeLink":"1","Signature":"3eDinUfqsX4V2iuwFvFNSwyy4KEugYj6DPpssjrAsabkVvozBrWrLJRuA9AXhiN8R3MzZvyLfW2BV8zKDevSDiVR"}`)
+	})
+}
+
 func TestMarshalHeader(t *testing.T) {
 	h, key, now := chainTestSetup()
 
@@ -55,6 +67,18 @@ func TestMarshalHeader(t *testing.T) {
 		err = (&nh).Unmarshal(b, 34)
 		So(err, ShouldBeNil)
 		So(fmt.Sprintf("%v", nh), ShouldEqual, fmt.Sprintf("%v", *hd))
+	})
+}
+
+func TestSignatureB58(t *testing.T) {
+	h, key, now := chainTestSetup()
+	e := GobEntry{C: "1234"}
+	hd := testHeader(h, "evenNumbers", &e, key, now)
+	Convey("it should round-trip", t, func() {
+		b58sig := hd.Sig.B58String()
+		So(b58sig, ShouldEqual, "3eDinUfqsX4V2iuwFvFNSwyy4KEugYj6DPpssjrAsabkVvozBrWrLJRuA9AXhiN8R3MzZvyLfW2BV8zKDevSDiVR")
+		newSig := SignatureFromB58String(b58sig)
+		So(newSig.Equal(hd.Sig), ShouldBeTrue)
 	})
 }
 

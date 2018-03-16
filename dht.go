@@ -7,18 +7,20 @@
 package holochain
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
-	ic "github.com/libp2p/go-libp2p-crypto"
-	peer "github.com/libp2p/go-libp2p-peer"
-	. "github.com/metacurrency/holochain/hash"
-	"github.com/tidwall/buntdb"
 	"path/filepath"
 	"strconv"
 	"strings"
 	"sync"
+
+	. "github.com/Holochain/holochain-proto/hash"
+	ic "github.com/libp2p/go-libp2p-crypto"
+	peer "github.com/libp2p/go-libp2p-peer"
+	"github.com/tidwall/buntdb"
 )
 
 // Holds the dht configuration options
@@ -663,9 +665,6 @@ func (dht *DHT) getLinks(base Hash, tag string, statusMask int) (results []Tagge
 			return true
 		})
 
-		if len(results) == 0 {
-			err = fmt.Errorf("No links for %s", tag)
-		}
 		return err
 	})
 	return
@@ -769,6 +768,7 @@ func (dht *DHT) Query(key Hash, msgType MsgType, body interface{}) (response int
 	var result *dhtQueryResult
 	result, err = query.Run(dht.h.node.ctx, rtp)
 	if err != nil {
+
 		return nil, err
 	}
 	response = result.response
@@ -894,6 +894,108 @@ func (dht *DHT) String() (result string) {
 	return
 }
 
+// DumpIdxJSON converts message and data of a DHT change request to a JSON string representation.
+func (dht *DHT) DumpIdxJSON(idx int) (str string, err error) {
+	var msg Message
+	var buffer bytes.Buffer
+	var msgField, dataField string
+	msg, err = dht.GetIdxMessage(idx)
+
+	if err != nil {
+		return "", err
+	}
+
+	f, _ := msg.Fingerprint()
+	buffer.WriteString(fmt.Sprintf("{ \"index\": %d,", idx))
+	msgField = fmt.Sprintf("\"message\": { \"fingerprint\": \"%v\", \"content\": \"%v\" },", f, msg)
+
+	switch msg.Type {
+	case PUT_REQUEST:
+		key := msg.Body.(PutReq).H
+		entry, entryType, _, _, e := dht.get(key, StatusDefault, GetMaskAll)
+		if e != nil {
+			err = fmt.Errorf("couldn't get %v err:%v ", key, e)
+			return
+		}
+		dataField = fmt.Sprintf("\"data\": { \"type\": \"%s\", \"entry\": \"%v\" }", entryType, entry)
+	}
+
+	if len(dataField) > 0 {
+		buffer.WriteString(msgField)
+		buffer.WriteString(dataField)
+	} else {
+		buffer.WriteString(strings.TrimSuffix(msgField, ","))
+	}
+	buffer.WriteString("}")
+	return PrettyPrintJSON(buffer.Bytes())
+}
+
+// JSON converts a DHT into a JSON string representation.
+func (dht *DHT) JSON() (result string, err error) {
+	var buffer, entries bytes.Buffer
+	idx, err := dht.GetIdx()
+	if err != nil {
+		return "", err
+	}
+	buffer.WriteString("{ \"dht_changes\": [")
+	for i := 1; i <= idx; i++ {
+		json, err := dht.DumpIdxJSON(i)
+		if err != nil {
+			return "", fmt.Errorf("DHT Change %d,  Error: %v", i, err)
+		}
+		buffer.WriteString(json)
+		if i < idx {
+			buffer.WriteString(",")
+		}
+	}
+	buffer.WriteString("], \"dht_entries\": [")
+	err = dht.db.View(func(tx *buntdb.Tx) error {
+		err = tx.Ascend("entry", func(key, value string) bool {
+			x := strings.Split(key, ":")
+			k := string(x[1])
+			var status string
+			statusVal, err := tx.Get("status:" + k)
+			if err != nil {
+				status = fmt.Sprintf("<err getting status:%v>", err)
+			} else {
+				status = statusValueToString(statusVal)
+			}
+
+			var sources string
+			sources, err = tx.Get("src:" + k)
+			if err != nil {
+				sources = fmt.Sprintf("<err getting sources:%v>", err)
+			}
+			var links bytes.Buffer
+			err = tx.Ascend("link", func(key, value string) bool {
+				x := strings.Split(key, ":")
+				base := x[1]
+				link := x[2]
+				tag := x[3]
+				if base == k {
+					links.WriteString(fmt.Sprintf("{ \"linkTo\": \"%s\",", link))
+					links.WriteString(fmt.Sprintf("\"tag\": \"%s\",", tag))
+					links.WriteString(fmt.Sprintf("\"value\": \"%s\" },", EscapeJSONValue(value)))
+				}
+				return true
+			})
+			entries.WriteString(fmt.Sprintf("{ \"hash\": \"%s\",", k))
+			entries.WriteString(fmt.Sprintf("\"status\": \"%s\",", status))
+			entries.WriteString(fmt.Sprintf("\"value\": \"%s\",", EscapeJSONValue(value)))
+			entries.WriteString(fmt.Sprintf("\"sources\": \"%s\"", sources))
+			if links.Len() > 0 {
+				entries.WriteString(fmt.Sprintf(",\"links\": [%s]", strings.TrimSuffix(links.String(), ",")))
+			}
+			entries.WriteString("},")
+			return true
+		})
+		return nil
+	})
+	buffer.WriteString(strings.TrimSuffix(entries.String(), ","))
+	buffer.WriteString("]}")
+	return PrettyPrintJSON(buffer.Bytes())
+}
+
 // Close cleans up the DHT
 func (dht *DHT) Close() {
 	close(dht.retryQueue)
@@ -902,12 +1004,14 @@ func (dht *DHT) Close() {
 	dht.gchan = nil
 	close(dht.gossipPuts)
 	dht.gossipPuts = nil
+	dht.db.Close()
+	dht.db = nil
 }
 
 // Retry starts retry processing
 func RetryTask(h *Holochain) {
 	dht := h.dht
-	if len(dht.retryQueue) > 0 {
+	if dht != nil && len(dht.retryQueue) > 0 {
 		r := <-dht.retryQueue
 		if r.retries > 0 {
 			resp, err := actionReceiver(dht.h, &r.msg, r.retries-1)

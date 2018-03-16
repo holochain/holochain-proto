@@ -3,10 +3,10 @@ package holochain
 import (
 	"encoding/json"
 	"fmt"
+	. "github.com/Holochain/holochain-proto/hash"
 	b58 "github.com/jbenet/go-base58"
 	ic "github.com/libp2p/go-libp2p-crypto"
 	peer "github.com/libp2p/go-libp2p-peer"
-	. "github.com/metacurrency/holochain/hash"
 	"github.com/robertkrimen/otto"
 	. "github.com/smartystreets/goconvey/convey"
 	"strings"
@@ -29,7 +29,20 @@ func TestNewJSRibosome(t *testing.T) {
 		defer CleanupTestChain(h, d)
 		v, err := NewJSRibosome(h, &Zome{RibosomeType: JSRibosomeType, Code: "\n1+ )"})
 		So(v, ShouldBeNil)
-		So(err.Error(), ShouldEqual, "Error executing JavaScript: (anonymous): Line 2:4 Unexpected token )")
+		So(err.Error(), ShouldEqual, "Error executing JavaScript: (anonymous): Line 38:4 Unexpected token )")
+	})
+
+	Convey("you can set the error handling configuration", t, func() {
+		d, _, h := PrepareTestChain("test")
+		defer CleanupTestChain(h, d)
+		_, err := NewJSRibosome(h, &Zome{RibosomeType: JSRibosomeType, Config: map[string]interface{}{"ErrorHandling": ErrHandlingReturnErrorsStr}})
+		So(err, ShouldBeNil)
+		_, err = NewJSRibosome(h, &Zome{RibosomeType: JSRibosomeType, Config: map[string]interface{}{"ErrorHandling": ErrHandlingThrowErrorsStr}})
+		So(err, ShouldBeNil)
+		_, err = NewJSRibosome(h, &Zome{RibosomeType: JSRibosomeType, Config: map[string]interface{}{"ErrorHandling": 2}})
+		So(err.Error(), ShouldEqual, "Expected ErrorHandling config value to be string")
+		_, err = NewJSRibosome(h, &Zome{RibosomeType: JSRibosomeType, Config: map[string]interface{}{"ErrorHandling": "fish"}})
+		So(err.Error(), ShouldEqual, "Expected ErrorHandling config value to be 'throwErrors' or 'returnErrorValue', was: 'fish'")
 	})
 
 	Convey("it should have an App structure:", t, func() {
@@ -81,9 +94,14 @@ func TestNewJSRibosome(t *testing.T) {
 		So(err, ShouldBeNil)
 		z := v.(*JSRibosome)
 
-		_, err = z.Run("HC.Version")
+		_, err = z.Run("HC.HashNotFound")
 		So(err, ShouldBeNil)
 		s, _ := z.lastResult.ToString()
+		So(s, ShouldEqual, "null")
+
+		_, err = z.Run("HC.Version")
+		So(err, ShouldBeNil)
+		s, _ = z.lastResult.ToString()
 		So(s, ShouldEqual, VersionStr)
 
 		_, err = z.Run("HC.Status.Deleted")
@@ -138,10 +156,10 @@ func TestNewJSRibosome(t *testing.T) {
 			s, _ := z.lastResult.ToString()
 			So(s, ShouldEqual, "a bogus test holochain")
 
-			ShouldLog(&infoLog, "Warning: Getting special properties via property() is deprecated as of 3. Returning nil values.  Use App* instead\n", func() {
+			ShouldLog(&infoLog, func() {
 				_, err = z.Run(`property("` + ID_PROPERTY + `")`)
 				So(err, ShouldBeNil)
-			})
+			}, "Warning: Getting special properties via property() is deprecated as of 3. Returning nil values.  Use App* instead\n")
 
 		})
 
@@ -184,10 +202,10 @@ func TestNewJSRibosome(t *testing.T) {
 				panic(err)
 			}
 
-			ShouldLog(h.nucleus.alog, fmt.Sprintf(`[{"Side":0,"ToApp":"QmY8Mzg9F69e5P9AoQPYat655HEhc1TVGs11tmfNSzkqto"},{"Side":1,"Token":"%s"}]`, token), func() {
+			ShouldLog(h.nucleus.alog, func() {
 				_, err := z.Run(`testGetBridges()`)
 				So(err, ShouldBeNil)
-			})
+			}, fmt.Sprintf(`[{"Side":0,"ToApp":"QmY8Mzg9F69e5P9AoQPYat655HEhc1TVGs11tmfNSzkqto"},{"Side":1,"Token":"%s"}]`, token))
 
 		})
 
@@ -264,9 +282,7 @@ func TestNewJSRibosome(t *testing.T) {
 		})
 		Convey("bridge", func() {
 			_, err := z.Run(`bridge("QmVGtdTZdTFaLsaj2RwdVG8jcjNNcp1DE914DKZ2kHmXHw","zySampleZome","testStrFn1","foo")`)
-			So(err, ShouldBeNil)
-			result := z.lastResult.String()
-			So(result, ShouldEqual, "HolochainError: no active bridge")
+			So(err.Error(), ShouldEqual, `{"errorMessage":"no active bridge","function":"bridge","name":"HolochainError","source":{}}`)
 
 			// TODO
 			// This test can't work because of the import cycle that we can't import
@@ -302,18 +318,18 @@ func TestNewJSRibosome(t *testing.T) {
 			*/
 		})
 		Convey("send", func() {
-			ShouldLog(h.nucleus.alog, `result was: "{\"pong\":\"foobar\"}"`, func() {
+			ShouldLog(h.nucleus.alog, func() {
 				_, err := z.Run(`debug("result was: "+JSON.stringify(send(App.Key.Hash,{ping:"foobar"})))`)
 				So(err, ShouldBeNil)
-			})
+			}, `result was: "{\"pong\":\"foobar\"}"`)
 		})
 		Convey("send async", func() {
-			ShouldLog(h.nucleus.alog, `async result of message with 123 was: {"pong":"foobar"}`, func() {
+			ShouldLog(h.nucleus.alog, func() {
 				_, err := z.Run(`send(App.Key.Hash,{ping:"foobar"},{Callback:{Function:"asyncPing",ID:"123"}})`)
 				So(err, ShouldBeNil)
 				err = <-h.asyncSends
 				So(err, ShouldBeNil)
-			})
+			}, `async result of message with 123 was: {"pong":"foobar"}`)
 		})
 		Convey("send async with 100ms timeout", func() {
 			_, err := z.Run(`send(App.Key.Hash,{block:true},{Callback:{Function:"asyncPing",ID:"123"},Timeout:100})`)
@@ -343,42 +359,42 @@ func TestJSQuery(t *testing.T) {
 		profileHash := commit(h, "profile", `{"firstName":"Zippy","lastName":"Pinhead"}`)
 		commit(h, "rating", fmt.Sprintf(`{"Links":[{"Base":"%s","Link":"%s","Tag":"4stars"}]}`, hash.String(), profileHash.String()))
 
-		ShouldLog(h.nucleus.alog, `[3,7]`, func() {
+		ShouldLog(h.nucleus.alog, func() {
 			_, err := z.Run(`debug(query({Constrain:{EntryTypes:["oddNumbers"]}}))`)
 			So(err, ShouldBeNil)
-		})
-		ShouldLog(h.nucleus.alog, `["QmSwMfay3iCynzBFeq9rPzTMTnnuQSMUSe84whjcC9JPAo","QmfMPAEdN1BB9imcz97NsaYYaWEN3baC5aSDXqJSiWt4e6"]`, func() {
+		}, `[3,7]`)
+		ShouldLog(h.nucleus.alog, func() {
 			_, err := z.Run(`debug(query({Return:{Hashes:true},Constrain:{EntryTypes:["oddNumbers"]}}))`)
 			So(err, ShouldBeNil)
-		})
-		ShouldLog(h.nucleus.alog, `[{"Entry":3,"Hash":"QmSwMfay3iCynzBFeq9rPzTMTnnuQSMUSe84whjcC9JPAo"},{"Entry":7,"Hash":"QmfMPAEdN1BB9imcz97NsaYYaWEN3baC5aSDXqJSiWt4e6"}]`, func() {
+		}, `["QmSwMfay3iCynzBFeq9rPzTMTnnuQSMUSe84whjcC9JPAo","QmfMPAEdN1BB9imcz97NsaYYaWEN3baC5aSDXqJSiWt4e6"]`)
+		ShouldLog(h.nucleus.alog, func() {
 			_, err := z.Run(`debug(query({Return:{Hashes:true,Entries:true},Constrain:{EntryTypes:["oddNumbers"]}}))`)
 			So(err, ShouldBeNil)
-		})
-		ShouldLog(h.nucleus.alog, `[{"Entry":3,"Header":{"EntryLink":"QmSwMfay3iCynzBFeq9rPzTMTnnuQSMUSe84whjcC9JPAo","HeaderLink":"Qm`, func() {
+		}, `[{"Entry":3,"Hash":"QmSwMfay3iCynzBFeq9rPzTMTnnuQSMUSe84whjcC9JPAo"},{"Entry":7,"Hash":"QmfMPAEdN1BB9imcz97NsaYYaWEN3baC5aSDXqJSiWt4e6"}]`)
+		ShouldLog(h.nucleus.alog, func() {
 			_, err := z.Run(`debug(query({Return:{Headers:true,Entries:true},Constrain:{EntryTypes:["oddNumbers"]}}))`)
 			So(err, ShouldBeNil)
-		})
-		ShouldLog(h.nucleus.alog, `["foo","bar"]`, func() {
+		}, `[{"Entry":3,"Header":{"EntryLink":"QmSwMfay3iCynzBFeq9rPzTMTnnuQSMUSe84whjcC9JPAo","HeaderLink":"Qm`)
+		ShouldLog(h.nucleus.alog, func() {
 			_, err := z.Run(`debug(query({Constrain:{EntryTypes:["secret"]}}))`)
 			So(err, ShouldBeNil)
-		})
-		ShouldLog(h.nucleus.alog, `[{"firstName":"Zippy","lastName":"Pinhead"}]`, func() {
+		}, `["foo","bar"]`)
+		ShouldLog(h.nucleus.alog, func() {
 			_, err := z.Run(`debug(query({Constrain:{EntryTypes:["profile"]}}))`)
 			So(err, ShouldBeNil)
-		})
-		ShouldLog(h.nucleus.alog, `[{"Identity":"Herbert \u003ch@bert.com\u003e","PublicKey":"CAESIHLUfxjdoEfk8byjsBR+FXxYpYrFTviSBf2BbC0boylT","Revocation":null}]`, func() {
+		}, `[{"firstName":"Zippy","lastName":"Pinhead"}]`)
+		ShouldLog(h.nucleus.alog, func() {
 			_, err := z.Run(`debug(query({Constrain:{EntryTypes:["%agent"]}}))`)
 			So(err, ShouldBeNil)
-		})
-		ShouldLog(h.nucleus.alog, `{"message":"data format not implemented: _DNA","name":"HolochainError"}`, func() {
-			_, err := z.Run(`debug(query({Constrain:{EntryTypes:["%dna"]}}))`)
-			So(err, ShouldBeNil)
-		})
-		ShouldLog(h.nucleus.alog, `[{"Links":[{"Base":"QmSwMfay3iCynzBFeq9rPzTMTnnuQSMUSe84whjcC9JPAo","Link":"QmYeinX5vhuA91D3v24YbgyLofw9QAxY6PoATrBHnRwbtt","Tag":"4stars"}]}]`, func() {
+		}, `[{"Identity":"Herbert \u003ch@bert.com\u003e","PublicKey":"CAESIHLUfxjdoEfk8byjsBR+FXxYpYrFTviSBf2BbC0boylT","Revocation":null}]`)
+
+		_, err := z.Run(`debug(query({Constrain:{EntryTypes:["%dna"]}}))`)
+		So(err.Error(), ShouldEqual, `{"errorMessage":"data format not implemented: _DNA","function":"query","name":"HolochainError","source":{}}`)
+
+		ShouldLog(h.nucleus.alog, func() {
 			_, err := z.Run(`debug(query({Constrain:{EntryTypes:["rating"]}}))`)
 			So(err, ShouldBeNil)
-		})
+		}, `[{"Links":[{"Base":"QmSwMfay3iCynzBFeq9rPzTMTnnuQSMUSe84whjcC9JPAo","Link":"QmYeinX5vhuA91D3v24YbgyLofw9QAxY6PoATrBHnRwbtt","Tag":"4stars"}]}]`)
 	})
 }
 
@@ -401,22 +417,22 @@ func TestJSBridgeGenesis(t *testing.T) {
 	d, _, h := PrepareTestChain("test")
 	defer CleanupTestChain(h, d)
 
-	fakeToApp, _ := NewHash("QmVGtdTZdTFaLsaj2RwdVG8jcjNNcp1DE914DKZ2kHmXHx")
+	fakeToApp, _ := NewHash("QmVGtdTZdTFaLsaj2134RwdVG8jcjNNcp1DE914DKZ2kHmXHx")
 	Convey("it should fail if the bridge genesis function returns false", t, func() {
 
-		ShouldLog(&h.Config.Loggers.App, h.dnaHash.String()+" test data", func() {
+		ShouldLog(&h.Config.Loggers.App, func() {
 			z, err := NewJSRibosome(h, &Zome{RibosomeType: JSRibosomeType, Code: `function bridgeGenesis(side,app,data) {debug(app+" "+data);if (side==HC.Bridge.From) {return false;} return true;}`})
 			So(err, ShouldBeNil)
 			err = z.BridgeGenesis(BridgeFrom, h.dnaHash, "test data")
 			So(err.Error(), ShouldEqual, "bridgeGenesis failed")
-		})
+		}, h.dnaHash.String()+" test data")
 	})
 	Convey("it should work if the genesis function returns true", t, func() {
-		ShouldLog(&h.Config.Loggers.App, fakeToApp.String()+" test data", func() {
+		ShouldLog(&h.Config.Loggers.App, func() {
 			z, _ := NewJSRibosome(h, &Zome{RibosomeType: JSRibosomeType, Code: `function bridgeGenesis(side,app,data) {debug(app+" "+data);if (side==HC.Bridge.From) {return false;} return true;}`})
 			err := z.BridgeGenesis(BridgeTo, fakeToApp, "test data")
 			So(err, ShouldBeNil)
-		})
+		}, fakeToApp.String()+" test data")
 	})
 }
 
@@ -475,17 +491,17 @@ func TestJSValidateCommit(t *testing.T) {
 		v, err := NewJSRibosome(h, &Zome{RibosomeType: JSRibosomeType, Code: `function validateCommit(name,entry,header,pkg,sources) {debug(name);debug(entry);debug(JSON.stringify(header));debug(JSON.stringify(sources));debug(JSON.stringify(pkg));return true};`})
 		So(err, ShouldBeNil)
 		d := EntryDef{Name: "evenNumbers", DataFormat: DataFormatString}
-		ShouldLog(&h.Config.Loggers.App, `evenNumbers
-foo
-{"EntryLink":"QmNiCwBNA8MWDADTFVq1BonUEJbS2SvjAoNkZZrhEwcuU2","Time":"1970-01-01T00:00:01Z","Type":"evenNumbers"}
-["fakehashvalue"]
-{}
-`, func() {
+		ShouldLog(&h.Config.Loggers.App, func() {
 			a := NewCommitAction("oddNumbers", &GobEntry{C: "foo"})
 			a.header = &hdr
 			err = v.ValidateAction(a, &d, nil, []string{"fakehashvalue"})
 			So(err, ShouldBeNil)
-		})
+		}, `evenNumbers
+foo
+{"EntryLink":"QmNiCwBNA8MWDADTFVq1BonUEJbS2SvjAoNkZZrhEwcuU2","Time":"1970-01-01T00:00:01Z","Type":"evenNumbers"}
+["fakehashvalue"]
+{}
+`)
 	})
 	Convey("should run an entry value against the defined validator for string data", t, func() {
 		v, err := NewJSRibosome(h, &Zome{RibosomeType: JSRibosomeType, Code: `function validateCommit(name,entry,header,pkg,sources) { return (entry=="fish")};`})
@@ -640,11 +656,14 @@ func TestJSDHT(t *testing.T) {
 	defer CleanupTestChain(h, d)
 
 	hash, _ := NewHash("QmY8Mzg9F69e5P9AoQPYat6x5HEhc1TVGs11tmfNSzkqh2")
-	Convey("get should return hash not found if it doesn't exist", t, func() {
-		v, err := NewJSRibosome(h, &Zome{RibosomeType: JSRibosomeType, Code: fmt.Sprintf(`get("%s");`, hash.String())})
+	Convey("get should return HC.HashNotFound if it doesn't exist", t, func() {
+		v, err := NewJSRibosome(h, &Zome{RibosomeType: JSRibosomeType, Code: fmt.Sprintf(`get("%s")===HC.HashNotFound;`, hash.String())})
+
 		So(err, ShouldBeNil)
 		z := v.(*JSRibosome)
-		So(z.lastResult.String(), ShouldEqual, "HolochainError: hash not found")
+		x, err := z.lastResult.Export()
+		So(err, ShouldBeNil)
+		So(fmt.Sprintf("%v", x), ShouldEqual, `true`)
 	})
 
 	// add an entry onto the chain
@@ -660,14 +679,14 @@ func TestJSDHT(t *testing.T) {
 	})
 
 	Convey("get should return entry of sys types", t, func() {
-		ShouldLog(h.nucleus.alog, `{"Identity":"Herbert \u003ch@bert.com\u003e","PublicKey":[8,1,18,32,114,212,127,24,221,160,71,228,241,188,163,176,20,126,21,124,88,165,138,197,78,248,146,5,253,129,108,45,27,163,41,83],"Revocation":[]}`, func() {
+		ShouldLog(h.nucleus.alog, func() {
 			_, err := NewJSRibosome(h, &Zome{RibosomeType: JSRibosomeType, Code: fmt.Sprintf(`debug(get("%s"));`, h.agentHash.String())})
 			So(err, ShouldBeNil)
-		})
-		ShouldLog(h.nucleus.alog, `[8,1,18,32,114,212,127,24,221,160,71,228,241,188,163,176,20,126,21,124,88,165,138,197,78,248,146,5,253,129,108,45,27,163,41,83]`, func() {
+		}, `{"Identity":"Herbert \u003ch@bert.com\u003e","PublicKey":[8,1,18,32,114,212,127,24,221,160,71,228,241,188,163,176,20,126,21,124,88,165,138,197,78,248,146,5,253,129,108,45,27,163,41,83],"Revocation":[]}`)
+		ShouldLog(h.nucleus.alog, func() {
 			_, err := NewJSRibosome(h, &Zome{RibosomeType: JSRibosomeType, Code: fmt.Sprintf(`debug(get("%s"));`, h.nodeID.Pretty())})
 			So(err, ShouldBeNil)
-		})
+		}, `[8,1,18,32,114,212,127,24,221,160,71,228,241,188,163,176,20,126,21,124,88,165,138,197,78,248,146,5,253,129,108,45,27,163,41,83]`)
 	})
 
 	Convey("get should return entry type", t, func() {
@@ -701,6 +720,19 @@ func TestJSDHT(t *testing.T) {
 	})
 
 	profileHash := commit(h, "profile", `{"firstName":"Zippy","lastName":"Pinhead"}`)
+
+	Convey("get should parsed JSON object of JSON type entries", t, func() {
+		v, err := NewJSRibosome(h, &Zome{RibosomeType: JSRibosomeType, Code: fmt.Sprintf(`get("%s");`, profileHash.String())})
+		So(err, ShouldBeNil)
+		z := v.(*JSRibosome)
+		So(z.lastResult.Class(), ShouldEqual, "Object")
+		x, err := z.lastResult.Export()
+		So(err, ShouldBeNil)
+		y := x.(map[string]interface{})
+		So(y["firstName"], ShouldEqual, "Zippy")
+		So(y["lastName"], ShouldEqual, "Pinhead")
+	})
+
 	reviewHash := commit(h, "review", "this is my bogus review of some thing")
 
 	commit(h, "rating", fmt.Sprintf(`{"Links":[{"Base":"%s","Link":"%s","Tag":"4stars"},{"Base":"%s","Link":"%s","Tag":"4stars"}]}`, hash.String(), profileHash.String(), hash.String(), reviewHash.String()))
@@ -761,8 +793,8 @@ func TestJSDHT(t *testing.T) {
 		z := v.(*JSRibosome)
 		So(z.lastResult.Class(), ShouldEqual, "Array")
 		links, _ := z.lastResult.Export()
-		l0 := links.([]map[string]interface{})[0]
-		l1 := links.([]map[string]interface{})[1]
+		l0 := links.([]map[string]interface{})[1]
+		l1 := links.([]map[string]interface{})[0]
 		So(l1["Hash"], ShouldEqual, h.agentHash.String())
 		lp := l1["Entry"].(map[string]interface{})
 		So(fmt.Sprintf("%v", lp["Identity"]), ShouldEqual, "Herbert <h@bert.com>")
@@ -833,7 +865,10 @@ func TestJSDHT(t *testing.T) {
 		z = v.(*JSRibosome)
 		x, err := z.lastResult.Export()
 		So(err, ShouldBeNil)
-		So(fmt.Sprintf("%v", x), ShouldEqual, `{"firstName":"Zippy","lastName":"ThePinhead"}`)
+
+		y := x.(map[string]interface{})
+		So(y["firstName"], ShouldEqual, "Zippy")
+		So(y["lastName"], ShouldEqual, "ThePinhead")
 	})
 
 	Convey("remove function should mark item deleted", t, func() {
@@ -845,9 +880,7 @@ func TestJSDHT(t *testing.T) {
 		So(err, ShouldBeNil)
 
 		v, err = NewJSRibosome(h, &Zome{RibosomeType: JSRibosomeType, Code: fmt.Sprintf(`get("%s");`, hash.String())})
-		So(err, ShouldBeNil)
-		z = v.(*JSRibosome)
-		So(z.lastResult.String(), ShouldEqual, "HolochainError: hash deleted")
+		So(err.Error(), ShouldEqual, `{"errorMessage":"hash deleted","function":"get","name":"HolochainError","source":{}}`)
 
 		v, err = NewJSRibosome(h, &Zome{RibosomeType: JSRibosomeType, Code: fmt.Sprintf(`get("%s",{StatusMask:HC.Status.Deleted});`, hash.String())})
 		So(err, ShouldBeNil)
@@ -859,12 +892,9 @@ func TestJSDHT(t *testing.T) {
 	})
 
 	Convey("updateAgent function without options should fail", t, func() {
-		v, err := NewJSRibosome(h, &Zome{RibosomeType: JSRibosomeType,
+		_, err := NewJSRibosome(h, &Zome{RibosomeType: JSRibosomeType,
 			Code: fmt.Sprintf(`updateAgent({})`)})
-		So(err, ShouldBeNil)
-		z := v.(*JSRibosome)
-		x := z.lastResult.String()
-		So(x, ShouldEqual, "HolochainError: expecting identity and/or revocation option")
+		So(err.Error(), ShouldEqual, `{"errorMessage":"expecting identity and/or revocation option","function":"updateAgent","name":"HolochainError","source":{}}`)
 	})
 
 	Convey("updateAgent function should commit a new agent entry", t, func() {

@@ -1,4 +1,4 @@
-// Copyright (C) 2013-2017, The MetaCurrency Project (Eric Harris-Braun, Arthur Brock, et. al.)
+// Copyright (C) 2013-2018, The MetaCurrency Project (Eric Harris-Braun, Arthur Brock, et. al.)
 // Use of this source code is governed by GPLv3 found in the LICENSE file
 //----------------------------------------------------------------------------------------
 // Ribosome provides an interface for an execution environment interface for chains and their entries
@@ -9,7 +9,7 @@ package holochain
 import (
 	"errors"
 	"fmt"
-	. "github.com/metacurrency/holochain/hash"
+	. "github.com/Holochain/holochain-proto/hash"
 	"sort"
 	"strings"
 )

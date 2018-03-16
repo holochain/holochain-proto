@@ -13,10 +13,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	. "github.com/Holochain/holochain-proto/hash"
 	"github.com/google/uuid"
 	ic "github.com/libp2p/go-libp2p-crypto"
 	peer "github.com/libp2p/go-libp2p-peer"
-	. "github.com/metacurrency/holochain/hash"
 	mh "github.com/multiformats/go-multihash"
 	"github.com/tidwall/buntdb"
 	"io"
@@ -30,10 +30,10 @@ import (
 
 const (
 	// Version is the numeric version number of the holochain library
-	Version int = 17
+	Version int = 22
 
 	// VersionStr is the textual version number of the holochain library
-	VersionStr string = "17"
+	VersionStr string = "22"
 
 	// DefaultSendTimeout a time.Duration to wait by default for send to complete
 	DefaultSendTimeout = 3000 * time.Millisecond
@@ -673,14 +673,17 @@ func (h *Holochain) GetZome(zName string) (z *Zome, err error) {
 
 // Close releases the resources associated with a holochain
 func (h *Holochain) Close() {
-	if h.chain.s != nil {
-		h.chain.s.Close()
+	if h.chain != nil {
+		h.chain.Close()
+		h.chain = nil
 	}
 	if h.dht != nil {
 		h.dht.Close()
+		h.dht = nil
 	}
 	if h.node != nil {
 		h.node.Close()
+		h.node = nil
 	}
 }
 
@@ -691,13 +694,7 @@ func (h *Holochain) Reset() (err error) {
 	h.agentHash = Hash{}
 	h.agentTopHash = Hash{}
 
-	if h.chain.s != nil {
-		h.chain.s.Close()
-	}
-
-	if h.node != nil {
-		h.node.Close()
-	}
+	h.Close()
 
 	err = os.RemoveAll(h.DBPath())
 	if err != nil {
@@ -707,6 +704,7 @@ func (h *Holochain) Reset() (err error) {
 	if err = os.MkdirAll(h.DBPath(), os.ModePerm); err != nil {
 		return
 	}
+
 	h.chain, err = NewChainFromFile(h.hashSpec, filepath.Join(h.DBPath(), StoreFileName))
 	if err != nil {
 		return
@@ -716,10 +714,7 @@ func (h *Holochain) Reset() (err error) {
 	if err != nil {
 		panic(err)
 	}
-	if h.dht != nil {
-		h.dht.Close()
-	}
-	h.dht = NewDHT(h)
+
 	if h.asyncSends != nil {
 		close(h.asyncSends)
 		h.asyncSends = nil
@@ -807,7 +802,7 @@ func (h *Holochain) StartBackgroundTasks() {
 	}
 	h.node.retrying = h.TaskTicker(h.Config.retryInterval, RetryTask)
 	if h.Config.BootstrapServer != "" {
-		BootstrapRefreshTask(h)
+		go BootstrapRefreshTask(h)
 		h.node.retrying = h.TaskTicker(h.Config.bootstrapRefreshInterval, BootstrapRefreshTask)
 	}
 	h.node.refreshing = h.TaskTicker(h.Config.routingRefreshInterval, RoutingRefreshTask)
@@ -886,9 +881,9 @@ func (h *Holochain) Sign(doc []byte) (sig []byte, err error) {
 }
 
 //VerifySignature uses the signature, data(doc) and signatory's public key to Verify the sign in contents of doc
-func (h *Holochain) VerifySignature(signature []byte, data string, pubKey ic.PubKey) (matches bool, err error) {
+func (h *Holochain) VerifySignature(signature Signature, data string, pubKey ic.PubKey) (matches bool, err error) {
 
-	matches, err = pubKey.Verify([]byte(data), signature)
+	matches, err = pubKey.Verify([]byte(data), signature.S)
 	if err != nil {
 		return
 	}

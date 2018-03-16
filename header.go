@@ -9,8 +9,10 @@ package holochain
 import (
 	"bytes"
 	"encoding/binary"
+	"fmt"
+	. "github.com/Holochain/holochain-proto/hash"
+	b58 "github.com/jbenet/go-base58"
 	ic "github.com/libp2p/go-libp2p-crypto"
-	. "github.com/metacurrency/holochain/hash"
 	"io"
 	"time"
 )
@@ -77,6 +79,36 @@ func (hd *Header) Sum(spec HashSpec) (hash Hash, b []byte, err error) {
 	if err == nil {
 		err = hash.Sum(spec, b)
 	}
+	return
+}
+
+// B58String encodes a signature as a b58string
+func (sig Signature) B58String() (result string) {
+	return b58.Encode(sig.S)
+}
+
+// Equal tests signature equality
+func (sig1 Signature) Equal(sig2 Signature) bool {
+	return bytes.Equal(sig1.S, sig2.S)
+}
+
+// SignatureFromB58String encodes a signature as a b58string
+func SignatureFromB58String(encoded string) (sig Signature) {
+	sig.S = b58.Decode(encoded)
+	return
+}
+
+// ToJSON serializes a header to JSON
+func (hd *Header) ToJSON() (result string, err error) {
+	result = fmt.Sprintf(
+		`{"Type":"%s","Time":"%v","EntryLink":"%s","HeaderLink":"%s","TypeLink":"%s","Signature":"%s"}`,
+		jsSanitizeString(hd.Type),
+		hd.Time,
+		hd.EntryLink.String(),
+		hd.HeaderLink.String(),
+		hd.TypeLink.String(),
+		hd.Sig.B58String(),
+	)
 	return
 }
 

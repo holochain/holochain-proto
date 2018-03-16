@@ -117,6 +117,15 @@ const (
     "$id": "http://example.com/example.json/items",
     "type": "object",
     "properties": {
+      "Source": {
+        "$id": "http://example.com/example.json/items/properties/Source",
+        "type": "string",
+        "title": "The Source Schema ",
+        "default": "",
+        "examples": [
+          "QmeLEGdTHwM4XYGggePJAYXLx968GiuiNooU1p7fa8T8zd"
+        ]
+      },
       "Header": {
         "$id": "http://example.com/example.json/items/properties/Header",
         "type": "object",
@@ -127,7 +136,7 @@ const (
             "title": "The Type Schema ",
             "default": "",
             "examples": [
-              "evenNumbers"
+              "someType"
             ]
           },
           "Time": {
@@ -136,7 +145,7 @@ const (
             "title": "The Time Schema ",
             "default": "",
             "examples": [
-              "1969-12-31 19:00:01.000000001 -0500 EST"
+              "2018-03-15 19:30:05.740445736 -0400 EDT"
             ]
           },
           "EntryLink": {
@@ -145,7 +154,7 @@ const (
             "title": "The Entrylink Schema ",
             "default": "",
             "examples": [
-              "QmNiCwBNA8MWDADTFVq1BonUEJbS2SvjAoNkZZrhEwcuU2"
+              "QmeLEGdTHwM4XYGggePJAYXLx968GiuiNooU1p7fa8T8zd"
             ]
           },
           "HeaderLink": {
@@ -154,7 +163,7 @@ const (
             "title": "The Headerlink Schema ",
             "default": "",
             "examples": [
-              "QmNiCwBNA8MWDADTFVq1BonUEJbS2SvjAoNkZZrhEwcuUi"
+              "QmWr1C3CeX12iZz98JGhzfsvfQpif29Ptwe86miZ9N9snU"
             ]
           },
           "TypeLink": {
@@ -172,11 +181,10 @@ const (
             "title": "The Signature Schema ",
             "default": "",
             "examples": [
-              "3eDinUfqsX4V2iuwFvFNSwyy4KEugYj6DPpssjrAsabkVvozBrWrLJRuA9AXhiN8R3MzZvyLfW2BV8zKDevSDiVR"
+              "StwmRCJtj9Ymjdo7ws8ZeNdmEi2GZzNdtbubT8MZBfxpXWQDLtQPDZWeSA2qHTsVtyN7tZCrYTeWmeCdcoYe197"
             ]
           }
-        },
-        "required": ["Type", "Time", "EntryLink","HeaderLink","TypeLink","Signature"]
+        }
       },
       "Role": {
         "$id": "http://example.com/example.json/items/properties/Role",
@@ -188,7 +196,7 @@ const (
         ]
       }
     },
-    "required": ["Header"]
+    "required": ["Header","Source"]
   }
 }
 `

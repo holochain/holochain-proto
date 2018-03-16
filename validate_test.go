@@ -208,7 +208,7 @@ func TestGetValidationResponse(t *testing.T) {
 	Convey("headers entry type should return empty package with the entry", t, func() {
 		hd := h.Chain().Top()
 		j, _ := hd.ToJSON()
-		entryStr := fmt.Sprintf(`[{"Header":%s,"Role":"someRole"}]`, j)
+		entryStr := fmt.Sprintf(`[{"Header":%s,"Role":"someRole","Source":"%s"}]`, j, h.nodeID.Pretty())
 		hash := commit(h, HeadersEntryType, entryStr)
 		hd = h.Chain().Top()
 		e := &GobEntry{C: entryStr}

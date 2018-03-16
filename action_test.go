@@ -55,7 +55,7 @@ func TestValidateAction(t *testing.T) {
 	Convey("modifying a headers entry should fail", t, func() {
 		hd := h.Chain().Top()
 		j, _ := hd.ToJSON()
-		entryStr := fmt.Sprintf(`[{"Header":%s,"Role":"someRole"}]`, j)
+		entryStr := fmt.Sprintf(`[{"Header":%s,"Role":"someRole","Source":"%s"}]`, j, h.nodeID.Pretty())
 		am := NewModAction(HeadersEntryType, &GobEntry{C: entryStr}, HashFromPeerID(h.nodeID))
 		_, err = h.ValidateAction(am, am.entryType, nil, []peer.ID{h.nodeID})
 		So(err, ShouldEqual, ErrNotValidForHeadersType)
@@ -195,7 +195,7 @@ func TestSysValidateEntry(t *testing.T) {
 	Convey("validate headers entry should succeed on valid entry", t, func() {
 		hd := h.Chain().Top()
 		j, _ := hd.ToJSON()
-		entryStr := fmt.Sprintf(`[{"Header":%s,"Role":"someRole"}]`, j)
+		entryStr := fmt.Sprintf(`[{"Header":%s,"Role":"someRole","Source":"%s"}]`, j, h.nodeID.Pretty())
 		err := sysValidateEntry(h, HeadersEntryDef, &GobEntry{C: entryStr}, nil)
 		So(err, ShouldBeNil)
 	})

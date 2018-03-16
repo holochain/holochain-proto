@@ -384,11 +384,11 @@ func (a *ActionGetBridges) Do(h *Holochain) (response interface{}, err error) {
 // Sign
 
 type ActionSign struct {
-	doc []byte
+	data []byte
 }
 
-func NewSignAction(doc []byte) *ActionSign {
-	a := ActionSign{doc: doc}
+func NewSignAction(data []byte) *ActionSign {
+	a := ActionSign{data: data}
 	return &a
 }
 
@@ -397,16 +397,16 @@ func (a *ActionSign) Name() string {
 }
 
 func (a *ActionSign) Args() []Arg {
-	return []Arg{{Name: "doc", Type: StringArg}}
+	return []Arg{{Name: "data", Type: StringArg}}
 }
 
 func (a *ActionSign) Do(h *Holochain) (response interface{}, err error) {
-	var b []byte
-	b, err = h.Sign(a.doc)
+	var sig Signature
+	sig, err = h.Sign(a.data)
 	if err != nil {
 		return
 	}
-	response = b
+	response = sig.B58String()
 	return
 }
 

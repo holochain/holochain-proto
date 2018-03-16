@@ -20,7 +20,6 @@ import (
 	holo "github.com/Holochain/holochain-proto"
 	. "github.com/Holochain/holochain-proto/apptest"
 	"github.com/Holochain/holochain-proto/cmd"
-	hash "github.com/Holochain/holochain-proto/hash"
 	"github.com/Holochain/holochain-proto/ui"
 	"github.com/urfave/cli"
 	// fsnotify	"github.com/fsnotify/fsnotify"

@@ -1516,7 +1516,7 @@ func TestingAppAppPackage() string {
         "Zome":   "zySampleZome",
         "FnName": "addEven",
         "Input":  "5",
-        "Err":    "Error calling 'commit': Validation Failed"
+        "Err":    "Error calling 'commit': Validation Failed: 5 is not even"
     },
     {
         "Zome":   "zySampleZome",
@@ -1571,13 +1571,13 @@ func TestingAppAppPackage() string {
 	"Zome":   "jsSampleZome",
 	"FnName": "addOdd",
 	"Input":  "2",
-	"Err":    {"errorMessage":"Validation Failed","function":"commit","name":"` + HolochainErrorPrefix + `","source":{"column":"28","functionName":"addOdd","line":"45"}}
+	"Err":    {"errorMessage":"Validation Failed: 2 is not odd","function":"commit","name":"` + HolochainErrorPrefix + `","source":{"column":"28","functionName":"addOdd","line":"45"}}
     },
     {
 	"Zome":   "jsSampleZome",
 	"FnName": "addOdd",
 	"Input":  "2",
-	"ErrMsg":  "Validation Failed"
+	"ErrMsg":  "Validation Failed: 2 is not odd"
     },
     {
 	"Zome":   "zySampleZome",
@@ -1715,7 +1715,7 @@ function validateCommit(entry_type,entry,header,pkg,sources) {
 }
 function validate(entry_type,entry,header,sources) {
   if (entry_type=="oddNumbers") {
-    return entry%2 != 0
+    return (entry%2 != 0) ? true : entry+" is not odd"
   }
   if (entry_type=="profile") {
     return true
@@ -1785,9 +1785,9 @@ function asyncPing(message,id) {
 (defn validateMod [entryType entry header replaces pkg sources] true)
 (defn validateDel [entryType hash pkg sources] true)
 (defn validate [entryType entry header sources]
-  (cond (== entryType "evenNumbers")  (cond (== (mod entry 2) 0) true false)
+  (cond (== entryType "evenNumbers")  (cond (== (mod entry 2) 0) true (concat (str entry) " is not even"))
         (== entryType "primes")  (isprime (hget entry %prime))
-        (== entryType "profile") true
+        (== entryType "profile") ""
         false)
 )
 (defn validateLink [linkEntryType baseHash links pkg sources] true)

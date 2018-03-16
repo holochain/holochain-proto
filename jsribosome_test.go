@@ -516,7 +516,7 @@ foo
 		a := NewCommitAction("oddNumbers", &GobEntry{C: "cow"})
 		a.header = &hdr
 		err = v.ValidateAction(a, &d, nil, nil)
-		So(err, ShouldEqual, ValidationFailedErr)
+		So(IsValidationFailedErr(err), ShouldBeTrue)
 
 		a = NewCommitAction("oddNumbers", &GobEntry{C: "fish"})
 		a.header = &hdr
@@ -530,7 +530,7 @@ foo
 		a := NewCommitAction("oddNumbers", &GobEntry{C: "\"cow\""})
 		a.header = &hdr
 		err = v.ValidateAction(a, &d, nil, nil)
-		So(err, ShouldEqual, ValidationFailedErr)
+		So(IsValidationFailedErr(err), ShouldBeTrue)
 
 		a = NewCommitAction("oddNumbers", &GobEntry{C: "\"fish\""})
 		a.header = &hdr
@@ -544,7 +544,7 @@ foo
 		a := NewCommitAction("evenNumbers", &GobEntry{C: `{"data":"cow"}`})
 		a.header = &hdr
 		err = v.ValidateAction(a, &d, nil, nil)
-		So(err, ShouldEqual, ValidationFailedErr)
+		So(IsValidationFailedErr(err), ShouldBeTrue)
 
 		a = NewCommitAction("evenNumbers", &GobEntry{C: `{"data":"fish"}`})
 		a.header = &hdr

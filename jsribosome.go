@@ -652,17 +652,17 @@ func NewJSRibosome(h *Holochain, zome *Zome) (n Ribosome, err error) {
 			a: &ActionSign{},
 			fn: func(args []Arg, _a ArgsAction, call otto.FunctionCall) (result otto.Value, err error) {
 				a := _a.(*ActionSign)
-				a.doc = []byte(args[0].value.(string))
+				a.data = []byte(args[0].value.(string))
 				var r interface{}
 				r, err = a.Do(h)
 				if err != nil {
 					return
 				}
-				var signature []byte
+				var b58sig string
 				if r != nil {
-					signature = r.([]byte)
+					b58sig = r.(string)
 				}
-				result, _ = jsr.vm.ToValue(string(signature))
+				result, _ = jsr.vm.ToValue(b58sig)
 				return
 			},
 		},

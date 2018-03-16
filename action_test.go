@@ -4,6 +4,7 @@ import (
 	// "fmt"
 	"fmt"
 	. "github.com/Holochain/holochain-proto/hash"
+	b58 "github.com/jbenet/go-base58"
 	ic "github.com/libp2p/go-libp2p-crypto"
 	peer "github.com/libp2p/go-libp2p-peer"
 	. "github.com/smartystreets/goconvey/convey"
@@ -441,5 +442,40 @@ func TestActionBundle(t *testing.T) {
 			So(err, ShouldBeNil)
 		}, `debug message during bundleCanceled: canceling cancel!`)
 		So(h.chain.BundleStarted(), ShouldNotBeNil)
+	})
+}
+
+func TestActionSigning(t *testing.T) {
+	d, _, h := PrepareTestChain("test")
+	defer CleanupTestChain(h, d)
+
+	privKey := h.agent.PrivKey()
+	sig, err := privKey.Sign([]byte("3"))
+	if err != nil {
+		panic(err)
+	}
+
+	var b58sig string
+	Convey("sign action should return a b58 encoded signature", t, func() {
+		result, err := NewSignAction([]byte("3")).Do(h)
+		So(err, ShouldBeNil)
+		b58sig = result.(string)
+
+		So(b58sig, ShouldEqual, b58.Encode(sig))
+	})
+
+	var pubKeyBytes []byte
+	pubKeyBytes, err = ic.MarshalPublicKey(h.agent.PubKey())
+	if err != nil {
+		panic(err)
+	}
+	pubKey := b58.Encode(pubKeyBytes)
+	Convey("verify signture action should test a signature", t, func() {
+		result, err := NewVerifySignatureAction(b58sig, string([]byte("3")), pubKey).Do(h)
+		So(err, ShouldBeNil)
+		So(result.(bool), ShouldBeTrue)
+		result, err = NewVerifySignatureAction(b58sig, string([]byte("34")), pubKey).Do(h)
+		So(err, ShouldBeNil)
+		So(result.(bool), ShouldBeFalse)
 	})
 }

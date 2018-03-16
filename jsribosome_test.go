@@ -229,7 +229,7 @@ func TestNewJSRibosome(t *testing.T) {
 
 		})
 
-		// Sign - this methord signs the data that is passed with the user's privKey and returns the signed data
+		// Sign - this function signs the data that is passed with the user's privKey and returns the signed data
 		Convey("sign", func() {
 			d, _, h := PrepareTestChain("test")
 			defer CleanupTestChain(h, d)
@@ -244,16 +244,16 @@ func TestNewJSRibosome(t *testing.T) {
 			_, err = z.Run(`sign("3")`)
 			So(err, ShouldBeNil)
 			//z := v.(*JSRibosome)
-			So(z.lastResult.String(), ShouldEqual, string(sig))
+			So(z.lastResult.String(), ShouldEqual, b58.Encode(sig))
 			//test2
 			sig, err = privKey.Sign([]byte("{\"firstName\":\"jackT\",\"lastName\":\"hammer\"}"))
 			_, err = z.Run(`sign('{"firstName":"jackT","lastName":"hammer"}')`)
 			So(err, ShouldBeNil)
-			So(z.lastResult.String(), ShouldEqual, string(sig))
+			So(z.lastResult.String(), ShouldEqual, b58.Encode(sig))
 		})
 
-		//Verifying signature of a perticular user
-		// sig will be signed by the user and We will verifySignature i.e verify if the uses we know signed it
+		//Verifying signature of a particular user
+		// sig will be signed by the user and We will verifySignature i.e verify if the user we know signed it
 		Convey("verifySignature", func() {
 			d, _, h := PrepareTestChain("test")
 			defer CleanupTestChain(h, d)
@@ -272,6 +272,11 @@ func TestNewJSRibosome(t *testing.T) {
 			_, err = z.Run(fmt.Sprintf(`verifySignature("%s","%s","%s")`, b58.Encode((sig)), "3", b58.Encode(pubKeyBytes)))
 			So(err, ShouldBeNil)
 			So(z.lastResult.String(), ShouldEqual, "true")
+
+			_, err = z.Run(fmt.Sprintf(`verifySignature(sign("3"),"%s","%s")`, "3", b58.Encode(pubKeyBytes)))
+			So(err, ShouldBeNil)
+			So(z.lastResult.String(), ShouldEqual, "true")
+
 			//verifySignature function FAILURE Condition
 			_, err = z.Run(fmt.Sprintf(`verifySignature("%s","%s","%s")`, b58.Encode(sig), "34", b58.Encode(pubKeyBytes)))
 			So(err, ShouldBeNil)

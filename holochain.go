@@ -870,17 +870,14 @@ func (h *Holochain) Send(basectx context.Context, proto int, to peer.ID, message
 	return
 }
 
-//Sign uses the agent' private key to sign the contents of doc
-func (h *Holochain) Sign(doc []byte) (sig []byte, err error) {
+// Sign uses the agent's private key to sign the contents of data
+func (h *Holochain) Sign(data []byte) (signature Signature, err error) {
 	privKey := h.agent.PrivKey()
-	sig, err = privKey.Sign(doc)
-	if err != nil {
-		return
-	}
+	signature.S, err = privKey.Sign(data)
 	return
 }
 
-//VerifySignature uses the signature, data(doc) and signatory's public key to Verify the sign in contents of doc
+// VerifySignature uses the signature, data and the given public key to Verify the data was signed by holder of that key
 func (h *Holochain) VerifySignature(signature Signature, data string, pubKey ic.PubKey) (matches bool, err error) {
 
 	matches, err = pubKey.Verify([]byte(data), signature.S)

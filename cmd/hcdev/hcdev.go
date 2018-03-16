@@ -87,7 +87,7 @@ func setupApp() (app *cli.App) {
 	app = cli.NewApp()
 	app.Name = "hcdev"
 	app.Usage = "holochain dev command line tool"
-	app.Version = fmt.Sprintf("0.0.3 (holochain %s)", holo.VersionStr)
+	app.Version = fmt.Sprintf("0.0.4 (holochain %s)", holo.VersionStr)
 
 	var service *holo.Service
 	var serverID, agentID, identity string
@@ -481,11 +481,6 @@ func setupApp() (app *cli.App) {
 					return err
 				}
 
-				if bridgeSpecsFile != "" {
-					return cmd.MakeErr(c, "bridging not supported in scenario tests yet")
-				}
-				bridgeSpecsFile = "_"
-
 				args := c.Args()
 				if len(args) != 1 {
 					return cmd.MakeErr(c, "missing scenario name argument")
@@ -526,7 +521,9 @@ func setupApp() (app *cli.App) {
 				}
 				secondsFromNowPlusDelay := cmd.GetUnixTimestamp_secondsFromNow(scenarioStartDelay)
 
-				scenarioConfig, err = holo.LoadTestConfig(filepath.Join(h.TestPath(), scenarioName))
+				scenarioPath := filepath.Join(h.TestPath(), scenarioName)
+
+				scenarioConfig, err = holo.LoadTestConfig(scenarioPath)
 				if err != nil {
 					return cmd.MakeErrFromErr(c, err)
 				}
@@ -558,6 +555,12 @@ func setupApp() (app *cli.App) {
 					// test so we set the flag "_" the use no bootstrap
 					if bootstrapServer == "" {
 						bootstrapServer = "_"
+					}
+
+					// check to see if there's a bridge config for the role
+					scenarioBridgeSpecs := filepath.Join(scenarioPath, roleName+"_"+defaultSpecsFile)
+					if !holo.FileExists(scenarioBridgeSpecs) {
+						scenarioBridgeSpecs = bridgeSpecsFile
 					}
 
 					originalRoleName := roleName
@@ -602,9 +605,10 @@ func setupApp() (app *cli.App) {
 							"-logPrefix="+logPrefix,
 							"-serverID="+serverID,
 							"-agentID="+agentID,
-
 							fmt.Sprintf("-bootstrapServer=%v", bootstrapServer),
 							fmt.Sprintf("-keepalive=%v", keepalive),
+							fmt.Sprintf("-bridgeSpecs=%v", scenarioBridgeSpecs),
+
 							"test",
 							fmt.Sprintf("-benchmarks=%v", benchmarks),
 							fmt.Sprintf("-syncPauseUntil=%v", secondsFromNowPlusDelay),

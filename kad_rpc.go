@@ -16,7 +16,6 @@ import (
 	. "github.com/Holochain/holochain-proto/hash"
 	peer "github.com/libp2p/go-libp2p-peer"
 	pstore "github.com/libp2p/go-libp2p-peerstore"
-	routing "github.com/libp2p/go-libp2p-routing"
 	ma "github.com/multiformats/go-multiaddr"
 	_ "sync"
 	_ "time"
@@ -172,7 +171,7 @@ func (node *Node) FindPeer(ctx context.Context, id peer.ID) (pstore.PeerInfo, er
 
 	node.log.Logf("FindPeer %v %v", id, result.success)
 	if result.peer.ID == "" {
-		return pstore.PeerInfo{}, routing.ErrNotFound
+		return pstore.PeerInfo{}, ErrHashNotFound
 	}
 
 	return *result.peer, nil

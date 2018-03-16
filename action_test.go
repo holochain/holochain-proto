@@ -4,6 +4,7 @@ import (
 	// "fmt"
 	"fmt"
 	. "github.com/Holochain/holochain-proto/hash"
+	b58 "github.com/jbenet/go-base58"
 	ic "github.com/libp2p/go-libp2p-crypto"
 	peer "github.com/libp2p/go-libp2p-peer"
 	. "github.com/smartystreets/goconvey/convey"
@@ -269,6 +270,13 @@ func TestActionGet(t *testing.T) {
 		m := h.node.NewMessage(GET_REQUEST, GetReq{H: hash})
 		_, err := ActionReceiver(h, m)
 		So(err, ShouldEqual, ErrHashNotFound)
+
+		options := GetOptions{}
+		a := ActionGet{GetReq{H: hash}, &options}
+		response, err := a.Do(h)
+		So(err, ShouldEqual, ErrHashNotFound)
+		So(fmt.Sprintf("%v", response), ShouldEqual, "<nil>")
+
 	})
 
 	commit(h, "oddNumbers", "3")
@@ -289,6 +297,21 @@ func TestActionGet(t *testing.T) {
 		So(len(resp.CloserPeers), ShouldEqual, 1)
 		So(peer.ID(resp.CloserPeers[0].ID).Pretty(), ShouldEqual, "QmUfY4WeqD3UUfczjdkoFQGEgCAVNf7rgFfjdeTbr7JF1C")
 	})
+
+	Convey("do should return not found if it doesn't exist and we are connected", t, func() {
+		hash, err := NewHash("QmY8Mzg9F69e5P9AoQPYat655HEhc1TVGs11tmfNSzfrom")
+		if err != nil {
+			panic(err)
+		}
+
+		options := GetOptions{}
+		a := ActionGet{GetReq{H: hash}, &options}
+		response, err := a.Do(h)
+		So(err, ShouldEqual, ErrHashNotFound)
+		So(response, ShouldBeNil)
+
+	})
+
 }
 
 func TestActionGetLocal(t *testing.T) {
@@ -316,5 +339,40 @@ func TestActionGetLocal(t *testing.T) {
 		So(err, ShouldBeNil)
 		getResp := rsp.(GetResp)
 		So(getResp.Entry.Content().(string), ShouldEqual, "31415")
+	})
+}
+
+func TestActionSigning(t *testing.T) {
+	d, _, h := PrepareTestChain("test")
+	defer CleanupTestChain(h, d)
+
+	privKey := h.agent.PrivKey()
+	sig, err := privKey.Sign([]byte("3"))
+	if err != nil {
+		panic(err)
+	}
+
+	var b58sig string
+	Convey("sign action should return a b58 encoded signature", t, func() {
+		result, err := NewSignAction([]byte("3")).Do(h)
+		So(err, ShouldBeNil)
+		b58sig = result.(string)
+
+		So(b58sig, ShouldEqual, b58.Encode(sig))
+	})
+
+	var pubKeyBytes []byte
+	pubKeyBytes, err = ic.MarshalPublicKey(h.agent.PubKey())
+	if err != nil {
+		panic(err)
+	}
+	pubKey := b58.Encode(pubKeyBytes)
+	Convey("verify signture action should test a signature", t, func() {
+		result, err := NewVerifySignatureAction(b58sig, string([]byte("3")), pubKey).Do(h)
+		So(err, ShouldBeNil)
+		So(result.(bool), ShouldBeTrue)
+		result, err = NewVerifySignatureAction(b58sig, string([]byte("34")), pubKey).Do(h)
+		So(err, ShouldBeNil)
+		So(result.(bool), ShouldBeFalse)
 	})
 }

@@ -384,11 +384,11 @@ func (a *ActionGetBridges) Do(h *Holochain) (response interface{}, err error) {
 // Sign
 
 type ActionSign struct {
-	doc []byte
+	data []byte
 }
 
-func NewSignAction(doc []byte) *ActionSign {
-	a := ActionSign{doc: doc}
+func NewSignAction(data []byte) *ActionSign {
+	a := ActionSign{data: data}
 	return &a
 }
 
@@ -397,29 +397,29 @@ func (a *ActionSign) Name() string {
 }
 
 func (a *ActionSign) Args() []Arg {
-	return []Arg{{Name: "doc", Type: StringArg}}
+	return []Arg{{Name: "data", Type: StringArg}}
 }
 
 func (a *ActionSign) Do(h *Holochain) (response interface{}, err error) {
-	var b []byte
-	b, err = h.Sign(a.doc)
+	var sig Signature
+	sig, err = h.Sign(a.data)
 	if err != nil {
 		return
 	}
-	response = b
+	response = sig.B58String()
 	return
 }
 
 //------------------------------------------------------------
 // VerifySignature
 type ActionVerifySignature struct {
-	signature string
-	data      string
-	pubKey    string
+	b58signature string
+	data         string
+	b58pubKey    string
 }
 
 func NewVerifySignatureAction(signature string, data string, pubKey string) *ActionVerifySignature {
-	a := ActionVerifySignature{signature: signature, data: data, pubKey: pubKey}
+	a := ActionVerifySignature{b58signature: signature, data: data, b58pubKey: pubKey}
 	return &a
 }
 
@@ -434,10 +434,9 @@ func (a *ActionVerifySignature) Args() []Arg {
 func (a *ActionVerifySignature) Do(h *Holochain) (response interface{}, err error) {
 	var b bool
 	var pubKeyIC ic.PubKey
-	var sig []byte
-	sig = b58.Decode(a.signature)
+	sig := SignatureFromB58String(a.b58signature)
 	var pubKeyBytes []byte
-	pubKeyBytes = b58.Decode(a.pubKey)
+	pubKeyBytes = b58.Decode(a.b58pubKey)
 	pubKeyIC, err = ic.UnmarshalPublicKey(pubKeyBytes)
 	if err != nil {
 		return

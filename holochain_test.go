@@ -738,6 +738,29 @@ func TestGetPrivateEntryDefs(t *testing.T) {
 	})
 }
 
+func TestSigning(t *testing.T) {
+	d, _, h := SetupTestChain("test")
+	defer CleanupTestDir(d)
+	Convey("a user should be able to sign and verify data", t, func() {
+		privKey := h.agent.PrivKey()
+		sig, err := privKey.Sign([]byte("3"))
+		if err != nil {
+			panic(err)
+		}
+		signature, err := h.Sign([]byte("3"))
+		So(err, ShouldBeNil)
+		So(string(signature.S), ShouldEqual, string(sig))
+
+		matched, err := h.VerifySignature(signature, string([]byte("3")), h.agent.PubKey())
+		So(err, ShouldBeNil)
+		So(matched, ShouldBeTrue)
+
+		matched, err = h.VerifySignature(signature, string([]byte("32")), h.agent.PubKey())
+		So(err, ShouldBeNil)
+		So(matched, ShouldBeFalse)
+	})
+}
+
 //func TestDNADefaults(t *testing.T) {
 //	h, err := DecodeDNA(strings.NewReader( [[Zomes]]`
 //Name = "test"

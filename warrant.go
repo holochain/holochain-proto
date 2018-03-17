@@ -146,11 +146,15 @@ func (w *SelfRevocationWarrant) Property(key string) (value interface{}, err err
 }
 
 func (w *SelfRevocationWarrant) Encode() (data []byte, err error) {
-	data, err = w.Revocation.Marshal()
+	var rev string
+	rev, err = w.Revocation.Marshal()
+	if err == nil {
+		data = []byte(rev)
+	}
 	return
 }
 
 func (w *SelfRevocationWarrant) Decode(data []byte) (err error) {
-	err = w.Revocation.Unmarshal(data)
+	err = w.Revocation.Unmarshal(string(data))
 	return
 }

@@ -31,7 +31,7 @@ type StatusChange struct {
 type Header struct {
 	Type       string
 	Time       time.Time
-	HeaderLink Hash // link to previous headerq
+	HeaderLink Hash // link to previous header
 	EntryLink  Hash // link to entry
 	TypeLink   Hash // link to header of previous header of this type
 	Sig        Signature

@@ -283,7 +283,7 @@ func TestZygoQuery(t *testing.T) {
 		ShouldLog(h.nucleus.alog, func() {
 			_, err := z.Run(`(debug (str (query (hash Constrain: (hash EntryTypes: ["%agent"])))))`)
 			So(err, ShouldBeNil)
-		}, `["{\"Identity\":\"Herbert \\u003ch@bert.com\\u003e\",\"Revocation\":null,\"PublicKey\":\"CAESIHLUfxjdoEfk8byjsBR+FXxYpYrFTviSBf2BbC0boylT\"}"]`)
+		}, `["{\"Identity\":\"Herbert \\u003ch@bert.com\\u003e\",\"Revocation\":\"\",\"PublicKey\":\"4XTTM8sJEQD5zMLT1gtu2ogshwg5AdUPNhJRbLvs77gsVtQQi\"}"]`)
 	})
 }
 func TestZygoGenesis(t *testing.T) {
@@ -562,7 +562,7 @@ func TestZygoDHT(t *testing.T) {
 		ShouldLog(h.nucleus.alog, func() {
 			_, err := NewZygoRibosome(h, &Zome{RibosomeType: ZygoRibosomeType, Code: fmt.Sprintf(`(debug (get "%s"))`, h.agentHash.String())})
 			So(err, ShouldBeNil)
-		}, `{"result":"{\"Identity\":\"Herbert \\u003ch@bert.com\\u003e\",\"Revocation\":null,\"PublicKey\":\"CAESIHLUfxjdoEfk8byjsBR+FXxYpYrFTviSBf2BbC0boylT\"}"}`)
+		}, `{"result":"\"{\\\"Identity\\\":\\\"Herbert \\\\u003ch@bert.com\\\\u003e\\\",\\\"Revocation\\\":\\\"\\\",\\\"PublicKey\\\":\\\"4XTTM8sJEQD5zMLT1gtu2ogshwg5AdUPNhJRbLvs77gsVtQQi\\\"}\""}`)
 	})
 
 	Convey("get should return entry type", t, func() {
@@ -704,7 +704,7 @@ func TestZygoDHT(t *testing.T) {
 	})
 
 	Convey("updateAgent function should commit a new agent entry", t, func() {
-		oldPubKey, _ := h.agent.PubKey().Bytes()
+		oldPubKey, _ := h.agent.EncodePubKey()
 		v, err := NewZygoRibosome(h, &Zome{RibosomeType: ZygoRibosomeType,
 			Code: fmt.Sprintf(`(updateAgent (hash Identity:"new identity"))`)})
 		So(err, ShouldBeNil)
@@ -715,15 +715,16 @@ func TestZygoDHT(t *testing.T) {
 		So(header.Type, ShouldEqual, AgentEntryType)
 		So(newAgentHash, ShouldEqual, header.EntryLink.String())
 		So(h.agent.Identity(), ShouldEqual, "new identity")
-		newPubKey, _ := h.agent.PubKey().Bytes()
+		newPubKey, _ := h.agent.EncodePubKey()
 		So(fmt.Sprintf("%v", newPubKey), ShouldEqual, fmt.Sprintf("%v", oldPubKey))
 		entry, _, _ := h.chain.GetEntry(header.EntryLink)
-		So(entry.Content().(AgentEntry).Identity, ShouldEqual, "new identity")
-		So(fmt.Sprintf("%v", entry.Content().(AgentEntry).PublicKey), ShouldEqual, fmt.Sprintf("%v", oldPubKey))
+		a, _ := AgentEntryFromJSON(entry.Content().(string))
+		So(a.Identity, ShouldEqual, "new identity")
+		So(fmt.Sprintf("%v", a.PublicKey), ShouldEqual, fmt.Sprintf("%v", oldPubKey))
 	})
 
 	Convey("updateAgent function with revoke option should commit a new agent entry and mark key as modified on DHT", t, func() {
-		oldPubKey, _ := h.agent.PubKey().Bytes()
+		oldPubKey, _ := h.agent.EncodePubKey()
 		oldPeer := h.nodeID
 		oldKey, _ := NewHash(h.nodeIDStr)
 		oldAgentHash := h.agentHash
@@ -740,23 +741,25 @@ func TestZygoDHT(t *testing.T) {
 		header := h.chain.Top()
 		So(header.Type, ShouldEqual, AgentEntryType)
 		So(newAgentHash, ShouldEqual, header.EntryLink.String())
-		newPubKey, _ := h.agent.PubKey().Bytes()
+		newPubKey, _ := h.agent.EncodePubKey()
 		So(fmt.Sprintf("%v", newPubKey), ShouldNotEqual, fmt.Sprintf("%v", oldPubKey))
 		entry, _, _ := h.chain.GetEntry(header.EntryLink)
 		revocation := &SelfRevocation{}
-		revocation.Unmarshal(entry.Content().(AgentEntry).Revocation)
+		a, _ := AgentEntryFromJSON(entry.Content().(string))
+		revocation.Unmarshal(a.Revocation)
 
 		w, _ := NewSelfRevocationWarrant(revocation)
 		payload, _ := w.Property("payload")
 
 		So(string(payload.([]byte)), ShouldEqual, "some revocation data")
-		So(fmt.Sprintf("%v", entry.Content().(AgentEntry).PublicKey), ShouldEqual, fmt.Sprintf("%v", newPubKey))
+		So(fmt.Sprintf("%v", a.PublicKey), ShouldEqual, fmt.Sprintf("%v", newPubKey))
 
 		// the new Key should be available on the DHT
 		newKey, _ := NewHash(h.nodeIDStr)
 		data, _, _, _, err := h.dht.get(newKey, StatusDefault, GetMaskDefault)
 		So(err, ShouldBeNil)
-		So(string(data), ShouldEqual, string(newPubKey))
+		newpk, _ := h.agent.EncodePubKey()
+		So(string(data), ShouldEqual, newpk)
 
 		// the old key should be marked as Modifed and we should get the new hash as the data
 		data, _, _, _, err = h.dht.get(oldKey, StatusDefault, GetMaskDefault)

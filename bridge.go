@@ -63,7 +63,7 @@ func (h *Holochain) AddBridgeAsCallee(fromDNA Hash, appData string) (token strin
 
 	for zomeName, _ := range bridgeSpec {
 		var r Ribosome
-		r, _, err = h.MakeRibosome(zomeName)
+		r, err = h.MakeRibosome(zomeName)
 		if err != nil {
 			return
 		}
@@ -177,7 +177,7 @@ func (h *Holochain) AddBridgeAsCaller(toDNA Hash, token string, url string, appD
 	for _, z := range h.nucleus.dna.Zomes {
 		if z.BridgeTo.String() == toDNAStr {
 			var r Ribosome
-			r, _, err = h.MakeRibosome(z.Name)
+			r, err = h.MakeRibosome(z.Name)
 			if err != nil {
 				return
 			}

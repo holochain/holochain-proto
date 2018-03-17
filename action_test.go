@@ -125,7 +125,7 @@ func TestSysValidateEntry(t *testing.T) {
 		So(err, ShouldBeNil)
 	})
 
-	_, def, _ := h.GetEntryDef("rating")
+	def, _ := h.GetEntryDef("rating")
 
 	Convey("a nil entry is invalid", t, func() {
 		err := sysValidateEntry(h, def, nil, nil)
@@ -135,7 +135,7 @@ func TestSysValidateEntry(t *testing.T) {
 
 	Convey("validate on a schema based entry should check entry against the schema", t, func() {
 		profile := `{"firstName":"Eric"}` // missing required lastName
-		_, def, _ := h.GetEntryDef("profile")
+		def, _ := h.GetEntryDef("profile")
 
 		err := sysValidateEntry(h, def, &GobEntry{C: profile}, nil)
 		So(IsValidationFailedErr(err), ShouldBeTrue)
@@ -173,7 +173,7 @@ func TestSysValidateMod(t *testing.T) {
 	defer CleanupTestChain(h, d)
 
 	hash := commit(h, "evenNumbers", "2")
-	_, def, _ := h.GetEntryDef("evenNumbers")
+	def, _ := h.GetEntryDef("evenNumbers")
 
 	/* This is actually bogus because it assumes we have the entry type in our chain but
 	           might be in a different chain.
@@ -186,7 +186,7 @@ func TestSysValidateMod(t *testing.T) {
 
 	Convey("it should check that entry isn't linking ", t, func() {
 		a := NewModAction("rating", &GobEntry{}, hash)
-		_, ratingsDef, _ := h.GetEntryDef("rating")
+		ratingsDef, _ := h.GetEntryDef("rating")
 		err := a.SysValidation(h, ratingsDef, nil, []peer.ID{h.nodeID})
 		So(err.Error(), ShouldEqual, "Can't mod Links entry")
 	})
@@ -219,7 +219,7 @@ func TestSysValidateDel(t *testing.T) {
 	defer CleanupTestChain(h, d)
 
 	hash := commit(h, "evenNumbers", "2")
-	_, def, _ := h.GetEntryDef("evenNumbers")
+	def, _ := h.GetEntryDef("evenNumbers")
 
 	Convey("it should check that entry types match on del", t, func() {
 		a := NewDelAction("oddNumbers", DelEntry{Hash: hash})
@@ -229,7 +229,7 @@ func TestSysValidateDel(t *testing.T) {
 
 	Convey("it should check that entry isn't linking ", t, func() {
 		a := NewDelAction("rating", DelEntry{Hash: hash})
-		_, ratingsDef, _ := h.GetEntryDef("rating")
+		ratingsDef, _ := h.GetEntryDef("rating")
 		err := a.SysValidation(h, ratingsDef, nil, []peer.ID{h.nodeID})
 		So(err.Error(), ShouldEqual, "Can't del Links entry")
 	})

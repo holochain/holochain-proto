@@ -439,7 +439,7 @@ func jsProcessArgs(jsr *JSRibosome, args []Arg, oArgs []otto.Value) (err error) 
 			if err != nil {
 				return err
 			}
-			_, def, err := jsr.h.GetEntryDef(entryType)
+			def, err := jsr.h.GetEntryDef(entryType)
 			if err != nil {
 				return err
 			}
@@ -536,7 +536,7 @@ type fnData struct {
 }
 
 func makeOttoObjectFromGetResp(h *Holochain, jsr *JSRibosome, getResp *GetResp) (result interface{}, err error) {
-	_, def, err := h.GetEntryDef(getResp.EntryType)
+	def, err := h.GetEntryDef(getResp.EntryType)
 	if err != nil {
 		return
 	}
@@ -846,7 +846,7 @@ func NewJSRibosome(h *Holochain, zome *Zome) (n Ribosome, err error) {
 						var ok bool
 						def, ok = defs[qresult.Header.Type]
 						if !ok {
-							_, def, err = h.GetEntryDef(qresult.Header.Type)
+							def, err = h.GetEntryDef(qresult.Header.Type)
 							if err != nil {
 								return
 							}
@@ -1142,7 +1142,7 @@ func NewJSRibosome(h *Holochain, zome *Zome) (n Ribosome, err error) {
 							l += `,EntryType:"` + jsSanitizeString(th.EntryType) + `"`
 							l += `,Source:"` + jsSanitizeString(th.Source) + `"`
 							var def *EntryDef
-							_, def, err = h.GetEntryDef(th.EntryType)
+							def, err = h.GetEntryDef(th.EntryType)
 							if err != nil {
 								break
 							}

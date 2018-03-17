@@ -502,7 +502,7 @@ func DoTest(h *Holochain, name string, i int, fixtures TestFixtures, t TestData,
 			b = StartBench(h)
 		}
 		if t.Raw {
-			n, _, err := h.MakeRibosome(t.Zome)
+			n, err := h.MakeRibosome(t.Zome)
 			if err != nil {
 				actualError = err
 			} else {

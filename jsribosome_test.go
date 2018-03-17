@@ -615,11 +615,15 @@ func TestJSExposeCall(t *testing.T) {
 	d, _, h := PrepareTestChain("test")
 	defer CleanupTestChain(h, d)
 
-	v, zome, err := h.MakeRibosome("jsSampleZome")
+	v, err := h.MakeRibosome("jsSampleZome")
 	if err != nil {
 		panic(err)
 	}
 	z := v.(*JSRibosome)
+	zome, err := h.GetZome("jsSampleZome")
+	if err != nil {
+		panic(err)
+	}
 	Convey("should allow calling exposed STRING based functions", t, func() {
 		cater, _ := zome.GetFunctionDef("testStrFn1")
 		result, err := z.Call(cater, "fish \"zippy\"")

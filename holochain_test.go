@@ -485,7 +485,7 @@ func TestCall(t *testing.T) {
 		So(result.(string), ShouldEqual, ph.String())
 
 		_, err = h.Call("zySampleZome", "addEven", "41", ZOME_EXPOSURE)
-		So(err.Error(), ShouldEqual, "Error calling 'commit': Validation Failed")
+		So(err.Error(), ShouldEqual, "Error calling 'commit': Validation Failed: 41 is not even")
 	})
 	Convey("it should fail calls to functions not exposed to the given context", t, func() {
 		_, err := h.Call("zySampleZome", "testStrFn1", "arg1 arg2", PUBLIC_EXPOSURE)

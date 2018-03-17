@@ -35,7 +35,7 @@ func TestValidateAction(t *testing.T) {
 		entry := &GobEntry{C: "1"}
 		a := NewCommitAction("evenNumbers", entry)
 		_, err = h.ValidateAction(a, a.entryType, nil, []peer.ID{h.nodeID})
-		So(err, ShouldEqual, ValidationFailedErr)
+		So(IsValidationFailedErr(err), ShouldBeTrue)
 	})
 
 	// these test the sys type cases
@@ -84,14 +84,14 @@ func TestSysValidateEntry(t *testing.T) {
 	Convey("key entry should be a public key", t, func() {
 		e := &GobEntry{}
 		err := sysValidateEntry(h, KeyEntryDef, e, nil)
-		So(err, ShouldEqual, ValidationFailedErr)
+		So(IsValidationFailedErr(err), ShouldBeTrue)
 		e.C = []byte{1, 2, 3}
 		err = sysValidateEntry(h, KeyEntryDef, e, nil)
-		So(err, ShouldEqual, ValidationFailedErr)
+		So(IsValidationFailedErr(err), ShouldBeTrue)
 
 		e.C = "not b58 encoded public key!"
 		err = sysValidateEntry(h, KeyEntryDef, e, nil)
-		So(err, ShouldEqual, ValidationFailedErr)
+		So(IsValidationFailedErr(err), ShouldBeTrue)
 
 		pk, _ := h.agent.EncodePubKey()
 		e.C = pk
@@ -102,12 +102,12 @@ func TestSysValidateEntry(t *testing.T) {
 	Convey("an agent entry should have the correct structure as defined", t, func() {
 		e := &GobEntry{}
 		err := sysValidateEntry(h, AgentEntryDef, e, nil)
-		So(err, ShouldEqual, ValidationFailedErr)
+		So(IsValidationFailedErr(err), ShouldBeTrue)
 
 		// bad agent entry (empty)
 		e.C = ""
 		err = sysValidateEntry(h, AgentEntryDef, e, nil)
-		So(err, ShouldEqual, ValidationFailedErr)
+		So(IsValidationFailedErr(err), ShouldBeTrue)
 
 		ae, _ := h.agent.AgentEntry(nil)
 		// bad public key
@@ -115,7 +115,7 @@ func TestSysValidateEntry(t *testing.T) {
 		a, _ := ae.ToJSON()
 		e.C = a
 		err = sysValidateEntry(h, AgentEntryDef, e, nil)
-		So(err, ShouldEqual, ValidationFailedErr)
+		So(IsValidationFailedErr(err), ShouldBeTrue)
 
 		ae, _ = h.agent.AgentEntry(nil)
 		// bad public key
@@ -123,7 +123,7 @@ func TestSysValidateEntry(t *testing.T) {
 		a, _ = ae.ToJSON()
 		e.C = a
 		err = sysValidateEntry(h, AgentEntryDef, e, nil)
-		So(err, ShouldEqual, ValidationFailedErr)
+		So(IsValidationFailedErr(err), ShouldBeTrue)
 
 		ae, _ = h.agent.AgentEntry(nil)
 		// bad revocation
@@ -131,7 +131,7 @@ func TestSysValidateEntry(t *testing.T) {
 		a, _ = ae.ToJSON()
 		e.C = a
 		err = sysValidateEntry(h, AgentEntryDef, e, nil)
-		So(err, ShouldEqual, ValidationFailedErr)
+		So(IsValidationFailedErr(err), ShouldBeTrue)
 
 		ae, _ = h.agent.AgentEntry(nil)
 		a, _ = ae.ToJSON()
@@ -144,7 +144,8 @@ func TestSysValidateEntry(t *testing.T) {
 
 	Convey("a nil entry is invalid", t, func() {
 		err := sysValidateEntry(h, def, nil, nil)
-		So(err.Error(), ShouldEqual, "nil entry invalid")
+		So(IsValidationFailedErr(err), ShouldBeTrue)
+		So(err.Error(), ShouldEqual, "Validation Failed: nil entry invalid")
 	})
 
 	Convey("validate on a schema based entry should check entry against the schema", t, func() {
@@ -152,8 +153,8 @@ func TestSysValidateEntry(t *testing.T) {
 		_, def, _ := h.GetEntryDef("profile")
 
 		err := sysValidateEntry(h, def, &GobEntry{C: profile}, nil)
-		So(err, ShouldNotBeNil)
-		So(err.Error(), ShouldEqual, "validator profile failed: object property 'lastName' is required")
+		So(IsValidationFailedErr(err), ShouldBeTrue)
+		So(err.Error(), ShouldEqual, "Validation Failed: validator profile failed: object property 'lastName' is required")
 	})
 
 	Convey("validate on a links entry should fail if not formatted correctly", t, func() {
@@ -188,7 +189,7 @@ func TestSysValidateEntry(t *testing.T) {
 
 		err = sysValidateEntry(h, HeadersEntryDef, &GobEntry{C: `{"Fish":2}`}, nil)
 		So(err, ShouldNotBeNil)
-		So(err.Error(), ShouldEqual, "validator %header failed: value must be a slice (was: map[string]interface {})")
+		So(err.Error(), ShouldEqual, "Validation Failed: validator %header failed: value must be a slice (was: map[string]interface {})")
 
 	})
 

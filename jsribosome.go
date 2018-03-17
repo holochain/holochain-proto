@@ -241,18 +241,26 @@ func (jsr *JSRibosome) runValidate(fnName string, code string) (err error) {
 		return
 	}
 	if v.IsBoolean() {
-		if v.IsBoolean() {
-			var b bool
-			b, err = v.ToBoolean()
-			if err != nil {
-				return
-			}
-			if !b {
-				err = ValidationFailedErr
-			}
+		var b bool
+		b, err = v.ToBoolean()
+		if err != nil {
+			return
 		}
+		if !b {
+			err = ValidationFailed()
+		}
+	} else if v.IsString() {
+		var s string
+		s, err = v.ToString()
+		if err != nil {
+			return
+		}
+		if s != "" {
+			err = ValidationFailed(s)
+		}
+
 	} else {
-		err = fmt.Errorf("%s should return boolean, got: %v", fnName, v)
+		err = fmt.Errorf("%s should return boolean or string, got: %v", fnName, v)
 	}
 	return
 }

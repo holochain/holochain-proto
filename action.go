@@ -984,6 +984,11 @@ func DoShare(a CommittingAction, h *Holochain, def *EntryDef) (err error) {
 	return
 }
 
+const (
+	ValidationFailureBadPublicKeyFormat  = "bad public key format"
+	ValidationFailureBadRevocationFormat = "bad revocation format"
+)
+
 // sysValidateEntry does system level validation for adding an entry (put or commit)
 // It checks that entry is not nil, and that it conforms to the entry schema in the definition
 // if it's a Links entry that the contents are correctly structured
@@ -997,12 +1002,12 @@ func sysValidateEntry(h *Holochain, def *EntryDef, entry Entry, pkg *Package) (e
 	case KeyEntryType:
 		pk, ok := entry.Content().([]byte)
 		if !ok || len(pk) != 36 {
-			err = ValidationFailedErr
+			err = ValidationFailed(ValidationFailureBadPublicKeyFormat)
 			return
 		} else {
 			_, err = ic.UnmarshalPublicKey(pk)
 			if err != nil {
-				err = ValidationFailedErr
+				err = ValidationFailed(ValidationFailureBadPublicKeyFormat)
 				return err
 			}
 		}
@@ -1016,7 +1021,7 @@ func sysValidateEntry(h *Holochain, def *EntryDef, entry Entry, pkg *Package) (e
 		// check that the public key is unmarshalable
 		_, err = ic.UnmarshalPublicKey(ae.PublicKey)
 		if err != nil {
-			err = ValidationFailedErr
+			err = ValidationFailed(ValidationFailureBadPublicKeyFormat)
 			return err
 		}
 
@@ -1025,7 +1030,7 @@ func sysValidateEntry(h *Holochain, def *EntryDef, entry Entry, pkg *Package) (e
 			revocation := &SelfRevocation{}
 			err := revocation.Unmarshal(ae.Revocation)
 			if err != nil {
-				err = ValidationFailedErr
+				err = ValidationFailed(ValidationFailureBadRevocationFormat)
 				return err
 			}
 		}
@@ -1034,7 +1039,7 @@ func sysValidateEntry(h *Holochain, def *EntryDef, entry Entry, pkg *Package) (e
 	}
 
 	if entry == nil {
-		err = ErrNilEntryInvalid
+		err = ValidationFailed(ErrNilEntryInvalid.Error())
 		return
 	}
 	// see if there is a schema validator for the entry type and validate it if so
@@ -1049,6 +1054,7 @@ func sysValidateEntry(h *Holochain, def *EntryDef, entry Entry, pkg *Package) (e
 		}
 		h.Debugf("Validating %v against schema", input)
 		if err = def.validator.Validate(input); err != nil {
+			err = ValidationFailed(err.Error())
 			return
 		}
 	} else if def.DataFormat == DataFormatLinks {

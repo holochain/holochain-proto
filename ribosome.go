@@ -49,9 +49,23 @@ const (
 
 	BundleCancelResponseOK     = ""
 	BundleCancelResponseCommit = "commit"
+
+	ValidationFailedErrMsg = "Validation Failed"
 )
 
-var ValidationFailedErr = errors.New("Validation Failed")
+var ValidationFailedErr = errors.New(ValidationFailedErrMsg)
+
+// ValidationFailed creates a validation failed error message
+func ValidationFailed(msgs ...string) error {
+	if len(msgs) == 0 {
+		return ValidationFailedErr
+	}
+	return errors.New(ValidationFailedErrMsg + ": " + strings.Join(msgs, `, `))
+}
+
+func IsValidationFailedErr(err error) bool {
+	return strings.HasPrefix(err.Error(), ValidationFailedErrMsg)
+}
 
 // FunctionDef holds the name and calling type of an DNA exposed function
 type FunctionDef struct {

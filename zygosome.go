@@ -283,13 +283,17 @@ func (z *ZygoRibosome) runValidate(fnName string, code string) (err error) {
 	case *zygo.SexpBool:
 		r := v.Val
 		if !r {
-			err = ValidationFailedErr
+			err = ValidationFailed()
+		}
+	case *zygo.SexpStr:
+		if v.S != "" {
+			err = ValidationFailed(v.S)
 		}
 	case *zygo.SexpSentinel:
-		err = fmt.Errorf("%s should return boolean, got nil", fnName)
+		err = fmt.Errorf("%s should return boolean or string, got nil", fnName)
 
 	default:
-		err = fmt.Errorf("%s should return boolean, got: %v", fnName, result)
+		err = fmt.Errorf("%s should return boolean or string, got: %v", fnName, result)
 	}
 	return
 }

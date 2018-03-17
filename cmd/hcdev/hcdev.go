@@ -32,7 +32,7 @@ const (
 	bridgeToPort       = "21112"
 	scenarioStartDelay = 1
 
-	defaultSpecsFile = "bridgeSpecs.json"
+	defaultSpecsFile = "bridge_specs.json"
 )
 
 var debug, appInitialized, verbose, keepalive bool
@@ -558,7 +558,8 @@ func setupApp() (app *cli.App) {
 					}
 
 					// check to see if there's a bridge config for the role
-					scenarioBridgeSpecs := filepath.Join(scenarioPath, roleName+"_"+defaultSpecsFile)
+					scenarioBridgeSpecs := filepath.Join(scenarioPath, "_"+roleName+"_"+defaultSpecsFile)
+					holo.Debugf("scenario: looking for bridgeSpecs:%v", scenarioBridgeSpecs)
 					if !holo.FileExists(scenarioBridgeSpecs) {
 						scenarioBridgeSpecs = bridgeSpecsFile
 					}
@@ -950,7 +951,6 @@ func getHolochain(c *cli.Context, service *holo.Service, identity string) (h *ho
 	if identity != "" {
 		holo.SetAgentIdentity(agent, holo.AgentIdentity(identity))
 	}
-
 	bridgeApps, err = getBridgedApps(service, agent)
 	if err != nil {
 		return
@@ -1088,11 +1088,13 @@ func doClone(s *holo.Service, clonePath, devPath string) (err error) {
 
 func loadBridgeSpecs() (specs []BridgeSpec, err error) {
 	if bridgeSpecsFile == "" {
+		holo.Debug("no bridgeSpecs checking for default")
 		if holo.FileExists(defaultSpecsFile) {
 			bridgeSpecsFile = defaultSpecsFile
 		}
 	}
 	if bridgeSpecsFile != "" {
+		holo.Debugf("load bridgeSpecs:%s", bridgeSpecsFile)
 		err = holo.DecodeFile(&specs, bridgeSpecsFile)
 	}
 	return

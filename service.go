@@ -1270,14 +1270,14 @@ func GetAllTestRoles(path string) (roleNameList []string, err error) {
 		return nil, err
 	}
 
-	re := regexp.MustCompile(`(.*)\.json`)
+	// ignore all files that start with an underscore, these are either the config file or
+	// bridge specs
+	re := regexp.MustCompile(`^([^_].*)\.json`)
 	for _, f := range files {
 		if f.Mode().IsRegular() {
 			x := re.FindStringSubmatch(f.Name())
 			if len(x) > 0 {
-				if f.Name() != TestConfigFileName {
-					roleNameList = append(roleNameList, x[1])
-				}
+				roleNameList = append(roleNameList, x[1])
 			}
 		}
 	}

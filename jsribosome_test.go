@@ -99,6 +99,26 @@ func TestNewJSRibosome(t *testing.T) {
 		s, _ := z.lastResult.ToString()
 		So(s, ShouldEqual, "null")
 
+		_, err = z.Run("HC.SysEntryType.DNA")
+		So(err, ShouldBeNil)
+		s, _ = z.lastResult.ToString()
+		So(s, ShouldEqual, DNAEntryType)
+
+		_, err = z.Run("HC.SysEntryType.Agent")
+		So(err, ShouldBeNil)
+		s, _ = z.lastResult.ToString()
+		So(s, ShouldEqual, AgentEntryType)
+
+		_, err = z.Run("HC.SysEntryType.Key")
+		So(err, ShouldBeNil)
+		s, _ = z.lastResult.ToString()
+		So(s, ShouldEqual, KeyEntryType)
+
+		_, err = z.Run("HC.SysEntryType.Headers")
+		So(err, ShouldBeNil)
+		s, _ = z.lastResult.ToString()
+		So(s, ShouldEqual, HeadersEntryType)
+
 		_, err = z.Run("HC.Version")
 		So(err, ShouldBeNil)
 		s, _ = z.lastResult.ToString()
@@ -429,7 +449,7 @@ func TestJSQuery(t *testing.T) {
 		ShouldLog(h.nucleus.alog, func() {
 			_, err := z.Run(`debug(query({Constrain:{EntryTypes:["%agent"]}}))`)
 			So(err, ShouldBeNil)
-		}, `[{"Identity":"Herbert \u003ch@bert.com\u003e","PublicKey":"CAESIHLUfxjdoEfk8byjsBR+FXxYpYrFTviSBf2BbC0boylT","Revocation":null}]`)
+		}, `[{"Identity":"Herbert \u003ch@bert.com\u003e","PublicKey":"4XTTM8sJEQD5zMLT1gtu2ogshwg5AdUPNhJRbLvs77gsVtQQi","Revocation":""}]`)
 
 		_, err := z.Run(`debug(query({Constrain:{EntryTypes:["%dna"]}}))`)
 		So(err.Error(), ShouldEqual, `{"errorMessage":"data format not implemented: _DNA","function":"query","name":"HolochainError","source":{}}`)
@@ -740,11 +760,11 @@ func TestJSDHT(t *testing.T) {
 		ShouldLog(h.nucleus.alog, func() {
 			_, err := NewJSRibosome(h, &Zome{RibosomeType: JSRibosomeType, Code: fmt.Sprintf(`debug(get("%s"));`, h.agentHash.String())})
 			So(err, ShouldBeNil)
-		}, `{"Identity":"Herbert \u003ch@bert.com\u003e","PublicKey":[8,1,18,32,114,212,127,24,221,160,71,228,241,188,163,176,20,126,21,124,88,165,138,197,78,248,146,5,253,129,108,45,27,163,41,83],"Revocation":[]}`)
+		}, `{"Identity":"Herbert \u003ch@bert.com\u003e","PublicKey":"4XTTM8sJEQD5zMLT1gtu2ogshwg5AdUPNhJRbLvs77gsVtQQi","Revocation":""}`)
 		ShouldLog(h.nucleus.alog, func() {
 			_, err := NewJSRibosome(h, &Zome{RibosomeType: JSRibosomeType, Code: fmt.Sprintf(`debug(get("%s"));`, h.nodeID.Pretty())})
 			So(err, ShouldBeNil)
-		}, `[8,1,18,32,114,212,127,24,221,160,71,228,241,188,163,176,20,126,21,124,88,165,138,197,78,248,146,5,253,129,108,45,27,163,41,83]`)
+		}, "4XTTM8sJEQD5zMLT1gtu2ogshwg5AdUPNhJRbLvs77gsVtQQi")
 	})
 
 	Convey("get should return entry type", t, func() {
@@ -851,17 +871,17 @@ func TestJSDHT(t *testing.T) {
 		z := v.(*JSRibosome)
 		So(z.lastResult.Class(), ShouldEqual, "Array")
 		links, _ := z.lastResult.Export()
-		l0 := links.([]map[string]interface{})[1]
-		l1 := links.([]map[string]interface{})[0]
+		l0 := links.([]map[string]interface{})[0]
+		l1 := links.([]map[string]interface{})[1]
 		So(l1["Hash"], ShouldEqual, h.agentHash.String())
 		lp := l1["Entry"].(map[string]interface{})
 		So(fmt.Sprintf("%v", lp["Identity"]), ShouldEqual, "Herbert <h@bert.com>")
-		So(fmt.Sprintf("%v", lp["PublicKey"]), ShouldEqual, "CAESIHLUfxjdoEfk8byjsBR+FXxYpYrFTviSBf2BbC0boylT")
+		So(fmt.Sprintf("%v", lp["PublicKey"]), ShouldEqual, "4XTTM8sJEQD5zMLT1gtu2ogshwg5AdUPNhJRbLvs77gsVtQQi")
 		So(l1["EntryType"], ShouldEqual, AgentEntryType)
 		So(l1["Source"], ShouldEqual, h.nodeIDStr)
 
 		So(l0["Hash"], ShouldEqual, h.nodeIDStr)
-		So(fmt.Sprintf("%v", l0["Entry"]), ShouldEqual, "CAESIHLUfxjdoEfk8byjsBR+FXxYpYrFTviSBf2BbC0boylT")
+		So(fmt.Sprintf("%v", l0["Entry"]), ShouldEqual, "4XTTM8sJEQD5zMLT1gtu2ogshwg5AdUPNhJRbLvs77gsVtQQi")
 		So(l0["EntryType"], ShouldEqual, KeyEntryType)
 	})
 
@@ -956,7 +976,7 @@ func TestJSDHT(t *testing.T) {
 	})
 
 	Convey("updateAgent function should commit a new agent entry", t, func() {
-		oldPubKey, _ := h.agent.PubKey().Bytes()
+		oldPubKey, _ := h.agent.EncodePubKey()
 		v, err := NewJSRibosome(h, &Zome{RibosomeType: JSRibosomeType,
 			Code: fmt.Sprintf(`updateAgent({Identity:"new identity"})`)})
 		So(err, ShouldBeNil)
@@ -967,11 +987,12 @@ func TestJSDHT(t *testing.T) {
 		So(header.Type, ShouldEqual, AgentEntryType)
 		So(newAgentHash, ShouldEqual, header.EntryLink.String())
 		So(h.agent.Identity(), ShouldEqual, "new identity")
-		newPubKey, _ := h.agent.PubKey().Bytes()
+		newPubKey, _ := h.agent.EncodePubKey()
 		So(fmt.Sprintf("%v", newPubKey), ShouldEqual, fmt.Sprintf("%v", oldPubKey))
 		entry, _, _ := h.chain.GetEntry(header.EntryLink)
-		So(entry.Content().(AgentEntry).Identity, ShouldEqual, "new identity")
-		So(fmt.Sprintf("%v", entry.Content().(AgentEntry).PublicKey), ShouldEqual, fmt.Sprintf("%v", oldPubKey))
+		a, _ := AgentEntryFromJSON(entry.Content().(string))
+		So(a.Identity, ShouldEqual, "new identity")
+		So(fmt.Sprintf("%v", a.PublicKey), ShouldEqual, fmt.Sprintf("%v", oldPubKey))
 	})
 
 	Convey("updateAgent function with revoke option should commit a new agent entry and mark key as modified on DHT", t, func() {
@@ -991,23 +1012,24 @@ func TestJSDHT(t *testing.T) {
 		header := h.chain.Top()
 		So(header.Type, ShouldEqual, AgentEntryType)
 		So(newAgentHash, ShouldEqual, header.EntryLink.String())
-		newPubKey, _ := h.agent.PubKey().Bytes()
+		newPubKey, _ := h.agent.EncodePubKey()
 		So(fmt.Sprintf("%v", newPubKey), ShouldNotEqual, fmt.Sprintf("%v", oldPubKey))
 		entry, _, _ := h.chain.GetEntry(header.EntryLink)
 		revocation := &SelfRevocation{}
-		revocation.Unmarshal(entry.Content().(AgentEntry).Revocation)
+		a, _ := AgentEntryFromJSON(entry.Content().(string))
+		revocation.Unmarshal(a.Revocation)
 
 		w, _ := NewSelfRevocationWarrant(revocation)
 		payload, _ := w.Property("payload")
 
 		So(string(payload.([]byte)), ShouldEqual, "some revocation data")
-		So(fmt.Sprintf("%v", entry.Content().(AgentEntry).PublicKey), ShouldEqual, fmt.Sprintf("%v", newPubKey))
+		So(fmt.Sprintf("%v", a.PublicKey), ShouldEqual, fmt.Sprintf("%v", newPubKey))
 
 		// the new Key should be available on the DHT
 		newKey, _ := NewHash(h.nodeIDStr)
 		data, _, _, _, err := h.dht.get(newKey, StatusDefault, GetMaskDefault)
 		So(err, ShouldBeNil)
-		So(string(data), ShouldEqual, string(newPubKey))
+		So(string(data), ShouldEqual, newPubKey)
 
 		// the old key should be marked as Modifed and we should get the new hash as the data
 		data, _, _, _, err = h.dht.get(oldKey, StatusDefault, GetMaskDefault)

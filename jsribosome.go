@@ -309,6 +309,12 @@ func (jsr *JSRibosome) validateEntry(fnName string, def *EntryDef, entry Entry, 
 
 const (
 	JSLibrary = `var HC={Version:` + `"` + VersionStr + "\"" +
+		`SysEntryType:{` +
+		`DNA:"` + DNAEntryType + `",` +
+		`Agent:"` + AgentEntryType + `",` +
+		`Key:"` + KeyEntryType + `",` +
+		`Headers:"` + HeadersEntryType + `"` +
+		`}` +
 		`HashNotFound:null` +
 		`,Status:{Live:` + StatusLiveVal +
 		`,Rejected:` + StatusRejectedVal +
@@ -573,7 +579,7 @@ func makeOttoObjectFromGetResp(h *Holochain, jsr *JSRibosome, getResp *GetResp) 
 		code := `(` + json + `)`
 		result, err = jsr.vm.Object(code)
 	} else {
-		result = getResp.Entry.Content()
+		result = getResp.Entry.Content().(string)
 	}
 	return
 }
@@ -890,13 +896,6 @@ func NewJSRibosome(h *Holochain, zome *Zome) (n Ribosome, err error) {
 							fallthrough
 						case DataFormatJSON:
 							entryCode = fmt.Sprintf(`JSON.parse("%s")`, jsSanitizeString(r.(string)))
-						case DataFormatSysAgent:
-							var j []byte
-							j, err = json.Marshal(r.(AgentEntry))
-							if err != nil {
-								return
-							}
-							entryCode = fmt.Sprintf(`JSON.parse("%s")`, jsSanitizeString(string(j)))
 						default:
 							err = errors.New("data format not implemented: " + def.DataFormat)
 							return
@@ -1180,12 +1179,11 @@ func NewJSRibosome(h *Holochain, zome *Zome) (n Ribosome, err error) {
 								entry = th.E
 							case DataFormatRawZygo:
 								fallthrough
+							case DataFormatSysKey:
+								// key is a b58 encoded public key so the entry is just the string value
+								fallthrough
 							case DataFormatString:
 								entry = `"` + jsSanitizeString(th.E) + `"`
-							case DataFormatSysKey:
-								entry = fmt.Sprintf("%v", th.E)
-							case DataFormatSysAgent:
-								fallthrough
 							case DataFormatLinks:
 								fallthrough
 							case DataFormatJSON:

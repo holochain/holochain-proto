@@ -58,7 +58,8 @@ func TestSelfRevocationWarrant(t *testing.T) {
 		header := h.chain.Top()
 		entry, _, _ := h.chain.GetEntry(header.EntryLink)
 		revocation := &SelfRevocation{}
-		revocation.Unmarshal(entry.Content().(AgentEntry).Revocation)
+		a, _ := AgentEntryFromJSON(entry.Content().(string))
+		revocation.Unmarshal(a.Revocation)
 		w, err := NewSelfRevocationWarrant(revocation)
 
 		parties, err := w.Parties()

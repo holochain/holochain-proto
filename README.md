@@ -118,11 +118,11 @@ Using docker, you don't have to install Go first. Our docker scripts manage inst
 
 1. Pull our holochain image from docker hub:
 	```bash
-		$ docker pull Holochain/holochain-proto
+		$ docker pull holochain/holochain-proto:develop
 	```
 1. To run holochain in your new environment, suitable to continue the walkthrough below in [usage](#usage)
 	```bash
-		$ docker run --rm -it --name clutter -p 3141:3141 Holochain/holochain-proto
+		$ docker run --rm -it --name clutter -p 3141:3141 holochain/holochain-proto:develop
 	```
 1. This will put you into an new command shell that may behave differently than what you're used to. To exit this holochain (Alpine) shell, press `Ctrl-D` or type `exit`
 

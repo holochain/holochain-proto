@@ -9,6 +9,7 @@ import (
 	"crypto/rand"
 	"errors"
 	"fmt"
+	b58 "github.com/jbenet/go-base58"
 	ic "github.com/libp2p/go-libp2p-crypto"
 	peer "github.com/libp2p/go-libp2p-peer"
 	"io"
@@ -38,6 +39,7 @@ type Agent interface {
 	GenKeys(seed io.Reader) error
 	PrivKey() ic.PrivKey
 	PubKey() ic.PubKey
+	EncodePubKey() (string, error)
 	NodeID() (peer.ID, string, error)
 	AgentEntry(revocation Revocation) (AgentEntry, error)
 }
@@ -65,6 +67,16 @@ func (a *LibP2PAgent) PrivKey() ic.PrivKey {
 
 func (a *LibP2PAgent) PubKey() ic.PubKey {
 	return a.pub
+}
+
+func (a *LibP2PAgent) EncodePubKey() (b58pk string, err error) {
+	var pk []byte
+	pk, err = ic.MarshalPublicKey(a.pub)
+	if err != nil {
+		return
+	}
+	b58pk = b58.Encode(pk)
+	return
 }
 
 func (a *LibP2PAgent) GenKeys(seed io.Reader) (err error) {
@@ -100,7 +112,7 @@ func (a *LibP2PAgent) AgentEntry(revocation Revocation) (entry AgentEntry, err e
 			return
 		}
 	}
-	entry.PublicKey, err = ic.MarshalPublicKey(a.PubKey())
+	entry.PublicKey, err = a.EncodePubKey()
 	if err != nil {
 		return
 	}

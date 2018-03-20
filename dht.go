@@ -18,7 +18,6 @@ import (
 	"sync"
 
 	. "github.com/Holochain/holochain-proto/hash"
-	ic "github.com/libp2p/go-libp2p-crypto"
 	peer "github.com/libp2p/go-libp2p-peer"
 	"github.com/tidwall/buntdb"
 )
@@ -277,13 +276,12 @@ func (dht *DHT) putKey(agent Agent) (err error) {
 	if err != nil {
 		return
 	}
-
-	var pubKey []byte
-	pubKey, err = ic.MarshalPublicKey(agent.PubKey())
+	var pubKey string
+	pubKey, err = agent.EncodePubKey()
 	if err != nil {
 		return
 	}
-	if err = dht.put(dht.h.node.NewMessage(PUT_REQUEST, PutReq{H: keyHash}), KeyEntryType, keyHash, nodeID, pubKey, StatusLive); err != nil {
+	if err = dht.put(dht.h.node.NewMessage(PUT_REQUEST, PutReq{H: keyHash}), KeyEntryType, keyHash, nodeID, []byte(pubKey), StatusLive); err != nil {
 		return
 	}
 	return

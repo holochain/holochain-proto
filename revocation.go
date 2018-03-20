@@ -14,8 +14,8 @@ import (
 
 type Revocation interface {
 	Verify() error
-	Marshal() ([]byte, error)
-	Unmarshal([]byte) error
+	Marshal() (string, error)
+	Unmarshal(string) error
 }
 
 var SelfRevocationDoesNotVerify = errors.New("self revocation does not verify")
@@ -73,13 +73,17 @@ func (r *SelfRevocation) getNewKey() (key ic.PubKey, err error) {
 	return
 }
 
-func (r *SelfRevocation) Marshal() (data []byte, err error) {
-	data, err = json.Marshal(r)
+func (r *SelfRevocation) Marshal() (data string, err error) {
+	var j []byte
+	j, err = json.Marshal(r)
+	if err == nil {
+		data = string(j)
+	}
 	return
 }
 
-func (r *SelfRevocation) Unmarshal(data []byte) (err error) {
-	err = json.Unmarshal(data, r)
+func (r *SelfRevocation) Unmarshal(data string) (err error) {
+	err = json.Unmarshal([]byte(data), r)
 	return
 }
 

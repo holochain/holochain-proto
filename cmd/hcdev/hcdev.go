@@ -165,20 +165,15 @@ func setupApp() (app *cli.App) {
 		},
 	}
 
-	var interactive, dumpChain, dumpDHT, initTest, fromDevelop, benchmarks, json bool
+	var dumpChain, dumpDHT, initTest, fromDevelop, benchmarks, json bool
 	var clonePath, appPackagePath, cloneExample, outputDir, fromBranch string
 
 	app.Commands = []cli.Command{
 		{
 			Name:    "init",
 			Aliases: []string{"i"},
-			Usage:   "initialize a holochain app directory: interactively, from a appPackage file or clone from another app",
+			Usage:   "initialize a holochain app directory: use default, from an appPackage file or clone from another app",
 			Flags: []cli.Flag{
-				cli.BoolFlag{
-					Name:        "interactive",
-					Usage:       "interactive initialization",
-					Destination: &interactive,
-				},
 				cli.BoolFlag{
 					Name:        "test",
 					Usage:       "initialize built-in testing app",
@@ -222,9 +217,6 @@ func setupApp() (app *cli.App) {
 					}
 				}
 				flags := 0
-				if interactive {
-					flags += 1
-				}
 				if clonePath != "" {
 					flags += 1
 				}

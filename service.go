@@ -167,6 +167,14 @@ func IsInitialized(root string) bool {
 // and writes them out to configuration files in the root path (making the
 // directory if necessary)
 func Init(root string, identity AgentIdentity, seed io.Reader) (service *Service, err error) {
+	//TODO this is in the wrong place it should be where HeadersEntryDef gets initialized
+	if HeadersEntryDef.validator == nil {
+		err = HeadersEntryDef.BuildJSONSchemaValidatorFromString(HeadersEntryDef.Schema)
+	}
+	if AgentEntryDef.validator == nil {
+		err = AgentEntryDef.BuildJSONSchemaValidatorFromString(AgentEntryDef.Schema)
+	}
+
 	err = os.MkdirAll(root, os.ModePerm)
 	if err != nil {
 		return

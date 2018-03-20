@@ -94,6 +94,12 @@ var NonCallableAction error = errors.New("Not a callable action")
 var ErrNotValidForDNAType error = errors.New("Invalid action for DNA type")
 var ErrNotValidForAgentType error = errors.New("Invalid action for Agent type")
 var ErrNotValidForKeyType error = errors.New("Invalid action for Key type")
+var ErrNotValidForHeadersType error = errors.New("Invalid action for Headers type")
+var ErrModInvalidForLinks error = errors.New("mod: invalid for Links entry")
+var ErrModMissingHeader error = errors.New("mod: missing header")
+var ErrModReplacesHashNotDifferent error = errors.New("mod: replaces must be different from original hash")
+var ErrDelInvalidForLinks error = errors.New("del: invalid for Links entry")
+
 var ErrNilEntryInvalid error = errors.New("nil entry invalid")
 
 func prepareSources(sources []peer.ID) (srcs []string) {
@@ -157,8 +163,8 @@ func (h *Holochain) GetValidationResponse(a ValidatingAction, hash Hash) (resp V
 	if err == ErrHashNotFound {
 		if hash.String() == h.nodeIDStr {
 			resp.Type = KeyEntryType
-			var pk []byte
-			pk, err = ic.MarshalPublicKey(h.agent.PubKey())
+			var pk string
+			pk, err = h.agent.EncodePubKey()
 			if err != nil {
 				return
 			}
@@ -184,6 +190,8 @@ func (h *Holochain) GetValidationResponse(a ValidatingAction, hash Hash) (resp V
 		return
 	case KeyEntryType:
 		// if key entry there no extra info to return in the package so do nothing
+	case HeadersEntryType:
+		// if headers entry there no extra info to return in the package so do nothing
 	case AgentEntryType:
 		// if agent, the package to return is the entry-type chain
 		// so that sys validation can confirm this agent entry in the chain
@@ -635,11 +643,14 @@ func (a *ActionGet) Do(h *Holochain) (response interface{}, err error) {
 		if err != nil {
 			return
 		}
-		resp := GetResp{Entry: *entry.(*GobEntry)}
+
+		e := *entry.(*GobEntry)
+
+		resp := GetResp{Entry: e}
 		mask := a.options.GetMask
 		resp.EntryType = entryType
 		if (mask & GetMaskEntry) != 0 {
-			resp.Entry = *entry.(*GobEntry)
+			resp.Entry = e
 			resp.EntryType = entryType
 		}
 
@@ -691,7 +702,6 @@ func (a *ActionGet) Receive(dht *DHT, msg *Message, retries int) (response inter
 		mask = GetMaskEntry
 	}
 	resp := GetResp{}
-
 	// always get the entry type despite what the mas says because we need it for the switch below.
 	entryData, resp.EntryType, resp.Sources, _, err = dht.get(req.H, req.StatusMask, req.GetMask|GetMaskEntryType)
 	if err == nil {
@@ -702,7 +712,7 @@ func (a *ActionGet) Receive(dht *DHT, msg *Message, retries int) (response inter
 				err = errors.New("nobody should actually get the DNA!")
 				return
 			case KeyEntryType:
-				resp.Entry = GobEntry{C: entryData}
+				resp.Entry = GobEntry{C: string(entryData)}
 			default:
 				var e GobEntry
 				err = e.Unmarshal(entryData)
@@ -845,6 +855,18 @@ func (a *ActionCommit) Do(h *Holochain) (response interface{}, err error) {
 	return
 }
 
+func isValidPubKey(b58pk string) bool {
+	if len(b58pk) != 49 {
+		return false
+	}
+	pk := b58.Decode(b58pk)
+	_, err := ic.UnmarshalPublicKey(pk)
+	if err != nil {
+		return false
+	}
+	return true
+}
+
 const (
 	ValidationFailureBadPublicKeyFormat  = "bad public key format"
 	ValidationFailureBadRevocationFormat = "bad revocation format"
@@ -861,33 +883,27 @@ func sysValidateEntry(h *Holochain, def *EntryDef, entry Entry, pkg *Package) (e
 		err = ErrNotValidForDNAType
 		return
 	case KeyEntryType:
-		pk, ok := entry.Content().([]byte)
-		if !ok || len(pk) != 36 {
+		b58pk, ok := entry.Content().(string)
+		if !ok || !isValidPubKey(b58pk) {
 			err = ValidationFailed(ValidationFailureBadPublicKeyFormat)
 			return
-		} else {
-			_, err = ic.UnmarshalPublicKey(pk)
-			if err != nil {
-				err = ValidationFailed(ValidationFailureBadPublicKeyFormat)
-				return err
-			}
 		}
 	case AgentEntryType:
-		ae, ok := entry.Content().(AgentEntry)
+		j, ok := entry.Content().(string)
 		if !ok {
 			err = ValidationFailedErr
 			return
 		}
+		ae, _ := AgentEntryFromJSON(j)
 
 		// check that the public key is unmarshalable
-		_, err = ic.UnmarshalPublicKey(ae.PublicKey)
-		if err != nil {
+		if !isValidPubKey(ae.PublicKey) {
 			err = ValidationFailed(ValidationFailureBadPublicKeyFormat)
 			return err
 		}
 
 		// if there's a revocation, confirm that has a reasonable format
-		if ae.Revocation != nil {
+		if ae.Revocation != "" {
 			revocation := &SelfRevocation{}
 			err := revocation.Unmarshal(ae.Revocation)
 			if err != nil {
@@ -897,6 +913,8 @@ func sysValidateEntry(h *Holochain, def *EntryDef, entry Entry, pkg *Package) (e
 		}
 
 		// TODO check anything in the package
+	case HeadersEntryType:
+		// TODO check signatures!
 	}
 
 	if entry == nil {
@@ -1119,12 +1137,15 @@ func (a *ActionMod) SysValidation(h *Holochain, def *EntryDef, pkg *Package, sou
 	case DNAEntryType:
 		err = ErrNotValidForDNAType
 		return
+	case HeadersEntryType:
+		err = ErrNotValidForHeadersType
+		return
 	case KeyEntryType:
 	case AgentEntryType:
 	}
 
 	if def.DataFormat == DataFormatLinks {
-		err = errors.New("Can't mod Links entry")
+		err = ErrModInvalidForLinks
 		return
 	}
 
@@ -1133,11 +1154,11 @@ func (a *ActionMod) SysValidation(h *Holochain, def *EntryDef, pkg *Package, sou
 		return
 	}
 	if a.header == nil {
-		err = errors.New("mod: missing header")
+		err = ErrModMissingHeader
 		return
 	}
 	if a.replaces.String() == a.header.EntryLink.String() {
-		err = errors.New("mod: replaces must be different from original hash")
+		err = ErrModReplacesHashNotDifferent
 		return
 	}
 	// no need to check for virtual entries on the chain because they aren't there
@@ -1368,10 +1389,13 @@ func (a *ActionDel) SysValidation(h *Holochain, def *EntryDef, pkg *Package, sou
 	case AgentEntryType:
 		err = ErrNotValidForAgentType
 		return
+	case HeadersEntryType:
+		err = ErrNotValidForHeadersType
+		return
 	}
 
 	if def.DataFormat == DataFormatLinks {
-		err = errors.New("Can't del Links entry")
+		err = ErrDelInvalidForLinks
 		return
 	}
 
@@ -1561,13 +1585,6 @@ func (a *ActionGetLinks) Do(h *Holochain) (response interface{}, err error) {
 						case string:
 							t.Links[i].E = content
 						case []byte:
-							var j []byte
-							j, err = json.Marshal(content)
-							if err != nil {
-								return
-							}
-							t.Links[i].E = string(j)
-						case AgentEntry:
 							var j []byte
 							j, err = json.Marshal(content)
 							if err != nil {

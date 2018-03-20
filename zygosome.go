@@ -933,7 +933,6 @@ func NewZygoRibosome(h *Holochain, zome *Zome) (n Ribosome, err error) {
 						}
 						defs[result.Header.Type] = def
 					}
-					r := result.Entry.Content()
 					var content string
 					switch def.DataFormat {
 					case DataFormatRawZygo:
@@ -946,12 +945,6 @@ func NewZygoRibosome(h *Holochain, zome *Zome) (n Ribosome, err error) {
 						fallthrough
 					case DataFormatJSON:
 						content = result.Entry.Content().(string)
-					case DataFormatSysAgent:
-						j, err := json.Marshal(r.(AgentEntry))
-						if err != nil {
-							return zygo.SexpNull, err
-						}
-						content = string(j)
 					default:
 						return zygo.SexpNull, fmt.Errorf("data format not implemented: %s", def.DataFormat)
 					}

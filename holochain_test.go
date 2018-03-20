@@ -340,9 +340,11 @@ func TestAddAgentEntry(t *testing.T) {
 		entry, _, err := h.chain.GetEntry(agentHash)
 		So(err, ShouldBeNil)
 
-		var a = entry.Content().(AgentEntry)
+		a, err := AgentEntryFromJSON(entry.Content().(string))
+		So(err, ShouldBeNil)
+
 		So(a.Identity, ShouldEqual, h.agent.Identity())
-		pk, _ := h.agent.PubKey().Bytes()
+		pk, _ := h.agent.EncodePubKey()
 		So(string(a.PublicKey), ShouldEqual, string(pk))
 		So(string(a.Revocation), ShouldEqual, "some revocation data")
 	})
@@ -371,9 +373,9 @@ func TestGenChain(t *testing.T) {
 		entry, _, err := h.chain.GetEntry(hdr.EntryLink)
 		So(err, ShouldBeNil)
 		header = *hdr
-		var a = entry.Content().(AgentEntry)
+		a, _ := AgentEntryFromJSON(entry.Content().(string))
 		So(a.Identity, ShouldEqual, h.agent.Identity())
-		pk, _ := h.agent.PubKey().Bytes()
+		pk, _ := h.agent.EncodePubKey()
 		So(string(a.PublicKey), ShouldEqual, string(pk))
 		So(string(a.Revocation), ShouldEqual, "")
 	})
@@ -718,6 +720,10 @@ func TestGetEntryDef(t *testing.T) {
 		So(err, ShouldBeNil)
 		So(zome, ShouldBeNil)
 		So(def, ShouldEqual, KeyEntryDef)
+		zome, def, err = h.GetEntryDef(HeadersEntryType)
+		So(err, ShouldBeNil)
+		So(zome, ShouldBeNil)
+		So(def, ShouldEqual, HeadersEntryDef)
 	})
 	Convey("it should get private entry definition", t, func() {
 		zome, def, err := h.GetEntryDef("privateData")

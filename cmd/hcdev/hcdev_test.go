@@ -104,6 +104,12 @@ func TestInit(t *testing.T) {
 		So(err, ShouldBeNil)
 		So(cmd.IsFile(filepath.Join(tmpTestDir, "foo", "dna", "dna.json")), ShouldBeTrue)
 		So(cmd.IsDir(tmpTestDir, holo.ChainDataDir), ShouldBeFalse)
+
+		out, err := cmd.RunAppWithStdoutCapture(app, []string{"hcdev", "-path", filepath.Join(tmpTestDir, "foo"), "web"}, 5*time.Second)
+		So(err, ShouldBeNil)
+		fmt.Printf(out)
+		So(out, ShouldContainSubstring, "doggies")
+
 	})
 
 	Convey("'init bar --clone foo' should copy files from foo to bar", t, func() {

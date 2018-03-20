@@ -362,6 +362,14 @@ func TestMakeTestingApp(t *testing.T) {
 			So(err.Error(), ShouldEqual, "holochain: "+root+" already exists")
 		})
 	})
+
+	Convey("generating a dev holochain in an absolute directory initdb should work", t, func() {
+		root := filepath.Join("/tmp", "foo")
+		_, err := s.MakeTestingApp(root, "json", InitializeDB, CloneWithNewUUID, nil)
+		os.RemoveAll(root)
+		So(err, ShouldBeNil)
+	})
+
 }
 
 func TestSaveFromAppPackage(t *testing.T) {

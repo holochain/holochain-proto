@@ -106,6 +106,16 @@ func TestInit(t *testing.T) {
 		So(cmd.IsDir(tmpTestDir, holo.ChainDataDir), ShouldBeFalse)
 	})
 
+	Convey("'init /tmp/foo' should create default files in the absolute '/tmp/foo' directory", t, func() {
+		tmpFoo := filepath.Join("/tmp", "foo")
+		os.Args = []string{"hcdev", "init", tmpFoo}
+		err = app.Run(os.Args)
+		So(err, ShouldBeNil)
+		So(cmd.IsFile(filepath.Join(tmpFoo, "dna", "dna.json")), ShouldBeTrue)
+		So(cmd.IsDir(tmpTestDir, holo.ChainDataDir), ShouldBeFalse)
+		os.RemoveAll(tmpFoo)
+	})
+
 	Convey("'init bar --clone foo' should copy files from foo to bar", t, func() {
 		p := filepath.Join(tmpTestDir, "foo", "ui", "foo.js")
 		f, err := os.Create(p)

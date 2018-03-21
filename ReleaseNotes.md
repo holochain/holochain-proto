@@ -17,7 +17,7 @@ This is an interim bug-fix and minor improvement release.  Here are some notewor
 This release marks the initial operational milestone of the major components of Holochain along with a [whitepaper](https://github.com/holochain/holochain-proto/blob/master/holochain.pdf) that describes the system.
 
 
-We call this the "Adventurer" release beacuse it's an early release appropriate for those with an open adventursome spirit, to play with.  Many  things will change in upcoming releases, and we recognize that you will likely to encounter difficulties on the way. We invite you to contact us on our [gitter](https://gitter.im/Holochain/holochain-proto) channel if you need help.
+We call this the "Adventurer" release beacuse it's an early release appropriate for those with an open adventursome spirit, to play with.  Many  things will change in upcoming releases, and we recognize that you will likely to encounter difficulties on the way. We invite you to contact us on our [gitter](https://gitter.im/metacurrency/holochain) channel if you need help.
 
 Here are some things NOT included in this release:
 

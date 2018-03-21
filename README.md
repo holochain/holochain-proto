@@ -1,11 +1,11 @@
 # Holochain
 
 [![Code Status](https://img.shields.io/badge/Code-Alpha-yellow.svg)](https://github.com/holochain/holochain-proto/milestones?direction=asc&sort=completeness&state=all)
-[![Travis](https://img.shields.io/travis/Holochain/holochain-proto/master.svg)](https://travis-ci.org/Holochain/holochain-proto/branches)
-[![Codecov](https://img.shields.io/codecov/c/github/Holochain/holochain-proto.svg)](https://codecov.io/gh/Holochain/holochain-proto/branch/master)
+[![Travis](https://img.shields.io/travis/holochain/holochain-proto/master.svg)](https://travis-ci.org/Holochain/holochain-proto/branches)
+[![Codecov](https://img.shields.io/codecov/c/github/holochain/holochain-proto.svg)](https://codecov.io/gh/holochain/holochain-proto/branch/master)
 [![Go Report Card](https://goreportcard.com/badge/github.com/holochain/holochain-proto)](https://goreportcard.com/report/github.com/holochain/holochain-proto)
-[![Gitter](https://badges.gitter.im/Holochain/holochain-proto.svg)](https://gitter.im/Holochain/holochain-proto?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=body_badge)
-[![In Progress](https://img.shields.io/waffle/label/Holochain/holochain-proto/in%20progress.svg)](http://waffle.io/Holochain/holochain-proto)
+[![Gitter](https://badges.gitter.im/metacurrency/holochain.svg)](https://gitter.im/metacurrency/holochain?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=body_badge)
+[![In Progress](https://img.shields.io/waffle/label/holochain/holochain-proto/in%20progress.svg)](http://waffle.io/holochain/holochain-proto)
 [![License: GPL v3](https://img.shields.io/badge/License-GPL%20v3-blue.svg)](http://www.gnu.org/licenses/gpl-3.0)
 [![Twitter Follow](https://img.shields.io/twitter/follow/holochain.svg?style=social&label=Follow)](https://twitter.com/holochain)
 
@@ -203,18 +203,18 @@ You can also look through auto-generated [reference API on GoDocs](https://godoc
 ## Holochain Core Development
 We accept Pull Requests and welcome your participation.
 
-Some helpful links: [![In Progress](https://img.shields.io/waffle/label/Holochain/holochain-proto/in%20progress.svg)](http://waffle.io/Holochain/holochain-proto)
-* Come [chat with us on gitter](https://gitter.im/Holochain/holochain-proto)
-* View our [Kanban on Waffle](https://waffle.io/Holochain/holochain-proto).
+Some helpful links: [![In Progress](https://img.shields.io/waffle/label/holochain/holochain-proto/in%20progress.svg)](http://waffle.io/holochain/holochain-proto)
+* Come [chat with us on gitter](https://gitter.im/metacurrency/holochain)
+* View our [Kanban on Waffle](https://waffle.io/holochain/holochain-proto).
 * View our  [Milestone](https://github.com/holochain/holochain-proto/milestones?direction=asc&sort=due_date&state=all) progress.
 
 If you'd like to get involved you can:
-* Contact us on [Gitter](https://gitter.im/Holochain/holochain-proto) to set up a **pair coding session** with one of our developers to learn the lay of the land.
+* Contact us on [Gitter](https://gitter.im/metacurrency/holochain) to set up a **pair coding session** with one of our developers to learn the lay of the land.
 * **join our dev documentation calls** twice weekly on Tuesdays and Fridays.
 
 Current Throughput graph:
 
-[![Throughput Graph](http://graphs.waffle.io/Holochain/holochain-proto/throughput.svg)](https://waffle.io/Holochain/holochain-proto/metrics)
+[![Throughput Graph](http://graphs.waffle.io/holochain/holochain-proto/throughput.svg)](https://waffle.io/holochain/holochain-proto/metrics)
 
 ### Contribute
 Contributors to this project are expected to follow our [development protocols & practices](https://github.com/holochain/holochain-proto/wiki/Development-Protocols).

@@ -12,7 +12,7 @@ package main
 
 import (
 	"fmt"
-	"github.com/Holochain/holochain-proto/cmd"
+	"github.com/holochain/holochain-proto/cmd"
 	"github.com/urfave/cli"
 	"os"
 	"os/exec"

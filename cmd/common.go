@@ -20,7 +20,7 @@ import (
 	"syscall"
 	"time"
 
-	holo "github.com/Holochain/holochain-proto"
+	holo "github.com/holochain/holochain-proto"
 )
 
 var ErrServiceUninitialized = errors.New("service not initialized, run 'hcadmin init'")
@@ -222,7 +222,7 @@ func Die(message string) {
 
 func GolangHolochainDir(subPath ...string) (path string, err error) {
 	err = nil
-	joinable := append([]string{os.Getenv("GOPATH"), "src/github.com/Holochain/holochain-proto"}, subPath...)
+	joinable := append([]string{os.Getenv("GOPATH"), "src/github.com/holochain/holochain-proto"}, subPath...)
 	path = filepath.Join(joinable...)
 	return
 }

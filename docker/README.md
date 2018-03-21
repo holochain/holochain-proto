@@ -58,6 +58,6 @@ CMD ["hc", "web", "MYAPPNAMEHERE"]
 ### hc-dev-tools
 These images are basically the official `golang` images except with the `hc` command and a few other tools installed.
 
-In order to build the latest version of this image, run the following commands from the root of the [Holochain](https://github.com/Holochain/holochain-proto) repository:
+In order to build the latest version of this image, run the following commands from the root of the [Holochain](https://github.com/holochain/holochain-proto) repository:
 * Build it using the `docker/build`
 * Run it using the `docker/run`

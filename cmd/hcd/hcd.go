@@ -7,9 +7,9 @@ package main
 
 import (
 	"fmt"
-	holo "github.com/Holochain/holochain-proto"
-	"github.com/Holochain/holochain-proto/cmd"
-	"github.com/Holochain/holochain-proto/ui"
+	holo "github.com/holochain/holochain-proto"
+	"github.com/holochain/holochain-proto/cmd"
+	"github.com/holochain/holochain-proto/ui"
 	"github.com/urfave/cli"
 	"os"
 )

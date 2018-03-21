@@ -1,3 +1,3 @@
 # Examples
 
-For example applications, please see: https://github.com/Holochain
+For example applications, please see: https://github.com/holochain

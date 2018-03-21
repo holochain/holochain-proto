@@ -1,7 +1,7 @@
 #!/bin/bash
 echo "HC: $0"
 
-holochainBinDir="$GOPATH/src/github.com/Holochain/holochain-proto/bin"
+holochainBinDir="$GOPATH/src/github.com/holochain/holochain-proto/bin"
 
 scenarioName=$1
 

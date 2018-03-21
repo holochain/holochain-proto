@@ -9,7 +9,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	. "github.com/Holochain/holochain-proto/hash"
+	. "github.com/holochain/holochain-proto/hash"
 	b58 "github.com/jbenet/go-base58"
 	ic "github.com/libp2p/go-libp2p-crypto"
 	peer "github.com/libp2p/go-libp2p-peer"
@@ -77,6 +77,8 @@ type CommittingAction interface {
 	EntryType() string
 	Entry() Entry
 	SetHeader(header *Header)
+	GetHeader() (header *Header)
+	Share(h *Holochain, def *EntryDef) (err error)
 }
 
 // ValidatingAction provides an abstraction for grouping all the actions that participate in validation loop
@@ -94,6 +96,12 @@ var NonCallableAction error = errors.New("Not a callable action")
 var ErrNotValidForDNAType error = errors.New("Invalid action for DNA type")
 var ErrNotValidForAgentType error = errors.New("Invalid action for Agent type")
 var ErrNotValidForKeyType error = errors.New("Invalid action for Key type")
+var ErrNotValidForHeadersType error = errors.New("Invalid action for Headers type")
+var ErrModInvalidForLinks error = errors.New("mod: invalid for Links entry")
+var ErrModMissingHeader error = errors.New("mod: missing header")
+var ErrModReplacesHashNotDifferent error = errors.New("mod: replaces must be different from original hash")
+var ErrDelInvalidForLinks error = errors.New("del: invalid for Links entry")
+
 var ErrNilEntryInvalid error = errors.New("nil entry invalid")
 
 func prepareSources(sources []peer.ID) (srcs []string) {
@@ -157,8 +165,8 @@ func (h *Holochain) GetValidationResponse(a ValidatingAction, hash Hash) (resp V
 	if err == ErrHashNotFound {
 		if hash.String() == h.nodeIDStr {
 			resp.Type = KeyEntryType
-			var pk []byte
-			pk, err = ic.MarshalPublicKey(h.agent.PubKey())
+			var pk string
+			pk, err = h.agent.EncodePubKey()
 			if err != nil {
 				return
 			}
@@ -184,6 +192,8 @@ func (h *Holochain) GetValidationResponse(a ValidatingAction, hash Hash) (resp V
 		return
 	case KeyEntryType:
 		// if key entry there no extra info to return in the package so do nothing
+	case HeadersEntryType:
+		// if headers entry there no extra info to return in the package so do nothing
 	case AgentEntryType:
 		// if agent, the package to return is the entry-type chain
 		// so that sys validation can confirm this agent entry in the chain
@@ -353,6 +363,105 @@ func (a *ActionMakeHash) Do(h *Holochain) (response interface{}, err error) {
 		return
 	}
 	response = hash
+	return
+}
+
+//------------------------------------------------------------
+// StartBundle
+
+const (
+	DefaultBundleTimeout = 5000
+)
+
+type ActionStartBundle struct {
+	timeout   int64
+	userParam string
+}
+
+func NewStartBundleAction(timeout int, userParam string) *ActionStartBundle {
+	a := ActionStartBundle{timeout: int64(timeout), userParam: userParam}
+	if timeout == 0 {
+		a.timeout = DefaultBundleTimeout
+	}
+	return &a
+}
+
+func (a *ActionStartBundle) Name() string {
+	return "bundleStart"
+}
+
+func (a *ActionStartBundle) Args() []Arg {
+	return []Arg{{Name: "timeout", Type: IntArg}, {Name: "userParam", Type: StringArg}}
+}
+
+func (a *ActionStartBundle) Do(h *Holochain) (response interface{}, err error) {
+	err = h.Chain().StartBundle(a.userParam)
+	return
+}
+
+//------------------------------------------------------------
+// CloseBundle
+
+type ActionCloseBundle struct {
+	commit bool
+}
+
+func NewCloseBundleAction(commit bool) *ActionCloseBundle {
+	a := ActionCloseBundle{commit: commit}
+	return &a
+}
+
+func (a *ActionCloseBundle) Name() string {
+	return "bundleClose"
+}
+
+func (a *ActionCloseBundle) Args() []Arg {
+	return []Arg{{Name: "commit", Type: BoolArg}}
+}
+
+func (a *ActionCloseBundle) Do(h *Holochain) (response interface{}, err error) {
+
+	bundle := h.Chain().BundleStarted()
+	if bundle == nil {
+		err = ErrBundleNotStarted
+		return
+	}
+
+	isCancel := !a.commit
+	// if this is a cancel call all the bundleCancel routines
+	if isCancel {
+		for _, zome := range h.nucleus.dna.Zomes {
+			var r Ribosome
+			r, _, err = h.MakeRibosome(zome.Name)
+			if err != nil {
+				continue
+			}
+			var result string
+			result, err = r.BundleCanceled(BundleCancelReasonUserCancel)
+			if err != nil {
+				Debugf("error in %s.bundleCanceled():%v", zome.Name, err)
+				continue
+			}
+			if result == BundleCancelResponseCommit {
+				Debugf("%s.bundleCanceled() overrode cancel", zome.Name)
+				err = nil
+				return
+			}
+		}
+	}
+	err = h.Chain().CloseBundle(a.commit)
+	if err == nil {
+		// if there wasn't an error closing the bundle share all the commits
+		for _, a := range bundle.sharing {
+			_, def, err := h.GetEntryDef(a.GetHeader().Type)
+			if err != nil {
+				h.dht.dlog.Logf("Error getting entry def in close bundle:%v", err)
+				err = nil
+			} else {
+				err = a.Share(h, def)
+			}
+		}
+	}
 	return
 }
 
@@ -627,23 +736,35 @@ func (a *ActionGet) Args() []Arg {
 	return []Arg{{Name: "hash", Type: HashArg}, {Name: "options", Type: MapArg, MapType: reflect.TypeOf(GetOptions{}), Optional: true}}
 }
 
+func (a *ActionGet) getLocal(chain *Chain) (resp GetResp, err error) {
+	var entry Entry
+	var entryType string
+	entry, entryType, err = chain.GetEntry(a.req.H)
+	if err != nil {
+		return
+	}
+	resp = GetResp{Entry: *entry.(*GobEntry)}
+	mask := a.options.GetMask
+	resp.EntryType = entryType
+	if (mask & GetMaskEntry) != 0 {
+		resp.Entry = *entry.(*GobEntry)
+		resp.EntryType = entryType
+	}
+	return
+}
+
 func (a *ActionGet) Do(h *Holochain) (response interface{}, err error) {
 	if a.options.Local {
-		var entry Entry
-		var entryType string
-		entry, entryType, err = h.chain.GetEntry(a.req.H)
-		if err != nil {
+		response, err = a.getLocal(h.chain)
+		return
+	}
+	if a.options.Bundle {
+		bundle := h.Chain().BundleStarted()
+		if bundle == nil {
+			err = ErrBundleNotStarted
 			return
 		}
-		resp := GetResp{Entry: *entry.(*GobEntry)}
-		mask := a.options.GetMask
-		resp.EntryType = entryType
-		if (mask & GetMaskEntry) != 0 {
-			resp.Entry = *entry.(*GobEntry)
-			resp.EntryType = entryType
-		}
-
-		response = resp
+		response, err = a.getLocal(bundle.chain)
 		return
 	}
 	rsp, err := h.dht.Query(a.req.H, GET_REQUEST, a.req)
@@ -691,7 +812,6 @@ func (a *ActionGet) Receive(dht *DHT, msg *Message, retries int) (response inter
 		mask = GetMaskEntry
 	}
 	resp := GetResp{}
-
 	// always get the entry type despite what the mas says because we need it for the switch below.
 	entryData, resp.EntryType, resp.Sources, _, err = dht.get(req.H, req.StatusMask, req.GetMask|GetMaskEntryType)
 	if err == nil {
@@ -702,7 +822,7 @@ func (a *ActionGet) Receive(dht *DHT, msg *Message, retries int) (response inter
 				err = errors.New("nobody should actually get the DNA!")
 				return
 			case KeyEntryType:
-				resp.Entry = GobEntry{C: entryData}
+				resp.Entry = GobEntry{C: string(entryData)}
 			default:
 				var e GobEntry
 				err = e.Unmarshal(entryData)
@@ -732,20 +852,27 @@ func (a *ActionGet) Receive(dht *DHT, msg *Message, retries int) (response inter
 }
 
 // doCommit adds an entry to the local chain after validating the action it's part of
-func (h *Holochain) doCommit(a CommittingAction, change *StatusChange) (d *EntryDef, header *Header, entryHash Hash, err error) {
+func (h *Holochain) doCommit(a CommittingAction, change *StatusChange) (d *EntryDef, err error) {
 
 	entryType := a.EntryType()
 	entry := a.Entry()
 	var l int
 	var hash Hash
+	var header *Header
 	var added bool
+
+	chain := h.Chain()
+	bundle := chain.BundleStarted()
+	if bundle != nil {
+		chain = bundle.chain
+	}
 
 	// retry loop incase someone sneaks a new commit in between prepareHeader and addEntry
 	for !added {
-		h.chain.lk.RLock()
-		count := len(h.chain.Headers)
-		l, hash, header, err = h.chain.prepareHeader(time.Now(), entryType, entry, h.agent.PrivKey(), change)
-		h.chain.lk.RUnlock()
+		chain.lk.RLock()
+		count := len(chain.Headers)
+		l, hash, header, err = chain.prepareHeader(time.Now(), entryType, entry, h.agent.PrivKey(), change)
+		chain.lk.RUnlock()
 		if err != nil {
 			return
 		}
@@ -756,19 +883,18 @@ func (h *Holochain) doCommit(a CommittingAction, change *StatusChange) (d *Entry
 			return
 		}
 
-		h.chain.lk.Lock()
-		if count == len(h.chain.Headers) {
-			err = h.chain.addEntry(l, hash, header, entry)
+		chain.lk.Lock()
+		if count == len(chain.Headers) {
+			err = chain.addEntry(l, hash, header, entry)
 			if err == nil {
 				added = true
 			}
 		}
-		h.chain.lk.Unlock()
+		chain.lk.Unlock()
 		if err != nil {
 			return
 		}
 	}
-	entryHash = header.EntryLink
 	return
 }
 
@@ -806,15 +932,26 @@ func (a *ActionCommit) SetHeader(header *Header) {
 	a.header = header
 }
 
+func (a *ActionCommit) GetHeader() (header *Header) {
+	return a.header
+}
+
 func (a *ActionCommit) Do(h *Holochain) (response interface{}, err error) {
 	var d *EntryDef
-	var entryHash Hash
-	//	var header *Header
-	d, _, entryHash, err = h.doCommit(a, nil)
+	d, err = h.doCommit(a, nil)
 	if err != nil {
 		return
 	}
-	if d.DataFormat == DataFormatLinks {
+	err = DoShare(a, h, d)
+	if err != nil {
+		return
+	}
+	response = a.header.EntryLink
+	return
+}
+
+func (a *ActionCommit) Share(h *Holochain, def *EntryDef) (err error) {
+	if def.DataFormat == DataFormatLinks {
 		// if this is a Link entry we have to send the DHT Link message
 		var le LinksEntry
 		entryStr := a.entry.Content().(string)
@@ -828,22 +965,48 @@ func (a *ActionCommit) Do(h *Holochain) (response interface{}, err error) {
 			_, exists := bases[l.Base]
 			if !exists {
 				b, _ := NewHash(l.Base)
-				h.dht.Change(b, LINK_REQUEST, LinkReq{Base: b, Links: entryHash})
+				h.dht.Change(b, LINK_REQUEST, LinkReq{Base: b, Links: a.header.EntryLink})
 				//TODO errors from the send??
 				bases[l.Base] = true
 			}
 		}
-	} else if d.Sharing == Public {
+	} else if def.Sharing == Public {
 		// otherwise we check to see if it's a public entry and if so send the DHT put message
-		err = h.dht.Change(entryHash, PUT_REQUEST, PutReq{H: entryHash})
+		err = h.dht.Change(a.header.EntryLink, PUT_REQUEST, PutReq{H: a.header.EntryLink})
 		if err == ErrEmptyRoutingTable {
 			// will still have committed locally and can gossip later
 			err = nil
 		}
 	}
-	response = entryHash
 	return
 }
+
+func DoShare(a CommittingAction, h *Holochain, def *EntryDef) (err error) {
+	bundle := h.Chain().BundleStarted()
+	if bundle == nil {
+		err = a.Share(h, def)
+	} else {
+		bundle.sharing = append(bundle.sharing, a)
+	}
+	return
+}
+
+func isValidPubKey(b58pk string) bool {
+	if len(b58pk) != 49 {
+		return false
+	}
+	pk := b58.Decode(b58pk)
+	_, err := ic.UnmarshalPublicKey(pk)
+	if err != nil {
+		return false
+	}
+	return true
+}
+
+const (
+	ValidationFailureBadPublicKeyFormat  = "bad public key format"
+	ValidationFailureBadRevocationFormat = "bad revocation format"
+)
 
 // sysValidateEntry does system level validation for adding an entry (put or commit)
 // It checks that entry is not nil, and that it conforms to the entry schema in the definition
@@ -856,46 +1019,42 @@ func sysValidateEntry(h *Holochain, def *EntryDef, entry Entry, pkg *Package) (e
 		err = ErrNotValidForDNAType
 		return
 	case KeyEntryType:
-		pk, ok := entry.Content().([]byte)
-		if !ok || len(pk) != 36 {
-			err = ValidationFailedErr
+		b58pk, ok := entry.Content().(string)
+		if !ok || !isValidPubKey(b58pk) {
+			err = ValidationFailed(ValidationFailureBadPublicKeyFormat)
 			return
-		} else {
-			_, err = ic.UnmarshalPublicKey(pk)
-			if err != nil {
-				err = ValidationFailedErr
-				return err
-			}
 		}
 	case AgentEntryType:
-		ae, ok := entry.Content().(AgentEntry)
+		j, ok := entry.Content().(string)
 		if !ok {
 			err = ValidationFailedErr
 			return
 		}
+		ae, _ := AgentEntryFromJSON(j)
 
 		// check that the public key is unmarshalable
-		_, err = ic.UnmarshalPublicKey(ae.PublicKey)
-		if err != nil {
-			err = ValidationFailedErr
+		if !isValidPubKey(ae.PublicKey) {
+			err = ValidationFailed(ValidationFailureBadPublicKeyFormat)
 			return err
 		}
 
 		// if there's a revocation, confirm that has a reasonable format
-		if ae.Revocation != nil {
+		if ae.Revocation != "" {
 			revocation := &SelfRevocation{}
 			err := revocation.Unmarshal(ae.Revocation)
 			if err != nil {
-				err = ValidationFailedErr
+				err = ValidationFailed(ValidationFailureBadRevocationFormat)
 				return err
 			}
 		}
 
 		// TODO check anything in the package
+	case HeadersEntryType:
+		// TODO check signatures!
 	}
 
 	if entry == nil {
-		err = ErrNilEntryInvalid
+		err = ValidationFailed(ErrNilEntryInvalid.Error())
 		return
 	}
 	// see if there is a schema validator for the entry type and validate it if so
@@ -910,6 +1069,7 @@ func sysValidateEntry(h *Holochain, def *EntryDef, entry Entry, pkg *Package) (e
 		}
 		h.Debugf("Validating %v against schema", input)
 		if err = def.validator.Validate(input); err != nil {
+			err = ValidationFailed(err.Error())
 			return
 		}
 	} else if def.DataFormat == DataFormatLinks {
@@ -1091,20 +1251,31 @@ func (a *ActionMod) SetHeader(header *Header) {
 	a.header = header
 }
 
+func (a *ActionMod) GetHeader() (header *Header) {
+	return a.header
+}
+
 func (a *ActionMod) Do(h *Holochain) (response interface{}, err error) {
 	var d *EntryDef
-	var entryHash Hash
-	d, a.header, entryHash, err = h.doCommit(a, &StatusChange{Action: ModAction, Hash: a.replaces})
+	d, err = h.doCommit(a, &StatusChange{Action: ModAction, Hash: a.replaces})
 	if err != nil {
 		return
 	}
-	if d.Sharing == Public {
+	err = DoShare(a, h, d)
+	if err != nil {
+		return
+	}
+	response = a.header.EntryLink
+	return
+}
+
+func (a *ActionMod) Share(h *Holochain, def *EntryDef) (err error) {
+	if def.Sharing == Public {
 		// if it's a public entry send the DHT MOD & PUT messages
 		// TODO handle errors better!!
-		h.dht.Change(entryHash, PUT_REQUEST, PutReq{H: entryHash})
-		h.dht.Change(a.replaces, MOD_REQUEST, ModReq{H: a.replaces, N: entryHash})
+		h.dht.Change(a.header.EntryLink, PUT_REQUEST, PutReq{H: a.header.EntryLink})
+		h.dht.Change(a.replaces, MOD_REQUEST, ModReq{H: a.replaces, N: a.header.EntryLink})
 	}
-	response = entryHash
 	return
 }
 
@@ -1113,12 +1284,15 @@ func (a *ActionMod) SysValidation(h *Holochain, def *EntryDef, pkg *Package, sou
 	case DNAEntryType:
 		err = ErrNotValidForDNAType
 		return
+	case HeadersEntryType:
+		err = ErrNotValidForHeadersType
+		return
 	case KeyEntryType:
 	case AgentEntryType:
 	}
 
 	if def.DataFormat == DataFormatLinks {
-		err = errors.New("Can't mod Links entry")
+		err = ErrModInvalidForLinks
 		return
 	}
 
@@ -1127,11 +1301,11 @@ func (a *ActionMod) SysValidation(h *Holochain, def *EntryDef, pkg *Package, sou
 		return
 	}
 	if a.header == nil {
-		err = errors.New("mod: missing header")
+		err = ErrModMissingHeader
 		return
 	}
 	if a.replaces.String() == a.header.EntryLink.String() {
-		err = errors.New("mod: replaces must be different from original hash")
+		err = ErrModReplacesHashNotDifferent
 		return
 	}
 	// no need to check for virtual entries on the chain because they aren't there
@@ -1333,21 +1507,30 @@ func (a *ActionDel) SetHeader(header *Header) {
 	a.header = header
 }
 
+func (a *ActionDel) GetHeader() (header *Header) {
+	return a.header
+}
+
 func (a *ActionDel) Do(h *Holochain) (response interface{}, err error) {
 	var d *EntryDef
-	var entryHash Hash
 
-	d, _, entryHash, err = h.doCommit(a, &StatusChange{Action: DelAction, Hash: a.entry.Hash})
+	d, err = h.doCommit(a, &StatusChange{Action: DelAction, Hash: a.entry.Hash})
 	if err != nil {
 		return
 	}
-
-	if d.Sharing == Public {
-		// if it's a public entry send the DHT DEL
-		h.dht.Change(a.entry.Hash, DEL_REQUEST, DelReq{H: a.entry.Hash, By: entryHash})
+	err = DoShare(a, h, d)
+	if err != nil {
+		return
 	}
-	response = entryHash
+	response = a.header.EntryLink
+	return
+}
 
+func (a *ActionDel) Share(h *Holochain, def *EntryDef) (err error) {
+	if def.Sharing == Public {
+		// if it's a public entry send the DHT DEL
+		h.dht.Change(a.entry.Hash, DEL_REQUEST, DelReq{H: a.entry.Hash, By: a.header.EntryLink})
+	}
 	return
 }
 
@@ -1362,10 +1545,13 @@ func (a *ActionDel) SysValidation(h *Holochain, def *EntryDef, pkg *Package, sou
 	case AgentEntryType:
 		err = ErrNotValidForAgentType
 		return
+	case HeadersEntryType:
+		err = ErrNotValidForHeadersType
+		return
 	}
 
 	if def.DataFormat == DataFormatLinks {
-		err = errors.New("Can't del Links entry")
+		err = ErrDelInvalidForLinks
 		return
 	}
 
@@ -1555,13 +1741,6 @@ func (a *ActionGetLinks) Do(h *Holochain) (response interface{}, err error) {
 						case string:
 							t.Links[i].E = content
 						case []byte:
-							var j []byte
-							j, err = json.Marshal(content)
-							if err != nil {
-								return
-							}
-							t.Links[i].E = string(j)
-						case AgentEntry:
 							var j []byte
 							j, err = json.Marshal(content)
 							if err != nil {

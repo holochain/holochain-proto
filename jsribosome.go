@@ -9,7 +9,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	. "github.com/Holochain/holochain-proto/hash"
+	. "github.com/holochain/holochain-proto/hash"
 	peer "github.com/libp2p/go-libp2p-peer"
 	"github.com/robertkrimen/otto"
 	"strings"
@@ -78,6 +78,28 @@ func (jsr *JSRibosome) Receive(from string, msg string) (response string, err er
 	fnName := "receive"
 
 	code = fmt.Sprintf(`JSON.stringify(%s("%s",JSON.parse("%s")))`, fnName, from, jsSanitizeString(msg))
+	jsr.h.Debug(code)
+	var v otto.Value
+	v, err = jsr.vm.Run(code)
+	if err != nil {
+		err = fmt.Errorf("Error executing %s: %v", fnName, err)
+		return
+	}
+	response, err = v.ToString()
+	return
+}
+
+// BundleCancel calls the app bundleCanceled function
+func (jsr *JSRibosome) BundleCanceled(reason string) (response string, err error) {
+	var code string
+	fnName := "bundleCanceled"
+	bundle := jsr.h.chain.BundleStarted()
+	if bundle == nil {
+		err = ErrBundleNotStarted
+		return
+	}
+
+	code = fmt.Sprintf(`%s("%s",JSON.parse("%s"))`, fnName, jsSanitizeString(reason), jsSanitizeString(bundle.userParam))
 	jsr.h.Debug(code)
 	var v otto.Value
 	v, err = jsr.vm.Run(code)
@@ -241,18 +263,26 @@ func (jsr *JSRibosome) runValidate(fnName string, code string) (err error) {
 		return
 	}
 	if v.IsBoolean() {
-		if v.IsBoolean() {
-			var b bool
-			b, err = v.ToBoolean()
-			if err != nil {
-				return
-			}
-			if !b {
-				err = ValidationFailedErr
-			}
+		var b bool
+		b, err = v.ToBoolean()
+		if err != nil {
+			return
 		}
+		if !b {
+			err = ValidationFailed()
+		}
+	} else if v.IsString() {
+		var s string
+		s, err = v.ToString()
+		if err != nil {
+			return
+		}
+		if s != "" {
+			err = ValidationFailed(s)
+		}
+
 	} else {
-		err = fmt.Errorf("%s should return boolean, got: %v", fnName, v)
+		err = fmt.Errorf("%s should return boolean or string, got: %v", fnName, v)
 	}
 	return
 }
@@ -279,6 +309,12 @@ func (jsr *JSRibosome) validateEntry(fnName string, def *EntryDef, entry Entry, 
 
 const (
 	JSLibrary = `var HC={Version:` + `"` + VersionStr + "\"" +
+		`SysEntryType:{` +
+		`DNA:"` + DNAEntryType + `",` +
+		`Agent:"` + AgentEntryType + `",` +
+		`Key:"` + KeyEntryType + `",` +
+		`Headers:"` + HeadersEntryType + `"` +
+		`}` +
 		`HashNotFound:null` +
 		`,Status:{Live:` + StatusLiveVal +
 		`,Rejected:` + StatusRejectedVal +
@@ -303,6 +339,12 @@ const (
 		`,Bridge:{From:` + BridgeFromStr +
 		`,To:` + BridgeToStr +
 		"}" +
+		`,BundleCancel:{` +
+		`Reason:{UserCancel:"` + BundleCancelReasonUserCancel +
+		`",Timeout:"` + BundleCancelReasonTimeout +
+		`"},Response:{OK:"` + BundleCancelResponseOK +
+		`",Commit:"` + BundleCancelResponseCommit +
+		`"}}` +
 		`};`
 )
 
@@ -537,7 +579,7 @@ func makeOttoObjectFromGetResp(h *Holochain, jsr *JSRibosome, getResp *GetResp) 
 		code := `(` + json + `)`
 		result, err = jsr.vm.Object(code)
 	} else {
-		result = getResp.Entry.Content()
+		result = getResp.Entry.Content().(string)
 	}
 	return
 }
@@ -854,13 +896,6 @@ func NewJSRibosome(h *Holochain, zome *Zome) (n Ribosome, err error) {
 							fallthrough
 						case DataFormatJSON:
 							entryCode = fmt.Sprintf(`JSON.parse("%s")`, jsSanitizeString(r.(string)))
-						case DataFormatSysAgent:
-							var j []byte
-							j, err = json.Marshal(r.(AgentEntry))
-							if err != nil {
-								return
-							}
-							entryCode = fmt.Sprintf(`JSON.parse("%s")`, jsSanitizeString(string(j)))
 						default:
 							err = errors.New("data format not implemented: " + def.DataFormat)
 							return
@@ -1144,12 +1179,11 @@ func NewJSRibosome(h *Holochain, zome *Zome) (n Ribosome, err error) {
 								entry = th.E
 							case DataFormatRawZygo:
 								fallthrough
+							case DataFormatSysKey:
+								// key is a b58 encoded public key so the entry is just the string value
+								fallthrough
 							case DataFormatString:
 								entry = `"` + jsSanitizeString(th.E) + `"`
-							case DataFormatSysKey:
-								entry = fmt.Sprintf("%v", th.E)
-							case DataFormatSysAgent:
-								fallthrough
 							case DataFormatLinks:
 								fallthrough
 							case DataFormatJSON:
@@ -1176,6 +1210,25 @@ func NewJSRibosome(h *Holochain, zome *Zome) (n Ribosome, err error) {
 						}
 					}
 				}
+				return
+			},
+		},
+		"bundleStart": fnData{
+			a: &ActionStartBundle{},
+			fn: func(args []Arg, _a ArgsAction, call otto.FunctionCall) (result otto.Value, err error) {
+				a := _a.(*ActionStartBundle)
+				a.timeout = args[0].value.(int64)
+				a.userParam = args[1].value.(string)
+				_, err = a.Do(h)
+				return
+			},
+		},
+		"bundleClose": fnData{
+			a: &ActionCloseBundle{},
+			fn: func(args []Arg, _a ArgsAction, call otto.FunctionCall) (result otto.Value, err error) {
+				a := _a.(*ActionCloseBundle)
+				a.commit = args[0].value.(bool)
+				_, err = a.Do(h)
 				return
 			},
 		},

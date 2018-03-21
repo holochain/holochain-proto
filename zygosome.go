@@ -9,8 +9,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	. "github.com/Holochain/holochain-proto/hash"
 	zygo "github.com/glycerine/zygomys/zygo"
+	. "github.com/holochain/holochain-proto/hash"
 	peer "github.com/libp2p/go-libp2p-peer"
 	"math"
 	"regexp"
@@ -100,6 +100,11 @@ func (z *ZygoRibosome) Receive(from string, msg string) (response string, err er
 			result = fmt.Sprintf("%v", result)
 		}
 	}
+	return
+}
+
+// BundleCancel calls the app bundleCanceled function
+func (z *ZygoRibosome) BundleCanceled(reason string) (response string, err error) {
 	return
 }
 
@@ -278,13 +283,17 @@ func (z *ZygoRibosome) runValidate(fnName string, code string) (err error) {
 	case *zygo.SexpBool:
 		r := v.Val
 		if !r {
-			err = ValidationFailedErr
+			err = ValidationFailed()
+		}
+	case *zygo.SexpStr:
+		if v.S != "" {
+			err = ValidationFailed(v.S)
 		}
 	case *zygo.SexpSentinel:
-		err = fmt.Errorf("%s should return boolean, got nil", fnName)
+		err = fmt.Errorf("%s should return boolean or string, got nil", fnName)
 
 	default:
-		err = fmt.Errorf("%s should return boolean, got: %v", fnName, result)
+		err = fmt.Errorf("%s should return boolean or string, got: %v", fnName, result)
 	}
 	return
 }
@@ -929,7 +938,6 @@ func NewZygoRibosome(h *Holochain, zome *Zome) (n Ribosome, err error) {
 						}
 						defs[result.Header.Type] = def
 					}
-					r := result.Entry.Content()
 					var content string
 					switch def.DataFormat {
 					case DataFormatRawZygo:
@@ -942,12 +950,6 @@ func NewZygoRibosome(h *Holochain, zome *Zome) (n Ribosome, err error) {
 						fallthrough
 					case DataFormatJSON:
 						content = result.Entry.Content().(string)
-					case DataFormatSysAgent:
-						j, err := json.Marshal(r.(AgentEntry))
-						if err != nil {
-							return zygo.SexpNull, err
-						}
-						content = string(j)
 					default:
 						return zygo.SexpNull, fmt.Errorf("data format not implemented: %s", def.DataFormat)
 					}

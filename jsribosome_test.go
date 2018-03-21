@@ -3,7 +3,7 @@ package holochain
 import (
 	"encoding/json"
 	"fmt"
-	. "github.com/Holochain/holochain-proto/hash"
+	. "github.com/holochain/holochain-proto/hash"
 	b58 "github.com/jbenet/go-base58"
 	ic "github.com/libp2p/go-libp2p-crypto"
 	peer "github.com/libp2p/go-libp2p-peer"
@@ -99,6 +99,26 @@ func TestNewJSRibosome(t *testing.T) {
 		s, _ := z.lastResult.ToString()
 		So(s, ShouldEqual, "null")
 
+		_, err = z.Run("HC.SysEntryType.DNA")
+		So(err, ShouldBeNil)
+		s, _ = z.lastResult.ToString()
+		So(s, ShouldEqual, DNAEntryType)
+
+		_, err = z.Run("HC.SysEntryType.Agent")
+		So(err, ShouldBeNil)
+		s, _ = z.lastResult.ToString()
+		So(s, ShouldEqual, AgentEntryType)
+
+		_, err = z.Run("HC.SysEntryType.Key")
+		So(err, ShouldBeNil)
+		s, _ = z.lastResult.ToString()
+		So(s, ShouldEqual, KeyEntryType)
+
+		_, err = z.Run("HC.SysEntryType.Headers")
+		So(err, ShouldBeNil)
+		s, _ = z.lastResult.ToString()
+		So(s, ShouldEqual, HeadersEntryType)
+
 		_, err = z.Run("HC.Version")
 		So(err, ShouldBeNil)
 		s, _ = z.lastResult.ToString()
@@ -138,6 +158,26 @@ func TestNewJSRibosome(t *testing.T) {
 		So(err, ShouldBeNil)
 		i, _ = z.lastResult.ToInteger()
 		So(i, ShouldEqual, BridgeTo)
+
+		_, err = z.Run("HC.BundleCancel.Reason.UserCancel")
+		So(err, ShouldBeNil)
+		s, _ = z.lastResult.ToString()
+		So(s, ShouldEqual, BundleCancelReasonUserCancel)
+
+		_, err = z.Run("HC.BundleCancel.Reason.Timeout")
+		So(err, ShouldBeNil)
+		s, _ = z.lastResult.ToString()
+		So(s, ShouldEqual, BundleCancelReasonTimeout)
+
+		_, err = z.Run("HC.BundleCancel.Response.OK")
+		So(err, ShouldBeNil)
+		s, _ = z.lastResult.ToString()
+		So(s, ShouldEqual, BundleCancelResponseOK)
+
+		_, err = z.Run("HC.BundleCancel.Response.Commit")
+		So(err, ShouldBeNil)
+		s, _ = z.lastResult.ToString()
+		So(s, ShouldEqual, BundleCancelResponseCommit)
 
 	})
 
@@ -342,6 +382,24 @@ func TestNewJSRibosome(t *testing.T) {
 			err = <-h.asyncSends
 			So(err, ShouldBeError, SendTimeoutErr)
 		})
+		Convey("bundleStart and bundleClose", func() {
+			_, err := z.Run(`bundleStart(123,"myBundle")`)
+			So(err, ShouldBeNil)
+			bundle := h.chain.BundleStarted()
+			So(bundle, ShouldNotBeNil)
+			_, err = z.Run(`commit("oddNumbers","7")`)
+			So(err, ShouldBeNil)
+			bundleCommitHash, _ := NewHash(z.lastResult.String())
+			entry, _, _ := bundle.chain.GetEntry(bundleCommitHash)
+			So(entry.Content(), ShouldEqual, "7")
+
+			So(h.chain.BundleStarted(), ShouldNotBeNil)
+			_, err = z.Run(`bundleClose(true)`)
+			So(err, ShouldBeNil)
+			So(h.chain.BundleStarted(), ShouldBeNil)
+			entry, _, _ = h.chain.GetEntry(bundleCommitHash)
+			So(entry.Content(), ShouldEqual, "7")
+		})
 	})
 }
 
@@ -391,7 +449,7 @@ func TestJSQuery(t *testing.T) {
 		ShouldLog(h.nucleus.alog, func() {
 			_, err := z.Run(`debug(query({Constrain:{EntryTypes:["%agent"]}}))`)
 			So(err, ShouldBeNil)
-		}, `[{"Identity":"Herbert \u003ch@bert.com\u003e","PublicKey":"CAESIHLUfxjdoEfk8byjsBR+FXxYpYrFTviSBf2BbC0boylT","Revocation":null}]`)
+		}, `[{"Identity":"Herbert \u003ch@bert.com\u003e","PublicKey":"4XTTM8sJEQD5zMLT1gtu2ogshwg5AdUPNhJRbLvs77gsVtQQi","Revocation":""}]`)
 
 		_, err := z.Run(`debug(query({Constrain:{EntryTypes:["%dna"]}}))`)
 		So(err.Error(), ShouldEqual, `{"errorMessage":"data format not implemented: _DNA","function":"query","name":"HolochainError","source":{}}`)
@@ -449,6 +507,21 @@ func TestJSReceive(t *testing.T) {
 		response, err := z.Receive("fakehash", `{"bar":"baz"}`)
 		So(err, ShouldBeNil)
 		So(response, ShouldEqual, `{"foo":"baz"}`)
+	})
+}
+func TestJSBundleCanceled(t *testing.T) {
+	d, _, h := PrepareTestChain("test")
+	defer CleanupTestChain(h, d)
+	Convey("it should call a bundleCanceled function", t, func() {
+		z, _ := NewJSRibosome(h, &Zome{RibosomeType: JSRibosomeType, Code: `function bundleCanceled(reason,userParam) {debug("fish:"+userParam+reason); return HC.BundleCancel.Response.OK}`})
+		_, err := z.BundleCanceled(BundleCancelReasonUserCancel)
+		So(err, ShouldEqual, ErrBundleNotStarted)
+		h.chain.StartBundle("myBundle")
+		ShouldLog(h.nucleus.alog, func() {
+			response, err := z.BundleCanceled(BundleCancelReasonUserCancel)
+			So(err, ShouldBeNil)
+			So(response, ShouldEqual, BundleCancelResponseOK)
+		}, `fish:myBundle`+BundleCancelReasonUserCancel)
 	})
 }
 
@@ -516,7 +589,7 @@ foo
 		a := NewCommitAction("oddNumbers", &GobEntry{C: "cow"})
 		a.header = &hdr
 		err = v.ValidateAction(a, &d, nil, nil)
-		So(err, ShouldEqual, ValidationFailedErr)
+		So(IsValidationFailedErr(err), ShouldBeTrue)
 
 		a = NewCommitAction("oddNumbers", &GobEntry{C: "fish"})
 		a.header = &hdr
@@ -530,7 +603,7 @@ foo
 		a := NewCommitAction("oddNumbers", &GobEntry{C: "\"cow\""})
 		a.header = &hdr
 		err = v.ValidateAction(a, &d, nil, nil)
-		So(err, ShouldEqual, ValidationFailedErr)
+		So(IsValidationFailedErr(err), ShouldBeTrue)
 
 		a = NewCommitAction("oddNumbers", &GobEntry{C: "\"fish\""})
 		a.header = &hdr
@@ -544,7 +617,7 @@ foo
 		a := NewCommitAction("evenNumbers", &GobEntry{C: `{"data":"cow"}`})
 		a.header = &hdr
 		err = v.ValidateAction(a, &d, nil, nil)
-		So(err, ShouldEqual, ValidationFailedErr)
+		So(IsValidationFailedErr(err), ShouldBeTrue)
 
 		a = NewCommitAction("evenNumbers", &GobEntry{C: `{"data":"fish"}`})
 		a.header = &hdr
@@ -687,11 +760,11 @@ func TestJSDHT(t *testing.T) {
 		ShouldLog(h.nucleus.alog, func() {
 			_, err := NewJSRibosome(h, &Zome{RibosomeType: JSRibosomeType, Code: fmt.Sprintf(`debug(get("%s"));`, h.agentHash.String())})
 			So(err, ShouldBeNil)
-		}, `{"Identity":"Herbert \u003ch@bert.com\u003e","PublicKey":[8,1,18,32,114,212,127,24,221,160,71,228,241,188,163,176,20,126,21,124,88,165,138,197,78,248,146,5,253,129,108,45,27,163,41,83],"Revocation":[]}`)
+		}, `{"Identity":"Herbert \u003ch@bert.com\u003e","PublicKey":"4XTTM8sJEQD5zMLT1gtu2ogshwg5AdUPNhJRbLvs77gsVtQQi","Revocation":""}`)
 		ShouldLog(h.nucleus.alog, func() {
 			_, err := NewJSRibosome(h, &Zome{RibosomeType: JSRibosomeType, Code: fmt.Sprintf(`debug(get("%s"));`, h.nodeID.Pretty())})
 			So(err, ShouldBeNil)
-		}, `[8,1,18,32,114,212,127,24,221,160,71,228,241,188,163,176,20,126,21,124,88,165,138,197,78,248,146,5,253,129,108,45,27,163,41,83]`)
+		}, "4XTTM8sJEQD5zMLT1gtu2ogshwg5AdUPNhJRbLvs77gsVtQQi")
 	})
 
 	Convey("get should return entry type", t, func() {
@@ -798,17 +871,17 @@ func TestJSDHT(t *testing.T) {
 		z := v.(*JSRibosome)
 		So(z.lastResult.Class(), ShouldEqual, "Array")
 		links, _ := z.lastResult.Export()
-		l0 := links.([]map[string]interface{})[1]
-		l1 := links.([]map[string]interface{})[0]
+		l0 := links.([]map[string]interface{})[0]
+		l1 := links.([]map[string]interface{})[1]
 		So(l1["Hash"], ShouldEqual, h.agentHash.String())
 		lp := l1["Entry"].(map[string]interface{})
 		So(fmt.Sprintf("%v", lp["Identity"]), ShouldEqual, "Herbert <h@bert.com>")
-		So(fmt.Sprintf("%v", lp["PublicKey"]), ShouldEqual, "CAESIHLUfxjdoEfk8byjsBR+FXxYpYrFTviSBf2BbC0boylT")
+		So(fmt.Sprintf("%v", lp["PublicKey"]), ShouldEqual, "4XTTM8sJEQD5zMLT1gtu2ogshwg5AdUPNhJRbLvs77gsVtQQi")
 		So(l1["EntryType"], ShouldEqual, AgentEntryType)
 		So(l1["Source"], ShouldEqual, h.nodeIDStr)
 
 		So(l0["Hash"], ShouldEqual, h.nodeIDStr)
-		So(fmt.Sprintf("%v", l0["Entry"]), ShouldEqual, "CAESIHLUfxjdoEfk8byjsBR+FXxYpYrFTviSBf2BbC0boylT")
+		So(fmt.Sprintf("%v", l0["Entry"]), ShouldEqual, "4XTTM8sJEQD5zMLT1gtu2ogshwg5AdUPNhJRbLvs77gsVtQQi")
 		So(l0["EntryType"], ShouldEqual, KeyEntryType)
 	})
 
@@ -903,7 +976,7 @@ func TestJSDHT(t *testing.T) {
 	})
 
 	Convey("updateAgent function should commit a new agent entry", t, func() {
-		oldPubKey, _ := h.agent.PubKey().Bytes()
+		oldPubKey, _ := h.agent.EncodePubKey()
 		v, err := NewJSRibosome(h, &Zome{RibosomeType: JSRibosomeType,
 			Code: fmt.Sprintf(`updateAgent({Identity:"new identity"})`)})
 		So(err, ShouldBeNil)
@@ -914,11 +987,12 @@ func TestJSDHT(t *testing.T) {
 		So(header.Type, ShouldEqual, AgentEntryType)
 		So(newAgentHash, ShouldEqual, header.EntryLink.String())
 		So(h.agent.Identity(), ShouldEqual, "new identity")
-		newPubKey, _ := h.agent.PubKey().Bytes()
+		newPubKey, _ := h.agent.EncodePubKey()
 		So(fmt.Sprintf("%v", newPubKey), ShouldEqual, fmt.Sprintf("%v", oldPubKey))
 		entry, _, _ := h.chain.GetEntry(header.EntryLink)
-		So(entry.Content().(AgentEntry).Identity, ShouldEqual, "new identity")
-		So(fmt.Sprintf("%v", entry.Content().(AgentEntry).PublicKey), ShouldEqual, fmt.Sprintf("%v", oldPubKey))
+		a, _ := AgentEntryFromJSON(entry.Content().(string))
+		So(a.Identity, ShouldEqual, "new identity")
+		So(fmt.Sprintf("%v", a.PublicKey), ShouldEqual, fmt.Sprintf("%v", oldPubKey))
 	})
 
 	Convey("updateAgent function with revoke option should commit a new agent entry and mark key as modified on DHT", t, func() {
@@ -938,23 +1012,24 @@ func TestJSDHT(t *testing.T) {
 		header := h.chain.Top()
 		So(header.Type, ShouldEqual, AgentEntryType)
 		So(newAgentHash, ShouldEqual, header.EntryLink.String())
-		newPubKey, _ := h.agent.PubKey().Bytes()
+		newPubKey, _ := h.agent.EncodePubKey()
 		So(fmt.Sprintf("%v", newPubKey), ShouldNotEqual, fmt.Sprintf("%v", oldPubKey))
 		entry, _, _ := h.chain.GetEntry(header.EntryLink)
 		revocation := &SelfRevocation{}
-		revocation.Unmarshal(entry.Content().(AgentEntry).Revocation)
+		a, _ := AgentEntryFromJSON(entry.Content().(string))
+		revocation.Unmarshal(a.Revocation)
 
 		w, _ := NewSelfRevocationWarrant(revocation)
 		payload, _ := w.Property("payload")
 
 		So(string(payload.([]byte)), ShouldEqual, "some revocation data")
-		So(fmt.Sprintf("%v", entry.Content().(AgentEntry).PublicKey), ShouldEqual, fmt.Sprintf("%v", newPubKey))
+		So(fmt.Sprintf("%v", a.PublicKey), ShouldEqual, fmt.Sprintf("%v", newPubKey))
 
 		// the new Key should be available on the DHT
 		newKey, _ := NewHash(h.nodeIDStr)
 		data, _, _, _, err := h.dht.get(newKey, StatusDefault, GetMaskDefault)
 		So(err, ShouldBeNil)
-		So(string(data), ShouldEqual, string(newPubKey))
+		So(string(data), ShouldEqual, newPubKey)
 
 		// the old key should be marked as Modifed and we should get the new hash as the data
 		data, _, _, _, err = h.dht.get(oldKey, StatusDefault, GetMaskDefault)

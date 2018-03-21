@@ -11,8 +11,8 @@ import (
 	"os"
 	"path/filepath"
 
-	holo "github.com/Holochain/holochain-proto"
-	"github.com/Holochain/holochain-proto/cmd"
+	holo "github.com/holochain/holochain-proto"
+	"github.com/holochain/holochain-proto/cmd"
 	"github.com/urfave/cli"
 )
 
@@ -244,7 +244,7 @@ func setupApp() (app *cli.App) {
 					}
 					dna := h.Nucleus().DNA()
 					fmt.Printf("Status of %s\n", dna.Name)
-					fmt.Printf("   ---More status info here, no yet implmented---\n")
+					fmt.Printf("   ---More status info here, not yet implemented---\n")
 				} else {
 					return errors.New("status: expected 0 or 1 argument")
 				}

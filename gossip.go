@@ -9,7 +9,7 @@ package holochain
 import (
 	"errors"
 	"fmt"
-	. "github.com/Holochain/holochain-proto/hash"
+	. "github.com/holochain/holochain-proto/hash"
 	peer "github.com/libp2p/go-libp2p-peer"
 	"github.com/tidwall/buntdb"
 	"math/rand"
@@ -460,12 +460,8 @@ func (dht *DHT) gossipPut(p Put) (err error) {
 	return
 }
 
-func handleGossipPut(dht *DHT) (stop bool, err error) {
-	p, ok := <-dht.gossipPuts
-	if !ok {
-		stop = true
-		return
-	}
+func handleGossipPut(dht *DHT, x interface{}) (err error) {
+	p := x.(Put)
 	err = dht.gossipPut(p)
 	return
 }
@@ -484,48 +480,49 @@ func (dht *DHT) gossip() (err error) {
 
 // GossipTask runs a gossip and logs any errors
 func GossipTask(h *Holochain) {
-	if h.dht != nil {
-		if h.dht.gchan != nil {
-			err := h.dht.gossip()
-			if err != nil {
-				h.dht.glog.Logf("error: %v", err)
-			}
+	if h.dht != nil && h.dht.gchan != nil {
+		err := h.dht.gossip()
+		if err != nil {
+			h.dht.glog.Logf("error: %v", err)
 		}
 	}
+
 }
 
-func handleGossipWith(dht *DHT) (stop bool, err error) {
-	g, ok := <-dht.gchan
-	if !ok {
-		stop = true
-		return
-	}
+func handleGossipWith(dht *DHT, x interface{}) (err error) {
+	g := x.(gossipWithReq)
 	err = dht.gossipWith(g.id)
 	return
 }
 
-func (dht *DHT) handleTillDone(errtext string, fn func(*DHT) (bool, error)) (err error) {
+func (dht *DHT) handleTillDone(errtext string, channel Channel, handlerFn func(*DHT, interface{}) error) (err error) {
 	var done bool
 	for !done {
-		dht.glog.Logf("HandleGossip%s: waiting for request", errtext)
-		done, err = fn(dht)
-		if err != nil {
-			dht.glog.Logf("HandleGossip%s: got err: %v", errtext, err)
+		dht.glog.Logf("%s: waiting for request", errtext)
+		x, ok := <-channel
+		if !ok {
+			done = true
+			break
+		} else {
+			err = handlerFn(dht, x)
+			if err != nil {
+				dht.glog.Logf("%s: got err: %v", errtext, err)
+			}
 		}
 	}
-	dht.glog.Logf("HandleGossip%s: channel closed, stopping", errtext)
+	dht.glog.Logf("%s: channel closed, stopping", errtext)
 	return nil
 }
 
 // HandleGossipWiths waits on a channel for gossipWith requests
 func (dht *DHT) HandleGossipWiths() (err error) {
-	err = dht.handleTillDone("Withs", handleGossipWith)
+	err = dht.handleTillDone("HandleGossipWiths", dht.gchan, handleGossipWith)
 	return
 }
 
 // HandleGossipPuts waits on a channel for gossip changes
 func (dht *DHT) HandleGossipPuts() (err error) {
-	err = dht.handleTillDone("Puts", handleGossipPut)
+	err = dht.handleTillDone("HandleGossipPuts", dht.gossipPuts, handleGossipPut)
 	return nil
 }
 

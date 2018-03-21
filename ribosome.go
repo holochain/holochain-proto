@@ -9,7 +9,7 @@ package holochain
 import (
 	"errors"
 	"fmt"
-	. "github.com/Holochain/holochain-proto/hash"
+	. "github.com/holochain/holochain-proto/hash"
 	"sort"
 	"strings"
 )
@@ -43,9 +43,29 @@ const (
 	BridgeTo      = 1
 	BridgeFromStr = "0"
 	BridgeToStr   = "1"
+
+	BundleCancelReasonUserCancel = "userCancel"
+	BundleCancelReasonTimeout    = "timeout"
+
+	BundleCancelResponseOK     = ""
+	BundleCancelResponseCommit = "commit"
+
+	ValidationFailedErrMsg = "Validation Failed"
 )
 
-var ValidationFailedErr = errors.New("Validation Failed")
+var ValidationFailedErr = errors.New(ValidationFailedErrMsg)
+
+// ValidationFailed creates a validation failed error message
+func ValidationFailed(msgs ...string) error {
+	if len(msgs) == 0 {
+		return ValidationFailedErr
+	}
+	return errors.New(ValidationFailedErrMsg + ": " + strings.Join(msgs, `, `))
+}
+
+func IsValidationFailedErr(err error) bool {
+	return strings.HasPrefix(err.Error(), ValidationFailedErrMsg)
+}
 
 // FunctionDef holds the name and calling type of an DNA exposed function
 type FunctionDef struct {
@@ -73,6 +93,7 @@ type Ribosome interface {
 	Call(fn *FunctionDef, params interface{}) (interface{}, error)
 	Run(code string) (result interface{}, err error)
 	RunAsyncSendResponse(response AppMsg, callback string, callbackID string) (result interface{}, err error)
+	BundleCanceled(reason string) (response string, err error)
 }
 
 var ribosomeFactories = make(map[string]RibosomeFactory)

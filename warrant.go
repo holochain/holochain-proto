@@ -8,7 +8,7 @@ package holochain
 
 import (
 	"errors"
-	. "github.com/Holochain/holochain-proto/hash"
+	. "github.com/holochain/holochain-proto/hash"
 	ic "github.com/libp2p/go-libp2p-crypto"
 	peer "github.com/libp2p/go-libp2p-peer"
 )
@@ -146,11 +146,15 @@ func (w *SelfRevocationWarrant) Property(key string) (value interface{}, err err
 }
 
 func (w *SelfRevocationWarrant) Encode() (data []byte, err error) {
-	data, err = w.Revocation.Marshal()
+	var rev string
+	rev, err = w.Revocation.Marshal()
+	if err == nil {
+		data = []byte(rev)
+	}
 	return
 }
 
 func (w *SelfRevocationWarrant) Decode(data []byte) (err error) {
-	err = w.Revocation.Unmarshal(data)
+	err = w.Revocation.Unmarshal(string(data))
 	return
 }

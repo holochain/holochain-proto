@@ -4,8 +4,8 @@ import (
 	"bytes"
 	"encoding/gob"
 	"fmt"
-	. "github.com/Holochain/holochain-proto/hash"
 	"github.com/google/uuid"
+	. "github.com/holochain/holochain-proto/hash"
 	peer "github.com/libp2p/go-libp2p-peer"
 	. "github.com/smartystreets/goconvey/convey"
 	"os"
@@ -340,9 +340,11 @@ func TestAddAgentEntry(t *testing.T) {
 		entry, _, err := h.chain.GetEntry(agentHash)
 		So(err, ShouldBeNil)
 
-		var a = entry.Content().(AgentEntry)
+		a, err := AgentEntryFromJSON(entry.Content().(string))
+		So(err, ShouldBeNil)
+
 		So(a.Identity, ShouldEqual, h.agent.Identity())
-		pk, _ := h.agent.PubKey().Bytes()
+		pk, _ := h.agent.EncodePubKey()
 		So(string(a.PublicKey), ShouldEqual, string(pk))
 		So(string(a.Revocation), ShouldEqual, "some revocation data")
 	})
@@ -371,9 +373,9 @@ func TestGenChain(t *testing.T) {
 		entry, _, err := h.chain.GetEntry(hdr.EntryLink)
 		So(err, ShouldBeNil)
 		header = *hdr
-		var a = entry.Content().(AgentEntry)
+		a, _ := AgentEntryFromJSON(entry.Content().(string))
 		So(a.Identity, ShouldEqual, h.agent.Identity())
-		pk, _ := h.agent.PubKey().Bytes()
+		pk, _ := h.agent.EncodePubKey()
 		So(string(a.PublicKey), ShouldEqual, string(pk))
 		So(string(a.Revocation), ShouldEqual, "")
 	})
@@ -483,7 +485,7 @@ func TestCall(t *testing.T) {
 		So(result.(string), ShouldEqual, ph.String())
 
 		_, err = h.Call("zySampleZome", "addEven", "41", ZOME_EXPOSURE)
-		So(err.Error(), ShouldEqual, "Error calling 'commit': Validation Failed")
+		So(err.Error(), ShouldEqual, "Error calling 'commit': Validation Failed: 41 is not even")
 	})
 	Convey("it should fail calls to functions not exposed to the given context", t, func() {
 		_, err := h.Call("zySampleZome", "testStrFn1", "arg1 arg2", PUBLIC_EXPOSURE)
@@ -689,6 +691,19 @@ func TestQuery(t *testing.T) {
 		So(results[0].Entry.Content(), ShouldEqual, `{"firstName":"Pebbles","lastName":"Flintstone"}`)
 		So(results[1].Entry.Content(), ShouldEqual, `{"firstName":"Zerbina","lastName":"Pinhead"}`)
 	})
+	Convey("query from bundle", t, func() {
+		q := &QueryOptions{Bundle: true}
+		_, err := h.Query(q)
+		So(err, ShouldEqual, ErrBundleNotStarted)
+		h.Chain().StartBundle(0)
+		results, err := h.Query(q)
+		So(err, ShouldBeNil)
+		So(len(results), ShouldEqual, 0)
+		commit(h, "secret", "flam")
+		results, err = h.Query(q)
+		So(err, ShouldBeNil)
+		So(len(results), ShouldEqual, 1)
+	})
 }
 
 func TestGetEntryDef(t *testing.T) {
@@ -718,6 +733,10 @@ func TestGetEntryDef(t *testing.T) {
 		So(err, ShouldBeNil)
 		So(zome, ShouldBeNil)
 		So(def, ShouldEqual, KeyEntryDef)
+		zome, def, err = h.GetEntryDef(HeadersEntryType)
+		So(err, ShouldBeNil)
+		So(zome, ShouldBeNil)
+		So(def, ShouldEqual, HeadersEntryDef)
 	})
 	Convey("it should get private entry definition", t, func() {
 		zome, def, err := h.GetEntryDef("privateData")

@@ -12,8 +12,8 @@ import (
 	"errors"
 	"fmt"
 	"github.com/BurntSushi/toml"
-	. "github.com/Holochain/holochain-proto/hash"
 	"github.com/google/uuid"
+	. "github.com/holochain/holochain-proto/hash"
 	"io"
 	"io/ioutil"
 	"net/http"
@@ -174,6 +174,14 @@ func IsInitialized(root string) bool {
 // and writes them out to configuration files in the root path (making the
 // directory if necessary)
 func Init(root string, identity AgentIdentity, seed io.Reader) (service *Service, err error) {
+	//TODO this is in the wrong place it should be where HeadersEntryDef gets initialized
+	if HeadersEntryDef.validator == nil {
+		err = HeadersEntryDef.BuildJSONSchemaValidatorFromString(HeadersEntryDef.Schema)
+	}
+	if AgentEntryDef.validator == nil {
+		err = AgentEntryDef.BuildJSONSchemaValidatorFromString(AgentEntryDef.Schema)
+	}
+
 	err = os.MkdirAll(root, os.ModePerm)
 	if err != nil {
 		return
@@ -1516,7 +1524,7 @@ func TestingAppAppPackage() string {
         "Zome":   "zySampleZome",
         "FnName": "addEven",
         "Input":  "5",
-        "Err":    "Error calling 'commit': Validation Failed"
+        "Err":    "Error calling 'commit': Validation Failed: 5 is not even"
     },
     {
         "Zome":   "zySampleZome",
@@ -1571,13 +1579,13 @@ func TestingAppAppPackage() string {
 	"Zome":   "jsSampleZome",
 	"FnName": "addOdd",
 	"Input":  "2",
-	"Err":    {"errorMessage":"Validation Failed","function":"commit","name":"` + HolochainErrorPrefix + `","source":{"column":"28","functionName":"addOdd","line":"45"}}
+	"Err":    {"errorMessage":"Validation Failed: 2 is not odd","function":"commit","name":"` + HolochainErrorPrefix + `","source":{"column":"28","functionName":"addOdd","line":"45"}}
     },
     {
 	"Zome":   "jsSampleZome",
 	"FnName": "addOdd",
 	"Input":  "2",
-	"ErrMsg":  "Validation Failed"
+	"ErrMsg":  "Validation Failed: 2 is not odd"
     },
     {
 	"Zome":   "zySampleZome",
@@ -1715,7 +1723,7 @@ function validateCommit(entry_type,entry,header,pkg,sources) {
 }
 function validate(entry_type,entry,header,sources) {
   if (entry_type=="oddNumbers") {
-    return entry%2 != 0
+    return (entry%2 != 0) ? true : entry+" is not odd"
   }
   if (entry_type=="profile") {
     return true
@@ -1743,6 +1751,17 @@ function genesis() {
   return true
 }
 function bridgeGenesis(side,app,data) {return true}
+
+function bundleCanceled(reason,userParam) {
+     debug(userParam+"debug message during bundleCanceled with reason: "+reason);
+  if (userParam == 'debugit') {
+     debug("debug message during bundleCanceled with reason: "+reason);
+  } else if (userParam == 'cancelit') {
+     debug("debug message during bundleCanceled: canceling cancel!");
+     return HC.BundleCancel.Response.Commit
+  }
+  return HC.BundleCancel.Response.OK
+}
 
 function receive(from,message) {
   // if the message requests blocking run an infinite loop
@@ -1785,9 +1804,9 @@ function asyncPing(message,id) {
 (defn validateMod [entryType entry header replaces pkg sources] true)
 (defn validateDel [entryType hash pkg sources] true)
 (defn validate [entryType entry header sources]
-  (cond (== entryType "evenNumbers")  (cond (== (mod entry 2) 0) true false)
+  (cond (== entryType "evenNumbers")  (cond (== (mod entry 2) 0) true (concat (str entry) " is not even"))
         (== entryType "primes")  (isprime (hget entry %prime))
-        (== entryType "profile") true
+        (== entryType "profile") ""
         false)
 )
 (defn validateLink [linkEntryType baseHash links pkg sources] true)

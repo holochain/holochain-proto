@@ -9,8 +9,8 @@ import (
 	"testing"
 	"time"
 
-	. "github.com/Holochain/holochain-proto/hash"
-	ic "github.com/libp2p/go-libp2p-crypto"
+	. "github.com/holochain/holochain-proto/hash"
+	b58 "github.com/jbenet/go-base58"
 	peer "github.com/libp2p/go-libp2p-peer"
 	. "github.com/smartystreets/goconvey/convey"
 	"github.com/tidwall/buntdb"
@@ -67,14 +67,14 @@ func TestSetupDHT(t *testing.T) {
 		So(err, ShouldBeNil)
 		So(status, ShouldEqual, StatusLive)
 		So(et, ShouldEqual, KeyEntryType)
-		pubKey, err := ic.MarshalPublicKey(h.agent.PubKey())
-		So(string(data), ShouldEqual, string(pubKey))
+		pubKey, err := h.agent.EncodePubKey()
+		So(string(data), ShouldEqual, pubKey)
 
 		data, et, _, status, err = h.dht.get(keyHash, StatusDefault, GetMaskDefault)
 		So(err, ShouldBeNil)
 		So(status, ShouldEqual, StatusLive)
 
-		So(string(data), ShouldEqual, string(pubKey))
+		So(string(data), ShouldEqual, pubKey)
 	})
 }
 
@@ -344,13 +344,14 @@ func TestDHTSend(t *testing.T) {
 		So(err, ShouldBeNil)
 		resp := r.(GetResp)
 		ae, _ := h.agent.AgentEntry(nil)
-		So(fmt.Sprintf("%v", resp.Entry.Content()), ShouldEqual, fmt.Sprintf("%v", ae))
+		a, _ := ae.ToJSON()
+		So(resp.Entry.Content().(string), ShouldEqual, a)
 
 		msg = h.node.NewMessage(GET_REQUEST, GetReq{H: HashFromPeerID(h.nodeID), StatusMask: StatusLive})
 		r, err = h.dht.send(nil, h.nodeID, msg)
 		So(err, ShouldBeNil)
 		resp = r.(GetResp)
-		So(fmt.Sprintf("%v", resp.Entry.Content()), ShouldEqual, fmt.Sprintf("%v", ae.PublicKey))
+		So(resp.Entry.Content().(string), ShouldEqual, ae.PublicKey)
 
 		// for now this is an error because we presume everyone has the DNA.
 		// once we implement dna changes, this needs to be changed
@@ -493,7 +494,7 @@ func TestActionReceiver(t *testing.T) {
 		r, err = ActionReceiver(h, m)
 		So(err, ShouldBeNil)
 		resp = r.(GetResp)
-		So(resp.Entry.C, ShouldBeNil)
+		So(resp.Entry.C, ShouldEqual, nil)
 		So(resp.EntryType, ShouldEqual, "evenNumbers")
 
 		m = h.node.NewMessage(GET_REQUEST, GetReq{H: hash, GetMask: GetMaskEntry + GetMaskEntryType})
@@ -507,7 +508,7 @@ func TestActionReceiver(t *testing.T) {
 		r, err = ActionReceiver(h, m)
 		So(err, ShouldBeNil)
 		resp = r.(GetResp)
-		So(resp.Entry.C, ShouldBeNil)
+		So(resp.Entry.C, ShouldEqual, nil)
 		So(fmt.Sprintf("%v", resp.Sources), ShouldEqual, fmt.Sprintf("[%v]", h.nodeIDStr))
 		So(resp.EntryType, ShouldEqual, "evenNumbers") // you allways get the entry type even if not in getmask at this level (ActionReceiver) because we have to be able to look up the definition to interpret the contents
 
@@ -651,8 +652,8 @@ func TestActionReceiver(t *testing.T) {
 	Convey("DELETE_REQUEST should set status of hash to deleted", t, func() {
 		entry := DelEntry{Hash: hash2, Message: "expired"}
 		a := NewDelAction("evenNumbers", entry)
-		_, _, entryHash, err := h.doCommit(a, &StatusChange{Action: DelAction, Hash: hash2})
-
+		_, err := h.doCommit(a, &StatusChange{Action: DelAction, Hash: hash2})
+		entryHash := a.header.EntryLink
 		m := h.node.NewMessage(DEL_REQUEST, DelReq{H: hash2, By: entryHash})
 		r, err := ActionReceiver(h, m)
 		So(err, ShouldBeNil)
@@ -770,7 +771,7 @@ func TestDHTDump(t *testing.T) {
 		So(dump, ShouldContainSubstring, "DHT entries:")
 		So(dump, ShouldContainSubstring, fmt.Sprintf("Hash--%s (status 1)", h.nodeIDStr))
 		pk, _ := h.agent.PubKey().Bytes()
-		So(dump, ShouldContainSubstring, fmt.Sprintf("Value: %s", string(pk)))
+		So(dump, ShouldContainSubstring, fmt.Sprintf("Value: %s", string(b58.Encode(pk))))
 		So(dump, ShouldContainSubstring, fmt.Sprintf("Sources: %s", h.nodeIDStr))
 
 		So(dump, ShouldContainSubstring, fmt.Sprintf("Linked to: %s with tag %s", reviewHash, "4stars"))
@@ -875,17 +876,18 @@ func TestDHTMultiNode(t *testing.T) {
 				req := GetReq{H: HashFromPeerID(h1.nodeID), StatusMask: options.StatusMask, GetMask: options.GetMask}
 				response, err := NewGetAction(req, &options).Do(h2)
 				if err != nil {
-					//          fmt.Printf("FAIL   : %v couldn't get from %v err: %err\n", h2.nodeID, h1.nodeID, err)
+					fmt.Printf("FAIL   : %v couldn't get from %v err: %err\n", h2.nodeID, h1.nodeID, err)
 				} else {
-					responseStr := fmt.Sprintf("%v", response)
-					pk, _ := h1.agent.PubKey().Bytes()
-					expectedResponseStr := fmt.Sprintf("{{%v} %s [] }", pk, `%%key`)
+					e := response.(GetResp).Entry
+					responseStr := fmt.Sprintf("%v", e.Content())
+					pk, _ := h1.agent.EncodePubKey()
+					expectedResponseStr := pk
 					if responseStr == expectedResponseStr {
 						connections += 1
-						//            fmt.Printf("SUCCESS: %v got from          %v\n", h2.nodeID, h1.nodeID)
+						//fmt.Printf("SUCCESS: %v got from          %v\n", h2.nodeID, h1.nodeID)
 					} else {
-						//            fmt.Printf("Expected:%s\n", expectedResponseStr)
-						//            fmt.Printf("Got     :%s\n", responseStr)
+						//fmt.Printf("Expected:%s\n", expectedResponseStr)
+						//fmt.Printf("Got     :%s\n", responseStr)
 					}
 				}
 			}

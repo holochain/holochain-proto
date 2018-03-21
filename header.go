@@ -10,7 +10,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
-	. "github.com/Holochain/holochain-proto/hash"
+	. "github.com/holochain/holochain-proto/hash"
 	b58 "github.com/jbenet/go-base58"
 	ic "github.com/libp2p/go-libp2p-crypto"
 	"io"
@@ -31,7 +31,7 @@ type StatusChange struct {
 type Header struct {
 	Type       string
 	Time       time.Time
-	HeaderLink Hash // link to previous headerq
+	HeaderLink Hash // link to previous header
 	EntryLink  Hash // link to entry
 	TypeLink   Hash // link to header of previous header of this type
 	Sig        Signature

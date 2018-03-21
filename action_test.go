@@ -3,9 +3,8 @@ package holochain
 import (
 	// "fmt"
 	"fmt"
-	. "github.com/Holochain/holochain-proto/hash"
+	. "github.com/holochain/holochain-proto/hash"
 	b58 "github.com/jbenet/go-base58"
-	ic "github.com/libp2p/go-libp2p-crypto"
 	peer "github.com/libp2p/go-libp2p-peer"
 	. "github.com/smartystreets/goconvey/convey"
 	"testing"
@@ -36,7 +35,7 @@ func TestValidateAction(t *testing.T) {
 		entry := &GobEntry{C: "1"}
 		a := NewCommitAction("evenNumbers", entry)
 		_, err = h.ValidateAction(a, a.entryType, nil, []peer.ID{h.nodeID})
-		So(err, ShouldEqual, ValidationFailedErr)
+		So(IsValidationFailedErr(err), ShouldBeTrue)
 	})
 
 	// these test the sys type cases
@@ -53,6 +52,15 @@ func TestValidateAction(t *testing.T) {
 		So(err, ShouldEqual, ErrNotValidForDNAType)
 	})
 
+	Convey("modifying a headers entry should fail", t, func() {
+		hd := h.Chain().Top()
+		j, _ := hd.ToJSON()
+		entryStr := fmt.Sprintf(`[{"Header":%s,"Role":"someRole","Source":"%s"}]`, j, h.nodeID.Pretty())
+		am := NewModAction(HeadersEntryType, &GobEntry{C: entryStr}, HashFromPeerID(h.nodeID))
+		_, err = h.ValidateAction(am, am.entryType, nil, []peer.ID{h.nodeID})
+		So(err, ShouldEqual, ErrNotValidForHeadersType)
+	})
+
 	Convey("deleting all sys entry types should fail", t, func() {
 		a := NewDelAction(DNAEntryType, DelEntry{})
 		_, err = h.ValidateAction(a, a.entryType, nil, []peer.ID{h.nodeID})
@@ -63,6 +71,9 @@ func TestValidateAction(t *testing.T) {
 		a.entryType = AgentEntryType
 		_, err = h.ValidateAction(a, a.entryType, nil, []peer.ID{h.nodeID})
 		So(err, ShouldEqual, ErrNotValidForAgentType)
+		a.entryType = HeadersEntryType
+		_, err = h.ValidateAction(a, a.entryType, nil, []peer.ID{h.nodeID})
+		So(err, ShouldEqual, ErrNotValidForHeadersType)
 	})
 }
 
@@ -73,16 +84,16 @@ func TestSysValidateEntry(t *testing.T) {
 	Convey("key entry should be a public key", t, func() {
 		e := &GobEntry{}
 		err := sysValidateEntry(h, KeyEntryDef, e, nil)
-		So(err, ShouldEqual, ValidationFailedErr)
+		So(IsValidationFailedErr(err), ShouldBeTrue)
 		e.C = []byte{1, 2, 3}
 		err = sysValidateEntry(h, KeyEntryDef, e, nil)
-		So(err, ShouldEqual, ValidationFailedErr)
+		So(IsValidationFailedErr(err), ShouldBeTrue)
 
-		e.C = []byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 1, 2, 3, 4, 5, 6}
+		e.C = "not b58 encoded public key!"
 		err = sysValidateEntry(h, KeyEntryDef, e, nil)
-		So(err, ShouldEqual, ValidationFailedErr)
+		So(IsValidationFailedErr(err), ShouldBeTrue)
 
-		pk, _ := ic.MarshalPublicKey(h.agent.PubKey())
+		pk, _ := h.agent.EncodePubKey()
 		e.C = pk
 		err = sysValidateEntry(h, KeyEntryDef, e, nil)
 		So(err, ShouldBeNil)
@@ -91,36 +102,40 @@ func TestSysValidateEntry(t *testing.T) {
 	Convey("an agent entry should have the correct structure as defined", t, func() {
 		e := &GobEntry{}
 		err := sysValidateEntry(h, AgentEntryDef, e, nil)
-		So(err, ShouldEqual, ValidationFailedErr)
+		So(IsValidationFailedErr(err), ShouldBeTrue)
 
 		// bad agent entry (empty)
-		e.C = AgentEntry{}
+		e.C = ""
 		err = sysValidateEntry(h, AgentEntryDef, e, nil)
-		So(err, ShouldEqual, ValidationFailedErr)
+		So(IsValidationFailedErr(err), ShouldBeTrue)
 
 		ae, _ := h.agent.AgentEntry(nil)
 		// bad public key
-		ae.PublicKey = nil
-		e.C = ae
+		ae.PublicKey = ""
+		a, _ := ae.ToJSON()
+		e.C = a
 		err = sysValidateEntry(h, AgentEntryDef, e, nil)
-		So(err, ShouldEqual, ValidationFailedErr)
+		So(IsValidationFailedErr(err), ShouldBeTrue)
 
 		ae, _ = h.agent.AgentEntry(nil)
 		// bad public key
-		ae.PublicKey = []byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 1, 2, 3, 4, 5, 6}
-		e.C = ae
+		ae.PublicKey = "not b58 encoded public key!"
+		a, _ = ae.ToJSON()
+		e.C = a
 		err = sysValidateEntry(h, AgentEntryDef, e, nil)
-		So(err, ShouldEqual, ValidationFailedErr)
+		So(IsValidationFailedErr(err), ShouldBeTrue)
 
 		ae, _ = h.agent.AgentEntry(nil)
 		// bad revocation
-		ae.Revocation = []byte{1, 2, 3}
-		e.C = ae
+		ae.Revocation = string([]byte{1, 2, 3})
+		a, _ = ae.ToJSON()
+		e.C = a
 		err = sysValidateEntry(h, AgentEntryDef, e, nil)
-		So(err, ShouldEqual, ValidationFailedErr)
+		So(IsValidationFailedErr(err), ShouldBeTrue)
 
 		ae, _ = h.agent.AgentEntry(nil)
-		e.C = ae
+		a, _ = ae.ToJSON()
+		e.C = a
 		err = sysValidateEntry(h, AgentEntryDef, e, nil)
 		So(err, ShouldBeNil)
 	})
@@ -129,7 +144,8 @@ func TestSysValidateEntry(t *testing.T) {
 
 	Convey("a nil entry is invalid", t, func() {
 		err := sysValidateEntry(h, def, nil, nil)
-		So(err.Error(), ShouldEqual, "nil entry invalid")
+		So(IsValidationFailedErr(err), ShouldBeTrue)
+		So(err.Error(), ShouldEqual, "Validation Failed: nil entry invalid")
 	})
 
 	Convey("validate on a schema based entry should check entry against the schema", t, func() {
@@ -137,8 +153,8 @@ func TestSysValidateEntry(t *testing.T) {
 		_, def, _ := h.GetEntryDef("profile")
 
 		err := sysValidateEntry(h, def, &GobEntry{C: profile}, nil)
-		So(err, ShouldNotBeNil)
-		So(err.Error(), ShouldEqual, "validator profile failed: object property 'lastName' is required")
+		So(IsValidationFailedErr(err), ShouldBeTrue)
+		So(err.Error(), ShouldEqual, "Validation Failed: validator profile failed: object property 'lastName' is required")
 	})
 
 	Convey("validate on a links entry should fail if not formatted correctly", t, func() {
@@ -165,6 +181,26 @@ func TestSysValidateEntry(t *testing.T) {
 		So(err, ShouldNotBeNil)
 		So(err.Error(), ShouldEqual, "invalid links entry: missing Tag")
 	})
+
+	Convey("validate headers entry should fail if it doesn't match the headers entry schema", t, func() {
+		err := sysValidateEntry(h, HeadersEntryDef, &GobEntry{C: ""}, nil)
+		So(err, ShouldNotBeNil)
+		So(err.Error(), ShouldEqual, "unexpected end of JSON input")
+
+		err = sysValidateEntry(h, HeadersEntryDef, &GobEntry{C: `{"Fish":2}`}, nil)
+		So(err, ShouldNotBeNil)
+		So(err.Error(), ShouldEqual, "Validation Failed: validator %header failed: value must be a slice (was: map[string]interface {})")
+
+	})
+
+	Convey("validate headers entry should succeed on valid entry", t, func() {
+		hd := h.Chain().Top()
+		j, _ := hd.ToJSON()
+		entryStr := fmt.Sprintf(`[{"Header":%s,"Role":"someRole","Source":"%s"}]`, j, h.nodeID.Pretty())
+		err := sysValidateEntry(h, HeadersEntryDef, &GobEntry{C: entryStr}, nil)
+		So(err, ShouldBeNil)
+	})
+
 }
 
 func TestSysValidateMod(t *testing.T) {
@@ -187,7 +223,7 @@ func TestSysValidateMod(t *testing.T) {
 		a := NewModAction("rating", &GobEntry{}, hash)
 		_, ratingsDef, _ := h.GetEntryDef("rating")
 		err := a.SysValidation(h, ratingsDef, nil, []peer.ID{h.nodeID})
-		So(err.Error(), ShouldEqual, "Can't mod Links entry")
+		So(err, ShouldEqual, ErrModInvalidForLinks)
 	})
 
 	Convey("it should check that entry validates", t, func() {
@@ -200,7 +236,7 @@ func TestSysValidateMod(t *testing.T) {
 		a := NewModAction("evenNumbers", &GobEntry{}, hash)
 		err := a.SysValidation(h, def, nil, []peer.ID{h.nodeID})
 		So(err, ShouldBeError)
-		So(err.Error(), ShouldEqual, "mod: missing header")
+		So(err, ShouldEqual, ErrModMissingHeader)
 	})
 
 	Convey("it should check that replaces is doesn't make a loop", t, func() {
@@ -208,7 +244,7 @@ func TestSysValidateMod(t *testing.T) {
 		a.header = &Header{EntryLink: hash}
 		err := a.SysValidation(h, def, nil, []peer.ID{h.nodeID})
 		So(err, ShouldBeError)
-		So(err.Error(), ShouldEqual, "mod: replaces must be different from original hash")
+		So(err, ShouldEqual, ErrModReplacesHashNotDifferent)
 	})
 
 }
@@ -230,7 +266,7 @@ func TestSysValidateDel(t *testing.T) {
 		a := NewDelAction("rating", DelEntry{Hash: hash})
 		_, ratingsDef, _ := h.GetEntryDef("rating")
 		err := a.SysValidation(h, ratingsDef, nil, []peer.ID{h.nodeID})
-		So(err.Error(), ShouldEqual, "Can't del Links entry")
+		So(err, ShouldEqual, ErrDelInvalidForLinks)
 	})
 }
 
@@ -285,7 +321,7 @@ func TestActionGet(t *testing.T) {
 		r, err := ActionReceiver(h, m)
 		So(err, ShouldBeNil)
 		resp := r.(GetResp)
-		So(fmt.Sprintf("%v", resp.Entry), ShouldEqual, fmt.Sprintf("%v", e))
+		So(resp.Entry.Content().(string), ShouldEqual, "3")
 	})
 
 	ringConnect(t, mt.ctx, mt.nodes, nodesCount)
@@ -340,6 +376,109 @@ func TestActionGetLocal(t *testing.T) {
 		getResp := rsp.(GetResp)
 		So(getResp.Entry.Content().(string), ShouldEqual, "31415")
 	})
+
+	Convey("it should get local bundle values", t, func() {
+		_, err := NewStartBundleAction(0, "myBundle").Do(h)
+		So(err, ShouldBeNil)
+		hash := commit(h, "oddNumbers", "3141")
+		req := GetReq{H: hash, GetMask: GetMaskEntry}
+		_, err = NewGetAction(req, &GetOptions{GetMask: req.GetMask, Local: true}).Do(h)
+		So(err, ShouldEqual, ErrHashNotFound)
+		rsp, err := NewGetAction(req, &GetOptions{GetMask: req.GetMask, Bundle: true}).Do(h)
+		So(err, ShouldBeNil)
+		getResp := rsp.(GetResp)
+		So(getResp.Entry.Content().(string), ShouldEqual, "3141")
+	})
+}
+
+func TestActionBundle(t *testing.T) {
+	d, _, h := PrepareTestChain("test")
+	defer CleanupTestChain(h, d)
+	Convey("bundle action constructor should set timeout", t, func() {
+		a := NewStartBundleAction(0, "myBundle")
+		So(a.timeout, ShouldEqual, DefaultBundleTimeout)
+		So(a.userParam, ShouldEqual, "myBundle")
+		a = NewStartBundleAction(123, "myBundle")
+		So(a.timeout, ShouldEqual, 123)
+	})
+
+	Convey("starting a bundle should set the bundle start point", t, func() {
+		c := h.Chain()
+		So(c.BundleStarted(), ShouldBeNil)
+		a := NewStartBundleAction(100, "myBundle")
+		_, err := a.Do(h)
+		So(err, ShouldBeNil)
+		So(c.BundleStarted().idx, ShouldEqual, c.Length()-1)
+	})
+	var hash Hash
+	Convey("commit actions should commit to bundle after it's started", t, func() {
+		So(h.chain.Length(), ShouldEqual, 2)
+		So(h.chain.bundle.chain.Length(), ShouldEqual, 0)
+		result, err := NewCommitAction("oddNumbers", &GobEntry{C: `99`}).Do(h)
+		if err != nil {
+			panic(err)
+		}
+		So(h.chain.Length(), ShouldEqual, 2)
+		So(h.chain.bundle.chain.Length(), ShouldEqual, 1)
+		hash = result.(Hash)
+	})
+	Convey("but those commits should not show in the DHT", t, func() {
+		_, _, _, _, err := h.dht.get(hash, StatusDefault, GetMaskDefault)
+		So(err, ShouldEqual, ErrHashNotFound)
+	})
+
+	Convey("closing a bundle should commit its entries to the chain", t, func() {
+		So(h.chain.Length(), ShouldEqual, 2)
+		a := NewCloseBundleAction(true)
+		So(a.commit, ShouldEqual, true)
+		_, err := a.Do(h)
+		So(err, ShouldBeNil)
+		So(h.chain.Length(), ShouldEqual, 3)
+	})
+	Convey("and those commits should now show in the DHT", t, func() {
+		data, _, _, _, err := h.dht.get(hash, StatusDefault, GetMaskDefault)
+		So(err, ShouldBeNil)
+		var e GobEntry
+		err = e.Unmarshal(data)
+
+		So(e.C, ShouldEqual, "99")
+	})
+
+	Convey("canceling a bundle should not commit entries to chain and should execute the bundleCanceled callback", t, func() {
+		So(h.chain.Length(), ShouldEqual, 3)
+
+		_, err := NewStartBundleAction(0, "debugit").Do(h)
+		So(err, ShouldBeNil)
+		_, err = NewCommitAction("oddNumbers", &GobEntry{C: `7`}).Do(h)
+		if err != nil {
+			panic(err)
+		}
+		a := NewCloseBundleAction(false)
+		So(a.commit, ShouldEqual, false)
+		ShouldLog(h.nucleus.alog, func() {
+			_, err = a.Do(h)
+			So(err, ShouldBeNil)
+		}, `debug message during bundleCanceled with reason: userCancel`)
+		So(h.chain.Length(), ShouldEqual, 3)
+		So(h.chain.BundleStarted(), ShouldBeNil)
+	})
+	Convey("canceling a bundle should still commit entries if bundleCanceled returns BundleCancelResponseCommit", t, func() {
+		So(h.chain.Length(), ShouldEqual, 3)
+
+		_, err := NewStartBundleAction(0, "cancelit").Do(h)
+		So(err, ShouldBeNil)
+		_, err = NewCommitAction("oddNumbers", &GobEntry{C: `7`}).Do(h)
+		if err != nil {
+			panic(err)
+		}
+		a := NewCloseBundleAction(false)
+		So(a.commit, ShouldEqual, false)
+		ShouldLog(h.nucleus.alog, func() {
+			_, err = a.Do(h)
+			So(err, ShouldBeNil)
+		}, `debug message during bundleCanceled: canceling cancel!`)
+		So(h.chain.BundleStarted(), ShouldNotBeNil)
+	})
 }
 
 func TestActionSigning(t *testing.T) {
@@ -360,13 +499,12 @@ func TestActionSigning(t *testing.T) {
 
 		So(b58sig, ShouldEqual, b58.Encode(sig))
 	})
-
-	var pubKeyBytes []byte
-	pubKeyBytes, err = ic.MarshalPublicKey(h.agent.PubKey())
+	var pubKey string
+	pubKey, err = h.agent.EncodePubKey()
 	if err != nil {
 		panic(err)
 	}
-	pubKey := b58.Encode(pubKeyBytes)
+
 	Convey("verify signture action should test a signature", t, func() {
 		result, err := NewVerifySignatureAction(b58sig, string([]byte("3")), pubKey).Do(h)
 		So(err, ShouldBeNil)

@@ -2,8 +2,8 @@ package ui
 
 import (
 	"bytes"
-	. "github.com/Holochain/holochain-proto"
-	. "github.com/Holochain/holochain-proto/hash"
+	. "github.com/holochain/holochain-proto"
+	. "github.com/holochain/holochain-proto/hash"
 	. "github.com/smartystreets/goconvey/convey"
 	"io/ioutil"
 	"net/http"
@@ -66,7 +66,7 @@ func TestWebServer(t *testing.T) {
 		b, err = ioutil.ReadAll(resp.Body)
 		So(err, ShouldBeNil)
 		So(resp.StatusCode, ShouldEqual, 400)
-		So(string(b), ShouldEqual, `{"errorMessage":"Validation Failed","function":"commit","name":"HolochainError","source":{"column":"28","functionName":"addOdd","line":"45"}}
+		So(string(b), ShouldEqual, `{"errorMessage":"Validation Failed: 2 is not odd","function":"commit","name":"HolochainError","source":{"column":"28","functionName":"addOdd","line":"45"}}
 `)
 	})
 

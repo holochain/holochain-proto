@@ -292,6 +292,29 @@ func TestCheckArgCount(t *testing.T) {
 	})
 }
 
+func TestActionCommit(t *testing.T) {
+	nodesCount := 3
+	mt := setupMultiNodeTesting(nodesCount)
+	defer mt.cleanupMultiNodeTesting()
+
+	h := mt.nodes[0]
+
+	profileHash := commit(h, "profile", `{"firstName":"Zippy","lastName":"Pinhead"}`)
+	linksHash := commit(h, "rating", fmt.Sprintf(`{"Links":[{"Base":"%s","Link":"%s","Tag":"4stars"}]}`, h.nodeIDStr, profileHash.String()))
+	ringConnect(t, mt.ctx, mt.nodes, nodesCount)
+
+	Convey("when committing a link the linkEntry itself should be published to the DHT", t, func() {
+		req := GetReq{H: linksHash, GetMask: GetMaskEntry}
+		_, err := callGet(h, req, &GetOptions{GetMask: req.GetMask})
+		So(err, ShouldBeNil)
+
+		h2 := mt.nodes[2]
+		_, err = callGet(h2, req, &GetOptions{GetMask: req.GetMask})
+		So(err, ShouldBeNil)
+
+	})
+}
+
 func TestActionGet(t *testing.T) {
 	nodesCount := 3
 	mt := setupMultiNodeTesting(nodesCount)
@@ -335,7 +358,7 @@ func TestActionGet(t *testing.T) {
 		So(peer.ID(resp.CloserPeers[0].ID).Pretty(), ShouldEqual, "QmUfY4WeqD3UUfczjdkoFQGEgCAVNf7rgFfjdeTbr7JF1C")
 	})
 
-	Convey("do should return not found if it doesn't exist and we are connected", t, func() {
+	Convey("get should return not found if hash doesn't exist and we are connected", t, func() {
 		hash, err := NewHash("QmY8Mzg9F69e5P9AoQPYat655HEhc1TVGs11tmfNSzfrom")
 		if err != nil {
 			panic(err)

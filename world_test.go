@@ -48,7 +48,7 @@ func TestWorldNodes(t *testing.T) {
 		So(nodes[0], ShouldEqual, n[0].HashAddr)
 	})
 
-	Convey("nodes can be sorted closeness to a hash", t, func() {
+	Convey("nodes can be sorted by closeness to a hash", t, func() {
 		testAddNodesToWorld(world, 1, 5)
 		hash, _ := NewHash("QmVGtdTZdTFaLsaj2RwdVG8jcjNNcp1DE914DKZ2kHmXHw")
 		nodes, err := world.NodesByHash(hash)
@@ -148,7 +148,7 @@ func TestWorldOverlap(t *testing.T) {
 		}
 	})
 
-	Convey("when redundancy is 5, and assuming no uptime adjustment, overlap should be 5 nodes", t, func() {
+	Convey("when redundancy is 5, and assuming no uptime adjustment, overlap should be 4 nodes", t, func() {
 		r := 5
 		for i := 0; i < nodesCount; i++ {
 			nodes[i].nucleus.dna.DHTConfig.RedundancyFactor = r
@@ -160,12 +160,13 @@ func TestWorldOverlap(t *testing.T) {
 
 		entries, err := h.world.Responsible()
 		So(err, ShouldBeNil)
-		So(len(entries), ShouldEqual, 6)
+		So(len(entries), ShouldEqual, 3) // I'm only responsible for some of the entries
 
 		// for all entries there should be 4 other nodes that I hold responsible for it.
 		for i := 0; i < len(entries); i++ {
-			So(len(h.world.responsible[entries[i]]), ShouldEqual, 4)
+			overlap, err := h.Overlap(entries[i])
+			So(err, ShouldBeNil)
+			So(len(overlap), ShouldEqual, 4)
 		}
-
 	})
 }

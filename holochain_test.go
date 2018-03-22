@@ -795,8 +795,10 @@ func TestSigning(t *testing.T) {
 
 func commit(h *Holochain, entryType, entryStr string) (entryHash Hash) {
 	entry := GobEntry{C: entryStr}
-
-	r, err := NewCommitAction(entryType, &entry).Do(h)
+	a := NewCommitAction(entryType, &entry)
+	fn := &APIFnCommit{}
+	fn.SetAction(a)
+	r, err := fn.Call(h)
 	if err != nil {
 		panic(err)
 	}

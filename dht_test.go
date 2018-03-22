@@ -874,7 +874,7 @@ func TestDHTMultiNode(t *testing.T) {
 				h2 := nodes[j]
 				options := GetOptions{StatusMask: StatusDefault}
 				req := GetReq{H: HashFromPeerID(h1.nodeID), StatusMask: options.StatusMask, GetMask: options.GetMask}
-				response, err := NewGetAction(req, &options).Do(h2)
+				response, err := callGet(h2, req, &options)
 				if err != nil {
 					fmt.Printf("FAIL   : %v couldn't get from %v err: %err\n", h2.nodeID, h1.nodeID, err)
 				} else {
@@ -910,12 +910,13 @@ func TestDHTMultiNode(t *testing.T) {
 			for j := 0; j < nodesCount; j++ {
 				h2 := nodes[j]
 				options := GetLinksOptions{Load: true, StatusMask: StatusLive}
-				response, err := NewGetLinksAction(
+				fn := &APIFnGetLinks{action: *NewGetLinksAction(
 					&LinkQuery{
 						Base:       HashFromPeerID(h1.nodeID),
 						T:          "statement",
 						StatusMask: options.StatusMask,
-					}, &options).Do(h2)
+					}, &options)}
+				response, err := fn.Call(h2)
 				So(err, ShouldBeNil)
 				So(fmt.Sprintf("%v", response), ShouldEqual, fmt.Sprintf("&{[{%v this statement by node %d (%v) review  %s}]}", hashes[i], i, h1.nodeID, h1.nodeID.Pretty()))
 			}

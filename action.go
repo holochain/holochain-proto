@@ -39,6 +39,7 @@ const (
 	DHTChangeUnknownHashQueuedForRetry
 )
 
+// Arg holds the definition of an API function argument
 type Arg struct {
 	Name     string
 	Type     ArgType
@@ -47,33 +48,25 @@ type Arg struct {
 	value    interface{}
 }
 
-type ModAgentOptions struct {
-	Identity   string
-	Revocation string
+// APIFunction abstracts the argument structure and the calling of an api function
+type APIFunction interface {
+	Name() string
+	Args() []Arg
+	Call(h *Holochain) (response interface{}, err error)
 }
 
-// Action provides an abstraction for grouping all the aspects of a nucleus function, i.e.
-// the initiating actions, receiving them, validation, ribosome generation etc
+// Action provides an abstraction for handling node interaction
 type Action interface {
 	Name() string
-	Do(h *Holochain) (response interface{}, err error)
 	Receive(dht *DHT, msg *Message, retries int) (response interface{}, err error)
-	Args() []Arg
-}
-
-type ArgsAction interface {
-	Args() []Arg
-	Do(h *Holochain) (response interface{}, err error)
 }
 
 // CommittingAction provides an abstraction for grouping actions which carry Entry data
 type CommittingAction interface {
 	Name() string
-	Do(h *Holochain) (response interface{}, err error)
 	SysValidation(h *Holochain, def *EntryDef, pkg *Package, sources []peer.ID) (err error)
 	Receive(dht *DHT, msg *Message, retries int) (response interface{}, err error)
 	CheckValidationRequest(def *EntryDef) (err error)
-	Args() []Arg
 	EntryType() string
 	Entry() Entry
 	SetHeader(header *Header)
@@ -84,15 +77,17 @@ type CommittingAction interface {
 // ValidatingAction provides an abstraction for grouping all the actions that participate in validation loop
 type ValidatingAction interface {
 	Name() string
-	Do(h *Holochain) (response interface{}, err error)
 	SysValidation(h *Holochain, def *EntryDef, pkg *Package, sources []peer.ID) (err error)
 	Receive(dht *DHT, msg *Message, retries int) (response interface{}, err error)
 	CheckValidationRequest(def *EntryDef) (err error)
-	Args() []Arg
+}
+
+type ModAgentOptions struct {
+	Identity   string
+	Revocation string
 }
 
 var NonDHTAction error = errors.New("Not a DHT action")
-var NonCallableAction error = errors.New("Not a callable action")
 var ErrNotValidForDNAType error = errors.New("Invalid action for DNA type")
 var ErrNotValidForAgentType error = errors.New("Invalid action for Agent type")
 var ErrNotValidForKeyType error = errors.New("Invalid action for Key type")
@@ -288,24 +283,19 @@ func argErr(typeName string, index int, arg Arg) error {
 //------------------------------------------------------------
 // Property
 
-type ActionProperty struct {
+type APIFnProperty struct {
 	prop string
 }
 
-func NewPropertyAction(prop string) *ActionProperty {
-	a := ActionProperty{prop: prop}
-	return &a
-}
-
-func (a *ActionProperty) Name() string {
+func (a *APIFnProperty) Name() string {
 	return "property"
 }
 
-func (a *ActionProperty) Args() []Arg {
+func (a *APIFnProperty) Args() []Arg {
 	return []Arg{{Name: "name", Type: StringArg}}
 }
 
-func (a *ActionProperty) Do(h *Holochain) (response interface{}, err error) {
+func (a *APIFnProperty) Call(h *Holochain) (response interface{}, err error) {
 	response, err = h.GetProperty(a.prop)
 	return
 }
@@ -313,24 +303,19 @@ func (a *ActionProperty) Do(h *Holochain) (response interface{}, err error) {
 //------------------------------------------------------------
 // Debug
 
-type ActionDebug struct {
+type APIFnDebug struct {
 	msg string
 }
 
-func NewDebugAction(msg string) *ActionDebug {
-	a := ActionDebug{msg: msg}
-	return &a
-}
-
-func (a *ActionDebug) Name() string {
+func (a *APIFnDebug) Name() string {
 	return "debug"
 }
 
-func (a *ActionDebug) Args() []Arg {
+func (a *APIFnDebug) Args() []Arg {
 	return []Arg{{Name: "value", Type: ToStrArg}}
 }
 
-func (a *ActionDebug) Do(h *Holochain) (response interface{}, err error) {
+func (a *APIFnDebug) Call(h *Holochain) (response interface{}, err error) {
 	h.Config.Loggers.App.Log(a.msg)
 	return
 }
@@ -338,25 +323,20 @@ func (a *ActionDebug) Do(h *Holochain) (response interface{}, err error) {
 //------------------------------------------------------------
 // MakeHash
 
-type ActionMakeHash struct {
+type APIFnMakeHash struct {
 	entryType string
 	entry     Entry
 }
 
-func NewMakeHashAction(entry Entry) *ActionMakeHash {
-	a := ActionMakeHash{entry: entry}
-	return &a
-}
-
-func (a *ActionMakeHash) Name() string {
+func (a *APIFnMakeHash) Name() string {
 	return "makeHash"
 }
 
-func (a *ActionMakeHash) Args() []Arg {
+func (a *APIFnMakeHash) Args() []Arg {
 	return []Arg{{Name: "entryType", Type: StringArg}, {Name: "entry", Type: EntryArg}}
 }
 
-func (a *ActionMakeHash) Do(h *Holochain) (response interface{}, err error) {
+func (a *APIFnMakeHash) Call(h *Holochain) (response interface{}, err error) {
 	var hash Hash
 	hash, err = a.entry.Sum(h.hashSpec)
 	if err != nil {
@@ -373,28 +353,28 @@ const (
 	DefaultBundleTimeout = 5000
 )
 
-type ActionStartBundle struct {
+type APIFnStartBundle struct {
 	timeout   int64
 	userParam string
 }
 
-func NewStartBundleAction(timeout int, userParam string) *ActionStartBundle {
-	a := ActionStartBundle{timeout: int64(timeout), userParam: userParam}
+func NewStartBundleAction(timeout int, userParam string) *APIFnStartBundle {
+	a := APIFnStartBundle{timeout: int64(timeout), userParam: userParam}
 	if timeout == 0 {
 		a.timeout = DefaultBundleTimeout
 	}
 	return &a
 }
 
-func (a *ActionStartBundle) Name() string {
+func (a *APIFnStartBundle) Name() string {
 	return "bundleStart"
 }
 
-func (a *ActionStartBundle) Args() []Arg {
+func (a *APIFnStartBundle) Args() []Arg {
 	return []Arg{{Name: "timeout", Type: IntArg}, {Name: "userParam", Type: StringArg}}
 }
 
-func (a *ActionStartBundle) Do(h *Holochain) (response interface{}, err error) {
+func (a *APIFnStartBundle) Call(h *Holochain) (response interface{}, err error) {
 	err = h.Chain().StartBundle(a.userParam)
 	return
 }
@@ -402,24 +382,19 @@ func (a *ActionStartBundle) Do(h *Holochain) (response interface{}, err error) {
 //------------------------------------------------------------
 // CloseBundle
 
-type ActionCloseBundle struct {
+type APIFnCloseBundle struct {
 	commit bool
 }
 
-func NewCloseBundleAction(commit bool) *ActionCloseBundle {
-	a := ActionCloseBundle{commit: commit}
-	return &a
-}
-
-func (a *ActionCloseBundle) Name() string {
+func (a *APIFnCloseBundle) Name() string {
 	return "bundleClose"
 }
 
-func (a *ActionCloseBundle) Args() []Arg {
+func (a *APIFnCloseBundle) Args() []Arg {
 	return []Arg{{Name: "commit", Type: BoolArg}}
 }
 
-func (a *ActionCloseBundle) Do(h *Holochain) (response interface{}, err error) {
+func (a *APIFnCloseBundle) Call(h *Holochain) (response interface{}, err error) {
 
 	bundle := h.Chain().BundleStarted()
 	if bundle == nil {
@@ -468,23 +443,18 @@ func (a *ActionCloseBundle) Do(h *Holochain) (response interface{}, err error) {
 //------------------------------------------------------------
 // GetBridges
 
-type ActionGetBridges struct {
+type APIFnGetBridges struct {
 }
 
-func NewGetBridgesAction(doc []byte) *ActionGetBridges {
-	a := ActionGetBridges{}
-	return &a
-}
-
-func (a *ActionGetBridges) Name() string {
+func (a *APIFnGetBridges) Name() string {
 	return "getBridges"
 }
 
-func (a *ActionGetBridges) Args() []Arg {
+func (a *APIFnGetBridges) Args() []Arg {
 	return []Arg{}
 }
 
-func (a *ActionGetBridges) Do(h *Holochain) (response interface{}, err error) {
+func (a *APIFnGetBridges) Call(h *Holochain) (response interface{}, err error) {
 	response, err = h.GetBridges()
 	return
 }
@@ -492,24 +462,19 @@ func (a *ActionGetBridges) Do(h *Holochain) (response interface{}, err error) {
 //------------------------------------------------------------
 // Sign
 
-type ActionSign struct {
+type APIFnSign struct {
 	data []byte
 }
 
-func NewSignAction(data []byte) *ActionSign {
-	a := ActionSign{data: data}
-	return &a
-}
-
-func (a *ActionSign) Name() string {
+func (a *APIFnSign) Name() string {
 	return "sign"
 }
 
-func (a *ActionSign) Args() []Arg {
+func (a *APIFnSign) Args() []Arg {
 	return []Arg{{Name: "data", Type: StringArg}}
 }
 
-func (a *ActionSign) Do(h *Holochain) (response interface{}, err error) {
+func (a *APIFnSign) Call(h *Holochain) (response interface{}, err error) {
 	var sig Signature
 	sig, err = h.Sign(a.data)
 	if err != nil {
@@ -521,26 +486,21 @@ func (a *ActionSign) Do(h *Holochain) (response interface{}, err error) {
 
 //------------------------------------------------------------
 // VerifySignature
-type ActionVerifySignature struct {
+type APIFnVerifySignature struct {
 	b58signature string
 	data         string
 	b58pubKey    string
 }
 
-func NewVerifySignatureAction(signature string, data string, pubKey string) *ActionVerifySignature {
-	a := ActionVerifySignature{b58signature: signature, data: data, b58pubKey: pubKey}
-	return &a
-}
-
-func (a *ActionVerifySignature) Name() string {
+func (a *APIFnVerifySignature) Name() string {
 	return "verifySignature"
 }
 
-func (a *ActionVerifySignature) Args() []Arg {
+func (a *APIFnVerifySignature) Args() []Arg {
 	return []Arg{{Name: "signature", Type: StringArg}, {Name: "data", Type: StringArg}, {Name: "pubKey", Type: StringArg}}
 }
 
-func (a *ActionVerifySignature) Do(h *Holochain) (response interface{}, err error) {
+func (a *APIFnVerifySignature) Call(h *Holochain) (response interface{}, err error) {
 	var b bool
 	var pubKeyIC ic.PubKey
 	sig := SignatureFromB58String(a.b58signature)
@@ -562,34 +522,29 @@ func (a *ActionVerifySignature) Do(h *Holochain) (response interface{}, err erro
 //------------------------------------------------------------
 // Call
 
-type ActionCall struct {
+type APIFnCall struct {
 	zome     string
 	function string
 	args     interface{}
 }
 
-func NewCallAction(zome string, function string, args interface{}) *ActionCall {
-	a := ActionCall{zome: zome, function: function, args: args}
-	return &a
-}
-
-func (a *ActionCall) Name() string {
+func (fn *APIFnCall) Name() string {
 	return "call"
 }
 
-func (a *ActionCall) Args() []Arg {
+func (fn *APIFnCall) Args() []Arg {
 	return []Arg{{Name: "zome", Type: StringArg}, {Name: "function", Type: StringArg}, {Name: "args", Type: ArgsArg}}
 }
 
-func (a *ActionCall) Do(h *Holochain) (response interface{}, err error) {
-	response, err = h.Call(a.zome, a.function, a.args, ZOME_EXPOSURE)
+func (fn *APIFnCall) Call(h *Holochain) (response interface{}, err error) {
+	response, err = h.Call(fn.zome, fn.function, fn.args, ZOME_EXPOSURE)
 	return
 }
 
 //------------------------------------------------------------
 // Bridge
 
-type ActionBridge struct {
+type APIFnBridge struct {
 	token    string
 	url      string
 	zome     string
@@ -597,23 +552,18 @@ type ActionBridge struct {
 	args     interface{}
 }
 
-func NewBridgeAction(zome string, function string, args interface{}) *ActionBridge {
-	a := ActionBridge{zome: zome, function: function, args: args}
-	return &a
+func (fn *APIFnBridge) Name() string {
+	return "bridge"
 }
 
-func (a *ActionBridge) Name() string {
-	return "call"
-}
-
-func (a *ActionBridge) Args() []Arg {
+func (fn *APIFnBridge) Args() []Arg {
 	return []Arg{{Name: "app", Type: HashArg}, {Name: "zome", Type: StringArg}, {Name: "function", Type: StringArg}, {Name: "args", Type: ArgsArg}}
 }
 
-func (a *ActionBridge) Do(h *Holochain) (response interface{}, err error) {
-	body := bytes.NewBuffer([]byte(a.args.(string)))
+func (fn *APIFnBridge) Call(h *Holochain) (response interface{}, err error) {
+	body := bytes.NewBuffer([]byte(fn.args.(string)))
 	var resp *http.Response
-	resp, err = http.Post(fmt.Sprintf("%s/bridge/%s/%s/%s", a.url, a.token, a.zome, a.function), "", body)
+	resp, err = http.Post(fmt.Sprintf("%s/bridge/%s/%s/%s", fn.url, fn.token, fn.zome, fn.function), "", body)
 	if err != nil {
 		return
 	}
@@ -644,22 +594,22 @@ type ActionSend struct {
 	options *SendOptions
 }
 
-func NewSendAction(to peer.ID, msg AppMsg) *ActionSend {
-	a := ActionSend{to: to, msg: msg}
-	return &a
+type APIFnSend struct {
+	action ActionSend
 }
 
-func (a *ActionSend) Name() string {
+func (fn *APIFnSend) Name() string {
 	return "send"
 }
 
-func (a *ActionSend) Args() []Arg {
+func (fn *APIFnSend) Args() []Arg {
 	return []Arg{{Name: "to", Type: HashArg}, {Name: "msg", Type: MapArg}, {Name: "options", Type: MapArg, MapType: reflect.TypeOf(SendOptions{}), Optional: true}}
 }
 
-func (a *ActionSend) Do(h *Holochain) (response interface{}, err error) {
+func (fn *APIFnSend) Call(h *Holochain) (response interface{}, err error) {
 	var r interface{}
 	var timeout time.Duration
+	a := &fn.action
 	if a.options != nil {
 		timeout = time.Duration(a.options.Timeout) * time.Millisecond
 	}
@@ -674,6 +624,10 @@ func (a *ActionSend) Do(h *Holochain) (response interface{}, err error) {
 		}
 	}
 	return
+}
+
+func (a *ActionSend) Name() string {
+	return "send"
 }
 
 func (a *ActionSend) Receive(dht *DHT, msg *Message, retries int) (response interface{}, err error) {
@@ -694,66 +648,47 @@ func (a *ActionSend) Receive(dht *DHT, msg *Message, retries int) (response inte
 //------------------------------------------------------------
 // Query
 
-type ActionQuery struct {
+type APIFnQuery struct {
 	options *QueryOptions
 }
 
-func NewQueryAction(options *QueryOptions) *ActionQuery {
-	a := ActionQuery{options: options}
-	return &a
-}
-
-func (a *ActionQuery) Name() string {
+func (a *APIFnQuery) Name() string {
 	return "query"
 }
 
-func (a *ActionQuery) Args() []Arg {
+func (a *APIFnQuery) Args() []Arg {
 	return []Arg{{Name: "options", Type: MapArg, MapType: reflect.TypeOf(QueryOptions{}), Optional: true}}
 }
 
-func (a *ActionQuery) Do(h *Holochain) (response interface{}, err error) {
+func (a *APIFnQuery) Call(h *Holochain) (response interface{}, err error) {
 	response, err = h.Query(a.options)
 	return
 }
 
 //------------------------------------------------------------
 // Get
-type ActionGet struct {
-	req     GetReq
-	options *GetOptions
+
+type APIFnGet struct {
+	action ActionGet
 }
 
-func NewGetAction(req GetReq, options *GetOptions) *ActionGet {
-	a := ActionGet{req: req, options: options}
-	return &a
+func (fn *APIFnGet) Name() string {
+	return fn.action.Name()
 }
 
-func (a *ActionGet) Name() string {
-	return "get"
-}
-
-func (a *ActionGet) Args() []Arg {
+func (fn *APIFnGet) Args() []Arg {
 	return []Arg{{Name: "hash", Type: HashArg}, {Name: "options", Type: MapArg, MapType: reflect.TypeOf(GetOptions{}), Optional: true}}
 }
 
-func (a *ActionGet) getLocal(chain *Chain) (resp GetResp, err error) {
-	var entry Entry
-	var entryType string
-	entry, entryType, err = chain.GetEntry(a.req.H)
-	if err != nil {
-		return
-	}
-	resp = GetResp{Entry: *entry.(*GobEntry)}
-	mask := a.options.GetMask
-	resp.EntryType = entryType
-	if (mask & GetMaskEntry) != 0 {
-		resp.Entry = *entry.(*GobEntry)
-		resp.EntryType = entryType
-	}
+func callGet(h *Holochain, req GetReq, options *GetOptions) (response interface{}, err error) {
+	a := ActionGet{req: req, options: options}
+	fn := &APIFnGet{action: a}
+	response, err = fn.Call(h)
 	return
 }
 
-func (a *ActionGet) Do(h *Holochain) (response interface{}, err error) {
+func (fn *APIFnGet) Call(h *Holochain) (response interface{}, err error) {
+	a := &fn.action
 	if a.options.Local {
 		response, err = a.getLocal(h.chain)
 		return
@@ -782,7 +717,7 @@ func (a *ActionGet) Do(h *Holochain) (response interface{}, err error) {
 				return
 			}
 			req := GetReq{H: hash, StatusMask: StatusDefault, GetMask: a.options.GetMask}
-			modResp, err := NewGetAction(req, a.options).Do(h)
+			modResp, err := callGet(h, req, a.options)
 			if err == nil {
 				response = modResp
 			}
@@ -795,6 +730,32 @@ func (a *ActionGet) Do(h *Holochain) (response interface{}, err error) {
 	default:
 		err = fmt.Errorf("expected GetResp response from GET_REQUEST, got: %T", t)
 		return
+	}
+	return
+}
+
+type ActionGet struct {
+	req     GetReq
+	options *GetOptions
+}
+
+func (a *ActionGet) Name() string {
+	return "get"
+}
+
+func (a *ActionGet) getLocal(chain *Chain) (resp GetResp, err error) {
+	var entry Entry
+	var entryType string
+	entry, entryType, err = chain.GetEntry(a.req.H)
+	if err != nil {
+		return
+	}
+	resp = GetResp{Entry: *entry.(*GobEntry)}
+	mask := a.options.GetMask
+	resp.EntryType = entryType
+	if (mask & GetMaskEntry) != 0 {
+		resp.Entry = *entry.(*GobEntry)
+		resp.EntryType = entryType
 	}
 	return
 }
@@ -898,8 +859,49 @@ func (h *Holochain) doCommit(a CommittingAction, change *StatusChange) (d *Entry
 	return
 }
 
+func (h *Holochain) commitAndShare(a CommittingAction, change *StatusChange) (response interface{}, err error) {
+	var def *EntryDef
+	def, err = h.doCommit(a, change)
+	if err != nil {
+		return
+	}
+
+	bundle := h.Chain().BundleStarted()
+	if bundle == nil {
+		err = a.Share(h, def)
+	} else {
+		bundle.sharing = append(bundle.sharing, a)
+	}
+	if err != nil {
+		return
+	}
+	response = a.GetHeader().EntryLink
+	return
+}
+
 //------------------------------------------------------------
 // Commit
+
+type APIFnCommit struct {
+	action ActionCommit
+}
+
+func (fn *APIFnCommit) Name() string {
+	return fn.action.Name()
+}
+
+func (fn *APIFnCommit) Args() []Arg {
+	return []Arg{{Name: "entryType", Type: StringArg}, {Name: "entry", Type: EntryArg}}
+}
+
+func (fn *APIFnCommit) Call(h *Holochain) (response interface{}, err error) {
+	response, err = h.commitAndShare(&fn.action, nil)
+	return
+}
+
+func (fn *APIFnCommit) SetAction(a *ActionCommit) {
+	fn.action = *a
+}
 
 type ActionCommit struct {
 	entryType string
@@ -924,30 +926,12 @@ func (a *ActionCommit) Name() string {
 	return "commit"
 }
 
-func (a *ActionCommit) Args() []Arg {
-	return []Arg{{Name: "entryType", Type: StringArg}, {Name: "entry", Type: EntryArg}}
-}
-
 func (a *ActionCommit) SetHeader(header *Header) {
 	a.header = header
 }
 
 func (a *ActionCommit) GetHeader() (header *Header) {
 	return a.header
-}
-
-func (a *ActionCommit) Do(h *Holochain) (response interface{}, err error) {
-	var d *EntryDef
-	d, err = h.doCommit(a, nil)
-	if err != nil {
-		return
-	}
-	err = DoShare(a, h, d)
-	if err != nil {
-		return
-	}
-	response = a.header.EntryLink
-	return
 }
 
 func (a *ActionCommit) Share(h *Holochain, def *EntryDef) (err error) {
@@ -977,16 +961,6 @@ func (a *ActionCommit) Share(h *Holochain, def *EntryDef) (err error) {
 			// will still have committed locally and can gossip later
 			err = nil
 		}
-	}
-	return
-}
-
-func DoShare(a CommittingAction, h *Holochain, def *EntryDef) (err error) {
-	bundle := h.Chain().BundleStarted()
-	if bundle == nil {
-		err = a.Share(h, def)
-	} else {
-		bundle.sharing = append(bundle.sharing, a)
 	}
 	return
 }
@@ -1147,15 +1121,6 @@ func (a *ActionPut) Name() string {
 	return "put"
 }
 
-func (a *ActionPut) Args() []Arg {
-	return nil
-}
-
-func (a *ActionPut) Do(h *Holochain) (response interface{}, err error) {
-	err = NonCallableAction
-	return
-}
-
 func (a *ActionPut) SysValidation(h *Holochain, def *EntryDef, pkg *Package, sources []peer.ID) (err error) {
 	err = sysValidateEntry(h, def, a.entry, pkg)
 	return
@@ -1219,6 +1184,24 @@ func (a *ActionPut) CheckValidationRequest(def *EntryDef) (err error) {
 //------------------------------------------------------------
 // Mod
 
+type APIFnMod struct {
+	action ActionMod
+}
+
+func (fn *APIFnMod) Name() string {
+	return fn.action.Name()
+}
+
+func (fn *APIFnMod) Args() []Arg {
+	return []Arg{{Name: "entryType", Type: StringArg}, {Name: "entry", Type: EntryArg}, {Name: "replaces", Type: HashArg}}
+}
+
+func (fn *APIFnMod) Call(h *Holochain) (response interface{}, err error) {
+	a := &fn.action
+	response, err = h.commitAndShare(a, &StatusChange{Action: ModAction, Hash: a.replaces})
+	return
+}
+
 type ActionMod struct {
 	entryType string
 	entry     Entry
@@ -1243,30 +1226,12 @@ func (a *ActionMod) Name() string {
 	return "mod"
 }
 
-func (a *ActionMod) Args() []Arg {
-	return []Arg{{Name: "entryType", Type: StringArg}, {Name: "entry", Type: EntryArg}, {Name: "replaces", Type: HashArg}}
-}
-
 func (a *ActionMod) SetHeader(header *Header) {
 	a.header = header
 }
 
 func (a *ActionMod) GetHeader() (header *Header) {
 	return a.header
-}
-
-func (a *ActionMod) Do(h *Holochain) (response interface{}, err error) {
-	var d *EntryDef
-	d, err = h.doCommit(a, &StatusChange{Action: ModAction, Hash: a.replaces})
-	if err != nil {
-		return
-	}
-	err = DoShare(a, h, d)
-	if err != nil {
-		return
-	}
-	response = a.header.EntryLink
-	return
 }
 
 func (a *ActionMod) Share(h *Holochain, def *EntryDef) (err error) {
@@ -1361,38 +1326,33 @@ func (a *ActionMod) CheckValidationRequest(def *EntryDef) (err error) {
 //------------------------------------------------------------
 // ModAgent
 
-type ActionModAgent struct {
+type APIFnModAgent struct {
 	Identity   AgentIdentity
 	Revocation string
 }
 
-func NewModAgentAction(identity AgentIdentity) *ActionModAgent {
-	a := ActionModAgent{Identity: identity}
-	return &a
-}
-
-func (a *ActionModAgent) Args() []Arg {
+func (fn *APIFnModAgent) Args() []Arg {
 	return []Arg{{Name: "options", Type: MapArg, MapType: reflect.TypeOf(ModAgentOptions{})}}
 }
 
-func (a *ActionModAgent) Name() string {
+func (fn *APIFnModAgent) Name() string {
 	return "udpateAgent"
 }
-func (a *ActionModAgent) Do(h *Holochain) (response interface{}, err error) {
+func (fn *APIFnModAgent) Call(h *Holochain) (response interface{}, err error) {
 	var ok bool
 	var newAgent LibP2PAgent = *h.agent.(*LibP2PAgent)
-	if a.Identity != "" {
-		newAgent.identity = a.Identity
+	if fn.Identity != "" {
+		newAgent.identity = fn.Identity
 		ok = true
 	}
 
 	var revocation *SelfRevocation
-	if a.Revocation != "" {
+	if fn.Revocation != "" {
 		err = newAgent.GenKeys(nil)
 		if err != nil {
 			return
 		}
-		revocation, err = NewSelfRevocation(h.agent.PrivKey(), newAgent.PrivKey(), []byte(a.Revocation))
+		revocation, err = NewSelfRevocation(h.agent.PrivKey(), newAgent.PrivKey(), []byte(fn.Revocation))
 		if err != nil {
 			return
 		}
@@ -1471,6 +1431,24 @@ func (a *ActionModAgent) Do(h *Holochain) (response interface{}, err error) {
 //------------------------------------------------------------
 // Del
 
+type APIFnDel struct {
+	action ActionDel
+}
+
+func (fn *APIFnDel) Name() string {
+	return fn.action.Name()
+}
+
+func (fn *APIFnDel) Args() []Arg {
+	return []Arg{{Name: "hash", Type: HashArg}, {Name: "message", Type: StringArg}}
+}
+
+func (fn *APIFnDel) Call(h *Holochain) (response interface{}, err error) {
+	a := &fn.action
+	response, err = h.commitAndShare(a, &StatusChange{Action: DelAction, Hash: a.entry.Hash})
+	return
+}
+
 type ActionDel struct {
 	entryType string
 	entry     DelEntry
@@ -1499,31 +1477,12 @@ func (a *ActionDel) EntryType() string {
 	return a.entryType
 }
 
-func (a *ActionDel) Args() []Arg {
-	return []Arg{{Name: "hash", Type: HashArg}, {Name: "message", Type: StringArg}}
-}
-
 func (a *ActionDel) SetHeader(header *Header) {
 	a.header = header
 }
 
 func (a *ActionDel) GetHeader() (header *Header) {
 	return a.header
-}
-
-func (a *ActionDel) Do(h *Holochain) (response interface{}, err error) {
-	var d *EntryDef
-
-	d, err = h.doCommit(a, &StatusChange{Action: DelAction, Hash: a.entry.Hash})
-	if err != nil {
-		return
-	}
-	err = DoShare(a, h, d)
-	if err != nil {
-		return
-	}
-	response = a.header.EntryLink
-	return
 }
 
 func (a *ActionDel) Share(h *Holochain, def *EntryDef) (err error) {
@@ -1622,15 +1581,6 @@ func (a *ActionLink) Name() string {
 	return "link"
 }
 
-func (a *ActionLink) Args() []Arg {
-	return nil
-}
-
-func (a *ActionLink) Do(h *Holochain) (response interface{}, err error) {
-	err = NonCallableAction
-	return
-}
-
 func (a *ActionLink) SysValidation(h *Holochain, def *EntryDef, pkg *Package, sources []peer.ID) (err error) {
 	if def.DataFormat != DataFormatLinks {
 		err = errors.New("action only valid for links entry type")
@@ -1695,26 +1645,21 @@ func (a *ActionLink) CheckValidationRequest(def *EntryDef) (err error) {
 //------------------------------------------------------------
 // GetLinks
 
-type ActionGetLinks struct {
-	linkQuery *LinkQuery
-	options   *GetLinksOptions
+type APIFnGetLinks struct {
+	action ActionGetLinks
 }
 
-func NewGetLinksAction(linkQuery *LinkQuery, options *GetLinksOptions) *ActionGetLinks {
-	a := ActionGetLinks{linkQuery: linkQuery, options: options}
-	return &a
+func (fn *APIFnGetLinks) Name() string {
+	return fn.action.Name()
 }
 
-func (a *ActionGetLinks) Name() string {
-	return "getLinks"
-}
-
-func (a *ActionGetLinks) Args() []Arg {
+func (fn *APIFnGetLinks) Args() []Arg {
 	return []Arg{{Name: "base", Type: HashArg}, {Name: "tag", Type: StringArg}, {Name: "options", Type: MapArg, MapType: reflect.TypeOf(GetLinksOptions{}), Optional: true}}
 }
 
-func (a *ActionGetLinks) Do(h *Holochain) (response interface{}, err error) {
+func (fn *APIFnGetLinks) Call(h *Holochain) (response interface{}, err error) {
 	var r interface{}
+	a := &fn.action
 	r, err = h.dht.Query(a.linkQuery.Base, GETLINK_REQUEST, *a.linkQuery)
 
 	if err == nil {
@@ -1731,7 +1676,7 @@ func (a *ActionGetLinks) Do(h *Holochain) (response interface{}, err error) {
 					opts := GetOptions{GetMask: GetMaskEntryType + GetMaskEntry, StatusMask: StatusDefault}
 					req := GetReq{H: hash, StatusMask: StatusDefault, GetMask: opts.GetMask}
 					var rsp interface{}
-					rsp, err = NewGetAction(req, &opts).Do(h)
+					rsp, err = callGet(h, req, &opts)
 					if err == nil {
 						// TODO: bleah, really this should be another of those
 						// case statements that choses the encoding baste on
@@ -1762,6 +1707,20 @@ func (a *ActionGetLinks) Do(h *Holochain) (response interface{}, err error) {
 	return
 }
 
+type ActionGetLinks struct {
+	linkQuery *LinkQuery
+	options   *GetLinksOptions
+}
+
+func NewGetLinksAction(linkQuery *LinkQuery, options *GetLinksOptions) *ActionGetLinks {
+	a := ActionGetLinks{linkQuery: linkQuery, options: options}
+	return &a
+}
+
+func (a *ActionGetLinks) Name() string {
+	return "getLinks"
+}
+
 func (a *ActionGetLinks) SysValidation(h *Holochain, d *EntryDef, pkg *Package, sources []peer.ID) (err error) {
 	//@TODO what sys level getlinks validation?  That they are all valid hash format for the DNA?
 	return
@@ -1790,15 +1749,6 @@ func NewListAddAction(peerList PeerList) *ActionListAdd {
 
 func (a *ActionListAdd) Name() string {
 	return "put"
-}
-
-func (a *ActionListAdd) Args() []Arg {
-	return nil
-}
-
-func (a *ActionListAdd) Do(h *Holochain) (response interface{}, err error) {
-	err = NonCallableAction
-	return
 }
 
 var prefix string = "List add request rejected on warrant failure"

@@ -565,8 +565,8 @@ func numInterfaceToInt(num interface{}) (val int, ok bool) {
 }
 
 type fnData struct {
-	a  ArgsAction
-	fn func([]Arg, ArgsAction, otto.FunctionCall) (otto.Value, error)
+	apiFn APIFunction
+	f     func([]Arg, APIFunction, otto.FunctionCall) (otto.Value, error)
 }
 
 func makeOttoObjectFromGetResp(h *Holochain, jsr *JSRibosome, getResp *GetResp) (result interface{}, err error) {
@@ -594,13 +594,13 @@ func NewJSRibosome(h *Holochain, zome *Zome) (n Ribosome, err error) {
 
 	funcs := map[string]fnData{
 		"property": fnData{
-			a: &ActionProperty{},
-			fn: func(args []Arg, _a ArgsAction, call otto.FunctionCall) (result otto.Value, err error) {
-				a := _a.(*ActionProperty)
-				a.prop = args[0].value.(string)
+			apiFn: &APIFnProperty{},
+			f: func(args []Arg, _f APIFunction, call otto.FunctionCall) (result otto.Value, err error) {
+				f := _f.(*APIFnProperty)
+				f.prop = args[0].value.(string)
 
 				var p interface{}
-				p, err = a.Do(h)
+				p, err = f.Call(h)
 				if err != nil {
 					return otto.UndefinedValue(), nil
 				}
@@ -609,22 +609,22 @@ func NewJSRibosome(h *Holochain, zome *Zome) (n Ribosome, err error) {
 			},
 		},
 		"debug": fnData{
-			a: &ActionDebug{},
-			fn: func(args []Arg, _a ArgsAction, call otto.FunctionCall) (result otto.Value, err error) {
-				a := _a.(*ActionDebug)
-				a.msg = args[0].value.(string)
-				a.Do(h)
+			apiFn: &APIFnDebug{},
+			f: func(args []Arg, _f APIFunction, call otto.FunctionCall) (result otto.Value, err error) {
+				f := _f.(*APIFnDebug)
+				f.msg = args[0].value.(string)
+				f.Call(h)
 				return otto.UndefinedValue(), nil
 			},
 		},
 		"makeHash": fnData{
-			a: &ActionMakeHash{},
-			fn: func(args []Arg, _a ArgsAction, call otto.FunctionCall) (result otto.Value, err error) {
-				a := _a.(*ActionMakeHash)
-				a.entryType = args[0].value.(string)
-				a.entry = &GobEntry{C: args[1].value.(string)}
+			apiFn: &APIFnMakeHash{},
+			f: func(args []Arg, _f APIFunction, call otto.FunctionCall) (result otto.Value, err error) {
+				f := _f.(*APIFnMakeHash)
+				f.entryType = args[0].value.(string)
+				f.entry = &GobEntry{C: args[1].value.(string)}
 				var r interface{}
-				r, err = a.Do(h)
+				r, err = f.Call(h)
 				if err != nil {
 					return
 				}
@@ -637,11 +637,11 @@ func NewJSRibosome(h *Holochain, zome *Zome) (n Ribosome, err error) {
 			},
 		},
 		"getBridges": fnData{
-			a: &ActionGetBridges{},
-			fn: func(args []Arg, _a ArgsAction, call otto.FunctionCall) (result otto.Value, err error) {
-				a := _a.(*ActionGetBridges)
+			apiFn: &APIFnGetBridges{},
+			f: func(args []Arg, _f APIFunction, call otto.FunctionCall) (result otto.Value, err error) {
+				f := _f.(*APIFnGetBridges)
 				var r interface{}
-				r, err = a.Do(h)
+				r, err = f.Call(h)
 				if err != nil {
 					return
 				}
@@ -663,12 +663,12 @@ func NewJSRibosome(h *Holochain, zome *Zome) (n Ribosome, err error) {
 			},
 		},
 		"sign": fnData{
-			a: &ActionSign{},
-			fn: func(args []Arg, _a ArgsAction, call otto.FunctionCall) (result otto.Value, err error) {
-				a := _a.(*ActionSign)
-				a.data = []byte(args[0].value.(string))
+			apiFn: &APIFnSign{},
+			f: func(args []Arg, _f APIFunction, call otto.FunctionCall) (result otto.Value, err error) {
+				f := _f.(*APIFnSign)
+				f.data = []byte(args[0].value.(string))
 				var r interface{}
-				r, err = a.Do(h)
+				r, err = f.Call(h)
 				if err != nil {
 					return
 				}
@@ -681,14 +681,14 @@ func NewJSRibosome(h *Holochain, zome *Zome) (n Ribosome, err error) {
 			},
 		},
 		"verifySignature": fnData{
-			a: &ActionVerifySignature{},
-			fn: func(args []Arg, _a ArgsAction, call otto.FunctionCall) (result otto.Value, err error) {
-				a := _a.(*ActionVerifySignature)
-				a.b58signature = args[0].value.(string)
-				a.data = args[1].value.(string)
-				a.b58pubKey = args[2].value.(string)
+			apiFn: &APIFnVerifySignature{},
+			f: func(args []Arg, _f APIFunction, call otto.FunctionCall) (result otto.Value, err error) {
+				f := _f.(*APIFnVerifySignature)
+				f.b58signature = args[0].value.(string)
+				f.data = args[1].value.(string)
+				f.b58pubKey = args[2].value.(string)
 				var r interface{}
-				r, err = a.Do(h)
+				r, err = f.Call(h)
 				if err != nil {
 					return
 				}
@@ -700,9 +700,10 @@ func NewJSRibosome(h *Holochain, zome *Zome) (n Ribosome, err error) {
 			},
 		},
 		"send": fnData{
-			a: &ActionSend{},
-			fn: func(args []Arg, _a ArgsAction, call otto.FunctionCall) (result otto.Value, err error) {
-				a := _a.(*ActionSend)
+			apiFn: &APIFnSend{},
+			f: func(args []Arg, _f APIFunction, call otto.FunctionCall) (result otto.Value, err error) {
+				f := _f.(*APIFnSend)
+				a := &f.action
 				a.to, err = peer.IDB58Decode(args[0].value.(Hash).String())
 				if err != nil {
 					return
@@ -744,7 +745,7 @@ func NewJSRibosome(h *Holochain, zome *Zome) (n Ribosome, err error) {
 				}
 
 				var r interface{}
-				r, err = a.Do(h)
+				r, err = f.Call(h)
 				if err != nil {
 					return
 				}
@@ -753,18 +754,18 @@ func NewJSRibosome(h *Holochain, zome *Zome) (n Ribosome, err error) {
 			},
 		},
 		"call": fnData{
-			a: &ActionCall{},
-			fn: func(args []Arg, _a ArgsAction, call otto.FunctionCall) (result otto.Value, err error) {
-				a := _a.(*ActionCall)
-				a.zome = args[0].value.(string)
+			apiFn: &APIFnCall{},
+			f: func(args []Arg, _f APIFunction, call otto.FunctionCall) (result otto.Value, err error) {
+				f := _f.(*APIFnCall)
+				f.zome = args[0].value.(string)
 				var zome *Zome
-				zome, err = h.GetZome(a.zome)
+				zome, err = h.GetZome(f.zome)
 				if err != nil {
 					return
 				}
-				a.function = args[1].value.(string)
+				f.function = args[1].value.(string)
 				var fn *FunctionDef
-				fn, err = zome.GetFunctionDef(a.function)
+				fn, err = zome.GetFunctionDef(f.function)
 				if err != nil {
 					return
 				}
@@ -774,10 +775,10 @@ func NewJSRibosome(h *Holochain, zome *Zome) (n Ribosome, err error) {
 								return mkOttoErr(&jsr, "function calling type requires object argument type")
 							}*/
 				}
-				a.args = args[2].value.(string)
+				f.args = args[2].value.(string)
 
 				var r interface{}
-				r, err = a.Do(h)
+				r, err = f.Call(h)
 				if err != nil {
 					return
 				}
@@ -787,21 +788,21 @@ func NewJSRibosome(h *Holochain, zome *Zome) (n Ribosome, err error) {
 			},
 		},
 		"bridge": fnData{
-			a: &ActionBridge{},
-			fn: func(args []Arg, _a ArgsAction, call otto.FunctionCall) (result otto.Value, err error) {
-				a := _a.(*ActionBridge)
+			apiFn: &APIFnBridge{},
+			f: func(args []Arg, _f APIFunction, call otto.FunctionCall) (result otto.Value, err error) {
+				f := _f.(*APIFnBridge)
 				hash := args[0].value.(Hash)
-				a.token, a.url, err = h.GetBridgeToken(hash)
+				f.token, f.url, err = h.GetBridgeToken(hash)
 				if err != nil {
 					return
 				}
 
-				a.zome = args[1].value.(string)
-				a.function = args[2].value.(string)
-				a.args = args[3].value.(string)
+				f.zome = args[1].value.(string)
+				f.function = args[2].value.(string)
+				f.args = args[3].value.(string)
 
 				var r interface{}
-				r, err = a.Do(h)
+				r, err = f.Call(h)
 				if err != nil {
 					return
 				}
@@ -810,13 +811,16 @@ func NewJSRibosome(h *Holochain, zome *Zome) (n Ribosome, err error) {
 			},
 		},
 		"commit": fnData{
-			a: &ActionCommit{},
-			fn: func(args []Arg, _a ArgsAction, call otto.FunctionCall) (result otto.Value, err error) {
+			apiFn: &APIFnCommit{},
+			f: func(args []Arg, _f APIFunction, call otto.FunctionCall) (result otto.Value, err error) {
+				f := _f.(*APIFnCommit)
 				entryType := args[0].value.(string)
 				entryStr := args[1].value.(string)
 				var r interface{}
 				entry := GobEntry{C: entryStr}
-				r, err = NewCommitAction(entryType, &entry).Do(h)
+				f.action.entryType = entryType
+				f.action.entry = &entry
+				r, err = f.Call(h)
 				if err != nil {
 					return
 				}
@@ -830,9 +834,9 @@ func NewJSRibosome(h *Holochain, zome *Zome) (n Ribosome, err error) {
 			},
 		},
 		"query": fnData{
-			a: &ActionQuery{},
-			fn: func(args []Arg, _a ArgsAction, call otto.FunctionCall) (result otto.Value, err error) {
-				a := _a.(*ActionQuery)
+			apiFn: &APIFnQuery{},
+			f: func(args []Arg, _f APIFunction, call otto.FunctionCall) (result otto.Value, err error) {
+				f := _f.(*APIFnQuery)
 				if len(call.ArgumentList) == 1 {
 					options := QueryOptions{}
 					var j []byte
@@ -845,10 +849,10 @@ func NewJSRibosome(h *Holochain, zome *Zome) (n Ribosome, err error) {
 					if err != nil {
 						return
 					}
-					a.options = &options
+					f.options = &options
 				}
 				var r interface{}
-				r, err = a.Do(h)
+				r, err = f.Call(h)
 				if err != nil {
 					return
 				}
@@ -862,18 +866,18 @@ func NewJSRibosome(h *Holochain, zome *Zome) (n Ribosome, err error) {
 					}
 					var entryCode, hashCode, headerCode string
 					var returnCount int
-					if a.options.Return.Hashes {
+					if f.options.Return.Hashes {
 						returnCount += 1
 						hashCode = `"` + qresult.Header.EntryLink.String() + `"`
 					}
-					if a.options.Return.Headers {
+					if f.options.Return.Headers {
 						returnCount += 1
 						headerCode, err = qresult.Header.ToJSON()
 						if err != nil {
 							return
 						}
 					}
-					if a.options.Return.Entries {
+					if f.options.Return.Entries {
 						returnCount += 1
 
 						var def *EntryDef
@@ -932,8 +936,9 @@ func NewJSRibosome(h *Holochain, zome *Zome) (n Ribosome, err error) {
 			},
 		},
 		"get": fnData{
-			a: &ActionGet{},
-			fn: func(args []Arg, _a ArgsAction, call otto.FunctionCall) (result otto.Value, err error) {
+			apiFn: &APIFnGet{},
+			f: func(args []Arg, _f APIFunction, call otto.FunctionCall) (result otto.Value, err error) {
+				f := _f.(*APIFnGet)
 				options := GetOptions{StatusMask: StatusDefault}
 				if len(call.ArgumentList) == 2 {
 					opts, ok := args[1].value.(map[string]interface{})
@@ -966,7 +971,8 @@ func NewJSRibosome(h *Holochain, zome *Zome) (n Ribosome, err error) {
 				}
 				req := GetReq{H: args[0].value.(Hash), StatusMask: options.StatusMask, GetMask: options.GetMask}
 				var r interface{}
-				r, err = NewGetAction(req, &options).Do(h)
+				f.action = ActionGet{req: req, options: &options}
+				r, err = f.Call(h)
 				mask := options.GetMask
 				if mask == GetMaskDefault {
 					mask = GetMaskEntry
@@ -1026,15 +1032,19 @@ func NewJSRibosome(h *Holochain, zome *Zome) (n Ribosome, err error) {
 			},
 		},
 		"update": fnData{
-			a: &ActionMod{},
-			fn: func(args []Arg, _a ArgsAction, call otto.FunctionCall) (result otto.Value, err error) {
+			apiFn: &APIFnMod{},
+			f: func(args []Arg, _f APIFunction, call otto.FunctionCall) (result otto.Value, err error) {
+				f := _f.(*APIFnMod)
+
 				entryType := args[0].value.(string)
 				entryStr := args[1].value.(string)
 				replaces := args[2].value.(Hash)
 
 				entry := GobEntry{C: entryStr}
+				f.action = *NewModAction(entryType, &entry, replaces)
+
 				var resp interface{}
-				resp, err = NewModAction(entryType, &entry, replaces).Do(h)
+				resp, err = f.Call(h)
 				if err != nil {
 					return
 				}
@@ -1047,20 +1057,20 @@ func NewJSRibosome(h *Holochain, zome *Zome) (n Ribosome, err error) {
 			},
 		},
 		"updateAgent": fnData{
-			a: &ActionModAgent{},
-			fn: func(args []Arg, _a ArgsAction, call otto.FunctionCall) (result otto.Value, err error) {
-				a := _a.(*ActionModAgent)
+			apiFn: &APIFnModAgent{},
+			f: func(args []Arg, _f APIFunction, call otto.FunctionCall) (result otto.Value, err error) {
+				f := _f.(*APIFnModAgent)
 				opts := args[0].value.(map[string]interface{})
 				id, idok := opts["Identity"]
 				if idok {
-					a.Identity = AgentIdentity(id.(string))
+					f.Identity = AgentIdentity(id.(string))
 				}
 				rev, revok := opts["Revocation"]
 				if revok {
-					a.Revocation = rev.(string)
+					f.Revocation = rev.(string)
 				}
 				var resp interface{}
-				resp, err = a.Do(h)
+				resp, err = f.Call(h)
 				if err != nil {
 					return
 				}
@@ -1097,8 +1107,8 @@ func NewJSRibosome(h *Holochain, zome *Zome) (n Ribosome, err error) {
 			},
 		},
 		"remove": fnData{
-			a: &ActionDel{},
-			fn: func(args []Arg, _a ArgsAction, call otto.FunctionCall) (result otto.Value, err error) {
+			apiFn: &APIFnDel{},
+			f: func(args []Arg, _f APIFunction, call otto.FunctionCall) (result otto.Value, err error) {
 				entry := DelEntry{
 					Hash:    args[0].value.(Hash),
 					Message: args[1].value.(string),
@@ -1107,7 +1117,9 @@ func NewJSRibosome(h *Holochain, zome *Zome) (n Ribosome, err error) {
 				header, err = h.chain.GetEntryHeader(entry.Hash)
 				if err == nil {
 					var resp interface{}
-					resp, err = NewDelAction(header.Type, entry).Do(h)
+					f := _f.(*APIFnDel)
+					f.action = *NewDelAction(header.Type, entry)
+					resp, err = f.Call(h)
 					if err == nil {
 						var entryHash Hash
 						if resp != nil {
@@ -1120,8 +1132,8 @@ func NewJSRibosome(h *Holochain, zome *Zome) (n Ribosome, err error) {
 			},
 		},
 		"getLinks": fnData{
-			a: &ActionGetLinks{},
-			fn: func(args []Arg, _a ArgsAction, call otto.FunctionCall) (result otto.Value, err error) {
+			apiFn: &APIFnGetLinks{},
+			f: func(args []Arg, _f APIFunction, call otto.FunctionCall) (result otto.Value, err error) {
 				base := args[0].value.(Hash)
 				tag := args[1].value.(string)
 
@@ -1151,7 +1163,9 @@ func NewJSRibosome(h *Holochain, zome *Zome) (n Ribosome, err error) {
 					}
 				}
 				var response interface{}
-				response, err = NewGetLinksAction(&LinkQuery{Base: base, T: tag, StatusMask: options.StatusMask}, &options).Do(h)
+				f := _f.(*APIFnGetLinks)
+				f.action = *NewGetLinksAction(&LinkQuery{Base: base, T: tag, StatusMask: options.StatusMask}, &options)
+				response, err = f.Call(h)
 
 				if err == nil {
 					// we build up our response by creating the javascript object
@@ -1214,21 +1228,21 @@ func NewJSRibosome(h *Holochain, zome *Zome) (n Ribosome, err error) {
 			},
 		},
 		"bundleStart": fnData{
-			a: &ActionStartBundle{},
-			fn: func(args []Arg, _a ArgsAction, call otto.FunctionCall) (result otto.Value, err error) {
-				a := _a.(*ActionStartBundle)
-				a.timeout = args[0].value.(int64)
-				a.userParam = args[1].value.(string)
-				_, err = a.Do(h)
+			apiFn: &APIFnStartBundle{},
+			f: func(args []Arg, _f APIFunction, call otto.FunctionCall) (result otto.Value, err error) {
+				f := _f.(*APIFnStartBundle)
+				f.timeout = args[0].value.(int64)
+				f.userParam = args[1].value.(string)
+				_, err = f.Call(h)
 				return
 			},
 		},
 		"bundleClose": fnData{
-			a: &ActionCloseBundle{},
-			fn: func(args []Arg, _a ArgsAction, call otto.FunctionCall) (result otto.Value, err error) {
-				a := _a.(*ActionCloseBundle)
-				a.commit = args[0].value.(bool)
-				_, err = a.Do(h)
+			apiFn: &APIFnCloseBundle{},
+			f: func(args []Arg, _f APIFunction, call otto.FunctionCall) (result otto.Value, err error) {
+				f := _f.(*APIFnCloseBundle)
+				f.commit = args[0].value.(bool)
+				_, err = f.Call(h)
 				return
 			},
 		},
@@ -1307,7 +1321,9 @@ func NewJSRibosome(h *Holochain, zome *Zome) (n Ribosome, err error) {
 		}`
 
 		for name, data := range funcs {
-			args := data.a.Args()
+			var args []Arg
+			args = data.apiFn.Args()
+
 			var argstr string
 			switch len(args) {
 			case 1:
@@ -1339,11 +1355,13 @@ function isErr(result) {
 
 func makeJSFN(jsr *JSRibosome, name string, data fnData) func(call otto.FunctionCall) (result otto.Value) {
 	return func(call otto.FunctionCall) (result otto.Value) {
-		fn := data.fn
-		args := data.a.Args()
+		var args []Arg
+		args = data.apiFn.Args()
+
 		err := jsProcessArgs(jsr, args, call.ArgumentList)
 		if err == nil {
-			result, err = fn(args, data.a, call)
+			result, err = data.f(args, data.apiFn, call)
+
 		}
 		if err != nil {
 			result = mkOttoErr(jsr, err.Error())

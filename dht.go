@@ -128,11 +128,14 @@ const (
 	GetMaskAllStr       = "255"
 )
 
+// HoldReq holds the data of a put request
+type HoldReq struct {
+	H Hash
+}
+
 // PutReq holds the data of a put request
 type PutReq struct {
 	H Hash
-	S int
-	D interface{}
 }
 
 // GetReq holds the data of a get request

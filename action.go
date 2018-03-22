@@ -954,7 +954,8 @@ func (a *ActionCommit) Share(h *Holochain, def *EntryDef) (err error) {
 				bases[l.Base] = true
 			}
 		}
-	} else if def.Sharing == Public {
+	}
+	if def.isSharingPublic() {
 		// otherwise we check to see if it's a public entry and if so send the DHT put message
 		err = h.dht.Change(a.header.EntryLink, PUT_REQUEST, PutReq{H: a.header.EntryLink})
 		if err == ErrEmptyRoutingTable {
@@ -1235,7 +1236,7 @@ func (a *ActionMod) GetHeader() (header *Header) {
 }
 
 func (a *ActionMod) Share(h *Holochain, def *EntryDef) (err error) {
-	if def.Sharing == Public {
+	if def.isSharingPublic() {
 		// if it's a public entry send the DHT MOD & PUT messages
 		// TODO handle errors better!!
 		h.dht.Change(a.header.EntryLink, PUT_REQUEST, PutReq{H: a.header.EntryLink})
@@ -1486,7 +1487,7 @@ func (a *ActionDel) GetHeader() (header *Header) {
 }
 
 func (a *ActionDel) Share(h *Holochain, def *EntryDef) (err error) {
-	if def.Sharing == Public {
+	if def.isSharingPublic() {
 		// if it's a public entry send the DHT DEL
 		h.dht.Change(a.entry.Hash, DEL_REQUEST, DelReq{H: a.entry.Hash, By: a.header.EntryLink})
 	}

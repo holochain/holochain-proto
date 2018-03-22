@@ -207,6 +207,10 @@ var AgentEntryDef = &EntryDef{Name: AgentEntryType, DataFormat: DataFormatJSON, 
 var KeyEntryDef = &EntryDef{Name: KeyEntryType, DataFormat: DataFormatSysKey}
 var HeadersEntryDef = &EntryDef{Name: HeadersEntryType, DataFormat: DataFormatJSON, Sharing: Public, Schema: HeadersEntrySchema}
 
+func (def EntryDef) isSharingPublic() bool {
+	return def.Sharing == Public || def.DataFormat == DataFormatLinks
+}
+
 // Entry describes serialization and deserialziation of entry data
 type Entry interface {
 	Marshal() ([]byte, error)

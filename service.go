@@ -1734,6 +1734,9 @@ function validate(entry_type,entry,header,sources) {
   if (entry_type=="secret") {
     return true
   }
+  if (entry_type=="rating") {
+    return true
+  }
   return false
 }
 function validateLink(linkEntryType,baseHash,linkHash,tag,pkg,sources){return true}

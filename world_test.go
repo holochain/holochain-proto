@@ -160,7 +160,7 @@ func TestWorldOverlap(t *testing.T) {
 
 		entries, err := h.world.Responsible()
 		So(err, ShouldBeNil)
-		So(len(entries), ShouldEqual, 3) // I'm only responsible for some of the entries
+		So(len(entries), ShouldEqual, 2) // I'm only responsible for some of the entries
 
 		// for all entries there should be 4 other nodes that I hold responsible for it.
 		for i := 0; i < len(entries); i++ {

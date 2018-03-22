@@ -762,7 +762,7 @@ func TestDHTDump(t *testing.T) {
 
 	Convey("dht.String() should produce human readable DHT", t, func() {
 		dump := h.dht.String()
-		So(dump, ShouldContainSubstring, "DHT changes: 4")
+		So(dump, ShouldContainSubstring, "DHT changes: 5")
 		d, _ := h.dht.DumpIdx(1)
 		So(dump, ShouldContainSubstring, d)
 		d, _ = h.dht.DumpIdx(2)

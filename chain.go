@@ -14,6 +14,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"strconv"
 	"sync"
 	"time"
 
@@ -719,16 +720,34 @@ func appendEntryHeaderAsJSON(buffer *bytes.Buffer, hdr *Header, hash *Hash) {
 
 func appendEntryContentAsJSON(buffer *bytes.Buffer, hdr *Header, g *GobEntry) {
 	buffer.WriteString("\"content\":")
+	buffer.WriteString(jsonEncode(g))
+}
 
+func jsonEncode(g *GobEntry) (encodedValue string) {
+	var err error
 	switch g.C.(type) {
-	case []uint8:
-		buffer.WriteString(fmt.Sprintf("%s", g.C))
-	default:
-		result, err := json.Marshal(g.C)
+	case []byte:
+		var decoded map[string]interface{}
+		content := fmt.Sprintf("%s", g.C)
+		buffer := bytes.NewBufferString(content)
+		err = Decode(buffer, "json", &decoded)
+
 		if err != nil {
-			fmt.Printf("Error: %s", err)
+			// DNA content may be TOML or YAML encoded, so escape it to make it JSON safe.
+			// (an improvement could be to convert from TOML/YAML to JSON)
+			encodedValue = strconv.Quote(content)
+		} else {
+			// DNA content is already in JSON so just use it.
+			encodedValue = content
+		}
+	default:
+		var result []byte
+		result, err = json.Marshal(g.C)
+		if err != nil {
+			encodedValue = strconv.Quote(err.Error())
 			return
 		}
-		buffer.WriteString(string(result))
+		encodedValue = string(result)
 	}
+	return
 }

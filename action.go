@@ -942,7 +942,7 @@ func (a *ActionCommit) Share(h *Holochain, def *EntryDef) (err error) {
 		// if this is a Link entry we have to send the DHT Link message
 		var le LinksEntry
 		entryStr := a.entry.Content().(string)
-		err = json.Unmarshal([]byte(entryStr), &le)
+		le, err = LinksEntryFromJSON(entryStr)
 		if err != nil {
 			return
 		}
@@ -1593,8 +1593,8 @@ func (a *ActionLink) Receive(dht *DHT, msg *Message, retries int) (response inte
 
 	err = RunValidationPhase(dht.h, msg.From, VALIDATE_LINK_REQUEST, t.Links, func(resp ValidateResponse) error {
 		var le LinksEntry
-
-		if err = json.Unmarshal([]byte(resp.Entry.Content().(string)), &le); err != nil {
+		le, err = LinksEntryFromJSON(resp.Entry.Content().(string))
+		if err != nil {
 			return err
 		}
 

@@ -379,6 +379,18 @@ func (d *EntryDef) BuildJSONSchemaValidatorFromString(schema string) (err error)
 	return
 }
 
+func (ae *LinksEntry) ToJSON() (encodedEntry string, err error) {
+	var j []byte
+	j, err = json.Marshal(ae)
+	encodedEntry = string(j)
+	return
+}
+
+func LinksEntryFromJSON(j string) (entry LinksEntry, err error) {
+	err = json.Unmarshal([]byte(j), &entry)
+	return
+}
+
 func (ae *AgentEntry) ToJSON() (encodedEntry string, err error) {
 	var j []byte
 	j, err = json.Marshal(ae)

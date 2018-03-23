@@ -36,11 +36,10 @@ func setupTestService() (d string, s *Service) {
 	d = SetupTestDir()
 	identity := "Herbert <h@bert.com>"
 	s, err := Init(filepath.Join(d, DefaultDirectoryName), AgentIdentity(identity), MakeTestSeed(identity))
-
-	s.Settings.DefaultBootstrapServer = "localhost:3142"
 	if err != nil {
 		panic(err)
 	}
+	s.Settings.DefaultBootstrapServer = "localhost:3142"
 	return
 }
 

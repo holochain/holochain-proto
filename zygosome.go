@@ -397,8 +397,8 @@ const (
 		`(def HC_Bridge_From ` + BridgeFromStr + ")" +
 		`(def HC_Bridge_To ` + BridgeToStr + ")" +
 
-		`(def HC_LinkAction_Add "` + AddAction + "\")" +
-		`(def HC_LinkAction_Del "` + DelAction + "\")" +
+		`(def HC_LinkAction_Add "` + AddLinkAction + "\")" +
+		`(def HC_LinkAction_Del "` + DelLinkAction + "\")" +
 		`(def HC_PkgReq_Chain "` + PkgReqChain + "\")" +
 		`(def HC_PkgReq_ChainOpt_None "` + PkgReqChainOptNoneStr + "\")" +
 		`(def HC_PkgReq_ChainOpt_Headers "` + PkgReqChainOptHeadersStr + "\")" +
@@ -1169,19 +1169,17 @@ func NewZygoRibosome(h *Holochain, zome *Zome) (n Ribosome, err error) {
 				Hash:    args[0].value.(Hash),
 				Message: args[1].value.(string),
 			}
-			header, err := h.chain.GetEntryHeader(entry.Hash)
-			if err == nil {
-				fn.action = *NewDelAction(header.Type, entry)
-				resp, err := fn.Call(h)
-				if err != nil {
-					return zygo.SexpNull, err
-				}
-				var entryHash Hash
-				if resp != nil {
-					entryHash = resp.(Hash)
-				}
-				return &zygo.SexpStr{S: entryHash.String()}, err
+			fn.action = *NewDelAction(entry)
+			resp, err := fn.Call(h)
+			if err != nil {
+				return zygo.SexpNull, err
 			}
+			var entryHash Hash
+			if resp != nil {
+				entryHash = resp.(Hash)
+			}
+			return &zygo.SexpStr{S: entryHash.String()}, err
+
 			return zygo.SexpNull, err
 		})
 

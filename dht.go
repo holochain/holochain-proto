@@ -86,9 +86,8 @@ type Meta struct {
 const (
 	// constants for status action type
 
-	AddAction = ""
-	ModAction = "m"
-	DelAction = "d"
+	AddLinkAction = ""
+	DelLinkAction = "d"
 
 	// constants for the state of the data, they are bit flags
 

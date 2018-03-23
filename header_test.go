@@ -17,7 +17,7 @@ func TestHeaderNew(t *testing.T) {
 	Convey("it should make a header and return its hash", t, func() {
 		e := GobEntry{C: "some data"}
 		ph := NullHash()
-		hash, header, err := newHeader(h, now, "evenNumbers", &e, key, ph, ph, nil)
+		hash, header, err := newHeader(h, now, "evenNumbers", &e, key, ph, ph, NullHash())
 
 		So(err, ShouldBeNil)
 		// encode the header and create a hash of it
@@ -30,8 +30,8 @@ func TestHeaderNew(t *testing.T) {
 	Convey("it should make a header and return its hash if change header", t, func() {
 		e := GobEntry{C: "some data"}
 		ph := NullHash()
-		delHash, _ := NewHash("QmP1DfoUjiWH2ZBo1PBH6FupdBucbDepx3HpWmEY6JMUpY")
-		hash, header, err := newHeader(h, now, "evenNumbers", &e, key, ph, ph, &StatusChange{Action: DelAction, Hash: delHash})
+		modHash, _ := NewHash("QmP1DfoUjiWH2ZBo1PBH6FupdBucbDepx3HpWmEY6JMUpY")
+		hash, header, err := newHeader(h, now, "evenNumbers", &e, key, ph, ph, modHash)
 
 		So(err, ShouldBeNil)
 		// encode the header and create a hash of it
@@ -59,7 +59,7 @@ func TestHeaderMarshal(t *testing.T) {
 
 	e := GobEntry{C: "some  data"}
 	hd := testHeader(h, "evenNumbers", &e, key, now)
-	hd.Change.Action = ModAction
+	hd.Change, _ = NewHash("QmNiCwBNA8MWDADTFVq1BonUEJbS2SvjAoNkZZrhEwcuU2")
 	Convey("it should round-trip", t, func() {
 		b, err := hd.Marshal()
 		So(err, ShouldBeNil)
@@ -131,7 +131,7 @@ func mkTestHeader(t string) Header {
 		EntryLink:  el,
 		TypeLink:   NullHash(),
 	}
-	h1.Change.Hash = NullHash()
+	h1.Change = NullHash()
 
 	//h1.Sig.S.321)
 	return h1

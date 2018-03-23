@@ -181,6 +181,12 @@ func Init(root string, identity AgentIdentity, seed io.Reader) (service *Service
 	if AgentEntryDef.validator == nil {
 		err = AgentEntryDef.BuildJSONSchemaValidatorFromString(AgentEntryDef.Schema)
 	}
+	if DelEntryDef.validator == nil {
+		err = DelEntryDef.BuildJSONSchemaValidatorFromString(DelEntryDef.Schema)
+	}
+	if err != nil {
+		return
+	}
 
 	err = os.MkdirAll(root, os.ModePerm)
 	if err != nil {
@@ -867,7 +873,7 @@ func DNAHashofUngenedChain(h *Holochain) (DNAHash Hash, err error) {
 	}
 
 	var dnaHeader *Header
-	_, dnaHeader, err = newHeader(h.hashSpec, time.Now(), DNAEntryType, &e, h.agent.PrivKey(), NullHash(), NullHash(), nil)
+	_, dnaHeader, err = newHeader(h.hashSpec, time.Now(), DNAEntryType, &e, h.agent.PrivKey(), NullHash(), NullHash(), NullHash())
 	if err != nil {
 		return
 	}

@@ -314,6 +314,7 @@ const (
 		`Agent:"` + AgentEntryType + `",` +
 		`Key:"` + KeyEntryType + `",` +
 		`Headers:"` + HeadersEntryType + `"` +
+		`Del:"` + DelEntryType + `"` +
 		`}` +
 		`HashNotFound:null` +
 		`,Status:{Live:` + StatusLiveVal +
@@ -328,7 +329,7 @@ const (
 		`,Sources:` + GetMaskSourcesStr +
 		`,All:` + GetMaskAllStr +
 		"}" +
-		`,LinkAction:{Add:"` + AddAction + `",Del:"` + DelAction + `"}` +
+		`,LinkAction:{Add:"` + AddLinkAction + `",Del:"` + DelLinkAction + `"}` +
 		`,PkgReq:{Chain:"` + PkgReqChain + `"` +
 		`,ChainOpt:{None:` + PkgReqChainOptNoneStr +
 		`,Headers:` + PkgReqChainOptHeadersStr +
@@ -1113,21 +1114,18 @@ func NewJSRibosome(h *Holochain, zome *Zome) (n Ribosome, err error) {
 					Hash:    args[0].value.(Hash),
 					Message: args[1].value.(string),
 				}
-				var header *Header
-				header, err = h.chain.GetEntryHeader(entry.Hash)
+				var resp interface{}
+				f := _f.(*APIFnDel)
+				f.action = *NewDelAction(entry)
+				resp, err = f.Call(h)
 				if err == nil {
-					var resp interface{}
-					f := _f.(*APIFnDel)
-					f.action = *NewDelAction(header.Type, entry)
-					resp, err = f.Call(h)
-					if err == nil {
-						var entryHash Hash
-						if resp != nil {
-							entryHash = resp.(Hash)
-						}
-						result, err = jsr.vm.ToValue(entryHash.String())
+					var entryHash Hash
+					if resp != nil {
+						entryHash = resp.(Hash)
 					}
+					result, err = jsr.vm.ToValue(entryHash.String())
 				}
+
 				return
 			},
 		},

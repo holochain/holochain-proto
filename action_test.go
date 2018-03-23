@@ -61,19 +61,19 @@ func TestValidateAction(t *testing.T) {
 		So(err, ShouldEqual, ErrNotValidForHeadersType)
 	})
 
-	Convey("deleting all sys entry types should fail", t, func() {
-		a := NewDelAction(DNAEntryType, DelEntry{})
-		_, err = h.ValidateAction(a, a.entryType, nil, []peer.ID{h.nodeID})
-		So(err, ShouldEqual, ErrNotValidForDNAType)
-		a.entryType = KeyEntryType
-		_, err = h.ValidateAction(a, a.entryType, nil, []peer.ID{h.nodeID})
-		So(err, ShouldEqual, ErrNotValidForKeyType)
-		a.entryType = AgentEntryType
-		_, err = h.ValidateAction(a, a.entryType, nil, []peer.ID{h.nodeID})
-		So(err, ShouldEqual, ErrNotValidForAgentType)
-		a.entryType = HeadersEntryType
-		_, err = h.ValidateAction(a, a.entryType, nil, []peer.ID{h.nodeID})
-		So(err, ShouldEqual, ErrNotValidForHeadersType)
+	Convey("deleting should fail for all sys entry types except delete", t, func() {
+		a := NewDelAction(DelEntry{})
+		_, err = h.ValidateAction(a, DNAEntryType, nil, []peer.ID{h.nodeID})
+		So(err, ShouldEqual, ErrEntryDefInvalid)
+
+		_, err = h.ValidateAction(a, KeyEntryType, nil, []peer.ID{h.nodeID})
+		So(err, ShouldEqual, ErrEntryDefInvalid)
+
+		_, err = h.ValidateAction(a, AgentEntryType, nil, []peer.ID{h.nodeID})
+		So(err, ShouldEqual, ErrEntryDefInvalid)
+
+		_, err = h.ValidateAction(a, HeadersEntryType, nil, []peer.ID{h.nodeID})
+		So(err, ShouldEqual, ErrEntryDefInvalid)
 	})
 }
 
@@ -201,6 +201,30 @@ func TestSysValidateEntry(t *testing.T) {
 		So(err, ShouldBeNil)
 	})
 
+	Convey("validate del entry should fail if it doesn't match the del entry schema", t, func() {
+		err := sysValidateEntry(h, DelEntryDef, &GobEntry{C: ""}, nil)
+		So(err, ShouldNotBeNil)
+		So(err.Error(), ShouldEqual, "unexpected end of JSON input")
+
+		err = sysValidateEntry(h, DelEntryDef, &GobEntry{C: `{"Fish":2}`}, nil)
+		So(err, ShouldNotBeNil)
+		So(err.Error(), ShouldEqual, "Validation Failed: validator %del failed: object property 'Hash' is required")
+
+		err = sysValidateEntry(h, DelEntryDef, &GobEntry{C: `{"Hash": "not-a-hash"}`}, nil)
+		So(err, ShouldNotBeNil)
+		So(err.Error(), ShouldEqual, "Validation Failed: Error (input isn't valid multihash) when decoding Hash value 'not-a-hash'")
+
+		err = sysValidateEntry(h, DelEntryDef, &GobEntry{C: `{"Hash": 1}`}, nil)
+		So(err, ShouldNotBeNil)
+		So(err.Error(), ShouldEqual, "Validation Failed: validator %del failed: object property 'Hash' validation failed: value is not a string (Kind: float64)")
+
+	})
+
+	Convey("validate del entry should succeed on valid entry", t, func() {
+		err := sysValidateEntry(h, DelEntryDef, &GobEntry{C: `{"Hash": "QmUfY4WeqD3UUfczjdkoFQGEgCAVNf7rgFfjdeTbr7JF1C","Message": "obsolete"}`}, nil)
+		So(err, ShouldBeNil)
+	})
+
 }
 
 func TestSysValidateMod(t *testing.T) {
@@ -254,19 +278,13 @@ func TestSysValidateDel(t *testing.T) {
 	defer CleanupTestChain(h, d)
 
 	hash := commit(h, "evenNumbers", "2")
-	_, def, _ := h.GetEntryDef("evenNumbers")
-
-	Convey("it should check that entry types match on del", t, func() {
-		a := NewDelAction("oddNumbers", DelEntry{Hash: hash})
-		err := a.SysValidation(h, def, nil, []peer.ID{h.nodeID})
-		So(err, ShouldEqual, ErrEntryTypeMismatch)
-	})
+	//	_, def, _ := h.GetEntryDef("evenNumbers")
 
 	Convey("it should check that entry isn't linking ", t, func() {
-		a := NewDelAction("rating", DelEntry{Hash: hash})
+		a := NewDelAction(DelEntry{Hash: hash})
 		_, ratingsDef, _ := h.GetEntryDef("rating")
 		err := a.SysValidation(h, ratingsDef, nil, []peer.ID{h.nodeID})
-		So(err, ShouldEqual, ErrDelInvalidForLinks)
+		So(err, ShouldBeError)
 	})
 }
 
@@ -312,6 +330,34 @@ func TestActionCommit(t *testing.T) {
 		_, err = callGet(h2, req, &GetOptions{GetMask: req.GetMask})
 		So(err, ShouldBeNil)
 
+	})
+}
+
+func TestActionDelete(t *testing.T) {
+	nodesCount := 3
+	mt := setupMultiNodeTesting(nodesCount)
+	defer mt.cleanupMultiNodeTesting()
+
+	h := mt.nodes[0]
+	ringConnect(t, mt.ctx, mt.nodes, nodesCount)
+
+	profileHash := commit(h, "profile", `{"firstName":"Zippy","lastName":"Pinhead"}`)
+	entry := DelEntry{Hash: profileHash, Message: "expired"}
+	a := &ActionDel{entry: entry}
+	response, err := h.commitAndShare(a, NullHash())
+	if err != nil {
+		panic(err)
+	}
+	deleteHash := response.(Hash)
+
+	Convey("when deleting a hash the del entry itself should be published to the DHT", t, func() {
+		req := GetReq{H: deleteHash, GetMask: GetMaskEntry}
+		_, err := callGet(h, req, &GetOptions{GetMask: req.GetMask})
+		So(err, ShouldBeNil)
+
+		h2 := mt.nodes[2]
+		_, err = callGet(h2, req, &GetOptions{GetMask: req.GetMask})
+		So(err, ShouldBeNil)
 	})
 }
 

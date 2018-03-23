@@ -92,10 +92,11 @@ var ErrNotValidForDNAType error = errors.New("Invalid action for DNA type")
 var ErrNotValidForAgentType error = errors.New("Invalid action for Agent type")
 var ErrNotValidForKeyType error = errors.New("Invalid action for Key type")
 var ErrNotValidForHeadersType error = errors.New("Invalid action for Headers type")
+var ErrNotValidForDelType error = errors.New("Invalid action for Del type")
 var ErrModInvalidForLinks error = errors.New("mod: invalid for Links entry")
 var ErrModMissingHeader error = errors.New("mod: missing header")
 var ErrModReplacesHashNotDifferent error = errors.New("mod: replaces must be different from original hash")
-var ErrDelInvalidForLinks error = errors.New("del: invalid for Links entry")
+var ErrEntryDefInvalid = errors.New("Invalid Entry Defintion")
 
 var ErrNilEntryInvalid error = errors.New("nil entry invalid")
 
@@ -189,6 +190,8 @@ func (h *Holochain) GetValidationResponse(a ValidatingAction, hash Hash) (resp V
 		// if key entry there no extra info to return in the package so do nothing
 	case HeadersEntryType:
 		// if headers entry there no extra info to return in the package so do nothing
+	case DelEntryType:
+		// if del entry there no extra info to return in the package so do nothing
 	case AgentEntryType:
 		// if agent, the package to return is the entry-type chain
 		// so that sys validation can confirm this agent entry in the chain
@@ -813,7 +816,7 @@ func (a *ActionGet) Receive(dht *DHT, msg *Message, retries int) (response inter
 }
 
 // doCommit adds an entry to the local chain after validating the action it's part of
-func (h *Holochain) doCommit(a CommittingAction, change *StatusChange) (d *EntryDef, err error) {
+func (h *Holochain) doCommit(a CommittingAction, change Hash) (d *EntryDef, err error) {
 
 	entryType := a.EntryType()
 	entry := a.Entry()
@@ -859,7 +862,7 @@ func (h *Holochain) doCommit(a CommittingAction, change *StatusChange) (d *Entry
 	return
 }
 
-func (h *Holochain) commitAndShare(a CommittingAction, change *StatusChange) (response interface{}, err error) {
+func (h *Holochain) commitAndShare(a CommittingAction, change Hash) (response interface{}, err error) {
 	var def *EntryDef
 	def, err = h.doCommit(a, change)
 	if err != nil {
@@ -895,7 +898,7 @@ func (fn *APIFnCommit) Args() []Arg {
 }
 
 func (fn *APIFnCommit) Call(h *Holochain) (response interface{}, err error) {
-	response, err = h.commitAndShare(&fn.action, nil)
+	response, err = h.commitAndShare(&fn.action, NullHash())
 	return
 }
 
@@ -1026,12 +1029,15 @@ func sysValidateEntry(h *Holochain, def *EntryDef, entry Entry, pkg *Package) (e
 		// TODO check anything in the package
 	case HeadersEntryType:
 		// TODO check signatures!
+	case DelEntryType:
+		// TODO checks according to CRDT configuration?
 	}
 
 	if entry == nil {
 		err = ValidationFailed(ErrNilEntryInvalid.Error())
 		return
 	}
+
 	// see if there is a schema validator for the entry type and validate it if so
 	if def.validator != nil {
 		var input interface{}
@@ -1046,6 +1052,19 @@ func sysValidateEntry(h *Holochain, def *EntryDef, entry Entry, pkg *Package) (e
 		if err = def.validator.Validate(input); err != nil {
 			err = ValidationFailed(err.Error())
 			return
+		}
+		if def == DelEntryDef {
+			// TODO refactor and use in other sys types
+			hashValue, ok := input.(map[string]interface{})["Hash"].(string)
+			if !ok {
+				err = ValidationFailed("expected string!")
+				return
+			}
+			_, err = NewHash(hashValue)
+			if err != nil {
+				err = ValidationFailed(fmt.Sprintf("Error (%s) when decoding Hash value '%s'", err.Error(), hashValue))
+				return
+			}
 		}
 	} else if def.DataFormat == DataFormatLinks {
 		// Perform base validation on links entries, i.e. that all items exist and are of the right types
@@ -1199,7 +1218,7 @@ func (fn *APIFnMod) Args() []Arg {
 
 func (fn *APIFnMod) Call(h *Holochain) (response interface{}, err error) {
 	a := &fn.action
-	response, err = h.commitAndShare(a, &StatusChange{Action: ModAction, Hash: a.replaces})
+	response, err = h.commitAndShare(a, a.replaces)
 	return
 }
 
@@ -1252,6 +1271,9 @@ func (a *ActionMod) SysValidation(h *Holochain, def *EntryDef, pkg *Package, sou
 		return
 	case HeadersEntryType:
 		err = ErrNotValidForHeadersType
+		return
+	case DelEntryType:
+		err = ErrNotValidForDelType
 		return
 	case KeyEntryType:
 	case AgentEntryType:
@@ -1446,18 +1468,17 @@ func (fn *APIFnDel) Args() []Arg {
 
 func (fn *APIFnDel) Call(h *Holochain) (response interface{}, err error) {
 	a := &fn.action
-	response, err = h.commitAndShare(a, &StatusChange{Action: DelAction, Hash: a.entry.Hash})
+	response, err = h.commitAndShare(a, NullHash())
 	return
 }
 
 type ActionDel struct {
-	entryType string
-	entry     DelEntry
-	header    *Header
+	entry  DelEntry
+	header *Header
 }
 
-func NewDelAction(entryType string, entry DelEntry) *ActionDel {
-	a := ActionDel{entryType: entryType, entry: entry}
+func NewDelAction(entry DelEntry) *ActionDel {
+	a := ActionDel{entry: entry}
 	return &a
 }
 
@@ -1466,16 +1487,15 @@ func (a *ActionDel) Name() string {
 }
 
 func (a *ActionDel) Entry() Entry {
-	var buf []byte
-	buf, err := ByteEncoder(a.entry)
+	j, err := a.entry.ToJSON()
 	if err != nil {
 		panic(err)
 	}
-	return &GobEntry{C: string(buf)}
+	return &GobEntry{C: j}
 }
 
 func (a *ActionDel) EntryType() string {
-	return a.entryType
+	return DelEntryType
 }
 
 func (a *ActionDel) SetHeader(header *Header) {
@@ -1488,43 +1508,16 @@ func (a *ActionDel) GetHeader() (header *Header) {
 
 func (a *ActionDel) Share(h *Holochain, def *EntryDef) (err error) {
 	if def.isSharingPublic() {
-		// if it's a public entry send the DHT DEL
+		// if it's a public entry send the DHT DEL & PUT messages
+		h.dht.Change(a.header.EntryLink, PUT_REQUEST, PutReq{H: a.header.EntryLink})
 		h.dht.Change(a.entry.Hash, DEL_REQUEST, DelReq{H: a.entry.Hash, By: a.header.EntryLink})
 	}
 	return
 }
 
 func (a *ActionDel) SysValidation(h *Holochain, def *EntryDef, pkg *Package, sources []peer.ID) (err error) {
-	switch def.Name {
-	case DNAEntryType:
-		err = ErrNotValidForDNAType
-		return
-	case KeyEntryType:
-		err = ErrNotValidForKeyType
-		return
-	case AgentEntryType:
-		err = ErrNotValidForAgentType
-		return
-	case HeadersEntryType:
-		err = ErrNotValidForHeadersType
-		return
-	}
-
-	if def.DataFormat == DataFormatLinks {
-		err = ErrDelInvalidForLinks
-		return
-	}
-
-	// we don't have to check to see if the entry type is virtual here because currently
-	// the only virtual entry type is the KeyEntryType, for which Del isn't even valid
-	// and will have gotten caught in the switch statement above so no use wasting CPU cycles.
-	var header *Header
-	header, err = h.chain.GetEntryHeader(a.entry.Hash)
-	if err != nil {
-		return
-	}
-	if header.Type != a.entryType {
-		err = ErrEntryTypeMismatch
+	if def != DelEntryDef {
+		err = ErrEntryDefInvalid
 		return
 	}
 	return
@@ -1539,13 +1532,11 @@ func (a *ActionDel) Receive(dht *DHT, msg *Message, retries int) (response inter
 	}
 
 	err = RunValidationPhase(dht.h, msg.From, VALIDATE_DEL_REQUEST, t.By, func(resp ValidateResponse) error {
-		var delEntry DelEntry
-		err := ByteDecoder([]byte(resp.Entry.Content().(string)), &delEntry)
-		if err != nil {
-			return err
-		}
 
-		a := NewDelAction(resp.Type, delEntry)
+		var delEntry DelEntry
+		delEntry, err = DelEntryFromJSON(resp.Entry.Content().(string))
+
+		a := NewDelAction(delEntry)
 		//@TODO what comes back from Validate Del
 		_, err = dht.h.ValidateAction(a, resp.Type, &resp.Package, []peer.ID{from})
 		if err != nil {
@@ -1621,7 +1612,7 @@ func (a *ActionLink) Receive(dht *DHT, msg *Message, retries int) (response inte
 			base := t.Base.String()
 			for _, l := range le.Links {
 				if base == l.Base {
-					if l.LinkAction == DelAction {
+					if l.LinkAction == DelLinkAction {
 						err = dht.delLink(msg, base, l.Link, l.Tag)
 					} else {
 						err = dht.putLink(msg, base, l.Link, l.Tag)

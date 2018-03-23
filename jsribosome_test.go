@@ -119,6 +119,11 @@ func TestNewJSRibosome(t *testing.T) {
 		s, _ = z.lastResult.ToString()
 		So(s, ShouldEqual, HeadersEntryType)
 
+		_, err = z.Run("HC.SysEntryType.Del")
+		So(err, ShouldBeNil)
+		s, _ = z.lastResult.ToString()
+		So(s, ShouldEqual, DelEntryType)
+
 		_, err = z.Run("HC.Version")
 		So(err, ShouldBeNil)
 		s, _ = z.lastResult.ToString()
@@ -661,7 +666,7 @@ func TestPrepareJSValidateArgs(t *testing.T) {
 	Convey("it should prepare args for del", t, func() {
 		hash, _ := NewHash("QmY8Mzg9F69e5P9AoQPYat6x5HEhc1TVGs11tmfNSzkqh2")
 		entry := DelEntry{Hash: hash, Message: "expired"}
-		a := NewDelAction("profile", entry)
+		a := NewDelAction(entry)
 		args, err := prepareJSValidateArgs(a, &d)
 		So(err, ShouldBeNil)
 		So(args, ShouldEqual, `"QmY8Mzg9F69e5P9AoQPYat6x5HEhc1TVGs11tmfNSzkqh2"`)
@@ -930,8 +935,7 @@ func TestJSDHT(t *testing.T) {
 
 		header := h.chain.Top()
 		So(profileHashStr2, ShouldEqual, header.EntryLink.String())
-		So(header.Change.Action, ShouldEqual, ModAction)
-		So(header.Change.Hash.String(), ShouldEqual, profileHash.String())
+		So(header.Change.String(), ShouldEqual, profileHash.String())
 
 		// the entry should be marked as Modifed
 		data, _, _, _, err := h.dht.get(profileHash, StatusDefault, GetMaskDefault)

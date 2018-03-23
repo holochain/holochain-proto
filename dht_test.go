@@ -599,7 +599,7 @@ func TestActionReceiver(t *testing.T) {
 		So(len(gr.Puts), ShouldEqual, 4)
 	})
 
-	le2 := GobEntry{C: fmt.Sprintf(`{"Links":[{"Base":"%s","Link":"%s","Tag":"4stars","LinkAction":"%s"}]}`, hash.String(), profileHash.String(), DelAction)}
+	le2 := GobEntry{C: fmt.Sprintf(`{"Links":[{"Base":"%s","Link":"%s","Tag":"4stars","LinkAction":"%s"}]}`, hash.String(), profileHash.String(), DelLinkAction)}
 	_, lhd2, _ := h.NewEntry(time.Now(), "rating", &le2)
 
 	Convey("LINK_REQUEST with del type should mark a link as deleted", t, func() {
@@ -651,8 +651,8 @@ func TestActionReceiver(t *testing.T) {
 
 	Convey("DELETE_REQUEST should set status of hash to deleted", t, func() {
 		entry := DelEntry{Hash: hash2, Message: "expired"}
-		a := NewDelAction("evenNumbers", entry)
-		_, err := h.doCommit(a, &StatusChange{Action: DelAction, Hash: hash2})
+		a := NewDelAction(entry)
+		_, err := h.doCommit(a, NullHash())
 		entryHash := a.header.EntryLink
 		m := h.node.NewMessage(DEL_REQUEST, DelReq{H: hash2, By: entryHash})
 		r, err := ActionReceiver(h, m)

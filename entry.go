@@ -24,6 +24,7 @@ const (
 	DNAEntryType     = SysEntryTypePrefix + "dna"
 	AgentEntryType   = SysEntryTypePrefix + "agent"
 	HeadersEntryType = SysEntryTypePrefix + "header"
+	DelEntryType     = SysEntryTypePrefix + "del"
 	KeyEntryType     = VirtualEntryTypePrefix + "key" // virtual entry type, not actually on the chain
 
 	// Entry type formats
@@ -200,12 +201,36 @@ const (
   }
 }
 `
+	DelEntrySchema = `
+{
+  "$id": "http://example.com/example.json",
+  "type": "object",
+  "definitions": {},
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "properties": {
+    "Hash": {
+      "$id": "/properties/Hash",
+      "type": "string",
+      "title": "The Hash Schema ",
+      "default": ""
+    },
+    "Message": {
+      "$id": "/properties/message",
+      "type": "string",
+      "title": "The Message Schema ",
+      "default": ""
+    }
+  },
+  "required": ["Hash"]
+}
+`
 )
 
 var DNAEntryDef = &EntryDef{Name: DNAEntryType, DataFormat: DataFormatSysDNA}
 var AgentEntryDef = &EntryDef{Name: AgentEntryType, DataFormat: DataFormatJSON, Sharing: Public, Schema: AgentEntrySchema}
 var KeyEntryDef = &EntryDef{Name: KeyEntryType, DataFormat: DataFormatSysKey}
 var HeadersEntryDef = &EntryDef{Name: HeadersEntryType, DataFormat: DataFormatJSON, Sharing: Public, Schema: HeadersEntrySchema}
+var DelEntryDef = &EntryDef{Name: DelEntryType, DataFormat: DataFormatJSON, Sharing: Public, Schema: DelEntrySchema}
 
 func (def EntryDef) isSharingPublic() bool {
 	return def.Sharing == Public || def.DataFormat == DataFormatLinks
@@ -363,5 +388,32 @@ func (ae *AgentEntry) ToJSON() (encodedEntry string, err error) {
 
 func AgentEntryFromJSON(j string) (entry AgentEntry, err error) {
 	err = json.Unmarshal([]byte(j), &entry)
+	return
+}
+
+func (e *DelEntry) ToJSON() (encodedEntry string, err error) {
+	var x struct {
+		Hash    string
+		Message string
+	}
+	x.Hash = e.Hash.String()
+	x.Message = e.Message
+	var j []byte
+	j, err = json.Marshal(x)
+	encodedEntry = string(j)
+	return
+}
+
+func DelEntryFromJSON(j string) (entry DelEntry, err error) {
+	var x struct {
+		Hash    string
+		Message string
+	}
+	err = json.Unmarshal([]byte(j), &x)
+	if err != nil {
+		return
+	}
+	entry.Message = x.Message
+	entry.Hash, err = NewHash(x.Hash)
 	return
 }

@@ -21,12 +21,6 @@ type Signature struct {
 	S []byte
 }
 
-// StatusChange records change of status of an entry in the header
-type StatusChange struct {
-	Action string // either AddAction, ModAction, or DelAction
-	Hash   Hash
-}
-
 // Header holds chain links, type, timestamp and signature
 type Header struct {
 	Type       string
@@ -35,22 +29,18 @@ type Header struct {
 	EntryLink  Hash // link to entry
 	TypeLink   Hash // link to header of previous header of this type
 	Sig        Signature
-	Change     StatusChange
+	Change     Hash
 }
 
 // newHeader makes Header object linked to a previous Header by hash
-func newHeader(hashSpec HashSpec, now time.Time, t string, entry Entry, privKey ic.PrivKey, prev Hash, prevType Hash, change *StatusChange) (hash Hash, header *Header, err error) {
+func newHeader(hashSpec HashSpec, now time.Time, t string, entry Entry, privKey ic.PrivKey, prev Hash, prevType Hash, change Hash) (hash Hash, header *Header, err error) {
 	var hd Header
 	hd.Type = t
 	now = now.Round(0)
 	hd.Time = now
 	hd.HeaderLink = prev
 	hd.TypeLink = prevType
-	if change != nil {
-		hd.Change = *change
-	} else {
-		hd.Change.Hash = NullHash()
-	}
+	hd.Change = change
 
 	hd.EntryLink, err = entry.Sum(hashSpec)
 	if err != nil {
@@ -167,12 +157,7 @@ func MarshalHeader(writer io.Writer, hd *Header) (err error) {
 		return
 	}
 
-	err = writeStr(writer, hd.Change.Action)
-	if err != nil {
-		return
-	}
-
-	err = hd.Change.Hash.MarshalHash(writer)
+	err = hd.Change.MarshalHash(writer)
 	if err != nil {
 		return
 	}
@@ -244,12 +229,7 @@ func UnmarshalHeader(reader io.Reader, hd *Header, hashSize int) (err error) {
 		return
 	}
 
-	hd.Change.Action, err = readStr(reader)
-	if err != nil {
-		return
-	}
-
-	hd.Change.Hash, err = UnmarshalHash(reader)
+	hd.Change, err = UnmarshalHash(reader)
 	if err != nil {
 		return
 	}

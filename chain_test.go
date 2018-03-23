@@ -407,8 +407,8 @@ func TestChainValidateChain(t *testing.T) {
 		err = c.Validate(false)
 		So(err.Error(), ShouldEqual, "header hash mismatch at link 0")
 
-		c.Headers[0].Sig.S[0] = val        // restore
-		c.Headers[0].Change.Action = "foo" // tweak
+		c.Headers[0].Sig.S[0] = val // restore
+		c.Headers[0].Change = "foo" // tweak
 		err = c.Validate(false)
 		So(err.Error(), ShouldEqual, "header hash mismatch at link 0")
 
@@ -505,7 +505,7 @@ func TestChainBundle(t *testing.T) {
 		So(bundle.chain.Length(), ShouldEqual, 0)
 
 		now := now.Round(0)
-		l, hash, header, err := bundle.chain.prepareHeader(now, "entryTypeFoo1", &e, key, nil)
+		l, hash, header, err := bundle.chain.prepareHeader(now, "entryTypeFoo1", &e, key, NullHash())
 		So(err, ShouldBeNil)
 		So(l, ShouldEqual, 0)
 
@@ -520,7 +520,7 @@ func TestChainBundle(t *testing.T) {
 	})
 
 	Convey("you shouldn't be able to work on a chain when bundle opened", t, func() {
-		l, hash, header, err := c.prepareHeader(now, "entryTypeFoo1", &e, key, nil)
+		l, hash, header, err := c.prepareHeader(now, "entryTypeFoo1", &e, key, NullHash())
 		So(err, ShouldEqual, ErrChainLockedForBundle)
 
 		err = c.addEntry(l, hash, header, &e)

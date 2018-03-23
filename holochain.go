@@ -186,7 +186,6 @@ func InitializeHolochain() {
 		gob.Register(TaggedHash{})
 		gob.Register(ErrorResponse{})
 		gob.Register(DelEntry{})
-		gob.Register(StatusChange{})
 		gob.Register(Package{})
 		gob.Register(AppMsg{})
 		gob.Register(ListAddReq{})
@@ -572,7 +571,7 @@ func (h *Holochain) NewEntry(now time.Time, entryType string, entry Entry) (hash
 	h.chain.lk.Lock()
 	defer h.chain.lk.Unlock()
 	var l int
-	l, hash, header, err = h.chain.prepareHeader(now, entryType, entry, h.agent.PrivKey(), nil)
+	l, hash, header, err = h.chain.prepareHeader(now, entryType, entry, h.agent.PrivKey(), NullHash())
 	if err == nil {
 		err = h.chain.addEntry(l, hash, header, entry)
 	}
@@ -610,6 +609,8 @@ func (h *Holochain) GetEntryDef(t string) (zome *Zome, d *EntryDef, err error) {
 		d = KeyEntryDef
 	case HeadersEntryType:
 		d = HeadersEntryDef
+	case DelEntryType:
+		d = DelEntryDef
 	default:
 		for _, z := range h.nucleus.dna.Zomes {
 			d, err = z.GetEntryDef(t)

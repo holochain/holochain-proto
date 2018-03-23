@@ -476,7 +476,7 @@ func TestPrepareZyValidateArgs(t *testing.T) {
 	Convey("it should prepare args for del", t, func() {
 		hash, _ := NewHash("QmY8Mzg9F69e5P9AoQPYat6x5HEhc1TVGs11tmfNSzkqh2")
 		entry := DelEntry{Hash: hash, Message: "expired"}
-		a := NewDelAction("profile", entry)
+		a := NewDelAction(entry)
 		args, err := prepareZyValidateArgs(a, &d)
 		So(err, ShouldBeNil)
 		So(args, ShouldEqual, `"QmY8Mzg9F69e5P9AoQPYat6x5HEhc1TVGs11tmfNSzkqh2"`)
@@ -655,8 +655,7 @@ func TestZygoDHT(t *testing.T) {
 
 		header := h.chain.Top()
 		So(header.EntryLink.String(), ShouldEqual, profileHashStr2)
-		So(header.Change.Action, ShouldEqual, ModAction)
-		So(header.Change.Hash.String(), ShouldEqual, profileHash.String())
+		So(header.Change.String(), ShouldEqual, profileHash.String())
 
 		// the entry should be marked as Modifed
 		data, _, _, _, err := h.dht.get(profileHash, StatusDefault, GetMaskDefault)

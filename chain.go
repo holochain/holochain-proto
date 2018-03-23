@@ -186,7 +186,7 @@ func (c *Chain) AddEntry(now time.Time, entryType string, e Entry, privKey ic.Pr
 	var l int
 	var header *Header
 	now = now.Round(0)
-	l, hash, header, err = c.prepareHeader(now, entryType, e, privKey, nil)
+	l, hash, header, err = c.prepareHeader(now, entryType, e, privKey, NullHash())
 	if err == nil {
 		err = c.addEntry(l, hash, header, e)
 	}
@@ -196,7 +196,7 @@ func (c *Chain) AddEntry(now time.Time, entryType string, e Entry, privKey ic.Pr
 // prepareHeader builds a header that could be added to the chain.
 // Not thread safe, this must be called with the chain locked for writing so something else
 // doesn't get inserted
-func (c *Chain) prepareHeader(now time.Time, entryType string, e Entry, privKey ic.PrivKey, change *StatusChange) (entryIdx int, hash Hash, header *Header, err error) {
+func (c *Chain) prepareHeader(now time.Time, entryType string, e Entry, privKey ic.PrivKey, change Hash) (entryIdx int, hash Hash, header *Header, err error) {
 
 	if c.BundleStarted() != nil {
 		err = ErrChainLockedForBundle

@@ -630,9 +630,9 @@ func TestZygoDHT(t *testing.T) {
 		_, err = NewHash(z.lastResult.(*zygo.SexpStr).S)
 		So(err, ShouldBeNil)
 
-		links, _ := h.dht.getLinks(hash, "4stars", StatusLive)
+		links, _ := h.dht.GetLinks(hash, "4stars", StatusLive)
 		So(fmt.Sprintf("%v", links), ShouldEqual, "[]")
-		links, _ = h.dht.getLinks(hash, "4stars", StatusDeleted)
+		links, _ = h.dht.GetLinks(hash, "4stars", StatusDeleted)
 		So(fmt.Sprintf("%v", links), ShouldEqual, fmt.Sprintf("[{QmYeinX5vhuA91D3v24YbgyLofw9QAxY6PoATrBHnRwbtt    %s}]", h.nodeIDStr))
 	})
 
@@ -658,7 +658,7 @@ func TestZygoDHT(t *testing.T) {
 		So(header.Change.String(), ShouldEqual, profileHash.String())
 
 		// the entry should be marked as Modifed
-		data, _, _, _, err := h.dht.get(profileHash, StatusDefault, GetMaskDefault)
+		data, _, _, _, err := h.dht.Get(profileHash, StatusDefault, GetMaskDefault)
 		So(err, ShouldEqual, ErrHashModified)
 		So(string(data), ShouldEqual, profileHashStr2)
 
@@ -755,13 +755,13 @@ func TestZygoDHT(t *testing.T) {
 
 		// the new Key should be available on the DHT
 		newKey, _ := NewHash(h.nodeIDStr)
-		data, _, _, _, err := h.dht.get(newKey, StatusDefault, GetMaskDefault)
+		data, _, _, _, err := h.dht.Get(newKey, StatusDefault, GetMaskDefault)
 		So(err, ShouldBeNil)
 		newpk, _ := h.agent.EncodePubKey()
 		So(string(data), ShouldEqual, newpk)
 
 		// the old key should be marked as Modifed and we should get the new hash as the data
-		data, _, _, _, err = h.dht.get(oldKey, StatusDefault, GetMaskDefault)
+		data, _, _, _, err = h.dht.Get(oldKey, StatusDefault, GetMaskDefault)
 		So(err, ShouldEqual, ErrHashModified)
 		So(string(data), ShouldEqual, h.nodeIDStr)
 

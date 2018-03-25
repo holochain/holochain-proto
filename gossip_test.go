@@ -389,7 +389,7 @@ func TestGossipErrorCases(t *testing.T) {
 	Convey("a rejected put should not break gossiping", t, func() {
 		// inject a bad put
 		hash, _ := NewHash("QmY8Mzg9F69e5P9AoQPYat655HEhc1TVGs11tmfNSzkqz2")
-		h1.dht.put(h1.node.NewMessage(PUT_REQUEST, PutReq{H: hash}), "evenNumbers", hash, h0.nodeID, []byte("bad data"), StatusLive)
+		h1.dht.Put(h1.node.NewMessage(PUT_REQUEST, PutReq{H: hash}), "evenNumbers", hash, h0.nodeID, []byte("bad data"), StatusLive)
 		err := h0.dht.gossipWith(h1.nodeID)
 		So(err, ShouldBeNil)
 		So(len(h0.dht.gossipPuts), ShouldEqual, 3)

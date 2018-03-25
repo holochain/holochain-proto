@@ -57,102 +57,6 @@ var ErrDHTErrNoGossipersAvailable error = errors.New("no gossipers available")
 var ErrDHTExpectedGossipReqInBody error = errors.New("expected gossip request")
 var ErrNoSuchIdx error = errors.New("no such change index")
 
-// incIdx adds a new index record to dht for gossiping later
-func incIdx(tx *buntdb.Tx, m *Message) (index string, err error) {
-	// if message is nil we can't record this for gossiping
-	// this should only be the case for the DNA
-	if m == nil {
-		return
-	}
-
-	var idx int
-	idx, err = getIntVal("_idx", tx)
-	if err != nil {
-		return
-	}
-	idx++
-	index = fmt.Sprintf("%d", idx)
-	_, _, err = tx.Set("_idx", index, nil)
-	if err != nil {
-		return
-	}
-
-	var msg string
-
-	if m != nil {
-		var b []byte
-		b, err = ByteEncoder(m)
-		if err != nil {
-			return
-		}
-		msg = string(b)
-	}
-	_, _, err = tx.Set("idx:"+index, msg, nil)
-	if err != nil {
-		return
-	}
-
-	f, err := m.Fingerprint()
-	if err != nil {
-		return
-	}
-	_, _, err = tx.Set("f:"+f.String(), index, nil)
-	if err != nil {
-		return
-	}
-
-	return
-}
-
-// getIntVal returns an integer value at a given key, and assumes the value 0 if the key doesn't exist
-func getIntVal(key string, tx *buntdb.Tx) (idx int, err error) {
-	var val string
-	val, err = tx.Get(key)
-	if err == buntdb.ErrNotFound {
-		err = nil
-	} else if err != nil {
-		return
-	} else {
-		idx, err = strconv.Atoi(val)
-		if err != nil {
-			return
-		}
-	}
-	return
-}
-
-// GetIdx returns the current put index for gossip
-func (dht *DHT) GetIdx() (idx int, err error) {
-	err = dht.db.View(func(tx *buntdb.Tx) error {
-		var e error
-		idx, e = getIntVal("_idx", tx)
-		if e != nil {
-			return e
-		}
-		return nil
-	})
-	return
-}
-
-// GetIdxMessage returns the messages that causes the change at a given index
-func (dht *DHT) GetIdxMessage(idx int) (msg Message, err error) {
-	err = dht.db.View(func(tx *buntdb.Tx) error {
-		msgStr, e := tx.Get(fmt.Sprintf("idx:%d", idx))
-		if e == buntdb.ErrNotFound {
-			return ErrNoSuchIdx
-		}
-		if e != nil {
-			return e
-		}
-		e = ByteDecoder([]byte(msgStr), &msg)
-		if err != nil {
-			return e
-		}
-		return nil
-	})
-	return
-}
-
 //HaveFingerprint returns true if we have seen the given fingerprint
 func (dht *DHT) HaveFingerprint(f Hash) (result bool, err error) {
 	index, err := dht.GetFingerprint(f)
@@ -165,7 +69,8 @@ func (dht *DHT) HaveFingerprint(f Hash) (result bool, err error) {
 // GetFingerprint returns the index that of the message that made a change or -1 if we don't have it
 func (dht *DHT) GetFingerprint(f Hash) (index int, err error) {
 	index = -1
-	err = dht.db.View(func(tx *buntdb.Tx) error {
+	db := dht.ht.(*BuntHT).db
+	err = db.View(func(tx *buntdb.Tx) error {
 		idxStr, e := tx.Get("f:" + f.String())
 		if e == buntdb.ErrNotFound {
 			return nil
@@ -185,7 +90,8 @@ func (dht *DHT) GetFingerprint(f Hash) (index int, err error) {
 // GetPuts returns a list of puts after the given index
 func (dht *DHT) GetPuts(since int) (puts []Put, err error) {
 	puts = make([]Put, 0)
-	err = dht.db.View(func(tx *buntdb.Tx) error {
+	db := dht.ht.(*BuntHT).db
+	err = db.View(func(tx *buntdb.Tx) error {
 		err = tx.AscendGreaterOrEqual("idx", string(since), func(key, value string) bool {
 			x := strings.Split(key, ":")
 			idx, _ := strconv.Atoi(x[1])
@@ -210,7 +116,8 @@ func (dht *DHT) GetPuts(since int) (puts []Put, err error) {
 // GetGossiper loads returns last known index of the gossiper, and adds them if not didn't exist before
 func (dht *DHT) GetGossiper(id peer.ID) (idx int, err error) {
 	key := "peer:" + peer.IDB58Encode(id)
-	err = dht.db.View(func(tx *buntdb.Tx) error {
+	db := dht.ht.(*BuntHT).db
+	err = db.View(func(tx *buntdb.Tx) error {
 		var e error
 		idx, e = getIntVal(key, tx)
 		if e != nil {
@@ -223,8 +130,8 @@ func (dht *DHT) GetGossiper(id peer.ID) (idx int, err error) {
 
 func (dht *DHT) getGossipers() (glist []peer.ID, err error) {
 	glist = make([]peer.ID, 0)
-
-	err = dht.db.View(func(tx *buntdb.Tx) error {
+	db := dht.ht.(*BuntHT).db
+	err = db.View(func(tx *buntdb.Tx) error {
 		err = tx.Ascend("peer", func(key, value string) bool {
 			x := strings.Split(key, ":")
 			id, e := peer.IDB58Decode(x[1])
@@ -284,7 +191,8 @@ func (dht *DHT) AddGossiper(id peer.ID) (err error) {
 
 // internal update gossiper function, assumes all checks have been made
 func (dht *DHT) updateGossiper(id peer.ID, newIdx int) (err error) {
-	err = dht.db.Update(func(tx *buntdb.Tx) error {
+	db := dht.ht.(*BuntHT).db
+	err = db.Update(func(tx *buntdb.Tx) error {
 		key := "peer:" + peer.IDB58Encode(id)
 		idx, e := getIntVal(key, tx)
 		if e != nil {
@@ -318,7 +226,8 @@ func (dht *DHT) UpdateGossiper(id peer.ID, newIdx int) (err error) {
 // DeleteGossiper removes a gossiper from the database
 func (dht *DHT) DeleteGossiper(id peer.ID) (err error) {
 	dht.glog.Logf("deleting %v", id)
-	err = dht.db.Update(func(tx *buntdb.Tx) error {
+	db := dht.ht.(*BuntHT).db
+	err = db.Update(func(tx *buntdb.Tx) error {
 		key := "peer:" + peer.IDB58Encode(id)
 		_, e := tx.Delete(key)
 		return e
@@ -530,7 +439,8 @@ func (dht *DHT) HandleGossipPuts() (err error) {
 func (dht *DHT) getList(listType PeerListType) (result PeerList, err error) {
 	result.Type = listType
 	result.Records = make([]PeerRecord, 0)
-	err = dht.db.View(func(tx *buntdb.Tx) error {
+	db := dht.ht.(*BuntHT).db
+	err = db.View(func(tx *buntdb.Tx) error {
 		err = tx.Ascend("list", func(key, value string) bool {
 			x := strings.Split(key, ":")
 
@@ -552,7 +462,8 @@ func (dht *DHT) getList(listType PeerListType) (result PeerList, err error) {
 // addToList adds the peers to a list
 func (dht *DHT) addToList(m *Message, list PeerList) (err error) {
 	dht.dlog.Logf("addToList %s=>%v", list.Type, list.Records)
-	err = dht.db.Update(func(tx *buntdb.Tx) error {
+	db := dht.ht.(*BuntHT).db
+	err = db.Update(func(tx *buntdb.Tx) error {
 		_, err = incIdx(tx, m)
 		if err != nil {
 			return err

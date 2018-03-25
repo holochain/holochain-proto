@@ -491,7 +491,7 @@ func TestActionBundle(t *testing.T) {
 		So(h.chain.bundle.chain.Length(), ShouldEqual, 1)
 	})
 	Convey("but those commits should not show in the DHT", t, func() {
-		_, _, _, _, err := h.dht.get(hash, StatusDefault, GetMaskDefault)
+		_, _, _, _, err := h.dht.Get(hash, StatusDefault, GetMaskDefault)
 		So(err, ShouldEqual, ErrHashNotFound)
 	})
 
@@ -504,7 +504,7 @@ func TestActionBundle(t *testing.T) {
 		So(h.chain.Length(), ShouldEqual, 3)
 	})
 	Convey("and those commits should now show in the DHT", t, func() {
-		data, _, _, _, err := h.dht.get(hash, StatusDefault, GetMaskDefault)
+		data, _, _, _, err := h.dht.Get(hash, StatusDefault, GetMaskDefault)
 		So(err, ShouldBeNil)
 		var e GobEntry
 		err = e.Unmarshal(data)

@@ -777,7 +777,7 @@ func (a *ActionGet) Receive(dht *DHT, msg *Message, retries int) (response inter
 	}
 	resp := GetResp{}
 	// always get the entry type despite what the mas says because we need it for the switch below.
-	entryData, resp.EntryType, resp.Sources, _, err = dht.get(req.H, req.StatusMask, req.GetMask|GetMaskEntryType)
+	entryData, resp.EntryType, resp.Sources, _, err = dht.Get(req.H, req.StatusMask, req.GetMask|GetMaskEntryType)
 	if err == nil {
 		if (mask & GetMaskEntry) != 0 {
 			switch resp.EntryType {
@@ -1179,7 +1179,7 @@ func (a *ActionPut) Receive(dht *DHT, msg *Message, retries int) (response inter
 		var b []byte
 		b, err = entry.Marshal()
 		if err == nil {
-			err = dht.put(msg, resp.Type, t.H, msg.From, b, status)
+			err = dht.Put(msg, resp.Type, t.H, msg.From, b, status)
 		}
 		return err
 	})
@@ -1334,7 +1334,7 @@ func (a *ActionMod) Receive(dht *DHT, msg *Message, retries int) (response inter
 			// how do we record an invalid Mod?
 			//@TODO store as REJECTED?
 		} else {
-			err = dht.mod(msg, t.H, t.N)
+			err = dht.Mod(msg, t.H, t.N)
 		}
 		return err
 	})
@@ -1543,7 +1543,7 @@ func (a *ActionDel) Receive(dht *DHT, msg *Message, retries int) (response inter
 			// how do we record an invalid DEL?
 			//@TODO store as REJECTED
 		} else {
-			err = dht.del(msg, delEntry.Hash)
+			err = dht.Del(msg, delEntry.Hash)
 		}
 		return err
 	})
@@ -1613,9 +1613,9 @@ func (a *ActionLink) Receive(dht *DHT, msg *Message, retries int) (response inte
 			for _, l := range le.Links {
 				if base == l.Base {
 					if l.LinkAction == DelLinkAction {
-						err = dht.delLink(msg, base, l.Link, l.Tag)
+						err = dht.DelLink(msg, base, l.Link, l.Tag)
 					} else {
-						err = dht.putLink(msg, base, l.Link, l.Tag)
+						err = dht.PutLink(msg, base, l.Link, l.Tag)
 					}
 				}
 			}
@@ -1721,7 +1721,7 @@ func (a *ActionGetLinks) SysValidation(h *Holochain, d *EntryDef, pkg *Package, 
 func (a *ActionGetLinks) Receive(dht *DHT, msg *Message, retries int) (response interface{}, err error) {
 	lq := msg.Body.(LinkQuery)
 	var r LinkQueryResp
-	r.Links, err = dht.getLinks(lq.Base, lq.T, lq.StatusMask)
+	r.Links, err = dht.GetLinks(lq.Base, lq.T, lq.StatusMask)
 	response = &r
 
 	return
@@ -1793,7 +1793,7 @@ func (a *ActionListAdd) Receive(dht *DHT, msg *Message, retries int) (response i
 
 // retryIfHashNotFound checks to see if the hash is found and if not queues the message for retry
 func (dht *DHT) retryIfHashNotFound(hash Hash, msg *Message, retries int) (response interface{}, err error) {
-	err = dht.exists(hash, StatusDefault)
+	err = dht.Exists(hash, StatusDefault)
 	if err != nil {
 		if err == ErrHashNotFound {
 			dht.dlog.Logf("don't yet have %s, trying again later", hash)

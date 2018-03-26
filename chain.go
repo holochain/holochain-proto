@@ -14,12 +14,13 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"strconv"
 	"sync"
 	"time"
 
 	ic "github.com/libp2p/go-libp2p-crypto"
 
-	. "github.com/Holochain/holochain-proto/hash"
+	. "github.com/holochain/holochain-proto/hash"
 )
 
 // WalkerFn a function type for call Walk
@@ -27,6 +28,8 @@ type WalkerFn func(key *Hash, header *Header, entry Entry) error
 
 var ErrHashNotFound = errors.New("hash not found")
 var ErrIncompleteChain = errors.New("operation not allowed on incomplete chain")
+var ErrChainLockedForBundle = errors.New("chain locked for bundle")
+var ErrBundleNotStarted = errors.New("bundle not started")
 
 const (
 	ChainMarshalFlagsNone            = 0x00
@@ -36,6 +39,13 @@ const (
 	ChainMarshalFlagsNoPrivate       = 0x08
 	ChainMarshalPrivateEntryRedacted = "%%PRIVATE ENTRY REDACTED%%"
 )
+
+type Bundle struct {
+	idx       int
+	userParam string
+	chain     *Chain
+	sharing   []CommittingAction
+}
 
 // Chain structure for providing in-memory access to chain data, entries headers and hashes
 type Chain struct {
@@ -51,6 +61,8 @@ type Chain struct {
 	s        *os.File // if this stream is not nil, new entries will get marshaled to it
 	hashSpec HashSpec
 	lk       sync.RWMutex
+	bundle   *Bundle // non-nil when this chain has a bundle in progress
+	bundleOf *Chain  // non-nil if this chain is a bundle of a different chain
 }
 
 // NewChain creates and empty chain
@@ -185,19 +197,42 @@ func (c *Chain) AddEntry(now time.Time, entryType string, e Entry, privKey ic.Pr
 // Not thread safe, this must be called with the chain locked for writing so something else
 // doesn't get inserted
 func (c *Chain) prepareHeader(now time.Time, entryType string, e Entry, privKey ic.PrivKey, change *StatusChange) (entryIdx int, hash Hash, header *Header, err error) {
+
+	if c.BundleStarted() != nil {
+		err = ErrChainLockedForBundle
+		return
+	}
 	// get the previous hashes
 	var ph, pth Hash
 
 	l := len(c.Hashes)
 	if l == 0 {
-		ph = NullHash()
+		if c.bundleOf != nil {
+			l := len(c.bundleOf.Hashes)
+			if l == 0 {
+				ph = NullHash()
+			} else {
+				ph = c.bundleOf.Hashes[l-1]
+			}
+		} else {
+			ph = NullHash()
+		}
 	} else {
 		ph = c.Hashes[l-1]
 	}
 
 	i, ok := c.TypeTops[entryType]
 	if !ok {
-		pth = NullHash()
+		if c.bundleOf != nil {
+			i, ok = c.bundleOf.TypeTops[entryType]
+			if !ok {
+				pth = NullHash()
+			} else {
+				pth = c.bundleOf.Hashes[i]
+			}
+		} else {
+			pth = NullHash()
+		}
 	} else {
 		pth = c.Hashes[i]
 	}
@@ -212,7 +247,10 @@ func (c *Chain) prepareHeader(now time.Time, entryType string, e Entry, privKey 
 
 // addEntry, low level entry add, not thread safe, must call c.lock in the calling funciton
 func (c *Chain) addEntry(entryIdx int, hash Hash, header *Header, e Entry) (err error) {
-
+	if c.BundleStarted() != nil {
+		err = ErrChainLockedForBundle
+		return
+	}
 	l := len(c.Hashes)
 	if l != entryIdx {
 		err = errors.New("entry indexes don't match can't create new entry")
@@ -604,6 +642,57 @@ func (c *Chain) Length() int {
 	return len(c.Headers)
 }
 
+// BundleStarted returns the index of the chain item before the bundle or 0 if no bundle is active
+func (c *Chain) BundleStarted() *Bundle {
+	return c.bundle
+}
+
+// StartBundle marks a bundle start point and returns an error if already started
+func (c *Chain) StartBundle(userParam interface{}) (err error) {
+	j, err := json.Marshal(userParam)
+	if err != nil {
+		return
+	}
+	c.lk.RLock()
+	defer c.lk.RUnlock()
+	if c.BundleStarted() != nil {
+		err = errors.New("Bundle already started")
+		return
+	}
+	bundle := Bundle{
+		idx:       c.Length() - 1,
+		chain:     NewChain(c.hashSpec),
+		userParam: string(j),
+	}
+	bundle.sharing = make([]CommittingAction, 0)
+	bundle.chain.bundleOf = c
+	c.bundle = &bundle
+	return
+}
+
+// CloseBundle closes a started bundle and if commit
+// copies entries from the bundle onto the chain
+func (c *Chain) CloseBundle(commit bool) (err error) {
+	c.lk.RLock()
+	defer c.lk.RUnlock()
+	if c.bundle == nil {
+		err = ErrBundleNotStarted
+		return
+	}
+	bundle := c.bundle
+	c.bundle = nil
+	if commit {
+		l := c.Length()
+		for i, header := range bundle.chain.Headers {
+			err = c.addEntry(i+l, bundle.chain.Hashes[i], header, bundle.chain.Entries[i])
+			if err != nil {
+				return
+			}
+		}
+	}
+	return
+}
+
 // Close the chain's file
 func (c *Chain) Close() {
 	c.s.Close()
@@ -632,16 +721,34 @@ func appendEntryHeaderAsJSON(buffer *bytes.Buffer, hdr *Header, hash *Hash) {
 
 func appendEntryContentAsJSON(buffer *bytes.Buffer, hdr *Header, g *GobEntry) {
 	buffer.WriteString("\"content\":")
+	buffer.WriteString(jsonEncode(g))
+}
 
+func jsonEncode(g *GobEntry) (encodedValue string) {
+	var err error
 	switch g.C.(type) {
-	case []uint8:
-		buffer.WriteString(fmt.Sprintf("%s", g.C))
-	default:
-		result, err := json.Marshal(g.C)
+	case []byte:
+		var decoded map[string]interface{}
+		content := fmt.Sprintf("%s", g.C)
+		buffer := bytes.NewBufferString(content)
+		err = Decode(buffer, "json", &decoded)
+
 		if err != nil {
-			fmt.Printf("Error: %s", err)
+			// DNA content may be TOML or YAML encoded, so escape it to make it JSON safe.
+			// (an improvement could be to convert from TOML/YAML to JSON)
+			encodedValue = strconv.Quote(content)
+		} else {
+			// DNA content is already in JSON so just use it.
+			encodedValue = content
+		}
+	default:
+		var result []byte
+		result, err = json.Marshal(g.C)
+		if err != nil {
+			encodedValue = strconv.Quote(err.Error())
 			return
 		}
-		buffer.WriteString(string(result))
+		encodedValue = string(result)
 	}
+	return
 }

@@ -9,8 +9,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	. "github.com/Holochain/holochain-proto/hash"
 	zygo "github.com/glycerine/zygomys/zygo"
+	. "github.com/holochain/holochain-proto/hash"
 	peer "github.com/libp2p/go-libp2p-peer"
 	"math"
 	"regexp"
@@ -100,6 +100,11 @@ func (z *ZygoRibosome) Receive(from string, msg string) (response string, err er
 			result = fmt.Sprintf("%v", result)
 		}
 	}
+	return
+}
+
+// BundleCancel calls the app bundleCanceled function
+func (z *ZygoRibosome) BundleCanceled(reason string) (response string, err error) {
 	return
 }
 

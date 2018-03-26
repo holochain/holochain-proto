@@ -1,8 +1,8 @@
 package apptest
 
 import (
-	. "github.com/Holochain/holochain-proto"
-	. "github.com/Holochain/holochain-proto/hash"
+	. "github.com/holochain/holochain-proto"
+	. "github.com/holochain/holochain-proto/hash"
 	. "github.com/smartystreets/goconvey/convey"
 	"os"
 	"path/filepath"

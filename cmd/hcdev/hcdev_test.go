@@ -6,13 +6,12 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
-	"strconv"
 	"testing"
 	"time"
 
-	holo "github.com/Holochain/holochain-proto"
-	"github.com/Holochain/holochain-proto/cmd"
 	"github.com/davecgh/go-spew/spew"
+	holo "github.com/holochain/holochain-proto"
+	"github.com/holochain/holochain-proto/cmd"
 	. "github.com/smartystreets/goconvey/convey"
 	"github.com/urfave/cli"
 )
@@ -21,6 +20,46 @@ func TestSetupApp(t *testing.T) {
 	app := setupApp()
 	Convey("it should create the cli App", t, func() {
 		So(app.Name, ShouldEqual, "hcdev")
+	})
+}
+
+func TestDump(t *testing.T) {
+	holo.InitializeHolochain()
+	d, s, h := holo.PrepareTestChain("test")
+	// port, _ := cmd.GetFreePort()
+	defer holo.CleanupTestChain(h, d)
+	app := setupApp()
+
+	Convey("dump --chain should show chain entries as a human readable string", t, func() {
+		out, err := runAppWithStdoutCapture(app, []string{"hcdev", "-no-nat-upnp", "-port=6001", "-execpath", s.Path, "-path", "test", "dump", "--chain"})
+
+		So(err, ShouldBeNil)
+		So(out, ShouldContainSubstring, "%dna:")
+		So(out, ShouldContainSubstring, "%agent:")
+	})
+
+	Convey("dump --dht should show chain entries as a human readable string", t, func() {
+		out, err := runAppWithStdoutCapture(app, []string{"hcdev", "-no-nat-upnp", "-port=6001", "-execpath", s.Path, "-path", "test", "dump", "--dht"})
+
+		So(err, ShouldBeNil)
+		So(out, ShouldContainSubstring, "DHT changes: 2")
+		So(out, ShouldContainSubstring, "DHT entries:")
+	})
+
+	Convey("dump --chain --json should show chain entries as JSON string", t, func() {
+		out, err := runAppWithStdoutCapture(app, []string{"hcdev", "-no-nat-upnp", "-port=6001", "-execpath", s.Path, "-path", "test", "dump", "--chain", "--json"})
+
+		So(err, ShouldBeNil)
+		So(out, ShouldContainSubstring, "{\n    \"%dna\": {")
+		So(out, ShouldContainSubstring, ",\n    \"%agent\": {")
+	})
+
+	Convey("dump --dht --json should show chain entries as JSON string", t, func() {
+		out, err := runAppWithStdoutCapture(app, []string{"hcdev", "-no-nat-upnp", "-port=6001", "-execpath", s.Path, "-path", "test", "dump", "--dht", "--json"})
+
+		So(err, ShouldBeNil)
+		So(out, ShouldContainSubstring, "\"dht_changes\": [")
+		So(out, ShouldContainSubstring, "\"dht_entries\": [")
 	})
 }
 
@@ -261,53 +300,6 @@ func TestIdenity(t *testing.T) {
 	})
 }
 
-func TestDump(t *testing.T) {
-	Convey("create an app dna", t, func() {
-		tmpTestDir, app := setupTestingApp("foo")
-		defer os.RemoveAll(tmpTestDir)
-
-		port, err := cmd.GetFreePort()
-		So(err, ShouldBeNil)
-
-		portArgument := strconv.Itoa(port)
-		_, err = cmd.RunAppWithStdoutCapture(app, []string{"hcdev", "-no-nat-upnp", "web", portArgument}, 1*time.Second)
-
-		So(err, ShouldBeNil)
-
-		Convey("dump --chain should show chain entries as a human readable string", func() {
-			out, err := cmd.RunAppWithStdoutCapture(app, []string{"hcdev", "-path", tmpTestDir + "/foo", "dump", "--chain"}, 1*time.Second)
-
-			So(err, ShouldBeNil)
-			So(out, ShouldContainSubstring, "%dna:")
-			So(out, ShouldContainSubstring, "%agent:")
-		})
-
-		Convey("dump --dht should show chain entries as a human readable string", func() {
-			out, err := cmd.RunAppWithStdoutCapture(app, []string{"hcdev", "-path", tmpTestDir + "/foo", "dump", "--dht"}, 1*time.Second)
-
-			So(err, ShouldBeNil)
-			So(out, ShouldContainSubstring, "DHT changes: 2")
-			So(out, ShouldContainSubstring, "DHT entries:")
-		})
-
-		Convey("dump --chain --json should show chain entries as JSON string", func() {
-			out, err := cmd.RunAppWithStdoutCapture(app, []string{"hcdev", "-path", tmpTestDir + "/foo", "dump", "--chain", "--json"}, 1*time.Second)
-
-			So(err, ShouldBeNil)
-			So(out, ShouldContainSubstring, "{\n    \"%dna\": {")
-			So(out, ShouldContainSubstring, ",\n    \"%agent\": {")
-		})
-
-		Convey("dump --dht --json should show chain entries as JSON string", func() {
-			out, err := cmd.RunAppWithStdoutCapture(app, []string{"hcdev", "-path", tmpTestDir + "/foo", "dump", "--dht", "--json"}, 1*time.Second)
-
-			So(err, ShouldBeNil)
-			So(out, ShouldContainSubstring, "\"dht_changes\": [")
-			So(out, ShouldContainSubstring, "\"dht_entries\": [")
-		})
-	})
-}
-
 func TestBridging(t *testing.T) {
 	os.Setenv("HC_TESTING", "true")
 	tmpTestDir, app := setupTestingApp("foo", "bar")
@@ -371,4 +363,8 @@ func _setupTestingApp(name string, app *cli.App, tmpTestDir string) {
 	os.Unsetenv("HOLOCHAINCONFIG_ENABLENATUPNP")
 	os.Unsetenv("HOLOCHAINCONFIG_BOOTSTRAP")
 	os.Unsetenv("HOLOCHAINCONFIG_ENABLEMDNS")
+}
+
+func runAppWithStdoutCapture(app *cli.App, args []string) (out string, err error) {
+	return cmd.RunAppWithStdoutCapture(app, args, time.Second*5)
 }

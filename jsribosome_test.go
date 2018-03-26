@@ -3,7 +3,7 @@ package holochain
 import (
 	"encoding/json"
 	"fmt"
-	. "github.com/Holochain/holochain-proto/hash"
+	. "github.com/holochain/holochain-proto/hash"
 	b58 "github.com/jbenet/go-base58"
 	ic "github.com/libp2p/go-libp2p-crypto"
 	peer "github.com/libp2p/go-libp2p-peer"
@@ -158,6 +158,26 @@ func TestNewJSRibosome(t *testing.T) {
 		So(err, ShouldBeNil)
 		i, _ = z.lastResult.ToInteger()
 		So(i, ShouldEqual, BridgeTo)
+
+		_, err = z.Run("HC.BundleCancel.Reason.UserCancel")
+		So(err, ShouldBeNil)
+		s, _ = z.lastResult.ToString()
+		So(s, ShouldEqual, BundleCancelReasonUserCancel)
+
+		_, err = z.Run("HC.BundleCancel.Reason.Timeout")
+		So(err, ShouldBeNil)
+		s, _ = z.lastResult.ToString()
+		So(s, ShouldEqual, BundleCancelReasonTimeout)
+
+		_, err = z.Run("HC.BundleCancel.Response.OK")
+		So(err, ShouldBeNil)
+		s, _ = z.lastResult.ToString()
+		So(s, ShouldEqual, BundleCancelResponseOK)
+
+		_, err = z.Run("HC.BundleCancel.Response.Commit")
+		So(err, ShouldBeNil)
+		s, _ = z.lastResult.ToString()
+		So(s, ShouldEqual, BundleCancelResponseCommit)
 
 	})
 
@@ -362,6 +382,24 @@ func TestNewJSRibosome(t *testing.T) {
 			err = <-h.asyncSends
 			So(err, ShouldBeError, SendTimeoutErr)
 		})
+		Convey("bundleStart and bundleClose", func() {
+			_, err := z.Run(`bundleStart(123,"myBundle")`)
+			So(err, ShouldBeNil)
+			bundle := h.chain.BundleStarted()
+			So(bundle, ShouldNotBeNil)
+			_, err = z.Run(`commit("oddNumbers","7")`)
+			So(err, ShouldBeNil)
+			bundleCommitHash, _ := NewHash(z.lastResult.String())
+			entry, _, _ := bundle.chain.GetEntry(bundleCommitHash)
+			So(entry.Content(), ShouldEqual, "7")
+
+			So(h.chain.BundleStarted(), ShouldNotBeNil)
+			_, err = z.Run(`bundleClose(true)`)
+			So(err, ShouldBeNil)
+			So(h.chain.BundleStarted(), ShouldBeNil)
+			entry, _, _ = h.chain.GetEntry(bundleCommitHash)
+			So(entry.Content(), ShouldEqual, "7")
+		})
 	})
 }
 
@@ -469,6 +507,21 @@ func TestJSReceive(t *testing.T) {
 		response, err := z.Receive("fakehash", `{"bar":"baz"}`)
 		So(err, ShouldBeNil)
 		So(response, ShouldEqual, `{"foo":"baz"}`)
+	})
+}
+func TestJSBundleCanceled(t *testing.T) {
+	d, _, h := PrepareTestChain("test")
+	defer CleanupTestChain(h, d)
+	Convey("it should call a bundleCanceled function", t, func() {
+		z, _ := NewJSRibosome(h, &Zome{RibosomeType: JSRibosomeType, Code: `function bundleCanceled(reason,userParam) {debug("fish:"+userParam+reason); return HC.BundleCancel.Response.OK}`})
+		_, err := z.BundleCanceled(BundleCancelReasonUserCancel)
+		So(err, ShouldEqual, ErrBundleNotStarted)
+		h.chain.StartBundle("myBundle")
+		ShouldLog(h.nucleus.alog, func() {
+			response, err := z.BundleCanceled(BundleCancelReasonUserCancel)
+			So(err, ShouldBeNil)
+			So(response, ShouldEqual, BundleCancelResponseOK)
+		}, `fish:myBundle`+BundleCancelReasonUserCancel)
 	})
 }
 

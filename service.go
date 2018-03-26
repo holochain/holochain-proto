@@ -12,8 +12,8 @@ import (
 	"errors"
 	"fmt"
 	"github.com/BurntSushi/toml"
-	. "github.com/Holochain/holochain-proto/hash"
 	"github.com/google/uuid"
+	. "github.com/holochain/holochain-proto/hash"
 	"io"
 	"io/ioutil"
 	"net/http"
@@ -1717,6 +1717,17 @@ function genesis() {
   return true
 }
 function bridgeGenesis(side,app,data) {return true}
+
+function bundleCanceled(reason,userParam) {
+     debug(userParam+"debug message during bundleCanceled with reason: "+reason);
+  if (userParam == 'debugit') {
+     debug("debug message during bundleCanceled with reason: "+reason);
+  } else if (userParam == 'cancelit') {
+     debug("debug message during bundleCanceled: canceling cancel!");
+     return HC.BundleCancel.Response.Commit
+  }
+  return HC.BundleCancel.Response.OK
+}
 
 function receive(from,message) {
   // if the message requests blocking run an infinite loop

@@ -17,7 +17,7 @@ import (
 	"strings"
 	"sync"
 
-	. "github.com/Holochain/holochain-proto/hash"
+	. "github.com/holochain/holochain-proto/hash"
 	peer "github.com/libp2p/go-libp2p-peer"
 	"github.com/tidwall/buntdb"
 )
@@ -49,15 +49,17 @@ type gossipWithReq struct {
 	id peer.ID
 }
 
+type Channel chan interface{}
+
 // DHT struct holds the data necessary to run the distributed hash table
 type DHT struct {
 	h          *Holochain // pointer to the holochain this DHT is part of
 	db         *buntdb.DB
 	retryQueue chan *retry
-	gossipPuts chan Put
+	gossipPuts Channel
 	glog       *Logger // the gossip logger
 	dlog       *Logger // the dht logger
-	gchan      chan gossipWithReq
+	gchan      Channel
 	config     *DHTConfig
 	glk        sync.RWMutex
 	//	sources      map[peer.ID]bool
@@ -180,6 +182,7 @@ type GetOptions struct {
 	StatusMask int  // mask of which status of entries to return
 	GetMask    int  // mask of what to include in the response
 	Local      bool // bool if get should happen from chain not DHT
+	Bundle     bool // bool if get should happen from bundle not DHT
 }
 
 // GetLinksOptions options to holochain level GetLinks functions
@@ -256,8 +259,8 @@ func NewDHT(h *Holochain) *DHT {
 
 	//	dht.sources = make(map[peer.ID]bool)
 	//	dht.fingerprints = make(map[string]bool)
-	dht.gchan = make(chan gossipWithReq, GossipWithQueueSize)
-	dht.gossipPuts = make(chan Put, GossipPutQueueSize)
+	dht.gchan = make(Channel, GossipWithQueueSize)
+	dht.gossipPuts = make(Channel, GossipPutQueueSize)
 
 	return &dht
 }

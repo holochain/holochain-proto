@@ -4,8 +4,8 @@ import (
 	"bytes"
 	"encoding/gob"
 	"fmt"
-	. "github.com/Holochain/holochain-proto/hash"
 	"github.com/google/uuid"
+	. "github.com/holochain/holochain-proto/hash"
 	peer "github.com/libp2p/go-libp2p-peer"
 	. "github.com/smartystreets/goconvey/convey"
 	"os"
@@ -690,6 +690,19 @@ func TestQuery(t *testing.T) {
 		So(len(results), ShouldEqual, 2)
 		So(results[0].Entry.Content(), ShouldEqual, `{"firstName":"Pebbles","lastName":"Flintstone"}`)
 		So(results[1].Entry.Content(), ShouldEqual, `{"firstName":"Zerbina","lastName":"Pinhead"}`)
+	})
+	Convey("query from bundle", t, func() {
+		q := &QueryOptions{Bundle: true}
+		_, err := h.Query(q)
+		So(err, ShouldEqual, ErrBundleNotStarted)
+		h.Chain().StartBundle(0)
+		results, err := h.Query(q)
+		So(err, ShouldBeNil)
+		So(len(results), ShouldEqual, 0)
+		commit(h, "secret", "flam")
+		results, err = h.Query(q)
+		So(err, ShouldBeNil)
+		So(len(results), ShouldEqual, 1)
 	})
 }
 

@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	. "github.com/Holochain/holochain-proto/hash"
+	. "github.com/holochain/holochain-proto/hash"
 	ic "github.com/libp2p/go-libp2p-crypto"
 	. "github.com/smartystreets/goconvey/convey"
 )
@@ -473,6 +473,83 @@ func TestChain2JSON(t *testing.T) {
 		matched, err := regexp.MatchString(`{"%dna":{.*},"%agent":{.*},"entries":\[{"header":{"type":"handle",.*"},"content":"chain entry"}\]}`, json)
 		So(err, ShouldBeNil)
 		So(matched, ShouldBeTrue)
+	})
+}
+
+func TestChainBundle(t *testing.T) {
+	hashSpec, key, now := chainTestSetup()
+	c := NewChain(hashSpec)
+	e := GobEntry{C: "fake DNA"}
+	c.AddEntry(now, DNAEntryType, &e, key)
+	e = GobEntry{C: "foo data"}
+	c.AddEntry(now, "entryTypeFoo2", &e, key)
+
+	Convey("starting a bundle should set the bundle start point", t, func() {
+		So(c.BundleStarted(), ShouldBeNil)
+		err := c.StartBundle("myBundle")
+		So(err, ShouldBeNil)
+		bundle := c.BundleStarted()
+		So(bundle, ShouldNotBeNil)
+		So(bundle.idx, ShouldEqual, c.Length()-1)
+		So(bundle.userParam, ShouldEqual, `"myBundle"`) // should convert user param to json
+		So(bundle.chain.bundleOf, ShouldEqual, c)
+	})
+
+	Convey("it should add entries to the bundle chain", t, func() {
+
+		e := GobEntry{C: "some data"}
+
+		bundle := c.BundleStarted()
+		So(bundle.chain.Length(), ShouldEqual, 0)
+
+		now := now.Round(0)
+		l, hash, header, err := bundle.chain.prepareHeader(now, "entryTypeFoo1", &e, key, nil)
+		So(err, ShouldBeNil)
+		So(l, ShouldEqual, 0)
+
+		err = bundle.chain.addEntry(l, hash, header, &e)
+		So(err, ShouldBeNil)
+		So(bundle.chain.Length(), ShouldEqual, 1)
+
+		e = GobEntry{C: "another entry"}
+		_, err = bundle.chain.AddEntry(now, "entryTypeFoo2", &e, key)
+		So(err, ShouldBeNil)
+		So(bundle.chain.Length(), ShouldEqual, 2)
+	})
+
+	Convey("you shouldn't be able to work on a chain when bundle opened", t, func() {
+		l, hash, header, err := c.prepareHeader(now, "entryTypeFoo1", &e, key, nil)
+		So(err, ShouldEqual, ErrChainLockedForBundle)
+
+		err = c.addEntry(l, hash, header, &e)
+		So(err, ShouldEqual, ErrChainLockedForBundle)
+	})
+
+	Convey("it should add entries to the main chain when bundle closed and validate!", t, func() {
+		So(c.Length(), ShouldEqual, 2)
+		err := c.CloseBundle(true)
+		So(err, ShouldBeNil)
+		So(c.BundleStarted(), ShouldBeNil)
+		So(c.Length(), ShouldEqual, 4)
+		So(c.Validate(false), ShouldBeNil)
+
+		// makes sure type linking worked too
+		hash, _ := c.TopType("entryTypeFoo1")
+		So(hash.String(), ShouldEqual, c.Hashes[2].String())
+		hash, _ = c.TopType("entryTypeFoo2")
+		So(hash.String(), ShouldEqual, c.Hashes[3].String())
+
+	})
+
+	Convey("it should not add entries to the main chain when bundle closed without commit!", t, func() {
+		So(c.Length(), ShouldEqual, 4)
+		err := c.StartBundle("myBundle")
+		e = GobEntry{C: "another entry"}
+		_, err = c.bundle.chain.AddEntry(now, "entryTypeFoo2", &e, key)
+		So(c.bundle.chain.Length(), ShouldEqual, 1)
+		err = c.CloseBundle(false)
+		So(err, ShouldBeNil)
+		So(c.Length(), ShouldEqual, 4)
 	})
 }
 

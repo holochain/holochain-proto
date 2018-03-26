@@ -4,15 +4,15 @@
 /*
 package holochain should be imported by go packages intending to create a UI for this holochain implementation.
 
-An example of a package which imports holochain is https://github.com/Holochain/holochain-proto/tree/master/cmd/hc
+An example of a package which imports holochain is https://github.com/holochain/holochain-proto/tree/master/cmd/hc
 
 For information not found here see the wiki:
 
-https://github.com/Holochain/holochain-proto/wiki
+https://github.com/holochain/holochain-proto/wiki
 
 or the repo:
 
-https://github.com/Holochain/holochain-proto
+https://github.com/holochain/holochain-proto
 
 If you are here because you intend to develop an application built on holochain take a look at the App Developer sections of the wiki.
 

@@ -9,7 +9,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	. "github.com/Holochain/holochain-proto/hash"
+	. "github.com/holochain/holochain-proto/hash"
 	peer "github.com/libp2p/go-libp2p-peer"
 	"github.com/robertkrimen/otto"
 	"strings"
@@ -78,6 +78,28 @@ func (jsr *JSRibosome) Receive(from string, msg string) (response string, err er
 	fnName := "receive"
 
 	code = fmt.Sprintf(`JSON.stringify(%s("%s",JSON.parse("%s")))`, fnName, from, jsSanitizeString(msg))
+	jsr.h.Debug(code)
+	var v otto.Value
+	v, err = jsr.vm.Run(code)
+	if err != nil {
+		err = fmt.Errorf("Error executing %s: %v", fnName, err)
+		return
+	}
+	response, err = v.ToString()
+	return
+}
+
+// BundleCancel calls the app bundleCanceled function
+func (jsr *JSRibosome) BundleCanceled(reason string) (response string, err error) {
+	var code string
+	fnName := "bundleCanceled"
+	bundle := jsr.h.chain.BundleStarted()
+	if bundle == nil {
+		err = ErrBundleNotStarted
+		return
+	}
+
+	code = fmt.Sprintf(`%s("%s",JSON.parse("%s"))`, fnName, jsSanitizeString(reason), jsSanitizeString(bundle.userParam))
 	jsr.h.Debug(code)
 	var v otto.Value
 	v, err = jsr.vm.Run(code)
@@ -317,6 +339,12 @@ const (
 		`,Bridge:{From:` + BridgeFromStr +
 		`,To:` + BridgeToStr +
 		"}" +
+		`,BundleCancel:{` +
+		`Reason:{UserCancel:"` + BundleCancelReasonUserCancel +
+		`",Timeout:"` + BundleCancelReasonTimeout +
+		`"},Response:{OK:"` + BundleCancelResponseOK +
+		`",Commit:"` + BundleCancelResponseCommit +
+		`"}}` +
 		`};`
 )
 
@@ -1182,6 +1210,25 @@ func NewJSRibosome(h *Holochain, zome *Zome) (n Ribosome, err error) {
 						}
 					}
 				}
+				return
+			},
+		},
+		"bundleStart": fnData{
+			a: &ActionStartBundle{},
+			fn: func(args []Arg, _a ArgsAction, call otto.FunctionCall) (result otto.Value, err error) {
+				a := _a.(*ActionStartBundle)
+				a.timeout = args[0].value.(int64)
+				a.userParam = args[1].value.(string)
+				_, err = a.Do(h)
+				return
+			},
+		},
+		"bundleClose": fnData{
+			a: &ActionCloseBundle{},
+			fn: func(args []Arg, _a ArgsAction, call otto.FunctionCall) (result otto.Value, err error) {
+				a := _a.(*ActionCloseBundle)
+				a.commit = args[0].value.(bool)
+				_, err = a.Do(h)
 				return
 			},
 		},

@@ -3,7 +3,7 @@ package holochain
 import (
 	// "fmt"
 	"fmt"
-	. "github.com/Holochain/holochain-proto/hash"
+	. "github.com/holochain/holochain-proto/hash"
 	b58 "github.com/jbenet/go-base58"
 	peer "github.com/libp2p/go-libp2p-peer"
 	. "github.com/smartystreets/goconvey/convey"
@@ -375,6 +375,109 @@ func TestActionGetLocal(t *testing.T) {
 		So(err, ShouldBeNil)
 		getResp := rsp.(GetResp)
 		So(getResp.Entry.Content().(string), ShouldEqual, "31415")
+	})
+
+	Convey("it should get local bundle values", t, func() {
+		_, err := NewStartBundleAction(0, "myBundle").Do(h)
+		So(err, ShouldBeNil)
+		hash := commit(h, "oddNumbers", "3141")
+		req := GetReq{H: hash, GetMask: GetMaskEntry}
+		_, err = NewGetAction(req, &GetOptions{GetMask: req.GetMask, Local: true}).Do(h)
+		So(err, ShouldEqual, ErrHashNotFound)
+		rsp, err := NewGetAction(req, &GetOptions{GetMask: req.GetMask, Bundle: true}).Do(h)
+		So(err, ShouldBeNil)
+		getResp := rsp.(GetResp)
+		So(getResp.Entry.Content().(string), ShouldEqual, "3141")
+	})
+}
+
+func TestActionBundle(t *testing.T) {
+	d, _, h := PrepareTestChain("test")
+	defer CleanupTestChain(h, d)
+	Convey("bundle action constructor should set timeout", t, func() {
+		a := NewStartBundleAction(0, "myBundle")
+		So(a.timeout, ShouldEqual, DefaultBundleTimeout)
+		So(a.userParam, ShouldEqual, "myBundle")
+		a = NewStartBundleAction(123, "myBundle")
+		So(a.timeout, ShouldEqual, 123)
+	})
+
+	Convey("starting a bundle should set the bundle start point", t, func() {
+		c := h.Chain()
+		So(c.BundleStarted(), ShouldBeNil)
+		a := NewStartBundleAction(100, "myBundle")
+		_, err := a.Do(h)
+		So(err, ShouldBeNil)
+		So(c.BundleStarted().idx, ShouldEqual, c.Length()-1)
+	})
+	var hash Hash
+	Convey("commit actions should commit to bundle after it's started", t, func() {
+		So(h.chain.Length(), ShouldEqual, 2)
+		So(h.chain.bundle.chain.Length(), ShouldEqual, 0)
+		result, err := NewCommitAction("oddNumbers", &GobEntry{C: `99`}).Do(h)
+		if err != nil {
+			panic(err)
+		}
+		So(h.chain.Length(), ShouldEqual, 2)
+		So(h.chain.bundle.chain.Length(), ShouldEqual, 1)
+		hash = result.(Hash)
+	})
+	Convey("but those commits should not show in the DHT", t, func() {
+		_, _, _, _, err := h.dht.get(hash, StatusDefault, GetMaskDefault)
+		So(err, ShouldEqual, ErrHashNotFound)
+	})
+
+	Convey("closing a bundle should commit its entries to the chain", t, func() {
+		So(h.chain.Length(), ShouldEqual, 2)
+		a := NewCloseBundleAction(true)
+		So(a.commit, ShouldEqual, true)
+		_, err := a.Do(h)
+		So(err, ShouldBeNil)
+		So(h.chain.Length(), ShouldEqual, 3)
+	})
+	Convey("and those commits should now show in the DHT", t, func() {
+		data, _, _, _, err := h.dht.get(hash, StatusDefault, GetMaskDefault)
+		So(err, ShouldBeNil)
+		var e GobEntry
+		err = e.Unmarshal(data)
+
+		So(e.C, ShouldEqual, "99")
+	})
+
+	Convey("canceling a bundle should not commit entries to chain and should execute the bundleCanceled callback", t, func() {
+		So(h.chain.Length(), ShouldEqual, 3)
+
+		_, err := NewStartBundleAction(0, "debugit").Do(h)
+		So(err, ShouldBeNil)
+		_, err = NewCommitAction("oddNumbers", &GobEntry{C: `7`}).Do(h)
+		if err != nil {
+			panic(err)
+		}
+		a := NewCloseBundleAction(false)
+		So(a.commit, ShouldEqual, false)
+		ShouldLog(h.nucleus.alog, func() {
+			_, err = a.Do(h)
+			So(err, ShouldBeNil)
+		}, `debug message during bundleCanceled with reason: userCancel`)
+		So(h.chain.Length(), ShouldEqual, 3)
+		So(h.chain.BundleStarted(), ShouldBeNil)
+	})
+	Convey("canceling a bundle should still commit entries if bundleCanceled returns BundleCancelResponseCommit", t, func() {
+		So(h.chain.Length(), ShouldEqual, 3)
+
+		_, err := NewStartBundleAction(0, "cancelit").Do(h)
+		So(err, ShouldBeNil)
+		_, err = NewCommitAction("oddNumbers", &GobEntry{C: `7`}).Do(h)
+		if err != nil {
+			panic(err)
+		}
+		a := NewCloseBundleAction(false)
+		So(a.commit, ShouldEqual, false)
+		ShouldLog(h.nucleus.alog, func() {
+			_, err = a.Do(h)
+			So(err, ShouldBeNil)
+		}, `debug message during bundleCanceled: canceling cancel!`)
+		So(h.chain.BundleStarted(), ShouldNotBeNil)
 	})
 }
 

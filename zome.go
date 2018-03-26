@@ -6,7 +6,7 @@ package holochain
 
 import (
 	"errors"
-	. "github.com/Holochain/holochain-proto/hash"
+	. "github.com/holochain/holochain-proto/hash"
 )
 
 // Zome struct encapsulates logically related code, from a "chromosome"

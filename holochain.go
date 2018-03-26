@@ -13,8 +13,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	. "github.com/Holochain/holochain-proto/hash"
 	"github.com/google/uuid"
+	. "github.com/holochain/holochain-proto/hash"
 	ic "github.com/libp2p/go-libp2p-crypto"
 	peer "github.com/libp2p/go-libp2p-peer"
 	mh "github.com/multiformats/go-multihash"
@@ -30,10 +30,10 @@ import (
 
 const (
 	// Version is the numeric version number of the holochain library
-	Version int = 22
+	Version int = 23
 
 	// VersionStr is the textual version number of the holochain library
-	VersionStr string = "22"
+	VersionStr string = "23"
 
 	// DefaultSendTimeout a time.Duration to wait by default for send to complete
 	DefaultSendTimeout = 3000 * time.Millisecond
@@ -916,6 +916,7 @@ type QueryOptions struct {
 	Return    QueryReturn
 	Constrain QueryConstrain
 	Order     QueryOrder
+	Bundle    bool
 }
 
 type QueryResult struct {
@@ -935,11 +936,23 @@ func (h *Holochain) Query(options *QueryOptions) (results []QueryResult, err err
 			options.Return.Entries = true
 		}
 	}
+	var bundle *Bundle
+	var chain *Chain
+	if options.Bundle {
+		bundle = h.Chain().BundleStarted()
+		if bundle == nil {
+			err = ErrBundleNotStarted
+			return
+		}
+		chain = bundle.chain
+	} else {
+		chain = h.chain
+	}
 	var re *regexp.Regexp
 	var equalsMap, containsMap map[string]interface{}
 	var reMap map[string]*regexp.Regexp
 	defs := make(map[string]*EntryDef)
-	for i, header := range h.chain.Headers {
+	for i, header := range chain.Headers {
 
 		var def *EntryDef
 		var ok bool
@@ -967,12 +980,12 @@ func (h *Holochain) Query(options *QueryOptions) (results []QueryResult, err err
 			var contentMap map[string]interface{}
 			if def.DataFormat == DataFormatJSON {
 				contentMap = make(map[string]interface{})
-				err = json.Unmarshal([]byte(h.chain.Entries[i].Content().(string)), &contentMap)
+				err = json.Unmarshal([]byte(chain.Entries[i].Content().(string)), &contentMap)
 				if err != nil {
 					return
 				}
 			} else {
-				content = h.chain.Entries[i].Content().(string)
+				content = chain.Entries[i].Content().(string)
 			}
 
 			if !skip && options.Constrain.Equals != "" {
@@ -1064,7 +1077,7 @@ func (h *Holochain) Query(options *QueryOptions) (results []QueryResult, err err
 			// Return values gets limited down to the actual info in the Ribosomes
 			qr := QueryResult{Header: header}
 			if options.Return.Entries {
-				qr.Entry = h.chain.Entries[i]
+				qr.Entry = chain.Entries[i]
 			}
 			if options.Order.Ascending {
 				results = append([]QueryResult{qr}, results...)

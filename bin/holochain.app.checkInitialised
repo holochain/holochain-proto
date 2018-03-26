@@ -1,5 +1,5 @@
 #!/bin/bash
-holochainBinDir="$GOPATH/src/github.com/Holochain/holochain-proto/bin"
+holochainBinDir="$GOPATH/src/github.com/holochain/holochain-proto/bin"
 
 $holochainBinDir/holochain.app.findAppDir
 

@@ -17,10 +17,10 @@ import (
 	"strconv"
 	"time"
 
-	holo "github.com/Holochain/holochain-proto"
-	. "github.com/Holochain/holochain-proto/apptest"
-	"github.com/Holochain/holochain-proto/cmd"
-	"github.com/Holochain/holochain-proto/ui"
+	holo "github.com/holochain/holochain-proto"
+	. "github.com/holochain/holochain-proto/apptest"
+	"github.com/holochain/holochain-proto/cmd"
+	"github.com/holochain/holochain-proto/ui"
 	"github.com/urfave/cli"
 	// fsnotify	"github.com/fsnotify/fsnotify"
 	//spew "github.com/davecgh/go-spew/spew"
@@ -284,7 +284,7 @@ func setupApp() (app *cli.App) {
 					if fromDevelop {
 						fromBranch = "develop"
 					}
-					command := exec.Command("git", "clone", fmt.Sprintf("git://github.com/Holochain/%s.git", cloneExample))
+					command := exec.Command("git", "clone", fmt.Sprintf("git://github.com/holochain/%s.git", cloneExample))
 					out, err := command.CombinedOutput()
 					fmt.Printf("git: %s\n", string(out))
 					if err != nil {
@@ -305,7 +305,7 @@ func setupApp() (app *cli.App) {
 					}
 
 					clonePath := filepath.Join(tmpCopyDir, cloneExample)
-					fmt.Printf("cloning %s from github.com/Holochain/%s\n", name, cloneExample)
+					fmt.Printf("cloning %s from github.com/holochain/%s\n", name, cloneExample)
 					err = doClone(service, clonePath, devPath)
 					if err != nil {
 						return cmd.MakeErrFromErr(c, err)

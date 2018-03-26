@@ -16,13 +16,14 @@ import (
 	"strings"
 )
 
-// BridgeApp describes an app for bridging, used
+// BridgeApp describes an app for bridging
 type BridgeApp struct {
 	H                     *Holochain
 	Side                  int
 	BridgeGenesisDataFrom string
 	BridgeGenesisDataTo   string
 	Port                  string // only used if side == BridgeTo
+	BridgeZome            string // only used if side == BridgeFrom
 }
 
 // Bridge holds data returned by GetBridges
@@ -148,8 +149,8 @@ func (h *Holochain) BridgeCall(zomeType string, function string, arguments inter
 }
 
 // AddBridgeAsCaller associates a token with an application DNA hash and url for accessing it
-// it also runs BridgeGenesis for the From side
-func (h *Holochain) AddBridgeAsCaller(toDNA Hash, token string, url string, appData string) (err error) {
+// it also runs BridgeGenesis in the bridgeZome
+func (h *Holochain) AddBridgeAsCaller(bridgeZome string, toDNA Hash, token string, url string, appData string) (err error) {
 	h.Debugf("Adding bridge from %s to %v with appData: %s", h.Name(), toDNA, appData)
 	err = h.initBridgeDB()
 	if err != nil {
@@ -171,26 +172,24 @@ func (h *Holochain) AddBridgeAsCaller(toDNA Hash, token string, url string, appD
 		return
 	}
 
-	var bridged bool
-	// TODO  possible that we shouldn't add the bridge unless the there is some Zome with BridgeTo?
-	// the way this is is just that the only way to get the from genesis to run is if it's set
-	for _, z := range h.nucleus.dna.Zomes {
-		if z.BridgeTo.String() == toDNAStr {
-			var r Ribosome
-			r, _, err = h.MakeRibosome(z.Name)
-			if err != nil {
-				return
-			}
-			h.Debugf("Running BridgeFrom Genesis for %s", z.Name)
-			err = r.BridgeGenesis(BridgeFrom, toDNA, appData)
-			if err != nil {
-				return
-			}
-			bridged = true
-		}
+	var zome *Zome
+
+	// get the zome that does the bridging, as we need to run the bridgeGenesis function in it
+	zome, err = h.GetZome(bridgeZome)
+	if err != nil {
+		err = fmt.Errorf("error getting bridging zome: %v", err)
+		return
 	}
-	if !bridged {
-		Infof("Warning: no zome called for bridging to: %v", toDNA)
+	var r Ribosome
+	r, _, err = h.MakeRibosome(zome.Name)
+	if err != nil {
+		return
+	}
+
+	h.Debugf("Running BridgeFrom Genesis for %s", zome.Name)
+	err = r.BridgeGenesis(BridgeFrom, toDNA, appData)
+	if err != nil {
+		return
 	}
 	return
 }
@@ -240,7 +239,7 @@ func (h *Holochain) BuildBridge(app *BridgeApp, port string) (err error) {
 	h.Debugf("%s received token %s from %s\n", hFrom.Name(), token, hTo.Name())
 
 	// the url is currently through the webserver
-	err = hFrom.AddBridgeAsCaller(hTo.DNAHash(), token, fmt.Sprintf("http://localhost:%s", toPort), app.BridgeGenesisDataFrom)
+	err = hFrom.AddBridgeAsCaller(app.BridgeZome, hTo.DNAHash(), token, fmt.Sprintf("http://localhost:%s", toPort), app.BridgeGenesisDataFrom)
 	if err != nil {
 		h.Debugf("adding bridge from %s to %s failed with %s\n", hFrom.Name(), hTo.Name(), err)
 		return

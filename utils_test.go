@@ -51,6 +51,34 @@ func TestUtilsEncodeDecode(t *testing.T) {
 	})
 }
 
+func TestUtilsDecodeFile(t *testing.T) {
+	var data, data1 struct {
+		A int
+		B string
+	}
+	data.A = 314
+	data.B = "fish"
+	var b bytes.Buffer
+	err := Encode(&b, "json", data)
+	if err != nil {
+		panic(err)
+	}
+
+	d := SetupTestDir()
+	defer CleanupTestDir(d)
+
+	if err := WriteFile(b.Bytes(), d, "testfile.json"); err != nil {
+		panic(err)
+	}
+
+	Convey("it should decode from a file", t, func() {
+		err = DecodeFile(&data1, d, "testfile.json")
+		So(err, ShouldBeNil)
+		So(data1.A, ShouldEqual, data.A)
+		So(data1.B, ShouldEqual, data.B)
+	})
+}
+
 func TestTicker(t *testing.T) {
 	counter := 0
 	stopper := Ticker(10*time.Millisecond, func() {

@@ -7,7 +7,6 @@ package main
 
 import (
 	"bytes"
-	"errors"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -21,7 +20,6 @@ import (
 	holo "github.com/holochain/holochain-proto"
 	. "github.com/holochain/holochain-proto/apptest"
 	"github.com/holochain/holochain-proto/cmd"
-	hash "github.com/holochain/holochain-proto/hash"
 	"github.com/holochain/holochain-proto/ui"
 	"github.com/urfave/cli"
 	// fsnotify	"github.com/fsnotify/fsnotify"
@@ -33,12 +31,13 @@ const (
 	bridgeFromPort     = "21111"
 	bridgeToPort       = "21112"
 	scenarioStartDelay = 1
+
+	defaultSpecsFile = "bridge_specs.json"
 )
 
 var debug, appInitialized, verbose, keepalive bool
-var rootPath, devPath, bridgeToPath, bridgeToName, bridgeFromPath, bridgeFromName, name string
-var bridgeFromH, bridgeToH *holo.Holochain
-var bridgeFromAppData, bridgeToAppData string
+var rootPath, devPath, name string
+var bridgeSpecsFile string
 var scenarioConfig *holo.TestConfig
 
 // flags for holochain config generation
@@ -88,7 +87,7 @@ func setupApp() (app *cli.App) {
 	app = cli.NewApp()
 	app.Name = "hcdev"
 	app.Usage = "holochain dev command line tool"
-	app.Version = fmt.Sprintf("0.0.3 (holochain %s)", holo.VersionStr)
+	app.Version = fmt.Sprintf("0.0.4 (holochain %s)", holo.VersionStr)
 
 	var service *holo.Service
 	var serverID, agentID, identity string
@@ -150,24 +149,9 @@ func setupApp() (app *cli.App) {
 			Destination: &bootstrapServer,
 		},
 		cli.StringFlag{
-			Name:        "bridgeTo",
-			Usage:       "path to dev directory of app to bridge to",
-			Destination: &bridgeToPath,
-		},
-		cli.StringFlag{
-			Name:        "bridgeFrom",
-			Usage:       "path to dev directory of app to bridge from",
-			Destination: &bridgeFromPath,
-		},
-		cli.StringFlag{
-			Name:        "bridgeToAppData",
-			Usage:       "application data to pass to the bridged to app",
-			Destination: &bridgeToAppData,
-		},
-		cli.StringFlag{
-			Name:        "bridgeFromAppData",
-			Usage:       "application data to pass to the bridging from app",
-			Destination: &bridgeFromAppData,
+			Name:        "bridgeSpecs",
+			Usage:       "path to bridge specs file (default: bridgeSpecs.json)",
+			Destination: &bridgeSpecsFile,
 		},
 		cli.StringFlag{
 			Name:        "serverID",
@@ -489,9 +473,6 @@ func setupApp() (app *cli.App) {
 					return err
 				}
 
-				if bridgeFromPath != "" || bridgeToPath != "" {
-					return cmd.MakeErr(c, "bridging not supported in scenario tests yet")
-				}
 				args := c.Args()
 				if len(args) != 1 {
 					return cmd.MakeErr(c, "missing scenario name argument")
@@ -532,7 +513,9 @@ func setupApp() (app *cli.App) {
 				}
 				secondsFromNowPlusDelay := cmd.GetUnixTimestamp_secondsFromNow(scenarioStartDelay)
 
-				scenarioConfig, err = holo.LoadTestConfig(filepath.Join(h.TestPath(), scenarioName))
+				scenarioPath := filepath.Join(h.TestPath(), scenarioName)
+
+				scenarioConfig, err = holo.LoadTestConfig(scenarioPath)
 				if err != nil {
 					return cmd.MakeErrFromErr(c, err)
 				}
@@ -564,6 +547,13 @@ func setupApp() (app *cli.App) {
 					// test so we set the flag "_" the use no bootstrap
 					if bootstrapServer == "" {
 						bootstrapServer = "_"
+					}
+
+					// check to see if there's a bridge config for the role
+					scenarioBridgeSpecs := filepath.Join(scenarioPath, "_"+roleName+"_"+defaultSpecsFile)
+					holo.Debugf("scenario: looking for bridgeSpecs:%v", scenarioBridgeSpecs)
+					if !holo.FileExists(scenarioBridgeSpecs) {
+						scenarioBridgeSpecs = bridgeSpecsFile
 					}
 
 					originalRoleName := roleName
@@ -608,9 +598,10 @@ func setupApp() (app *cli.App) {
 							"-logPrefix="+logPrefix,
 							"-serverID="+serverID,
 							"-agentID="+agentID,
-
 							fmt.Sprintf("-bootstrapServer=%v", bootstrapServer),
 							fmt.Sprintf("-keepalive=%v", keepalive),
+							fmt.Sprintf("-bridgeSpecs=%v", scenarioBridgeSpecs),
+
 							"test",
 							fmt.Sprintf("-benchmarks=%v", benchmarks),
 							fmt.Sprintf("-syncPauseUntil=%v", secondsFromNowPlusDelay),
@@ -819,7 +810,7 @@ func setupApp() (app *cli.App) {
 	}
 
 	app.Before = func(c *cli.Context) error {
-		holo.IsDevMode = true
+
 		lastRunContext = c
 
 		var err error
@@ -952,43 +943,9 @@ func getHolochain(c *cli.Context, service *holo.Service, identity string) (h *ho
 	if identity != "" {
 		holo.SetAgentIdentity(agent, holo.AgentIdentity(identity))
 	}
-
-	bridgeApps = make([]holo.BridgeApp, 0)
-
-	if bridgeToPath != "" && bridgeFromPath != "" {
-		if bridgeFromAppData != "" || bridgeToAppData != "" {
-			// TODO The reason for this is that we have no way of collecting the
-			// separate to&from app data that would be needed for both apps.
-			err = errors.New("hcdev currently only supports one bridge app if passing in appData")
-			return
-		}
-	}
-
-	if bridgeToPath != "" {
-		bridgeToH, err = setupBridgeApp(service, h, agent, bridgeToPath, holo.BridgeFrom)
-		if err != nil {
-			return
-		}
-		bridgeApps = append(bridgeApps,
-			holo.BridgeApp{
-				H:    bridgeToH,
-				Side: holo.BridgeTo,
-				BridgeGenesisDataFrom: bridgeFromAppData,
-				BridgeGenesisDataTo:   bridgeToAppData,
-				Port:                  bridgeToPort})
-	}
-	if bridgeFromPath != "" {
-		bridgeFromH, err = setupBridgeApp(service, h, agent, bridgeFromPath, holo.BridgeTo)
-		if err != nil {
-			return
-		}
-		bridgeApps = append(bridgeApps,
-			holo.BridgeApp{
-				H:    bridgeFromH,
-				Side: holo.BridgeFrom,
-				BridgeGenesisDataFrom: bridgeFromAppData,
-				BridgeGenesisDataTo:   bridgeToAppData,
-				Port:                  bridgeFromPort})
+	bridgeApps, err = getBridgedApps(service, agent)
+	if err != nil {
+		return
 	}
 
 	fmt.Printf("Copying chain to: %s\n", rootPath)
@@ -1009,8 +966,55 @@ func getHolochain(c *cli.Context, service *holo.Service, identity string) (h *ho
 	return
 }
 
+// BridgeSpec describes an app to be bridged for dev
+type BridgeSpec struct {
+	Path                  string // path to the app to bridge to/from
+	Side                  int    // what side of the bridge the dev app is
+	BridgeGenesisDataFrom string // genesis data for the from side
+	BridgeGenesisDataTo   string // genesis data for the to side
+	Port                  string // only used if side == BridgeTo
+	BridgeZome            string // only used if side == BridgeFrom
+}
+
+// getBridgedApps builds up an array of bridged apps based on the dev values for bridging
+func getBridgedApps(service *holo.Service, agent holo.Agent) (bridgedApps []holo.BridgeApp, err error) {
+	if bridgeSpecsFile == "_" {
+		return
+	}
+	var specs []BridgeSpec
+	specs, err = loadBridgeSpecs()
+	if err != nil {
+		return
+	}
+	for _, spec := range specs {
+		var h *holo.Holochain
+		h, err = setupBridgeApp(service, agent, spec.Path, spec.Side)
+		if err != nil {
+			return
+		}
+		if spec.Port == "" {
+			var port int
+			port, err = cmd.GetFreePort()
+			if err != nil {
+				return
+			}
+			spec.Port = fmt.Sprintf("%d", port)
+		}
+		bridgedApps = append(bridgedApps,
+			holo.BridgeApp{
+				H:    h,
+				Side: spec.Side,
+				BridgeGenesisDataFrom: spec.BridgeGenesisDataFrom,
+				BridgeGenesisDataTo:   spec.BridgeGenesisDataTo,
+				Port:                  spec.Port,
+				BridgeZome:            spec.BridgeZome,
+			})
+	}
+	return
+}
+
 // setupBridgeApp clones the bridge app from source and loads it in preparation for actual bridging
-func setupBridgeApp(service *holo.Service, h *holo.Holochain, agent holo.Agent, path string, side int) (bridgeH *holo.Holochain, err error) {
+func setupBridgeApp(service *holo.Service, agent holo.Agent, path string, side int) (bridgeH *holo.Holochain, err error) {
 
 	bridgeName := filepath.Base(path)
 
@@ -1023,6 +1027,7 @@ func setupBridgeApp(service *holo.Service, h *holo.Holochain, agent holo.Agent, 
 		os.Setenv("HOLOCHAINCONFIG_PORT", "9992")
 	}
 	fmt.Printf("Copying bridge chain %s to: %s\n", bridgeName, rootPath)
+	// cleanup from previous time
 	err = os.RemoveAll(filepath.Join(rootPath, bridgeName))
 	if err != nil {
 		return
@@ -1036,15 +1041,6 @@ func setupBridgeApp(service *holo.Service, h *holo.Holochain, agent holo.Agent, 
 	if err != nil {
 		return
 	}
-
-	// set the dna for use by the dev BridgeTo resolver
-	var DNAHash hash.Hash
-	DNAHash, err = holo.DNAHashofUngenedChain(bridgeH)
-	if err != nil {
-		return
-	}
-	holo.DevDNAResolveMap = make(map[string]string)
-	holo.DevDNAResolveMap[bridgeName] = DNAHash.String()
 
 	// clear the log prefix for the next load.
 	os.Unsetenv("HCLOG_PREFIX")
@@ -1078,6 +1074,20 @@ func doClone(s *holo.Service, clonePath, devPath string) (err error) {
 	_, err = s.Clone(clonePath, devPath, agent, holo.CloneWithSameUUID, holo.SkipInitializeDB)
 	if err != nil {
 		return
+	}
+	return
+}
+
+func loadBridgeSpecs() (specs []BridgeSpec, err error) {
+	if bridgeSpecsFile == "" {
+		holo.Debug("no bridgeSpecs checking for default")
+		if holo.FileExists(defaultSpecsFile) {
+			bridgeSpecsFile = defaultSpecsFile
+		}
+	}
+	if bridgeSpecsFile != "" {
+		holo.Debugf("load bridgeSpecs:%s", bridgeSpecsFile)
+		err = holo.DecodeFile(&specs, bridgeSpecsFile)
 	}
 	return
 }

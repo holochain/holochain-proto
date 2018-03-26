@@ -57,6 +57,11 @@ const (
 	GetMaskAllStr       = "255"
 )
 
+const (
+	ReceiptOK = iota
+	ReceiptRejected
+)
+
 // TaggedHash holds associated entries for the LinkQueryResponse
 type TaggedHash struct {
 	H         string // the hash of the link; gets filled by dht base node when answering get link request

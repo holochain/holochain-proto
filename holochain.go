@@ -170,6 +170,7 @@ func InitializeHolochain() {
 		gob.Register(Header{})
 		gob.Register(AgentEntry{})
 		gob.Register(HoldReq{})
+		gob.Register(HoldResp{})
 		gob.Register(GetReq{})
 		gob.Register(GetResp{})
 		gob.Register(LinkQuery{})

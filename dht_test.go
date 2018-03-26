@@ -102,7 +102,7 @@ func TestDHTSend(t *testing.T) {
 		msg := h.node.NewMessage(PUT_REQUEST, HoldReq{EntryHash: hash})
 		r, err := h.dht.send(nil, h.node.HashAddr, msg)
 		So(err, ShouldBeNil)
-		So(r, ShouldEqual, DHTChangeOK)
+		So(r.(HoldResp).Code, ShouldEqual, ReceiptOK)
 		hd, _ := h.chain.GetEntryHeader(hash)
 		So(hd.EntryLink.Equal(hash), ShouldBeTrue)
 	})
@@ -257,7 +257,11 @@ func TestActionReceiver(t *testing.T) {
 		m := h.node.NewMessage(PUT_REQUEST, HoldReq{EntryHash: hash})
 		r, err := ActionReceiver(h, m)
 		So(err, ShouldBeNil)
-		So(r, ShouldEqual, DHTChangeOK)
+		So(r.(HoldResp).Code, ShouldEqual, ReceiptOK)
+		data, _ := MakeReceiptData(m, ReceiptOK)
+		matches, err := h.VerifySignature(r.(HoldResp).Signature, string(data), h.agent.PubKey())
+		So(err, ShouldBeNil)
+		So(matches, ShouldBeTrue)
 	})
 
 	Convey("GET_REQUEST should return the requested values", t, func() {
@@ -311,7 +315,11 @@ func TestActionReceiver(t *testing.T) {
 		m := h.node.NewMessage(LINK_REQUEST, lr)
 		r, err := ActionReceiver(h, m)
 		So(err, ShouldBeNil)
-		So(r, ShouldEqual, DHTChangeOK)
+		So(r.(HoldResp).Code, ShouldEqual, ReceiptOK)
+		data, _ := MakeReceiptData(m, ReceiptOK)
+		matches, err := h.VerifySignature(r.(HoldResp).Signature, string(data), h.agent.PubKey())
+		So(err, ShouldBeNil)
+		So(matches, ShouldBeTrue)
 
 		// check that it got put
 		meta, err := h.dht.GetLinks(hash, "4stars", StatusLive)
@@ -383,7 +391,11 @@ func TestActionReceiver(t *testing.T) {
 		lr := HoldReq{RelatedHash: hash, EntryHash: lhd2.EntryLink}
 		m := h.node.NewMessage(LINK_REQUEST, lr)
 		r, err := ActionReceiver(h, m)
-		So(r, ShouldEqual, DHTChangeOK)
+		So(r.(HoldResp).Code, ShouldEqual, ReceiptOK)
+		data, _ := MakeReceiptData(m, ReceiptOK)
+		matches, err := h.VerifySignature(r.(HoldResp).Signature, string(data), h.agent.PubKey())
+		So(err, ShouldBeNil)
+		So(matches, ShouldBeTrue)
 
 		results, err := h.dht.GetLinks(hash, "4stars", StatusLive)
 		So(err, ShouldBeNil)
@@ -423,7 +435,11 @@ func TestActionReceiver(t *testing.T) {
 		m := h.node.NewMessage(MOD_REQUEST, req)
 		r, err := ActionReceiver(h, m)
 		So(err, ShouldBeNil)
-		So(r, ShouldEqual, DHTChangeOK)
+		So(r.(HoldResp).Code, ShouldEqual, ReceiptOK)
+		data, _ := MakeReceiptData(m, ReceiptOK)
+		matches, err := h.VerifySignature(r.(HoldResp).Signature, string(data), h.agent.PubKey())
+		So(err, ShouldBeNil)
+		So(matches, ShouldBeTrue)
 	})
 
 	Convey("DELETE_REQUEST should set status of hash to deleted", t, func() {
@@ -434,7 +450,11 @@ func TestActionReceiver(t *testing.T) {
 		m := h.node.NewMessage(DEL_REQUEST, HoldReq{RelatedHash: hash2, EntryHash: entryHash})
 		r, err := ActionReceiver(h, m)
 		So(err, ShouldBeNil)
-		So(r, ShouldEqual, DHTChangeOK)
+		So(r.(HoldResp).Code, ShouldEqual, ReceiptOK)
+		data, _ := MakeReceiptData(m, ReceiptOK)
+		matches, err := h.VerifySignature(r.(HoldResp).Signature, string(data), h.agent.PubKey())
+		So(err, ShouldBeNil)
+		So(matches, ShouldBeTrue)
 
 		data, entryType, _, status, _ := h.dht.Get(hash2, StatusAny, GetMaskAll)
 		var e GobEntry
@@ -485,30 +505,30 @@ func TestActionReceiver(t *testing.T) {
 	})
 
 	/*
-		getting a good warrant without also having already had the addToList happen is hard,
-		 so not quite sure how to test this
-				Convey("LISTADD_REQUEST with good warrant should add to list", t, func() {
-					pid, oldPrivKey := makePeer("testPeer")
-					_, newPrivKey := makePeer("peer1")
-					revocation, _ := NewSelfRevocation(oldPrivKey, newPrivKey, []byte("extra data"))
-					w, _ := NewSelfRevocationWarrant(revocation)
-					data, _ := w.Encode()
-					m := h.node.NewMessage(LISTADD_REQUEST,
-						ListAddReq{
-							ListType:    BlockedList,
-							Peers:       []string{peer.IDB58Encode(pid)},
-							WarrantType: SelfRevocationType,
-							Warrant:     data,
-						})
-					r, err := ActionReceiver(h, m)
-					So(err, ShouldBeNil)
-					So(r, ShouldEqual, DHTChangeOK)
+			getting a good warrant without also having already had the addToList happen is hard,
+			 so not quite sure how to test this
+					Convey("LISTADD_REQUEST with good warrant should add to list", t, func() {
+						pid, oldPrivKey := makePeer("testPeer")
+						_, newPrivKey := makePeer("peer1")
+						revocation, _ := NewSelfRevocation(oldPrivKey, newPrivKey, []byte("extra data"))
+						w, _ := NewSelfRevocationWarrant(revocation)
+						data, _ := w.Encode()
+						m := h.node.NewMessage(LISTADD_REQUEST,
+							ListAddReq{
+								ListType:    BlockedList,
+								Peers:       []string{peer.IDB58Encode(pid)},
+								WarrantType: SelfRevocationType,
+								Warrant:     data,
+							})
+						r, err := ActionReceiver(h, m)
+						So(err, ShouldBeNil)
+		                           	So(r.(HoldResp).Code, ShouldEqual, ReceiptOK)
 
-					peerList, err := h.dht.getList(BlockedList)
-					So(err, ShouldBeNil)
-					So(len(peerList.Records), ShouldEqual, 1)
-					So(peerList.Records[0].ID, ShouldEqual, pid)
-				})
+						peerList, err := h.dht.getList(BlockedList)
+						So(err, ShouldBeNil)
+						So(len(peerList.Records), ShouldEqual, 1)
+						So(peerList.Records[0].ID, ShouldEqual, pid)
+					})
 	*/
 
 }
@@ -699,5 +719,45 @@ func TestDHTMultiNode(t *testing.T) {
 				So(fmt.Sprintf("%v", response), ShouldEqual, fmt.Sprintf("&{[{%v this statement by node %d (%v) review  %s}]}", hashes[i], i, h1.nodeID, h1.nodeID.Pretty()))
 			}
 		}
+	})
+}
+
+func TestDHTMakeReciept(t *testing.T) {
+	d, _, h := PrepareTestChain("test")
+	defer CleanupTestChain(h, d)
+
+	hash, _ := NewHash("QmY8Mzg9F69e5P9AoQPYat655HEhc1TVGs11tmfNSzkqh2")
+
+	Convey("it should make a receipt and signature", t, func() {
+		msg := h.node.NewMessage(PUT_REQUEST, HoldReq{EntryHash: hash})
+
+		data, err := MakeReceiptData(msg, ReceiptOK)
+		So(err, ShouldBeNil)
+		sig, err := h.Sign(data)
+		if err != nil {
+			panic(err)
+		}
+
+		receiptSig, err := h.dht.MakeReceiptSignature(msg, ReceiptOK)
+		So(err, ShouldBeNil)
+		So(receiptSig.Equal(sig), ShouldBeTrue)
+
+		matches, err := h.VerifySignature(receiptSig, string(data), h.agent.PubKey())
+		So(err, ShouldBeNil)
+		So(matches, ShouldBeTrue)
+
+		holdResp, err := h.dht.MakeHoldResp(msg, StatusRejected)
+		So(err, ShouldBeNil)
+		So(holdResp.Code, ShouldEqual, ReceiptRejected)
+		matches, err = h.VerifySignature(holdResp.Signature, string(data), h.agent.PubKey())
+		So(err, ShouldBeNil)
+		So(matches, ShouldBeFalse)
+
+		holdResp, err = h.dht.MakeHoldResp(msg, StatusLive)
+		So(err, ShouldBeNil)
+		So(holdResp.Code, ShouldEqual, ReceiptOK)
+		matches, err = h.VerifySignature(holdResp.Signature, string(data), h.agent.PubKey())
+		So(err, ShouldBeNil)
+		So(matches, ShouldBeTrue)
 	})
 }

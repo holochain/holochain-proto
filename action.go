@@ -1164,6 +1164,7 @@ func RunValidationPhase(h *Holochain, source peer.ID, msgType MsgType, query Has
 
 func (a *ActionPut) Receive(dht *DHT, msg *Message) (response interface{}, err error) {
 	t := msg.Body.(HoldReq)
+	var holdResp *HoldResp
 	err = RunValidationPhase(dht.h, msg.From, VALIDATE_PUT_REQUEST, t.EntryHash, func(resp ValidateResponse) error {
 		a := NewPutAction(resp.Type, &resp.Entry, &resp.Header)
 		_, err := dht.h.ValidateAction(a, a.entryType, &resp.Package, []peer.ID{msg.From})
@@ -1181,6 +1182,9 @@ func (a *ActionPut) Receive(dht *DHT, msg *Message) (response interface{}, err e
 		if err == nil {
 			err = dht.Put(msg, resp.Type, t.EntryHash, msg.From, b, status)
 		}
+		if err == nil {
+			holdResp, err = dht.MakeHoldResp(msg, status)
+		}
 		return err
 	})
 
@@ -1192,7 +1196,9 @@ func (a *ActionPut) Receive(dht *DHT, msg *Message) (response interface{}, err e
 		response = resp
 		return
 	} else {
-		response = DHTChangeOK
+		if holdResp != nil {
+			response = *holdResp
+		}
 	}
 	return
 }
@@ -1317,23 +1323,28 @@ func (a *ActionMod) SysValidation(h *Holochain, def *EntryDef, pkg *Package, sou
 func (a *ActionMod) Receive(dht *DHT, msg *Message) (response interface{}, err error) {
 	//var hashStatus int
 	t := msg.Body.(HoldReq)
-	from := msg.From
+	var holdResp *HoldResp
 
 	err = RunValidationPhase(dht.h, msg.From, VALIDATE_MOD_REQUEST, t.EntryHash, func(resp ValidateResponse) error {
 		a := NewModAction(resp.Type, &resp.Entry, t.RelatedHash)
 		a.header = &resp.Header
 
 		//@TODO what comes back from Validate Mod
-		_, err = dht.h.ValidateAction(a, resp.Type, &resp.Package, []peer.ID{from})
+		_, err = dht.h.ValidateAction(a, resp.Type, &resp.Package, []peer.ID{msg.From})
 		if err != nil {
 			// how do we record an invalid Mod?
 			//@TODO store as REJECTED?
 		} else {
 			err = dht.Mod(msg, t.RelatedHash, t.EntryHash)
+			if err == nil {
+				holdResp, err = dht.MakeHoldResp(msg, StatusLive)
+			}
 		}
 		return err
 	})
-	response = DHTChangeOK
+	if holdResp != nil {
+		response = *holdResp
+	}
 	return
 }
 
@@ -1520,7 +1531,7 @@ func (a *ActionDel) SysValidation(h *Holochain, def *EntryDef, pkg *Package, sou
 
 func (a *ActionDel) Receive(dht *DHT, msg *Message) (response interface{}, err error) {
 	t := msg.Body.(HoldReq)
-	from := msg.From
+	var holdResp *HoldResp
 
 	err = RunValidationPhase(dht.h, msg.From, VALIDATE_DEL_REQUEST, t.EntryHash, func(resp ValidateResponse) error {
 
@@ -1529,16 +1540,21 @@ func (a *ActionDel) Receive(dht *DHT, msg *Message) (response interface{}, err e
 
 		a := NewDelAction(delEntry)
 		//@TODO what comes back from Validate Del
-		_, err = dht.h.ValidateAction(a, resp.Type, &resp.Package, []peer.ID{from})
+		_, err = dht.h.ValidateAction(a, resp.Type, &resp.Package, []peer.ID{msg.From})
 		if err != nil {
 			// how do we record an invalid DEL?
 			//@TODO store as REJECTED
 		} else {
 			err = dht.Del(msg, delEntry.Hash)
+			if err == nil {
+				holdResp, err = dht.MakeHoldResp(msg, StatusLive)
+			}
 		}
 		return err
 	})
-	response = DHTChangeOK
+	if holdResp != nil {
+		response = *holdResp
+	}
 	return
 }
 
@@ -1574,7 +1590,7 @@ func (a *ActionLink) SysValidation(h *Holochain, def *EntryDef, pkg *Package, so
 
 func (a *ActionLink) Receive(dht *DHT, msg *Message) (response interface{}, err error) {
 	t := msg.Body.(HoldReq)
-	from := msg.From
+	var holdResp *HoldResp
 
 	err = RunValidationPhase(dht.h, msg.From, VALIDATE_LINK_REQUEST, t.EntryHash, func(resp ValidateResponse) error {
 		var le LinksEntry
@@ -1585,7 +1601,7 @@ func (a *ActionLink) Receive(dht *DHT, msg *Message) (response interface{}, err 
 
 		a := NewLinkAction(resp.Type, le.Links)
 		a.validationBase = t.RelatedHash
-		_, err = dht.h.ValidateAction(a, a.entryType, &resp.Package, []peer.ID{from})
+		_, err = dht.h.ValidateAction(a, a.entryType, &resp.Package, []peer.ID{msg.From})
 		//@TODO this is "one bad apple spoils the lot" because the app
 		// has no way to tell us not to link certain of the links.
 		// we need to extend the return value of the app to be able to
@@ -1604,11 +1620,16 @@ func (a *ActionLink) Receive(dht *DHT, msg *Message) (response interface{}, err 
 					}
 				}
 			}
+			if err == nil {
+				holdResp, err = dht.MakeHoldResp(msg, StatusLive)
+			}
 		}
 		return err
 	})
 
-	response = DHTChangeOK
+	if holdResp != nil {
+		response = *holdResp
+	}
 	return
 }
 

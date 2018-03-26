@@ -9,6 +9,7 @@ package holochain
 import (
 	"context"
 	"fmt"
+	"gopkg.in/mgo.v2/bson"
 	"path/filepath"
 	"sync"
 
@@ -73,6 +74,12 @@ const (
 type HoldReq struct {
 	EntryHash   Hash // hash of the entry responsible for the change
 	RelatedHash Hash // hash of the related entry (link=base,del=deleted, mod=modified by)
+}
+
+// HoldResp holds the signature and code of how a hold request was treated
+type HoldResp struct {
+	Code      int
+	Signature Signature
 }
 
 // GetReq holds the data of a get request
@@ -309,10 +316,23 @@ func (dht *DHT) Change(key Hash, msgType MsgType, body interface{}) (err error) 
 			defer cancel()
 			defer wg.Done()
 
-			_, err := dht.send(ctx, p, msg)
+			resp, err := dht.send(ctx, p, msg)
 			if err != nil {
 				dht.dlog.Logf("DHT send of %v failed to peer %v with error: %s", msgType, p, err)
+			} else {
+				switch t := resp.(type) {
+				case HoldResp:
+					if t.Code == ReceiptRejected {
+						// TODO what else do we do if rejected?
+						dht.dlog.Logf("DHT send of %v failed to peer %v was rejected", msg, p)
+					}
+					// TODO check the signature on the receipt
+				default:
+					dht.dlog.Logf("DHT send of %v to peer %v response(%T) was: %v", msgType, p, t, t)
+				}
+
 			}
+
 		}(p)
 	}
 	wg.Wait()
@@ -469,4 +489,43 @@ func RetryTask(h *Holochain) {
 			dht.dlog.Logf("max retries for %v, ignoring", r.msg)
 		}
 	}
+}
+
+// MakeReceiptData converts a message and a code into signable data
+func MakeReceiptData(msg *Message, code int) (reciept []byte, err error) {
+	var data []byte
+
+	data, err = bson.Marshal(msg)
+	if err != nil {
+		return
+	}
+
+	reciept = append(data, byte(code))
+
+	return
+}
+
+// MakeReceipt creates a signature of a message together with the receipt code
+func (dht *DHT) MakeReceiptSignature(msg *Message, code int) (sig Signature, err error) {
+	var data []byte
+	data, err = MakeReceiptData(msg, code)
+	if err != nil {
+		return
+	}
+	sig, err = dht.h.Sign(data)
+	return
+}
+
+func (dht *DHT) MakeHoldResp(msg *Message, status int) (holdResp *HoldResp, err error) {
+	hr := HoldResp{}
+	if status == StatusRejected {
+		hr.Code = ReceiptRejected
+	} else {
+		hr.Code = ReceiptOK
+	}
+	hr.Signature, err = dht.MakeReceiptSignature(msg, hr.Code)
+	if err == nil {
+		holdResp = &hr
+	}
+	return
 }

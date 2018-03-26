@@ -91,6 +91,11 @@ func (ws *WebServer) Start() {
 	})
 
 	mux.HandleFunc("/fn/", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+		if r.Method == "OPTIONS" {
+			w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+			return
+		}
 
 		var err error
 		var errCode = 400
@@ -139,6 +144,11 @@ func (ws *WebServer) Start() {
 	})
 
 	mux.HandleFunc("/bridge/", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+		if r.Method == "OPTIONS" {
+			w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+			return
+		}
 
 		var err error
 		var errCode = 400

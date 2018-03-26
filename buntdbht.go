@@ -302,7 +302,7 @@ func (ht *BuntHT) link(m *Message, base string, link string, tag string, status 
 		if err != nil {
 			return err
 		}
-		err = _link(tx, base, link, tag, m.From, status, m.Body.(LinkReq).Links)
+		err = _link(tx, base, link, tag, m.From, status, m.Body.(HoldReq).EntryHash)
 		if err != nil {
 			return err
 		}
@@ -489,7 +489,7 @@ func (ht *BuntHT) dumpIdx(idx int) (str string, err error) {
 	str = fmt.Sprintf("MSG (fingerprint %v):\n   %v\n", f, msg)
 	switch msg.Type {
 	case PUT_REQUEST:
-		key := msg.Body.(PutReq).H
+		key := msg.Body.(HoldReq).EntryHash
 		entry, entryType, _, _, e := ht.Get(key, StatusDefault, GetMaskAll)
 		if e != nil {
 			err = fmt.Errorf("couldn't get %v err:%v ", key, e)
@@ -578,7 +578,7 @@ func (ht *BuntHT) dumpIdxJSON(idx int) (str string, err error) {
 
 	switch msg.Type {
 	case PUT_REQUEST:
-		key := msg.Body.(PutReq).H
+		key := msg.Body.(HoldReq).EntryHash
 		entry, entryType, _, _, e := ht.Get(key, StatusDefault, GetMaskAll)
 		if e != nil {
 			err = fmt.Errorf("couldn't get %v err:%v ", key, e)

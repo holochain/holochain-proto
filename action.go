@@ -58,14 +58,14 @@ type APIFunction interface {
 // Action provides an abstraction for handling node interaction
 type Action interface {
 	Name() string
-	Receive(dht *DHT, msg *Message, retries int) (response interface{}, err error)
+	Receive(dht *DHT, msg *Message) (response interface{}, err error)
 }
 
 // CommittingAction provides an abstraction for grouping actions which carry Entry data
 type CommittingAction interface {
 	Name() string
 	SysValidation(h *Holochain, def *EntryDef, pkg *Package, sources []peer.ID) (err error)
-	Receive(dht *DHT, msg *Message, retries int) (response interface{}, err error)
+	Receive(dht *DHT, msg *Message) (response interface{}, err error)
 	CheckValidationRequest(def *EntryDef) (err error)
 	EntryType() string
 	Entry() Entry
@@ -78,7 +78,7 @@ type CommittingAction interface {
 type ValidatingAction interface {
 	Name() string
 	SysValidation(h *Holochain, def *EntryDef, pkg *Package, sources []peer.ID) (err error)
-	Receive(dht *DHT, msg *Message, retries int) (response interface{}, err error)
+	Receive(dht *DHT, msg *Message) (response interface{}, err error)
 	CheckValidationRequest(def *EntryDef) (err error)
 }
 
@@ -236,19 +236,19 @@ func MakeActionFromMessage(msg *Message) (a Action, err error) {
 		t = reflect.TypeOf(AppMsg{})
 	case PUT_REQUEST:
 		a = &ActionPut{}
-		t = reflect.TypeOf(PutReq{})
+		t = reflect.TypeOf(HoldReq{})
 	case GET_REQUEST:
 		a = &ActionGet{}
 		t = reflect.TypeOf(GetReq{})
 	case MOD_REQUEST:
 		a = &ActionMod{}
-		t = reflect.TypeOf(ModReq{})
+		t = reflect.TypeOf(HoldReq{})
 	case DEL_REQUEST:
 		a = &ActionDel{}
-		t = reflect.TypeOf(DelReq{})
+		t = reflect.TypeOf(HoldReq{})
 	case LINK_REQUEST:
 		a = &ActionLink{}
-		t = reflect.TypeOf(LinkReq{})
+		t = reflect.TypeOf(HoldReq{})
 	case GETLINK_REQUEST:
 		a = &ActionGetLinks{}
 		t = reflect.TypeOf(LinkQuery{})
@@ -633,7 +633,7 @@ func (a *ActionSend) Name() string {
 	return "send"
 }
 
-func (a *ActionSend) Receive(dht *DHT, msg *Message, retries int) (response interface{}, err error) {
+func (a *ActionSend) Receive(dht *DHT, msg *Message) (response interface{}, err error) {
 	t := msg.Body.(AppMsg)
 	var r Ribosome
 	r, _, err = dht.h.MakeRibosome(t.ZomeType)
@@ -767,7 +767,7 @@ func (a *ActionGet) SysValidation(h *Holochain, def *EntryDef, pkg *Package, sou
 	return
 }
 
-func (a *ActionGet) Receive(dht *DHT, msg *Message, retries int) (response interface{}, err error) {
+func (a *ActionGet) Receive(dht *DHT, msg *Message) (response interface{}, err error) {
 	var entryData []byte
 	//var status int
 	req := msg.Body.(GetReq)
@@ -952,7 +952,7 @@ func (a *ActionCommit) Share(h *Holochain, def *EntryDef) (err error) {
 			_, exists := bases[l.Base]
 			if !exists {
 				b, _ := NewHash(l.Base)
-				h.dht.Change(b, LINK_REQUEST, LinkReq{Base: b, Links: a.header.EntryLink})
+				h.dht.Change(b, LINK_REQUEST, HoldReq{RelatedHash: b, EntryHash: a.header.EntryLink})
 				//TODO errors from the send??
 				bases[l.Base] = true
 			}
@@ -960,7 +960,7 @@ func (a *ActionCommit) Share(h *Holochain, def *EntryDef) (err error) {
 	}
 	if def.isSharingPublic() {
 		// otherwise we check to see if it's a public entry and if so send the DHT put message
-		err = h.dht.Change(a.header.EntryLink, PUT_REQUEST, PutReq{H: a.header.EntryLink})
+		err = h.dht.Change(a.header.EntryLink, PUT_REQUEST, HoldReq{EntryHash: a.header.EntryLink})
 		if err == ErrEmptyRoutingTable {
 			// will still have committed locally and can gossip later
 			err = nil
@@ -1114,7 +1114,7 @@ func (a *ActionCommit) SysValidation(h *Holochain, def *EntryDef, pkg *Package, 
 	return
 }
 
-func (a *ActionCommit) Receive(dht *DHT, msg *Message, retries int) (response interface{}, err error) {
+func (a *ActionCommit) Receive(dht *DHT, msg *Message) (response interface{}, err error) {
 	err = NonDHTAction
 	return
 }
@@ -1162,15 +1162,15 @@ func RunValidationPhase(h *Holochain, source peer.ID, msgType MsgType, query Has
 	return
 }
 
-func (a *ActionPut) Receive(dht *DHT, msg *Message, retries int) (response interface{}, err error) {
-	t := msg.Body.(PutReq)
-	err = RunValidationPhase(dht.h, msg.From, VALIDATE_PUT_REQUEST, t.H, func(resp ValidateResponse) error {
+func (a *ActionPut) Receive(dht *DHT, msg *Message) (response interface{}, err error) {
+	t := msg.Body.(HoldReq)
+	err = RunValidationPhase(dht.h, msg.From, VALIDATE_PUT_REQUEST, t.EntryHash, func(resp ValidateResponse) error {
 		a := NewPutAction(resp.Type, &resp.Entry, &resp.Header)
 		_, err := dht.h.ValidateAction(a, a.entryType, &resp.Package, []peer.ID{msg.From})
 
 		var status int
 		if err != nil {
-			dht.dlog.Logf("Put %v rejected: %v", t.H, err)
+			dht.dlog.Logf("Put %v rejected: %v", t.EntryHash, err)
 			status = StatusRejected
 		} else {
 			status = StatusLive
@@ -1179,12 +1179,12 @@ func (a *ActionPut) Receive(dht *DHT, msg *Message, retries int) (response inter
 		var b []byte
 		b, err = entry.Marshal()
 		if err == nil {
-			err = dht.Put(msg, resp.Type, t.H, msg.From, b, status)
+			err = dht.Put(msg, resp.Type, t.EntryHash, msg.From, b, status)
 		}
 		return err
 	})
 
-	closest := dht.h.node.betterPeersForHash(&t.H, msg.From, CloserPeerCount)
+	closest := dht.h.node.betterPeersForHash(&t.EntryHash, msg.From, CloserPeerCount)
 	if len(closest) > 0 {
 		err = nil
 		resp := CloserPeersResp{}
@@ -1258,8 +1258,8 @@ func (a *ActionMod) Share(h *Holochain, def *EntryDef) (err error) {
 	if def.isSharingPublic() {
 		// if it's a public entry send the DHT MOD & PUT messages
 		// TODO handle errors better!!
-		h.dht.Change(a.header.EntryLink, PUT_REQUEST, PutReq{H: a.header.EntryLink})
-		h.dht.Change(a.replaces, MOD_REQUEST, ModReq{H: a.replaces, N: a.header.EntryLink})
+		h.dht.Change(a.header.EntryLink, PUT_REQUEST, HoldReq{EntryHash: a.header.EntryLink})
+		h.dht.Change(a.replaces, MOD_REQUEST, HoldReq{RelatedHash: a.replaces, EntryHash: a.header.EntryLink})
 	}
 	return
 }
@@ -1314,18 +1314,13 @@ func (a *ActionMod) SysValidation(h *Holochain, def *EntryDef, pkg *Package, sou
 	return
 }
 
-func (a *ActionMod) Receive(dht *DHT, msg *Message, retries int) (response interface{}, err error) {
+func (a *ActionMod) Receive(dht *DHT, msg *Message) (response interface{}, err error) {
 	//var hashStatus int
-	t := msg.Body.(ModReq)
+	t := msg.Body.(HoldReq)
 	from := msg.From
 
-	response, err = dht.retryIfHashNotFound(t.H, msg, retries)
-	if response != nil || err != nil {
-		return
-	}
-
-	err = RunValidationPhase(dht.h, msg.From, VALIDATE_MOD_REQUEST, t.N, func(resp ValidateResponse) error {
-		a := NewModAction(resp.Type, &resp.Entry, t.H)
+	err = RunValidationPhase(dht.h, msg.From, VALIDATE_MOD_REQUEST, t.EntryHash, func(resp ValidateResponse) error {
+		a := NewModAction(resp.Type, &resp.Entry, t.RelatedHash)
 		a.header = &resp.Header
 
 		//@TODO what comes back from Validate Mod
@@ -1334,7 +1329,7 @@ func (a *ActionMod) Receive(dht *DHT, msg *Message, retries int) (response inter
 			// how do we record an invalid Mod?
 			//@TODO store as REJECTED?
 		} else {
-			err = dht.Mod(msg, t.H, t.N)
+			err = dht.Mod(msg, t.RelatedHash, t.EntryHash)
 		}
 		return err
 	})
@@ -1426,7 +1421,7 @@ func (fn *APIFnModAgent) Call(h *Holochain) (response interface{}, err error) {
 			h.node.Close()
 			h.createNode()
 
-			h.dht.Change(oldKey, MOD_REQUEST, ModReq{H: oldKey, N: newKey})
+			h.dht.Change(oldKey, MOD_REQUEST, HoldReq{RelatedHash: oldKey, EntryHash: newKey})
 
 			warrant, _ := NewSelfRevocationWarrant(revocation)
 			var data []byte
@@ -1509,8 +1504,8 @@ func (a *ActionDel) GetHeader() (header *Header) {
 func (a *ActionDel) Share(h *Holochain, def *EntryDef) (err error) {
 	if def.isSharingPublic() {
 		// if it's a public entry send the DHT DEL & PUT messages
-		h.dht.Change(a.header.EntryLink, PUT_REQUEST, PutReq{H: a.header.EntryLink})
-		h.dht.Change(a.entry.Hash, DEL_REQUEST, DelReq{H: a.entry.Hash, By: a.header.EntryLink})
+		h.dht.Change(a.header.EntryLink, PUT_REQUEST, HoldReq{EntryHash: a.header.EntryLink})
+		h.dht.Change(a.entry.Hash, DEL_REQUEST, HoldReq{RelatedHash: a.entry.Hash, EntryHash: a.header.EntryLink})
 	}
 	return
 }
@@ -1523,15 +1518,11 @@ func (a *ActionDel) SysValidation(h *Holochain, def *EntryDef, pkg *Package, sou
 	return
 }
 
-func (a *ActionDel) Receive(dht *DHT, msg *Message, retries int) (response interface{}, err error) {
-	t := msg.Body.(DelReq)
+func (a *ActionDel) Receive(dht *DHT, msg *Message) (response interface{}, err error) {
+	t := msg.Body.(HoldReq)
 	from := msg.From
-	response, err = dht.retryIfHashNotFound(t.H, msg, retries)
-	if response != nil || err != nil {
-		return
-	}
 
-	err = RunValidationPhase(dht.h, msg.From, VALIDATE_DEL_REQUEST, t.By, func(resp ValidateResponse) error {
+	err = RunValidationPhase(dht.h, msg.From, VALIDATE_DEL_REQUEST, t.EntryHash, func(resp ValidateResponse) error {
 
 		var delEntry DelEntry
 		delEntry, err = DelEntryFromJSON(resp.Entry.Content().(string))
@@ -1581,17 +1572,11 @@ func (a *ActionLink) SysValidation(h *Holochain, def *EntryDef, pkg *Package, so
 	return
 }
 
-func (a *ActionLink) Receive(dht *DHT, msg *Message, retries int) (response interface{}, err error) {
-	t := msg.Body.(LinkReq)
-	base := t.Base
+func (a *ActionLink) Receive(dht *DHT, msg *Message) (response interface{}, err error) {
+	t := msg.Body.(HoldReq)
 	from := msg.From
 
-	response, err = dht.retryIfHashNotFound(base, msg, retries)
-	if response != nil || err != nil {
-		return
-	}
-
-	err = RunValidationPhase(dht.h, msg.From, VALIDATE_LINK_REQUEST, t.Links, func(resp ValidateResponse) error {
+	err = RunValidationPhase(dht.h, msg.From, VALIDATE_LINK_REQUEST, t.EntryHash, func(resp ValidateResponse) error {
 		var le LinksEntry
 		le, err = LinksEntryFromJSON(resp.Entry.Content().(string))
 		if err != nil {
@@ -1599,7 +1584,7 @@ func (a *ActionLink) Receive(dht *DHT, msg *Message, retries int) (response inte
 		}
 
 		a := NewLinkAction(resp.Type, le.Links)
-		a.validationBase = t.Base
+		a.validationBase = t.RelatedHash
 		_, err = dht.h.ValidateAction(a, a.entryType, &resp.Package, []peer.ID{from})
 		//@TODO this is "one bad apple spoils the lot" because the app
 		// has no way to tell us not to link certain of the links.
@@ -1609,7 +1594,7 @@ func (a *ActionLink) Receive(dht *DHT, msg *Message, retries int) (response inte
 			// how do we record an invalid linking?
 			//@TODO store as REJECTED
 		} else {
-			base := t.Base.String()
+			base := t.RelatedHash.String()
 			for _, l := range le.Links {
 				if base == l.Base {
 					if l.LinkAction == DelLinkAction {
@@ -1718,7 +1703,7 @@ func (a *ActionGetLinks) SysValidation(h *Holochain, d *EntryDef, pkg *Package, 
 	return
 }
 
-func (a *ActionGetLinks) Receive(dht *DHT, msg *Message, retries int) (response interface{}, err error) {
+func (a *ActionGetLinks) Receive(dht *DHT, msg *Message) (response interface{}, err error) {
 	lq := msg.Body.(LinkQuery)
 	var r LinkQueryResp
 	r.Links, err = dht.GetLinks(lq.Base, lq.T, lq.StatusMask)
@@ -1745,7 +1730,7 @@ func (a *ActionListAdd) Name() string {
 
 var prefix string = "List add request rejected on warrant failure"
 
-func (a *ActionListAdd) Receive(dht *DHT, msg *Message, retries int) (response interface{}, err error) {
+func (a *ActionListAdd) Receive(dht *DHT, msg *Message) (response interface{}, err error) {
 	t := msg.Body.(ListAddReq)
 	a.list.Type = PeerListType(t.ListType)
 	a.list.Records = make([]PeerRecord, 0)
@@ -1788,20 +1773,5 @@ func (a *ActionListAdd) Receive(dht *DHT, msg *Message, retries int) (response i
 		}
 	}
 	response = DHTChangeOK
-	return
-}
-
-// retryIfHashNotFound checks to see if the hash is found and if not queues the message for retry
-func (dht *DHT) retryIfHashNotFound(hash Hash, msg *Message, retries int) (response interface{}, err error) {
-	err = dht.Exists(hash, StatusDefault)
-	if err != nil {
-		if err == ErrHashNotFound {
-			dht.dlog.Logf("don't yet have %s, trying again later", hash)
-			retry := &retry{msg: *msg, retries: retries}
-			dht.retryQueue <- retry
-			response = DHTChangeUnknownHashQueuedForRetry
-			err = nil
-		}
-	}
 	return
 }

@@ -69,14 +69,10 @@ const (
 	MaxRetries = 10
 )
 
-// HoldReq holds the data of a put request
+// HoldReq holds the data of a change
 type HoldReq struct {
-	H Hash
-}
-
-// PutReq holds the data of a put request
-type PutReq struct {
-	H Hash
+	EntryHash   Hash // hash of the entry responsible for the change
+	RelatedHash Hash // hash of the related entry (link=base,del=deleted, mod=modified by)
 }
 
 // GetReq holds the data of a get request
@@ -92,24 +88,6 @@ type GetResp struct {
 	EntryType  string
 	Sources    []string
 	FollowHash string // hash of new entry if the entry was modified and needs following
-}
-
-// DelReq holds the data of a del request
-type DelReq struct {
-	H  Hash // hash to be deleted
-	By Hash // hash of DelEntry on source chain took this action
-}
-
-// ModReq holds the data of a mod request
-type ModReq struct {
-	H Hash
-	N Hash
-}
-
-// LinkReq holds a link request
-type LinkReq struct {
-	Base  Hash // data on which to attach the links
-	Links Hash // hash of the source entry making the link, i.e. the req provenance
 }
 
 // LinkQuery holds a getLinks query
@@ -194,7 +172,7 @@ func (dht *DHT) putKey(agent Agent) (err error) {
 	if err != nil {
 		return
 	}
-	if err = dht.Put(dht.h.node.NewMessage(PUT_REQUEST, PutReq{H: keyHash}), KeyEntryType, keyHash, nodeID, []byte(pubKey), StatusLive); err != nil {
+	if err = dht.Put(dht.h.node.NewMessage(PUT_REQUEST, HoldReq{EntryHash: keyHash}), KeyEntryType, keyHash, nodeID, []byte(pubKey), StatusLive); err != nil {
 		return
 	}
 	return
@@ -231,7 +209,7 @@ func (dht *DHT) SetupDHT() (err error) {
 	if err != nil {
 		return
 	}
-	if err = dht.Put(dht.h.node.NewMessage(PUT_REQUEST, PutReq{H: a}), AgentEntryType, a, dht.h.nodeID, b, StatusLive); err != nil {
+	if err = dht.Put(dht.h.node.NewMessage(PUT_REQUEST, HoldReq{EntryHash: a}), AgentEntryType, a, dht.h.nodeID, b, StatusLive); err != nil {
 		return
 	}
 

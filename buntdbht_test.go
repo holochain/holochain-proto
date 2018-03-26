@@ -40,7 +40,7 @@ func TestBuntHTPutGetModDel(t *testing.T) {
 	ht.Open(f)
 
 	Convey("It should store and retrieve", t, func() {
-		err := ht.Put(node.NewMessage(PUT_REQUEST, PutReq{H: hash}), "someType", hash, id, []byte("some value"), StatusLive)
+		err := ht.Put(node.NewMessage(PUT_REQUEST, HoldReq{EntryHash: hash}), "someType", hash, id, []byte("some value"), StatusLive)
 		So(err, ShouldBeNil)
 		idx, _ = ht.GetIdx()
 
@@ -61,7 +61,7 @@ func TestBuntHTPutGetModDel(t *testing.T) {
 		newhashStr := "QmY8Mzg9F69e5P9AoQPYat655HEhc1TVGs11tmfNSzkqh4"
 		newhash, _ := NewHash(newhashStr)
 
-		m := node.NewMessage(MOD_REQUEST, ModReq{H: hash, N: newhash})
+		m := node.NewMessage(MOD_REQUEST, HoldReq{RelatedHash: hash, EntryHash: newhash})
 
 		err := ht.Mod(m, hash, newhash)
 		So(err, ShouldBeNil)
@@ -90,7 +90,7 @@ func TestBuntHTPutGetModDel(t *testing.T) {
 	})
 
 	Convey("del should move the hash to the deleted status", t, func() {
-		m := node.NewMessage(DEL_REQUEST, DelReq{H: hash})
+		m := node.NewMessage(DEL_REQUEST, HoldReq{RelatedHash: hash})
 
 		err := ht.Del(m, hash)
 		So(err, ShouldBeNil)
@@ -149,13 +149,13 @@ func TestBuntHTLinking(t *testing.T) {
 		So(err, ShouldEqual, ErrHashNotFound)
 	})
 
-	err = ht.Put(node.NewMessage(PUT_REQUEST, PutReq{H: base}), "someType", base, id, []byte("some value"), StatusLive)
+	err = ht.Put(node.NewMessage(PUT_REQUEST, HoldReq{EntryHash: base}), "someType", base, id, []byte("some value"), StatusLive)
 	if err != nil {
 		panic(err)
 	}
 
 	// the message doesn't actually matter for this test because it only gets used later in gossiping
-	fakeMsg := node.NewMessage(LINK_REQUEST, LinkReq{Base: linkHash1, Links: linkingEntryHash})
+	fakeMsg := node.NewMessage(LINK_REQUEST, HoldReq{RelatedHash: linkHash1, EntryHash: linkingEntryHash})
 
 	Convey("Low level should add linking events to buntdb", t, func() {
 		err := ht.link(fakeMsg, baseStr, linkHash1Str, "link test", StatusLive)

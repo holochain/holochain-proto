@@ -99,7 +99,7 @@ func TestDHTSend(t *testing.T) {
 	// publish the entry data to the dht
 	hash = hd.EntryLink
 	Convey("after a handled PUT_REQUEST data should be stored in DHT", t, func() {
-		msg := h.node.NewMessage(PUT_REQUEST, PutReq{H: hash})
+		msg := h.node.NewMessage(PUT_REQUEST, HoldReq{EntryHash: hash})
 		r, err := h.dht.send(nil, h.node.HashAddr, msg)
 		So(err, ShouldBeNil)
 		So(r, ShouldEqual, DHTChangeOK)
@@ -159,7 +159,7 @@ func TestDHTQueryGet(t *testing.T) {
 
 	// publish the entry data to local DHT node (0)
 	hash := hd.EntryLink
-	msg := h.node.NewMessage(PUT_REQUEST, PutReq{H: hash})
+	msg := h.node.NewMessage(PUT_REQUEST, HoldReq{EntryHash: hash})
 	_, err = h.dht.send(nil, h.node.HashAddr, msg)
 	if err != nil {
 		panic(err)
@@ -218,7 +218,7 @@ func TestDHTKadPut(t *testing.T) {
 		rtp := h.node.routingTable.NearestPeers(hash, AlphaValue)
 		// check that our routing table doesn't contain closest node yet
 		So(fmt.Sprintf("%v", rtp), ShouldEqual, "[<peer.ID UfY4We> <peer.ID dxxuES>]")
-		err := h.dht.Change(hash, PUT_REQUEST, PutReq{H: hash})
+		err := h.dht.Change(hash, PUT_REQUEST, HoldReq{EntryHash: hash})
 		So(err, ShouldBeNil)
 		rtp = h.node.routingTable.NearestPeers(hash, AlphaValue)
 		// routing table should be updated
@@ -239,13 +239,13 @@ func TestActionReceiver(t *testing.T) {
 	Convey("PUT_REQUEST should fail if body isn't a hash", t, func() {
 		m := h.node.NewMessage(PUT_REQUEST, "foo")
 		_, err := ActionReceiver(h, m)
-		So(err.Error(), ShouldEqual, "Unexpected request body type 'string' in put request, expecting holochain.PutReq")
+		So(err.Error(), ShouldEqual, "Unexpected request body type 'string' in put request, expecting holochain.HoldReq")
 	})
 
 	Convey("LINK_REQUEST should fail if body not a good linking request", t, func() {
 		m := h.node.NewMessage(LINK_REQUEST, "foo")
 		_, err := ActionReceiver(h, m)
-		So(err.Error(), ShouldEqual, "Unexpected request body type 'string' in link request, expecting holochain.LinkReq")
+		So(err.Error(), ShouldEqual, "Unexpected request body type 'string' in link request, expecting holochain.HoldReq")
 	})
 
 	now := time.Unix(1, 1) // pick a constant time so the test will always work
@@ -254,7 +254,7 @@ func TestActionReceiver(t *testing.T) {
 	hash := hd.EntryLink
 
 	Convey("PUT_REQUEST should queue a valid message", t, func() {
-		m := h.node.NewMessage(PUT_REQUEST, PutReq{H: hash})
+		m := h.node.NewMessage(PUT_REQUEST, HoldReq{EntryHash: hash})
 		r, err := ActionReceiver(h, m)
 		So(err, ShouldBeNil)
 		So(r, ShouldEqual, DHTChangeOK)
@@ -307,7 +307,7 @@ func TestActionReceiver(t *testing.T) {
 	_, lhd, _ := h.NewEntry(time.Now(), "rating", &le)
 
 	Convey("LINK_REQUEST should store links", t, func() {
-		lr := LinkReq{Base: hash, Links: lhd.EntryLink}
+		lr := HoldReq{RelatedHash: hash, EntryHash: lhd.EntryLink}
 		m := h.node.NewMessage(LINK_REQUEST, lr)
 		r, err := ActionReceiver(h, m)
 		So(err, ShouldBeNil)
@@ -326,7 +326,7 @@ func TestActionReceiver(t *testing.T) {
 	hash3, _ := e3.Sum(h.hashSpec)
 
 	Convey("LINK_REQUEST of unknown hash should get queued for retry", t, func() {
-		lr := LinkReq{Base: hash2, Links: hash3}
+		lr := HoldReq{RelatedHash: hash2, EntryHash: hash3}
 		m := h.node.NewMessage(LINK_REQUEST, lr)
 		r, err := ActionReceiver(h, m)
 		So(err, ShouldBeNil)
@@ -380,7 +380,7 @@ func TestActionReceiver(t *testing.T) {
 	_, lhd2, _ := h.NewEntry(time.Now(), "rating", &le2)
 
 	Convey("LINK_REQUEST with del type should mark a link as deleted", t, func() {
-		lr := LinkReq{Base: hash, Links: lhd2.EntryLink}
+		lr := HoldReq{RelatedHash: hash, EntryHash: lhd2.EntryLink}
 		m := h.node.NewMessage(LINK_REQUEST, lr)
 		r, err := ActionReceiver(h, m)
 		So(r, ShouldEqual, DHTChangeOK)
@@ -404,7 +404,7 @@ func TestActionReceiver(t *testing.T) {
 	})
 
 	Convey("MOD_REQUEST of unknown hash should get queued for retry", t, func() {
-		req := ModReq{H: hash2, N: hash3}
+		req := HoldReq{RelatedHash: hash2, EntryHash: hash3}
 		m := h.node.NewMessage(MOD_REQUEST, req)
 		r, err := ActionReceiver(h, m)
 		So(err, ShouldBeNil)
@@ -415,11 +415,11 @@ func TestActionReceiver(t *testing.T) {
 
 	// put a second entry to DHT
 	h.NewEntry(now, "evenNumbers", &e2)
-	m2 := h.node.NewMessage(PUT_REQUEST, PutReq{H: hash2})
+	m2 := h.node.NewMessage(PUT_REQUEST, HoldReq{EntryHash: hash2})
 	ActionReceiver(h, m2)
 
 	Convey("MOD_REQUEST should set hash to modified", t, func() {
-		req := ModReq{H: hash, N: hash2}
+		req := HoldReq{RelatedHash: hash, EntryHash: hash2}
 		m := h.node.NewMessage(MOD_REQUEST, req)
 		r, err := ActionReceiver(h, m)
 		So(err, ShouldBeNil)
@@ -431,7 +431,7 @@ func TestActionReceiver(t *testing.T) {
 		a := NewDelAction(entry)
 		_, err := h.doCommit(a, NullHash())
 		entryHash := a.header.EntryLink
-		m := h.node.NewMessage(DEL_REQUEST, DelReq{H: hash2, By: entryHash})
+		m := h.node.NewMessage(DEL_REQUEST, HoldReq{RelatedHash: hash2, EntryHash: entryHash})
 		r, err := ActionReceiver(h, m)
 		So(err, ShouldBeNil)
 		So(r, ShouldEqual, DHTChangeOK)
@@ -445,7 +445,7 @@ func TestActionReceiver(t *testing.T) {
 	})
 
 	Convey("DELETE_REQUEST of unknown hash should get queued for retry", t, func() {
-		req := DelReq{H: hash3, By: hash3}
+		req := HoldReq{RelatedHash: hash3, EntryHash: hash3}
 		m := h.node.NewMessage(DEL_REQUEST, req)
 		r, err := ActionReceiver(h, m)
 		So(err, ShouldBeNil)
@@ -582,7 +582,7 @@ func TestDHTRetry(t *testing.T) {
 	hash2, _ := e2.Sum(h.hashSpec)
 
 	Convey("it should make a change after some retries", t, func() {
-		req := ModReq{H: hash, N: hash2}
+		req := HoldReq{RelatedHash: hash, EntryHash: hash2}
 		m := h.node.NewMessage(MOD_REQUEST, req)
 		r, err := ActionReceiver(h, m)
 		So(err, ShouldBeNil)
@@ -595,10 +595,10 @@ func TestDHTRetry(t *testing.T) {
 		// add the entries and get them into the DHT
 		h.NewEntry(time.Now(), "profile", &e)
 		h.NewEntry(time.Now(), "profile", &e2)
-		m = h.node.NewMessage(PUT_REQUEST, PutReq{H: hash})
+		m = h.node.NewMessage(PUT_REQUEST, HoldReq{EntryHash: hash})
 		err = h.dht.Put(m, "profile", hash, h.nodeID, []byte(d1), StatusLive)
 		So(err, ShouldBeNil)
-		m = h.node.NewMessage(PUT_REQUEST, PutReq{H: hash2})
+		m = h.node.NewMessage(PUT_REQUEST, HoldReq{EntryHash: hash2})
 		err = h.dht.Put(m, "profile", hash2, h.nodeID, []byte(d2), StatusLive)
 		So(err, ShouldBeNil)
 
@@ -623,7 +623,7 @@ func TestDHTRetry(t *testing.T) {
 		hash3, _ := e3.Sum(h.hashSpec)
 		e4 := GobEntry{C: `{"firstName":"Zuppy","lastName":"Pinhead"}`}
 		hash4, _ := e4.Sum(h.hashSpec)
-		req := ModReq{H: hash3, N: hash4}
+		req := HoldReq{RelatedHash: hash3, EntryHash: hash4}
 		m := h.node.NewMessage(MOD_REQUEST, req)
 		r, err := ActionReceiver(h, m)
 		So(err, ShouldBeNil)

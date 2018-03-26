@@ -211,7 +211,7 @@ func TestNodeSend(t *testing.T) {
 	Convey("It should respond with err on bad request on invalid PUT_REQUESTS", t, func() {
 		hash, _ := NewHash("QmY8Mzg9F69e5P9AoQPYat6x5HEhc1TVGs11tmfNSzkqh2")
 
-		m := node2.NewMessage(PUT_REQUEST, PutReq{H: hash})
+		m := node2.NewMessage(PUT_REQUEST, HoldReq{EntryHash: hash})
 		r, err := node2.Send(context.Background(), ActionProtocol, node1.HashAddr, m)
 		So(err, ShouldBeNil)
 		So(r.Type, ShouldEqual, ERROR_RESPONSE)
@@ -518,7 +518,7 @@ func TestNodeStress(t *testing.T) {
 		s2 := make(chan bool, count)
 		for i = 0; i < count; i++ {
 			hash := commit(h1, "evenNumbers", fmt.Sprintf("%d", i*2))
-			m := node1.NewMessage(PUT_REQUEST, PutReq{H: hash})
+			m := node1.NewMessage(PUT_REQUEST, HoldReq{EntryHash: hash})
 			r, err = node1.Send(mt.ctx, ActionProtocol, node2.HashAddr, m)
 			if err != nil || r.Type != OK_RESPONSE {
 				break

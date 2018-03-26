@@ -103,7 +103,6 @@ type ZomeFile struct {
 	CodeFile     string
 	RibosomeType string
 	BridgeFuncs  []string // functions in zome that can be bridged to by fromApp
-	BridgeTo     string   // dna Hash of toApp that this zome is a client of
 	Config       map[string]interface{}
 	Entries      []EntryDefFile
 	Functions    []FunctionDef
@@ -158,12 +157,6 @@ type TestData struct {
 	Repeat    int           // number of times to repeat this test, useful for scenario testing
 	Benchmark bool          // activate benchmarking for this test
 }
-
-// IsDevMode is used to enable certain functionality when developing holochains, for example,
-// in dev mode, you can put the name of an app in the BridgeTo of the DNA and it will get
-// resolved to DNA hash of the app in the DevDNAResolveMap[name] global variable.
-var IsDevMode bool = false
-var DevDNAResolveMap map[string]string
 
 // IsInitialized checks a path for a correctly set up .holochain directory
 func IsInitialized(root string) bool {
@@ -410,32 +403,6 @@ func (s *Service) loadDNA(path string, filename string, format string) (dnaP *DN
 		dna.Zomes[i].Functions = zome.Functions
 		dna.Zomes[i].Config = zome.Config
 		dna.Zomes[i].BridgeFuncs = zome.BridgeFuncs
-		if zome.BridgeTo != "" {
-			dna.Zomes[i].BridgeTo, err = NewHash(zome.BridgeTo)
-			if err != nil {
-				// if in dev mode assume the bridgeTo was the app name
-				// and that hcdev put the actual DNA for us in the DevDNAResolveMap
-				if IsDevMode {
-					var dnaHashStr string
-					if DevDNAResolveMap != nil {
-						dnaHashStr, _ = DevDNAResolveMap[zome.BridgeTo]
-					}
-
-					dna.Zomes[i].BridgeTo, err = NewHash(dnaHashStr)
-					if err != nil {
-						// if that doesn't work, assume the testing is for
-						// a non bridged case, and just clear the bridgeTo value
-						// but issue a warning.
-						Infof("DEV MODE: WARNING, found BridgeTo value '%s' but unable to resolve, proceeding without BridgeTo", zome.BridgeTo)
-					} else {
-						Infof("DEV MODE: Found BridgeTo value '%s' and resolved to DNA Hash: %s", zome.BridgeTo, dnaHashStr)
-					}
-				} else {
-					err = fmt.Errorf("in zome: %s BridgeTo hash invalid", zome.Name)
-					return
-				}
-			}
-		}
 
 		var code []byte
 		code, err = ReadFile(zomePath, zome.CodeFile)
@@ -973,7 +940,6 @@ func (s *Service) saveDNAFile(root string, dna *DNA, encodingFormat string, over
 			RibosomeType: z.RibosomeType,
 			Functions:    z.Functions,
 			BridgeFuncs:  z.BridgeFuncs,
-			BridgeTo:     z.BridgeTo.String(),
 			Config:       z.Config,
 		}
 
@@ -1318,14 +1284,14 @@ func GetAllTestRoles(path string) (roleNameList []string, err error) {
 		return nil, err
 	}
 
-	re := regexp.MustCompile(`(.*)\.json`)
+	// ignore all files that start with an underscore, these are either the config file or
+	// bridge specs
+	re := regexp.MustCompile(`^([^_].*)\.json`)
 	for _, f := range files {
 		if f.Mode().IsRegular() {
 			x := re.FindStringSubmatch(f.Name())
 			if len(x) > 0 {
-				if f.Name() != TestConfigFileName {
-					roleNameList = append(roleNameList, x[1])
-				}
+				roleNameList = append(roleNameList, x[1])
 			}
 		}
 	}

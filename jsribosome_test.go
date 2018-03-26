@@ -242,7 +242,7 @@ func TestNewJSRibosome(t *testing.T) {
 			}
 
 			hToHash, _ := NewHash("QmY8Mzg9F69e5P9AoQPYat655HEhc1TVGs11tmfNSzkqto")
-			err = h.AddBridgeAsCaller(hToHash, token, "fakeurl", "")
+			err = h.AddBridgeAsCaller("jsSampleZome", hToHash, token, "fakeurl", "")
 			if err != nil {
 				panic(err)
 			}

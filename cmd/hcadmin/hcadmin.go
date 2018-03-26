@@ -178,7 +178,7 @@ func setupApp() (app *cli.App) {
 		{
 			Name:      "bridge",
 			Aliases:   []string{"b"},
-			ArgsUsage: "from-chain to-chain",
+			ArgsUsage: "from-chain to-chain bridge-zome",
 			Usage:     "allows to-chain to make calls to functions in from-chain",
 			Flags: []cli.Flag{
 				cli.StringFlag{
@@ -193,14 +193,12 @@ func setupApp() (app *cli.App) {
 				},
 			},
 			Action: func(c *cli.Context) error {
-				fromChain := c.Args().First()
-				if fromChain == "" {
-					return errors.New("bridge: missing required from-chain argument")
+				if len(c.Args()) != 3 {
+					return errors.New("bridge: requires three arguments: from-chain to-chain bridge-zome")
 				}
-				if len(c.Args()) == 1 {
-					return errors.New("bridge: missing required to-chain argument")
-				}
+				fromChain := c.Args()[0]
 				toChain := c.Args()[1]
+				bridgeZome := c.Args()[2]
 
 				hFrom, err := cmd.GetHolochain(fromChain, service, "bridge")
 				if err != nil {
@@ -216,7 +214,7 @@ func setupApp() (app *cli.App) {
 					return err
 				}
 
-				err = hFrom.AddBridgeAsCaller(hTo.DNAHash(), token, fmt.Sprintf("http://localhost:%d", hTo.Config.Port), bridgeFromAppData)
+				err = hFrom.AddBridgeAsCaller(bridgeZome, hTo.DNAHash(), token, fmt.Sprintf("http://localhost:%d", hTo.Config.Port), bridgeFromAppData)
 
 				if err == nil {
 					if verbose {

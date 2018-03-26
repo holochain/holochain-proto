@@ -673,8 +673,13 @@ func (s *Service) MakeTestingApp(root string, encodingFormat string, initDB bool
 	if DirExists(root) {
 		return nil, mkErr(root + " already exists")
 	}
-
 	appPackageReader := bytes.NewBuffer([]byte(TestingAppAppPackage()))
+
+	if filepath.IsAbs(root) {
+		origPath := s.Path
+		s.Path = filepath.Dir(root)
+		defer func() { s.Path = origPath }()
+	}
 
 	name := filepath.Base(root)
 	_, err = s.SaveFromAppPackage(appPackageReader, root, "test", agent, TestingAppDecodingFormat, encodingFormat, newUUID)
@@ -716,7 +721,6 @@ func (s *Service) MakeTestingApp(root string, encodingFormat string, initDB bool
 		if err = h.Config.Setup(); err != nil {
 			return
 		}
-
 	}
 	return
 }

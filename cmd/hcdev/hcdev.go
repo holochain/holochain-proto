@@ -232,7 +232,12 @@ func setupApp() (app *cli.App) {
 				if name == "" {
 					name = args[0]
 				}
-				devPath = filepath.Join(devPath, name)
+				if filepath.IsAbs(name) {
+					devPath = name
+					name = filepath.Base(name)
+				} else {
+					devPath = filepath.Join(devPath, name)
+				}
 
 				info, err := os.Stat(devPath)
 				if err == nil && info.Mode().IsDir() {
@@ -336,6 +341,7 @@ func setupApp() (app *cli.App) {
 
 					var appPackage *holo.AppPackage
 					appPackage, err = service.SaveFromAppPackage(appPackageReader, devPath, name, agent, holo.BasicTemplateAppPackageFormat, encodingFormat, true)
+					fmt.Printf("ERR:%v", err)
 					if err != nil {
 						return cmd.MakeErrFromErr(c, err)
 					}

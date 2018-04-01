@@ -311,7 +311,7 @@ func (h *Holochain) Prepare() (err error) {
 	h.dht = NewDHT(h)
 	h.nucleus.h = h
 
-	h.world = NewWorld(h.node.HashAddr)
+	h.world = NewWorld(h.node.HashAddr, h.dht)
 
 	var peerList PeerList
 	peerList, err = h.dht.getList(BlockedList)

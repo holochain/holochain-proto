@@ -505,16 +505,12 @@ func (a *APIFnVerifySignature) Args() []Arg {
 
 func (a *APIFnVerifySignature) Call(h *Holochain) (response interface{}, err error) {
 	var b bool
-	var pubKeyIC ic.PubKey
+	var pubKey ic.PubKey
 	sig := SignatureFromB58String(a.b58signature)
-	var pubKeyBytes []byte
-	pubKeyBytes = b58.Decode(a.b58pubKey)
-	pubKeyIC, err = ic.UnmarshalPublicKey(pubKeyBytes)
-	if err != nil {
-		return
-	}
 
-	b, err = h.VerifySignature(sig, a.data, pubKeyIC)
+	pubKey, err = DecodePubKey(a.b58pubKey)
+
+	b, err = h.VerifySignature(sig, a.data, pubKey)
 	if err != nil {
 		return
 	}

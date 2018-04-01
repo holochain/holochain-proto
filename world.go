@@ -7,6 +7,7 @@ package holochain
 
 import (
 	. "github.com/holochain/holochain-proto/hash"
+	ic "github.com/libp2p/go-libp2p-crypto"
 	peer "github.com/libp2p/go-libp2p-peer"
 	pstore "github.com/libp2p/go-libp2p-peerstore"
 )
@@ -14,6 +15,7 @@ import (
 // NodeRecord stores the necessary information about other nodes in the world model
 type NodeRecord struct {
 	PeerInfo pstore.PeerInfo
+	PubKey   ic.PubKey
 }
 
 // World holds the data of a nodes' world model
@@ -21,13 +23,15 @@ type World struct {
 	me          peer.ID
 	nodes       map[peer.ID]*NodeRecord
 	responsible map[Hash][]peer.ID
+	ht          HashTable
 }
 
 // NewWorld creates and empty world model
-func NewWorld(me peer.ID) *World {
+func NewWorld(me peer.ID, ht HashTable) *World {
 	world := World{me: me}
 	world.nodes = make(map[peer.ID]*NodeRecord)
 	world.responsible = make(map[Hash][]peer.ID)
+	world.ht = ht
 	return &world
 }
 
@@ -44,8 +48,8 @@ func (world *World) AllNodes() (nodes []peer.ID, err error) {
 }
 
 // AddNode adds a node to the world model
-func (world *World) AddNode(pi pstore.PeerInfo) (err error) {
-	rec := NodeRecord{PeerInfo: pi}
+func (world *World) AddNode(pi pstore.PeerInfo, pubKey ic.PubKey) (err error) {
+	rec := NodeRecord{PeerInfo: pi, PubKey: pubKey}
 	world.nodes[pi.ID] = &rec
 	return
 }

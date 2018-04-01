@@ -12,7 +12,7 @@ import (
 
 func testAddNodeToWorld(world *World, ID peer.ID, addr ma.Multiaddr) {
 	pi := pstore.PeerInfo{ID: ID, Addrs: []ma.Multiaddr{addr}}
-	err := world.AddNode(pi)
+	err := world.AddNode(pi, nil)
 	if err != nil {
 		panic(err)
 	}
@@ -33,7 +33,9 @@ func testAddNodesToWorld(world *World, start, count int) (nodes []*Node) {
 func TestWorldNodes(t *testing.T) {
 	b58 := "QmY8Mzg9F69e5P9AoQPYat655HEhc1TVGs11tmfNSzkqh2"
 	peer, _ := peer.IDB58Decode(b58)
-	world := NewWorld(peer)
+
+	ht := BuntHT{}
+	world := NewWorld(peer, &ht)
 
 	Convey("to start with I should know about nobody", t, func() {
 		nodes, err := world.AllNodes()
@@ -69,7 +71,8 @@ func TestWorldUpdateResponsible(t *testing.T) {
 	var p1, p2, p3, p4, p5 peer.ID
 	var hash1, hash2, hash4 Hash
 	p1, _ = peer.IDB58Decode(b58)
-	world := NewWorld(p1)
+	ht := BuntHT{}
+	world := NewWorld(p1, &ht)
 	var addr ma.Multiaddr
 	var err error
 	var responsible bool

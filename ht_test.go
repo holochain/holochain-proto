@@ -6,7 +6,7 @@ import (
 	"testing"
 )
 
-func Test(t *testing.T) {
+func TestHT(t *testing.T) {
 	Convey("", t, func() {
 	})
 }

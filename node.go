@@ -16,6 +16,7 @@ import (
 	. "github.com/holochain/holochain-proto/hash"
 	goprocess "github.com/jbenet/goprocess"
 	goprocessctx "github.com/jbenet/goprocess/context"
+	ic "github.com/libp2p/go-libp2p-crypto"
 	nat "github.com/libp2p/go-libp2p-nat"
 	net "github.com/libp2p/go-libp2p-net"
 	peer "github.com/libp2p/go-libp2p-peer"
@@ -176,6 +177,30 @@ func (h *Holochain) HandlePeerFound(pi pstore.PeerInfo) {
 	}
 }
 
+func (h *Holochain) getNodePubKey(ID peer.ID) (pubKey ic.PubKey, err error) {
+	req := GetReq{H: HashFromPeerID(ID), GetMask: GetMaskEntry}
+	var rsp interface{}
+	rsp, err = callGet(h, req, &GetOptions{GetMask: req.GetMask})
+	if err != nil {
+		return
+	}
+	e := rsp.(GetResp).Entry
+	pubKey, err = DecodePubKey(e.Content().(string))
+	if err != nil {
+		return
+	}
+	var pkID peer.ID
+	pkID, err = peer.IDFromPublicKey(pubKey)
+	if err != nil {
+		return
+	}
+	if pkID != ID {
+		err = errors.New("Public Key doesn't match Node ID!")
+		return
+	}
+	return
+}
+
 func (h *Holochain) addPeer(pi pstore.PeerInfo, confirm bool) (err error) {
 	// add the peer into the peerstore
 	h.node.peerstore.AddAddrs(pi.ID, pi.Addrs, PeerTTL)
@@ -193,11 +218,23 @@ func (h *Holochain) addPeer(pi pstore.PeerInfo, confirm bool) (err error) {
 		h.dht.dlog.Logf("Adding Peer: %v\n", pi.ID)
 		h.node.routingTable.Update(pi.ID)
 		err = h.dht.AddGossiper(pi.ID)
+		if err != nil {
+			return
+		}
 		if bootstrap {
 			RoutingRefreshTask(h)
 		}
-		h.world.AddNode(pi)
+
+		var pubKey ic.PubKey
+		if confirm {
+			pubKey, err = h.getNodePubKey(pi.ID)
+			if err != nil {
+				return
+			}
+		}
+		h.world.AddNode(pi, pubKey)
 	}
+
 	return
 }
 

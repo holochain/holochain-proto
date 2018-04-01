@@ -372,9 +372,11 @@ func TestAddPeer(t *testing.T) {
 	h := nodes[0]
 	somePeer := nodes[1].node.HashAddr
 	pi := pstore.PeerInfo{ID: somePeer, Addrs: []ma.Multiaddr{nodes[1].node.NetAddr}}
-	Convey("it should add a peer to the peer store and the gossip list", t, func() {
+	Convey("it should add a peer to the peer store and the gossip list with public key", t, func() {
 		So(h.node.routingTable.Size(), ShouldEqual, 0)
 		So(len(h.node.peerstore.Peers()), ShouldEqual, 1)
+		So(len(h.world.nodes), ShouldEqual, 0)
+
 		err := h.AddPeer(pi)
 		So(err, ShouldBeNil)
 		So(len(h.node.peerstore.Peers()), ShouldEqual, 2)
@@ -383,6 +385,11 @@ func TestAddPeer(t *testing.T) {
 		So(len(glist), ShouldEqual, 1)
 		So(glist[0], ShouldEqual, somePeer)
 		So(h.node.routingTable.Size(), ShouldEqual, 1)
+
+		So(len(h.world.nodes), ShouldEqual, 1)
+		node1ID, _, _ := nodes[1].agent.NodeID()
+		So(h.world.nodes[node1ID].PubKey.Equals(nodes[1].agent.PubKey()), ShouldBeTrue)
+
 	})
 
 	Convey("it should not add a blocked peer", t, func() {

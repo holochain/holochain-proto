@@ -142,12 +142,19 @@ const (
 
 // NewDHT creates a new DHT structure
 func NewDHT(h *Holochain) *DHT {
-	dht := DHT{
-		h:      h,
-		glog:   &h.Config.Loggers.Gossip,
-		dlog:   &h.Config.Loggers.DHT,
-		config: &h.Nucleus().DNA().DHTConfig,
-	}
+	dht := DHT{}
+	dht.Open(h)
+	return &dht
+}
+
+// Open sets up the DHTs data structures and store
+func (dht *DHT) Open(options interface{}) (err error) {
+	h := options.(*Holochain)
+	dht.h = h
+	dht.glog = &h.Config.Loggers.Gossip
+	dht.dlog = &h.Config.Loggers.DHT
+	dht.config = &h.Nucleus().DNA().DHTConfig
+
 	dht.ht = &BuntHT{}
 	dht.ht.Open(filepath.Join(h.DBPath(), DHTStoreFileName))
 	dht.retryQueue = make(chan *retry, 100)
@@ -156,8 +163,7 @@ func NewDHT(h *Holochain) *DHT {
 	//	dht.fingerprints = make(map[string]bool)
 	dht.gchan = make(Channel, GossipWithQueueSize)
 	dht.gossipPuts = make(Channel, GossipPutQueueSize)
-
-	return &dht
+	return
 }
 
 // putKey implements the special case for adding the KeyEntry system type to the DHT

@@ -120,6 +120,15 @@ type BytesSent struct {
 
 var BytesSentChan chan BytesSent
 
+const (
+	RetryingStopper = iota
+	GossipingStopper
+	BootstrappingStopper
+	RefreshingStopper
+	HoldingStopper
+	_StopperCount
+)
+
 // Node represents a node in the network
 type Node struct {
 	HashAddr     peer.ID
@@ -134,10 +143,7 @@ type Node struct {
 	log          *Logger
 
 	// ticker task stoppers
-	retrying      chan bool
-	gossiping     chan bool
-	bootstrapping chan bool
-	refreshing    chan bool
+	stoppers []chan bool
 
 	// items for the kademlia implementation
 	plk   sync.Mutex
@@ -415,6 +421,8 @@ func NewNode(listenAddr string, protoMux string, agent *LibP2PAgent, enableNATUP
 	n.protocols[ActionProtocol] = &Protocol{protocol.ID(actionProtocolString), ActionReceiver}
 	n.protocols[KademliaProtocol] = &Protocol{protocol.ID(kademliaProtocolString), KademliaReceiver}
 
+	n.stoppers = make([]chan bool, _StopperCount)
+
 	ctx := context.Background()
 	n.ctx = ctx
 
@@ -543,23 +551,12 @@ func (node *Node) StartProtocol(h *Holochain, proto int) (err error) {
 
 // Close shuts down the node
 func (node *Node) Close() error {
-	if node.gossiping != nil {
-		node.log.Log("Stopping gossiping")
-		stop := node.gossiping
-		node.gossiping = nil
-		stop <- true
-	}
-	if node.retrying != nil {
-		node.log.Log("Stopping retrying")
-		stop := node.retrying
-		node.retrying = nil
-		stop <- true
-	}
-	if node.bootstrapping != nil {
-		node.log.Log("Stopping boostrapping")
-		stop := node.bootstrapping
-		node.bootstrapping = nil
-		stop <- true
+	for i, stopper := range node.stoppers {
+		if stopper != nil {
+			stop := node.stoppers[i]
+			node.stoppers[i] = nil
+			stop <- true
+		}
 	}
 	return node.proc.Close()
 }

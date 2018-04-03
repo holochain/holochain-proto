@@ -60,6 +60,7 @@ type Config struct {
 	BootstrapServer string
 	Loggers         Loggers
 
+	holdingCheckInterval     time.Duration
 	gossipInterval           time.Duration
 	bootstrapRefreshInterval time.Duration
 	routingRefreshInterval   time.Duration
@@ -805,18 +806,25 @@ func (h *Holochain) StartBackgroundTasks() {
 	go h.DHT().HandleGossipPuts()
 	go h.DHT().HandleGossipWiths()
 	go h.HandleAsyncSends()
+	go h.DHT().HandleChangeRequests()
 
 	if h.Config.gossipInterval > 0 {
-		h.node.gossiping = h.TaskTicker(h.Config.gossipInterval, GossipTask)
+		h.node.stoppers[GossipingStopper] = h.TaskTicker(h.Config.gossipInterval, GossipTask)
 	} else {
 		h.Debug("Gossip disabled")
 	}
-	h.node.retrying = h.TaskTicker(h.Config.retryInterval, RetryTask)
+
+	if h.Config.holdingCheckInterval > 0 {
+		h.node.stoppers[HoldingStopper] = h.TaskTicker(h.Config.holdingCheckInterval, HoldingTask)
+	}
+
+	h.node.stoppers[RetryingStopper] = h.TaskTicker(h.Config.retryInterval, RetryTask)
 	if h.Config.BootstrapServer != "" {
 		go BootstrapRefreshTask(h)
-		h.node.retrying = h.TaskTicker(h.Config.bootstrapRefreshInterval, BootstrapRefreshTask)
+		h.node.stoppers[BootstrappingStopper] = h.TaskTicker(h.Config.bootstrapRefreshInterval, BootstrapRefreshTask)
 	}
-	h.node.refreshing = h.TaskTicker(h.Config.routingRefreshInterval, RoutingRefreshTask)
+
+	h.node.stoppers[RefreshingStopper] = h.TaskTicker(h.Config.routingRefreshInterval, RoutingRefreshTask)
 }
 
 // BootstrapRefreshTask refreshes our node and gets nodes from the bootstrap server
@@ -1104,4 +1112,9 @@ func (h *Holochain) Query(options *QueryOptions) (results []QueryResult, err err
 		}
 	}
 	return
+}
+
+// RedundancyFactor returns the redundancy that was set in the DNA
+func (h *Holochain) RedundancyFactor() int {
+	return h.nucleus.dna.DHTConfig.RedundancyFactor
 }

@@ -78,6 +78,8 @@ var ErrHashModified = errors.New("hash modified")
 var ErrHashRejected = errors.New("hash rejected")
 var ErrEntryTypeMismatch = errors.New("entry type mismatch")
 
+type HashTableIterateFn func(hash Hash) (stop bool)
+
 // HashTable provides an abstraction for storing the necessary DHT data
 type HashTable interface {
 
@@ -125,4 +127,10 @@ type HashTable interface {
 
 	// JSON converts a DHT into a JSON string representation.
 	JSON() (result string, err error)
+
+	// Iterate call fn on all the hashes in the table
+	Iterate(fn HashTableIterateFn)
+
+	// GetReceipts returns a list of receipts that were generated regarding a hash
+	//GetReceipts()
 }

@@ -8,6 +8,7 @@ import (
 	ma "github.com/multiformats/go-multiaddr"
 	. "github.com/smartystreets/goconvey/convey"
 	"testing"
+	"time"
 )
 
 func testAddNodeToWorld(world *World, ID peer.ID, addr ma.Multiaddr) {
@@ -43,17 +44,41 @@ func TestWorldNodes(t *testing.T) {
 		So(nodes, ShouldBeEmpty)
 	})
 
+	n := testAddNodesToWorld(world, 0, 1)
 	Convey("nodes can be added to the world model", t, func() {
-		n := testAddNodesToWorld(world, 0, 1)
 		nodes, err := world.AllNodes()
 		So(err, ShouldBeNil)
 		So(nodes[0], ShouldEqual, n[0].HashAddr)
 	})
 
+	Convey("GetRecord should return the nodes data", t, func() {
+		record := world.GetNodeRecord(n[0].HashAddr)
+		So(record, ShouldNotBeNil)
+		So(record.PeerInfo.ID.Pretty(), ShouldEqual, n[0].HashAddr.Pretty())
+		So(len(record.IsHolding), ShouldEqual, 0)
+	})
+
+	hash, _ := NewHash("QmVGtdTZdTFaLsaj2RwdVG8jcjNNcp1DE914DKZ2kHmXHw")
+
+	Convey("SetNodeHolding should set a node as holding a given hash", t, func() {
+		err := world.SetNodeHolding(peer, hash)
+		So(err, ShouldEqual, ErrNodeNotFound)
+
+		theNode := n[0].HashAddr
+		holding, err := world.IsHolding(theNode, hash)
+		So(err, ShouldBeNil)
+		So(holding, ShouldBeFalse)
+
+		err = world.SetNodeHolding(theNode, hash)
+
+		holding, err = world.IsHolding(theNode, hash)
+		So(err, ShouldBeNil)
+		So(holding, ShouldBeTrue)
+	})
+
 	Convey("nodes can be sorted by closeness to a hash", t, func() {
 		testAddNodesToWorld(world, 1, 5)
-		hash, _ := NewHash("QmVGtdTZdTFaLsaj2RwdVG8jcjNNcp1DE914DKZ2kHmXHw")
-		nodes, err := world.NodesByHash(hash)
+		nodes, err := world.nodesByHash(hash)
 		So(err, ShouldBeNil)
 		So(len(nodes), ShouldEqual, 7) // 7 because NodesByHash should add in "me" too
 		So(distance(nodes[0], hash).Cmp(distance(nodes[1], hash)), ShouldBeLessThanOrEqualTo, 0)
@@ -171,5 +196,90 @@ func TestWorldOverlap(t *testing.T) {
 			So(err, ShouldBeNil)
 			So(len(overlap), ShouldEqual, 4)
 		}
+	})
+}
+
+func TestWorldHoldingTask(t *testing.T) {
+	nodesCount := 10
+	mt := setupMultiNodeTesting(nodesCount)
+	defer mt.cleanupMultiNodeTesting()
+	nodes := mt.nodes
+
+	ringConnect(t, mt.ctx, nodes, nodesCount)
+	//randConnect(t, mt.ctx, nodes, nodesCount, 7, 4)
+	//starConnect(t, mt.ctx, nodes, nodesCount)
+	Convey("each node should have one other node from the ring connect", t, func() {
+		for i := 0; i < nodesCount; i++ {
+			glist, err := nodes[i].dht.getGossipers()
+			So(err, ShouldBeNil)
+			So(len(glist), ShouldEqual, 1)
+		}
+	})
+
+	Convey("each node should only have it's own puts", t, func() {
+		for i := 0; i < nodesCount; i++ {
+			puts, err := nodes[i].dht.GetPuts(0)
+			So(err, ShouldBeNil)
+			So(len(puts), ShouldEqual, 2)
+		}
+	})
+
+	Convey("each node should have everybody's puts after enough propigation time", t, func() {
+
+		for i := 0; i < nodesCount; i++ {
+			nodes[i].Config.gossipInterval = 0
+			nodes[i].Config.holdingCheckInterval = 200 * time.Millisecond
+			nodes[i].StartBackgroundTasks()
+		}
+
+		start := time.Now()
+		propigated := false
+		ticker := time.NewTicker(210 * time.Millisecond)
+		stop := make(chan bool, 1)
+
+		go func() {
+			for tick := range ticker.C {
+				// abort just in case in 4 seconds (only if propgation fails)
+				if tick.Sub(start) > (10 * time.Second) {
+					//fmt.Printf("Aborting!")
+					stop <- true
+					return
+				}
+
+				propigated = true
+				// check to see if the nodes have all gotten the puts yet.
+				for i := 0; i < nodesCount; i++ {
+					puts, _ := nodes[i].dht.GetPuts(0)
+					if len(puts) < nodesCount*2 {
+						propigated = false
+					}
+					/*					fmt.Printf("NODE%d(%s): %d:", i, nodes[i].nodeID.Pretty()[2:4], len(puts))
+										for j := 0; j < len(puts); j++ {
+											f, _ := puts[j].M.Fingerprint()
+											fmt.Printf("%s,", f.String()[2:4])
+										}
+										fmt.Printf("\n              ")
+										nodes[i].dht.glk.RLock()
+										for k, _ := range nodes[i].dht.fingerprints {
+											fmt.Printf("%s,", k)
+										}
+										nodes[i].dht.glk.RUnlock()
+										fmt.Printf("\n    ")
+										for k, _ := range nodes[i].dht.sources {
+											fmt.Printf("%d,", findNodeIdx(nodes, k))
+										}
+										fmt.Printf("\n")
+					*/
+				}
+				if propigated {
+					stop <- true
+					return
+				}
+				//				fmt.Printf("\n")
+			}
+		}()
+		<-stop
+		ticker.Stop()
+		So(propigated, ShouldBeTrue)
 	})
 }

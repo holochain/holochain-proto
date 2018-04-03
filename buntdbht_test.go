@@ -57,6 +57,16 @@ func TestBuntHTPutGetModDel(t *testing.T) {
 		So(err, ShouldEqual, ErrHashNotFound)
 	})
 
+	Convey("It should iterate", t, func() {
+		hlist := make([]Hash, 0)
+		ht.Iterate(func(hsh Hash) bool {
+			hlist = append(hlist, hsh)
+			return true
+		})
+		So(len(hlist), ShouldEqual, 1)
+		So(hlist[0].String(), ShouldEqual, hash.String())
+	})
+
 	Convey("mod should move the hash to the modified status and record replacedBy link", t, func() {
 		newhashStr := "QmY8Mzg9F69e5P9AoQPYat655HEhc1TVGs11tmfNSzkqh4"
 		newhash, _ := NewHash(newhashStr)

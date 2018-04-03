@@ -8,6 +8,7 @@ package holochain
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"gopkg.in/mgo.v2/bson"
 	"path/filepath"
@@ -48,17 +49,23 @@ type Channel chan interface{}
 
 // DHT struct holds the data necessary to run the distributed hash table
 type DHT struct {
-	h          *Holochain // pointer to the holochain this DHT is part of
-	ht         HashTable
-	retryQueue chan *retry
-	gossipPuts Channel
-	glog       *Logger // the gossip logger
-	dlog       *Logger // the dht logger
-	gchan      Channel
-	config     *DHTConfig
-	glk        sync.RWMutex
+	h           *Holochain // pointer to the holochain this DHT is part of
+	ht          HashTable
+	retryQueue  chan *retry
+	changeQueue Channel
+	gossipPuts  Channel
+	glog        *Logger // the gossip logger
+	dlog        *Logger // the dht logger
+	gchan       Channel
+	config      *DHTConfig
+	glk         sync.RWMutex
 	//	sources      map[peer.ID]bool
 	//	fingerprints map[string]bool
+}
+
+type changeReq struct {
+	key Hash
+	msg Message
 }
 
 type retry struct {
@@ -140,6 +147,8 @@ const (
 	GossipPutQueueSize  = 1000
 )
 
+var ErrNotAcceptedByAnyRemoteNode = errors.New("Change not accepted by any remote node")
+
 // NewDHT creates a new DHT structure
 func NewDHT(h *Holochain) *DHT {
 	dht := DHT{}
@@ -158,6 +167,8 @@ func (dht *DHT) Open(options interface{}) (err error) {
 	dht.ht = &BuntHT{}
 	dht.ht.Open(filepath.Join(h.DBPath(), DHTStoreFileName))
 	dht.retryQueue = make(chan *retry, 100)
+	dht.changeQueue = make(Channel, 100)
+	//go dht.HandleChangeRequests()
 
 	//	dht.sources = make(map[peer.ID]bool)
 	//	dht.fingerprints = make(map[string]bool)
@@ -295,25 +306,28 @@ func (dht *DHT) GetLinks(base Hash, tag string, statusMask int) (results []Tagge
 	return
 }
 
-// Change sends DHT change messages to the closest peers to the hash in question
-func (dht *DHT) Change(key Hash, msgType MsgType, body interface{}) (err error) {
-	dht.h.Debugf("Starting %v Change for %v with body %v", msgType, key, body)
+// HandleChangeRequests waits on a channel for dht change requests
+func (dht *DHT) HandleChangeRequests() (err error) {
+	err = dht.handleTillDone("HandleChangeRequests", dht.changeQueue, handleChangeRequests)
+	return
+}
 
-	msg := dht.h.node.NewMessage(msgType, body)
-	// change in our local DHT as well as
-	_, err = dht.send(nil, dht.h.nodeID, msg)
+func handleChangeRequests(dht *DHT, x interface{}) (err error) {
+	req := x.(changeReq)
+	err = dht.change(req)
+	return
+}
 
-	if err != nil {
-		dht.dlog.Logf("DHT send of %v to self failed with error: %s", msgType, err)
-		err = nil
-	}
+func (dht *DHT) change(req changeReq) (err error) {
+	key := req.key
+	msg := &req.msg
+	msgType := msg.Type
 	node := dht.h.node
-
 	pchan, err := node.GetClosestPeers(node.ctx, key)
 	if err != nil {
 		return err
 	}
-
+	var held bool
 	wg := sync.WaitGroup{}
 	for p := range pchan {
 		wg.Add(1)
@@ -332,9 +346,24 @@ func (dht *DHT) Change(key Hash, msgType MsgType, body interface{}) (err error) 
 						// TODO what else do we do if rejected?
 						dht.dlog.Logf("DHT send of %v failed to peer %v was rejected", msg, p)
 					}
+
+					// TODO probably should record the "holding" of non put types too
+					if msgType == PUT_REQUEST {
+						err := dht.h.world.SetNodeHolding(p, key)
+						if err != nil {
+							dht.dlog.Logf("SetNodeHolding for node %v not found in world node", p)
+						}
+					}
+					held = true
 					// TODO check the signature on the receipt
+				case CloserPeersResp:
+					closerPeers := peerInfos2Pis(t.CloserPeers)
+					for _, p := range closerPeers {
+						dht.h.AddPeer(*p)
+					}
 				default:
 					dht.dlog.Logf("DHT send of %v to peer %v response(%T) was: %v", msgType, p, t, t)
+					//	fmt.Printf("DHT send of %v to peer %v response(%T) was: %v", msgType, p, t, t)
 				}
 
 			}
@@ -342,6 +371,28 @@ func (dht *DHT) Change(key Hash, msgType MsgType, body interface{}) (err error) 
 		}(p)
 	}
 	wg.Wait()
+	if !held {
+		dht.changeQueue <- req
+	}
+	return
+}
+
+// Change sends DHT change messages to the closest peers to the hash in question
+func (dht *DHT) Change(key Hash, msgType MsgType, body interface{}) (err error) {
+	dht.h.Debugf("Starting %v Change for %v with body %v", msgType, key, body)
+
+	msg := dht.h.node.NewMessage(msgType, body)
+	// change in our local DHT
+	_, err = dht.send(nil, dht.h.nodeID, msg)
+	if err != nil {
+		return err
+	}
+	/*	if err != nil {
+		dht.dlog.Logf("DHT send of %v to self failed with error: %s", msgType, err)
+		err = nil
+	}*/
+	dht.changeQueue <- changeReq{msg: *msg, key: key}
+
 	return
 }
 
@@ -462,6 +513,8 @@ func (dht *DHT) JSON() (result string, err error) {
 
 // Close cleans up the DHT
 func (dht *DHT) Close() {
+	close(dht.changeQueue)
+	dht.changeQueue = nil
 	close(dht.retryQueue)
 	dht.retryQueue = nil
 	close(dht.gchan)
@@ -483,7 +536,7 @@ func (dht *DHT) GetIdxMessage(idx int) (msg Message, err error) {
 	return
 }
 
-// Retry starts retry processing
+// RetryTask checks to see if there are any received puts that need retrying and does one if so
 func RetryTask(h *Holochain) {
 	dht := h.dht
 	if dht != nil && len(dht.retryQueue) > 0 {
@@ -534,4 +587,8 @@ func (dht *DHT) MakeHoldResp(msg *Message, status int) (holdResp *HoldResp, err 
 		holdResp = &hr
 	}
 	return
+}
+
+func (dht *DHT) Iterate(fn HashTableIterateFn) {
+	dht.ht.Iterate(fn)
 }

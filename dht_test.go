@@ -215,11 +215,18 @@ func TestDHTKadPut(t *testing.T) {
 	ringConnect(t, mt.ctx, mt.nodes, nodesCount)
 
 	Convey("Kademlia PUT_REQUEST should put the hash to its closet node even if we don't know about it yet", t, func() {
+
 		rtp := h.node.routingTable.NearestPeers(hash, AlphaValue)
 		// check that our routing table doesn't contain closest node yet
 		So(fmt.Sprintf("%v", rtp), ShouldEqual, "[<peer.ID UfY4We> <peer.ID dxxuES>]")
 		err := h.dht.Change(hash, PUT_REQUEST, HoldReq{EntryHash: hash})
 		So(err, ShouldBeNil)
+		for len(h.dht.changeQueue) > 0 {
+			req := <-h.dht.changeQueue
+			fmt.Sprintf("%v\n", rtp)
+			err = handleChangeRequests(h.dht, req)
+			So(err, ShouldBeNil)
+		}
 		rtp = h.node.routingTable.NearestPeers(hash, AlphaValue)
 		// routing table should be updated
 		So(fmt.Sprintf("%v", rtp), ShouldEqual, "[<peer.ID S4BFeT> <peer.ID W4HeEG> <peer.ID UfY4We>]")
@@ -229,6 +236,11 @@ func TestDHTKadPut(t *testing.T) {
 		So(err, ShouldBeNil)
 		resp := r.(GetResp)
 		So(fmt.Sprintf("%v", resp.Entry), ShouldEqual, fmt.Sprintf("%v", e))
+
+		// and the world model should show that it's being held
+		holding, err := h.world.IsHolding(mt.nodes[1].nodeID, hash)
+		So(err, ShouldBeNil)
+		So(holding, ShouldBeTrue)
 	})
 }
 
@@ -609,7 +621,7 @@ func TestDHTRetry(t *testing.T) {
 		So(r, ShouldEqual, DHTChangeUnknownHashQueuedForRetry)
 
 		// pause for a few retires
-		h.node.retrying = h.TaskTicker(time.Millisecond*10, RetryTask)
+		h.node.stoppers[RetryingStopper] = h.TaskTicker(time.Millisecond*10, RetryTask)
 		time.Sleep(time.Millisecond * 25)
 
 		// add the entries and get them into the DHT
@@ -632,8 +644,8 @@ func TestDHTRetry(t *testing.T) {
 		So(status, ShouldEqual, StatusModified)
 
 		// stop retrying for next test
-		stop := h.node.retrying
-		h.node.retrying = nil
+		stop := h.node.stoppers[RetryingStopper]
+		h.node.stoppers[RetryingStopper] = nil
 		stop <- true
 
 	})
@@ -651,7 +663,7 @@ func TestDHTRetry(t *testing.T) {
 		So(len(h.dht.retryQueue), ShouldEqual, 1)
 
 		interval := time.Millisecond * 10
-		h.node.retrying = h.TaskTicker(interval, RetryTask)
+		h.node.stoppers[RetryingStopper] = h.TaskTicker(interval, RetryTask)
 		time.Sleep(interval * (MaxRetries + 2))
 		So(len(h.dht.retryQueue), ShouldEqual, 0)
 	})

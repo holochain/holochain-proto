@@ -6,16 +6,20 @@
 package holochain
 
 import (
+	"errors"
+	"fmt"
 	. "github.com/holochain/holochain-proto/hash"
 	ic "github.com/libp2p/go-libp2p-crypto"
 	peer "github.com/libp2p/go-libp2p-peer"
 	pstore "github.com/libp2p/go-libp2p-peerstore"
+	"sync"
 )
 
 // NodeRecord stores the necessary information about other nodes in the world model
 type NodeRecord struct {
-	PeerInfo pstore.PeerInfo
-	PubKey   ic.PubKey
+	PeerInfo  pstore.PeerInfo
+	PubKey    ic.PubKey
+	IsHolding map[Hash]bool
 }
 
 // World holds the data of a nodes' world model
@@ -24,7 +28,11 @@ type World struct {
 	nodes       map[peer.ID]*NodeRecord
 	responsible map[Hash][]peer.ID
 	ht          HashTable
+
+	lk sync.RWMutex
 }
+
+var ErrNodeNotFound = errors.New("node not found")
 
 // NewWorld creates and empty world model
 func NewWorld(me peer.ID, ht HashTable) *World {
@@ -35,8 +43,55 @@ func NewWorld(me peer.ID, ht HashTable) *World {
 	return &world
 }
 
+// GetNodeRecord returns the peer's node record
+// NOTE: do not modify the contents of the returned record! not thread safe
+func (world *World) GetNodeRecord(ID peer.ID) (record *NodeRecord) {
+	world.lk.RLock()
+	defer world.lk.RUnlock()
+	record = world.nodes[ID]
+	return
+}
+
+// SetNodeHolding marks a node as holding a particular hash
+func (world *World) SetNodeHolding(ID peer.ID, hash Hash) (err error) {
+	fmt.Printf("Setting Holding for %v of holding %v\n", ID, hash)
+	world.lk.Lock()
+	defer world.lk.Unlock()
+	record := world.nodes[ID]
+	if record == nil {
+		err = ErrNodeNotFound
+		return
+	}
+	record.IsHolding[hash] = true
+	return
+}
+
+// IsHolding returns whether a node is holding a particular hash
+func (world *World) IsHolding(ID peer.ID, hash Hash) (holding bool, err error) {
+	world.lk.RLock()
+	defer world.lk.RUnlock()
+	fmt.Printf("Looking to see if %v is holding %v\n", ID, hash)
+	fmt.Printf("NODES:%v\n", world.nodes)
+	record := world.nodes[ID]
+	if record == nil {
+		err = ErrNodeNotFound
+		fmt.Printf("Nope\n")
+		return
+	}
+	holding = record.IsHolding[hash]
+	fmt.Printf("%v\n", holding)
+	return
+}
+
 // AllNodes returns a list of all the nodes in the world model.
 func (world *World) AllNodes() (nodes []peer.ID, err error) {
+	world.lk.RLock()
+	defer world.lk.RUnlock()
+	nodes, err = world.allNodes()
+	return
+}
+
+func (world *World) allNodes() (nodes []peer.ID, err error) {
 	nodes = make([]peer.ID, len(world.nodes))
 
 	i := 0
@@ -49,14 +104,16 @@ func (world *World) AllNodes() (nodes []peer.ID, err error) {
 
 // AddNode adds a node to the world model
 func (world *World) AddNode(pi pstore.PeerInfo, pubKey ic.PubKey) (err error) {
-	rec := NodeRecord{PeerInfo: pi, PubKey: pubKey}
+	world.lk.Lock()
+	defer world.lk.Unlock()
+	rec := NodeRecord{PeerInfo: pi, PubKey: pubKey, IsHolding: make(map[Hash]bool)}
 	world.nodes[pi.ID] = &rec
 	return
 }
 
 // NodesByHash returns a sorted list of peers, including "me" by distance from a hash
-func (world *World) NodesByHash(hash Hash) (nodes []peer.ID, err error) {
-	nodes, err = world.AllNodes()
+func (world *World) nodesByHash(hash Hash) (nodes []peer.ID, err error) {
+	nodes, err = world.allNodes()
 	if err != nil {
 		return
 	}
@@ -80,12 +137,14 @@ func (world *World) NodeRecordsByHash(hash Hash) (records []*NodeRecord, err err
 // UpdateResponsible calculates the list of nodes believed to be responsible for a given hash
 // note that if redundancy is 0 the assumption is that all nodes are responsible
 func (world *World) UpdateResponsible(hash Hash, redundancy int) (responsible bool, err error) {
+	world.lk.Lock()
+	defer world.lk.Unlock()
+	var nodes []peer.ID
 	if redundancy == 0 {
 		world.responsible[hash] = nil
 		responsible = true
 	} else if redundancy > 1 {
-		var nodes []peer.ID
-		nodes, err = world.NodesByHash(hash)
+		nodes, err = world.nodesByHash(hash)
 		if err != nil {
 			return
 		}
@@ -116,6 +175,8 @@ func (world *World) UpdateResponsible(hash Hash, redundancy int) (responsible bo
 
 // Responsible returns a list of all the entries I'm responsible for holding
 func (world *World) Responsible() (entries []Hash, err error) {
+	world.lk.RLock()
+	defer world.lk.RUnlock()
 	entries = make([]Hash, len(world.responsible))
 
 	i := 0
@@ -126,18 +187,33 @@ func (world *World) Responsible() (entries []Hash, err error) {
 	return
 }
 
-// Overlap holds the overlap state of a node for the overlap list
-type Overlap struct {
-	ID        peer.ID
-	IsHolding bool
-}
-
 // Overlap returns a list of all the nodes that overlap for a given hash
 func (h *Holochain) Overlap(hash Hash) (overlap []peer.ID, err error) {
+	h.world.lk.RLock()
+	defer h.world.lk.RUnlock()
 	if h.nucleus.dna.DHTConfig.RedundancyFactor == 0 {
-		overlap, err = h.world.AllNodes()
+		overlap, err = h.world.allNodes()
 	} else {
 		overlap = h.world.responsible[hash]
 	}
 	return
+}
+
+func HoldingTask(h *Holochain) {
+	/*	h.dht.Iterate(func(hash Hash) bool {
+		//TODO forget the hashes we are no longer responsible for
+		//TODO this really shouldn't be called in the holding task
+		//     but instead should be called with the Node list or hash list changes.
+		h.world.UpdateResponsible(hash, h.RedundancyFactor())
+
+		// TODO make this more efficient by collecting up a list of updates
+		// per node rather than making the hold request over and over
+		overlap, err := h.Overlap(hash)
+		if err != nil {
+			for _, nodeID := range overlap {
+
+			}
+		}
+		return false
+	})*/
 }

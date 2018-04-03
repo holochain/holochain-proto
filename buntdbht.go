@@ -662,3 +662,18 @@ func (ht *BuntHT) JSON() (result string, err error) {
 	buffer.WriteString("]}")
 	return PrettyPrintJSON(buffer.Bytes())
 }
+
+func (ht *BuntHT) Iterate(fn HashTableIterateFn) {
+	ht.db.View(func(tx *buntdb.Tx) error {
+		err := tx.Ascend("entry", func(key, value string) bool {
+			x := strings.Split(key, ":")
+			k := string(x[1])
+			hash, err := NewHash(k)
+			if err != nil {
+				return false
+			}
+			return fn(hash)
+		})
+		return err
+	})
+}

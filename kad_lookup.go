@@ -76,7 +76,8 @@ func (node *Node) GetClosestPeers(ctx context.Context, key Hash) (<-chan peer.ID
 
 		if res != nil && res.finalSet != nil {
 			node.log.Logf("closestPeers have %d in final set", res.finalSet.Size())
-			sorted := SortClosestPeers(res.finalSet.Peers(), key)
+			// include self
+			sorted := SortClosestPeers(append(res.finalSet.Peers(), node.HashAddr), key)
 			if len(sorted) > KValue {
 				sorted = sorted[:KValue]
 			}

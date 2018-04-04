@@ -796,7 +796,7 @@ func (a *ActionGet) Receive(dht *DHT, msg *Message) (response interface{}, err e
 		if err == ErrHashModified {
 			resp.FollowHash = string(entryData)
 		} else if err == ErrHashNotFound {
-			closest := dht.h.node.betterPeersForHash(&req.H, msg.From, CloserPeerCount)
+			closest := dht.h.node.betterPeersForHash(&req.H, msg.From, true, CloserPeerCount)
 			if len(closest) > 0 {
 				err = nil
 				resp := CloserPeersResp{}
@@ -1184,7 +1184,7 @@ func (a *ActionPut) Receive(dht *DHT, msg *Message) (response interface{}, err e
 		return err
 	})
 
-	closest := dht.h.node.betterPeersForHash(&t.EntryHash, msg.From, CloserPeerCount)
+	closest := dht.h.node.betterPeersForHash(&t.EntryHash, msg.From, true, CloserPeerCount)
 	if len(closest) > 0 {
 		err = nil
 		resp := CloserPeersResp{}

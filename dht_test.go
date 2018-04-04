@@ -223,7 +223,6 @@ func TestDHTKadPut(t *testing.T) {
 		So(err, ShouldBeNil)
 		for len(h.dht.changeQueue) > 0 {
 			req := <-h.dht.changeQueue
-			fmt.Sprintf("%v\n", rtp)
 			err = handleChangeRequests(h.dht, req)
 			So(err, ShouldBeNil)
 		}
@@ -238,7 +237,7 @@ func TestDHTKadPut(t *testing.T) {
 		So(fmt.Sprintf("%v", resp.Entry), ShouldEqual, fmt.Sprintf("%v", e))
 
 		// and the world model should show that it's being held
-		holding, err := h.world.IsHolding(mt.nodes[1].nodeID, hash)
+		holding, err := h.world.IsHolding(mt.nodes[3].nodeID, hash)
 		So(err, ShouldBeNil)
 		So(holding, ShouldBeTrue)
 	})

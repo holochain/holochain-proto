@@ -7,7 +7,6 @@ package holochain
 
 import (
 	"errors"
-	"fmt"
 	. "github.com/holochain/holochain-proto/hash"
 	ic "github.com/libp2p/go-libp2p-crypto"
 	peer "github.com/libp2p/go-libp2p-peer"
@@ -54,7 +53,7 @@ func (world *World) GetNodeRecord(ID peer.ID) (record *NodeRecord) {
 
 // SetNodeHolding marks a node as holding a particular hash
 func (world *World) SetNodeHolding(ID peer.ID, hash Hash) (err error) {
-	fmt.Printf("Setting Holding for %v of holding %v\n", ID, hash)
+	//fmt.Printf("Setting Holding for %v of holding %v nodes:%v\n", ID, hash, world.nodes)
 	world.lk.Lock()
 	defer world.lk.Unlock()
 	record := world.nodes[ID]
@@ -70,16 +69,14 @@ func (world *World) SetNodeHolding(ID peer.ID, hash Hash) (err error) {
 func (world *World) IsHolding(ID peer.ID, hash Hash) (holding bool, err error) {
 	world.lk.RLock()
 	defer world.lk.RUnlock()
-	fmt.Printf("Looking to see if %v is holding %v\n", ID, hash)
-	fmt.Printf("NODES:%v\n", world.nodes)
+	//fmt.Printf("Looking to see if %v is holding %v\n", ID, hash)
+	//fmt.Printf("NODES:%v\n", world.nodes)
 	record := world.nodes[ID]
 	if record == nil {
 		err = ErrNodeNotFound
-		fmt.Printf("Nope\n")
 		return
 	}
 	holding = record.IsHolding[hash]
-	fmt.Printf("%v\n", holding)
 	return
 }
 

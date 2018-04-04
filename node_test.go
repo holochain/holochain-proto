@@ -614,6 +614,16 @@ func addTestPeers(h *Holochain, peers []peer.ID, start int, count int) []peer.ID
 	return peers
 }
 
+func fullConnect(t *testing.T, ctx context.Context, nodes []*Holochain, nodesCount int) {
+	for i := 0; i < nodesCount; i++ {
+		for j := 0; j < nodesCount; j++ {
+			if j != i {
+				connect(t, ctx, nodes[i], nodes[j])
+			}
+		}
+	}
+}
+
 func ringConnect(t *testing.T, ctx context.Context, nodes []*Holochain, nodesCount int) {
 	for i := 0; i < nodesCount; i++ {
 		connect(t, ctx, nodes[i], nodes[(i+1)%len(nodes)])

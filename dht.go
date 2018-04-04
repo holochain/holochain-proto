@@ -327,9 +327,12 @@ func (dht *DHT) change(req changeReq) (err error) {
 	if err != nil {
 		return err
 	}
-	var held bool
+	var held []peer.ID
 	wg := sync.WaitGroup{}
 	for p := range pchan {
+		if p == node.HashAddr {
+			continue
+		}
 		wg.Add(1)
 		go func(p peer.ID) {
 			ctx, cancel := context.WithCancel(node.ctx)
@@ -349,21 +352,23 @@ func (dht *DHT) change(req changeReq) (err error) {
 
 					// TODO probably should record the "holding" of non put types too
 					if msgType == PUT_REQUEST {
-						err := dht.h.world.SetNodeHolding(p, key)
-						if err != nil {
-							dht.dlog.Logf("SetNodeHolding for node %v not found in world node", p)
-						}
+						held = append(held, p)
 					}
-					held = true
 					// TODO check the signature on the receipt
 				case CloserPeersResp:
-					closerPeers := peerInfos2Pis(t.CloserPeers)
-					for _, p := range closerPeers {
-						dht.h.AddPeer(*p)
+					if msgType == PUT_REQUEST {
+						closerPeers := peerInfos2Pis(t.CloserPeers)
+						//	s := fmt.Sprintf("%v says closer to %v are: ", p.Pretty()[2:4], key)
+
+						for _, closer := range closerPeers {
+							//		s += fmt.Sprintf("%v ", closer.ID.Pretty()[2:4])
+							dht.h.AddPeer(*closer)
+						}
+						//	fmt.Printf("%s\n", s)
 					}
+
 				default:
 					dht.dlog.Logf("DHT send of %v to peer %v response(%T) was: %v", msgType, p, t, t)
-					//	fmt.Printf("DHT send of %v to peer %v response(%T) was: %v", msgType, p, t, t)
 				}
 
 			}
@@ -371,8 +376,11 @@ func (dht *DHT) change(req changeReq) (err error) {
 		}(p)
 	}
 	wg.Wait()
-	if !held {
-		dht.changeQueue <- req
+	for _, p := range held {
+		err := dht.h.world.SetNodeHolding(p, key)
+		if err != nil {
+			dht.dlog.Logf("SetNodeHolding for node %v not found in world node", p)
+		}
 	}
 	return
 }

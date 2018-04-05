@@ -563,11 +563,16 @@ func (c *Chain) Validate(skipEntries bool) (err error) {
 
 // String converts a chain to a textual dump of the headers and entries
 func (c *Chain) String() string {
+	return c.Dump(0)
+}
+
+// Dump converts a chain to a textual dump of the headers and entries from a starting index
+func (c *Chain) Dump(start int) string {
 	c.lk.RLock()
 	defer c.lk.RUnlock()
 	l := len(c.Headers)
 	r := ""
-	for i := 0; i < l; i++ {
+	for i := start; i < l; i++ {
 		hdr := c.Headers[i]
 		hash := c.Hashes[i]
 		r += fmt.Sprintf("%s:%s @ %v\n", hdr.Type, hash, hdr.Time)
@@ -592,7 +597,7 @@ func (c *Chain) String() string {
 }
 
 // JSON converts a chain to a json string dump of the headers and entries
-func (c *Chain) JSON() (string, error) {
+func (c *Chain) JSON(start int) (string, error) {
 	c.lk.RLock()
 	defer c.lk.RUnlock()
 	l := len(c.Headers)
@@ -603,7 +608,7 @@ func (c *Chain) JSON() (string, error) {
 
 	buffer.WriteString("{")
 
-	for i := 0; i < l; i++ {
+	for i := start; i < l; i++ {
 		hdr := c.Headers[i]
 		hash := c.Hashes[i]
 

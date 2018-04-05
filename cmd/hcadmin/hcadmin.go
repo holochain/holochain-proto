@@ -23,12 +23,13 @@ func setupApp() (app *cli.App) {
 	app = cli.NewApp()
 	app.Name = "hcadmin"
 	app.Usage = "holochain administration tool"
-	app.Version = fmt.Sprintf("0.0.3 (holochain %s)", holo.VersionStr)
+	app.Version = fmt.Sprintf("0.0.4 (holochain %s)", holo.VersionStr)
 
 	var dumpChain, dumpDHT, json bool
 	var root string
 	var service *holo.Service
 	var bridgeToAppData, bridgeFromAppData string
+	var start int
 
 	app.Flags = []cli.Flag{
 		cli.BoolFlag{
@@ -91,6 +92,11 @@ func setupApp() (app *cli.App) {
 					Destination: &json,
 					Usage:       "Dump chain or dht as JSON string",
 				},
+				cli.IntFlag{
+					Name:        "index",
+					Destination: &start,
+					Usage:       "starting index for dump (zero based)",
+				},
 			},
 			Action: func(c *cli.Context) error {
 				h, err := cmd.GetHolochain(c.Args().First(), service, "dump")
@@ -104,10 +110,10 @@ func setupApp() (app *cli.App) {
 				dnaHash := h.DNAHash()
 				if dumpChain {
 					if json {
-						dump, _ := h.Chain().JSON()
+						dump, _ := h.Chain().JSON(start)
 						fmt.Println(dump)
 					} else {
-						fmt.Printf("Chain for: %s\n%v", dnaHash, h.Chain())
+						fmt.Printf("Chain for: %s\n%v", dnaHash, h.Chain().Dump(start))
 					}
 				}
 				if dumpDHT {

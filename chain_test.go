@@ -434,7 +434,7 @@ func TestChain2JSON(t *testing.T) {
 	c := NewChain(hashSpec)
 
 	Convey("it should dump empty JSON object for empty chain", t, func() {
-		json, err := c.JSON()
+		json, err := c.JSON(0)
 		So(err, ShouldBeNil)
 		So(json, ShouldEqual, "{}")
 	})
@@ -443,7 +443,7 @@ func TestChain2JSON(t *testing.T) {
 	c.AddEntry(now, DNAEntryType, &e, key)
 
 	Convey("it should dump a DNA entry as JSON", t, func() {
-		json, err := c.JSON()
+		json, err := c.JSON(0)
 		So(err, ShouldBeNil)
 		json = NormaliseJSON(json)
 		matched, err := regexp.MatchString(`{"%dna":{"header":{.*},"content":"dna entry"}}`, json)
@@ -455,7 +455,7 @@ func TestChain2JSON(t *testing.T) {
 	c.AddEntry(now, AgentEntryType, &e, key)
 
 	Convey("it should dump a Agent entry as JSON", t, func() {
-		json, err := c.JSON()
+		json, err := c.JSON(0)
 		So(err, ShouldBeNil)
 		json = NormaliseJSON(json)
 		matched, err := regexp.MatchString(`{"%dna":{"header":{.*},"content":"dna entry"},"%agent":{"header":{.*},"content":"agent entry"}}`, json)
@@ -467,10 +467,23 @@ func TestChain2JSON(t *testing.T) {
 	c.AddEntry(now, "handle", &e, key)
 
 	Convey("it should dump chain with entries as JSON", t, func() {
-		json, err := c.JSON()
+		json, err := c.JSON(0)
 		So(err, ShouldBeNil)
 		json = NormaliseJSON(json)
 		matched, err := regexp.MatchString(`{"%dna":{.*},"%agent":{.*},"entries":\[{"header":{"type":"handle",.*"},"content":"chain entry"}\]}`, json)
+		So(err, ShouldBeNil)
+		So(matched, ShouldBeTrue)
+	})
+
+	e.C = "chain entry 2"
+	c.AddEntry(now, "handle", &e, key)
+	e.C = "chain entry 3"
+	c.AddEntry(now, "handle", &e, key)
+	Convey("it should dump chain from the given start index", t, func() {
+		json, err := c.JSON(2)
+		So(err, ShouldBeNil)
+		json = NormaliseJSON(json)
+		matched, err := regexp.MatchString(`{"entries":\[{"header":{"type":"handle",.*"},"content":"chain entry 2"},{"header":{"type":"handle",.*"},"content":"chain entry 3"}\]}`, json)
 		So(err, ShouldBeNil)
 		So(matched, ShouldBeTrue)
 	})

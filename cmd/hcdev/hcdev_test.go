@@ -31,7 +31,7 @@ func TestDump(t *testing.T) {
 	app := setupApp()
 
 	Convey("dump --chain should show chain entries as a human readable string", t, func() {
-		out, err := runAppWithStdoutCapture(app, []string{"hcdev", "-no-nat-upnp", "-port=6001", "-execpath", s.Path, "-path", "test", "dump", "--chain"})
+		out, err := runAppWithStdoutCapture(app, []string{"hcdev", "-no-nat-upnp", "-DHTport=6001", "-execpath", s.Path, "-path", "test", "dump", "--chain"})
 
 		So(err, ShouldBeNil)
 		So(out, ShouldContainSubstring, "%dna:")
@@ -39,7 +39,7 @@ func TestDump(t *testing.T) {
 	})
 
 	Convey("dump --dht should show chain entries as a human readable string", t, func() {
-		out, err := runAppWithStdoutCapture(app, []string{"hcdev", "-no-nat-upnp", "-port=6001", "-execpath", s.Path, "-path", "test", "dump", "--dht"})
+		out, err := runAppWithStdoutCapture(app, []string{"hcdev", "-no-nat-upnp", "-DHTport=6001", "-execpath", s.Path, "-path", "test", "dump", "--dht"})
 
 		So(err, ShouldBeNil)
 		So(out, ShouldContainSubstring, "DHT changes: 2")
@@ -47,7 +47,7 @@ func TestDump(t *testing.T) {
 	})
 
 	Convey("dump --chain --json should show chain entries as JSON string", t, func() {
-		out, err := runAppWithStdoutCapture(app, []string{"hcdev", "-no-nat-upnp", "-port=6001", "-execpath", s.Path, "-path", "test", "dump", "--chain", "--json"})
+		out, err := runAppWithStdoutCapture(app, []string{"hcdev", "-no-nat-upnp", "-DHTport=6001", "-execpath", s.Path, "-path", "test", "dump", "--chain", "--json"})
 
 		So(err, ShouldBeNil)
 		So(out, ShouldContainSubstring, "{\n    \"%dna\": {")
@@ -55,7 +55,7 @@ func TestDump(t *testing.T) {
 	})
 
 	Convey("dump --dht --json should show chain entries as JSON string", t, func() {
-		out, err := runAppWithStdoutCapture(app, []string{"hcdev", "-no-nat-upnp", "-port=6001", "-execpath", s.Path, "-path", "test", "dump", "--dht", "--json"})
+		out, err := runAppWithStdoutCapture(app, []string{"hcdev", "-no-nat-upnp", "-DHTport=6001", "-execpath", s.Path, "-path", "test", "dump", "--dht", "--json"})
 
 		So(err, ShouldBeNil)
 		So(out, ShouldContainSubstring, "\"dht_changes\": [")

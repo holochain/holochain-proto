@@ -281,7 +281,7 @@ func TestMakeTestingApp(t *testing.T) {
 		So(lh.nodeID, ShouldEqual, h.nodeID)
 		So(lh.nodeIDStr, ShouldEqual, h.nodeIDStr)
 
-		So(lh.Config.Port, ShouldEqual, DefaultPort)
+		So(lh.Config.DHTPort, ShouldEqual, DefaultDHTPort)
 		So(h.Config.PeerModeDHTNode, ShouldEqual, s.Settings.DefaultPeerModeDHTNode)
 		So(h.Config.PeerModeAuthor, ShouldEqual, s.Settings.DefaultPeerModeAuthor)
 		So(h.Config.BootstrapServer, ShouldEqual, s.Settings.DefaultBootstrapServer)
@@ -382,7 +382,7 @@ func TestMakeConfig(t *testing.T) {
 	Convey("make config should produce default values", t, func() {
 		err := makeConfig(h, s)
 		So(err, ShouldBeNil)
-		So(h.Config.Port, ShouldEqual, DefaultPort)
+		So(h.Config.DHTPort, ShouldEqual, DefaultDHTPort)
 		So(h.Config.EnableMDNS, ShouldBeFalse)
 		So(h.Config.BootstrapServer, ShouldNotEqual, "")
 		So(h.Config.Loggers.App.Format, ShouldEqual, "%{color:cyan}%{message}")
@@ -390,14 +390,14 @@ func TestMakeConfig(t *testing.T) {
 	})
 
 	Convey("make config should produce default config from OS env overridden values", t, func() {
-		os.Setenv("HOLOCHAINCONFIG_PORT", "12345")
+		os.Setenv("HOLOCHAINCONFIG_DHTPORT", "12345")
 		os.Setenv("HOLOCHAINCONFIG_ENABLEMDNS", "true")
 		os.Setenv("HCLOG_PREFIX", "prefix:%{color:cyan}")
 		os.Setenv("HOLOCHAINCONFIG_BOOTSTRAP", "_")
 		err := makeConfig(h, s)
 		So(err, ShouldBeNil)
 
-		So(h.Config.Port, ShouldEqual, 12345)
+		So(h.Config.DHTPort, ShouldEqual, 12345)
 		So(h.Config.EnableMDNS, ShouldBeTrue)
 		So(h.Config.Loggers.App.Format, ShouldEqual, "%{color:cyan}%{message}")
 		So(h.Config.Loggers.App.Prefix, ShouldEqual, "prefix:")

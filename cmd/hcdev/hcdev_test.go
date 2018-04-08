@@ -26,11 +26,10 @@ func TestSetupApp(t *testing.T) {
 func TestDump(t *testing.T) {
 	holo.InitializeHolochain()
 	d, s, h := holo.PrepareTestChain("test")
-	// port, _ := cmd.GetFreePort()
 	defer holo.CleanupTestChain(h, d)
 	app := setupApp()
 
-	Convey("dump --chain should show chain entries as a human readable string", t, func() {
+	Convey("'dump --chain' should show chain entries as a human readable string", t, func() {
 		out, err := runAppWithStdoutCapture(app, []string{"hcdev", "-no-nat-upnp", "-port=6001", "-execpath", s.Path, "-path", "test", "dump", "--chain"})
 
 		So(err, ShouldBeNil)
@@ -38,7 +37,7 @@ func TestDump(t *testing.T) {
 		So(out, ShouldContainSubstring, "%agent:")
 	})
 
-	Convey("dump --dht should show chain entries as a human readable string", t, func() {
+	Convey("'dump --dht' should show chain entries as a human readable string", t, func() {
 		out, err := runAppWithStdoutCapture(app, []string{"hcdev", "-no-nat-upnp", "-port=6001", "-execpath", s.Path, "-path", "test", "dump", "--dht"})
 
 		So(err, ShouldBeNil)
@@ -46,7 +45,7 @@ func TestDump(t *testing.T) {
 		So(out, ShouldContainSubstring, "DHT entries:")
 	})
 
-	Convey("dump --chain --json should show chain entries as JSON string", t, func() {
+	Convey("'dump --chain --json' should show chain entries as JSON string", t, func() {
 		out, err := runAppWithStdoutCapture(app, []string{"hcdev", "-no-nat-upnp", "-port=6001", "-execpath", s.Path, "-path", "test", "dump", "--chain", "--json"})
 
 		So(err, ShouldBeNil)
@@ -54,12 +53,27 @@ func TestDump(t *testing.T) {
 		So(out, ShouldContainSubstring, ",\n    \"%agent\": {")
 	})
 
-	Convey("dump --dht --json should show chain entries as JSON string", t, func() {
+	Convey("'dump --dht --json' should show chain entries as JSON string", t, func() {
 		out, err := runAppWithStdoutCapture(app, []string{"hcdev", "-no-nat-upnp", "-port=6001", "-execpath", s.Path, "-path", "test", "dump", "--dht", "--json"})
 
 		So(err, ShouldBeNil)
 		So(out, ShouldContainSubstring, "\"dht_changes\": [")
 		So(out, ShouldContainSubstring, "\"dht_entries\": [")
+	})
+
+	Convey("'dump --chain --format string' should show chain entries as a human readable string", t, func() {
+		out, err := runAppWithStdoutCapture(app, []string{"hcdev", "-no-nat-upnp", "-port=6001", "-execpath", s.Path, "-path", "test", "dump", "--chain", "--format", "string"})
+
+		So(err, ShouldBeNil)
+		So(out, ShouldContainSubstring, "%dna:")
+		So(out, ShouldContainSubstring, "%agent:")
+	})
+
+	Convey("'dump --chain --format dot' should show chain entries as GraphViz DOT format", t, func() {
+		out, err := runAppWithStdoutCapture(app, []string{"hcdev", "-no-nat-upnp", "-port=6001", "-execpath", s.Path, "-path", "test", "dump", "--chain", "--format", "dot"})
+
+		So(err, ShouldBeNil)
+		So(out, ShouldContainSubstring, "digraph chain {")
 	})
 }
 

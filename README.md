@@ -1,7 +1,7 @@
 # Holochain
 
 [![Code Status](https://img.shields.io/badge/Code-Alpha-yellow.svg)](https://github.com/holochain/holochain-proto/milestones?direction=asc&sort=completeness&state=all)
-[![Travis](https://img.shields.io/travis/holochain/holochain-proto/master.svg)](https://travis-ci.org/Holochain/holochain-proto/branches)
+[![Travis](https://img.shields.io/travis/holochain/holochain-proto/master.svg)](https://travis-ci.org/holochain/holochain-proto/branches)
 [![Codecov](https://img.shields.io/codecov/c/github/holochain/holochain-proto.svg)](https://codecov.io/gh/holochain/holochain-proto/branch/master)
 [![Go Report Card](https://goreportcard.com/badge/github.com/holochain/holochain-proto)](https://goreportcard.com/report/github.com/holochain/holochain-proto)
 [![Gitter](https://badges.gitter.im/metacurrency/holochain.svg)](https://gitter.im/metacurrency/holochain?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=body_badge)

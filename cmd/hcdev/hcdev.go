@@ -166,7 +166,7 @@ func setupApp() (app *cli.App) {
 	}
 
 	var dumpChain, dumpDHT, initTest, fromDevelop, benchmarks, json bool
-	var clonePath, appPackagePath, cloneExample, outputDir, fromBranch string
+	var clonePath, appPackagePath, cloneExample, outputDir, fromBranch, dumpFormat string
 
 	app.Commands = []cli.Command{
 		{
@@ -755,6 +755,12 @@ func setupApp() (app *cli.App) {
 					Name:        "scenario",
 					Destination: &dumpScenario,
 				},
+				cli.StringFlag{
+					Name:        "format",
+					Destination: &dumpFormat,
+					Usage:       "Dump format (string, json, dot)",
+					Value:       "string",
+				},
 			},
 			Action: func(c *cli.Context) error {
 
@@ -797,6 +803,19 @@ func setupApp() (app *cli.App) {
 					if json {
 						dump, _ := h.Chain().JSON()
 						fmt.Println(dump)
+					} else if dumpFormat != "" {
+						switch dumpFormat {
+						case "string":
+							fmt.Printf("Chain for: %s\n%v", dnaHash, h.Chain())
+						case "dot":
+							dump, _ := h.Chain().Dot()
+							fmt.Println(dump)
+						case "json":
+							dump, _ := h.Chain().JSON()
+							fmt.Println(dump)
+						default:
+							return cmd.MakeErr(c, "format must be one of dot,json,string")
+						}
 					} else {
 						fmt.Printf("Chain for: %s\n%v", dnaHash, h.Chain())
 					}

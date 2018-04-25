@@ -4,7 +4,6 @@
 [![Travis](https://img.shields.io/travis/holochain/holochain-proto/master.svg)](https://travis-ci.org/holochain/holochain-proto/branches)
 [![Codecov](https://img.shields.io/codecov/c/github/holochain/holochain-proto.svg)](https://codecov.io/gh/holochain/holochain-proto/branch/master)
 [![Go Report Card](https://goreportcard.com/badge/github.com/holochain/holochain-proto)](https://goreportcard.com/report/github.com/holochain/holochain-proto)
-[![Gitter](https://badges.gitter.im/metacurrency/holochain.svg)](https://gitter.im/metacurrency/holochain?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=body_badge)
 [![In Progress](https://img.shields.io/waffle/label/holochain/holochain-proto/in%20progress.svg)](http://waffle.io/holochain/holochain-proto)
 [![License: GPL v3](https://img.shields.io/badge/License-GPL%20v3-blue.svg)](http://www.gnu.org/licenses/gpl-3.0)
 [![Twitter Follow](https://img.shields.io/twitter/follow/holochain.svg?style=social&label=Follow)](https://twitter.com/holochain)
@@ -16,7 +15,7 @@ In other words, a holochain functions very much **like a blockchain without bott
 **[Code Status:](https://github.com/holochain/holochain-proto/milestones?direction=asc&sort=completeness&state=all)** Alpha. Not for production use. The code has not yet undergone a security audit. We expect to destructively restructure code APIs and data chains until Beta. Proof-of-concept was unveiled at our first hackathon (March 2017). Alpha 0 was released (October 2017).
 <br/>
 
-| Holochain Links: | [FAQ](https://github.com/holochain/holochain-proto/wiki/FAQ) | [Developer Wiki](https://github.com/holochain/holochain-proto/wiki) | [White Paper](https://github.com/holochain/holochain-proto/blob/whitepaper/holochain.pdf) | [GoDocs](https://godoc.org/github.com/holochain/holochain-proto) |
+| Holochain Links: | [FAQ](https://github.com/holochain/holochain-proto/wiki/FAQ) | [Developer Wiki](https://developer.holochain.org) | [White Paper](https://github.com/holochain/holochain-proto/blob/whitepaper/holochain.pdf) | [GoDocs](https://godoc.org/github.com/holochain/holochain-proto) |
 |---|---|---|---|---|
 
 **Table of Contents**
@@ -131,7 +130,7 @@ These instructions are for using the holochain command line tool suite: `hcadmin
 
 (Note that since Holochain is intended to be used behind distributed applications, end users should not have to do much through the command or may not have it installed at all, as the application will probably have wrapped up the holochain library internally.)
 
-Each of the tools includes a help command, e.g., run `hcadmin help` or for sub-commands run `hcadmin <COMMAND> help`. For more detailed information, see [the wiki page](https://github.com/holochain/holochain-proto/wiki/command-line-tools)
+Each of the tools includes a help command, e.g., run `hcadmin help` or for sub-commands run `hcadmin <COMMAND> help`. For more detailed information, see [the wiki page](https://developer.holochain.org/Command_Line_Tools)
 
 The tool suite include these commands:
 
@@ -169,19 +168,19 @@ $ hcd <CHAIN_NAME> [PORT]
 
 The `hcdev` tool allows you to:
 
-1. generate new holochain application source files by cloning from an existing application, from the a [package file](https://github.com/metacurrency/hc-scaffold), or a simple empty template.
+1. generate new holochain application source files by cloning from an existing application, from a [package file](https://metacurrency.github.io/hc-scaffold), or a simple empty template.
 2. run stand-alone or multi-node scenario tests
 3. run a holochain and serve it's UI for testing purposes
 4. dump out chain and dht data for inspection
 
-Please see the wiki for more [detailed documentation](https://github.com/holochain/holochain-proto/wiki/hcdev-Command).
+Please see the docs for more [detailed documentation](https://developer.holochain.org/Command_Line_Tools).
 
 Note that the `hcdev` command creates a separate ~/.holochaindev directory for serving and managing chains, so your dev work won't interfere with any running holochain apps you may be using.
 
 #### Test-driven Application Development
 We have designed Holochain around test-driven development, so the DNA should contain tests to confirm that the rest of the DNA is functional.  Our testing harness includes two types of testing, stand-alone and multi-instance scenarios.  Stand-alone tests allow you to tests the functions you create in your application.  However, testing a distributed application requires being able to spin up many instances of it and have them interact. Our docker cluster testing harness automates that process, and enables app developers to specify scenarios and roles and test instructions to run on multiple docker containers.
 
-Please see the [App-Testing](https://github.com/holochain/holochain-proto/wiki/App-Testing) documentation for details.
+Please see the [App Testing](https://developer.holochain.org/Test_Driven_Development) documentation for details.
 
 
 #### File Locations
@@ -196,7 +195,7 @@ You can use the form: `hcadmin -path=/your/path/here` but you must use the absol
 All the commands take a `--debug` flag which will turn on a number of different kinds of debugging. For running chains, you can also control exactly which of these logging types you wish to see in the chain's config.json file. You can also set the DEBUG environment variable to 0 or 1 to temporarily override your settings to turn everything on or off.
 
 ## Architecture Overview and Documentation
-Architecture information and application developer documentation is in our [Holochain Wiki](https://github.com/holochain/holochain-proto/wiki/).
+Architecture information and application developer documentation is in our [developer.holochain.org](https://developer.holochain.org).
 
 You can also look through auto-generated [reference API on GoDocs](https://godoc.org/github.com/holochain/holochain-proto)
 
@@ -204,13 +203,7 @@ You can also look through auto-generated [reference API on GoDocs](https://godoc
 We accept Pull Requests and welcome your participation.
 
 Some helpful links: [![In Progress](https://img.shields.io/waffle/label/holochain/holochain-proto/in%20progress.svg)](http://waffle.io/holochain/holochain-proto)
-* Come [chat with us on gitter](https://gitter.im/metacurrency/holochain)
 * View our [Kanban on Waffle](https://waffle.io/holochain/holochain-proto).
-* View our  [Milestone](https://github.com/holochain/holochain-proto/milestones?direction=asc&sort=due_date&state=all) progress.
-
-If you'd like to get involved you can:
-* Contact us on [Gitter](https://gitter.im/metacurrency/holochain) to set up a **pair coding session** with one of our developers to learn the lay of the land.
-* **join our dev documentation calls** twice weekly on Tuesdays and Fridays.
 
 Current Throughput graph:
 

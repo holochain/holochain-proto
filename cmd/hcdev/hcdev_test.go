@@ -6,12 +6,15 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"reflect"
 	"testing"
 	"time"
 
 	"github.com/davecgh/go-spew/spew"
 	holo "github.com/holochain/holochain-proto"
+	. "github.com/holochain/holochain-proto/apptest"
 	"github.com/holochain/holochain-proto/cmd"
+	. "github.com/holochain/holochain-proto/hash"
 	. "github.com/smartystreets/goconvey/convey"
 	"github.com/urfave/cli"
 )
@@ -186,7 +189,7 @@ func TestInit(t *testing.T) {
 		os.Args = []string{"hcdev", "init", "-cloneExample=HoloWorld"}
 		err = app.Run(os.Args)
 		So(err, ShouldBeNil)
-		So(cmd.IsFile(filepath.Join(tmpTestDir, "HoloWorld", "dna", "HoloWorld", "HoloWorld.js")), ShouldBeTrue)
+		So(cmd.IsFile(filepath.Join(tmpTestDir, "HoloWorld", "dna", "dna.json")), ShouldBeTrue)
 		// or from a branch
 		err = os.Chdir(tmpTestDir)
 		if err != nil {
@@ -195,7 +198,7 @@ func TestInit(t *testing.T) {
 		os.Args = []string{"hcdev", "init", "-cloneExample=HoloWorld", "-fromDevelop", "HoloWorld2"}
 		err = app.Run(os.Args)
 		So(err, ShouldBeNil)
-		So(cmd.IsFile(filepath.Join(tmpTestDir, "HoloWorld2", "dna", "HoloWorld", "HoloWorld.js")), ShouldBeTrue)
+		So(cmd.IsFile(filepath.Join(tmpTestDir, "HoloWorld2", "dna", "dna.json")), ShouldBeTrue)
 
 		// or with a specified name
 		err = os.Chdir(tmpTestDir)
@@ -205,7 +208,7 @@ func TestInit(t *testing.T) {
 		os.Args = []string{"hcdev", "init", "-cloneExample=HoloWorld", "myHoloWorld"}
 		err = app.Run(os.Args)
 		So(err, ShouldBeNil)
-		So(cmd.IsFile(filepath.Join(tmpTestDir, "myHoloWorld", "dna", "HoloWorld", "HoloWorld.js")), ShouldBeTrue)
+		So(cmd.IsFile(filepath.Join(tmpTestDir, "myHoloWorld", "dna", "dna.json")), ShouldBeTrue)
 		So(cmd.IsDir(tmpTestDir, holo.ChainDataDir), ShouldBeFalse)
 
 		// but fail if the directory is already there
@@ -335,6 +338,47 @@ func TestBridging(t *testing.T) {
 		So(out, ShouldContainSubstring, fmt.Sprintf("Copying bridge chain bar to:"))
 		So(out, ShouldContainSubstring, fmt.Sprintf("bridge genesis to-- other side is:")) // getting the DNA is a pain so skip it.
 		So(out, ShouldContainSubstring, fmt.Sprintf("bridging data:some data 314"))
+	})
+}
+
+func TestSaveBridgeApps(t *testing.T) {
+	hashRed, _ := NewHash("QmY8Mzg9F69e5P9AoQPYat655HEhc1TVGs11tmfNSzfro1")
+	hashBlue, _ := NewHash("QmY8Mzg9F69e5P9AoQPYat655HEhc1TVGs11tmfNSzfro2")
+
+	bridgeAppsForTests := []BridgeAppForTests{
+		BridgeAppForTests{
+			BridgeApp: holo.BridgeApp{
+				Name: "red fish",
+				DNA:  hashRed,
+				Side: holo.BridgeFrom,
+				BridgeGenesisDataFrom: "data red from",
+				BridgeGenesisDataTo:   "data blue to",
+				Port:                  "1234",
+				BridgeZome:            "redzome",
+			},
+		},
+		BridgeAppForTests{
+			BridgeApp: holo.BridgeApp{
+				Name: "blue fish",
+				DNA:  hashBlue,
+				Side: holo.BridgeTo,
+				BridgeGenesisDataFrom: "data red from",
+				BridgeGenesisDataTo:   "data blue to",
+				Port:                  "4321",
+				BridgeZome:            "bluezome",
+			},
+		},
+	}
+
+	Convey("you can save out bridge app data for scenario testing", t, func() {
+		fileName, err := saveBridgeAppsToTmpFile(bridgeAppsForTests)
+		So(err, ShouldBeNil)
+
+		bridgeApps, err := getBridgeAppsFromTmpFile(fileName)
+		So(err, ShouldBeNil)
+		So(reflect.DeepEqual(bridgeApps[0], bridgeAppsForTests[0].BridgeApp), ShouldBeTrue)
+		So(reflect.DeepEqual(bridgeApps[1], bridgeAppsForTests[1].BridgeApp), ShouldBeTrue)
+		So(len(bridgeApps), ShouldEqual, 2)
 	})
 }
 

@@ -144,7 +144,7 @@ func testStringReplacements(input string, r *replacements) string {
 }
 
 // TestScenario runs the tests of a single role in a scenario
-func TestScenario(h *Holochain, scenario string, role string, replacementPairs map[string]string, benchmarks bool) (err error, testErrs []error) {
+func TestScenario(h *Holochain, scenario string, role string, replacementPairs map[string]string, benchmarks bool, bridgeApps []BridgeApp) (err error, testErrs []error) {
 	var config *TestConfig
 	dir := filepath.Join(h.TestPath(), scenario)
 
@@ -164,6 +164,12 @@ func TestScenario(h *Holochain, scenario string, role string, replacementPairs m
 	err = initChainForTest(h, true)
 	if err != nil {
 		err = fmt.Errorf("Error initializing chain for scenario role %s: %v", role, err)
+		return
+	}
+
+	err = buildBridges(h, "", bridgeApps)
+	if err != nil {
+		err = fmt.Errorf("couldn't build bridges for scenario. err: %v", err)
 		return
 	}
 
@@ -609,14 +615,14 @@ func DoTest(h *Holochain, name string, i int, fixtures TestFixtures, t TestData,
 // Test loops through each of the test files in path calling the functions specified
 // This function is useful only in the context of developing a holochain and will return
 // an error if the chain has already been started (i.e. has genesis entries)
-func Test(h *Holochain, bridgeApps []BridgeApp, forceBenchmark bool) []error {
+func Test(h *Holochain, bridgeApps []BridgeAppForTests, forceBenchmark bool) []error {
 	return test(h, "", bridgeApps, false)
 }
 
 // TestOne tests a single test file
 // This function is useful only in the context of developing a holochain and will return
 // an error if the chain has already been started (i.e. has genesis entries)
-func TestOne(h *Holochain, one string, bridgeApps []BridgeApp, forceBenchmark bool) []error {
+func TestOne(h *Holochain, one string, bridgeApps []BridgeAppForTests, forceBenchmark bool) []error {
 	return test(h, one, bridgeApps, forceBenchmark)
 }
 
@@ -638,29 +644,72 @@ func initChainForTest(h *Holochain, reset bool) (err error) {
 	return
 }
 
-func BuildBridges(h *Holochain, port string, bridgeApps []BridgeApp) (bridgeAppServers []*ui.WebServer, err error) {
-	bridgeAppServers = make([]*ui.WebServer, len(bridgeApps))
+func StartBridgeApp(h *Holochain, port string) (bridgeAppServer *ui.WebServer, err error) {
+	// setup bridge app
+	err = initChainForTest(h, true)
+	if err != nil {
+		err = fmt.Errorf("couldn't initialize bridge for %s for test. err:%v", h.DNAHash().String(), err.Error())
+		return
+	}
 
-	// setup any bridges
-	for i, app := range bridgeApps {
-		err = initChainForTest(app.H, true)
-		if err != nil {
-			err = fmt.Errorf("couldn't initialize bridge for %s for test. err:%v", app.H.DNAHash().String(), err.Error())
-			return
+	bridgeAppServer = ui.NewWebServer(h, port)
+	bridgeAppServer.Start()
+
+	return
+}
+
+func StopBridgeApps(bridgeAppServers []*ui.WebServer) {
+	// stop all the bridge web servers
+	for _, server := range bridgeAppServers {
+		server.Stop()
+	}
+	// then wait for them to complete
+	for _, server := range bridgeAppServers {
+		server.Wait()
+	}
+}
+
+func buildBridges(h *Holochain, port string, bridgeApps []BridgeApp) (err error) {
+	// build a bridge to all the bridge apps
+	for _, app := range bridgeApps {
+		if app.Side == BridgeFrom {
+			err = h.BuildBridgeToCaller(&app, port)
+		} else {
+			err = h.BuildBridgeToCallee(&app)
 		}
-
-		bridgeAppServers[i] = ui.NewWebServer(app.H, app.Port)
-		bridgeAppServers[i].Start()
-
-		err = h.BuildBridge(&app, port)
 		if err != nil {
-			panic(err)
+			return
 		}
 	}
 	return
 }
 
-func test(h *Holochain, one string, bridgeApps []BridgeApp, forceBenchmark bool) []error {
+type BridgeAppForTests struct {
+	H         *Holochain
+	BridgeApp BridgeApp
+}
+
+// BuildBridges starts up the bridged apps and builds bridges to/from them for Holochain h
+func BuildBridges(h *Holochain, port string, bridgeApps []BridgeAppForTests) (bridgeAppServers []*ui.WebServer, err error) {
+	var bApps []BridgeApp
+	for _, app := range bridgeApps {
+		bApps = append(bApps, app.BridgeApp)
+		var bridgeAppServer *ui.WebServer
+		bridgeAppServer, err = StartBridgeApp(app.H, app.BridgeApp.Port)
+		if err != nil {
+			return
+		}
+		bridgeAppServers = append(bridgeAppServers, bridgeAppServer)
+	}
+
+	err = buildBridges(h, port, bApps)
+	if err != nil {
+		panic(err)
+	}
+	return
+}
+
+func test(h *Holochain, one string, bridgeApps []BridgeAppForTests, forceBenchmark bool) []error {
 
 	var err error
 	var errs []error
@@ -713,17 +762,9 @@ func test(h *Holochain, one string, bridgeApps []BridgeApp, forceBenchmark bool)
 				failed.Log(err.Error())
 				ers = []error{err}
 			} else {
-				//	go h.dht.HandleChangeReqs()
 				ers = DoTests(h, name, ts, 0, nil)
 
-				// stop all the bridge web servers
-				for _, server := range bridgeAppServers {
-					server.Stop()
-				}
-				// then wait for them to complete
-				for _, server := range bridgeAppServers {
-					server.Wait()
-				}
+				StopBridgeApps(bridgeAppServers)
 			}
 		}
 		errs = append(errs, ers...)

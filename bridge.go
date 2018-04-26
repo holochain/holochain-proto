@@ -7,18 +7,22 @@
 package holochain
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
 	. "github.com/holochain/holochain-proto/hash"
 	"github.com/tidwall/buntdb"
+	"io/ioutil"
+	"net/http"
 	"path/filepath"
 	"strings"
 )
 
-// BridgeApp describes an app for bridging
+// BridgeApp describes a data necessary for bridging
 type BridgeApp struct {
-	H                     *Holochain
+	Name                  string //Name of other side
+	DNA                   Hash   // DNA of other side
 	Side                  int
 	BridgeGenesisDataFrom string
 	BridgeGenesisDataTo   string
@@ -40,7 +44,7 @@ var BridgeAppNotFoundErr = errors.New("bridge app not found")
 // AddBridgeAsCallee registers a token for allowing bridged calls from some other app
 // and calls bridgeGenesis in any zomes with bridge functions
 func (h *Holochain) AddBridgeAsCallee(fromDNA Hash, appData string) (token string, err error) {
-	h.Debugf("Adding bridge to %s from %v with appData: %s", h.Name(), fromDNA, appData)
+	h.Debugf("Adding bridge to callee %s from caller %v with appData: %s", h.Name(), fromDNA, appData)
 	err = h.initBridgeDB()
 	if err != nil {
 		return
@@ -151,7 +155,7 @@ func (h *Holochain) BridgeCall(zomeType string, function string, arguments inter
 // AddBridgeAsCaller associates a token with an application DNA hash and url for accessing it
 // it also runs BridgeGenesis in the bridgeZome
 func (h *Holochain) AddBridgeAsCaller(bridgeZome string, toDNA Hash, token string, url string, appData string) (err error) {
-	h.Debugf("Adding bridge from %s to %v with appData: %s", h.Name(), toDNA, appData)
+	h.Debugf("Adding bridge to caller %s for callee %v with appData: %s", h.Name(), toDNA, appData)
 	err = h.initBridgeDB()
 	if err != nil {
 		return
@@ -215,33 +219,76 @@ func (h *Holochain) GetBridgeToken(hash Hash) (token string, url string, err err
 	return
 }
 
-// BuildBridge creates the bridge structures on both sides
-// assumes that GenChain has been called for both sides already
-func (h *Holochain) BuildBridge(app *BridgeApp, port string) (err error) {
-	var hFrom, hTo *Holochain
-	var toPort string
-	if app.Side == BridgeFrom {
-		hFrom = app.H
-		hTo = h
-		toPort = port
-	} else {
-		hTo = app.H
-		hFrom = h
-		toPort = app.Port
-	}
-
+func (h *Holochain) BuildBridgeToCaller(app *BridgeApp, port string) (err error) {
 	var token string
-	token, err = hTo.AddBridgeAsCallee(hFrom.DNAHash(), app.BridgeGenesisDataTo)
+	token, err = h.AddBridgeAsCallee(app.DNA, app.BridgeGenesisDataTo)
 	if err != nil {
-		h.Debugf("adding bridge to %s from %s failed with %v\n", hTo.Name(), hFrom.Name(), err)
+		h.Debugf("adding bridge to caller %s from %s failed with %v\n", app.Name, h.Name(), err)
 		return
 	}
-	h.Debugf("%s received token %s from %s\n", hFrom.Name(), token, hTo.Name())
+
+	h.Debugf("%s generated token %s for %s\n", h.Name(), token, app.Name)
+
+	data := map[string]string{"Type": "ToCaller", "Zome": app.BridgeZome, "DNA": h.DNAHash().String(), "Token": token, "Port": port, "Data": app.BridgeGenesisDataFrom}
+	dataJSON, err := json.Marshal(data)
+	if err != nil {
+		return
+	}
+
+	body := bytes.NewBuffer(dataJSON)
+	var resp *http.Response
+
+	resp, err = http.Post(fmt.Sprintf("http://0.0.0.0:%s/setup-bridge/", app.Port), "application/json", body)
+	if err == nil {
+		defer resp.Body.Close()
+		if resp.StatusCode != 200 {
+			err = errors.New(resp.Status)
+		}
+	}
+	if err != nil {
+		h.Debugf("adding bridge to caller %s from %s failed with %s\n", app.Name, h.Name(), err)
+	}
+	return
+}
+
+// BuildBridgeToCallee creates the bridge structures on both sides
+func (h *Holochain) BuildBridgeToCallee(app *BridgeApp) (err error) {
+
+	data := map[string]string{"Type": "ToCallee", "DNA": h.DNAHash().String(), "Data": app.BridgeGenesisDataTo}
+	dataJSON, err := json.Marshal(data)
+	if err != nil {
+		return
+	}
+	body := bytes.NewBuffer(dataJSON)
+	var resp *http.Response
+	resp, err = http.Post(fmt.Sprintf("http://0.0.0.0:%s/setup-bridge/", app.Port), "application/json", body)
+
+	if err == nil {
+		defer resp.Body.Close()
+
+		if resp.StatusCode != 200 {
+			err = errors.New(resp.Status)
+		}
+	}
+	if err != nil {
+		return
+	}
+
+	var b []byte
+	b, err = ioutil.ReadAll(resp.Body)
+
+	if err != nil {
+		h.Debugf("adding bridge to callee %s from %s failed with %v\n", app.Name, h.Name(), err)
+		return
+	}
+
+	token := string(b)
+	h.Debugf("%s received token %s from %s\n", h.Name(), token, app.Name)
 
 	// the url is currently through the webserver
-	err = hFrom.AddBridgeAsCaller(app.BridgeZome, hTo.DNAHash(), token, fmt.Sprintf("http://localhost:%s", toPort), app.BridgeGenesisDataFrom)
+	err = h.AddBridgeAsCaller(app.BridgeZome, app.DNA, token, fmt.Sprintf("http://localhost:%s", app.Port), app.BridgeGenesisDataFrom)
 	if err != nil {
-		h.Debugf("adding bridge from %s to %s failed with %s\n", hFrom.Name(), hTo.Name(), err)
+		h.Debugf("adding bridge to callee %s from %s failed with %s\n", app.Name, h.Name(), err)
 		return
 	}
 

@@ -87,7 +87,7 @@ func setupApp() (app *cli.App) {
 	app = cli.NewApp()
 	app.Name = "hcdev"
 	app.Usage = "holochain dev command line tool"
-	app.Version = fmt.Sprintf("0.0.4 (holochain %s)", holo.VersionStr)
+	app.Version = fmt.Sprintf("0.0.5 (holochain %s)", holo.VersionStr)
 
 	var service *holo.Service
 	var serverID, agentID, identity string
@@ -96,6 +96,8 @@ func setupApp() (app *cli.App) {
 
 	var dumpScenario string
 	var dumpTest bool
+
+	var bridgeAppTmpFilePath string
 
 	app.Flags = []cli.Flag{
 		cli.BoolFlag{
@@ -377,6 +379,11 @@ func setupApp() (app *cli.App) {
 					Usage:       "calculate benchmarks during test",
 					Destination: &benchmarks,
 				},
+				cli.StringFlag{
+					Name:        "bridgeAppsFile",
+					Usage:       "path to live bridging Apps (used internally when scenario testing)",
+					Destination: &bridgeAppTmpFilePath,
+				},
 			},
 			Action: func(c *cli.Context) error {
 				holo.Debug("test: start")
@@ -386,19 +393,39 @@ func setupApp() (app *cli.App) {
 					return cmd.MakeErrFromErr(c, err)
 				}
 
-				var h *holo.Holochain
-				var bridgeApps []holo.BridgeApp
-				h, bridgeApps, err = getHolochain(c, service, identity)
-				if err != nil {
-					return cmd.MakeErrFromErr(c, err)
-				}
-
-				holo.Debug("test: initialised holochain\n")
-
 				args := c.Args()
 				var errs []error
 
-				if len(args) == 2 {
+				var h *holo.Holochain
+				h, err = getHolochain(c, service, identity)
+				if err != nil {
+					return cmd.MakeErrFromErr(c, err)
+				}
+				holo.Debug("test: initialised holochain\n")
+
+				if len(args) < 2 {
+					var bridgeApps []BridgeAppForTests
+
+					bridgeApps, err = getBridgeAppForTests(service, h.Agent())
+					if err != nil {
+						return cmd.MakeErrFromErr(c, err)
+					}
+
+					if len(args) == 1 {
+						errs = TestOne(h, args[0], bridgeApps, benchmarks)
+					} else if len(args) == 0 {
+						errs = Test(h, bridgeApps, benchmarks)
+					} else {
+						return cmd.MakeErr(c, "expected 0 args (run all stand-alone tests), 1 arg (a single stand-alone test) or 2 args (scenario and role)")
+					}
+				} else {
+					var bridgeApps []holo.BridgeApp
+					if bridgeAppTmpFilePath != "" {
+						bridgeApps, err = getBridgeAppsFromTmpFile(bridgeAppTmpFilePath)
+						if err != nil {
+							return cmd.MakeErrFromErr(c, err)
+						}
+					}
 
 					holo.Debug("test: scenario")
 
@@ -431,18 +458,12 @@ func setupApp() (app *cli.App) {
 						return cmd.MakeErrFromErr(c, err)
 					}
 
-					err, errs = TestScenario(h, scenario, role, pairs, benchmarks)
+					err, errs = TestScenario(h, scenario, role, pairs, benchmarks, bridgeApps)
 					if err != nil {
 						return cmd.MakeErrFromErr(c, err)
 					}
 					//holo.Debugf("testScenario: h: %v\n", spew.Sdump(h))
 
-				} else if len(args) == 1 {
-					errs = TestOne(h, args[0], bridgeApps, benchmarks)
-				} else if len(args) == 0 {
-					errs = Test(h, bridgeApps, benchmarks)
-				} else {
-					return cmd.MakeErr(c, "expected 0 args (run all stand-alone tests), 1 arg (a single stand-alone test) or 2 args (scenario and role)")
 				}
 
 				var s string
@@ -486,10 +507,35 @@ func setupApp() (app *cli.App) {
 				scenarioName := args[0]
 
 				// get the holochain from the source that we are supposed to be testing
-				h, _, err := getHolochain(c, service, identity)
+				h, err := getHolochain(c, service, identity)
 				if err != nil {
 					return cmd.MakeErrFromErr(c, err)
 				}
+
+				// get the bridgeApps
+				var bridgeApps []BridgeAppForTests
+				bridgeApps, err = getBridgeAppForTests(service, h.Agent())
+				if err != nil {
+					return cmd.MakeErrFromErr(c, err)
+				}
+
+				var bridgeAppsTmpfileName string
+				bridgeAppsTmpfileName, err = saveBridgeAppsToTmpFile(bridgeApps)
+				if err != nil {
+					return cmd.MakeErrFromErr(c, err)
+				}
+
+				//Spin up the bridgeApps
+				var bridgeAppServers []*ui.WebServer
+				for _, app := range bridgeApps {
+					var bridgeAppServer *ui.WebServer
+					bridgeAppServer, err = StartBridgeApp(app.H, app.BridgeApp.Port)
+					if err != nil {
+						return cmd.MakeErrFromErr(c, err)
+					}
+					bridgeAppServers = append(bridgeAppServers, bridgeAppServer)
+				}
+
 				// mutableContext.obj["initialHolochain"] = h
 				testScenarioList, err := holo.GetTestScenarios(h)
 				if err != nil {
@@ -606,9 +652,9 @@ func setupApp() (app *cli.App) {
 							"-agentID="+agentID,
 							fmt.Sprintf("-bootstrapServer=%v", bootstrapServer),
 							fmt.Sprintf("-keepalive=%v", keepalive),
-							fmt.Sprintf("-bridgeSpecs=%v", scenarioBridgeSpecs),
 
 							"test",
+							fmt.Sprintf("-bridgeAppsFile=%v", bridgeAppsTmpfileName),
 							fmt.Sprintf("-benchmarks=%v", benchmarks),
 							fmt.Sprintf("-syncPauseUntil=%v", secondsFromNowPlusDelay),
 							scenarioName,
@@ -638,6 +684,8 @@ func setupApp() (app *cli.App) {
 						holo.Debugf("scenario: forRole(%v): testCommandStarted\n", roleName)
 					}
 				}
+				//TODO wait for everything to finish and then clean up the bridge apps severs?
+
 				return nil
 			},
 		},
@@ -651,7 +699,12 @@ func setupApp() (app *cli.App) {
 					return cmd.MakeErrFromErr(c, err)
 				}
 
-				h, bridgeApps, err := getHolochain(c, service, agentID)
+				h, err := getHolochain(c, service, agentID)
+				if err != nil {
+					return cmd.MakeErrFromErr(c, err)
+				}
+
+				bridgeApps, err := getBridgeAppForTests(service, h.Agent())
 				if err != nil {
 					return cmd.MakeErrFromErr(c, err)
 				}
@@ -681,6 +734,7 @@ func setupApp() (app *cli.App) {
 					return cmd.MakeErrFromErr(c, err)
 				}
 				ws.Wait()
+				// TODO call StopBridgeApps instead????
 				for _, server := range bridgeAppServers {
 					server.Stop()
 				}
@@ -706,7 +760,7 @@ func setupApp() (app *cli.App) {
 				if err := appCheck(devPath); err != nil {
 					return err
 				}
-				h, _, err := getHolochain(c, service, identity)
+				h, err := getHolochain(c, service, identity)
 				if err != nil {
 					return cmd.MakeErrFromErr(c, err)
 				}
@@ -934,7 +988,7 @@ func main() {
 	}
 }
 
-func getHolochain(c *cli.Context, service *holo.Service, identity string) (h *holo.Holochain, bridgeApps []holo.BridgeApp, err error) {
+func getHolochain(c *cli.Context, service *holo.Service, identity string) (h *holo.Holochain, err error) {
 	// clear out the previous chain data that was copied from the last test/run
 	err = os.RemoveAll(filepath.Join(rootPath, name))
 	if err != nil {
@@ -948,10 +1002,6 @@ func getHolochain(c *cli.Context, service *holo.Service, identity string) (h *ho
 
 	if identity != "" {
 		holo.SetAgentIdentity(agent, holo.AgentIdentity(identity))
-	}
-	bridgeApps, err = getBridgedApps(service, agent)
-	if err != nil {
-		return
 	}
 
 	fmt.Printf("Copying chain to: %s\n", rootPath)
@@ -982,8 +1032,8 @@ type BridgeSpec struct {
 	BridgeZome            string // only used if side == BridgeFrom
 }
 
-// getBridgedApps builds up an array of bridged apps based on the dev values for bridging
-func getBridgedApps(service *holo.Service, agent holo.Agent) (bridgedApps []holo.BridgeApp, err error) {
+// getBridgeAppsForTests builds up an array of bridged apps based on the dev values for bridging
+func getBridgeAppForTests(service *holo.Service, agent holo.Agent) (bridgedApps []BridgeAppForTests, err error) {
 	if bridgeSpecsFile == "_" {
 		return
 	}
@@ -994,7 +1044,7 @@ func getBridgedApps(service *holo.Service, agent holo.Agent) (bridgedApps []holo
 	}
 	for _, spec := range specs {
 		var h *holo.Holochain
-		h, err = setupBridgeApp(service, agent, spec.Path, spec.Side)
+		h, err = setupBridgeApp(service, agent, spec.Path)
 		if err != nil {
 			return
 		}
@@ -1007,31 +1057,39 @@ func getBridgedApps(service *holo.Service, agent holo.Agent) (bridgedApps []holo
 			spec.Port = fmt.Sprintf("%d", port)
 		}
 		bridgedApps = append(bridgedApps,
-			holo.BridgeApp{
-				H:    h,
-				Side: spec.Side,
-				BridgeGenesisDataFrom: spec.BridgeGenesisDataFrom,
-				BridgeGenesisDataTo:   spec.BridgeGenesisDataTo,
-				Port:                  spec.Port,
-				BridgeZome:            spec.BridgeZome,
+			BridgeAppForTests{
+				H: h,
+				BridgeApp: holo.BridgeApp{
+					Name: h.Name(),
+					DNA:  h.DNAHash(),
+					Side: spec.Side,
+					BridgeGenesisDataFrom: spec.BridgeGenesisDataFrom,
+					BridgeGenesisDataTo:   spec.BridgeGenesisDataTo,
+					Port:                  spec.Port,
+					BridgeZome:            spec.BridgeZome,
+				},
 			})
 	}
 	return
 }
 
 // setupBridgeApp clones the bridge app from source and loads it in preparation for actual bridging
-func setupBridgeApp(service *holo.Service, agent holo.Agent, path string, side int) (bridgeH *holo.Holochain, err error) {
+func setupBridgeApp(service *holo.Service, agent holo.Agent, path string) (bridgeH *holo.Holochain, err error) {
 
 	bridgeName := filepath.Base(path)
 
 	os.Setenv("HOLOCHAINCONFIG_ENABLEMDNS", "true")
 	os.Setenv("HOLOCHAINCONFIG_BOOTSTRAP", "_")
 	os.Setenv("HCLOG_PREFIX", bridgeName+":")
-	if side == holo.BridgeFrom {
-		os.Setenv("HOLOCHAINCONFIG_PORT", "9991")
-	} else {
-		os.Setenv("HOLOCHAINCONFIG_PORT", "9992")
+
+	var freePort int
+	freePort, err = cmd.GetFreePort()
+	if err != nil {
+		return
 	}
+
+	os.Setenv("HOLOCHAINCONFIG_PORT", fmt.Sprintf("%d", freePort))
+
 	fmt.Printf("Copying bridge chain %s to: %s\n", bridgeName, rootPath)
 	// cleanup from previous time
 	err = os.RemoveAll(filepath.Join(rootPath, bridgeName))
@@ -1190,5 +1248,37 @@ func addRoleToPairs(h *holo.Holochain, role string, id string, pairs map[string]
 	}
 	pairs["%"+role+"_str%"] = id
 	pairs["%"+role+"_key%"] = hash
+	return
+}
+
+func saveBridgeAppsToTmpFile(bridgeAppsForTests []BridgeAppForTests) (bridgeAppsTmpfileName string, err error) {
+	var bridgeApps []holo.BridgeApp
+	for _, app := range bridgeAppsForTests {
+		bridgeApps = append(bridgeApps, app.BridgeApp)
+	}
+
+	var tmpfile *os.File
+	tmpfile, err = ioutil.TempFile("", "bridgeApp")
+	if err != nil {
+		return
+	}
+	bridgeAppsTmpfileName = tmpfile.Name()
+	err = holo.Encode(tmpfile, "json", bridgeApps)
+	if err != nil {
+		return
+	}
+	tmpfile.Close()
+
+	return
+}
+
+func getBridgeAppsFromTmpFile(path string) (bridgeApps []holo.BridgeApp, err error) {
+	var f *os.File
+	f, err = os.Open(path)
+	if err != nil {
+		return
+	}
+	defer f.Close()
+	err = holo.Decode(f, "json", &bridgeApps)
 	return
 }

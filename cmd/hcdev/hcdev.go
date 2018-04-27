@@ -36,6 +36,7 @@ const (
 )
 
 var debug, appInitialized, verbose, keepalive bool
+var keepaliveCleanup func()
 var rootPath, devPath, name string
 var bridgeSpecsFile string
 var scenarioConfig *holo.TestConfig
@@ -520,9 +521,11 @@ func setupApp() (app *cli.App) {
 				}
 
 				var bridgeAppsTmpfileName string
-				bridgeAppsTmpfileName, err = saveBridgeAppsToTmpFile(bridgeApps)
-				if err != nil {
-					return cmd.MakeErrFromErr(c, err)
+				if len(bridgeApps) > 0 {
+					bridgeAppsTmpfileName, err = saveBridgeAppsToTmpFile(bridgeApps)
+					if err != nil {
+						return cmd.MakeErrFromErr(c, err)
+					}
 				}
 
 				//Spin up the bridgeApps
@@ -684,8 +687,13 @@ func setupApp() (app *cli.App) {
 						holo.Debugf("scenario: forRole(%v): testCommandStarted\n", roleName)
 					}
 				}
-				//TODO wait for everything to finish and then clean up the bridge apps severs?
-
+				keepalive = true
+				if len(bridgeApps) > 0 {
+					keepaliveCleanup = func() {
+						StopBridgeApps(bridgeAppServers)
+						os.Remove(bridgeAppsTmpfileName)
+					}
+				}
 				return nil
 			},
 		},
@@ -978,6 +986,9 @@ func main() {
 	}
 	if keepalive {
 		<-stop
+	}
+	if keepaliveCleanup != nil {
+		keepaliveCleanup()
 	}
 	if verbose {
 		fmt.Printf("hcdev complete!\n")

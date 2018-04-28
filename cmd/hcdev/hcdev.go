@@ -341,7 +341,7 @@ func setupApp() (app *cli.App) {
 
 					var appPackage *holo.AppPackage
 					appPackage, err = service.SaveFromAppPackage(appPackageReader, devPath, name, agent, holo.BasicTemplateAppPackageFormat, encodingFormat, true)
-					fmt.Printf("ERR:%v", err)
+
 					if err != nil {
 						return cmd.MakeErrFromErr(c, err)
 					}

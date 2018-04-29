@@ -27,7 +27,7 @@ func TestInit(t *testing.T) {
 
 		Convey("it should return a service with default values", func() {
 			So(s.DefaultAgent.Identity(), ShouldEqual, AgentIdentity(agent))
-			So(fmt.Sprintf("%v", s.Settings), ShouldEqual, "{true true bootstrap.holochain.net:10000 false false}")
+			So(fmt.Sprintf("%v", s.Settings), ShouldEqual, "{true true bootstrap.holochain.net:10000 false true}")
 		})
 
 		p := filepath.Join(d, DefaultDirectoryName)
@@ -304,7 +304,7 @@ func TestMakeTestingApp(t *testing.T) {
 	})
 
 	Convey("generating a dev holochain in an absolute directory initdb should work", t, func() {
-		root := filepath.Join("/tmp", "foo")
+		root := filepath.Join("/tmp", MakeTestDirName())
 		_, err := s.MakeTestingApp(root, "json", InitializeDB, CloneWithNewUUID, nil)
 		os.RemoveAll(root)
 		So(err, ShouldBeNil)

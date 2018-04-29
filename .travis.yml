@@ -12,6 +12,7 @@ services:
 script:
 - make hcdev
 - TEST_FLAGS='-v -coverprofile=$(pkg_path)/coverage.txt -covermode=atomic' make -e test
+- docker build -t smoke-test docker && docker run smoke-test
 cache:
   directories:
   - $GOPATH/src/gx

@@ -19,4 +19,4 @@ COPY --from=build /go/bin/hccore /usr/local/bin/hccore
 COPY --from=build /go/bin/hcd /usr/local/bin/hcd
 COPY --from=build /go/bin/hcdev /usr/local/bin/hcdev
 
-CMD ["/bin/bash"]
+CMD ["/bin/bash/broken"]

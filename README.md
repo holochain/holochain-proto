@@ -200,7 +200,8 @@ Architecture information and application developer documentation is in our [deve
 You can also look through auto-generated [reference API on GoDocs](https://godoc.org/github.com/holochain/holochain-proto)
 
 ## Holochain Core Development
-We accept Pull Requests and welcome your participation.
+We accept Pull Requests and welcome your participation. Please make sure to
+include the issue number your branch names and use descriptive commit messages.
 
 [![In Progress](https://img.shields.io/waffle/label/holochain/holochain-proto/in%20progress.svg)](http://waffle.io/holochain/holochain-proto)
 

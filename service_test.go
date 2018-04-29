@@ -304,7 +304,7 @@ func TestMakeTestingApp(t *testing.T) {
 	})
 
 	Convey("generating a dev holochain in an absolute directory initdb should work", t, func() {
-		root := filepath.Join("/tmp", "foo")
+		root := filepath.Join("/tmp", MakeTestDirName())
 		_, err := s.MakeTestingApp(root, "json", InitializeDB, CloneWithNewUUID, nil)
 		os.RemoveAll(root)
 		So(err, ShouldBeNil)

@@ -125,7 +125,7 @@ func setupApp() (app *cli.App) {
 		},
 		cli.StringFlag{
 			Name:        "DHTport",
-			Usage:       "port to use for the DHT",
+			Usage:       fmt.Sprintf("port to use for the holochain DHT and node-to-node communication (defaut: %d)", holo.DefaultDHTPort),
 			Destination: &dhtPort,
 		},
 		cli.BoolTFlag{
@@ -644,7 +644,7 @@ func setupApp() (app *cli.App) {
 			Name:      "web",
 			Aliases:   []string{"serve", "w"},
 			ArgsUsage: "[ui-port]",
-			Usage:     fmt.Sprintf("serve a chain to the web on localhost:<ui-port> (defaults to %s)", defaultUIPort),
+			Usage:     fmt.Sprintf("serve a chain to the web on localhost:<ui-port> (default: %s)", defaultUIPort),
 			Action: func(c *cli.Context) error {
 				if err := appCheck(devPath); err != nil {
 					return cmd.MakeErrFromErr(c, err)

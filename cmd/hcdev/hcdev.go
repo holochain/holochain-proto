@@ -27,7 +27,7 @@ import (
 )
 
 const (
-	defaultPort        = "4141"
+	defaultUIPort      = "4141"
 	bridgeFromPort     = "21111"
 	bridgeToPort       = "21112"
 	scenarioStartDelay = 1
@@ -41,7 +41,7 @@ var bridgeSpecsFile string
 var scenarioConfig *holo.TestConfig
 
 // flags for holochain config generation
-var port, logPrefix, bootstrapServer string
+var dhtPort, logPrefix, bootstrapServer string
 var mdns bool = true
 var upnp bool
 
@@ -87,7 +87,7 @@ func setupApp() (app *cli.App) {
 	app = cli.NewApp()
 	app.Name = "hcdev"
 	app.Usage = "holochain dev command line tool"
-	app.Version = fmt.Sprintf("0.0.4 (holochain %s)", holo.VersionStr)
+	app.Version = fmt.Sprintf("0.0.5 (holochain %s)", holo.VersionStr)
 
 	var service *holo.Service
 	var serverID, agentID, identity string
@@ -124,9 +124,9 @@ func setupApp() (app *cli.App) {
 			Destination: &devPath,
 		},
 		cli.StringFlag{
-			Name:        "port",
-			Usage:       "port on which to run the test/scenario instance",
-			Destination: &port,
+			Name:        "DHTport",
+			Usage:       fmt.Sprintf("port to use for the holochain DHT and node-to-node communication (defaut: %d)", holo.DefaultDHTPort),
+			Destination: &dhtPort,
 		},
 		cli.BoolTFlag{
 			Name:        "mdns",
@@ -536,7 +536,7 @@ func setupApp() (app *cli.App) {
 				for roleIndex, roleName := range roleList {
 					holo.Debugf("scenario: forRole(%v): start\n\n", roleName)
 
-					// HOLOCHAINCONFIG_PORT       = FindSomeAvailablePort
+					// HOLOCHAINCONFIG_DHTPORT       = FindSomeAvailablePort
 					// HOLOCHAINCONFIG_ENABLEMDNS = "true" or HOLOCHAINCONFIG_BOOTSTRAP = "ip[localhost]:port[3142]
 					// HCLOG_PREFIX  = role
 
@@ -597,7 +597,7 @@ func setupApp() (app *cli.App) {
 							"hcdev",
 							"-path="+devPath,
 							"-execpath="+filepath.Join(rootExecDir, roleName),
-							"-port="+strconv.Itoa(freePort),
+							"-DHTport="+strconv.Itoa(freePort),
 							fmt.Sprintf("-mdns=%v", mdns),
 							"-upnp="+upnpnat,
 							"-logPrefix="+logPrefix,
@@ -643,8 +643,8 @@ func setupApp() (app *cli.App) {
 		{
 			Name:      "web",
 			Aliases:   []string{"serve", "w"},
-			ArgsUsage: "[port]",
-			Usage:     fmt.Sprintf("serve a chain to the web on localhost:<port> (defaults to %s)", defaultPort),
+			ArgsUsage: "[ui-port]",
+			Usage:     fmt.Sprintf("serve a chain to the web on localhost:<ui-port> (default: %s)", defaultUIPort),
 			Action: func(c *cli.Context) error {
 				if err := appCheck(devPath); err != nil {
 					return cmd.MakeErrFromErr(c, err)
@@ -663,7 +663,7 @@ func setupApp() (app *cli.App) {
 
 				var port string
 				if len(c.Args()) == 0 {
-					port = defaultPort
+					port = defaultUIPort
 				} else {
 					port = c.Args()[0]
 				}
@@ -838,8 +838,8 @@ func setupApp() (app *cli.App) {
 
 		var err error
 
-		if port != "" {
-			err = os.Setenv("HOLOCHAINCONFIG_PORT", port)
+		if dhtPort != "" {
+			err = os.Setenv("HOLOCHAINCONFIG_DHTPORT", dhtPort)
 			if err != nil {
 				return err
 			}
@@ -1045,9 +1045,9 @@ func setupBridgeApp(service *holo.Service, agent holo.Agent, path string, side i
 	os.Setenv("HOLOCHAINCONFIG_BOOTSTRAP", "_")
 	os.Setenv("HCLOG_PREFIX", bridgeName+":")
 	if side == holo.BridgeFrom {
-		os.Setenv("HOLOCHAINCONFIG_PORT", "9991")
+		os.Setenv("HOLOCHAINCONFIG_DHTPORT", "9991")
 	} else {
-		os.Setenv("HOLOCHAINCONFIG_PORT", "9992")
+		os.Setenv("HOLOCHAINCONFIG_DHTPORT", "9992")
 	}
 	fmt.Printf("Copying bridge chain %s to: %s\n", bridgeName, rootPath)
 	// cleanup from previous time

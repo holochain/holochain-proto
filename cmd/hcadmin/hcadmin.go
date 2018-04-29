@@ -214,7 +214,7 @@ func setupApp() (app *cli.App) {
 					return err
 				}
 
-				err = hFrom.AddBridgeAsCaller(bridgeZome, hTo.DNAHash(), token, fmt.Sprintf("http://localhost:%d", hTo.Config.Port), bridgeFromAppData)
+				err = hFrom.AddBridgeAsCaller(bridgeZome, hTo.DNAHash(), token, fmt.Sprintf("http://localhost:%d", hTo.Config.DHTPort), bridgeFromAppData)
 
 				if err == nil {
 					if verbose {

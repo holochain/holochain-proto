@@ -45,7 +45,7 @@ const (
 
 	TestConfigFileName string = "_config.json"
 
-	DefaultPort            = 6283
+	DefaultDHTPort         = 6283
 	DefaultBootstrapServer = "bootstrap.holochain.net:10000"
 
 	DefaultBootstrapServerEnvVar = "HC_DEFAULT_BOOTSTRAPSERVER"
@@ -566,7 +566,7 @@ func suffixByRibosomeType(ribosomeType string) (suffix string) {
 
 func _makeConfig(s *Service) (config Config, err error) {
 	config = Config{
-		Port:            DefaultPort,
+		DHTPort:         DefaultDHTPort,
 		PeerModeDHTNode: s.Settings.DefaultPeerModeDHTNode,
 		PeerModeAuthor:  s.Settings.DefaultPeerModeAuthor,
 		BootstrapServer: s.Settings.DefaultBootstrapServer,
@@ -582,10 +582,10 @@ func _makeConfig(s *Service) (config Config, err error) {
 		},
 	}
 
-	val := os.Getenv("HOLOCHAINCONFIG_PORT")
+	val := os.Getenv("HOLOCHAINCONFIG_DHTPORT")
 	if val != "" {
 		Debugf("makeConfig: using environment variable to set port to: %s", val)
-		config.Port, err = strconv.Atoi(val)
+		config.DHTPort, err = strconv.Atoi(val)
 		if err != nil {
 			return
 		}

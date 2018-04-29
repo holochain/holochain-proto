@@ -28,7 +28,7 @@ func TestLoadAppPackage(t *testing.T) {
 
 	Convey("it should load tests from a appPackage blob", t, func() {
 		So(appPackage.TestSets[0].Name, ShouldEqual, "sample")
-		So(appPackage.TestSets[0].TestSet.Tests[0].Convey, ShouldEqual, "We can create a new sampleEntry")
+		So(appPackage.TestSets[0].TestSet.Tests[0].Convey, ShouldEndWith, "We can create a new sampleEntry")
 	})
 
 	Convey("it should load scenarios from a appPackage blob", t, func() {

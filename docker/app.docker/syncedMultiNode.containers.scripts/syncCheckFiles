@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 ls $1    && exit 0
 ls $1.*  && exit 0

@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 holochainBinDir="$GOPATH/src/github.com/holochain/holochain-proto/bin"
 
 $holochainBinDir/holochain.app.findAppDir

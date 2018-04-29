@@ -36,7 +36,7 @@ define new_line
 
 endef
 
-.PHONY: hcd hcdev hcadmin hccore bs test deps work pub
+.PHONY: hcd hcdev hcadmin bs test deps work pub
 # Anything which requires deps should end with: gx-go rewrite --undo
 
 all: deps
@@ -47,9 +47,6 @@ hcd: deps
 	gx-go rewrite --undo
 hcdev: deps
 	go get $(REPO)/cmd/hcdev
-	gx-go rewrite --undo
-hccore: deps
-	go get $(REPO)/cmd/hccore
 	gx-go rewrite --undo
 hcadmin: deps
 	go get $(REPO)/cmd/hcadmin

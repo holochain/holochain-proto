@@ -202,8 +202,14 @@ You can also look through auto-generated [reference API on GoDocs](https://godoc
 ## Holochain Core Development
 We accept Pull Requests and welcome your participation.
 
-Some helpful links: [![In Progress](https://img.shields.io/waffle/label/holochain/holochain-proto/in%20progress.svg)](http://waffle.io/holochain/holochain-proto)
+[![In Progress](https://img.shields.io/waffle/label/holochain/holochain-proto/in%20progress.svg)](http://waffle.io/holochain/holochain-proto)
+
+Some helpful links:
+
 * View our [Kanban on Waffle](https://waffle.io/holochain/holochain-proto).
+* View our current [Milestones](https://github.com/metacurrency/holochain/milestones?direction=asc&sort=due_date&state=all).
+* Chat with us on [Gitter](https://gitter.im/metacurrency/holochain) or [Slack](http://ceptr.org/slack)
+* We have a weekly [dev-coord hangout](http://ceptr.org/devchat) on Tuesday's 9am PST/ 12pm EST
 
 Current Throughput graph:
 

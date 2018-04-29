@@ -135,7 +135,7 @@ func setupApp() (app *cli.App) {
 		},
 		cli.BoolFlag{
 			Name:        "upnp",
-			Usage:       "whether to use UPnP for creating a NAT port mapping (default true)",
+			Usage:       "whether to use UPnP for creating a NAT port mapping (default = false)",
 			Destination: &upnp,
 		},
 		cli.StringFlag{

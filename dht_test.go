@@ -233,10 +233,12 @@ func TestDHTKadPut(t *testing.T) {
 		resp := r.(GetResp)
 		So(fmt.Sprintf("%v", resp.Entry), ShouldEqual, fmt.Sprintf("%v", e))
 
-		// and the world model should show that it's being held
-		holding, err := h.world.IsHolding(mt.nodes[3].nodeID, hash)
-		So(err, ShouldBeNil)
-		So(holding, ShouldBeTrue)
+		if h.Config.EnableWorldModel {
+			// and the world model should show that it's being held
+			holding, err := h.world.IsHolding(mt.nodes[3].nodeID, hash)
+			So(err, ShouldBeNil)
+			So(holding, ShouldBeTrue)
+		}
 	})
 }
 

@@ -146,7 +146,9 @@ func TestWorldOverlap(t *testing.T) {
 	defer mt.cleanupMultiNodeTesting()
 	nodes := mt.nodes
 	h := nodes[0]
-
+	if !h.Config.EnableWorldModel {
+		return
+	}
 	starConnectMutual(t, mt.ctx, nodes, nodesCount)
 
 	Convey("it should add all nodes to the world model", t, func() {
@@ -199,11 +201,14 @@ func TestWorldOverlap(t *testing.T) {
 	})
 }
 
-func TestWorldHoldingTask(t *testing.T) {
+func SkipTestWorldHoldingTask(t *testing.T) {
 	nodesCount := 10
 	mt := setupMultiNodeTesting(nodesCount)
 	defer mt.cleanupMultiNodeTesting()
 	nodes := mt.nodes
+	if !nodes[0].Config.EnableWorldModel {
+		return
+	}
 
 	fullConnect(t, mt.ctx, nodes, nodesCount)
 	//randConnect(t, mt.ctx, nodes, nodesCount, 7, 4)

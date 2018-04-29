@@ -18,6 +18,9 @@ func TestMain(m *testing.M) {
 	os.Setenv("_HCTEST", "1")
 	// disable UPNP for tests
 	os.Setenv("HOLOCHAINCONFIG_ENABLENATUPNP", "false")
+
+	//os.Setenv("HC_ENABLE_WORLD_MODEL", "true")
+
 	InitializeHolochain()
 	os.Exit(m.Run())
 }
@@ -69,11 +72,18 @@ func TestNewHolochain(t *testing.T) {
 func TestSetupConfig(t *testing.T) {
 	config := Config{}
 	Convey("it should set the intervals", t, func() {
+		config.EnableWorldModel = false
 		config.Setup()
+		So(config.holdingCheckInterval, ShouldEqual, 0)
+
 		So(config.gossipInterval, ShouldEqual, DefaultGossipInterval)
 		So(config.bootstrapRefreshInterval, ShouldEqual, BootstrapTTL)
 		So(config.routingRefreshInterval, ShouldEqual, DefaultRoutingRefreshInterval)
 		So(config.retryInterval, ShouldEqual, DefaultRetryInterval)
+
+		config.EnableWorldModel = true
+		config.Setup()
+		So(config.holdingCheckInterval, ShouldEqual, DefaultHoldingCheckInterval)
 	})
 }
 
@@ -162,7 +172,8 @@ func TestDebuggingSetup(t *testing.T) {
 		log.Enabled = true
 
 		h.Debug("test")
-		So(string(buf.Bytes()), ShouldEqual, "HC: holochain_test.go.160: test\n")
+		So(string(buf.Bytes()), ShouldContainSubstring, "HC: holochain_test.go.")
+		So(string(buf.Bytes()), ShouldContainSubstring, ": test\n")
 
 		// restore state of debug log
 		log.w = os.Stdout

@@ -380,10 +380,12 @@ func (dht *DHT) change(req changeReq) (err error) {
 		}(p)
 	}
 	wg.Wait()
-	for _, p := range held {
-		err := dht.h.world.SetNodeHolding(p, key)
-		if err != nil {
-			dht.dlog.Logf("SetNodeHolding for node %v not found in world node", p)
+	if dht.h.Config.EnableWorldModel {
+		for _, p := range held {
+			err := dht.h.world.SetNodeHolding(p, key)
+			if err != nil {
+				dht.dlog.Logf("SetNodeHolding for node %v not found in world node", p)
+			}
 		}
 	}
 	return

@@ -170,6 +170,7 @@ const (
 	PeerTTL                       = time.Minute * 10
 	DefaultRoutingRefreshInterval = time.Minute
 	DefaultGossipInterval         = time.Second * 2
+	DefaultHoldingCheckInterval   = time.Second * 30
 )
 
 // implement peer found function for mdns discovery
@@ -238,7 +239,9 @@ func (h *Holochain) addPeer(pi pstore.PeerInfo, confirm bool) (err error) {
 				return
 			}
 		}
-		h.world.AddNode(pi, pubKey)
+		if h.Config.EnableWorldModel {
+			h.world.AddNode(pi, pubKey)
+		}
 	}
 
 	return

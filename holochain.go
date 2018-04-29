@@ -53,13 +53,14 @@ type Loggers struct {
 
 // Config holds the non-DNA configuration for a holo-chain, from config file or environment variables
 type Config struct {
-	DHTPort         int
-	EnableMDNS      bool
-	PeerModeAuthor  bool
-	PeerModeDHTNode bool
-	EnableNATUPnP   bool
-	BootstrapServer string
-	Loggers         Loggers
+	DHTPort          int
+	EnableMDNS       bool
+	PeerModeAuthor   bool
+	PeerModeDHTNode  bool
+	EnableNATUPnP    bool
+	EnableWorldModel bool
+	BootstrapServer  string
+	Loggers          Loggers
 
 	holdingCheckInterval     time.Duration
 	gossipInterval           time.Duration
@@ -313,7 +314,9 @@ func (h *Holochain) Prepare() (err error) {
 	h.dht = NewDHT(h)
 	h.nucleus.h = h
 
-	h.world = NewWorld(h.node.HashAddr, h.dht, &h.Config.Loggers.World)
+	if h.Config.EnableWorldModel {
+		h.world = NewWorld(h.node.HashAddr, h.dht, &h.Config.Loggers.World)
+	}
 
 	var peerList PeerList
 	peerList, err = h.dht.getList(BlockedList)
@@ -510,6 +513,13 @@ func initLogger(l *Logger, envOverride string, writer io.Writer) (err error) {
 }
 
 func (config *Config) Setup() (err error) {
+	wm := os.Getenv("HC_ENABLE_WORLD_MODEL")
+	if wm == "1" || wm == "true" {
+		config.EnableWorldModel = true
+	}
+	if config.EnableWorldModel {
+		config.holdingCheckInterval = DefaultHoldingCheckInterval
+	}
 	config.gossipInterval = DefaultGossipInterval
 	config.bootstrapRefreshInterval = BootstrapTTL
 	config.routingRefreshInterval = DefaultRoutingRefreshInterval

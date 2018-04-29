@@ -375,8 +375,9 @@ func TestAddPeer(t *testing.T) {
 	Convey("it should add a peer to the peer store and the gossip list with public key", t, func() {
 		So(h.node.routingTable.Size(), ShouldEqual, 0)
 		So(len(h.node.peerstore.Peers()), ShouldEqual, 1)
-		So(len(h.world.nodes), ShouldEqual, 0)
-
+		if h.Config.EnableWorldModel {
+			So(len(h.world.nodes), ShouldEqual, 0)
+		}
 		err := h.AddPeer(pi)
 		So(err, ShouldBeNil)
 		So(len(h.node.peerstore.Peers()), ShouldEqual, 2)
@@ -386,9 +387,11 @@ func TestAddPeer(t *testing.T) {
 		So(glist[0], ShouldEqual, somePeer)
 		So(h.node.routingTable.Size(), ShouldEqual, 1)
 
-		So(len(h.world.nodes), ShouldEqual, 1)
-		node1ID, _, _ := nodes[1].agent.NodeID()
-		So(h.world.nodes[node1ID].PubKey.Equals(nodes[1].agent.PubKey()), ShouldBeTrue)
+		if h.Config.EnableWorldModel {
+			So(len(h.world.nodes), ShouldEqual, 1)
+			node1ID, _, _ := nodes[1].agent.NodeID()
+			So(h.world.nodes[node1ID].PubKey.Equals(nodes[1].agent.PubKey()), ShouldBeTrue)
+		}
 
 	})
 

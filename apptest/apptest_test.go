@@ -13,6 +13,8 @@ import (
 )
 
 func TestMain(m *testing.M) {
+	// disable UPNP for tests
+	os.Setenv("HOLOCHAINCONFIG_ENABLENATUPNP", "false")
 	InitializeHolochain()
 	os.Exit(m.Run())
 }

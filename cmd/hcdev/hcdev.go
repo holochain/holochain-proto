@@ -27,7 +27,7 @@ import (
 )
 
 const (
-	defaultPort        = "4141"
+	defaultUIPort      = "4141"
 	bridgeFromPort     = "21111"
 	bridgeToPort       = "21112"
 	scenarioStartDelay = 1
@@ -42,9 +42,9 @@ var bridgeSpecsFile string
 var scenarioConfig *holo.TestConfig
 
 // flags for holochain config generation
-var port, logPrefix, bootstrapServer string
-var mdns bool
-var nonatupnp bool
+var dhtPort, logPrefix, bootstrapServer string
+var mdns bool = true
+var upnp bool
 
 // meta flags for program flow control
 var syncPausePath string
@@ -71,7 +71,7 @@ func appCheck(devPath string) error {
 }
 func setupApp() (app *cli.App) {
 
-	// clear these values so we can call this multiple time for testing
+	// set default values so we can call this multiple time for testing
 	debug = false
 	appInitialized = false
 	rootPath = ""
@@ -127,19 +127,19 @@ func setupApp() (app *cli.App) {
 			Destination: &devPath,
 		},
 		cli.StringFlag{
-			Name:        "port",
-			Usage:       "port on which to run the test/scenario instance",
-			Destination: &port,
+			Name:        "DHTport",
+			Usage:       fmt.Sprintf("port to use for the holochain DHT and node-to-node communication (defaut: %d)", holo.DefaultDHTPort),
+			Destination: &dhtPort,
 		},
-		cli.BoolFlag{
+		cli.BoolTFlag{
 			Name:        "mdns",
-			Usage:       "whether to use mdns for local peer discovery",
+			Usage:       "whether to use mdns for local peer discovery (default: true)",
 			Destination: &mdns,
 		},
 		cli.BoolFlag{
-			Name:        "no-nat-upnp",
-			Usage:       "whether to stop hcdev from creating a port mapping through NAT via UPnP",
-			Destination: &nonatupnp,
+			Name:        "upnp",
+			Usage:       "whether to use UPnP for creating a NAT port mapping (default: false)",
+			Destination: &upnp,
 		},
 		cli.StringFlag{
 			Name:        "logPrefix",
@@ -169,7 +169,7 @@ func setupApp() (app *cli.App) {
 	}
 
 	var dumpChain, dumpDHT, initTest, fromDevelop, benchmarks, json bool
-	var clonePath, appPackagePath, cloneExample, outputDir, fromBranch string
+	var clonePath, appPackagePath, cloneExample, outputDir, fromBranch, dumpFormat string
 
 	app.Commands = []cli.Command{
 		{
@@ -344,7 +344,7 @@ func setupApp() (app *cli.App) {
 
 					var appPackage *holo.AppPackage
 					appPackage, err = service.SaveFromAppPackage(appPackageReader, devPath, name, agent, holo.BasicTemplateAppPackageFormat, encodingFormat, true)
-					fmt.Printf("ERR:%v", err)
+
 					if err != nil {
 						return cmd.MakeErrFromErr(c, err)
 					}
@@ -585,7 +585,7 @@ func setupApp() (app *cli.App) {
 				for roleIndex, roleName := range roleList {
 					holo.Debugf("scenario: forRole(%v): start\n\n", roleName)
 
-					// HOLOCHAINCONFIG_PORT       = FindSomeAvailablePort
+					// HOLOCHAINCONFIG_DHTPORT       = FindSomeAvailablePort
 					// HOLOCHAINCONFIG_ENABLEMDNS = "true" or HOLOCHAINCONFIG_BOOTSTRAP = "ip[localhost]:port[3142]
 					// HCLOG_PREFIX  = role
 
@@ -636,20 +636,19 @@ func setupApp() (app *cli.App) {
 							logPrefix = "%{time}" + logPrefix
 						}*/
 
-						var nonat string
+						var upnpnat string
 						if bootstrapServer == "_" {
-							nonat = "true"
+							upnpnat = "false"
 						} else {
-							nonat = "false"
+							upnpnat = "true"
 						}
-
 						testCommand := exec.Command(
 							"hcdev",
 							"-path="+devPath,
 							"-execpath="+filepath.Join(rootExecDir, roleName),
-							"-port="+strconv.Itoa(freePort),
+							"-DHTport="+strconv.Itoa(freePort),
 							fmt.Sprintf("-mdns=%v", mdns),
-							"-no-nat-upnp="+nonat,
+							"-upnp="+upnpnat,
 							"-logPrefix="+logPrefix,
 							"-serverID="+serverID,
 							"-agentID="+agentID,
@@ -700,8 +699,8 @@ func setupApp() (app *cli.App) {
 		{
 			Name:      "web",
 			Aliases:   []string{"serve", "w"},
-			ArgsUsage: "[port]",
-			Usage:     fmt.Sprintf("serve a chain to the web on localhost:<port> (defaults to %s)", defaultPort),
+			ArgsUsage: "[ui-port]",
+			Usage:     fmt.Sprintf("serve a chain to the web on localhost:<ui-port> (default: %s)", defaultUIPort),
 			Action: func(c *cli.Context) error {
 				if err := appCheck(devPath); err != nil {
 					return cmd.MakeErrFromErr(c, err)
@@ -725,7 +724,7 @@ func setupApp() (app *cli.App) {
 
 				var port string
 				if len(c.Args()) == 0 {
-					port = defaultPort
+					port = defaultUIPort
 				} else {
 					port = c.Args()[0]
 				}
@@ -817,6 +816,12 @@ func setupApp() (app *cli.App) {
 					Name:        "scenario",
 					Destination: &dumpScenario,
 				},
+				cli.StringFlag{
+					Name:        "format",
+					Destination: &dumpFormat,
+					Usage:       "Dump format (string, json, dot)",
+					Value:       "string",
+				},
 			},
 			Action: func(c *cli.Context) error {
 
@@ -859,6 +864,19 @@ func setupApp() (app *cli.App) {
 					if json {
 						dump, _ := h.Chain().JSON()
 						fmt.Println(dump)
+					} else if dumpFormat != "" {
+						switch dumpFormat {
+						case "string":
+							fmt.Printf("Chain for: %s\n%v", dnaHash, h.Chain())
+						case "dot":
+							dump, _ := h.Chain().Dot()
+							fmt.Println(dump)
+						case "json":
+							dump, _ := h.Chain().JSON()
+							fmt.Println(dump)
+						default:
+							return cmd.MakeErr(c, "format must be one of dot,json,string")
+						}
 					} else {
 						fmt.Printf("Chain for: %s\n%v", dnaHash, h.Chain())
 					}
@@ -878,25 +896,24 @@ func setupApp() (app *cli.App) {
 	}
 
 	app.Before = func(c *cli.Context) error {
-
 		lastRunContext = c
 
 		var err error
 
-		if port != "" {
-			err = os.Setenv("HOLOCHAINCONFIG_PORT", port)
+		if dhtPort != "" {
+			err = os.Setenv("HOLOCHAINCONFIG_DHTPORT", dhtPort)
 			if err != nil {
 				return err
 			}
 		}
-		if mdns != false {
+		if mdns {
 			err = os.Setenv("HOLOCHAINCONFIG_ENABLEMDNS", "true")
 			if err != nil {
 				return err
 			}
 		}
-		if nonatupnp == false {
-			err = os.Setenv("HOLOCHAINCONFIG_ENABLENATUPNP", "true")
+		if upnp != true {
+			err = os.Setenv("HOLOCHAINCONFIG_ENABLENATUPNP", "false")
 			if err != nil {
 				return err
 			}
@@ -1099,7 +1116,7 @@ func setupBridgeApp(service *holo.Service, agent holo.Agent, path string) (bridg
 		return
 	}
 
-	os.Setenv("HOLOCHAINCONFIG_PORT", fmt.Sprintf("%d", freePort))
+	os.Setenv("HOLOCHAINCONFIG_DHTPORT", fmt.Sprintf("%d", freePort))
 
 	fmt.Printf("Copying bridge chain %s to: %s\n", bridgeName, rootPath)
 	// cleanup from previous time

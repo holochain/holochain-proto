@@ -19,6 +19,13 @@ import (
 	"github.com/urfave/cli"
 )
 
+func TestMain(m *testing.M) {
+	// disable UPNP for tests
+	os.Setenv("HOLOCHAINCONFIG_ENABLENATUPNP", "false")
+	holo.InitializeHolochain()
+	os.Exit(m.Run())
+}
+
 func TestSetupApp(t *testing.T) {
 	app := setupApp()
 	Convey("it should create the cli App", t, func() {
@@ -27,43 +34,57 @@ func TestSetupApp(t *testing.T) {
 }
 
 func TestDump(t *testing.T) {
-	holo.InitializeHolochain()
 	d, s, h := holo.PrepareTestChain("test")
-	// port, _ := cmd.GetFreePort()
 	defer holo.CleanupTestChain(h, d)
 	app := setupApp()
 
-	Convey("dump --chain should show chain entries as a human readable string", t, func() {
-		out, err := runAppWithStdoutCapture(app, []string{"hcdev", "-no-nat-upnp", "-port=6001", "-execpath", s.Path, "-path", "test", "dump", "--chain"})
+	Convey("'dump --chain' should show chain entries as a human readable string", t, func() {
+		out, err := runAppWithStdoutCapture(app, []string{"hcdev", "-DHTport=6001", "-execpath", s.Path, "-path", "test", "dump", "--chain"})
 
 		So(err, ShouldBeNil)
 		So(out, ShouldContainSubstring, "%dna:")
 		So(out, ShouldContainSubstring, "%agent:")
 	})
 
-	Convey("dump --dht should show chain entries as a human readable string", t, func() {
-		out, err := runAppWithStdoutCapture(app, []string{"hcdev", "-no-nat-upnp", "-port=6001", "-execpath", s.Path, "-path", "test", "dump", "--dht"})
+	Convey("'dump --dht' should show chain entries as a human readable string", t, func() {
+		out, err := runAppWithStdoutCapture(app, []string{"hcdev", "-DHTport=6001", "-execpath", s.Path, "-path", "test", "dump", "--dht"})
 
 		So(err, ShouldBeNil)
 		So(out, ShouldContainSubstring, "DHT changes: 2")
 		So(out, ShouldContainSubstring, "DHT entries:")
 	})
 
-	Convey("dump --chain --json should show chain entries as JSON string", t, func() {
-		out, err := runAppWithStdoutCapture(app, []string{"hcdev", "-no-nat-upnp", "-port=6001", "-execpath", s.Path, "-path", "test", "dump", "--chain", "--json"})
+	Convey("'dump --chain --json' should show chain entries as JSON string", t, func() {
+		out, err := runAppWithStdoutCapture(app, []string{"hcdev", "-DHTport=6001", "-execpath", s.Path, "-path", "test", "dump", "--chain", "--json"})
 
 		So(err, ShouldBeNil)
 		So(out, ShouldContainSubstring, "{\n    \"%dna\": {")
 		So(out, ShouldContainSubstring, ",\n    \"%agent\": {")
 	})
 
-	Convey("dump --dht --json should show chain entries as JSON string", t, func() {
-		out, err := runAppWithStdoutCapture(app, []string{"hcdev", "-no-nat-upnp", "-port=6001", "-execpath", s.Path, "-path", "test", "dump", "--dht", "--json"})
+	Convey("'dump --dht --json' should show chain entries as JSON string", t, func() {
+		out, err := runAppWithStdoutCapture(app, []string{"hcdev", "-DHTport=6001", "-execpath", s.Path, "-path", "test", "dump", "--dht", "--json"})
 
 		So(err, ShouldBeNil)
 		So(out, ShouldContainSubstring, "\"dht_changes\": [")
 		So(out, ShouldContainSubstring, "\"dht_entries\": [")
 	})
+
+	Convey("'dump --chain --format string' should show chain entries as a human readable string", t, func() {
+		out, err := runAppWithStdoutCapture(app, []string{"hcdev", "-DHTport=6001", "-execpath", s.Path, "-path", "test", "dump", "--chain", "--format", "string"})
+
+		So(err, ShouldBeNil)
+		So(out, ShouldContainSubstring, "%dna:")
+		So(out, ShouldContainSubstring, "%agent:")
+	})
+
+	Convey("'dump --chain --format dot' should show chain entries as GraphViz DOT format", t, func() {
+		out, err := runAppWithStdoutCapture(app, []string{"hcdev", "-DHTport=6001", "-execpath", s.Path, "-path", "test", "dump", "--chain", "--format", "dot"})
+
+		So(err, ShouldBeNil)
+		So(out, ShouldContainSubstring, "digraph chain {")
+	})
+	os.Unsetenv("HOLOCHAINCONFIG_ENABLENATUPNP")
 }
 
 func TestGoScenario_cliCommand(t *testing.T) {
@@ -269,7 +290,7 @@ func TestWeb(t *testing.T) {
 	os.Unsetenv("HCLOG_DEBUG_ENABLE")
 
 	Convey("'web' should run a webserver", t, func() {
-		out, err := cmd.RunAppWithStdoutCapture(app, []string{"hcdev", "-no-nat-upnp", "web"}, 5*time.Second)
+		out, err := cmd.RunAppWithStdoutCapture(app, []string{"hcdev", "-upnp=false", "web"}, 5*time.Second)
 		So(err, ShouldBeNil)
 		So(out, ShouldContainSubstring, "on port:4141")
 		So(out, ShouldContainSubstring, "Serving holochain with DNA hash:")
@@ -280,7 +301,7 @@ func TestWeb(t *testing.T) {
 	app = setupApp()
 
 	Convey("'web -debug' should run a webserver and include holochain debug info", t, func() {
-		out, err := cmd.RunAppWithStdoutCapture(app, []string{"hcdev", "-debug", "-no-nat-upnp", "web", "4142"}, 5*time.Second)
+		out, err := cmd.RunAppWithStdoutCapture(app, []string{"hcdev", "-debug", "-upnp=false", "web", "4142"}, 5*time.Second)
 		So(err, ShouldBeNil)
 		So(out, ShouldContainSubstring, "running zyZome genesis")
 		So(out, ShouldContainSubstring, "NewEntry of %dna added as: Qm")
@@ -332,7 +353,7 @@ func TestBridging(t *testing.T) {
 	}
 
 	Convey("bridgeSpecsFile path should setup bridging", t, func() {
-		out, err := cmd.RunAppWithStdoutCapture(app, []string{"hcdev", "-bridgeSpecs", filepath.Join(tmpTestDir, "specs.json"), "-no-nat-upnp", "web"}, 5*time.Second)
+		out, err := cmd.RunAppWithStdoutCapture(app, []string{"hcdev", "-bridgeSpecs", filepath.Join(tmpTestDir, "specs.json"), "-upnp=false", "web"}, 5*time.Second)
 		So(err, ShouldBeNil)
 		//So(out, ShouldContainSubstring, fmt.Sprintf("bridging to %s using zome: jsSampleZome", bridgeSourceDir))
 		So(out, ShouldContainSubstring, fmt.Sprintf("Copying bridge chain bar to:"))
@@ -380,6 +401,40 @@ func TestSaveBridgeApps(t *testing.T) {
 		So(reflect.DeepEqual(bridgeApps[1], bridgeAppsForTests[1].BridgeApp), ShouldBeTrue)
 		So(len(bridgeApps), ShouldEqual, 2)
 	})
+}
+
+func TestConfigFlagsDefault(t *testing.T) {
+	os.Setenv("HC_TESTING", "true")
+	tmpTestDir, err := ioutil.TempDir("", "holochain.testing.hcdev")
+	if err != nil {
+		panic(err)
+	}
+	defer os.RemoveAll(tmpTestDir)
+
+	runDir := filepath.Join(tmpTestDir, holo.DefaultDirectoryName+"dev")
+
+	os.Setenv("HOLOPATHDEV", runDir)
+
+	err = os.Chdir(tmpTestDir)
+	if err != nil {
+		panic(err)
+	}
+
+	app := setupApp()
+	_, err = runAppWithStdoutCapture(app, []string{"hcdev", "init", "foo"})
+
+	Convey("defaults are mdns on upnp off", t, func() {
+		app := setupApp()
+		runAppWithStdoutCapture(app, []string{"hcdev", "test"})
+		var config holo.Config
+		err = holo.DecodeFile(&config, filepath.Join(runDir, "foo", holo.ConfigFileName+".json"))
+		So(err, ShouldBeNil)
+		So(config.EnableMDNS, ShouldBeTrue)
+		So(config.EnableNATUPnP, ShouldBeFalse)
+	})
+
+	os.Unsetenv("HOLOPATHDEV")
+	os.Unsetenv("HC_TESTING")
 }
 
 func setupTestingApp(names ...string) (string, *cli.App) {

@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # run the tests of example apps using hcdev
 
 BRANCH=master
@@ -33,7 +33,7 @@ for app in "${EXAMPLES[@]}"
 do
     hcdev init -fromBranch=$BRANCH -cloneExample $app $app
     cd $app
-    hcdev -no-nat-upnp -mdns=true test
+    hcdev test
     r=$?
     RESULTS[$i]="$r"
     i=$i+1

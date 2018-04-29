@@ -209,8 +209,7 @@ Some helpful links:
 
 * View our [Kanban on Waffle](https://waffle.io/holochain/holochain-proto).
 * View our current [Milestones](https://github.com/metacurrency/holochain/milestones?direction=asc&sort=due_date&state=all).
-* Chat with us on [Gitter](https://gitter.im/metacurrency/holochain) or [Slack](http://ceptr.org/slack)
-* We have a weekly [dev-coord hangout](http://ceptr.org/devchat) on Tuesday's 9am PST/ 12pm EST
+* Chat with us on our [Chat Server](https://chat.holochain.org) or [Gitter](https://gitter.im/metacurrency/holochain)
 
 Current Throughput graph:
 

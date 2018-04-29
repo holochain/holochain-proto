@@ -263,7 +263,7 @@ $ cd $GOPATH/src/github.com/holochain/holochain-proto
 $ make test
 ```
 
-`go test` can also be used after `make work` (see above).
+`go test` can be used instead of `make test`, but only after `make work`.
 
 The docker setup runs tests automatically during builds.
 

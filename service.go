@@ -45,7 +45,7 @@ const (
 
 	TestConfigFileName string = "_config.json"
 
-	DefaultPort            = 6283
+	DefaultDHTPort         = 6283
 	DefaultBootstrapServer = "bootstrap.holochain.net:10000"
 
 	DefaultBootstrapServerEnvVar = "HC_DEFAULT_BOOTSTRAPSERVER"
@@ -191,7 +191,7 @@ func Init(root string, identity AgentIdentity, seed io.Reader) (service *Service
 			DefaultPeerModeAuthor:  true,
 			DefaultBootstrapServer: DefaultBootstrapServer,
 			DefaultEnableMDNS:      false,
-			DefaultEnableNATUPnP:   false,
+			DefaultEnableNATUPnP:   true,
 		},
 		Path: root,
 	}
@@ -208,7 +208,7 @@ func Init(root string, identity AgentIdentity, seed io.Reader) (service *Service
 
 	if os.Getenv(DefaultEnableNATUPnPEnvVar) != "" && os.Getenv(DefaultEnableNATUPnPEnvVar) != "false" {
 		s.Settings.DefaultEnableNATUPnP = true
-		Infof("Using %s--configuring default MDNS use as: %v.\n", DefaultEnableNATUPnPEnvVar, s.Settings.DefaultEnableNATUPnP)
+		Infof("Using %s--configuring default UPnP use as: %v.\n", DefaultEnableNATUPnPEnvVar, s.Settings.DefaultEnableNATUPnP)
 	}
 
 	err = writeToml(root, SysFileName, s.Settings, false)
@@ -572,7 +572,7 @@ func suffixByRibosomeType(ribosomeType string) (suffix string) {
 
 func _makeConfig(s *Service) (config Config, err error) {
 	config = Config{
-		Port:            DefaultPort,
+		DHTPort:         DefaultDHTPort,
 		PeerModeDHTNode: s.Settings.DefaultPeerModeDHTNode,
 		PeerModeAuthor:  s.Settings.DefaultPeerModeAuthor,
 		BootstrapServer: s.Settings.DefaultBootstrapServer,
@@ -588,10 +588,10 @@ func _makeConfig(s *Service) (config Config, err error) {
 		},
 	}
 
-	val := os.Getenv("HOLOCHAINCONFIG_PORT")
+	val := os.Getenv("HOLOCHAINCONFIG_DHTPORT")
 	if val != "" {
 		Debugf("makeConfig: using environment variable to set port to: %s", val)
-		config.Port, err = strconv.Atoi(val)
+		config.DHTPort, err = strconv.Atoi(val)
 		if err != nil {
 			return
 		}
@@ -679,8 +679,13 @@ func (s *Service) MakeTestingApp(root string, encodingFormat string, initDB bool
 	if DirExists(root) {
 		return nil, mkErr(root + " already exists")
 	}
-
 	appPackageReader := bytes.NewBuffer([]byte(TestingAppAppPackage()))
+
+	if filepath.IsAbs(root) {
+		origPath := s.Path
+		s.Path = filepath.Dir(root)
+		defer func() { s.Path = origPath }()
+	}
 
 	name := filepath.Base(root)
 	_, err = s.SaveFromAppPackage(appPackageReader, root, "test", agent, TestingAppDecodingFormat, encodingFormat, newUUID)
@@ -722,7 +727,6 @@ func (s *Service) MakeTestingApp(root string, encodingFormat string, initDB bool
 		if err = h.Config.Setup(); err != nil {
 			return
 		}
-
 	}
 	return
 }

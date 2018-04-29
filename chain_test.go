@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"regexp"
+	"strings"
 	"testing"
 	"time"
 
@@ -475,6 +476,165 @@ func TestChain2JSON(t *testing.T) {
 		matched, err := regexp.MatchString(`{"%dna":{.*},"%agent":{.*},"entries":\[{"header":{"type":"handle",.*"},"content":"chain entry"}\]}`, json)
 		So(err, ShouldBeNil)
 		So(matched, ShouldBeTrue)
+	})
+}
+
+func TestChain2Dot(t *testing.T) {
+	hashSpec, key, now := chainTestSetup()
+	c := NewChain(hashSpec)
+
+	Convey("it should dump an empty 'dot' document for empty chain", t, func() {
+		dot, err := c.Dot()
+		So(err, ShouldBeNil)
+		matched, err := regexp.MatchString(`digraph chain {.*}`, strings.Replace(dot, "\n", "", -1))
+		So(err, ShouldBeNil)
+		So(matched, ShouldBeTrue)
+		So(dot, ShouldNotContainSubstring, "header")
+		So(dot, ShouldNotContainSubstring, "content")
+	})
+
+	e := GobEntry{C: "dna entry"}
+	c.AddEntry(now, DNAEntryType, &e, key)
+
+	Convey("after adding the dna, the dump should include the genesis entry in 'dot' format", t, func() {
+		dot, err := c.Dot()
+		So(err, ShouldBeNil)
+
+		hdr := c.Headers[0]
+		timestamp := fmt.Sprintf("%v", hdr.Time)
+		hdrType := fmt.Sprintf("%v", hdr.Type)
+		hdrEntry := fmt.Sprintf("%v", hdr.EntryLink)
+		nextHeader := fmt.Sprintf("%v", hdr.HeaderLink)
+		next := fmt.Sprintf("%s: %v", hdr.Type, hdr.TypeLink)
+		hash := fmt.Sprintf("%s", c.Hashes[0])
+
+		expectedDot := `header0 [label=<{HEADER 0: GENESIS|
+{Type|` + hdrType + `}|
+{Hash|` + hash + `}|
+{Timestamp|` + timestamp + `}|
+{Next Header|` + nextHeader + `}|
+{Next|` + next + `}|
+{Entry|` + hdrEntry + `}
+}>];
+content0 [label=<{HOLOCHAIN DNA|See dna.json}>];
+header0->content0;`
+
+		So(dot, ShouldContainSubstring, expectedDot)
+	})
+
+	e = GobEntry{C: `{"Identity":"lucy","Revocation":"","PublicKey":"XYZ"}`}
+	c.AddEntry(now, AgentEntryType, &e, key)
+
+	Convey("after adding the agent, the dump should include the agent entry in 'dot' format", t, func() {
+		dot, err := c.Dot()
+		So(err, ShouldBeNil)
+
+		hdr0 := c.Headers[0]
+		timestamp0 := fmt.Sprintf("%v", hdr0.Time)
+		hdrType0 := fmt.Sprintf("%v", hdr0.Type)
+		hdrEntry0 := fmt.Sprintf("%v", hdr0.EntryLink)
+		nextHeader0 := fmt.Sprintf("%v", hdr0.HeaderLink)
+		next0 := fmt.Sprintf("%s: %v", hdr0.Type, hdr0.TypeLink)
+		hash0 := fmt.Sprintf("%s", c.Hashes[0])
+
+		hdr1 := c.Headers[1]
+		timestamp1 := fmt.Sprintf("%v", hdr1.Time)
+		hdrType1 := fmt.Sprintf("%v", hdr1.Type)
+		hdrEntry1 := fmt.Sprintf("%v", hdr1.EntryLink)
+		nextHeader1 := fmt.Sprintf("%v", hdr1.HeaderLink)
+		next1 := fmt.Sprintf("%s: %v", hdr1.Type, hdr1.TypeLink)
+		hash1 := fmt.Sprintf("%s", c.Hashes[1])
+
+		expectedDot := `header0 [label=<{HEADER 0: GENESIS|
+{Type|` + hdrType0 + `}|
+{Hash|` + hash0 + `}|
+{Timestamp|` + timestamp0 + `}|
+{Next Header|` + nextHeader0 + `}|
+{Next|` + next0 + `}|
+{Entry|` + hdrEntry0 + `}
+}>];
+content0 [label=<{HOLOCHAIN DNA|See dna.json}>];
+header0->content0;
+header0->header1;
+header1 [label=<{HEADER 1|
+{Type|` + hdrType1 + `}|
+{Hash|` + hash1 + `}|
+{Timestamp|` + timestamp1 + `}|
+{Next Header|` + nextHeader1 + `}|
+{Next|` + next1 + `}|
+{Entry|` + hdrEntry1 + `}
+}>];
+content1 [label=<{AGENT ID|\{"Identity":"lucy",<br/>"Revocation":"",<br/>"PublicKey":"XYZ"\}}>];
+header1->content1;`
+
+		So(dot, ShouldContainSubstring, expectedDot)
+	})
+
+	e = GobEntry{C: `{"Links":[{"Base":"ABC","Link":"XYZ","Tag":"handle"}]}`}
+	c.AddEntry(now, "handle", &e, key)
+
+	Convey("after adding an entry, the dump should include the entry in 'dot' format", t, func() {
+		dot, err := c.Dot()
+		So(err, ShouldBeNil)
+
+		hdr0 := c.Headers[0]
+		timestamp0 := fmt.Sprintf("%v", hdr0.Time)
+		hdrType0 := fmt.Sprintf("%v", hdr0.Type)
+		hdrEntry0 := fmt.Sprintf("%v", hdr0.EntryLink)
+		nextHeader0 := fmt.Sprintf("%v", hdr0.HeaderLink)
+		next0 := fmt.Sprintf("%s: %v", hdr0.Type, hdr0.TypeLink)
+		hash0 := fmt.Sprintf("%s", c.Hashes[0])
+
+		hdr1 := c.Headers[1]
+		timestamp1 := fmt.Sprintf("%v", hdr1.Time)
+		hdrType1 := fmt.Sprintf("%v", hdr1.Type)
+		hdrEntry1 := fmt.Sprintf("%v", hdr1.EntryLink)
+		nextHeader1 := fmt.Sprintf("%v", hdr1.HeaderLink)
+		next1 := fmt.Sprintf("%s: %v", hdr1.Type, hdr1.TypeLink)
+		hash1 := fmt.Sprintf("%s", c.Hashes[1])
+
+		hdr2 := c.Headers[2]
+		timestamp2 := fmt.Sprintf("%v", hdr2.Time)
+		hdrType2 := fmt.Sprintf("%v", hdr2.Type)
+		hdrEntry2 := fmt.Sprintf("%v", hdr2.EntryLink)
+		nextHeader2 := fmt.Sprintf("%v", hdr2.HeaderLink)
+		next2 := fmt.Sprintf("%s: %v", hdr2.Type, hdr2.TypeLink)
+		hash2 := fmt.Sprintf("%s", c.Hashes[2])
+
+		expectedDot := `header0 [label=<{HEADER 0: GENESIS|
+{Type|` + hdrType0 + `}|
+{Hash|` + hash0 + `}|
+{Timestamp|` + timestamp0 + `}|
+{Next Header|` + nextHeader0 + `}|
+{Next|` + next0 + `}|
+{Entry|` + hdrEntry0 + `}
+}>];
+content0 [label=<{HOLOCHAIN DNA|See dna.json}>];
+header0->content0;
+header0->header1;
+header1 [label=<{HEADER 1|
+{Type|` + hdrType1 + `}|
+{Hash|` + hash1 + `}|
+{Timestamp|` + timestamp1 + `}|
+{Next Header|` + nextHeader1 + `}|
+{Next|` + next1 + `}|
+{Entry|` + hdrEntry1 + `}
+}>];
+content1 [label=<{AGENT ID|\{"Identity":"lucy",<br/>"Revocation":"",<br/>"PublicKey":"XYZ"\}}>];
+header1->content1;
+header1->header2;
+header2 [label=<{HEADER 2|
+{Type|` + hdrType2 + `}|
+{Hash|` + hash2 + `}|
+{Timestamp|` + timestamp2 + `}|
+{Next Header|` + nextHeader2 + `}|
+{Next|` + next2 + `}|
+{Entry|` + hdrEntry2 + `}
+}>];
+content2 [label=<{ENTRY 2|\{"Links":[<br/>\{"Base":"ABC",<br/>"Link":"XYZ",<br/>"Tag":"handle"\}]\}}>];
+header2->content2;`
+
+		So(dot, ShouldContainSubstring, expectedDot)
 	})
 }
 

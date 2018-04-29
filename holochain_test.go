@@ -16,6 +16,8 @@ import (
 
 func TestMain(m *testing.M) {
 	os.Setenv("_HCTEST", "1")
+	// disable UPNP for tests
+	os.Setenv("HOLOCHAINCONFIG_ENABLENATUPNP", "false")
 	InitializeHolochain()
 	os.Exit(m.Run())
 }
@@ -160,7 +162,7 @@ func TestDebuggingSetup(t *testing.T) {
 		log.Enabled = true
 
 		h.Debug("test")
-		So(string(buf.Bytes()), ShouldEqual, "HC: holochain_test.go.158: test\n")
+		So(string(buf.Bytes()), ShouldEqual, "HC: holochain_test.go.160: test\n")
 
 		// restore state of debug log
 		log.w = os.Stdout

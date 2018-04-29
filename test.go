@@ -83,7 +83,7 @@ func setupTestChain(name string, count int, s *Service) (h *Holochain) {
 	if err != nil {
 		panic(err)
 	}
-	h.Config.Port, err = getFreePort()
+	h.Config.DHTPort, err = getFreePort()
 	if err != nil {
 		panic(err)
 	}

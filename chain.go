@@ -15,6 +15,7 @@ import (
 	"io"
 	"os"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -634,6 +635,73 @@ func (c *Chain) JSON() (string, error) {
 
 	buffer.WriteString("}")
 	return PrettyPrintJSON(buffer.Bytes())
+}
+
+// Dot converts a chain to a GraphViz 'dot' format dump of the headers and entries
+func (c *Chain) Dot() (dump string, err error) {
+	c.lk.RLock()
+	defer c.lk.RUnlock()
+	l := len(c.Headers)
+
+	var buffer bytes.Buffer
+
+	buffer.WriteString("digraph chain {\n")
+	buffer.WriteString("graph [splines=line];\n")
+	buffer.WriteString(`node [shape=record fontname="Arial",fontsize="10",style="rounded, filled",penwidth=2,fontcolor="#c5c5c5",color="#8d00ff",fillcolor="#181818"];` + "\n")
+	buffer.WriteString(`edge [penwidth=2, color="#8d00ff"];` + "\n")
+
+	for i := 0; i < l; i++ {
+		hdr := c.Headers[i]
+		hash := c.Hashes[i]
+		headerLabel := ""
+		contentLabel := ""
+		contentBody := ""
+
+		if i == 0 {
+			headerLabel = ": GENESIS"
+		}
+
+		// header
+		buffer.WriteString(fmt.Sprintf("header%d [label=<{HEADER %d%s|\n", i, i, headerLabel))
+		buffer.WriteString(fmt.Sprintf("{Type|%s}|\n", hdr.Type))
+		buffer.WriteString(fmt.Sprintf("{Hash|%s}|\n", hash))
+		buffer.WriteString(fmt.Sprintf("{Timestamp|%v}|\n", hdr.Time))
+		buffer.WriteString(fmt.Sprintf("{Next Header|%v}|\n", hdr.HeaderLink))
+		buffer.WriteString(fmt.Sprintf("{Next|%s: %v}|\n", hdr.Type, hdr.TypeLink))
+		buffer.WriteString(fmt.Sprintf("{Entry|%v}\n", hdr.EntryLink))
+		buffer.WriteString("}>];\n")
+
+		if i == 0 {
+			contentLabel = "HOLOCHAIN DNA"
+		} else if i == 1 {
+			contentLabel = "AGENT ID"
+		} else {
+			contentLabel = fmt.Sprintf("ENTRY %d", i)
+		}
+
+		if i == 0 {
+			contentBody = "See dna.json"
+		} else {
+			e := c.Entries[i]
+			contentBody = fmt.Sprintf("%s", e.(*GobEntry).C)
+			contentBody = strings.Replace(contentBody, `{"`, `\{"`, -1)
+			contentBody = strings.Replace(contentBody, `"}`, `"\}`, -1)
+			contentBody = strings.Replace(contentBody, `:[`, `:[<br/>`, -1)
+			contentBody = strings.Replace(contentBody, `]}`, `]\}`, -1)
+			contentBody = strings.Replace(contentBody, `,`, `,<br/>`, -1)
+		}
+
+		buffer.WriteString(fmt.Sprintf("content%d [label=<{%s|%s}>];\n", i, contentLabel, contentBody))
+
+		// arrows
+		buffer.WriteString(fmt.Sprintf("header%d->content%d;\n", i, i))
+		if i < l-1 {
+			buffer.WriteString(fmt.Sprintf("header%d->header%d;\n", i, i+1))
+		}
+	}
+
+	buffer.WriteString("}")
+	return buffer.String(), nil
 }
 
 // Length returns the number of entries in the chain

@@ -53,7 +53,7 @@ type Loggers struct {
 
 // Config holds the non-DNA configuration for a holo-chain, from config file or environment variables
 type Config struct {
-	Port            int
+	DHTPort         int
 	EnableMDNS      bool
 	PeerModeAuthor  bool
 	PeerModeDHTNode bool
@@ -284,7 +284,7 @@ func (h *Holochain) createNode() (err error) {
 	} else {
 		ip = "0.0.0.0"
 	}
-	listenaddr := fmt.Sprintf("/ip4/%s/tcp/%d", ip, h.Config.Port)
+	listenaddr := fmt.Sprintf("/ip4/%s/tcp/%d", ip, h.Config.DHTPort)
 	h.node, err = NewNode(listenaddr, h.dnaHash.String(), h.Agent().(*LibP2PAgent), h.Config.EnableNATUPnP, &h.Config.Loggers.Debug)
 	return
 }

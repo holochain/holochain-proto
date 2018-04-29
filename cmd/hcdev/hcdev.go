@@ -130,12 +130,12 @@ func setupApp() (app *cli.App) {
 		},
 		cli.BoolTFlag{
 			Name:        "mdns",
-			Usage:       "whether to use mdns for local peer discovery (default = true)",
+			Usage:       "whether to use mdns for local peer discovery (default: true)",
 			Destination: &mdns,
 		},
 		cli.BoolFlag{
 			Name:        "upnp",
-			Usage:       "whether to use UPnP for creating a NAT port mapping (default true)",
+			Usage:       "whether to use UPnP for creating a NAT port mapping (default: false)",
 			Destination: &upnp,
 		},
 		cli.StringFlag{

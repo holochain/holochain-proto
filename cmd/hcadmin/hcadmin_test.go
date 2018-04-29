@@ -14,6 +14,13 @@ import (
 	"github.com/urfave/cli"
 )
 
+func TestMain(m *testing.M) {
+	// disable UPNP for tests
+	os.Setenv("HOLOCHAINCONFIG_ENABLENATUPNP", "false")
+	holo.InitializeHolochain()
+	os.Exit(m.Run())
+}
+
 func TestSetupApp(t *testing.T) {
 	app := setupApp()
 	Convey("it should create the cli App", t, func() {

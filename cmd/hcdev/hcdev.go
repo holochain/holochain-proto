@@ -42,8 +42,8 @@ var scenarioConfig *holo.TestConfig
 
 // flags for holochain config generation
 var port, logPrefix, bootstrapServer string
-var mdns bool
-var nonatupnp bool
+var mdns bool = true
+var upnp bool
 
 // meta flags for program flow control
 var syncPausePath string
@@ -70,7 +70,7 @@ func appCheck(devPath string) error {
 }
 func setupApp() (app *cli.App) {
 
-	// clear these values so we can call this multiple time for testing
+	// set default values so we can call this multiple time for testing
 	debug = false
 	appInitialized = false
 	rootPath = ""
@@ -128,15 +128,15 @@ func setupApp() (app *cli.App) {
 			Usage:       "port on which to run the test/scenario instance",
 			Destination: &port,
 		},
-		cli.BoolFlag{
+		cli.BoolTFlag{
 			Name:        "mdns",
-			Usage:       "whether to use mdns for local peer discovery",
+			Usage:       "whether to use mdns for local peer discovery (default = true)",
 			Destination: &mdns,
 		},
 		cli.BoolFlag{
-			Name:        "no-nat-upnp",
-			Usage:       "whether to stop hcdev from creating a port mapping through NAT via UPnP",
-			Destination: &nonatupnp,
+			Name:        "upnp",
+			Usage:       "whether to use UPnP for creating a NAT port mapping (default true)",
+			Destination: &upnp,
 		},
 		cli.StringFlag{
 			Name:        "logPrefix",
@@ -587,20 +587,19 @@ func setupApp() (app *cli.App) {
 							logPrefix = "%{time}" + logPrefix
 						}*/
 
-						var nonat string
+						var upnpnat string
 						if bootstrapServer == "_" {
-							nonat = "true"
+							upnpnat = "false"
 						} else {
-							nonat = "false"
+							upnpnat = "true"
 						}
-
 						testCommand := exec.Command(
 							"hcdev",
 							"-path="+devPath,
 							"-execpath="+filepath.Join(rootExecDir, roleName),
 							"-port="+strconv.Itoa(freePort),
 							fmt.Sprintf("-mdns=%v", mdns),
-							"-no-nat-upnp="+nonat,
+							"-upnp="+upnpnat,
 							"-logPrefix="+logPrefix,
 							"-serverID="+serverID,
 							"-agentID="+agentID,
@@ -835,7 +834,6 @@ func setupApp() (app *cli.App) {
 	}
 
 	app.Before = func(c *cli.Context) error {
-
 		lastRunContext = c
 
 		var err error
@@ -846,14 +844,14 @@ func setupApp() (app *cli.App) {
 				return err
 			}
 		}
-		if mdns != false {
+		if mdns {
 			err = os.Setenv("HOLOCHAINCONFIG_ENABLEMDNS", "true")
 			if err != nil {
 				return err
 			}
 		}
-		if nonatupnp == false {
-			err = os.Setenv("HOLOCHAINCONFIG_ENABLENATUPNP", "true")
+		if upnp != true {
+			err = os.Setenv("HOLOCHAINCONFIG_ENABLENATUPNP", "false")
 			if err != nil {
 				return err
 			}

@@ -185,7 +185,7 @@ func Init(root string, identity AgentIdentity, seed io.Reader) (service *Service
 			DefaultPeerModeAuthor:  true,
 			DefaultBootstrapServer: DefaultBootstrapServer,
 			DefaultEnableMDNS:      false,
-			DefaultEnableNATUPnP:   false,
+			DefaultEnableNATUPnP:   true,
 		},
 		Path: root,
 	}
@@ -202,7 +202,7 @@ func Init(root string, identity AgentIdentity, seed io.Reader) (service *Service
 
 	if os.Getenv(DefaultEnableNATUPnPEnvVar) != "" && os.Getenv(DefaultEnableNATUPnPEnvVar) != "false" {
 		s.Settings.DefaultEnableNATUPnP = true
-		Infof("Using %s--configuring default MDNS use as: %v.\n", DefaultEnableNATUPnPEnvVar, s.Settings.DefaultEnableNATUPnP)
+		Infof("Using %s--configuring default UPnP use as: %v.\n", DefaultEnableNATUPnPEnvVar, s.Settings.DefaultEnableNATUPnP)
 	}
 
 	err = writeToml(root, SysFileName, s.Settings, false)

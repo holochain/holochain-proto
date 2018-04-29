@@ -20,7 +20,6 @@ const (
 
 var debug bool
 var verbose bool
-var nonatupnp bool
 
 func setupApp() (app *cli.App) {
 	app = cli.NewApp()

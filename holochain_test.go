@@ -84,6 +84,7 @@ func TestSetupLogging(t *testing.T) {
 		// test some default configurations
 		So(h.Config.Loggers.App.Enabled, ShouldBeFalse)
 		So(h.Config.Loggers.DHT.Enabled, ShouldBeFalse)
+		So(h.Config.Loggers.World.Enabled, ShouldBeFalse)
 		So(h.Config.Loggers.Gossip.Enabled, ShouldBeFalse)
 		So(h.Config.Loggers.TestFailed.w, ShouldEqual, os.Stderr)
 		// test that a sample color got initialized
@@ -92,6 +93,7 @@ func TestSetupLogging(t *testing.T) {
 	Convey("it should initialize the loggers with env vars", t, func() {
 		os.Setenv("HCLOG_APP_ENABLE", "0")
 		os.Setenv("HCLOG_DHT_ENABLE", "1")
+		os.Setenv("HCLOG_WORLD_ENABLE", "1")
 		os.Setenv("HCLOG_GOSSIP_ENABLE", "true")
 		os.Setenv("HCLOG_PREFIX", "a prefix:")
 		h.Config.Loggers.DHT.Format = "%{message}"
@@ -99,6 +101,7 @@ func TestSetupLogging(t *testing.T) {
 		So(err, ShouldBeNil)
 		So(h.Config.Loggers.App.Enabled, ShouldBeFalse)
 		So(h.Config.Loggers.DHT.Enabled, ShouldBeTrue)
+		So(h.Config.Loggers.World.Enabled, ShouldBeTrue)
 		So(h.Config.Loggers.Gossip.Enabled, ShouldBeTrue)
 		var buf bytes.Buffer
 		h.Config.Loggers.DHT.w = &buf
@@ -108,6 +111,7 @@ func TestSetupLogging(t *testing.T) {
 		// restore env
 		os.Unsetenv("HCLOG_APP_ENABLE")
 		os.Unsetenv("HCLOG_DHT_ENABLE")
+		os.Unsetenv("HCLOG_WORLD_ENABLE")
 		os.Unsetenv("HCLOG_GOSSIP_ENABLE")
 		os.Unsetenv("HCLOG_PREFIX")
 		debugLog.SetPrefix("")

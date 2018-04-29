@@ -27,6 +27,7 @@ type World struct {
 	nodes       map[peer.ID]*NodeRecord
 	responsible map[Hash][]peer.ID
 	ht          HashTable
+	log         *Logger
 
 	lk sync.RWMutex
 }
@@ -34,11 +35,12 @@ type World struct {
 var ErrNodeNotFound = errors.New("node not found")
 
 // NewWorld creates and empty world model
-func NewWorld(me peer.ID, ht HashTable) *World {
+func NewWorld(me peer.ID, ht HashTable, logger *Logger) *World {
 	world := World{me: me}
 	world.nodes = make(map[peer.ID]*NodeRecord)
 	world.responsible = make(map[Hash][]peer.ID)
 	world.ht = ht
+	world.log = logger
 	return &world
 }
 
@@ -53,7 +55,7 @@ func (world *World) GetNodeRecord(ID peer.ID) (record *NodeRecord) {
 
 // SetNodeHolding marks a node as holding a particular hash
 func (world *World) SetNodeHolding(ID peer.ID, hash Hash) (err error) {
-	//fmt.Printf("Setting Holding for %v of holding %v nodes:%v\n", ID, hash, world.nodes)
+	world.log.Logf("Setting Holding for %v of holding %v nodes:%v\n", ID, hash, world.nodes)
 	world.lk.Lock()
 	defer world.lk.Unlock()
 	record := world.nodes[ID]
@@ -69,8 +71,8 @@ func (world *World) SetNodeHolding(ID peer.ID, hash Hash) (err error) {
 func (world *World) IsHolding(ID peer.ID, hash Hash) (holding bool, err error) {
 	world.lk.RLock()
 	defer world.lk.RUnlock()
-	//fmt.Printf("Looking to see if %v is holding %v\n", ID, hash)
-	//fmt.Printf("NODES:%v\n", world.nodes)
+	world.log.Logf("Looking to see if %v is holding %v\n", ID, hash)
+	world.log.Logf("NODES:%v\n", world.nodes)
 	record := world.nodes[ID]
 	if record == nil {
 		err = ErrNodeNotFound
@@ -159,8 +161,15 @@ func (world *World) UpdateResponsible(hash Hash, redundancy int) (responsible bo
 		if responsible {
 			// remove myself from the nodes list so I can add set the
 			// responsible nodes
-			nodes = append(nodes[:i], nodes[i+1:redundancy]...)
+			world.log.Logf("Number of nodes: %d, Nodes:%v\n", len(nodes), nodes)
+			max := len(nodes)
+			if max > redundancy {
+				max = redundancy
+			}
+			nodes = append(nodes[:i], nodes[i+1:max]...)
 			world.responsible[hash] = nodes
+			world.log.Logf("Responsible for %v: %v", hash, nodes)
+
 		} else {
 			delete(world.responsible, hash)
 		}
@@ -196,21 +205,54 @@ func (h *Holochain) Overlap(hash Hash) (overlap []peer.ID, err error) {
 	return
 }
 
+func myHashes(h *Holochain) (hashes []Hash) {
+	h.dht.Iterate(func(hash Hash) bool {
+		hashes = append(hashes, hash)
+		return true
+	})
+	return
+}
+
 func HoldingTask(h *Holochain) {
-	/*	h.dht.Iterate(func(hash Hash) bool {
+	//	coholders := make(map[*NodeRecord][]Hash)
+
+	// to protect against crashes from background routines after close
+	if h.dht == nil {
+		return
+	}
+	hashes := myHashes(h)
+	for _, hash := range hashes {
+		if hash.String() == h.dnaHash.String() {
+			continue
+		}
+
 		//TODO forget the hashes we are no longer responsible for
 		//TODO this really shouldn't be called in the holding task
 		//     but instead should be called with the Node list or hash list changes.
 		h.world.UpdateResponsible(hash, h.RedundancyFactor())
-
-		// TODO make this more efficient by collecting up a list of updates
-		// per node rather than making the hold request over and over
+		h.world.log.Logf("HoldingTask: updated %v\n", hash)
 		overlap, err := h.Overlap(hash)
-		if err != nil {
-			for _, nodeID := range overlap {
+		if err == nil {
+			h.world.log.Logf("HoldingTask: sending put requests to %d nodes\n", len(overlap))
 
+			for _, node := range overlap {
+				// to protect against crashes from background routines after close
+				if h.node == nil {
+					return
+				}
+				/*rec := h.world.GetNodeRecord(node)
+				/*				hashes := coholders[rec]
+								coholders[rec] = append(hashes, hash)
+				*/
+				h.world.log.Logf("HoldingTask: PUT_REQUEST sent to %v\n", node)
+				msg := h.node.NewMessage(PUT_REQUEST, HoldReq{EntryHash: hash})
+				h.dht.sendChange(node, msg)
 			}
 		}
-		return false
-	})*/
+	}
+
+	/*	for rec, hashes := range coholders {
+
+		}
+	*/
 }

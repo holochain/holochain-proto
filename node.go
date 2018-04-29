@@ -283,6 +283,10 @@ func (node *Node) filterInactviePeers(peersIn []peer.ID, max int) (peersOut []pe
 
 // AddPeer adds a peer to the peerstore if it passes various checks
 func (h *Holochain) AddPeer(pi pstore.PeerInfo) (err error) {
+	// to protect against crashes from background routines after close
+	if h.node == nil || h.dht == nil {
+		return
+	}
 	h.dht.dlog.Logf("Adding Peer Req: %v my node %v\n", pi.ID, h.node.HashAddr)
 	if pi.ID == h.node.HashAddr {
 		return

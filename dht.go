@@ -318,10 +318,45 @@ func handleChangeRequests(dht *DHT, x interface{}) (err error) {
 	return
 }
 
+func (dht *DHT) sendChange(p peer.ID, msg *Message) (held bool, err error) {
+	if dht == nil || dht.h.node == nil {
+		return
+	}
+	ctx, cancel := context.WithCancel(dht.h.node.ctx)
+	defer cancel()
+
+	resp, err := dht.send(ctx, p, msg)
+	if err != nil {
+		return
+	} else {
+		switch t := resp.(type) {
+		case HoldResp:
+			if t.Code == ReceiptRejected {
+				// TODO what else do we do if rejected?
+				dht.dlog.Logf("DHT send of %v failed to peer %v was rejected", msg, p)
+			}
+			held = true
+			// TODO check the signature on the receipt
+		case CloserPeersResp:
+			closerPeers := peerInfos2Pis(t.CloserPeers)
+			//	s := fmt.Sprintf("%v says closer to %v are: ", p.Pretty()[2:4], key)
+
+			for _, closer := range closerPeers {
+				//		s += fmt.Sprintf("%v ", closer.ID.Pretty()[2:4])
+				dht.h.AddPeer(*closer)
+			}
+			//	fmt.Printf("%s\n", s)
+
+		default:
+			err = fmt.Errorf("DHT sendChange of %v to peer %v response(%T) was: %v", msg.Type, p, t, t)
+		}
+	}
+	return
+}
+
 func (dht *DHT) change(req changeReq) (err error) {
 	key := req.key
 	msg := &req.msg
-	msgType := msg.Type
 	node := dht.h.node
 	pchan, err := node.GetClosestPeers(node.ctx, key)
 	if err != nil {
@@ -335,44 +370,13 @@ func (dht *DHT) change(req changeReq) (err error) {
 		}
 		wg.Add(1)
 		go func(p peer.ID) {
-			ctx, cancel := context.WithCancel(node.ctx)
-			defer cancel()
 			defer wg.Done()
-
-			resp, err := dht.send(ctx, p, msg)
+			wasHeld, err := dht.sendChange(p, msg)
 			if err != nil {
-				dht.dlog.Logf("DHT send of %v failed to peer %v with error: %s", msgType, p, err)
-			} else {
-				switch t := resp.(type) {
-				case HoldResp:
-					if t.Code == ReceiptRejected {
-						// TODO what else do we do if rejected?
-						dht.dlog.Logf("DHT send of %v failed to peer %v was rejected", msg, p)
-					}
-
-					// TODO probably should record the "holding" of non put types too
-					if msgType == PUT_REQUEST {
-						held = append(held, p)
-					}
-					// TODO check the signature on the receipt
-				case CloserPeersResp:
-					if msgType == PUT_REQUEST {
-						closerPeers := peerInfos2Pis(t.CloserPeers)
-						//	s := fmt.Sprintf("%v says closer to %v are: ", p.Pretty()[2:4], key)
-
-						for _, closer := range closerPeers {
-							//		s += fmt.Sprintf("%v ", closer.ID.Pretty()[2:4])
-							dht.h.AddPeer(*closer)
-						}
-						//	fmt.Printf("%s\n", s)
-					}
-
-				default:
-					dht.dlog.Logf("DHT send of %v to peer %v response(%T) was: %v", msgType, p, t, t)
-				}
-
+				dht.dlog.Logf("DHT sendChange of %v failed to peer %v with error: %s", msg.Type, p, err)
+			} else if wasHeld {
+				held = append(held, p)
 			}
-
 		}(p)
 	}
 	wg.Wait()
@@ -583,6 +587,7 @@ func (dht *DHT) MakeReceiptSignature(msg *Message, code int) (sig Signature, err
 	return
 }
 
+// MakeHoldResp creates fill the HoldResp struct with a the holding status and signature
 func (dht *DHT) MakeHoldResp(msg *Message, status int) (holdResp *HoldResp, err error) {
 	hr := HoldResp{}
 	if status == StatusRejected {

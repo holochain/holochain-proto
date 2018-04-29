@@ -1161,6 +1161,19 @@ func RunValidationPhase(h *Holochain, source peer.ID, msgType MsgType, query Has
 func (a *ActionPut) Receive(dht *DHT, msg *Message) (response interface{}, err error) {
 	t := msg.Body.(HoldReq)
 	var holdResp *HoldResp
+
+	// check to see if we are already holding this hash
+	var status int
+	_, _, _, status, err = dht.Get(t.EntryHash, StatusAny, GetMaskEntryType) //TODO should be a getmask for just Status
+	if err == nil {
+		holdResp, err = dht.MakeHoldResp(msg, status)
+		response = *holdResp
+		return
+	}
+	if err != ErrHashNotFound {
+		return
+	}
+
 	err = RunValidationPhase(dht.h, msg.From, VALIDATE_PUT_REQUEST, t.EntryHash, func(resp ValidateResponse) error {
 		a := NewPutAction(resp.Type, &resp.Entry, &resp.Header)
 		_, err := dht.h.ValidateAction(a, a.entryType, &resp.Package, []peer.ID{msg.From})
@@ -1184,7 +1197,12 @@ func (a *ActionPut) Receive(dht *DHT, msg *Message) (response interface{}, err e
 		return err
 	})
 
-	closest := dht.h.node.betterPeersForHash(&t.EntryHash, msg.From, true, CloserPeerCount)
+	r := dht.h.RedundancyFactor()
+	if r == 0 {
+		r = CloserPeerCount
+	}
+
+	closest := dht.h.node.betterPeersForHash(&t.EntryHash, msg.From, true, r)
 	if len(closest) > 0 {
 		err = nil
 		resp := CloserPeersResp{}

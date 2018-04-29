@@ -44,6 +44,7 @@ type Loggers struct {
 	App        Logger
 	Debug      Logger
 	DHT        Logger
+	World      Logger
 	Gossip     Logger
 	TestPassed Logger
 	TestFailed Logger
@@ -312,7 +313,7 @@ func (h *Holochain) Prepare() (err error) {
 	h.dht = NewDHT(h)
 	h.nucleus.h = h
 
-	h.world = NewWorld(h.node.HashAddr, h.dht)
+	h.world = NewWorld(h.node.HashAddr, h.dht, &h.Config.Loggers.World)
 
 	var peerList PeerList
 	peerList, err = h.dht.getList(BlockedList)
@@ -532,6 +533,9 @@ func (config *Config) SetupLogging() (err error) {
 	if err = initLogger(&config.Loggers.DHT, "HCLOG_DHT_ENABLE", nil); err != nil {
 		return
 	}
+	if err = initLogger(&config.Loggers.World, "HCLOG_WORLD_ENABLE", nil); err != nil {
+		return
+	}
 	if err = initLogger(&config.Loggers.Gossip, "HCLOG_GOSSIP_ENABLE", nil); err != nil {
 		return
 	}
@@ -550,6 +554,7 @@ func (config *Config) SetupLogging() (err error) {
 		config.Loggers.Debug.SetPrefix(val)
 		config.Loggers.App.SetPrefix(val)
 		config.Loggers.DHT.SetPrefix(val)
+		config.Loggers.World.SetPrefix(val)
 		config.Loggers.Gossip.SetPrefix(val)
 		config.Loggers.TestPassed.SetPrefix(val)
 		config.Loggers.TestFailed.SetPrefix(val)

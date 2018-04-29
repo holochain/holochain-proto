@@ -36,7 +36,7 @@ func TestWorldNodes(t *testing.T) {
 	peer, _ := peer.IDB58Decode(b58)
 
 	ht := BuntHT{}
-	world := NewWorld(peer, &ht)
+	world := NewWorld(peer, &ht, nil)
 
 	Convey("to start with I should know about nobody", t, func() {
 		nodes, err := world.AllNodes()
@@ -97,7 +97,7 @@ func TestWorldUpdateResponsible(t *testing.T) {
 	var hash1, hash2, hash4 Hash
 	p1, _ = peer.IDB58Decode(b58)
 	ht := BuntHT{}
-	world := NewWorld(p1, &ht)
+	world := NewWorld(p1, &ht, nil)
 	var addr ma.Multiaddr
 	var err error
 	var responsible bool
@@ -205,32 +205,56 @@ func TestWorldHoldingTask(t *testing.T) {
 	defer mt.cleanupMultiNodeTesting()
 	nodes := mt.nodes
 
-	ringConnect(t, mt.ctx, nodes, nodesCount)
+	fullConnect(t, mt.ctx, nodes, nodesCount)
 	//randConnect(t, mt.ctx, nodes, nodesCount, 7, 4)
 	//starConnect(t, mt.ctx, nodes, nodesCount)
 	Convey("each node should have one other node from the ring connect", t, func() {
 		for i := 0; i < nodesCount; i++ {
-			glist, err := nodes[i].dht.getGossipers()
+			others, err := nodes[i].world.AllNodes()
 			So(err, ShouldBeNil)
-			So(len(glist), ShouldEqual, 1)
+			So(len(others), ShouldEqual, 1)
 		}
 	})
 
 	Convey("each node should only have it's own puts", t, func() {
 		for i := 0; i < nodesCount; i++ {
-			puts, err := nodes[i].dht.GetPuts(0)
-			So(err, ShouldBeNil)
-			So(len(puts), ShouldEqual, 2)
+			hashes := myHashes(nodes[i])
+			So(len(hashes), ShouldEqual, 3)
 		}
 	})
 
-	Convey("each node should have everybody's puts after enough propigation time", t, func() {
+	/*	Convey("HoldingTask should have all sent change requests to all responsible nodes", t, func() {
 
 		for i := 0; i < nodesCount; i++ {
+			nodes[i].nucleus.dna.DHTConfig.RedundancyFactor = 10
+
+			nodes[i].Config.gossipInterval = 0
+			nodes[i].Config.holdingCheckInterval = 0
+			nodes[i].StartBackgroundTasks()
+		}
+
+		HoldingTask(nodes[0])
+		//		processChangeRequestsInTesting(nodes[0])
+		for i := 1; i < nodesCount; i++ {
+			//			processChangeRequestsInTesting(nodes[i])
+
+			puts, err := nodes[i].dht.GetPuts(0)
+			So(err, ShouldBeNil)
+			fmt.Printf("Puts for %v: %d\n", nodes[i].nodeID.Pretty(), len(puts))
+			//	So(len(puts), ShouldEqual, 5)
+		}
+	})*/
+
+	Convey("each node should have everybody's puts after enough propigation time", t, func() {
+		r := 2
+		for i := 0; i < nodesCount; i++ {
+			nodes[i].nucleus.dna.DHTConfig.RedundancyFactor = r
 			nodes[i].Config.gossipInterval = 0
 			nodes[i].Config.holdingCheckInterval = 200 * time.Millisecond
 			nodes[i].StartBackgroundTasks()
 		}
+
+		checkPropigated(nodes, r)
 
 		start := time.Now()
 		propigated := false
@@ -246,40 +270,76 @@ func TestWorldHoldingTask(t *testing.T) {
 					return
 				}
 
-				propigated = true
-				// check to see if the nodes have all gotten the puts yet.
-				for i := 0; i < nodesCount; i++ {
-					puts, _ := nodes[i].dht.GetPuts(0)
-					if len(puts) < nodesCount*2 {
-						propigated = false
-					}
-					/*					fmt.Printf("NODE%d(%s): %d:", i, nodes[i].nodeID.Pretty()[2:4], len(puts))
-										for j := 0; j < len(puts); j++ {
-											f, _ := puts[j].M.Fingerprint()
-											fmt.Printf("%s,", f.String()[2:4])
-										}
-										fmt.Printf("\n              ")
-										nodes[i].dht.glk.RLock()
-										for k, _ := range nodes[i].dht.fingerprints {
-											fmt.Printf("%s,", k)
-										}
-										nodes[i].dht.glk.RUnlock()
-										fmt.Printf("\n    ")
-										for k, _ := range nodes[i].dht.sources {
-											fmt.Printf("%d,", findNodeIdx(nodes, k))
-										}
-										fmt.Printf("\n")
-					*/
-				}
+				propigated = checkPropigated(nodes, r)
 				if propigated {
 					stop <- true
 					return
 				}
-				//				fmt.Printf("\n")
 			}
 		}()
 		<-stop
 		ticker.Stop()
-		//	So(propigated, ShouldBeTrue)
+		So(propigated, ShouldBeTrue)
 	})
+}
+
+func checkPropigated(nodes []*Holochain, redundancy int) bool {
+	nodesCount := len(nodes)
+	propigated := true
+	allHashes := make(map[Hash]int)
+	var required int
+	if redundancy == 0 {
+		required = nodesCount
+	} else {
+		required = redundancy
+	}
+	// check to see if the nodes have all gotten the puts yet.
+	for i := 0; i < nodesCount; i++ {
+		hashes := myHashes(nodes[i])
+		if len(hashes) < nodesCount*2+1 {
+			propigated = false
+		}
+		puts, err := nodes[i].dht.GetPuts(0)
+		if err != nil {
+			panic(err)
+		}
+		fmt.Printf("NODE%d(%s):%d- %d:", i, nodes[i].nodeID.Pretty()[2:4], len(puts), len(hashes))
+		for j := 0; j < len(hashes); j++ {
+			hash := hashes[j]
+			//nodes[i].world.UpdateResponsible(hash, r)
+
+			count, ok := allHashes[hash]
+			if !ok {
+				allHashes[hash] = 1
+			} else {
+				allHashes[hash] = count + 1
+			}
+			fmt.Printf("%s,", hash.String()[2:4])
+		}
+		fmt.Printf("\n")
+
+		fmt.Printf("    knows about:")
+		others, err := nodes[i].world.AllNodes()
+		for j := 0; j < len(others); j++ {
+			fmt.Printf("%s,", others[j].Pretty()[2:4])
+		}
+		fmt.Printf("\n")
+
+		/*	for j := 0; j < len(hashes); j++ {
+			hash := hashes[j]
+			fmt.Printf("   RESPONSIBLE for %v:\n       %v\n", hash.String()[2:4], nodes[i].world.responsible[hash])
+		}*/
+
+	}
+	fmt.Printf("HashCounts(%d): ", len(allHashes))
+	propigated = true
+	for hash, count := range allHashes {
+		if count < required {
+			propigated = false
+		}
+		fmt.Printf("%s:%d, ", hash.String()[2:4], count)
+	}
+	fmt.Printf("\n\n")
+
+	return propigated
 }

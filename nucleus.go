@@ -97,6 +97,10 @@ func isRelatedHoldMessage(msg *Message) bool {
 
 func actionReceiver(h *Holochain, msg *Message, retries int) (response interface{}, err error) {
 	dht := h.dht
+	// to protect against crashes from background routines after close
+	if dht == nil {
+		return
+	}
 	var a Action
 	a, err = MakeActionFromMessage(msg)
 	if err == nil {

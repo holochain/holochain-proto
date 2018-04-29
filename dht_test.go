@@ -221,11 +221,8 @@ func TestDHTKadPut(t *testing.T) {
 		So(fmt.Sprintf("%v", rtp), ShouldEqual, "[<peer.ID UfY4We> <peer.ID dxxuES>]")
 		err := h.dht.Change(hash, PUT_REQUEST, HoldReq{EntryHash: hash})
 		So(err, ShouldBeNil)
-		for len(h.dht.changeQueue) > 0 {
-			req := <-h.dht.changeQueue
-			err = handleChangeRequests(h.dht, req)
-			So(err, ShouldBeNil)
-		}
+
+		processChangeRequestsInTesting(h)
 		rtp = h.node.routingTable.NearestPeers(hash, AlphaValue)
 		// routing table should be updated
 		So(fmt.Sprintf("%v", rtp), ShouldEqual, "[<peer.ID S4BFeT> <peer.ID W4HeEG> <peer.ID UfY4We>]")
@@ -771,4 +768,14 @@ func TestDHTMakeReciept(t *testing.T) {
 		So(err, ShouldBeNil)
 		So(matches, ShouldBeTrue)
 	})
+}
+
+func processChangeRequestsInTesting(h *Holochain) {
+	for len(h.dht.changeQueue) > 0 {
+		req := <-h.dht.changeQueue
+		err := handleChangeRequests(h.dht, req)
+		if err != nil {
+			panic(err)
+		}
+	}
 }

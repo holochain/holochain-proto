@@ -245,6 +245,7 @@ This project depends on various parts of [libp2p](https://github.com/libp2p/go-l
 which will be automatically installed by make by following the [setup instructions](#installation) above.
 
 The package manager rewrites files that are tracked by git to configure imports.
+Be careful not to commit the generated imports to git!
 
 `make work` adds the imports to the repository and `make pub` reverts them.
 

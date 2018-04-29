@@ -24,8 +24,8 @@ var verbose bool
 func setupApp() (app *cli.App) {
 	app = cli.NewApp()
 	app.Name = "hcd"
-	app.Usage = fmt.Sprintf("serve a chain to the web on localhost:<port> (defaults to %s)", defaultUIPort)
-	app.ArgsUsage = "holochain-name [port]"
+	app.Usage = fmt.Sprintf("serve a chain to the web on localhost:<ui-port> (defaults to %s)", defaultUIPort)
+	app.ArgsUsage = "holochain-name [ui-port]"
 
 	app.Version = fmt.Sprintf("0.0.3 (holochain %s)", holo.VersionStr)
 

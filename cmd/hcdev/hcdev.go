@@ -643,8 +643,8 @@ func setupApp() (app *cli.App) {
 		{
 			Name:      "web",
 			Aliases:   []string{"serve", "w"},
-			ArgsUsage: "[port]",
-			Usage:     fmt.Sprintf("serve a chain to the web on localhost:<port> (defaults to %s)", defaultUIPort),
+			ArgsUsage: "[ui-port]",
+			Usage:     fmt.Sprintf("serve a chain to the web on localhost:<ui-port> (defaults to %s)", defaultUIPort),
 			Action: func(c *cli.Context) error {
 				if err := appCheck(devPath); err != nil {
 					return cmd.MakeErrFromErr(c, err)

@@ -230,21 +230,21 @@ func TestNewJSRibosome(t *testing.T) {
 			So(fmt.Sprintf("%v", s), ShouldEqual, "[]")
 
 			hFromHash, _ := NewHash("QmY8Mzg9F69e5P9AoQPYat655HEhc1TVGs11tmfNSzfrom")
-			var token string
-			token, err = h.AddBridgeAsCallee(hFromHash, "")
-			if err != nil {
-				panic(err)
-			}
 
-			hToHash, _ := NewHash("QmY8Mzg9F69e5P9AoQPYat655HEhc1TVGs11tmfNSzkqto")
-			err = h.AddBridgeAsCaller("jsSampleZome", hToHash, token, "fakeurl", "")
-			if err != nil {
-				panic(err)
-			}
+			var token string
+			ShouldLog(h.nucleus.alog, func() {
+				token, err = h.AddBridgeAsCallee(hFromHash, "")
+				if err != nil {
+					panic(err)
+				}
+			}, `testGetBridges:[{"Side":1,"Token":"`)
 
 			ShouldLog(h.nucleus.alog, func() {
-				_, err := z.Run(`testGetBridges()`)
-				So(err, ShouldBeNil)
+				hToHash, _ := NewHash("QmY8Mzg9F69e5P9AoQPYat655HEhc1TVGs11tmfNSzkqto")
+				err = h.AddBridgeAsCaller("jsSampleZome", hToHash, token, "fakeurl", "")
+				if err != nil {
+					panic(err)
+				}
 			}, fmt.Sprintf(`[{"Side":0,"ToApp":"QmY8Mzg9F69e5P9AoQPYat655HEhc1TVGs11tmfNSzkqto"},{"Side":1,"Token":"%s"}]`, token))
 
 		})

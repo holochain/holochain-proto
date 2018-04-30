@@ -1720,7 +1720,10 @@ function genesis() {
   debug("running jsZome genesis")
   return true
 }
-function bridgeGenesis(side,app,data) {return true}
+function bridgeGenesis(side,app,data) {
+testGetBridges();
+return true
+}
 
 function bundleCanceled(reason,userParam) {
      debug(userParam+"debug message during bundleCanceled with reason: "+reason);
@@ -1746,7 +1749,7 @@ function receive(from,message) {
 }
 
 function testGetBridges() {
-  debug(JSON.stringify(getBridges()))
+  debug("testGetBridges:"+JSON.stringify(getBridges()))
 }
 
 function asyncPing(message,id) {

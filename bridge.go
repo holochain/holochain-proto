@@ -219,6 +219,7 @@ func (h *Holochain) GetBridgeToken(hash Hash) (token string, url string, err err
 	return
 }
 
+// BuildBridgeToCaller connects h to a running app specified by BridgeApp that will be the Caller, i.e. the the BridgeFrom
 func (h *Holochain) BuildBridgeToCaller(app *BridgeApp, port string) (err error) {
 	var token string
 	token, err = h.AddBridgeAsCallee(app.DNA, app.BridgeGenesisDataTo)
@@ -251,7 +252,7 @@ func (h *Holochain) BuildBridgeToCaller(app *BridgeApp, port string) (err error)
 	return
 }
 
-// BuildBridgeToCallee creates the bridge structures on both sides
+// BuildBridgeToCallee connects h to a running app specified by BridgeApp that will be the Callee, i.e. the the BridgeTo
 func (h *Holochain) BuildBridgeToCallee(app *BridgeApp) (err error) {
 
 	data := map[string]string{"Type": "ToCallee", "DNA": h.DNAHash().String(), "Data": app.BridgeGenesisDataTo}

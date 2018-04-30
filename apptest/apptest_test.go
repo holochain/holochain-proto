@@ -271,20 +271,10 @@ func TestBuildBridgeToCaller(t *testing.T) {
 			BridgeGenesisDataTo:   "caller Data",
 			Side:                  BridgeFrom,
 		}
-		err := hCallee.BuildBridgeToCaller(&app, calleePort)
-		So(err, ShouldBeNil)
-		bridges, err := hCaller.GetBridges()
-		if err != nil {
-			panic(err)
-		}
-		So(fmt.Sprintf("%v", bridges), ShouldEqual, "[{Qmdnn7FMhbD4WYgEJeWWDCDAktsWdyiKoGTD7duT9DmWBv  0}]")
-
-		bridges, err = hCallee.GetBridges()
-		if err != nil {
-			panic(err)
-		}
-		So(len(bridges), ShouldEqual, 1)
-		So(bridges[0].Side, ShouldEqual, BridgeTo)
+		ShouldLog(&hCallee.Config.Loggers.App, func() {
+			err := hCallee.BuildBridgeToCaller(&app, calleePort)
+			So(err, ShouldBeNil)
+		}, `testGetBridges:[{"Side":1,"Token":"`, fmt.Sprintf(`bridge genesis to-- other side is:%s bridging data:caller Data`, hCallee.DNAHash().String()))
 
 	})
 }
@@ -310,20 +300,9 @@ func TestBuildBridgeToCallee(t *testing.T) {
 			BridgeGenesisDataTo:   "caller Data",
 			Side:                  BridgeTo,
 		}
-		err := hCaller.BuildBridgeToCallee(&app)
-		So(err, ShouldBeNil)
-		bridges, err := hCaller.GetBridges()
-		if err != nil {
-			panic(err)
-		}
-		So(fmt.Sprintf("%v", bridges), ShouldEqual, "[{Qmdnn7FMhbD4WYgEJeWWDCDAktsWdyiKoGTD7duT9DmWBv  0}]")
-
-		bridges, err = hCallee.GetBridges()
-		if err != nil {
-			panic(err)
-		}
-		So(len(bridges), ShouldEqual, 1)
-		So(bridges[0].Side, ShouldEqual, BridgeTo)
-
+		ShouldLog(&hCaller.Config.Loggers.App, func() {
+			err := hCaller.BuildBridgeToCallee(&app)
+			So(err, ShouldBeNil)
+		}, fmt.Sprintf(`testGetBridges:[{"Side":0,"ToApp":"%s"`, hCaller.DNAHash().String()))
 	})
 }

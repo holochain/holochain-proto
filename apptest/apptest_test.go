@@ -267,14 +267,14 @@ func TestBuildBridgeToCaller(t *testing.T) {
 			BridgeZome: "jsSampleZome",
 			DNA:        hCaller.DNAHash(),
 			Port:       callerPort,
-			BridgeGenesisDataFrom: "callee Data",
-			BridgeGenesisDataTo:   "caller Data",
-			Side:                  BridgeFrom,
+			BridgeGenesisCallerData: "caller Data",
+			BridgeGenesisCalleeData: "callee Data",
+			Side: BridgeCaller,
 		}
 		ShouldLog(&hCallee.Config.Loggers.App, func() {
 			err := hCallee.BuildBridgeToCaller(&app, calleePort)
 			So(err, ShouldBeNil)
-		}, `testGetBridges:[{"Side":1,"Token":"`, fmt.Sprintf(`bridge genesis to-- other side is:%s bridging data:caller Data`, hCallee.DNAHash().String()))
+		}, `testGetBridges:[{"Side":1,"Token":"`, fmt.Sprintf(`bridge genesis to-- other side is:%s bridging data:callee Data`, hCallee.DNAHash().String()))
 
 	})
 }
@@ -296,9 +296,9 @@ func TestBuildBridgeToCallee(t *testing.T) {
 			BridgeZome: "jsSampleZome",
 			DNA:        hCallee.DNAHash(),
 			Port:       calleePort,
-			BridgeGenesisDataFrom: "callee Data",
-			BridgeGenesisDataTo:   "caller Data",
-			Side:                  BridgeTo,
+			BridgeGenesisCallerData: "caller Data",
+			BridgeGenesisCalleeData: "callee Data",
+			Side: BridgeCallee,
 		}
 		ShouldLog(&hCaller.Config.Loggers.App, func() {
 			err := hCaller.BuildBridgeToCallee(&app)

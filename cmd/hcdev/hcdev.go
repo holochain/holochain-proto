@@ -28,8 +28,6 @@ import (
 
 const (
 	defaultUIPort      = "4141"
-	bridgeFromPort     = "21111"
-	bridgeToPort       = "21112"
 	scenarioStartDelay = 1
 
 	defaultSpecsFile = "bridge_specs.json"
@@ -1052,12 +1050,12 @@ func getHolochain(c *cli.Context, service *holo.Service, identity string) (h *ho
 
 // BridgeSpec describes an app to be bridged for dev
 type BridgeSpec struct {
-	Path                  string // path to the app to bridge to/from
-	Side                  int    // what side of the bridge the dev app is
-	BridgeGenesisDataFrom string // genesis data for the from side
-	BridgeGenesisDataTo   string // genesis data for the to side
-	Port                  string // only used if side == BridgeTo
-	BridgeZome            string // only used if side == BridgeFrom
+	Path                    string // path to the app to bridge to/from
+	Side                    int    // what side of the bridge the dev app is (Bridge.Caller or Bridge.Callee)
+	BridgeGenesisCallerData string // genesis data for the caller side
+	BridgeGenesisCalleeData string // genesis data for the callee side
+	Port                    string // only used if side == BridgeCallee
+	BridgeZome              string // only used if side == BridgeCaller
 }
 
 // getBridgeAppsForTests builds up an array of bridged apps based on the dev values for bridging
@@ -1091,10 +1089,10 @@ func getBridgeAppForTests(service *holo.Service, agent holo.Agent) (bridgedApps 
 					Name: h.Name(),
 					DNA:  h.DNAHash(),
 					Side: spec.Side,
-					BridgeGenesisDataFrom: spec.BridgeGenesisDataFrom,
-					BridgeGenesisDataTo:   spec.BridgeGenesisDataTo,
-					Port:                  spec.Port,
-					BridgeZome:            spec.BridgeZome,
+					BridgeGenesisCallerData: spec.BridgeGenesisCallerData,
+					BridgeGenesisCalleeData: spec.BridgeGenesisCalleeData,
+					Port:       spec.Port,
+					BridgeZome: spec.BridgeZome,
 				},
 			})
 	}

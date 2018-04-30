@@ -341,7 +341,7 @@ func TestBridging(t *testing.T) {
 
 	// bridging to ourselves for this test, so write out a bridgeSpecFile to use
 	bridgeSourceDir := filepath.Join(tmpTestDir, "bar")
-	data := []BridgeSpec{BridgeSpec{Path: bridgeSourceDir, Side: holo.BridgeTo, BridgeZome: "jsSampleZome", BridgeGenesisDataTo: "some data 314"}}
+	data := []BridgeSpec{BridgeSpec{Path: bridgeSourceDir, Side: holo.BridgeCallee, BridgeZome: "jsSampleZome", BridgeGenesisCalleeData: "some data 314"}}
 	var b bytes.Buffer
 	err := holo.Encode(&b, "json", data)
 
@@ -371,22 +371,22 @@ func TestSaveBridgeApps(t *testing.T) {
 			BridgeApp: holo.BridgeApp{
 				Name: "red fish",
 				DNA:  hashRed,
-				Side: holo.BridgeFrom,
-				BridgeGenesisDataFrom: "data red from",
-				BridgeGenesisDataTo:   "data blue to",
-				Port:                  "1234",
-				BridgeZome:            "redzome",
+				Side: holo.BridgeCaller,
+				BridgeGenesisCallerData: "data red from",
+				BridgeGenesisCalleeData: "data blue to",
+				Port:       "1234",
+				BridgeZome: "redzome",
 			},
 		},
 		BridgeAppForTests{
 			BridgeApp: holo.BridgeApp{
 				Name: "blue fish",
 				DNA:  hashBlue,
-				Side: holo.BridgeTo,
-				BridgeGenesisDataFrom: "data red from",
-				BridgeGenesisDataTo:   "data blue to",
-				Port:                  "4321",
-				BridgeZome:            "bluezome",
+				Side: holo.BridgeCallee,
+				BridgeGenesisCallerData: "data red from",
+				BridgeGenesisCalleeData: "data blue to",
+				Port:       "4321",
+				BridgeZome: "bluezome",
 			},
 		},
 	}

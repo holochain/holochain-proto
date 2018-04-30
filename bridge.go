@@ -21,13 +21,13 @@ import (
 
 // BridgeApp describes a data necessary for bridging
 type BridgeApp struct {
-	Name                  string //Name of other side
-	DNA                   Hash   // DNA of other side
-	Side                  int
-	BridgeGenesisDataFrom string
-	BridgeGenesisDataTo   string
-	Port                  string // only used if side == BridgeTo
-	BridgeZome            string // only used if side == BridgeFrom
+	Name                    string //Name of other side
+	DNA                     Hash   // DNA of other side
+	Side                    int
+	BridgeGenesisCallerData string
+	BridgeGenesisCalleeData string
+	Port                    string // only used if side == BridgeCallee
+	BridgeZome              string // only used if side == BridgeCaller
 }
 
 // Bridge holds data returned by GetBridges
@@ -72,8 +72,8 @@ func (h *Holochain) AddBridgeAsCallee(fromDNA Hash, appData string) (token strin
 		if err != nil {
 			return
 		}
-		h.Debugf("Running BridgeTo Genesis for %s", zomeName)
-		err = r.BridgeGenesis(BridgeTo, fromDNA, appData)
+		h.Debugf("Running BridgeCallee Genesis for %s", zomeName)
+		err = r.BridgeGenesis(BridgeCallee, fromDNA, appData)
 		if err != nil {
 			return
 		}
@@ -190,8 +190,8 @@ func (h *Holochain) AddBridgeAsCaller(bridgeZome string, toDNA Hash, token strin
 		return
 	}
 
-	h.Debugf("Running BridgeFrom Genesis for %s", zome.Name)
-	err = r.BridgeGenesis(BridgeFrom, toDNA, appData)
+	h.Debugf("Running BridgeCaller Genesis for %s", zome.Name)
+	err = r.BridgeGenesis(BridgeCaller, toDNA, appData)
 	if err != nil {
 		return
 	}
@@ -219,10 +219,10 @@ func (h *Holochain) GetBridgeToken(hash Hash) (token string, url string, err err
 	return
 }
 
-// BuildBridgeToCaller connects h to a running app specified by BridgeApp that will be the Caller, i.e. the the BridgeFrom
+// BuildBridgeToCaller connects h to a running app specified by BridgeApp that will be the Caller, i.e. the the BridgeCaller
 func (h *Holochain) BuildBridgeToCaller(app *BridgeApp, port string) (err error) {
 	var token string
-	token, err = h.AddBridgeAsCallee(app.DNA, app.BridgeGenesisDataTo)
+	token, err = h.AddBridgeAsCallee(app.DNA, app.BridgeGenesisCalleeData)
 	if err != nil {
 		h.Debugf("adding bridge to caller %s from %s failed with %v\n", app.Name, h.Name(), err)
 		return
@@ -230,7 +230,7 @@ func (h *Holochain) BuildBridgeToCaller(app *BridgeApp, port string) (err error)
 
 	h.Debugf("%s generated token %s for %s\n", h.Name(), token, app.Name)
 
-	data := map[string]string{"Type": "ToCaller", "Zome": app.BridgeZome, "DNA": h.DNAHash().String(), "Token": token, "Port": port, "Data": app.BridgeGenesisDataFrom}
+	data := map[string]string{"Type": "ToCaller", "Zome": app.BridgeZome, "DNA": h.DNAHash().String(), "Token": token, "Port": port, "Data": app.BridgeGenesisCallerData}
 	dataJSON, err := json.Marshal(data)
 	if err != nil {
 		return
@@ -252,10 +252,10 @@ func (h *Holochain) BuildBridgeToCaller(app *BridgeApp, port string) (err error)
 	return
 }
 
-// BuildBridgeToCallee connects h to a running app specified by BridgeApp that will be the Callee, i.e. the the BridgeTo
+// BuildBridgeToCallee connects h to a running app specified by BridgeApp that will be the Callee, i.e. the the BridgeCallee
 func (h *Holochain) BuildBridgeToCallee(app *BridgeApp) (err error) {
 
-	data := map[string]string{"Type": "ToCallee", "DNA": h.DNAHash().String(), "Data": app.BridgeGenesisDataTo}
+	data := map[string]string{"Type": "ToCallee", "DNA": h.DNAHash().String(), "Data": app.BridgeGenesisCalleeData}
 	dataJSON, err := json.Marshal(data)
 	if err != nil {
 		return
@@ -287,7 +287,7 @@ func (h *Holochain) BuildBridgeToCallee(app *BridgeApp) (err error) {
 	h.Debugf("%s received token %s from %s\n", h.Name(), token, app.Name)
 
 	// the url is currently through the webserver
-	err = h.AddBridgeAsCaller(app.BridgeZome, app.DNA, token, fmt.Sprintf("http://localhost:%s", app.Port), app.BridgeGenesisDataFrom)
+	err = h.AddBridgeAsCaller(app.BridgeZome, app.DNA, token, fmt.Sprintf("http://localhost:%s", app.Port), app.BridgeGenesisCallerData)
 	if err != nil {
 		h.Debugf("adding bridge to callee %s from %s failed with %s\n", app.Name, h.Name(), err)
 		return
@@ -318,9 +318,9 @@ func (h *Holochain) GetBridges() (bridges []Bridge, err error) {
 					if err != nil {
 						return false
 					}
-					bridges = append(bridges, Bridge{ToApp: hash, Side: BridgeFrom})
+					bridges = append(bridges, Bridge{ToApp: hash, Side: BridgeCaller})
 				case "tok":
-					bridges = append(bridges, Bridge{Token: x[1], Side: BridgeTo})
+					bridges = append(bridges, Bridge{Token: x[1], Side: BridgeCallee})
 				}
 				return true
 			})

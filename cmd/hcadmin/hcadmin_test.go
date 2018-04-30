@@ -178,7 +178,7 @@ func TestBridge(t *testing.T) {
 
 	Convey("it should bridge chains", t, func() {
 		app = setupApp()
-		out, err := runAppWithStdoutCapture(app, []string{"hcadmin", "-debug", "-path", d, "bridge", "testApp1", "testApp2", "jsSampleZome", "-bridgeToAppData", "some to app data"})
+		out, err := runAppWithStdoutCapture(app, []string{"hcadmin", "-debug", "-path", d, "bridge", "testApp1", "testApp2", "jsSampleZome", "-bridgeCalleeAppData", "some to app data"})
 		So(err, ShouldBeNil)
 		So(out, ShouldContainSubstring, "bridge genesis to-- other side is:"+testApp1DNA+" bridging data:some to app data\n")
 	})

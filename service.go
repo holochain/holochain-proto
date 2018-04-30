@@ -883,7 +883,7 @@ func (s *Service) ListChains() (list string) {
 			bridges, _ := chains[k].GetBridges()
 			if bridges != nil {
 				for _, b := range bridges {
-					if b.Side == BridgeFrom {
+					if b.Side == BridgeCaller {
 						list += fmt.Sprintf("        bridged to: %v\n", b.ToApp)
 					} else {
 						list += fmt.Sprintf("        bridged from by token: %v\n", b.Token)
@@ -1791,7 +1791,7 @@ function asyncPing(message,id) {
   (debug "running zyZome genesis")
   true
 )
-(defn bridgeGenesis [side app data] (begin (debug (concat "bridge genesis " (cond (== side HC_Bridge_From) "from" "to") "-- other side is:" app " bridging data:" data))  true))
+(defn bridgeGenesis [side app data] (begin (debug (concat "bridge genesis " (cond (== side HC_Bridge_Caller) "from" "to") "-- other side is:" app " bridging data:" data))  true))
 (defn receive [from message]
 	(hash pong: (hget message %ping)))
 

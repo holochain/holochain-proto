@@ -672,7 +672,7 @@ func StopBridgeApps(bridgeAppServers []*ui.WebServer) {
 func buildBridges(h *Holochain, port string, bridgeApps []BridgeApp) (err error) {
 	// build a bridge to all the bridge apps
 	for _, app := range bridgeApps {
-		if app.Side == BridgeFrom {
+		if app.Side == BridgeCaller {
 			err = h.BuildBridgeToCaller(&app, port)
 		} else {
 			err = h.BuildBridgeToCallee(&app)

@@ -80,15 +80,31 @@ func TestUtilsDecodeFile(t *testing.T) {
 }
 
 func TestTicker(t *testing.T) {
-	counter := 0
+	counter := make(chan int)
+	i := 0
 	stopper := Ticker(10*time.Millisecond, func() {
-		counter += 1
+		counter <- i + 1
 	})
-	time.Sleep(25 * time.Millisecond)
-	stopper <- true
-	Convey("it should have ticked twice", t, func() {
-		So(counter, ShouldEqual, 2)
-	})
+
+	go func() {
+		c := <-counter
+
+		if c == 1 {
+			t.Log("it ticked once")
+		}
+
+		if c == 2 {
+			stopper <- true
+			t.Log("it ticked twice")
+			return
+		}
+
+		if c > 2 {
+			stopper <- true
+			t.Error("it ticked more than twice without ticking twice")
+			return
+		}
+	}()
 }
 
 func TestEncodingFormat(t *testing.T) {

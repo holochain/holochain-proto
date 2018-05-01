@@ -394,8 +394,8 @@ const (
 		`(def HC_GetMask_Sources ` + GetMaskSourcesStr + ")" +
 		`(def HC_GetMask_All ` + GetMaskAllStr + ")" +
 
-		`(def HC_Bridge_From ` + BridgeFromStr + ")" +
-		`(def HC_Bridge_To ` + BridgeToStr + ")" +
+		`(def HC_Bridge_Caller ` + BridgeCallerStr + ")" +
+		`(def HC_Bridge_Callee ` + BridgeCalleeStr + ")" +
 
 		`(def HC_LinkAction_Add "` + AddLinkAction + "\")" +
 		`(def HC_LinkAction_Del "` + DelLinkAction + "\")" +
@@ -674,7 +674,7 @@ func NewZygoRibosome(h *Holochain, zome *Zome) (n Ribosome, err error) {
 				if err != nil {
 					return zygo.SexpNull, err
 				}
-				if b.Side == BridgeTo {
+				if b.Side == BridgeCallee {
 					err = bridge.HashSet(env.MakeSymbol("Side"), &zygo.SexpInt{Val: int64(b.Side)})
 					if err != nil {
 						return zygo.SexpNull, err

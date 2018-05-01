@@ -154,15 +154,15 @@ func TestNewJSRibosome(t *testing.T) {
 		i, _ = z.lastResult.ToInteger()
 		So(i, ShouldEqual, StatusAny)
 
-		_, err = z.Run("HC.Bridge.From")
+		_, err = z.Run("HC.Bridge.Caller")
 		So(err, ShouldBeNil)
 		i, _ = z.lastResult.ToInteger()
-		So(i, ShouldEqual, BridgeFrom)
+		So(i, ShouldEqual, BridgeCaller)
 
-		_, err = z.Run("HC.Bridge.To")
+		_, err = z.Run("HC.Bridge.Callee")
 		So(err, ShouldBeNil)
 		i, _ = z.lastResult.ToInteger()
-		So(i, ShouldEqual, BridgeTo)
+		So(i, ShouldEqual, BridgeCallee)
 
 		_, err = z.Run("HC.BundleCancel.Reason.UserCancel")
 		So(err, ShouldBeNil)
@@ -235,21 +235,21 @@ func TestNewJSRibosome(t *testing.T) {
 			So(fmt.Sprintf("%v", s), ShouldEqual, "[]")
 
 			hFromHash, _ := NewHash("QmY8Mzg9F69e5P9AoQPYat655HEhc1TVGs11tmfNSzfrom")
-			var token string
-			token, err = h.AddBridgeAsCallee(hFromHash, "")
-			if err != nil {
-				panic(err)
-			}
 
-			hToHash, _ := NewHash("QmY8Mzg9F69e5P9AoQPYat655HEhc1TVGs11tmfNSzkqto")
-			err = h.AddBridgeAsCaller("jsSampleZome", hToHash, token, "fakeurl", "")
-			if err != nil {
-				panic(err)
-			}
+			var token string
+			ShouldLog(h.nucleus.alog, func() {
+				token, err = h.AddBridgeAsCallee(hFromHash, "")
+				if err != nil {
+					panic(err)
+				}
+			}, `testGetBridges:[{"Side":1,"Token":"`)
 
 			ShouldLog(h.nucleus.alog, func() {
-				_, err := z.Run(`testGetBridges()`)
-				So(err, ShouldBeNil)
+				hToHash, _ := NewHash("QmY8Mzg9F69e5P9AoQPYat655HEhc1TVGs11tmfNSzkqto")
+				err = h.AddBridgeAsCaller("jsSampleZome", hToHash, token, "fakeurl", "")
+				if err != nil {
+					panic(err)
+				}
 			}, fmt.Sprintf(`[{"Side":0,"ToApp":"QmY8Mzg9F69e5P9AoQPYat655HEhc1TVGs11tmfNSzkqto"},{"Side":1,"Token":"%s"}]`, token))
 
 		})
@@ -352,7 +352,7 @@ func TestNewJSRibosome(t *testing.T) {
 				}
 				bridgeApps := []BridgeApp{BridgeApp{
 					H:    h2,
-					Side: BridgeTo,
+					Side: BridgeCallee,
 					Port: "31111",
 				}}
 				bridgeAppServers, err := BuildBridges(h, bridgeApps)
@@ -489,16 +489,16 @@ func TestJSBridgeGenesis(t *testing.T) {
 	Convey("it should fail if the bridge genesis function returns false", t, func() {
 
 		ShouldLog(&h.Config.Loggers.App, func() {
-			z, err := NewJSRibosome(h, &Zome{RibosomeType: JSRibosomeType, Code: `function bridgeGenesis(side,app,data) {debug(app+" "+data);if (side==HC.Bridge.From) {return false;} return true;}`})
+			z, err := NewJSRibosome(h, &Zome{RibosomeType: JSRibosomeType, Code: `function bridgeGenesis(side,app,data) {debug(app+" "+data);if (side==HC.Bridge.Caller) {return false;} return true;}`})
 			So(err, ShouldBeNil)
-			err = z.BridgeGenesis(BridgeFrom, h.dnaHash, "test data")
+			err = z.BridgeGenesis(BridgeCaller, h.dnaHash, "test data")
 			So(err.Error(), ShouldEqual, "bridgeGenesis failed")
 		}, h.dnaHash.String()+" test data")
 	})
 	Convey("it should work if the genesis function returns true", t, func() {
 		ShouldLog(&h.Config.Loggers.App, func() {
-			z, _ := NewJSRibosome(h, &Zome{RibosomeType: JSRibosomeType, Code: `function bridgeGenesis(side,app,data) {debug(app+" "+data);if (side==HC.Bridge.From) {return false;} return true;}`})
-			err := z.BridgeGenesis(BridgeTo, fakeToApp, "test data")
+			z, _ := NewJSRibosome(h, &Zome{RibosomeType: JSRibosomeType, Code: `function bridgeGenesis(side,app,data) {debug(app+" "+data);if (side==HC.Bridge.Caller) {return false;} return true;}`})
+			err := z.BridgeGenesis(BridgeCallee, fakeToApp, "test data")
 			So(err, ShouldBeNil)
 		}, fakeToApp.String()+" test data")
 	})

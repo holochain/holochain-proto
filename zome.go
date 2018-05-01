@@ -6,7 +6,6 @@ package holochain
 
 import (
 	"errors"
-	. "github.com/holochain/holochain-proto/hash"
 )
 
 // Zome struct encapsulates logically related code, from a "chromosome"
@@ -17,9 +16,9 @@ type Zome struct {
 	Entries      []EntryDef
 	RibosomeType string
 	Functions    []FunctionDef
-	BridgeFuncs  []string // functions in zome that can be bridged to by fromApp
-	BridgeTo     Hash     // dna Hash of toApp that this zome is a client of
-	Config       map[string]interface{}
+	BridgeFuncs  []string // functions in zome that can be bridged to by callerApp
+	//	BridgeCallee Hash     // dna Hash of provider App that this zome will call
+	Config map[string]interface{}
 }
 
 // GetEntryDef returns the entry def structure

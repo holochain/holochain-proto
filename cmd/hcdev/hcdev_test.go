@@ -6,12 +6,15 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"reflect"
 	"testing"
 	"time"
 
 	"github.com/davecgh/go-spew/spew"
 	holo "github.com/holochain/holochain-proto"
+	. "github.com/holochain/holochain-proto/apptest"
 	"github.com/holochain/holochain-proto/cmd"
+	. "github.com/holochain/holochain-proto/hash"
 	. "github.com/smartystreets/goconvey/convey"
 	"github.com/urfave/cli"
 )
@@ -338,7 +341,7 @@ func TestBridging(t *testing.T) {
 
 	// bridging to ourselves for this test, so write out a bridgeSpecFile to use
 	bridgeSourceDir := filepath.Join(tmpTestDir, "bar")
-	data := []BridgeSpec{BridgeSpec{Path: bridgeSourceDir, Side: holo.BridgeTo, BridgeZome: "jsSampleZome", BridgeGenesisDataTo: "some data 314"}}
+	data := []BridgeSpec{BridgeSpec{Path: bridgeSourceDir, Side: holo.BridgeCallee, BridgeZome: "jsSampleZome", BridgeGenesisCalleeData: "some data 314"}}
 	var b bytes.Buffer
 	err := holo.Encode(&b, "json", data)
 
@@ -356,6 +359,47 @@ func TestBridging(t *testing.T) {
 		So(out, ShouldContainSubstring, fmt.Sprintf("Copying bridge chain bar to:"))
 		So(out, ShouldContainSubstring, fmt.Sprintf("bridge genesis to-- other side is:")) // getting the DNA is a pain so skip it.
 		So(out, ShouldContainSubstring, fmt.Sprintf("bridging data:some data 314"))
+	})
+}
+
+func TestSaveBridgeApps(t *testing.T) {
+	hashRed, _ := NewHash("QmY8Mzg9F69e5P9AoQPYat655HEhc1TVGs11tmfNSzfro1")
+	hashBlue, _ := NewHash("QmY8Mzg9F69e5P9AoQPYat655HEhc1TVGs11tmfNSzfro2")
+
+	bridgeAppsForTests := []BridgeAppForTests{
+		BridgeAppForTests{
+			BridgeApp: holo.BridgeApp{
+				Name: "red fish",
+				DNA:  hashRed,
+				Side: holo.BridgeCaller,
+				BridgeGenesisCallerData: "data red from",
+				BridgeGenesisCalleeData: "data blue to",
+				Port:       "1234",
+				BridgeZome: "redzome",
+			},
+		},
+		BridgeAppForTests{
+			BridgeApp: holo.BridgeApp{
+				Name: "blue fish",
+				DNA:  hashBlue,
+				Side: holo.BridgeCallee,
+				BridgeGenesisCallerData: "data red from",
+				BridgeGenesisCalleeData: "data blue to",
+				Port:       "4321",
+				BridgeZome: "bluezome",
+			},
+		},
+	}
+
+	Convey("you can save out bridge app data for scenario testing", t, func() {
+		fileName, err := saveBridgeAppsToTmpFile(bridgeAppsForTests)
+		So(err, ShouldBeNil)
+
+		bridgeApps, err := getBridgeAppsFromTmpFile(fileName)
+		So(err, ShouldBeNil)
+		So(reflect.DeepEqual(bridgeApps[0], bridgeAppsForTests[0].BridgeApp), ShouldBeTrue)
+		So(reflect.DeepEqual(bridgeApps[1], bridgeAppsForTests[1].BridgeApp), ShouldBeTrue)
+		So(len(bridgeApps), ShouldEqual, 2)
 	})
 }
 

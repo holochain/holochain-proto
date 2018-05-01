@@ -1,8 +1,10 @@
 package apptest
 
 import (
+	"fmt"
 	. "github.com/holochain/holochain-proto"
 	. "github.com/holochain/holochain-proto/hash"
+	"github.com/holochain/holochain-proto/ui"
 	. "github.com/smartystreets/goconvey/convey"
 	"os"
 	"path/filepath"
@@ -158,7 +160,7 @@ func TestTestScenario(t *testing.T) {
 	Convey("it should run a test scenario", t, func() {
 		// the sample scenario is supposed to fail
 		ShouldLog(&h.Config.Loggers.TestFailed, func() {
-			err, errs := TestScenario(h, "sampleScenario", "speaker", map[string]string{"%server%": "server_foo"}, false)
+			err, errs := TestScenario(h, "sampleScenario", "speaker", map[string]string{"%server%": "server_foo"}, false, nil)
 			So(err, ShouldBeNil)
 			So(len(errs), ShouldEqual, 1)
 		}, `server_foo`)
@@ -247,4 +249,62 @@ func commit(h *Holochain, entryType, entryStr string) (entryHash Hash) {
 		panic(err)
 	}
 	return
+}
+
+func TestBuildBridgeToCaller(t *testing.T) {
+	dCaller, _, hCaller := PrepareTestChain("caller")
+	defer CleanupTestChain(hCaller, dCaller)
+
+	callerPort := "31415"
+	calleePort := "12356"
+	ws := ui.NewWebServer(hCaller, callerPort)
+	ws.Start()
+	time.Sleep(time.Second * 1)
+
+	dCallee, _, hCallee := PrepareTestChain("callee")
+	defer CleanupTestChain(hCallee, dCallee)
+
+	Convey("you can build a bridge to a running caller", t, func() {
+		app := BridgeApp{
+			BridgeZome: "jsSampleZome",
+			DNA:        hCaller.DNAHash(),
+			Port:       callerPort,
+			BridgeGenesisCallerData: "caller Data",
+			BridgeGenesisCalleeData: "callee Data",
+			Side: BridgeCaller,
+		}
+		ShouldLog(&hCallee.Config.Loggers.App, func() {
+			err := hCallee.BuildBridgeToCaller(&app, calleePort)
+			So(err, ShouldBeNil)
+		}, `testGetBridges:[{"Side":1,"Token":"`, fmt.Sprintf(`bridge genesis to-- other side is:%s bridging data:callee Data`, hCallee.DNAHash().String()))
+
+	})
+}
+
+func TestBuildBridgeToCallee(t *testing.T) {
+	dCaller, _, hCaller := PrepareTestChain("caller")
+	defer CleanupTestChain(hCaller, dCaller)
+
+	dCallee, _, hCallee := PrepareTestChain("callee")
+	defer CleanupTestChain(hCallee, dCallee)
+
+	calleePort := "12356"
+	ws := ui.NewWebServer(hCallee, calleePort)
+	ws.Start()
+	time.Sleep(time.Second * 1)
+
+	Convey("you can build a bridge to a running callee", t, func() {
+		app := BridgeApp{
+			BridgeZome: "jsSampleZome",
+			DNA:        hCallee.DNAHash(),
+			Port:       calleePort,
+			BridgeGenesisCallerData: "caller Data",
+			BridgeGenesisCalleeData: "callee Data",
+			Side: BridgeCallee,
+		}
+		ShouldLog(&hCaller.Config.Loggers.App, func() {
+			err := hCaller.BuildBridgeToCallee(&app)
+			So(err, ShouldBeNil)
+		}, fmt.Sprintf(`testGetBridges:[{"Side":0,"ToApp":"%s"`, hCaller.DNAHash().String()))
+	})
 }

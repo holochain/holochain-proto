@@ -310,7 +310,7 @@ func TestZygoBridgeGenesis(t *testing.T) {
 		ShouldLog(&h.Config.Loggers.App, func() {
 			z, err := NewZygoRibosome(h, &Zome{RibosomeType: ZygoRibosomeType, Code: `(defn bridgeGenesis [side app data] (begin (debug (concat app " " data)) false))`})
 			So(err, ShouldBeNil)
-			err = z.BridgeGenesis(BridgeFrom, h.dnaHash, "test data")
+			err = z.BridgeGenesis(BridgeCaller, h.dnaHash, "test data")
 			So(err.Error(), ShouldEqual, "bridgeGenesis failed")
 		}, h.dnaHash.String()+" test data")
 	})
@@ -318,7 +318,7 @@ func TestZygoBridgeGenesis(t *testing.T) {
 		ShouldLog(&h.Config.Loggers.App, func() {
 			z, err := NewZygoRibosome(h, &Zome{RibosomeType: ZygoRibosomeType, Code: `(defn bridgeGenesis [side app data] (begin (debug (concat app " " data)) true))`})
 			So(err, ShouldBeNil)
-			err = z.BridgeGenesis(BridgeTo, fakeToApp, "test data")
+			err = z.BridgeGenesis(BridgeCallee, fakeToApp, "test data")
 			So(err, ShouldBeNil)
 		}, fakeToApp.String()+" test data")
 	})

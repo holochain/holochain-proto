@@ -39,10 +39,10 @@ const (
 	AGENT_ID_PROPERTY   = "_agent_id"
 	AGENT_NAME_PROPERTY = "_agent_name"
 
-	BridgeFrom    = 0
-	BridgeTo      = 1
-	BridgeFromStr = "0"
-	BridgeToStr   = "1"
+	BridgeCaller    = 0
+	BridgeCallee    = 1
+	BridgeCallerStr = "0"
+	BridgeCalleeStr = "1"
 
 	BundleCancelReasonUserCancel = "userCancel"
 	BundleCancelReasonTimeout    = "timeout"

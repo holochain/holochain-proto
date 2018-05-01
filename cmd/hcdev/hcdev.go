@@ -151,7 +151,7 @@ func setupApp() (app *cli.App) {
 		},
 		cli.StringFlag{
 			Name:        "bridgeSpecs",
-			Usage:       "path to bridge specs file (default: bridgeSpecs.json)",
+			Usage:       fmt.Sprintf("path to bridge specs file (default: %s)", defaultSpecsFile),
 			Destination: &bridgeSpecsFile,
 		},
 		cli.StringFlag{

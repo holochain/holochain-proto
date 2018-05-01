@@ -23,12 +23,12 @@ func setupApp() (app *cli.App) {
 	app = cli.NewApp()
 	app.Name = "hcadmin"
 	app.Usage = "holochain administration tool"
-	app.Version = fmt.Sprintf("0.0.3 (holochain %s)", holo.VersionStr)
+	app.Version = fmt.Sprintf("0.0.4 (holochain %s)", holo.VersionStr)
 
 	var dumpChain, dumpDHT, json bool
 	var root string
 	var service *holo.Service
-	var bridgeToAppData, bridgeFromAppData string
+	var bridgeCalleeAppData, bridgeCallerAppData string
 
 	app.Flags = []cli.Flag{
 		cli.BoolFlag{
@@ -178,47 +178,47 @@ func setupApp() (app *cli.App) {
 		{
 			Name:      "bridge",
 			Aliases:   []string{"b"},
-			ArgsUsage: "from-chain to-chain bridge-zome",
-			Usage:     "allows to-chain to make calls to functions in from-chain",
+			ArgsUsage: "caller-chain callee-chain bridge-zome",
+			Usage:     "allows caller-chain to make calls to functions in callee-chain",
 			Flags: []cli.Flag{
 				cli.StringFlag{
-					Name:        "bridgeToAppData",
-					Usage:       "application data to pass to the bridged to app",
-					Destination: &bridgeToAppData,
+					Name:        "bridgeCalleeAppData",
+					Usage:       "application data to pass to the bridged callee app",
+					Destination: &bridgeCalleeAppData,
 				},
 				cli.StringFlag{
-					Name:        "bridgeFromAppData",
-					Usage:       "application data to pass to the bridging from app",
-					Destination: &bridgeFromAppData,
+					Name:        "bridgeCallerAppData",
+					Usage:       "application data to pass to the bridging caller app",
+					Destination: &bridgeCallerAppData,
 				},
 			},
 			Action: func(c *cli.Context) error {
 				if len(c.Args()) != 3 {
 					return errors.New("bridge: requires three arguments: from-chain to-chain bridge-zome")
 				}
-				fromChain := c.Args()[0]
-				toChain := c.Args()[1]
+				callerChain := c.Args()[0]
+				calleeChain := c.Args()[1]
 				bridgeZome := c.Args()[2]
 
-				hFrom, err := cmd.GetHolochain(fromChain, service, "bridge")
+				hCaller, err := cmd.GetHolochain(callerChain, service, "bridge")
 				if err != nil {
 					return err
 				}
-				hTo, err := cmd.GetHolochain(toChain, service, "bridge")
-				if err != nil {
-					return err
-				}
-
-				token, err := hTo.AddBridgeAsCallee(hFrom.DNAHash(), bridgeToAppData)
+				hCallee, err := cmd.GetHolochain(calleeChain, service, "bridge")
 				if err != nil {
 					return err
 				}
 
-				err = hFrom.AddBridgeAsCaller(bridgeZome, hTo.DNAHash(), token, fmt.Sprintf("http://localhost:%d", hTo.Config.DHTPort), bridgeFromAppData)
+				token, err := hCallee.AddBridgeAsCallee(hCaller.DNAHash(), bridgeCalleeAppData)
+				if err != nil {
+					return err
+				}
+
+				err = hCaller.AddBridgeAsCaller(bridgeZome, hCallee.DNAHash(), token, fmt.Sprintf("http://localhost:%d", hCallee.Config.DHTPort), bridgeCallerAppData)
 
 				if err == nil {
 					if verbose {
-						fmt.Printf("bridge from %s to %s\n", fromChain, toChain)
+						fmt.Printf("bridge from %s to %s\n", callerChain, calleeChain)
 					}
 				}
 				return err

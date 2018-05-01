@@ -133,9 +133,9 @@ func TestBridgeGetBridges(t *testing.T) {
 	Convey("it should return the bridged apps", t, func() {
 		bridges, err := h.GetBridges()
 		So(err, ShouldBeNil)
-		So(bridges[0].Side, ShouldEqual, BridgeFrom)
+		So(bridges[0].Side, ShouldEqual, BridgeCaller)
 		So(bridges[0].ToApp.String(), ShouldEqual, "QmVGtdTZdTFaLsaj2RwdVG8jcjNNcp1DE914DKZ2kHmXHw")
-		So(bridges[1].Side, ShouldEqual, BridgeTo)
+		So(bridges[1].Side, ShouldEqual, BridgeCallee)
 		So(bridges[1].Token, ShouldNotEqual, 0)
 	})
 }

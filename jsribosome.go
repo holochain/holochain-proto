@@ -336,8 +336,8 @@ const (
 		`,Full:` + PkgReqChainOptFullStr +
 		"}" +
 		"}" +
-		`,Bridge:{From:` + BridgeFromStr +
-		`,To:` + BridgeToStr +
+		`,Bridge:{Caller:` + BridgeCallerStr +
+		`,Callee:` + BridgeCalleeStr +
 		"}" +
 		`,BundleCancel:{` +
 		`Reason:{UserCancel:"` + BundleCancelReasonUserCancel +
@@ -650,7 +650,7 @@ func NewJSRibosome(h *Holochain, zome *Zome) (n Ribosome, err error) {
 					if i > 0 {
 						code += ","
 					}
-					if b.Side == BridgeTo {
+					if b.Side == BridgeCallee {
 						code += fmt.Sprintf(`{Side:%d,Token:"%s"}`, b.Side, b.Token)
 					} else {
 						code += fmt.Sprintf(`{Side:%d,ToApp:"%s"}`, b.Side, b.ToApp.String())

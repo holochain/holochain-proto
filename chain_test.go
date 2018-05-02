@@ -435,7 +435,7 @@ func TestChain2JSON(t *testing.T) {
 	c := NewChain(hashSpec)
 
 	Convey("it should dump empty JSON object for empty chain", t, func() {
-		json, err := c.JSON()
+		json, err := c.JSON(0)
 		So(err, ShouldBeNil)
 		So(json, ShouldEqual, "{}")
 	})
@@ -444,7 +444,7 @@ func TestChain2JSON(t *testing.T) {
 	c.AddEntry(now, DNAEntryType, &e, key)
 
 	Convey("it should dump a DNA entry as JSON", t, func() {
-		json, err := c.JSON()
+		json, err := c.JSON(0)
 		So(err, ShouldBeNil)
 		json = NormaliseJSON(json)
 		matched, err := regexp.MatchString(`{"%dna":{"header":{.*},"content":"dna entry"}}`, json)
@@ -456,7 +456,7 @@ func TestChain2JSON(t *testing.T) {
 	c.AddEntry(now, AgentEntryType, &e, key)
 
 	Convey("it should dump a Agent entry as JSON", t, func() {
-		json, err := c.JSON()
+		json, err := c.JSON(0)
 		So(err, ShouldBeNil)
 		json = NormaliseJSON(json)
 		matched, err := regexp.MatchString(`{"%dna":{"header":{.*},"content":"dna entry"},"%agent":{"header":{.*},"content":"agent entry"}}`, json)
@@ -468,10 +468,23 @@ func TestChain2JSON(t *testing.T) {
 	c.AddEntry(now, "handle", &e, key)
 
 	Convey("it should dump chain with entries as JSON", t, func() {
-		json, err := c.JSON()
+		json, err := c.JSON(0)
 		So(err, ShouldBeNil)
 		json = NormaliseJSON(json)
 		matched, err := regexp.MatchString(`{"%dna":{.*},"%agent":{.*},"entries":\[{"header":{"type":"handle",.*"},"content":"chain entry"}\]}`, json)
+		So(err, ShouldBeNil)
+		So(matched, ShouldBeTrue)
+	})
+
+	e.C = "chain entry 2"
+	c.AddEntry(now, "handle", &e, key)
+	e.C = "chain entry 3"
+	c.AddEntry(now, "handle", &e, key)
+	Convey("it should dump chain from the given start index", t, func() {
+		json, err := c.JSON(2)
+		So(err, ShouldBeNil)
+		json = NormaliseJSON(json)
+		matched, err := regexp.MatchString(`{"entries":\[{"header":{"type":"handle",.*"},"content":"chain entry 2"},{"header":{"type":"handle",.*"},"content":"chain entry 3"}\]}`, json)
 		So(err, ShouldBeNil)
 		So(matched, ShouldBeTrue)
 	})
@@ -482,7 +495,7 @@ func TestChain2Dot(t *testing.T) {
 	c := NewChain(hashSpec)
 
 	Convey("it should dump an empty 'dot' document for empty chain", t, func() {
-		dot, err := c.Dot()
+		dot, err := c.Dot(0)
 		So(err, ShouldBeNil)
 		matched, err := regexp.MatchString(`digraph chain {.*}`, strings.Replace(dot, "\n", "", -1))
 		So(err, ShouldBeNil)
@@ -495,7 +508,7 @@ func TestChain2Dot(t *testing.T) {
 	c.AddEntry(now, DNAEntryType, &e, key)
 
 	Convey("after adding the dna, the dump should include the genesis entry in 'dot' format", t, func() {
-		dot, err := c.Dot()
+		dot, err := c.Dot(0)
 		So(err, ShouldBeNil)
 
 		hdr := c.Headers[0]
@@ -524,7 +537,7 @@ header0->content0;`
 	c.AddEntry(now, AgentEntryType, &e, key)
 
 	Convey("after adding the agent, the dump should include the agent entry in 'dot' format", t, func() {
-		dot, err := c.Dot()
+		dot, err := c.Dot(0)
 		So(err, ShouldBeNil)
 
 		hdr0 := c.Headers[0]
@@ -572,7 +585,7 @@ header1->content1;`
 	c.AddEntry(now, "handle", &e, key)
 
 	Convey("after adding an entry, the dump should include the entry in 'dot' format", t, func() {
-		dot, err := c.Dot()
+		dot, err := c.Dot(0)
 		So(err, ShouldBeNil)
 
 		hdr0 := c.Headers[0]
@@ -622,6 +635,32 @@ content1 [label=<{AGENT ID|\{"Identity":"lucy",<br/>"Revocation":"",<br/>"Public
 header1->content1;
 header1->header2;
 header2 [label=<{HEADER 2|
+{Type|` + hdrType2 + `}|
+{Hash|` + hash2 + `}|
+{Timestamp|` + timestamp2 + `}|
+{Next Header|` + nextHeader2 + `}|
+{Next|` + next2 + `}|
+{Entry|` + hdrEntry2 + `}
+}>];
+content2 [label=<{ENTRY 2|\{"Links":[<br/>\{"Base":"ABC",<br/>"Link":"XYZ",<br/>"Tag":"handle"\}]\}}>];
+header2->content2;`
+
+		So(dot, ShouldContainSubstring, expectedDot)
+	})
+
+	Convey("only entries starting from the specified index should be dumped", t, func() {
+		dot, err := c.Dot(2)
+		So(err, ShouldBeNil)
+
+		hdr2 := c.Headers[2]
+		timestamp2 := fmt.Sprintf("%v", hdr2.Time)
+		hdrType2 := fmt.Sprintf("%v", hdr2.Type)
+		hdrEntry2 := fmt.Sprintf("%v", hdr2.EntryLink)
+		nextHeader2 := fmt.Sprintf("%v", hdr2.HeaderLink)
+		next2 := fmt.Sprintf("%s: %v", hdr2.Type, hdr2.TypeLink)
+		hash2 := fmt.Sprintf("%s", c.Hashes[2])
+
+		expectedDot := `header2 [label=<{HEADER 2|
 {Type|` + hdrType2 + `}|
 {Hash|` + hash2 + `}|
 {Timestamp|` + timestamp2 + `}|

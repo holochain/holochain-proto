@@ -644,7 +644,7 @@ func (c *Chain) JSON(start int) (string, error) {
 }
 
 // Dot converts a chain to a GraphViz 'dot' format dump of the headers and entries
-func (c *Chain) Dot() (dump string, err error) {
+func (c *Chain) Dot(start int) (dump string, err error) {
 	c.lk.RLock()
 	defer c.lk.RUnlock()
 	l := len(c.Headers)
@@ -656,7 +656,7 @@ func (c *Chain) Dot() (dump string, err error) {
 	buffer.WriteString(`node [shape=record fontname="Arial",fontsize="10",style="rounded, filled",penwidth=2,fontcolor="#c5c5c5",color="#8d00ff",fillcolor="#181818"];` + "\n")
 	buffer.WriteString(`edge [penwidth=2, color="#8d00ff"];` + "\n")
 
-	for i := 0; i < l; i++ {
+	for i := start; i < l; i++ {
 		hdr := c.Headers[i]
 		hash := c.Hashes[i]
 		headerLabel := ""

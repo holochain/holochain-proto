@@ -813,7 +813,7 @@ func setupApp() (app *cli.App) {
 						case "string":
 							fmt.Printf("Chain for: %s\n%v", dnaHash, h.Chain().Dump(start))
 						case "dot":
-							dump, _ := h.Chain().Dot()
+							dump, _ := h.Chain().Dot(start)
 							fmt.Println(dump)
 						case "json":
 							dump, _ := h.Chain().JSON(start)

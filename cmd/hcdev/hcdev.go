@@ -811,7 +811,7 @@ func setupApp() (app *cli.App) {
 					} else if dumpFormat != "" {
 						switch dumpFormat {
 						case "string":
-							fmt.Printf("Chain for: %s\n%v", dnaHash, h.Chain())
+							fmt.Printf("Chain for: %s\n%v", dnaHash, h.Chain().Dump(start))
 						case "dot":
 							dump, _ := h.Chain().Dot()
 							fmt.Println(dump)

@@ -200,10 +200,16 @@ Architecture information and application developer documentation is in our [deve
 You can also look through auto-generated [reference API on GoDocs](https://godoc.org/github.com/holochain/holochain-proto)
 
 ## Holochain Core Development
-We accept Pull Requests and welcome your participation.
+We accept Pull Requests and welcome your participation. Please make sure to
+include the issue number your branch names and use descriptive commit messages.
 
-Some helpful links: [![In Progress](https://img.shields.io/waffle/label/holochain/holochain-proto/in%20progress.svg)](http://waffle.io/holochain/holochain-proto)
+[![In Progress](https://img.shields.io/waffle/label/holochain/holochain-proto/in%20progress.svg)](http://waffle.io/holochain/holochain-proto)
+
+Some helpful links:
+
 * View our [Kanban on Waffle](https://waffle.io/holochain/holochain-proto).
+* View our current [Milestones](https://github.com/metacurrency/holochain/milestones?direction=asc&sort=due_date&state=all).
+* Chat with us on our [Chat Server](https://chat.holochain.org) or [Gitter](https://gitter.im/metacurrency/holochain)
 
 Current Throughput graph:
 
@@ -212,18 +218,51 @@ Current Throughput graph:
 ### Contribute
 Contributors to this project are expected to follow our [development protocols & practices](https://github.com/holochain/holochain-proto/wiki/Development-Protocols).
 
+### Getting started
+Once you have followed the basic "getting started" guide above you will have the
+CLI tools installed locally.
+
+All the commands (`hcadmin`, `hcd`, `hcdev`, etc.) are built from the same repo:
+
+```bash
+$ cd $GOPATH/src/github.com/holochain/holochain-proto
+```
+
+Go will throw errors complaining about not being on the `$GOPATH` if you try to
+run `make` from a separate copy of the `holochain-proto` repository. If you want
+to contribute to Holochain core you must work in the repository created by Go.
+
+The `Makefile` contains all the build commands for Holochain. If you make an
+update to a command you will need to rebuild it before the changes take effect
+at the command line.
+
+E.g. After making an update to `cmd/hcdev/hcdev.go` run `$ make hcdev` then run
+`$ hcdev` as normal.
+
 ### Dependencies
-This project depends on various parts of [libp2p](https://github.com/libp2p/go-libp2p), which uses the [gx](https://github.com/whyrusleeping/gx) package manager. All of which will be automatically installed by make by following the [setup instructions](#installation) above.
+This project depends on various parts of [libp2p](https://github.com/libp2p/go-libp2p), which uses the [gx](https://github.com/whyrusleeping/gx) package manager. All of
+which will be automatically installed by make by following the [setup instructions](#installation) above.
+
+The package manager rewrites files that are tracked by git to configure imports.
+Be careful not to commit the generated imports to git!
+
+`make work` adds the imports to the repository and `make pub` reverts them.
+
+Every `make` command should automatically add and remove imports for you. If a
+`make` command is leaving mess behind in the repo, please open a bug report.
+
+If you want to use `go` commands directly (e.g. `go test`) then you need to run
+`make work` manually first and remember to `make pub` before committing any
+changes.
 
 ### Tests
 To compile and run all the tests:
 ```bash
-$ cd $GOPATH/github.com/holochain/holochain-proto
+$ cd $GOPATH/src/github.com/holochain/holochain-proto
 $ make test
 ```
-If you want to use `go test` instead of `make test`, you'll need to do a couple extra things because of this project's dependency on `gx`:
-* Before running `go test` you need to run `make work` to configure the imports properly.
-* If you do this, before commiting you must also run `make pub` to revert the changes it makes.
+
+`go test` can be used instead of `make test`, but only after `make work`.
 
 The docker setup runs tests automatically during builds.
 

@@ -98,10 +98,10 @@ func setupApp() (app *cli.App) {
 					Usage:       "starting index for dump (zero based)",
 				},
 				cli.StringFlag{
-					Name:		 "format",
+					Name:        "format",
 					Destination: &dumpFormat,
-					Usage:		 "Dump format (string, json, dot)",
-					Value:	     "string",
+					Usage:       "Dump format (string, json, dot)",
+					Value:       "string",
 				},
 			},
 			Action: func(c *cli.Context) error {
@@ -118,18 +118,18 @@ func setupApp() (app *cli.App) {
 					if json {
 						dump, _ := h.Chain().JSON(start)
 						fmt.Println(dump)
-					} else if  dumpFormat != "" {
+					} else if dumpFormat != "" {
 						switch dumpFormat {
 						case "string":
-								fmt.Printf("Chain for: %s\n%v", dnaHash, h.Chain().Dump(start))
+							fmt.Printf("Chain for: %s\n%v", dnaHash, h.Chain().Dump(start))
 						case "dot":
-								dump, _ := h.Chain().Dot(start)
-							 	fmt.Println(dump)
+							dump, _ := h.Chain().Dot(start)
+							fmt.Println(dump)
 						case "json":
-								dump, _ := h.Chain().JSON(start)
-								fmt.Println(dump)
+							dump, _ := h.Chain().JSON(start)
+							fmt.Println(dump)
 						default:
-								return cmd.MakeErr(c, "format must be one of dot, json, string")
+							return cmd.MakeErr(c, "format must be one of dot, json, string")
 						}
 					} else {
 						fmt.Printf("Chain for: %s\n%v", dnaHash, h.Chain().Dump(start))

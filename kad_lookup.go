@@ -11,8 +11,8 @@ package holochain
 import (
 	"context"
 	. "github.com/holochain/holochain-proto/hash"
-	peer "github.com/libp2p/go-libp2p-peer"
-	pstore "github.com/libp2p/go-libp2p-peerstore"
+	pstore "gx/ipfs/QmPgDWmTmuzvP7QE5zwo1TmjbJme9pmZHNujB2453jkCTr/go-libp2p-peerstore"
+	peer "gx/ipfs/QmXYjuNuxVzXKJCfWasQk1RqkhVLDM9jtUKhqc2WPQmFSB/go-libp2p-peer"
 	//	notif "github.com/libp2p/go-libp2p-routing/notifications"
 	"errors"
 )

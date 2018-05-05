@@ -10,9 +10,9 @@ import (
 	"errors"
 	"fmt"
 	. "github.com/holochain/holochain-proto/hash"
-	b58 "github.com/jbenet/go-base58"
-	ic "github.com/libp2p/go-libp2p-crypto"
-	peer "github.com/libp2p/go-libp2p-peer"
+	b58 "gx/ipfs/QmT8rehPR3F6bmwL6zjUN8XpiDBFFpMP2myPdC6ApsWfJf/go-base58"
+	peer "gx/ipfs/QmXYjuNuxVzXKJCfWasQk1RqkhVLDM9jtUKhqc2WPQmFSB/go-libp2p-peer"
+	ic "gx/ipfs/QmaPbCnUMBohSGo3KnxEa2bHqyJVVeEEcwtqJAYxerieBo/go-libp2p-crypto"
 	"io/ioutil"
 	"net/http"
 	"reflect"
@@ -487,20 +487,6 @@ func sysValidateEntry(h *Holochain, def *EntryDef, entry Entry, pkg *Package) (e
 		}
 
 	}
-	return
-}
-
-func (a *ActionCommit) SysValidation(h *Holochain, def *EntryDef, pkg *Package, sources []peer.ID) (err error) {
-	err = sysValidateEntry(h, def, a.entry, pkg)
-	return
-}
-
-func (a *ActionCommit) Receive(dht *DHT, msg *Message) (response interface{}, err error) {
-	err = NonDHTAction
-	return
-}
-
-func (a *ActionCommit) CheckValidationRequest(def *EntryDef) (err error) {
 	return
 }
 

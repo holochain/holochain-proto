@@ -86,3 +86,17 @@ func (a *ActionCommit) Share(h *Holochain, def *EntryDef) (err error) {
 	}
 	return
 }
+
+func (a *ActionCommit) SysValidation(h *Holochain, def *EntryDef, pkg *Package, sources []peer.ID) (err error) {
+	err = sysValidateEntry(h, def, a.entry, pkg)
+	return
+}
+
+func (a *ActionCommit) Receive(dht *DHT, msg *Message) (response interface{}, err error) {
+	err = NonDHTAction
+	return
+}
+
+func (a *ActionCommit) CheckValidationRequest(def *EntryDef) (err error) {
+	return
+}

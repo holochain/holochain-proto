@@ -1,7 +1,6 @@
 package holochain
 
 import (
-	// "fmt"
 	"fmt"
 	. "github.com/holochain/holochain-proto/hash"
 	b58 "github.com/jbenet/go-base58"
@@ -15,7 +14,8 @@ func TestValidateAction(t *testing.T) {
 	defer CleanupTestChain(h, d)
 	var err error
 
-	// these test the generic properties of ValidateAction using a commit action as an example
+	// these test the generic properties of ValidateAction using a commit action
+	// as an example
 	Convey("it should fail if a validator doesn't exist for the entry type", t, func() {
 		entry := &GobEntry{C: "foo"}
 		a := NewCommitAction("bogusType", entry)

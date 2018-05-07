@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # run the tests of example apps using hcdev
 
-BRANCH=master
+BRANCH=develop
 EXAMPLES=("HoloWorld" "fractal-wiki" "clutter" "cointoss") # "holodex" "dpki" "holochat"
 
 for i in "$@"
@@ -9,11 +9,11 @@ do
     case $i in
         -b=*|--branch=*)
             BRANCH="${i#*=}"
-            shfit #past argument=value
+            shift #past argument=value
             ;;
         -e=*|--example=*)
             EXAMPLES=( ${i#*=} )
-            shfit #past argument=value
+            shift #past argument=value
             ;;
         *)
             # unknown option
@@ -23,6 +23,7 @@ done
 
 cd /tmp
 testDir="holochain.test.examples"
+rm -rf $testDir
 mkdir $testDir
 cd $testDir
 
@@ -31,6 +32,7 @@ declare -a RESULTS
 i=0
 for app in "${EXAMPLES[@]}"
 do
+    echo "hcdev init -fromBranch=$BRANCH -cloneExample $app $app"
     hcdev init -fromBranch=$BRANCH -cloneExample $app $app
     cd $app
     hcdev test

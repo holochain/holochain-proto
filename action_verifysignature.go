@@ -1,5 +1,9 @@
 package holochain
 
+import (
+	ic "gx/ipfs/QmaPbCnUMBohSGo3KnxEa2bHqyJVVeEEcwtqJAYxerieBo/go-libp2p-crypto"
+)
+
 //------------------------------------------------------------
 // VerifySignature
 type APIFnVerifySignature struct {

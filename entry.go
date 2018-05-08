@@ -215,7 +215,7 @@ func (d *EntryDef) BuildJSONSchemaValidatorFromString(schema string) (err error)
 	return
 }
 
-func SysMessageToJSON (interface{}) (encodedEntry string, err error) {
+func SysMessageToJSON (e interface{}) (encodedEntry string, err error) {
 	var x struct {
 		Hash    string
 		Message string

@@ -6,29 +6,7 @@ import (
 
 const (
 	OpenEntryType = SysEntryTypePrefix + "open"
-	OpenEntrySchema = `
-{
-  "$id": "http://example.com/example.json",
-  "type": "object",
-  "definitions": {},
-  "$schema": "http://json-schema.org/draft-07/schema#",
-  "properties": {
-    "Hash": {
-      "$id": "/properties/Hash",
-      "type": "string",
-      "title": "The Hash Schema ",
-      "default": ""
-    },
-    "Message": {
-      "$id": "/properties/message",
-      "type": "string",
-      "title": "The Message Schema ",
-      "default": ""
-    }
-  },
-  "required": ["Hash"]
-}
-`
+	OpenEntrySchema = SysMessageEntrySchema
 )
 
 // OpenEntry struct holds the record of a source chain's opening
@@ -38,3 +16,11 @@ type OpenEntry struct {
 }
 
 var OpenEntryDef = &EntryDef{Name: OpenEntryType, DataFormat: DataFormatJSON, Sharing: Public, Schema: OpenEntrySchema}
+
+func (e *OpenEntry) ToJSON() (encodedEntry string, err error) {
+	return SysMessageToJSON(e)
+}
+
+func OpenEntryFromJSON(j string) (entry OpenEntry, err error) {
+	return SysMessageFromJSON(j)
+}

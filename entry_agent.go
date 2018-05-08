@@ -2,17 +2,7 @@ package holochain
 
 const (
   AgentEntryType   = SysEntryTypePrefix + "agent"
-)
-
-// AgentEntry structure for building AgentEntryType entries
-type AgentEntry struct {
-	Identity   AgentIdentity
-	Revocation string // marshaled revocation
-	PublicKey  string // marshaled public key
-}
-
-const (
-	AgentEntrySchema = `
+  AgentEntrySchema = `
 {
   "$id": "http://example.com/example.json",
   "type": "object",
@@ -41,6 +31,13 @@ const (
   "required": ["Identity", "PublicKey"]
 }`
 )
+
+// AgentEntry structure for building AgentEntryType entries
+type AgentEntry struct {
+	Identity   AgentIdentity
+	Revocation string // marshaled revocation
+	PublicKey  string // marshaled public key
+}
 
 var AgentEntryDef = &EntryDef{Name: AgentEntryType, DataFormat: DataFormatJSON, Sharing: Public, Schema: AgentEntrySchema}
 

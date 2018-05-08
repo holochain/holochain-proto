@@ -4,6 +4,10 @@
 //
 package holochain
 
+import (
+	. "github.com/holochain/holochain-proto/hash"
+)
+
 //------------------------------------------------------------
 // MakeHash
 

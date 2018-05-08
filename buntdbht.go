@@ -14,8 +14,8 @@ import (
 	"strings"
 
 	. "github.com/holochain/holochain-proto/hash"
-	peer "github.com/libp2p/go-libp2p-peer"
 	"github.com/tidwall/buntdb"
+	peer "gx/ipfs/QmXYjuNuxVzXKJCfWasQk1RqkhVLDM9jtUKhqc2WPQmFSB/go-libp2p-peer"
 )
 
 type BuntHT struct {

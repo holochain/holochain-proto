@@ -1,5 +1,12 @@
 package holochain
 
+import (
+	"bytes"
+	"fmt"
+	"io/ioutil"
+	"net/http"
+)
+
 //------------------------------------------------------------
 // Bridge
 

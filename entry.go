@@ -19,23 +19,11 @@ const (
 	SysEntryTypePrefix     = "%"
 	VirtualEntryTypePrefix = "%%"
 
-	// System defined entry types
-
-	DNAEntryType     = SysEntryTypePrefix + "dna"
-	AgentEntryType   = SysEntryTypePrefix + "agent"
-	HeadersEntryType = SysEntryTypePrefix + "header"
-	DelEntryType     = SysEntryTypePrefix + "del"
-	KeyEntryType     = VirtualEntryTypePrefix + "key" // virtual entry type, not actually on the chain
-
 	// Entry type formats
-
-	DataFormatLinks   = "links"
 	DataFormatJSON    = "json"
 	DataFormatString  = "string"
 	DataFormatRawJS   = "js"
 	DataFormatRawZygo = "zygo"
-	DataFormatSysDNA  = "_DNA"
-	DataFormatSysKey  = "_key"
 
 	// Entry sharing types
 
@@ -44,31 +32,7 @@ const (
 	Private = "private"
 )
 
-// AgentEntry structure for building AgentEntryType entries
-type AgentEntry struct {
-	Identity   AgentIdentity
-	Revocation string // marshaled revocation
-	PublicKey  string // marshaled public key
-}
 
-// LinksEntry holds one or more links
-type LinksEntry struct {
-	Links []Link
-}
-
-// Link structure for holding meta tagging of linking entry
-type Link struct {
-	LinkAction string // StatusAction (either AddAction or DelAction)
-	Base       string // hash of entry (perhaps elsewhere) to which we are attaching the link
-	Link       string // hash of entry being linked to
-	Tag        string // tag
-}
-
-// DelEntry struct holds the record of an entry's deletion
-type DelEntry struct {
-	Hash    Hash
-	Message string
-}
 
 // EntryDef struct holds an entry definition
 type EntryDef struct {
@@ -78,159 +42,6 @@ type EntryDef struct {
 	Schema     string
 	validator  SchemaValidator
 }
-
-const (
-	AgentEntrySchema = `
-{
-  "$id": "http://example.com/example.json",
-  "type": "object",
-  "definitions": {},
-  "$schema": "http://json-schema.org/draft-07/schema#",
-  "properties": {
-    "Identity": {
-      "$id": "/properties/Identity",
-      "type": "string",
-      "title": "The Identity Schema ",
-      "default": ""
-    },
-    "Revocation": {
-      "$id": "/properties/Revocation",
-      "type": "string",
-      "title": "The Revocation Schema ",
-      "default": ""
-    },
-    "PublicKey": {
-      "$id": "/properties/PublicKey",
-      "type": "string",
-      "title": "The Publickey Schema ",
-      "default": ""
-    }
-  },
-  "required": ["Identity", "PublicKey"]
-}`
-	HeadersEntrySchema = `
-{
-  "$id": "http://example.com/example.json",
-  "type": "array",
-  "definitions": {},
-  "$schema": "http://json-schema.org/draft-07/schema#",
-  "items": {
-    "$id": "http://example.com/example.json/items",
-    "type": "object",
-    "properties": {
-      "Source": {
-        "$id": "http://example.com/example.json/items/properties/Source",
-        "type": "string",
-        "title": "The Source Schema ",
-        "default": "",
-        "examples": [
-          "QmeLEGdTHwM4XYGggePJAYXLx968GiuiNooU1p7fa8T8zd"
-        ]
-      },
-      "Header": {
-        "$id": "http://example.com/example.json/items/properties/Header",
-        "type": "object",
-        "properties": {
-          "Type": {
-            "$id": "http://example.com/example.json/items/properties/Header/properties/Type",
-            "type": "string",
-            "title": "The Type Schema ",
-            "default": "",
-            "examples": [
-              "someType"
-            ]
-          },
-          "Time": {
-            "$id": "http://example.com/example.json/items/properties/Header/properties/Time",
-            "type": "string",
-            "title": "The Time Schema ",
-            "default": "",
-            "examples": [
-              "2018-03-15 19:30:05.740445736 -0400 EDT"
-            ]
-          },
-          "EntryLink": {
-            "$id": "http://example.com/example.json/items/properties/Header/properties/EntryLink",
-            "type": "string",
-            "title": "The Entrylink Schema ",
-            "default": "",
-            "examples": [
-              "QmeLEGdTHwM4XYGggePJAYXLx968GiuiNooU1p7fa8T8zd"
-            ]
-          },
-          "HeaderLink": {
-            "$id": "http://example.com/example.json/items/properties/Header/properties/HeaderLink",
-            "type": "string",
-            "title": "The Headerlink Schema ",
-            "default": "",
-            "examples": [
-              "QmWr1C3CeX12iZz98JGhzfsvfQpif29Ptwe86miZ9N9snU"
-            ]
-          },
-          "TypeLink": {
-            "$id": "http://example.com/example.json/items/properties/Header/properties/TypeLink",
-            "type": "string",
-            "title": "The Typelink Schema ",
-            "default": "",
-            "examples": [
-              "1"
-            ]
-          },
-          "Signature": {
-            "$id": "http://example.com/example.json/items/properties/Header/properties/Signature",
-            "type": "string",
-            "title": "The Signature Schema ",
-            "default": "",
-            "examples": [
-              "StwmRCJtj9Ymjdo7ws8ZeNdmEi2GZzNdtbubT8MZBfxpXWQDLtQPDZWeSA2qHTsVtyN7tZCrYTeWmeCdcoYe197"
-            ]
-          }
-        }
-      },
-      "Role": {
-        "$id": "http://example.com/example.json/items/properties/Role",
-        "type": "string",
-        "title": "The Role Schema ",
-        "default": "",
-        "examples": [
-          "someRole"
-        ]
-      }
-    },
-    "required": ["Header","Source"]
-  }
-}
-`
-	DelEntrySchema = `
-{
-  "$id": "http://example.com/example.json",
-  "type": "object",
-  "definitions": {},
-  "$schema": "http://json-schema.org/draft-07/schema#",
-  "properties": {
-    "Hash": {
-      "$id": "/properties/Hash",
-      "type": "string",
-      "title": "The Hash Schema ",
-      "default": ""
-    },
-    "Message": {
-      "$id": "/properties/message",
-      "type": "string",
-      "title": "The Message Schema ",
-      "default": ""
-    }
-  },
-  "required": ["Hash"]
-}
-`
-)
-
-var DNAEntryDef = &EntryDef{Name: DNAEntryType, DataFormat: DataFormatSysDNA}
-var AgentEntryDef = &EntryDef{Name: AgentEntryType, DataFormat: DataFormatJSON, Sharing: Public, Schema: AgentEntrySchema}
-var KeyEntryDef = &EntryDef{Name: KeyEntryType, DataFormat: DataFormatSysKey}
-var HeadersEntryDef = &EntryDef{Name: HeadersEntryType, DataFormat: DataFormatJSON, Sharing: Public, Schema: HeadersEntrySchema}
-var DelEntryDef = &EntryDef{Name: DelEntryType, DataFormat: DataFormatJSON, Sharing: Public, Schema: DelEntrySchema}
 
 func (def EntryDef) isSharingPublic() bool {
 	return def.Sharing == Public || def.DataFormat == DataFormatLinks
@@ -376,56 +187,5 @@ func (d *EntryDef) BuildJSONSchemaValidatorFromString(schema string) (err error)
 	}
 	validator.v.SetName(d.Name)
 	d.validator = validator
-	return
-}
-
-func (ae *LinksEntry) ToJSON() (encodedEntry string, err error) {
-	var j []byte
-	j, err = json.Marshal(ae)
-	encodedEntry = string(j)
-	return
-}
-
-func LinksEntryFromJSON(j string) (entry LinksEntry, err error) {
-	err = json.Unmarshal([]byte(j), &entry)
-	return
-}
-
-func (ae *AgentEntry) ToJSON() (encodedEntry string, err error) {
-	var j []byte
-	j, err = json.Marshal(ae)
-	encodedEntry = string(j)
-	return
-}
-
-func AgentEntryFromJSON(j string) (entry AgentEntry, err error) {
-	err = json.Unmarshal([]byte(j), &entry)
-	return
-}
-
-func (e *DelEntry) ToJSON() (encodedEntry string, err error) {
-	var x struct {
-		Hash    string
-		Message string
-	}
-	x.Hash = e.Hash.String()
-	x.Message = e.Message
-	var j []byte
-	j, err = json.Marshal(x)
-	encodedEntry = string(j)
-	return
-}
-
-func DelEntryFromJSON(j string) (entry DelEntry, err error) {
-	var x struct {
-		Hash    string
-		Message string
-	}
-	err = json.Unmarshal([]byte(j), &x)
-	if err != nil {
-		return
-	}
-	entry.Message = x.Message
-	entry.Hash, err = NewHash(x.Hash)
 	return
 }

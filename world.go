@@ -148,6 +148,7 @@ func (world *World) UpdateResponsible(hash Hash, redundancy int) (responsible bo
 			return
 		}
 		// TODO add in resilince calculations with uptime
+		// see https://waffle.io/Holochain/holochain-proto/cards/5af33c5b8daa2d001cd1d051
 		i := 0
 		for i = 0; i < redundancy; i++ {
 			if nodes[i] == world.me {
@@ -174,7 +175,7 @@ func (world *World) UpdateResponsible(hash Hash, redundancy int) (responsible bo
 			delete(world.responsible, hash)
 		}
 	} else {
-		panic("not implemented")
+		panic("resiliency=1 not implemented")
 	}
 	return
 }
@@ -226,8 +227,9 @@ func HoldingTask(h *Holochain) {
 			continue
 		}
 
-		//TODO forget the hashes we are no longer responsible for
-		//TODO this really shouldn't be called in the holding task
+		// TODO forget the hashes we are no longer responsible for
+		// https://waffle.io/Holochain/holochain-proto/cards/5af33e3b361c27001d5348c6
+		// TODO this really shouldn't be called in the holding task
 		//     but instead should be called with the Node list or hash list changes.
 		h.world.UpdateResponsible(hash, h.RedundancyFactor())
 		h.world.log.Logf("HoldingTask: updated %v\n", hash)

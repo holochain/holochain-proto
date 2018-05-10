@@ -1,5 +1,9 @@
 package holochain
 
+import (
+	"encoding/json"
+)
+
 const (
 	DataFormatLinks   = "links"
 )

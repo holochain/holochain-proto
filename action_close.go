@@ -66,7 +66,7 @@ func (a *ActionClose) GetHeader() (header *Header) {
 
 func (a *ActionClose) Share(h *Holochain, def *EntryDef) (err error) {
 	if def.isSharingPublic() {
-		h.dht.Change(a.header.EntryLink, PUT_REQUEST, HoldReq{EntryHash: a.EntryLink})
+		h.dht.Change(a.header.EntryLink, PUT_REQUEST, HoldReq{EntryHash: a.header.EntryLink})
 		h.dht.Change(a.entry.Hash, CLOSE_REQUEST, HoldReq{RelatedHash: a.entry.Hash, EntryHash: a.header.EntryLink})
 	}
 	return
@@ -96,7 +96,7 @@ func (a *ActionClose) Receive(dht *DHT, msg *Message) (response interface{}, err
 			// how do we record an invalid CLOSE?
 			//@TODO store as REJECTED
 		} else {
-			err = dht.Close(msg, closeEntry.Hash)
+			err = dht.CloseEntry(msg, closeEntry.Hash)
 			if err == nil {
 				holdResp, err = dht.MakeHoldResp(msg, StatusLive)
 			}

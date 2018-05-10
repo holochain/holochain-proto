@@ -127,6 +127,10 @@ func MakeValidationPackage(h *Holochain, pkg *Package) (vpkg *ValidationPackage,
 func ValidateReceiver(h *Holochain, msg *Message) (response interface{}, err error) {
 	var a ValidatingAction
 	switch msg.Type {
+	case VALIDATE_OPEN_REQUEST:
+		a = &ActionOpen{}
+	case VALIDATE_CLOSE_REQUEST:
+		a = &ActionClose{}
 	case VALIDATE_PUT_REQUEST:
 		a = &ActionPut{}
 	case VALIDATE_MOD_REQUEST:

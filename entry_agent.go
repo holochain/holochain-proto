@@ -1,5 +1,9 @@
 package holochain
 
+import (
+  "encoding/json"
+)
+
 const (
   AgentEntryType   = SysEntryTypePrefix + "agent"
   AgentEntrySchema = `

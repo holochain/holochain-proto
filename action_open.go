@@ -66,7 +66,7 @@ func (a *ActionOpen) GetHeader() (header *Header) {
 
 func (a *ActionOpen) Share(h *Holochain, def *EntryDef) (err error) {
 	if def.isSharingPublic() {
-		h.dht.Change(a.header.EntryLink, PUT_REQUEST, HoldReq{EntryHash: a.EntryLink})
+		h.dht.Change(a.header.EntryLink, PUT_REQUEST, HoldReq{EntryHash: a.header.EntryLink})
 		h.dht.Change(a.entry.Hash, OPEN_REQUEST, HoldReq{RelatedHash: a.entry.Hash, EntryHash: a.header.EntryLink})
 	}
 	return
@@ -96,7 +96,7 @@ func (a *ActionOpen) Receive(dht *DHT, msg *Message) (response interface{}, err 
 			// how do we record an invalid OPEN?
 			//@TODO store as REJECTED
 		} else {
-			err = dht.Open(msg, openEntry.Hash)
+			err = dht.OpenEntry(msg, openEntry.Hash)
 			if err == nil {
 				holdResp, err = dht.MakeHoldResp(msg, StatusLive)
 			}

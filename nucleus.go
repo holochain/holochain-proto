@@ -92,7 +92,7 @@ func ActionReceiver(h *Holochain, msg *Message) (response interface{}, err error
 }
 
 func isRelatedHoldMessage(msg *Message) bool {
-	return msg.Type == MOD_REQUEST || msg.Type == DEL_REQUEST || msg.Type == LINK_REQUEST
+	return msg.Type == OPEN_REQUEST || msg.Type == CLOSE_REQUEST || msg.Type == MOD_REQUEST || msg.Type == DEL_REQUEST || msg.Type == LINK_REQUEST
 }
 
 func actionReceiver(h *Holochain, msg *Message, retries int) (response interface{}, err error) {

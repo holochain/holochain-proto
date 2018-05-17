@@ -447,7 +447,7 @@ func TestNodeRouting(t *testing.T) {
 }
 
 func TestNodeAppSendResolution(t *testing.T) {
-	nodesCount := 50
+	nodesCount := 20
 	mt := setupMultiNodeTesting(nodesCount)
 	defer mt.cleanupMultiNodeTesting()
 	ringConnect(t, mt.ctx, mt.nodes, nodesCount)

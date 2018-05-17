@@ -447,6 +447,8 @@ func TestNodeRouting(t *testing.T) {
 }
 
 func TestNodeAppSendResolution(t *testing.T) {
+	// if this is too high we can face `dial backoff` errors
+	// https://github.com/holochain/holochain-proto/issues/706
 	nodesCount := 20
 	mt := setupMultiNodeTesting(nodesCount)
 	defer mt.cleanupMultiNodeTesting()

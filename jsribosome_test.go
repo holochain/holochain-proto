@@ -119,6 +119,11 @@ func TestNewJSRibosome(t *testing.T) {
 		s, _ = z.lastResult.ToString()
 		So(s, ShouldEqual, HeadersEntryType)
 
+		_, err = z.Run("HC.SysEntryType.Del")
+		So(err, ShouldBeNil)
+		s, _ = z.lastResult.ToString()
+		So(s, ShouldEqual, DelEntryType)
+
 		_, err = z.Run("HC.Version")
 		So(err, ShouldBeNil)
 		s, _ = z.lastResult.ToString()
@@ -661,7 +666,7 @@ func TestPrepareJSValidateArgs(t *testing.T) {
 	Convey("it should prepare args for del", t, func() {
 		hash, _ := NewHash("QmY8Mzg9F69e5P9AoQPYat6x5HEhc1TVGs11tmfNSzkqh2")
 		entry := DelEntry{Hash: hash, Message: "expired"}
-		a := NewDelAction("profile", entry)
+		a := NewDelAction(entry)
 		args, err := prepareJSValidateArgs(a, &d)
 		So(err, ShouldBeNil)
 		So(args, ShouldEqual, `"QmY8Mzg9F69e5P9AoQPYat6x5HEhc1TVGs11tmfNSzkqh2"`)
@@ -892,9 +897,9 @@ func TestJSDHT(t *testing.T) {
 		_, err = NewHash(z.lastResult.String())
 		So(err, ShouldBeNil)
 
-		links, _ := h.dht.getLinks(hash, "4stars", StatusLive)
+		links, _ := h.dht.GetLinks(hash, "4stars", StatusLive)
 		So(fmt.Sprintf("%v", links), ShouldEqual, fmt.Sprintf("[{QmWbbUf6G38hT27kmrQ5UYFbXUPTGokKvDiaQbczFYNjuN    %s}]", h.nodeIDStr))
-		links, _ = h.dht.getLinks(hash, "4stars", StatusDeleted)
+		links, _ = h.dht.GetLinks(hash, "4stars", StatusDeleted)
 		So(fmt.Sprintf("%v", links), ShouldEqual, fmt.Sprintf("[{QmYeinX5vhuA91D3v24YbgyLofw9QAxY6PoATrBHnRwbtt    %s}]", h.nodeIDStr))
 	})
 
@@ -930,11 +935,10 @@ func TestJSDHT(t *testing.T) {
 
 		header := h.chain.Top()
 		So(profileHashStr2, ShouldEqual, header.EntryLink.String())
-		So(header.Change.Action, ShouldEqual, ModAction)
-		So(header.Change.Hash.String(), ShouldEqual, profileHash.String())
+		So(header.Change.String(), ShouldEqual, profileHash.String())
 
 		// the entry should be marked as Modifed
-		data, _, _, _, err := h.dht.get(profileHash, StatusDefault, GetMaskDefault)
+		data, _, _, _, err := h.dht.Get(profileHash, StatusDefault, GetMaskDefault)
 		So(err, ShouldEqual, ErrHashModified)
 		So(string(data), ShouldEqual, profileHashStr2)
 
@@ -1027,12 +1031,12 @@ func TestJSDHT(t *testing.T) {
 
 		// the new Key should be available on the DHT
 		newKey, _ := NewHash(h.nodeIDStr)
-		data, _, _, _, err := h.dht.get(newKey, StatusDefault, GetMaskDefault)
+		data, _, _, _, err := h.dht.Get(newKey, StatusDefault, GetMaskDefault)
 		So(err, ShouldBeNil)
 		So(string(data), ShouldEqual, newPubKey)
 
 		// the old key should be marked as Modifed and we should get the new hash as the data
-		data, _, _, _, err = h.dht.get(oldKey, StatusDefault, GetMaskDefault)
+		data, _, _, _, err = h.dht.Get(oldKey, StatusDefault, GetMaskDefault)
 		So(err, ShouldEqual, ErrHashModified)
 		So(string(data), ShouldEqual, h.nodeIDStr)
 

@@ -224,6 +224,14 @@ func (rt *RoutingTable) NearestPeers(hash Hash, count int) []peer.ID {
 	// Sort by distance to local peer
 	sort.Sort(hashArr)
 
+	/*s := ""
+	for _, c := range hashArr {
+		p := PeerIDFromHash(c.Hash.(Hash))
+		s += fmt.Sprintf("%v ", p.Pretty()[2:4])
+	}
+	fmt.Printf("%s\n", s)
+	*/
+
 	var out []peer.ID
 	for i := 0; i < count && i < hashArr.Len(); i++ {
 		p := PeerIDFromHash(hashArr[i].Hash.(Hash))

@@ -397,8 +397,8 @@ const (
 		`(def HC_Bridge_Caller ` + BridgeCallerStr + ")" +
 		`(def HC_Bridge_Callee ` + BridgeCalleeStr + ")" +
 
-		`(def HC_LinkAction_Add "` + AddAction + "\")" +
-		`(def HC_LinkAction_Del "` + DelAction + "\")" +
+		`(def HC_LinkAction_Add "` + AddLinkAction + "\")" +
+		`(def HC_LinkAction_Del "` + DelLinkAction + "\")" +
 		`(def HC_PkgReq_Chain "` + PkgReqChain + "\")" +
 		`(def HC_PkgReq_ChainOpt_None "` + PkgReqChainOptNoneStr + "\")" +
 		`(def HC_PkgReq_ChainOpt_Headers "` + PkgReqChainOptHeadersStr + "\")" +
@@ -598,7 +598,7 @@ func NewZygoRibosome(h *Holochain, zome *Zome) (n Ribosome, err error) {
 
 	z.env.AddFunction("property",
 		func(env *zygo.Zlisp, name string, zyargs []zygo.Sexp) (zygo.Sexp, error) {
-			a := &ActionProperty{}
+			a := &APIFnProperty{}
 			args := a.Args()
 			err := zyProcessArgs(&z, args, zyargs)
 			if err != nil {
@@ -608,7 +608,7 @@ func NewZygoRibosome(h *Holochain, zome *Zome) (n Ribosome, err error) {
 			a.prop = args[0].value.(string)
 
 			var p interface{}
-			p, err = a.Do(h)
+			p, err = a.Call(h)
 
 			if err != nil {
 				return zygo.SexpNull, err
@@ -619,20 +619,20 @@ func NewZygoRibosome(h *Holochain, zome *Zome) (n Ribosome, err error) {
 
 	z.env.AddFunction("debug",
 		func(env *zygo.Zlisp, name string, zyargs []zygo.Sexp) (zygo.Sexp, error) {
-			a := &ActionDebug{}
+			a := &APIFnDebug{}
 			args := a.Args()
 			err := zyProcessArgs(&z, args, zyargs)
 			if err != nil {
 				return zygo.SexpNull, err
 			}
 			a.msg = args[0].value.(string)
-			a.Do(h)
+			a.Call(h)
 			return zygo.SexpNull, err
 		})
 
 	z.env.AddFunction("makeHash",
 		func(env *zygo.Zlisp, name string, zyargs []zygo.Sexp) (zygo.Sexp, error) {
-			a := &ActionMakeHash{}
+			a := &APIFnMakeHash{}
 			args := a.Args()
 			err := zyProcessArgs(&z, args, zyargs)
 			if err != nil {
@@ -641,7 +641,7 @@ func NewZygoRibosome(h *Holochain, zome *Zome) (n Ribosome, err error) {
 			a.entryType = args[0].value.(string)
 			a.entry = &GobEntry{C: args[1].value.(string)}
 			var r interface{}
-			r, err = a.Do(h)
+			r, err = a.Call(h)
 			if err != nil {
 				return zygo.SexpNull, err
 			}
@@ -655,13 +655,13 @@ func NewZygoRibosome(h *Holochain, zome *Zome) (n Ribosome, err error) {
 
 	z.env.AddFunction("getBridges",
 		func(env *zygo.Zlisp, name string, zyargs []zygo.Sexp) (zygo.Sexp, error) {
-			a := &ActionGetBridges{}
+			a := &APIFnGetBridges{}
 			args := a.Args()
 			err := zyProcessArgs(&z, args, zyargs)
 			if err != nil {
 				return zygo.SexpNull, err
 			}
-			r, err := a.Do(h)
+			r, err := a.Call(h)
 			if err != nil {
 				return zygo.SexpNull, err
 			}
@@ -701,8 +701,9 @@ func NewZygoRibosome(h *Holochain, zome *Zome) (n Ribosome, err error) {
 
 	z.env.AddFunction("send",
 		func(env *zygo.Zlisp, name string, zyargs []zygo.Sexp) (zygo.Sexp, error) {
-			a := &ActionSend{}
-			args := a.Args()
+			fn := &APIFnSend{}
+			a := &fn.action
+			args := fn.Args()
 			err := zyProcessArgs(&z, args, zyargs)
 			if err != nil {
 				return zygo.SexpNull, err
@@ -748,7 +749,7 @@ func NewZygoRibosome(h *Holochain, zome *Zome) (n Ribosome, err error) {
 			}
 
 			var r interface{}
-			r, err = a.Do(h)
+			r, err = fn.Call(h)
 			var resp zygo.Sexp
 			if err == nil {
 				switch t := r.(type) {
@@ -765,7 +766,7 @@ func NewZygoRibosome(h *Holochain, zome *Zome) (n Ribosome, err error) {
 
 	z.env.AddFunction("call",
 		func(env *zygo.Zlisp, name string, zyargs []zygo.Sexp) (zygo.Sexp, error) {
-			a := &ActionCall{}
+			a := &APIFnCall{}
 			args := a.Args()
 			err := zyProcessArgs(&z, args, zyargs)
 			if err != nil {
@@ -795,7 +796,7 @@ func NewZygoRibosome(h *Holochain, zome *Zome) (n Ribosome, err error) {
 				a.args = args[2].value.(string)
 			}
 			var r interface{}
-			r, err = a.Do(h)
+			r, err = a.Call(h)
 			if err != nil {
 				return zygo.SexpNull, err
 			}
@@ -804,7 +805,7 @@ func NewZygoRibosome(h *Holochain, zome *Zome) (n Ribosome, err error) {
 
 	z.env.AddFunction("bridge",
 		func(env *zygo.Zlisp, name string, zyargs []zygo.Sexp) (zygo.Sexp, error) {
-			a := &ActionBridge{}
+			a := &APIFnBridge{}
 			args := a.Args()
 			err := zyProcessArgs(&z, args, zyargs)
 			if err != nil {
@@ -821,7 +822,7 @@ func NewZygoRibosome(h *Holochain, zome *Zome) (n Ribosome, err error) {
 			a.args = args[3].value.(string)
 
 			var r interface{}
-			r, err = a.Do(h)
+			r, err = a.Call(h)
 			if err != nil {
 				return zygo.SexpNull, err
 			}
@@ -831,7 +832,7 @@ func NewZygoRibosome(h *Holochain, zome *Zome) (n Ribosome, err error) {
 
 	z.env.AddFunction("commit",
 		func(env *zygo.Zlisp, name string, zyargs []zygo.Sexp) (zygo.Sexp, error) {
-			var a Action = &ActionCommit{}
+			a := &APIFnCommit{}
 			args := a.Args()
 			err := zyProcessArgs(&z, args, zyargs)
 			if err != nil {
@@ -841,7 +842,9 @@ func NewZygoRibosome(h *Holochain, zome *Zome) (n Ribosome, err error) {
 			entry := args[1].value.(string)
 			var r interface{}
 			e := GobEntry{C: entry}
-			r, err = NewCommitAction(entryType, &e).Do(h)
+			a.action.entryType = entryType
+			a.action.entry = &e
+			r, err = a.Call(h)
 			if err != nil {
 				return zygo.SexpNull, err
 			}
@@ -855,7 +858,7 @@ func NewZygoRibosome(h *Holochain, zome *Zome) (n Ribosome, err error) {
 
 	z.env.AddFunction("query",
 		func(env *zygo.Zlisp, name string, zyargs []zygo.Sexp) (zygo.Sexp, error) {
-			a := &ActionQuery{}
+			a := &APIFnQuery{}
 			args := a.Args()
 			err := zyProcessArgs(&z, args, zyargs)
 			if err != nil {
@@ -877,7 +880,7 @@ func NewZygoRibosome(h *Holochain, zome *Zome) (n Ribosome, err error) {
 				a.options = &options
 			}
 
-			r, err := a.Do(h)
+			r, err := a.Call(h)
 			if err != nil {
 				return zygo.SexpNull, err
 			}
@@ -982,8 +985,8 @@ func NewZygoRibosome(h *Holochain, zome *Zome) (n Ribosome, err error) {
 
 	z.env.AddFunction("get",
 		func(env *zygo.Zlisp, name string, zyargs []zygo.Sexp) (zygo.Sexp, error) {
-			var a Action = &ActionGet{}
-			args := a.Args()
+			fn := &APIFnGet{}
+			args := fn.Args()
 			err := zyProcessArgs(&z, args, zyargs)
 			if err != nil {
 				return zygo.SexpNull, err
@@ -1018,7 +1021,7 @@ func NewZygoRibosome(h *Holochain, zome *Zome) (n Ribosome, err error) {
 			req := GetReq{H: args[0].value.(Hash), StatusMask: options.StatusMask, GetMask: options.GetMask}
 
 			var r interface{}
-			r, err = NewGetAction(req, &options).Do(h)
+			r, err = callGet(h, req, &options)
 			mask := options.GetMask
 			if mask == GetMaskDefault {
 				mask = GetMaskEntry
@@ -1086,8 +1089,8 @@ func NewZygoRibosome(h *Holochain, zome *Zome) (n Ribosome, err error) {
 
 	z.env.AddFunction("update",
 		func(env *zygo.Zlisp, name string, zyargs []zygo.Sexp) (zygo.Sexp, error) {
-			var a Action = &ActionMod{}
-			args := a.Args()
+			fn := &APIFnMod{}
+			args := fn.Args()
 			err := zyProcessArgs(&z, args, zyargs)
 			if err != nil {
 				return zygo.SexpNull, err
@@ -1097,7 +1100,8 @@ func NewZygoRibosome(h *Holochain, zome *Zome) (n Ribosome, err error) {
 			replaces := args[2].value.(Hash)
 
 			entry := GobEntry{C: entryStr}
-			resp, err := NewModAction(entryType, &entry, replaces).Do(h)
+			fn.action = *NewModAction(entryType, &entry, replaces)
+			resp, err := fn.Call(h)
 			if err != nil {
 				return zygo.SexpNull, err
 			}
@@ -1111,7 +1115,7 @@ func NewZygoRibosome(h *Holochain, zome *Zome) (n Ribosome, err error) {
 
 	z.env.AddFunction("updateAgent",
 		func(env *zygo.Zlisp, name string, zyargs []zygo.Sexp) (zygo.Sexp, error) {
-			a := &ActionModAgent{}
+			a := &APIFnModAgent{}
 			//		var a Action = &ActionModAgent{}
 			args := a.Args()
 			err := zyProcessArgs(&z, args, zyargs)
@@ -1129,7 +1133,7 @@ func NewZygoRibosome(h *Holochain, zome *Zome) (n Ribosome, err error) {
 				a.Revocation = rev.(string)
 			}
 
-			resp, err := a.Do(h)
+			resp, err := a.Call(h)
 			if err != nil {
 				return zygo.SexpNull, err
 			}
@@ -1155,8 +1159,8 @@ func NewZygoRibosome(h *Holochain, zome *Zome) (n Ribosome, err error) {
 
 	z.env.AddFunction("remove",
 		func(env *zygo.Zlisp, name string, zyargs []zygo.Sexp) (zygo.Sexp, error) {
-			var a Action = &ActionDel{}
-			args := a.Args()
+			fn := &APIFnDel{}
+			args := fn.Args()
 			err := zyProcessArgs(&z, args, zyargs)
 			if err != nil {
 				return zygo.SexpNull, err
@@ -1165,25 +1169,24 @@ func NewZygoRibosome(h *Holochain, zome *Zome) (n Ribosome, err error) {
 				Hash:    args[0].value.(Hash),
 				Message: args[1].value.(string),
 			}
-			header, err := h.chain.GetEntryHeader(entry.Hash)
-			if err == nil {
-				resp, err := NewDelAction(header.Type, entry).Do(h)
-				if err != nil {
-					return zygo.SexpNull, err
-				}
-				var entryHash Hash
-				if resp != nil {
-					entryHash = resp.(Hash)
-				}
-				return &zygo.SexpStr{S: entryHash.String()}, err
+			fn.action = *NewDelAction(entry)
+			resp, err := fn.Call(h)
+			if err != nil {
+				return zygo.SexpNull, err
 			}
+			var entryHash Hash
+			if resp != nil {
+				entryHash = resp.(Hash)
+			}
+			return &zygo.SexpStr{S: entryHash.String()}, err
+
 			return zygo.SexpNull, err
 		})
 
 	z.env.AddFunction("getLinks",
 		func(env *zygo.Zlisp, name string, zyargs []zygo.Sexp) (zygo.Sexp, error) {
-			var a Action = &ActionGetLinks{}
-			args := a.Args()
+			fn := &APIFnGetLinks{}
+			args := fn.Args()
 			err := zyProcessArgs(&z, args, zyargs)
 			if err != nil {
 				return zygo.SexpNull, err
@@ -1215,7 +1218,8 @@ func NewZygoRibosome(h *Holochain, zome *Zome) (n Ribosome, err error) {
 			}
 
 			var r interface{}
-			r, err = NewGetLinksAction(&LinkQuery{Base: base, T: tag, StatusMask: options.StatusMask}, &options).Do(h)
+			fn.action = *NewGetLinksAction(&LinkQuery{Base: base, T: tag, StatusMask: options.StatusMask}, &options)
+			r, err = fn.Call(h)
 			var resultValue zygo.Sexp
 			if err == nil {
 				response := r.(*LinkQueryResp)

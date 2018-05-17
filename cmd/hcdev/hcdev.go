@@ -1288,29 +1288,31 @@ func saveBridgeAppsToTmpFile(bridgeAppsForTests []BridgeAppForTests) (bridgeApps
 	for _, app := range bridgeAppsForTests {
 		bridgeApps = append(bridgeApps, app.BridgeApp)
 	}
-
 	var tmpfile *os.File
 	tmpfile, err = ioutil.TempFile("", "bridgeApp")
 	if err != nil {
 		return
 	}
 	bridgeAppsTmpfileName = tmpfile.Name()
-	err = holo.Encode(tmpfile, "json", bridgeApps)
+
+	var data []byte
+	data, err = holo.ByteEncoder(bridgeApps)
 	if err != nil {
 		return
 	}
+	_, err = tmpfile.Write(data)
 	tmpfile.Close()
 
 	return
 }
 
 func getBridgeAppsFromTmpFile(path string) (bridgeApps []holo.BridgeApp, err error) {
-	var f *os.File
-	f, err = os.Open(path)
+
+	data, err := holo.ReadFile(path)
 	if err != nil {
 		return
 	}
-	defer f.Close()
-	err = holo.Decode(f, "json", &bridgeApps)
+	err = holo.ByteDecoder(data, &bridgeApps)
+
 	return
 }

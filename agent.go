@@ -79,6 +79,13 @@ func (a *LibP2PAgent) EncodePubKey() (b58pk string, err error) {
 	return
 }
 
+func DecodePubKey(b58pk string) (pubKey ic.PubKey, err error) {
+	var pubKeyBytes []byte
+	pubKeyBytes = b58.Decode(b58pk)
+	pubKey, err = ic.UnmarshalPublicKey(pubKeyBytes)
+	return
+}
+
 func (a *LibP2PAgent) GenKeys(seed io.Reader) (err error) {
 	var priv ic.PrivKey
 	if seed == nil {

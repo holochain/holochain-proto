@@ -16,6 +16,7 @@ import (
 	. "github.com/holochain/holochain-proto/hash"
 	goprocess "github.com/jbenet/goprocess"
 	goprocessctx "github.com/jbenet/goprocess/context"
+	ic "github.com/libp2p/go-libp2p-crypto"
 	nat "github.com/libp2p/go-libp2p-nat"
 	net "github.com/libp2p/go-libp2p-net"
 	peer "github.com/libp2p/go-libp2p-peer"
@@ -119,6 +120,15 @@ type BytesSent struct {
 
 var BytesSentChan chan BytesSent
 
+const (
+	RetryingStopper = iota
+	GossipingStopper
+	BootstrappingStopper
+	RefreshingStopper
+	HoldingStopper
+	_StopperCount
+)
+
 // Node represents a node in the network
 type Node struct {
 	HashAddr     peer.ID
@@ -133,10 +143,7 @@ type Node struct {
 	log          *Logger
 
 	// ticker task stoppers
-	retrying      chan bool
-	gossiping     chan bool
-	bootstrapping chan bool
-	refreshing    chan bool
+	stoppers []chan bool
 
 	// items for the kademlia implementation
 	plk   sync.Mutex
@@ -163,6 +170,7 @@ const (
 	PeerTTL                       = time.Minute * 10
 	DefaultRoutingRefreshInterval = time.Minute
 	DefaultGossipInterval         = time.Second * 2
+	DefaultHoldingCheckInterval   = time.Second * 30
 )
 
 // implement peer found function for mdns discovery
@@ -174,6 +182,30 @@ func (h *Holochain) HandlePeerFound(pi pstore.PeerInfo) {
 			h.dht.dlog.Logf("error when adding peer: %v, %v", pi, err)
 		}
 	}
+}
+
+func (h *Holochain) getNodePubKey(ID peer.ID) (pubKey ic.PubKey, err error) {
+	req := GetReq{H: HashFromPeerID(ID), GetMask: GetMaskEntry}
+	var rsp interface{}
+	rsp, err = callGet(h, req, &GetOptions{GetMask: req.GetMask})
+	if err != nil {
+		return
+	}
+	e := rsp.(GetResp).Entry
+	pubKey, err = DecodePubKey(e.Content().(string))
+	if err != nil {
+		return
+	}
+	var pkID peer.ID
+	pkID, err = peer.IDFromPublicKey(pubKey)
+	if err != nil {
+		return
+	}
+	if pkID != ID {
+		err = errors.New("Public Key doesn't match Node ID!")
+		return
+	}
+	return
 }
 
 func (h *Holochain) addPeer(pi pstore.PeerInfo, confirm bool) (err error) {
@@ -193,10 +225,25 @@ func (h *Holochain) addPeer(pi pstore.PeerInfo, confirm bool) (err error) {
 		h.dht.dlog.Logf("Adding Peer: %v\n", pi.ID)
 		h.node.routingTable.Update(pi.ID)
 		err = h.dht.AddGossiper(pi.ID)
+		if err != nil {
+			return
+		}
 		if bootstrap {
 			RoutingRefreshTask(h)
 		}
+
+		var pubKey ic.PubKey
+		if confirm {
+			pubKey, err = h.getNodePubKey(pi.ID)
+			if err != nil {
+				return
+			}
+		}
+		if h.Config.EnableWorldModel {
+			h.world.AddNode(pi, pubKey)
+		}
 	}
+
 	return
 }
 
@@ -204,7 +251,7 @@ func (h *Holochain) addPeer(pi pstore.PeerInfo, confirm bool) (err error) {
 func RoutingRefreshTask(h *Holochain) {
 	s := fmt.Sprintf("%d", rand.Intn(1000000))
 	var hash Hash
-	err := hash.Sum(h.hashSpec, []byte(s))
+	hash, err := Sum(h.hashSpec, []byte(s))
 	if err == nil {
 		h.node.FindPeer(h.node.ctx, PeerIDFromHash(hash))
 	}
@@ -239,6 +286,10 @@ func (node *Node) filterInactviePeers(peersIn []peer.ID, max int) (peersOut []pe
 
 // AddPeer adds a peer to the peerstore if it passes various checks
 func (h *Holochain) AddPeer(pi pstore.PeerInfo) (err error) {
+	// to protect against crashes from background routines after close
+	if h.node == nil || h.dht == nil {
+		return
+	}
 	h.dht.dlog.Logf("Adding Peer Req: %v my node %v\n", pi.ID, h.node.HashAddr)
 	if pi.ID == h.node.HashAddr {
 		return
@@ -377,6 +428,8 @@ func NewNode(listenAddr string, protoMux string, agent *LibP2PAgent, enableNATUP
 	n.protocols[ActionProtocol] = &Protocol{protocol.ID(actionProtocolString), ActionReceiver}
 	n.protocols[KademliaProtocol] = &Protocol{protocol.ID(kademliaProtocolString), KademliaReceiver}
 
+	n.stoppers = make([]chan bool, _StopperCount)
+
 	ctx := context.Background()
 	n.ctx = ctx
 
@@ -438,7 +491,10 @@ func (m *Message) Fingerprint() (f Hash, err error) {
 		if err != nil {
 			return
 		}
-		f.H, err = mh.Sum(data, mh.SHA2_256, -1)
+		// TODO should just use hash.Sum Code and length not available?
+		var multiH mh.Multihash
+		multiH, err = mh.Sum(data, mh.SHA2_256, -1)
+		f = Hash(multiH)
 	} else {
 		f = NullHash()
 	}
@@ -502,23 +558,12 @@ func (node *Node) StartProtocol(h *Holochain, proto int) (err error) {
 
 // Close shuts down the node
 func (node *Node) Close() error {
-	if node.gossiping != nil {
-		node.log.Log("Stopping gossiping")
-		stop := node.gossiping
-		node.gossiping = nil
-		stop <- true
-	}
-	if node.retrying != nil {
-		node.log.Log("Stopping retrying")
-		stop := node.retrying
-		node.retrying = nil
-		stop <- true
-	}
-	if node.bootstrapping != nil {
-		node.log.Log("Stopping boostrapping")
-		stop := node.bootstrapping
-		node.bootstrapping = nil
-		stop <- true
+	for i, stopper := range node.stoppers {
+		if stopper != nil {
+			stop := node.stoppers[i]
+			node.stoppers[i] = nil
+			stop <- true
+		}
 	}
 	return node.proc.Close()
 }
@@ -663,11 +708,14 @@ func (errResp ErrorResponse) DecodeResponseError() (err error) {
 	return
 }
 
+func distance(id peer.ID, hash Hash) *big.Int {
+	h := HashFromPeerID(id)
+	return HashXORDistance(h, hash)
+}
+
 // Distance returns the nodes peer distance to another node for purposes of gossip
 func (node *Node) Distance(id peer.ID) *big.Int {
-	h := HashFromPeerID(id)
-	nh := HashFromPeerID(node.HashAddr)
-	return HashXORDistance(nh, h)
+	return distance(id, HashFromPeerID(node.HashAddr))
 }
 
 // Context return node's context

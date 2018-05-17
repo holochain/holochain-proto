@@ -11,33 +11,33 @@ import (
 	"time"
 )
 
-func TestNewHeader(t *testing.T) {
+func TestHeaderNew(t *testing.T) {
 	h, key, now := chainTestSetup()
 
 	Convey("it should make a header and return its hash", t, func() {
 		e := GobEntry{C: "some data"}
 		ph := NullHash()
-		hash, header, err := newHeader(h, now, "evenNumbers", &e, key, ph, ph, nil)
+		hash, header, err := newHeader(h, now, "evenNumbers", &e, key, ph, ph, NullHash())
 
 		So(err, ShouldBeNil)
 		// encode the header and create a hash of it
 		b, _ := header.Marshal()
 		var h2 Hash
-		h2.Sum(h, b)
+		h2, _ = Sum(h, b)
 		So(h2.String(), ShouldEqual, hash.String())
 	})
 
 	Convey("it should make a header and return its hash if change header", t, func() {
 		e := GobEntry{C: "some data"}
 		ph := NullHash()
-		delHash, _ := NewHash("QmP1DfoUjiWH2ZBo1PBH6FupdBucbDepx3HpWmEY6JMUpY")
-		hash, header, err := newHeader(h, now, "evenNumbers", &e, key, ph, ph, &StatusChange{Action: DelAction, Hash: delHash})
+		modHash, _ := NewHash("QmP1DfoUjiWH2ZBo1PBH6FupdBucbDepx3HpWmEY6JMUpY")
+		hash, header, err := newHeader(h, now, "evenNumbers", &e, key, ph, ph, modHash)
 
 		So(err, ShouldBeNil)
 		// encode the header and create a hash of it
 		b, _ := header.Marshal()
 		var h2 Hash
-		h2.Sum(h, b)
+		h2, _ = Sum(h, b)
 		So(h2.String(), ShouldEqual, hash.String())
 	})
 }
@@ -50,16 +50,16 @@ func TestHeaderToJSON(t *testing.T) {
 		j, err := hd.ToJSON()
 		So(err, ShouldBeNil)
 		So(j, ShouldStartWith, `{"Type":"evenNumbers","Time":"`)
-		So(j, ShouldEndWith, `","EntryLink":"QmNiCwBNA8MWDADTFVq1BonUEJbS2SvjAoNkZZrhEwcuU2","HeaderLink":"QmNiCwBNA8MWDADTFVq1BonUEJbS2SvjAoNkZZrhEwcuUi","TypeLink":"1","Signature":"3eDinUfqsX4V2iuwFvFNSwyy4KEugYj6DPpssjrAsabkVvozBrWrLJRuA9AXhiN8R3MzZvyLfW2BV8zKDevSDiVR"}`)
+		So(j, ShouldEndWith, `","EntryLink":"QmNiCwBNA8MWDADTFVq1BonUEJbS2SvjAoNkZZrhEwcuU2","HeaderLink":"QmNiCwBNA8MWDADTFVq1BonUEJbS2SvjAoNkZZrhEwcuUi","TypeLink":"","Signature":"3eDinUfqsX4V2iuwFvFNSwyy4KEugYj6DPpssjrAsabkVvozBrWrLJRuA9AXhiN8R3MzZvyLfW2BV8zKDevSDiVR"}`)
 	})
 }
 
-func TestMarshalHeader(t *testing.T) {
+func TestHeaderMarshal(t *testing.T) {
 	h, key, now := chainTestSetup()
 
 	e := GobEntry{C: "some  data"}
 	hd := testHeader(h, "evenNumbers", &e, key, now)
-	hd.Change.Action = ModAction
+	hd.Change, _ = NewHash("QmNiCwBNA8MWDADTFVq1BonUEJbS2SvjAoNkZZrhEwcuU2")
 	Convey("it should round-trip", t, func() {
 		b, err := hd.Marshal()
 		So(err, ShouldBeNil)
@@ -114,7 +114,7 @@ func TestMarshalSignature(t *testing.T) {
 
 func testHeader(h HashSpec, t string, entry Entry, key ic.PrivKey, now time.Time) *Header {
 	hd := mkTestHeader(t)
-	sig, err := key.Sign(hd.EntryLink.H)
+	sig, err := key.Sign([]byte(hd.EntryLink))
 	if err != nil {
 		panic(err)
 	}
@@ -131,7 +131,7 @@ func mkTestHeader(t string) Header {
 		EntryLink:  el,
 		TypeLink:   NullHash(),
 	}
-	h1.Change.Hash = NullHash()
+	h1.Change = NullHash()
 
 	//h1.Sig.S.321)
 	return h1

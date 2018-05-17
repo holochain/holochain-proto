@@ -61,19 +61,19 @@ func TestValidateAction(t *testing.T) {
 		So(err, ShouldEqual, ErrNotValidForHeadersType)
 	})
 
-	Convey("deleting all sys entry types should fail", t, func() {
-		a := NewDelAction(DNAEntryType, DelEntry{})
-		_, err = h.ValidateAction(a, a.entryType, nil, []peer.ID{h.nodeID})
-		So(err, ShouldEqual, ErrNotValidForDNAType)
-		a.entryType = KeyEntryType
-		_, err = h.ValidateAction(a, a.entryType, nil, []peer.ID{h.nodeID})
-		So(err, ShouldEqual, ErrNotValidForKeyType)
-		a.entryType = AgentEntryType
-		_, err = h.ValidateAction(a, a.entryType, nil, []peer.ID{h.nodeID})
-		So(err, ShouldEqual, ErrNotValidForAgentType)
-		a.entryType = HeadersEntryType
-		_, err = h.ValidateAction(a, a.entryType, nil, []peer.ID{h.nodeID})
-		So(err, ShouldEqual, ErrNotValidForHeadersType)
+	Convey("deleting should fail for all sys entry types except delete", t, func() {
+		a := NewDelAction(DelEntry{})
+		_, err = h.ValidateAction(a, DNAEntryType, nil, []peer.ID{h.nodeID})
+		So(err, ShouldEqual, ErrEntryDefInvalid)
+
+		_, err = h.ValidateAction(a, KeyEntryType, nil, []peer.ID{h.nodeID})
+		So(err, ShouldEqual, ErrEntryDefInvalid)
+
+		_, err = h.ValidateAction(a, AgentEntryType, nil, []peer.ID{h.nodeID})
+		So(err, ShouldEqual, ErrEntryDefInvalid)
+
+		_, err = h.ValidateAction(a, HeadersEntryType, nil, []peer.ID{h.nodeID})
+		So(err, ShouldEqual, ErrEntryDefInvalid)
 	})
 }
 
@@ -201,6 +201,30 @@ func TestSysValidateEntry(t *testing.T) {
 		So(err, ShouldBeNil)
 	})
 
+	Convey("validate del entry should fail if it doesn't match the del entry schema", t, func() {
+		err := sysValidateEntry(h, DelEntryDef, &GobEntry{C: ""}, nil)
+		So(err, ShouldNotBeNil)
+		So(err.Error(), ShouldEqual, "unexpected end of JSON input")
+
+		err = sysValidateEntry(h, DelEntryDef, &GobEntry{C: `{"Fish":2}`}, nil)
+		So(err, ShouldNotBeNil)
+		So(err.Error(), ShouldEqual, "Validation Failed: validator %del failed: object property 'Hash' is required")
+
+		err = sysValidateEntry(h, DelEntryDef, &GobEntry{C: `{"Hash": "not-a-hash"}`}, nil)
+		So(err, ShouldNotBeNil)
+		So(err.Error(), ShouldEqual, "Validation Failed: Error (input isn't valid multihash) when decoding Hash value 'not-a-hash'")
+
+		err = sysValidateEntry(h, DelEntryDef, &GobEntry{C: `{"Hash": 1}`}, nil)
+		So(err, ShouldNotBeNil)
+		So(err.Error(), ShouldEqual, "Validation Failed: validator %del failed: object property 'Hash' validation failed: value is not a string (Kind: float64)")
+
+	})
+
+	Convey("validate del entry should succeed on valid entry", t, func() {
+		err := sysValidateEntry(h, DelEntryDef, &GobEntry{C: `{"Hash": "QmUfY4WeqD3UUfczjdkoFQGEgCAVNf7rgFfjdeTbr7JF1C","Message": "obsolete"}`}, nil)
+		So(err, ShouldBeNil)
+	})
+
 }
 
 func TestSysValidateMod(t *testing.T) {
@@ -254,19 +278,13 @@ func TestSysValidateDel(t *testing.T) {
 	defer CleanupTestChain(h, d)
 
 	hash := commit(h, "evenNumbers", "2")
-	_, def, _ := h.GetEntryDef("evenNumbers")
-
-	Convey("it should check that entry types match on del", t, func() {
-		a := NewDelAction("oddNumbers", DelEntry{Hash: hash})
-		err := a.SysValidation(h, def, nil, []peer.ID{h.nodeID})
-		So(err, ShouldEqual, ErrEntryTypeMismatch)
-	})
+	//	_, def, _ := h.GetEntryDef("evenNumbers")
 
 	Convey("it should check that entry isn't linking ", t, func() {
-		a := NewDelAction("rating", DelEntry{Hash: hash})
+		a := NewDelAction(DelEntry{Hash: hash})
 		_, ratingsDef, _ := h.GetEntryDef("rating")
 		err := a.SysValidation(h, ratingsDef, nil, []peer.ID{h.nodeID})
-		So(err, ShouldEqual, ErrDelInvalidForLinks)
+		So(err, ShouldBeError)
 	})
 }
 
@@ -292,6 +310,57 @@ func TestCheckArgCount(t *testing.T) {
 	})
 }
 
+func TestActionCommit(t *testing.T) {
+	nodesCount := 3
+	mt := setupMultiNodeTesting(nodesCount)
+	defer mt.cleanupMultiNodeTesting()
+
+	h := mt.nodes[0]
+
+	profileHash := commit(h, "profile", `{"firstName":"Zippy","lastName":"Pinhead"}`)
+	linksHash := commit(h, "rating", fmt.Sprintf(`{"Links":[{"Base":"%s","Link":"%s","Tag":"4stars"}]}`, h.nodeIDStr, profileHash.String()))
+	ringConnect(t, mt.ctx, mt.nodes, nodesCount)
+
+	Convey("when committing a link the linkEntry itself should be published to the DHT", t, func() {
+		req := GetReq{H: linksHash, GetMask: GetMaskEntry}
+		_, err := callGet(h, req, &GetOptions{GetMask: req.GetMask})
+		So(err, ShouldBeNil)
+
+		h2 := mt.nodes[2]
+		_, err = callGet(h2, req, &GetOptions{GetMask: req.GetMask})
+		So(err, ShouldBeNil)
+
+	})
+}
+
+func TestActionDelete(t *testing.T) {
+	nodesCount := 3
+	mt := setupMultiNodeTesting(nodesCount)
+	defer mt.cleanupMultiNodeTesting()
+
+	h := mt.nodes[0]
+	ringConnect(t, mt.ctx, mt.nodes, nodesCount)
+
+	profileHash := commit(h, "profile", `{"firstName":"Zippy","lastName":"Pinhead"}`)
+	entry := DelEntry{Hash: profileHash, Message: "expired"}
+	a := &ActionDel{entry: entry}
+	response, err := h.commitAndShare(a, NullHash())
+	if err != nil {
+		panic(err)
+	}
+	deleteHash := response.(Hash)
+
+	Convey("when deleting a hash the del entry itself should be published to the DHT", t, func() {
+		req := GetReq{H: deleteHash, GetMask: GetMaskEntry}
+		_, err := callGet(h, req, &GetOptions{GetMask: req.GetMask})
+		So(err, ShouldBeNil)
+
+		h2 := mt.nodes[2]
+		_, err = callGet(h2, req, &GetOptions{GetMask: req.GetMask})
+		So(err, ShouldBeNil)
+	})
+}
+
 func TestActionGet(t *testing.T) {
 	nodesCount := 3
 	mt := setupMultiNodeTesting(nodesCount)
@@ -309,7 +378,8 @@ func TestActionGet(t *testing.T) {
 
 		options := GetOptions{}
 		a := ActionGet{GetReq{H: hash}, &options}
-		response, err := a.Do(h)
+		fn := &APIFnGet{action: a}
+		response, err := fn.Call(h)
 		So(err, ShouldEqual, ErrHashNotFound)
 		So(fmt.Sprintf("%v", response), ShouldEqual, "<nil>")
 
@@ -334,7 +404,7 @@ func TestActionGet(t *testing.T) {
 		So(peer.ID(resp.CloserPeers[0].ID).Pretty(), ShouldEqual, "QmUfY4WeqD3UUfczjdkoFQGEgCAVNf7rgFfjdeTbr7JF1C")
 	})
 
-	Convey("do should return not found if it doesn't exist and we are connected", t, func() {
+	Convey("get should return not found if hash doesn't exist and we are connected", t, func() {
 		hash, err := NewHash("QmY8Mzg9F69e5P9AoQPYat655HEhc1TVGs11tmfNSzfrom")
 		if err != nil {
 			panic(err)
@@ -342,7 +412,8 @@ func TestActionGet(t *testing.T) {
 
 		options := GetOptions{}
 		a := ActionGet{GetReq{H: hash}, &options}
-		response, err := a.Do(h)
+		fn := &APIFnGet{action: a}
+		response, err := fn.Call(h)
 		So(err, ShouldEqual, ErrHashNotFound)
 		So(response, ShouldBeNil)
 
@@ -358,33 +429,33 @@ func TestActionGetLocal(t *testing.T) {
 
 	Convey("non local get should fail for private entries", t, func() {
 		req := GetReq{H: hash, GetMask: GetMaskEntry}
-		_, err := NewGetAction(req, &GetOptions{GetMask: req.GetMask}).Do(h)
+		_, err := callGet(h, req, &GetOptions{GetMask: req.GetMask})
 		So(err.Error(), ShouldEqual, "hash not found")
 	})
 
 	Convey("it should fail to get non-existent private local values", t, func() {
 		badHash, _ := NewHash("QmY8Mzg9F69e5P9AoQPYat655HEhc1TVGs11tmfNSzkqh2")
 		req := GetReq{H: badHash, GetMask: GetMaskEntry}
-		_, err := NewGetAction(req, &GetOptions{GetMask: req.GetMask, Local: true}).Do(h)
+		_, err := callGet(h, req, &GetOptions{GetMask: req.GetMask, Local: true})
 		So(err.Error(), ShouldEqual, "hash not found")
 	})
 
 	Convey("it should get private local values", t, func() {
 		req := GetReq{H: hash, GetMask: GetMaskEntry}
-		rsp, err := NewGetAction(req, &GetOptions{GetMask: req.GetMask, Local: true}).Do(h)
+		rsp, err := callGet(h, req, &GetOptions{GetMask: req.GetMask, Local: true})
 		So(err, ShouldBeNil)
 		getResp := rsp.(GetResp)
 		So(getResp.Entry.Content().(string), ShouldEqual, "31415")
 	})
 
 	Convey("it should get local bundle values", t, func() {
-		_, err := NewStartBundleAction(0, "myBundle").Do(h)
+		_, err := NewStartBundleAction(0, "myBundle").Call(h)
 		So(err, ShouldBeNil)
 		hash := commit(h, "oddNumbers", "3141")
 		req := GetReq{H: hash, GetMask: GetMaskEntry}
-		_, err = NewGetAction(req, &GetOptions{GetMask: req.GetMask, Local: true}).Do(h)
+		_, err = callGet(h, req, &GetOptions{GetMask: req.GetMask, Local: true})
 		So(err, ShouldEqual, ErrHashNotFound)
-		rsp, err := NewGetAction(req, &GetOptions{GetMask: req.GetMask, Bundle: true}).Do(h)
+		rsp, err := callGet(h, req, &GetOptions{GetMask: req.GetMask, Bundle: true})
 		So(err, ShouldBeNil)
 		getResp := rsp.(GetResp)
 		So(getResp.Entry.Content().(string), ShouldEqual, "3141")
@@ -406,7 +477,7 @@ func TestActionBundle(t *testing.T) {
 		c := h.Chain()
 		So(c.BundleStarted(), ShouldBeNil)
 		a := NewStartBundleAction(100, "myBundle")
-		_, err := a.Do(h)
+		_, err := a.Call(h)
 		So(err, ShouldBeNil)
 		So(c.BundleStarted().idx, ShouldEqual, c.Length()-1)
 	})
@@ -414,29 +485,26 @@ func TestActionBundle(t *testing.T) {
 	Convey("commit actions should commit to bundle after it's started", t, func() {
 		So(h.chain.Length(), ShouldEqual, 2)
 		So(h.chain.bundle.chain.Length(), ShouldEqual, 0)
-		result, err := NewCommitAction("oddNumbers", &GobEntry{C: `99`}).Do(h)
-		if err != nil {
-			panic(err)
-		}
+		hash = commit(h, "oddNumbers", "99")
+
 		So(h.chain.Length(), ShouldEqual, 2)
 		So(h.chain.bundle.chain.Length(), ShouldEqual, 1)
-		hash = result.(Hash)
 	})
 	Convey("but those commits should not show in the DHT", t, func() {
-		_, _, _, _, err := h.dht.get(hash, StatusDefault, GetMaskDefault)
+		_, _, _, _, err := h.dht.Get(hash, StatusDefault, GetMaskDefault)
 		So(err, ShouldEqual, ErrHashNotFound)
 	})
 
 	Convey("closing a bundle should commit its entries to the chain", t, func() {
 		So(h.chain.Length(), ShouldEqual, 2)
-		a := NewCloseBundleAction(true)
+		a := &APIFnCloseBundle{commit: true}
 		So(a.commit, ShouldEqual, true)
-		_, err := a.Do(h)
+		_, err := a.Call(h)
 		So(err, ShouldBeNil)
 		So(h.chain.Length(), ShouldEqual, 3)
 	})
 	Convey("and those commits should now show in the DHT", t, func() {
-		data, _, _, _, err := h.dht.get(hash, StatusDefault, GetMaskDefault)
+		data, _, _, _, err := h.dht.Get(hash, StatusDefault, GetMaskDefault)
 		So(err, ShouldBeNil)
 		var e GobEntry
 		err = e.Unmarshal(data)
@@ -447,16 +515,14 @@ func TestActionBundle(t *testing.T) {
 	Convey("canceling a bundle should not commit entries to chain and should execute the bundleCanceled callback", t, func() {
 		So(h.chain.Length(), ShouldEqual, 3)
 
-		_, err := NewStartBundleAction(0, "debugit").Do(h)
+		_, err := NewStartBundleAction(0, "debugit").Call(h)
 		So(err, ShouldBeNil)
-		_, err = NewCommitAction("oddNumbers", &GobEntry{C: `7`}).Do(h)
-		if err != nil {
-			panic(err)
-		}
-		a := NewCloseBundleAction(false)
+		commit(h, "oddNumbers", "7")
+
+		a := &APIFnCloseBundle{commit: false}
 		So(a.commit, ShouldEqual, false)
 		ShouldLog(h.nucleus.alog, func() {
-			_, err = a.Do(h)
+			_, err = a.Call(h)
 			So(err, ShouldBeNil)
 		}, `debug message during bundleCanceled with reason: userCancel`)
 		So(h.chain.Length(), ShouldEqual, 3)
@@ -465,16 +531,13 @@ func TestActionBundle(t *testing.T) {
 	Convey("canceling a bundle should still commit entries if bundleCanceled returns BundleCancelResponseCommit", t, func() {
 		So(h.chain.Length(), ShouldEqual, 3)
 
-		_, err := NewStartBundleAction(0, "cancelit").Do(h)
+		_, err := NewStartBundleAction(0, "cancelit").Call(h)
 		So(err, ShouldBeNil)
-		_, err = NewCommitAction("oddNumbers", &GobEntry{C: `7`}).Do(h)
-		if err != nil {
-			panic(err)
-		}
-		a := NewCloseBundleAction(false)
+		commit(h, "oddNumbers", "7")
+		a := &APIFnCloseBundle{commit: false}
 		So(a.commit, ShouldEqual, false)
 		ShouldLog(h.nucleus.alog, func() {
-			_, err = a.Do(h)
+			_, err = a.Call(h)
 			So(err, ShouldBeNil)
 		}, `debug message during bundleCanceled: canceling cancel!`)
 		So(h.chain.BundleStarted(), ShouldNotBeNil)
@@ -493,7 +556,8 @@ func TestActionSigning(t *testing.T) {
 
 	var b58sig string
 	Convey("sign action should return a b58 encoded signature", t, func() {
-		result, err := NewSignAction([]byte("3")).Do(h)
+		fn := &APIFnSign{[]byte("3")}
+		result, err := fn.Call(h)
 		So(err, ShouldBeNil)
 		b58sig = result.(string)
 
@@ -506,10 +570,12 @@ func TestActionSigning(t *testing.T) {
 	}
 
 	Convey("verify signture action should test a signature", t, func() {
-		result, err := NewVerifySignatureAction(b58sig, string([]byte("3")), pubKey).Do(h)
+		fn := &APIFnVerifySignature{b58signature: b58sig, data: string([]byte("3")), b58pubKey: pubKey}
+		result, err := fn.Call(h)
 		So(err, ShouldBeNil)
 		So(result.(bool), ShouldBeTrue)
-		result, err = NewVerifySignatureAction(b58sig, string([]byte("34")), pubKey).Do(h)
+		fn = &APIFnVerifySignature{b58signature: b58sig, data: string([]byte("34")), b58pubKey: pubKey}
+		result, err = fn.Call(h)
 		So(err, ShouldBeNil)
 		So(result.(bool), ShouldBeFalse)
 	})

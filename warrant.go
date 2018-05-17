@@ -120,7 +120,7 @@ func (w *SelfRevocationWarrant) Verify(h *Holochain) (err error) {
 	}
 
 	var data []byte
-	data, _, _, _, err = h.dht.get(parties[0], StatusDefault, GetMaskDefault)
+	data, _, _, _, err = h.dht.Get(parties[0], StatusDefault, GetMaskDefault)
 	if err != ErrHashModified {
 		err = errors.New("expected old key to be modified on DHT")
 		return

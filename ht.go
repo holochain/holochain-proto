@@ -10,7 +10,7 @@ package holochain
 import (
 	"errors"
 	. "github.com/holochain/holochain-proto/hash"
-	peer "github.com/libp2p/go-libp2p-peer"
+	peer "gx/ipfs/QmXYjuNuxVzXKJCfWasQk1RqkhVLDM9jtUKhqc2WPQmFSB/go-libp2p-peer"
 )
 
 const (
@@ -92,7 +92,7 @@ type HashTable interface {
 	// Put stores a value to the DHT store
 	Put(msg *Message, entryType string, key Hash, src peer.ID, value []byte, status int) (err error)
 
-	MigrateEntry(msg *Message, key Hash) (err error)
+	Migrate(msg *Message, key Hash) (err error)
 
 	// Del moves the given hash to the StatusDeleted status
 	Del(msg *Message, key Hash) (err error)

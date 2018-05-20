@@ -1,7 +1,7 @@
 package holochain
 
 import (
-	ic "github.com/libp2p/go-libp2p-crypto"
+	ic "gx/ipfs/QmaPbCnUMBohSGo3KnxEa2bHqyJVVeEEcwtqJAYxerieBo/go-libp2p-crypto"
 )
 
 //------------------------------------------------------------

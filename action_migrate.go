@@ -6,7 +6,7 @@ package holochain
 
 import (
 	. "github.com/holochain/holochain-proto/hash"
-	peer "github.com/libp2p/go-libp2p-peer"
+	peer "gx/ipfs/QmXYjuNuxVzXKJCfWasQk1RqkhVLDM9jtUKhqc2WPQmFSB/go-libp2p-peer"
 )
 
 //------------------------------------------------------------
@@ -98,7 +98,7 @@ func (a *ActionMigrate) Receive(dht *DHT, msg *Message) (response interface{}, e
 			// @TODO store as REJECTED
 			// https://github.com/holochain/holochain-proto/issues/711
 		} else {
-			err = dht.MigrateEntry(msg, migrateEntry.Hash)
+			err = dht.Migrate(msg, migrateEntry.Hash)
 			if err == nil {
 				holdResp, err = dht.MakeHoldResp(msg, StatusLive)
 			}

@@ -6,8 +6,8 @@ import (
 )
 
 const (
-	OpenEntryType = SysEntryTypePrefix + "open"
-	OpenEntrySchema = `
+	MigrateEntryType = SysEntryTypePrefix + "migrate"
+	MigrateEntrySchema = `
 {
   "$id": "http://example.com/example.json",
   "type": "object",
@@ -25,15 +25,15 @@ const (
 `
 )
 
-// OpenEntry struct holds the record of a source chain's opening
-type OpenEntry struct {
+// MigrateEntry struct holds the record of a source chain's opening
+type MigrateEntry struct {
 	Hash Hash
 	Message string
 }
 
-var OpenEntryDef = &EntryDef{Name: OpenEntryType, DataFormat: DataFormatJSON, Sharing: Public, Schema: OpenEntrySchema}
+var MigrateEntryDef = &EntryDef{Name: MigrateEntryType, DataFormat: DataFormatJSON, Sharing: Public, Schema: MigrateEntrySchema}
 
-func (e *OpenEntry) ToJSON() (encodedEntry string, err error) {
+func (e *MigrateEntry) ToJSON() (encodedEntry string, err error) {
   var x struct {
     Message string
   }
@@ -44,7 +44,7 @@ func (e *OpenEntry) ToJSON() (encodedEntry string, err error) {
   return
 }
 
-func OpenEntryFromJSON(j string) (entry OpenEntry, err error) {
+func MigrateEntryFromJSON(j string) (entry MigrateEntry, err error) {
   var x struct {
 		Message string
 	}

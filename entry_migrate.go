@@ -42,17 +42,20 @@ var MigrateEntryDef = &EntryDef{Name: MigrateEntryType, DataFormat: DataFormatJS
 
 func (e *MigrateEntry) ToJSON() (encodedEntry string, err error) {
   var x struct {
-    Message string
-  }
-  x.Message = e.Message
-  var j []byte
-  j, err = json.Marshal(x)
-  encodedEntry = string(j)
-  return
+		Hash string
+		Message string
+	}
+	x.Hash = e.Hash.String()
+	x.Message = e.Message
+	var j []byte
+	j, err = json.Marshal(x)
+	encodedEntry = string(j)
+	return
 }
 
 func MigrateEntryFromJSON(j string) (entry MigrateEntry, err error) {
   var x struct {
+		Hash    string
 		Message string
 	}
 	err = json.Unmarshal([]byte(j), &x)
@@ -60,5 +63,6 @@ func MigrateEntryFromJSON(j string) (entry MigrateEntry, err error) {
 		return
 	}
 	entry.Message = x.Message
+	entry.Hash, err = NewHash(x.Hash)
 	return
 }

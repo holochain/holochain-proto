@@ -90,6 +90,7 @@ func (ht *BuntHT) Del(m *Message, key Hash) (err error) {
 
 func (ht *BuntHT) Migrate(m *Message, key Hash) (err error) {
   // @TODO
+  return
 }
 
 func _setStatus(tx *buntdb.Tx, m *Message, key string, status int) (err error) {

@@ -256,9 +256,7 @@ func StartBench(h *Holochain) *benchmark {
 func (b *benchmark) updateBytesSent(bsc chan BytesSent) {
 	bs := <-bsc
 	switch bs.MsgType {
-	case VALIDATE_OPEN_REQUEST:
-		fallthrough
-	case VALIDATE_CLOSE_REQUEST:
+	case VALIDATE_MIGRATE_REQUEST:
 		fallthrough
 	case GOSSIP_REQUEST:
 		fallthrough

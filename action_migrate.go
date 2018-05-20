@@ -10,7 +10,7 @@ import (
 )
 
 //------------------------------------------------------------
-// Open
+// Migrate
 
 type APIFnMigrate struct {
 	action ActionMigrate

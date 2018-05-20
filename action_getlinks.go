@@ -1,11 +1,11 @@
 package holochain
 
 import (
-	peer "gx/ipfs/QmXYjuNuxVzXKJCfWasQk1RqkhVLDM9jtUKhqc2WPQmFSB/go-libp2p-peer"
-	"fmt"
-	"reflect"
-	. "github.com/holochain/holochain-proto/hash"
 	"encoding/json"
+	"fmt"
+	. "github.com/holochain/holochain-proto/hash"
+	peer "github.com/libp2p/go-libp2p-peer"
+	"reflect"
 )
 
 //------------------------------------------------------------

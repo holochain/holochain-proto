@@ -1,9 +1,9 @@
 package holochain
 
 import (
-	peer "gx/ipfs/QmXYjuNuxVzXKJCfWasQk1RqkhVLDM9jtUKhqc2WPQmFSB/go-libp2p-peer"
-	. "github.com/holochain/holochain-proto/hash"
 	"errors"
+	. "github.com/holochain/holochain-proto/hash"
+	peer "github.com/libp2p/go-libp2p-peer"
 )
 
 //------------------------------------------------------------

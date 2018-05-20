@@ -10,7 +10,7 @@ package holochain
 import (
 	"errors"
 	. "github.com/holochain/holochain-proto/hash"
-	peer "gx/ipfs/QmXYjuNuxVzXKJCfWasQk1RqkhVLDM9jtUKhqc2WPQmFSB/go-libp2p-peer"
+	peer "github.com/libp2p/go-libp2p-peer"
 )
 
 const (
@@ -92,7 +92,7 @@ type HashTable interface {
 	// Put stores a value to the DHT store
 	Put(msg *Message, entryType string, key Hash, src peer.ID, value []byte, status int) (err error)
 
-  OpenEntry(msg *Message, key Hash) (err error)
+	OpenEntry(msg *Message, key Hash) (err error)
 
 	CloseEntry(msg *Message, key Hash) (err error)
 

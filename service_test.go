@@ -3,8 +3,8 @@ package holochain
 import (
 	"bytes"
 	"fmt"
+	ic "github.com/libp2p/go-libp2p-crypto"
 	. "github.com/smartystreets/goconvey/convey"
-	ic "gx/ipfs/QmaPbCnUMBohSGo3KnxEa2bHqyJVVeEEcwtqJAYxerieBo/go-libp2p-crypto"
 	"os"
 	"path/filepath"
 	"testing"

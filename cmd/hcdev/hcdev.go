@@ -95,6 +95,7 @@ func setupApp() (app *cli.App) {
 
 	var dumpScenario string
 	var dumpTest bool
+	var start int
 
 	var bridgeAppTmpFilePath string
 
@@ -806,6 +807,11 @@ func setupApp() (app *cli.App) {
 					Destination: &json,
 					Usage:       "Dump chain or dht as JSON string",
 				},
+				cli.IntFlag{
+					Name:        "index",
+					Destination: &start,
+					Usage:       "starting index for dump (zero based)",
+				},
 				cli.BoolFlag{
 					Name:        "test",
 					Destination: &dumpTest,
@@ -860,23 +866,23 @@ func setupApp() (app *cli.App) {
 				dnaHash := h.DNAHash()
 				if dumpChain {
 					if json {
-						dump, _ := h.Chain().JSON()
+						dump, _ := h.Chain().JSON(start)
 						fmt.Println(dump)
 					} else if dumpFormat != "" {
 						switch dumpFormat {
 						case "string":
-							fmt.Printf("Chain for: %s\n%v", dnaHash, h.Chain())
+							fmt.Printf("Chain for: %s\n%v", dnaHash, h.Chain().Dump(start))
 						case "dot":
-							dump, _ := h.Chain().Dot()
+							dump, _ := h.Chain().Dot(start)
 							fmt.Println(dump)
 						case "json":
-							dump, _ := h.Chain().JSON()
+							dump, _ := h.Chain().JSON(start)
 							fmt.Println(dump)
 						default:
 							return cmd.MakeErr(c, "format must be one of dot,json,string")
 						}
 					} else {
-						fmt.Printf("Chain for: %s\n%v", dnaHash, h.Chain())
+						fmt.Printf("Chain for: %s\n%v", dnaHash, h.Chain().Dump(start))
 					}
 				}
 				if dumpDHT {

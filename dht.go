@@ -248,15 +248,9 @@ func (dht *DHT) Put(m *Message, entryType string, key Hash, src peer.ID, value [
 	return
 }
 
-func (dht *DHT) OpenEntry(m *Message, key Hash) (err error) {
-	dht.dlog.Logf("open %v", key)
-	err = dht.ht.OpenEntry(m, key)
-	return
-}
-
-func (dht *DHT) CloseEntry(m *Message, key Hash) (err error) {
-	dht.dlog.Logf("close %v", key)
-	err = dht.ht.CloseEntry(m, key)
+func (dht *DHT) MigrateEntry(m *Message, key Hash) (err error) {
+	dht.dlog.Logf("migrate %v", key)
+	err = dht.ht.MigrateEntry(m, key)
 	return
 }
 

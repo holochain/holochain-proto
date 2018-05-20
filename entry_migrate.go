@@ -14,13 +14,20 @@ const (
   "definitions": {},
   "$schema": "http://json-schema.org/draft-07/schema#",
   "properties": {
+    "Hash": {
+      "$id": "/properties/Hash",
+      "type": "string",
+      "title": "The Hash Schema ",
+      "default": ""
+    },
     "Message": {
       "$id": "/properties/message",
       "type": "string",
       "title": "The Message Schema ",
       "default": ""
     }
-  }
+  },
+  "required": ["Hash"]
 }
 `
 )

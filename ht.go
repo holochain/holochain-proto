@@ -92,9 +92,7 @@ type HashTable interface {
 	// Put stores a value to the DHT store
 	Put(msg *Message, entryType string, key Hash, src peer.ID, value []byte, status int) (err error)
 
-	OpenEntry(msg *Message, key Hash) (err error)
-
-	CloseEntry(msg *Message, key Hash) (err error)
+	MigrateEntry(msg *Message, key Hash) (err error)
 
 	// Del moves the given hash to the StatusDeleted status
 	Del(msg *Message, key Hash) (err error)

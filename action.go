@@ -1379,7 +1379,7 @@ func (fn *APIFnModAgent) Args() []Arg {
 }
 
 func (fn *APIFnModAgent) Name() string {
-	return "udpateAgent"
+	return "updateAgent"
 }
 func (fn *APIFnModAgent) Call(h *Holochain) (response interface{}, err error) {
 	var ok bool

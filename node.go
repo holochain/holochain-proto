@@ -43,6 +43,8 @@ type ReceiverFn func(h *Holochain, m *Message) (response interface{}, err error)
 
 type MsgType int8
 
+// @TODO don't have order dependant constants
+// https://github.com/holochain/holochain-proto/issues/713
 const (
 	// common messages
 
@@ -93,7 +95,6 @@ func (msgType MsgType) String() string {
 		"ERROR_RESPONSE",
 		"OK_RESPONSE",
 		"PUT_REQUEST",
-		// "MIGRATE_REQUEST",
 		"DEL_REQUEST",
 		"MOD_REQUEST",
 		"GET_REQUEST",
@@ -101,14 +102,15 @@ func (msgType MsgType) String() string {
 		"GETLINK_REQUEST",
 		"DELETELINK_REQUEST",
 		"GOSSIP_REQUEST",
-		"VALIDATE_MIGRATE_REQUEST",
 		"VALIDATE_PUT_REQUEST",
 		"VALIDATE_LINK_REQUEST",
 		"VALIDATE_DEL_REQUEST",
 		"VALIDATE_MOD_REQUEST",
 		"APP_MESSAGE",
 		"LISTADD_REQUEST",
-		"FIND_NODE_REQUEST"}[msgType]
+		"FIND_NODE_REQUEST",
+		"MIGRATE_REQUEST",
+		"VALIDATE_MIGRATE_REQUEST"}[msgType]
 }
 
 var ErrBlockedListed = errors.New("node blockedlisted")

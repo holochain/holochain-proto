@@ -6,12 +6,12 @@ import (
 	"errors"
 	"fmt"
 	. "github.com/holochain/holochain-proto/hash"
-	ic "github.com/libp2p/go-libp2p-crypto"
-	net "github.com/libp2p/go-libp2p-net"
-	peer "github.com/libp2p/go-libp2p-peer"
-	pstore "github.com/libp2p/go-libp2p-peerstore"
-	ma "github.com/multiformats/go-multiaddr"
 	. "github.com/smartystreets/goconvey/convey"
+	net "gx/ipfs/QmNa31VPzC561NWwRsJLE7nGYZYuuD2QfpK2b1q9BK54J1/go-libp2p-net"
+	pstore "gx/ipfs/QmPgDWmTmuzvP7QE5zwo1TmjbJme9pmZHNujB2453jkCTr/go-libp2p-peerstore"
+	ma "gx/ipfs/QmXY77cVe7rVRQXZZQRioukUM7aRW3BTcAgJe12MCtb3Ji/go-multiaddr"
+	peer "gx/ipfs/QmXYjuNuxVzXKJCfWasQk1RqkhVLDM9jtUKhqc2WPQmFSB/go-libp2p-peer"
+	ic "gx/ipfs/QmaPbCnUMBohSGo3KnxEa2bHqyJVVeEEcwtqJAYxerieBo/go-libp2p-crypto"
 	"io/ioutil"
 	"math/rand"
 	"os"
@@ -186,7 +186,6 @@ func TestNodeSend(t *testing.T) {
 
 	Convey("It should fail on incorrect message types", t, func() {
 		m := node1.NewMessage(PUT_REQUEST, "fish")
-		println(m.String())
 		r, err := node1.Send(context.Background(), ValidateProtocol, node2.HashAddr, m)
 		So(err, ShouldBeNil)
 		So(r.Type, ShouldEqual, ERROR_RESPONSE)
@@ -321,9 +320,7 @@ func TestFingerprintMessage(t *testing.T) {
 	Convey("it should create a unique fingerprint for messages", t, func() {
 		var id peer.ID
 		var mp *Message
-
-		fmt.Printf("%+v\n", mp)
-
+		println(mp.String())
 		f, err := mp.Fingerprint()
 		So(err, ShouldBeNil)
 		So(f.String(), ShouldEqual, NullHash().String())

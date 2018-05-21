@@ -3,9 +3,9 @@ package holochain
 import (
 	"fmt"
 	. "github.com/holochain/holochain-proto/hash"
-	peer "github.com/libp2p/go-libp2p-peer"
-	ma "github.com/multiformats/go-multiaddr"
 	. "github.com/smartystreets/goconvey/convey"
+	ma "gx/ipfs/QmXY77cVe7rVRQXZZQRioukUM7aRW3BTcAgJe12MCtb3Ji/go-multiaddr"
+	peer "gx/ipfs/QmXYjuNuxVzXKJCfWasQk1RqkhVLDM9jtUKhqc2WPQmFSB/go-libp2p-peer"
 	"testing"
 	"time"
 )

@@ -60,21 +60,6 @@ func TestValidateAction(t *testing.T) {
 		_, err = h.ValidateAction(am, am.entryType, nil, []peer.ID{h.nodeID})
 		So(err, ShouldEqual, ErrNotValidForHeadersType)
 	})
-
-	Convey("deleting should fail for all sys entry types except delete", t, func() {
-		a := NewDelAction(DelEntry{})
-		_, err = h.ValidateAction(a, DNAEntryType, nil, []peer.ID{h.nodeID})
-		So(err, ShouldEqual, ErrEntryDefInvalid)
-
-		_, err = h.ValidateAction(a, KeyEntryType, nil, []peer.ID{h.nodeID})
-		So(err, ShouldEqual, ErrEntryDefInvalid)
-
-		_, err = h.ValidateAction(a, AgentEntryType, nil, []peer.ID{h.nodeID})
-		So(err, ShouldEqual, ErrEntryDefInvalid)
-
-		_, err = h.ValidateAction(a, HeadersEntryType, nil, []peer.ID{h.nodeID})
-		So(err, ShouldEqual, ErrEntryDefInvalid)
-	})
 }
 
 func TestSysValidateEntry(t *testing.T) {
@@ -271,21 +256,6 @@ func TestSysValidateMod(t *testing.T) {
 		So(err, ShouldEqual, ErrModReplacesHashNotDifferent)
 	})
 
-}
-
-func TestSysValidateDel(t *testing.T) {
-	d, _, h := PrepareTestChain("test")
-	defer CleanupTestChain(h, d)
-
-	hash := commit(h, "evenNumbers", "2")
-	//	_, def, _ := h.GetEntryDef("evenNumbers")
-
-	Convey("it should check that entry isn't linking ", t, func() {
-		a := NewDelAction(DelEntry{Hash: hash})
-		_, ratingsDef, _ := h.GetEntryDef("rating")
-		err := a.SysValidation(h, ratingsDef, nil, []peer.ID{h.nodeID})
-		So(err, ShouldBeError)
-	})
 }
 
 func TestCheckArgCount(t *testing.T) {

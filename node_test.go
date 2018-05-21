@@ -320,27 +320,29 @@ func TestFingerprintMessage(t *testing.T) {
 	Convey("it should create a unique fingerprint for messages", t, func() {
 		var id peer.ID
 		var mp *Message
-		
-		println(id.String())
 
 		f, err := mp.Fingerprint()
 		So(err, ShouldBeNil)
 		So(f.String(), ShouldEqual, NullHash().String())
 		now := time.Unix(1, 1) // pick a constant time so the test will always work
 		m := Message{Type: PUT_REQUEST, Time: now, Body: "foo", From: id}
+
 		f, err = m.Fingerprint()
 		So(err, ShouldBeNil)
 		So(f.String(), ShouldEqual, "QmTZf2qqYiKbJbQVpFyidMVyAtb1S4xQNV52LcX9LDVTQn")
 		m = Message{Type: PUT_REQUEST, Time: now, Body: "foo1", From: id}
+
 		f, err = m.Fingerprint()
 		So(err, ShouldBeNil)
 		So(f.String(), ShouldEqual, "QmP2WUSMWAuZrX2nqWcEyei7GDCwVaetkynQESFDrHNkGa")
 		now = time.Unix(1, 2) // pick a constant time so the test will always work
 		m = Message{Type: PUT_REQUEST, Time: now, Body: "foo", From: id}
+
 		f, err = m.Fingerprint()
 		So(err, ShouldBeNil)
 		So(f.String(), ShouldEqual, "QmTZf2qqYiKbJbQVpFyidMVyAtb1S4xQNV52LcX9LDVTQn")
 		m = Message{Type: GET_REQUEST, Time: now, Body: "foo", From: id}
+
 		f, err = m.Fingerprint()
 		So(err, ShouldBeNil)
 		So(f.String(), ShouldEqual, "Qmd7v7bxE7xRCj3Amhx8kyj7DbUGJdbKzuiUUahx3ARPec")

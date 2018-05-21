@@ -14,8 +14,8 @@ import (
 	"strings"
 
 	. "github.com/holochain/holochain-proto/hash"
+	peer "github.com/libp2p/go-libp2p-peer"
 	"github.com/tidwall/buntdb"
-	peer "gx/ipfs/QmXYjuNuxVzXKJCfWasQk1RqkhVLDM9jtUKhqc2WPQmFSB/go-libp2p-peer"
 )
 
 type BuntHT struct {
@@ -89,8 +89,8 @@ func (ht *BuntHT) Del(m *Message, key Hash) (err error) {
 }
 
 func (ht *BuntHT) Migrate(m *Message, key Hash) (err error) {
-  // @TODO
-  return
+	// @TODO
+	return
 }
 
 func _setStatus(tx *buntdb.Tx, m *Message, key string, status int) (err error) {

@@ -14,21 +14,21 @@ import (
 	"fmt"
 
 	. "github.com/holochain/holochain-proto/hash"
+	goprocess "github.com/jbenet/goprocess"
+	goprocessctx "github.com/jbenet/goprocess/context"
+	ic "github.com/libp2p/go-libp2p-crypto"
+	nat "github.com/libp2p/go-libp2p-nat"
+	net "github.com/libp2p/go-libp2p-net"
+	peer "github.com/libp2p/go-libp2p-peer"
+	pstore "github.com/libp2p/go-libp2p-peerstore"
+	protocol "github.com/libp2p/go-libp2p-protocol"
+	swarm "github.com/libp2p/go-libp2p-swarm"
+	discovery "github.com/libp2p/go-libp2p/p2p/discovery"
+	bhost "github.com/libp2p/go-libp2p/p2p/host/basic"
+	rhost "github.com/libp2p/go-libp2p/p2p/host/routed"
+	ma "github.com/multiformats/go-multiaddr"
+	mh "github.com/multiformats/go-multihash"
 	"gopkg.in/mgo.v2/bson"
-	net "gx/ipfs/QmNa31VPzC561NWwRsJLE7nGYZYuuD2QfpK2b1q9BK54J1/go-libp2p-net"
-	pstore "gx/ipfs/QmPgDWmTmuzvP7QE5zwo1TmjbJme9pmZHNujB2453jkCTr/go-libp2p-peerstore"
-	goprocess "gx/ipfs/QmSF8fPo3jgVBAy8fpdjjYqgG87dkJgUprRBHRd2tmfgpP/goprocess"
-	goprocessctx "gx/ipfs/QmSF8fPo3jgVBAy8fpdjjYqgG87dkJgUprRBHRd2tmfgpP/goprocess/context"
-	mh "gx/ipfs/QmU9a9NV9RdPNwZQDYd5uKsm6N6LJLSvLbywDDYFbaaC6P/go-multihash"
-	ma "gx/ipfs/QmXY77cVe7rVRQXZZQRioukUM7aRW3BTcAgJe12MCtb3Ji/go-multiaddr"
-	peer "gx/ipfs/QmXYjuNuxVzXKJCfWasQk1RqkhVLDM9jtUKhqc2WPQmFSB/go-libp2p-peer"
-	protocol "gx/ipfs/QmZNkThpqfVXs9GNbexPrfBbXSLNYeKrE7jwFM2oqHbyqN/go-libp2p-protocol"
-	ic "gx/ipfs/QmaPbCnUMBohSGo3KnxEa2bHqyJVVeEEcwtqJAYxerieBo/go-libp2p-crypto"
-	swarm "gx/ipfs/QmdQFrFnPrKRQtpeHKjZ3cVNwxmGKKS2TvhJTuN9C9yduh/go-libp2p-swarm"
-	nat "gx/ipfs/QmeXm9iwA4cURNmexpuBucDWcV38jNHdqpGcb7yoyP6e4G/go-libp2p-nat"
-	discovery "gx/ipfs/QmefgzMbKZYsmHFkLqxgaTBG9ypeEjrdWRD5WXH4j1cWDL/go-libp2p/p2p/discovery"
-	bhost "gx/ipfs/QmefgzMbKZYsmHFkLqxgaTBG9ypeEjrdWRD5WXH4j1cWDL/go-libp2p/p2p/host/basic"
-	rhost "gx/ipfs/QmefgzMbKZYsmHFkLqxgaTBG9ypeEjrdWRD5WXH4j1cWDL/go-libp2p/p2p/host/routed"
 	"io"
 	"math/big"
 	"math/rand"
@@ -51,7 +51,6 @@ const (
 
 	// DHT messages
 
-	MIGRATE_REQUEST
 	PUT_REQUEST
 	DEL_REQUEST
 	MOD_REQUEST
@@ -66,7 +65,6 @@ const (
 
 	// Validate Messages
 
-	VALIDATE_MIGRATE_REQUEST
 	VALIDATE_PUT_REQUEST
 	VALIDATE_LINK_REQUEST
 	VALIDATE_DEL_REQUEST
@@ -83,13 +81,19 @@ const (
 	// Kademlia messages
 
 	FIND_NODE_REQUEST
+
+	// Migrate DHT and validation messages
+
+	MIGRATE_REQUEST
+	VALIDATE_MIGRATE_REQUEST
 )
 
 func (msgType MsgType) String() string {
-	return []string{"ERROR_RESPONSE",
+	return []string{
+		"ERROR_RESPONSE",
 		"OK_RESPONSE",
-		"MIGRATE_REQUEST",
 		"PUT_REQUEST",
+		// "MIGRATE_REQUEST",
 		"DEL_REQUEST",
 		"MOD_REQUEST",
 		"GET_REQUEST",

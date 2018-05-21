@@ -6,29 +6,11 @@ package holochain
 
 import (
 	. "github.com/holochain/holochain-proto/hash"
-	peer "gx/ipfs/QmXYjuNuxVzXKJCfWasQk1RqkhVLDM9jtUKhqc2WPQmFSB/go-libp2p-peer"
+	peer "github.com/libp2p/go-libp2p-peer"
 )
 
 //------------------------------------------------------------
-// Migrate
-
-type APIFnMigrate struct {
-	action ActionMigrate
-}
-
-func (fn *APIFnMigrate) Name() string {
-	return fn.action.Name()
-}
-
-func (fn *APIFnMigrate) Args() []Arg {
-	return []Arg{{Name: "message", Type: StringArg}}
-}
-
-func (fn *APIFnMigrate) Call(h *Holochain) (response interface{}, err error) {
-	a := &fn.action
-	response, err = h.commitAndShare(a, NullHash())
-	return
-}
+// Migrate Action
 
 type ActionMigrate struct {
 	entry  MigrateEntry
@@ -112,5 +94,26 @@ func (a *ActionMigrate) Receive(dht *DHT, msg *Message) (response interface{}, e
 }
 
 func (a *ActionMigrate) CheckValidationRequest(def *EntryDef) (err error) {
+	return
+}
+
+//------------------------------------------------------------
+// Migrate API fn
+
+type APIFnMigrate struct {
+	action ActionMigrate
+}
+
+func (fn *APIFnMigrate) Name() string {
+	return fn.action.Name()
+}
+
+func (fn *APIFnMigrate) Args() []Arg {
+	return []Arg{{Name: "message", Type: StringArg}}
+}
+
+func (fn *APIFnMigrate) Call(h *Holochain) (response interface{}, err error) {
+	a := &fn.action
+	response, err = h.commitAndShare(a, NullHash())
 	return
 }

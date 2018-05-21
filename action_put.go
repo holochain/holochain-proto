@@ -3,7 +3,7 @@ package holochain
 import (
 	"fmt"
 	. "github.com/holochain/holochain-proto/hash"
-	peer "gx/ipfs/QmXYjuNuxVzXKJCfWasQk1RqkhVLDM9jtUKhqc2WPQmFSB/go-libp2p-peer"
+	peer "github.com/libp2p/go-libp2p-peer"
 )
 
 //------------------------------------------------------------

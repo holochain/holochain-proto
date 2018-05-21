@@ -1,10 +1,10 @@
 package holochain
 
 import (
-  . "github.com/smartystreets/goconvey/convey"
-  "testing"
-  . "github.com/holochain/holochain-proto/hash"
-  peer "gx/ipfs/QmXYjuNuxVzXKJCfWasQk1RqkhVLDM9jtUKhqc2WPQmFSB/go-libp2p-peer"
+	. "github.com/holochain/holochain-proto/hash"
+	peer "github.com/libp2p/go-libp2p-peer"
+	. "github.com/smartystreets/goconvey/convey"
+	"testing"
 )
 
 func TestActionDelete(t *testing.T) {
@@ -51,22 +51,22 @@ func TestSysValidateDel(t *testing.T) {
 }
 
 func TestSysDel(t *testing.T) {
-  d, _, h := PrepareTestChain("test")
+	d, _, h := PrepareTestChain("test")
 	defer CleanupTestChain(h, d)
 	var err error
 
-  Convey("deleting should fail for all sys entry types except delete", t, func() {
-    a := NewDelAction(DelEntry{})
-    _, err = h.ValidateAction(a, DNAEntryType, nil, []peer.ID{h.nodeID})
-    So(err, ShouldEqual, ErrEntryDefInvalid)
+	Convey("deleting should fail for all sys entry types except delete", t, func() {
+		a := NewDelAction(DelEntry{})
+		_, err = h.ValidateAction(a, DNAEntryType, nil, []peer.ID{h.nodeID})
+		So(err, ShouldEqual, ErrEntryDefInvalid)
 
-    _, err = h.ValidateAction(a, KeyEntryType, nil, []peer.ID{h.nodeID})
-    So(err, ShouldEqual, ErrEntryDefInvalid)
+		_, err = h.ValidateAction(a, KeyEntryType, nil, []peer.ID{h.nodeID})
+		So(err, ShouldEqual, ErrEntryDefInvalid)
 
-    _, err = h.ValidateAction(a, AgentEntryType, nil, []peer.ID{h.nodeID})
-    So(err, ShouldEqual, ErrEntryDefInvalid)
+		_, err = h.ValidateAction(a, AgentEntryType, nil, []peer.ID{h.nodeID})
+		So(err, ShouldEqual, ErrEntryDefInvalid)
 
-    _, err = h.ValidateAction(a, HeadersEntryType, nil, []peer.ID{h.nodeID})
-    So(err, ShouldEqual, ErrEntryDefInvalid)
-  })
+		_, err = h.ValidateAction(a, HeadersEntryType, nil, []peer.ID{h.nodeID})
+		So(err, ShouldEqual, ErrEntryDefInvalid)
+	})
 }

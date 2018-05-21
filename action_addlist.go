@@ -2,7 +2,7 @@ package holochain
 
 import (
 	"fmt"
-	peer "gx/ipfs/QmXYjuNuxVzXKJCfWasQk1RqkhVLDM9jtUKhqc2WPQmFSB/go-libp2p-peer"
+	peer "github.com/libp2p/go-libp2p-peer"
 )
 
 //------------------------------------------------------------

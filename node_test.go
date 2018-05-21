@@ -320,7 +320,9 @@ func TestFingerprintMessage(t *testing.T) {
 	Convey("it should create a unique fingerprint for messages", t, func() {
 		var id peer.ID
 		var mp *Message
-		println(mp.String())
+		
+		println(id.String())
+
 		f, err := mp.Fingerprint()
 		So(err, ShouldBeNil)
 		So(f.String(), ShouldEqual, NullHash().String())

@@ -20,6 +20,30 @@ import (
 	"time"
 )
 
+func TestConsts(t *testing.T) {
+	Convey("consts should have the right values", t, func() {
+		So(ERROR_RESPONSE, ShouldEqual, 0)
+		So(OK_RESPONSE, ShouldEqual, 1)
+		So(PUT_REQUEST, ShouldEqual, 2)
+		So(DEL_REQUEST, ShouldEqual, 3)
+		So(MOD_REQUEST, ShouldEqual, 4)
+		So(GET_REQUEST, ShouldEqual, 5)
+		So(LINK_REQUEST, ShouldEqual, 6)
+		So(GETLINK_REQUEST, ShouldEqual, 7)
+		So(DELETELINK_REQUEST, ShouldEqual, 8)
+		So(GOSSIP_REQUEST, ShouldEqual, 9)
+		So(VALIDATE_PUT_REQUEST, ShouldEqual, 10)
+		So(VALIDATE_LINK_REQUEST, ShouldEqual, 11)
+		So(VALIDATE_DEL_REQUEST, ShouldEqual, 12)
+		So(VALIDATE_MOD_REQUEST, ShouldEqual, 13)
+		So(APP_MESSAGE, ShouldEqual, 14)
+		So(LISTADD_REQUEST, ShouldEqual, 15)
+		So(FIND_NODE_REQUEST, ShouldEqual, 16)
+		So(MIGRATE_REQUEST, ShouldEqual, 17)
+		So(VALIDATE_MIGRATE_REQUEST, ShouldEqual, 18)
+	})
+}
+
 func TestNodeMDNSDiscovery(t *testing.T) {
 	nodesCount := 4
 	mt := setupMultiNodeTesting(nodesCount)

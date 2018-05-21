@@ -3,9 +3,9 @@ package holochain
 import (
 	"fmt"
 	. "github.com/holochain/holochain-proto/hash"
-	b58 "github.com/jbenet/go-base58"
-	peer "github.com/libp2p/go-libp2p-peer"
 	. "github.com/smartystreets/goconvey/convey"
+	b58 "gx/ipfs/QmT8rehPR3F6bmwL6zjUN8XpiDBFFpMP2myPdC6ApsWfJf/go-base58"
+	peer "gx/ipfs/QmXYjuNuxVzXKJCfWasQk1RqkhVLDM9jtUKhqc2WPQmFSB/go-libp2p-peer"
 	"testing"
 )
 
@@ -307,57 +307,6 @@ func TestCheckArgCount(t *testing.T) {
 
 		err = checkArgCount(args, 4)
 		So(err, ShouldEqual, ErrWrongNargs)
-	})
-}
-
-func TestActionCommit(t *testing.T) {
-	nodesCount := 3
-	mt := setupMultiNodeTesting(nodesCount)
-	defer mt.cleanupMultiNodeTesting()
-
-	h := mt.nodes[0]
-
-	profileHash := commit(h, "profile", `{"firstName":"Zippy","lastName":"Pinhead"}`)
-	linksHash := commit(h, "rating", fmt.Sprintf(`{"Links":[{"Base":"%s","Link":"%s","Tag":"4stars"}]}`, h.nodeIDStr, profileHash.String()))
-	ringConnect(t, mt.ctx, mt.nodes, nodesCount)
-
-	Convey("when committing a link the linkEntry itself should be published to the DHT", t, func() {
-		req := GetReq{H: linksHash, GetMask: GetMaskEntry}
-		_, err := callGet(h, req, &GetOptions{GetMask: req.GetMask})
-		So(err, ShouldBeNil)
-
-		h2 := mt.nodes[2]
-		_, err = callGet(h2, req, &GetOptions{GetMask: req.GetMask})
-		So(err, ShouldBeNil)
-
-	})
-}
-
-func TestActionDelete(t *testing.T) {
-	nodesCount := 3
-	mt := setupMultiNodeTesting(nodesCount)
-	defer mt.cleanupMultiNodeTesting()
-
-	h := mt.nodes[0]
-	ringConnect(t, mt.ctx, mt.nodes, nodesCount)
-
-	profileHash := commit(h, "profile", `{"firstName":"Zippy","lastName":"Pinhead"}`)
-	entry := DelEntry{Hash: profileHash, Message: "expired"}
-	a := &ActionDel{entry: entry}
-	response, err := h.commitAndShare(a, NullHash())
-	if err != nil {
-		panic(err)
-	}
-	deleteHash := response.(Hash)
-
-	Convey("when deleting a hash the del entry itself should be published to the DHT", t, func() {
-		req := GetReq{H: deleteHash, GetMask: GetMaskEntry}
-		_, err := callGet(h, req, &GetOptions{GetMask: req.GetMask})
-		So(err, ShouldBeNil)
-
-		h2 := mt.nodes[2]
-		_, err = callGet(h2, req, &GetOptions{GetMask: req.GetMask})
-		So(err, ShouldBeNil)
 	})
 }
 

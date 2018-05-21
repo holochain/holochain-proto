@@ -5,8 +5,8 @@ import (
 	"crypto/rand"
 	"fmt"
 	. "github.com/holochain/holochain-proto/hash"
-	ic "github.com/libp2p/go-libp2p-crypto"
 	. "github.com/smartystreets/goconvey/convey"
+	ic "gx/ipfs/QmaPbCnUMBohSGo3KnxEa2bHqyJVVeEEcwtqJAYxerieBo/go-libp2p-crypto"
 	"testing"
 	"time"
 )

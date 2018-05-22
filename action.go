@@ -304,26 +304,6 @@ func (a *APIFnProperty) Call(h *Holochain) (response interface{}, err error) {
 }
 
 //------------------------------------------------------------
-// Debug
-
-type APIFnDebug struct {
-	msg string
-}
-
-func (a *APIFnDebug) Name() string {
-	return "debug"
-}
-
-func (a *APIFnDebug) Args() []Arg {
-	return []Arg{{Name: "value", Type: ToStrArg}}
-}
-
-func (a *APIFnDebug) Call(h *Holochain) (response interface{}, err error) {
-	h.Config.Loggers.App.Log(a.msg)
-	return
-}
-
-//------------------------------------------------------------
 // MakeHash
 
 type APIFnMakeHash struct {

@@ -54,18 +54,18 @@ func TestSysDel(t *testing.T) {
 	d, _, h := PrepareTestChain("test")
 	defer CleanupTestChain(h, d)
 	var err error
-  Convey("deleting should fail for all sys entry types except delete", t, func() {
-    a := NewDelAction(DelEntry{})
-    _, err = h.ValidateAction(a, DNAEntryType, nil, []peer.ID{h.nodeID})
-    So(err, ShouldEqual, ErrEntryDefInvalid)
+	Convey("deleting should fail for all sys entry types except delete", t, func() {
+		a := NewDelAction(DelEntry{})
+		_, err = h.ValidateAction(a, DNAEntryType, nil, []peer.ID{h.nodeID})
+		So(err, ShouldEqual, ErrEntryDefInvalid)
 
-    _, err = h.ValidateAction(a, KeyEntryType, nil, []peer.ID{h.nodeID})
-    So(err, ShouldEqual, ErrEntryDefInvalid)
+		_, err = h.ValidateAction(a, KeyEntryType, nil, []peer.ID{h.nodeID})
+		So(err, ShouldEqual, ErrEntryDefInvalid)
 
-    _, err = h.ValidateAction(a, AgentEntryType, nil, []peer.ID{h.nodeID})
-    So(err, ShouldEqual, ErrEntryDefInvalid)
+		_, err = h.ValidateAction(a, AgentEntryType, nil, []peer.ID{h.nodeID})
+		So(err, ShouldEqual, ErrEntryDefInvalid)
 
-    _, err = h.ValidateAction(a, HeadersEntryType, nil, []peer.ID{h.nodeID})
-    So(err, ShouldEqual, ErrEntryDefInvalid)
-  })
+		_, err = h.ValidateAction(a, HeadersEntryType, nil, []peer.ID{h.nodeID})
+		So(err, ShouldEqual, ErrEntryDefInvalid)
+	})
 }

@@ -280,37 +280,6 @@ func argErr(typeName string, index int, arg Arg) error {
 	return fmt.Errorf("argument %d (%s) should be %s", index, arg.Name, typeName)
 }
 
-//------------------------------------------------------------
-// VerifySignature
-type APIFnVerifySignature struct {
-	b58signature string
-	data         string
-	b58pubKey    string
-}
-
-func (a *APIFnVerifySignature) Name() string {
-	return "verifySignature"
-}
-
-func (a *APIFnVerifySignature) Args() []Arg {
-	return []Arg{{Name: "signature", Type: StringArg}, {Name: "data", Type: StringArg}, {Name: "pubKey", Type: StringArg}}
-}
-
-func (a *APIFnVerifySignature) Call(h *Holochain) (response interface{}, err error) {
-	var b bool
-	var pubKey ic.PubKey
-	sig := SignatureFromB58String(a.b58signature)
-
-	pubKey, err = DecodePubKey(a.b58pubKey)
-
-	b, err = h.VerifySignature(sig, a.data, pubKey)
-	if err != nil {
-		return
-	}
-	response = b
-	return
-}
-
 // doCommit adds an entry to the local chain after validating the action it's part of
 func (h *Holochain) doCommit(a CommittingAction, change Hash) (d *EntryDef, err error) {
 

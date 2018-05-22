@@ -13,8 +13,9 @@ import (
 // Migrate Action
 
 type ActionMigrate struct {
-	entry  MigrateEntry
-	header *Header
+	toEntry   MigrateToEntry
+	fromEntry MigrateFromEntry
+	header    *Header
 }
 
 func (a *ActionMigrate) Name() string {

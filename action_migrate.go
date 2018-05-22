@@ -17,11 +17,6 @@ type ActionMigrate struct {
 	header *Header
 }
 
-func NewMigrateAction(entry MigrateEntry) *ActionMigrate {
-	a := ActionMigrate{entry: entry}
-	return &a
-}
-
 func (a *ActionMigrate) Name() string {
 	return "migrate"
 }
@@ -62,6 +57,10 @@ func (a *ActionMigrate) SysValidation(h *Holochain, def *EntryDef, pkg *Package,
 	return
 }
 
+func (a *ActionMigrate) CheckValidationRequest(def *EntryDef) (err error) {
+	return
+}
+
 func (a *ActionMigrate) Receive(dht *DHT, msg *Message) (response interface{}, err error) {
 	t := msg.Body.(HoldReq)
 	var holdResp *HoldResp
@@ -71,7 +70,7 @@ func (a *ActionMigrate) Receive(dht *DHT, msg *Message) (response interface{}, e
 		var migrateEntry MigrateEntry
 		migrateEntry, err = MigrateEntryFromJSON(resp.Entry.Content().(string))
 
-		a := NewMigrateAction(migrateEntry)
+		a := &ActionMigrate{entry: migrateEntry}
 		// @TODO what comes back from Validate Migrate
 		// https://github.com/holochain/holochain-proto/issues/710
 		_, err = dht.h.ValidateAction(a, resp.Type, &resp.Package, []peer.ID{msg.From})
@@ -90,10 +89,6 @@ func (a *ActionMigrate) Receive(dht *DHT, msg *Message) (response interface{}, e
 	if holdResp != nil {
 		response = *holdResp
 	}
-	return
-}
-
-func (a *ActionMigrate) CheckValidationRequest(def *EntryDef) (err error) {
 	return
 }
 

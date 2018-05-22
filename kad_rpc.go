@@ -1,4 +1,4 @@
-// Copyright (C) 2013-2017, The MetaCurrency Project (Eric Harris-Braun, Arthur Brock, et. al.)
+// Copyright (C) 2013-2018, The MetaCurrency Project (Eric Harris-Braun, Arthur Brock, et. al.)
 // Use of this source code is governed by GPLv3 found in the LICENSE file
 //
 // This code is adapted from the libp2p project, specifically:
@@ -13,10 +13,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	. "github.com/holochain/holochain-proto/hash"
 	peer "github.com/libp2p/go-libp2p-peer"
 	pstore "github.com/libp2p/go-libp2p-peerstore"
-	routing "github.com/libp2p/go-libp2p-routing"
-	. "github.com/metacurrency/holochain/hash"
 	ma "github.com/multiformats/go-multiaddr"
 	_ "sync"
 	_ "time"
@@ -76,18 +75,27 @@ func (node *Node) findPeerSingle(ctx context.Context, p peer.ID, hash Hash) (clo
 
 // nearestPeersToHash returns the routing tables closest peers to a given hash
 func (node *Node) nearestPeersToHash(hash *Hash, count int) []peer.ID {
+	//	fmt.Printf("%v NearestPeers to %s: ", node.HashAddr.Pretty()[2:4], hash.String())
 	closer := node.routingTable.NearestPeers(*hash, count)
 	return closer
 }
 
 // betterPeersForHash returns nearestPeersToHash, but iff closer than self.
-func (node *Node) betterPeersForHash(hash *Hash, p peer.ID, count int) []peer.ID {
+func (node *Node) betterPeersForHash(hash *Hash, p peer.ID, excludeSelf bool, count int) []peer.ID {
 	closer := node.nearestPeersToHash(hash, count)
 
 	// no node? nil
 	if closer == nil {
 		node.log.Logf("no closer peers to send to %v", p)
 		return nil
+	}
+
+	if excludeSelf {
+		two := []peer.ID{node.HashAddr, closer[0]}
+		two = SortClosestPeers(two, *hash)
+		if two[0] == node.HashAddr {
+			return nil
+		}
 	}
 
 	var filtered []peer.ID
@@ -172,7 +180,7 @@ func (node *Node) FindPeer(ctx context.Context, id peer.ID) (pstore.PeerInfo, er
 
 	node.log.Logf("FindPeer %v %v", id, result.success)
 	if result.peer.ID == "" {
-		return pstore.PeerInfo{}, routing.ErrNotFound
+		return pstore.PeerInfo{}, ErrHashNotFound
 	}
 
 	return *result.peer, nil
@@ -193,10 +201,10 @@ func KademliaReceiver(h *Holochain, m *Message) (response interface{}, err error
 			resp := CloserPeersResp{}
 			// if looking for self... special case where we send it on CloserPeers.
 			x := HashFromPeerID(node.HashAddr)
-			if x.Equal(&t.H) {
+			if x.Equal(t.H) {
 				closest = []peer.ID{node.HashAddr}
 			} else {
-				closest = node.betterPeersForHash(&t.H, p, CloserPeerCount)
+				closest = node.betterPeersForHash(&t.H, p, false, CloserPeerCount)
 			}
 			if closest == nil {
 				dht.dlog.Logf("could not find any peers")

@@ -11,9 +11,9 @@ package holochain
 import (
 	"container/list"
 	"fmt"
+	. "github.com/holochain/holochain-proto/hash"
 	peer "github.com/libp2p/go-libp2p-peer"
 	pstore "github.com/libp2p/go-libp2p-peerstore"
-	. "github.com/metacurrency/holochain/hash"
 	"sort"
 	"sync"
 	"time"
@@ -223,6 +223,14 @@ func (rt *RoutingTable) NearestPeers(hash Hash, count int) []peer.ID {
 
 	// Sort by distance to local peer
 	sort.Sort(hashArr)
+
+	/*s := ""
+	for _, c := range hashArr {
+		p := PeerIDFromHash(c.Hash.(Hash))
+		s += fmt.Sprintf("%v ", p.Pretty()[2:4])
+	}
+	fmt.Printf("%s\n", s)
+	*/
 
 	var out []peer.ID
 	for i := 0; i < count && i < hashArr.Len(); i++ {

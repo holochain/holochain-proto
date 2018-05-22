@@ -1,4 +1,4 @@
-// Copyright (C) 2013-2017, The MetaCurrency Project (Eric Harris-Braun, Arthur Brock, et. al.)
+// Copyright (C) 2013-2018, The MetaCurrency Project (Eric Harris-Braun, Arthur Brock, et. al.)
 // Use of this source code is governed by GPLv3 found in the LICENSE file
 //----------------------------------------------------------------------------------------
 
@@ -20,7 +20,7 @@ import (
 	"syscall"
 	"time"
 
-	holo "github.com/metacurrency/holochain"
+	holo "github.com/holochain/holochain-proto"
 )
 
 var ErrServiceUninitialized = errors.New("service not initialized, run 'hcadmin init'")
@@ -222,7 +222,7 @@ func Die(message string) {
 
 func GolangHolochainDir(subPath ...string) (path string, err error) {
 	err = nil
-	joinable := append([]string{os.Getenv("GOPATH"), "src/github.com/metacurrency/holochain"}, subPath...)
+	joinable := append([]string{os.Getenv("GOPATH"), "src/github.com/holochain/holochain-proto"}, subPath...)
 	path = filepath.Join(joinable...)
 	return
 }

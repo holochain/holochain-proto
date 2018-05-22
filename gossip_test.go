@@ -2,8 +2,8 @@ package holochain
 
 import (
 	"fmt"
+	. "github.com/holochain/holochain-proto/hash"
 	peer "github.com/libp2p/go-libp2p-peer"
-	. "github.com/metacurrency/holochain/hash"
 	ma "github.com/multiformats/go-multiaddr"
 	. "github.com/smartystreets/goconvey/convey"
 	"testing"
@@ -38,15 +38,15 @@ func TestGetGossipers(t *testing.T) {
 
 	var err error
 	var glist []peer.ID
-	Convey("should return all peers when neighborhood size is 0", t, func() {
-		So(h.nucleus.dna.DHTConfig.NeighborhoodSize, ShouldEqual, 0)
+	Convey("should return all peers when redundancy factor is 0", t, func() {
+		So(h.nucleus.dna.DHTConfig.RedundancyFactor, ShouldEqual, 0)
 		glist, err = dht.getGossipers()
 		So(err, ShouldBeNil)
 		So(len(glist), ShouldEqual, nodesCount-1)
 	})
 
 	Convey("should return neighborhood size peers when neighborhood size is not 0", t, func() {
-		h.nucleus.dna.DHTConfig.NeighborhoodSize = 5
+		h.nucleus.dna.DHTConfig.RedundancyFactor = 5
 		glist, err = dht.getGossipers()
 		So(err, ShouldBeNil)
 		So(len(glist), ShouldEqual, 5)
@@ -185,7 +185,7 @@ func TestGossipData(t *testing.T) {
 		msg1, err = dht.GetIdxMessage(1)
 		So(err, ShouldBeNil)
 		So(msg1.Type, ShouldEqual, PUT_REQUEST)
-		So(msg1.Body.(PutReq).H.String(), ShouldEqual, h.nodeIDStr)
+		So(msg1.Body.(HoldReq).EntryHash.String(), ShouldEqual, h.nodeIDStr)
 	})
 
 	Convey("GetFingerprint should return the index of the message that made the change", t, func() {
@@ -204,7 +204,7 @@ func TestGossipData(t *testing.T) {
 	e := GobEntry{C: "124"}
 	_, hd, _ := h.NewEntry(now, "evenNumbers", &e)
 	hash := hd.EntryLink
-	m1 := h.node.NewMessage(PUT_REQUEST, PutReq{H: hash})
+	m1 := h.node.NewMessage(PUT_REQUEST, HoldReq{EntryHash: hash})
 
 	Convey("fingerprints for messages should not exist", t, func() {
 		f, _ := m1.Fingerprint()
@@ -220,7 +220,7 @@ func TestGossipData(t *testing.T) {
 
 	ee := GobEntry{C: fmt.Sprintf(`{"Links":[{"Base":"%s"},{"Link":"%s"},{"Tag":"4stars"}]}`, hash.String(), profileHash.String())}
 	_, le, _ := h.NewEntry(time.Now(), "rating", &ee)
-	lr := LinkReq{Base: hash, Links: le.EntryLink}
+	lr := HoldReq{RelatedHash: hash, EntryHash: le.EntryLink}
 
 	m2 := h.node.NewMessage(LINK_REQUEST, lr)
 	ActionReceiver(h, m2)
@@ -351,8 +351,9 @@ func TestGossipCycle(t *testing.T) {
 		So(len(h1.dht.gchan), ShouldEqual, 0)
 		So(len(h0.dht.gossipPuts), ShouldEqual, 0)
 
-		stop, err := handleGossipWith(h0.dht)
-		So(stop, ShouldBeFalse)
+		x, ok := <-h0.dht.gchan
+		So(ok, ShouldBeTrue)
+		err := handleGossipWith(h0.dht, x)
 		So(err, ShouldBeNil)
 		// we got receivers puts back and scheduled
 		So(len(h0.dht.gossipPuts), ShouldEqual, 2)
@@ -368,11 +369,11 @@ func TestGossipCycle(t *testing.T) {
 		log.color, log.f = log.setupColor("%{message}")
 
 		// if the code were rentrant the log would should the events in a different order
-		ShouldLog(log, "node0_starting gossipWith <peer.ID UfY4We>\nnode0_no new puts received\nnode0_finish gossipWith <peer.ID UfY4We>, err=<nil>\nnode0_starting gossipWith <peer.ID UfY4We>\nnode0_no new puts received\nnode0_finish gossipWith <peer.ID UfY4We>, err=<nil>\n", func() {
+		ShouldLog(log, func() {
 			go h0.dht.gossipWith(h1.nodeID)
 			h0.dht.gossipWith(h1.nodeID)
 			time.Sleep(time.Millisecond * 100)
-		})
+		}, "node0_starting gossipWith <peer.ID UfY4We>\nnode0_no new puts received\nnode0_finish gossipWith <peer.ID UfY4We>, err=<nil>\nnode0_starting gossipWith <peer.ID UfY4We>\nnode0_no new puts received\nnode0_finish gossipWith <peer.ID UfY4We>, err=<nil>\n")
 		log.color, log.f = log.setupColor(log.Format)
 	})
 }
@@ -388,13 +389,14 @@ func TestGossipErrorCases(t *testing.T) {
 	Convey("a rejected put should not break gossiping", t, func() {
 		// inject a bad put
 		hash, _ := NewHash("QmY8Mzg9F69e5P9AoQPYat655HEhc1TVGs11tmfNSzkqz2")
-		h1.dht.put(h1.node.NewMessage(PUT_REQUEST, PutReq{H: hash}), "evenNumbers", hash, h0.nodeID, []byte("bad data"), StatusLive)
+		h1.dht.Put(h1.node.NewMessage(PUT_REQUEST, HoldReq{EntryHash: hash}), "evenNumbers", hash, h0.nodeID, []byte("bad data"), StatusLive)
 		err := h0.dht.gossipWith(h1.nodeID)
 		So(err, ShouldBeNil)
 		So(len(h0.dht.gossipPuts), ShouldEqual, 3)
 		for i := 0; i < 3; i++ {
-			stop, err := handleGossipPut(h0.dht)
-			So(stop, ShouldBeFalse)
+			x, ok := <-h0.dht.gossipPuts
+			So(ok, ShouldBeTrue)
+			err := handleGossipPut(h0.dht, x)
 			So(err, ShouldBeNil)
 		}
 		err = h0.dht.gossipWith(h1.nodeID)

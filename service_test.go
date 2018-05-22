@@ -27,7 +27,7 @@ func TestInit(t *testing.T) {
 
 		Convey("it should return a service with default values", func() {
 			So(s.DefaultAgent.Identity(), ShouldEqual, AgentIdentity(agent))
-			So(fmt.Sprintf("%v", s.Settings), ShouldEqual, "{true true bootstrap.holochain.net:10000 false false}")
+			So(fmt.Sprintf("%v", s.Settings), ShouldEqual, "{true true bootstrap.holochain.net:10000 false true}")
 		})
 
 		p := filepath.Join(d, DefaultDirectoryName)
@@ -250,66 +250,6 @@ func TestCloneNoDB(t *testing.T) {
 	})
 }
 
-func TestCloneResolveDNA(t *testing.T) {
-	d, s, bridgeToH := SetupTestChain("bridgeToApp")
-	defer CleanupTestChain(bridgeToH, d)
-
-	DNAHash, err := DNAHashofUngenedChain(bridgeToH)
-	if err != nil {
-		panic(err)
-	}
-
-	devAppPath := filepath.Join(s.Path, "devApp")
-	_, err = s.MakeTestingApp(devAppPath, "json", InitializeDB, CloneWithNewUUID, nil)
-	if err != nil {
-		panic(err)
-	}
-
-	// set the bridgeTo value to the name of the app to resolve
-	var dnaFile DNAFile
-	dnafile := filepath.Join(devAppPath, ChainDNADir, DNAFileName+".json")
-	f, err := os.Open(dnafile)
-	if err != nil {
-		panic(err)
-	}
-	defer f.Close()
-	err = Decode(f, "json", &dnaFile)
-	if err != nil {
-		panic(err)
-	}
-	dnaFile.Zomes[0].BridgeTo = "bridgeToApp"
-	f2, err := os.Create(dnafile)
-	if err != nil {
-		panic(err)
-	}
-	defer f2.Close()
-	err = Encode(f2, "json", dnaFile)
-
-	agent, err := LoadAgent(s.Path)
-	if err != nil {
-		panic(err)
-	}
-
-	root := filepath.Join(s.Path, "test")
-	Convey("it should create a chain resolving the bridgeTo DNA Hash from when in dev mode", t, func() {
-		h, err := s.Clone(devAppPath, root, agent, CloneWithNewUUID, SkipInitializeDB)
-		So(err, ShouldBeError)
-
-		IsDevMode = true
-		h, err = s.Clone(devAppPath, root, agent, CloneWithNewUUID, SkipInitializeDB)
-		So(err, ShouldBeNil)
-		So(h.nucleus.dna.Zomes[0].BridgeTo.String(), ShouldEqual, "")
-
-		root = filepath.Join(s.Path, "test2")
-		DevDNAResolveMap = make(map[string]string)
-		DevDNAResolveMap["bridgeToApp"] = DNAHash.String()
-
-		h, err = s.Clone(devAppPath, root, agent, CloneWithNewUUID, SkipInitializeDB)
-		So(err, ShouldBeNil)
-		So(h.nucleus.dna.Zomes[0].BridgeTo.String(), ShouldEqual, DNAHash.String())
-	})
-}
-
 func TestMakeTestingApp(t *testing.T) {
 	d, s := setupTestService()
 	defer CleanupTestDir(d)
@@ -341,7 +281,7 @@ func TestMakeTestingApp(t *testing.T) {
 		So(lh.nodeID, ShouldEqual, h.nodeID)
 		So(lh.nodeIDStr, ShouldEqual, h.nodeIDStr)
 
-		So(lh.Config.Port, ShouldEqual, DefaultPort)
+		So(lh.Config.DHTPort, ShouldEqual, DefaultDHTPort)
 		So(h.Config.PeerModeDHTNode, ShouldEqual, s.Settings.DefaultPeerModeDHTNode)
 		So(h.Config.PeerModeAuthor, ShouldEqual, s.Settings.DefaultPeerModeAuthor)
 		So(h.Config.BootstrapServer, ShouldEqual, s.Settings.DefaultBootstrapServer)
@@ -362,6 +302,14 @@ func TestMakeTestingApp(t *testing.T) {
 			So(err.Error(), ShouldEqual, "holochain: "+root+" already exists")
 		})
 	})
+
+	Convey("generating a dev holochain in an absolute directory initdb should work", t, func() {
+		root := filepath.Join("/tmp", MakeTestDirName())
+		_, err := s.MakeTestingApp(root, "json", InitializeDB, CloneWithNewUUID, nil)
+		os.RemoveAll(root)
+		So(err, ShouldBeNil)
+	})
+
 }
 
 func TestSaveFromAppPackage(t *testing.T) {
@@ -434,7 +382,7 @@ func TestMakeConfig(t *testing.T) {
 	Convey("make config should produce default values", t, func() {
 		err := makeConfig(h, s)
 		So(err, ShouldBeNil)
-		So(h.Config.Port, ShouldEqual, DefaultPort)
+		So(h.Config.DHTPort, ShouldEqual, DefaultDHTPort)
 		So(h.Config.EnableMDNS, ShouldBeFalse)
 		So(h.Config.BootstrapServer, ShouldNotEqual, "")
 		So(h.Config.Loggers.App.Format, ShouldEqual, "%{color:cyan}%{message}")
@@ -442,14 +390,14 @@ func TestMakeConfig(t *testing.T) {
 	})
 
 	Convey("make config should produce default config from OS env overridden values", t, func() {
-		os.Setenv("HOLOCHAINCONFIG_PORT", "12345")
+		os.Setenv("HOLOCHAINCONFIG_DHTPORT", "12345")
 		os.Setenv("HOLOCHAINCONFIG_ENABLEMDNS", "true")
 		os.Setenv("HCLOG_PREFIX", "prefix:%{color:cyan}")
 		os.Setenv("HOLOCHAINCONFIG_BOOTSTRAP", "_")
 		err := makeConfig(h, s)
 		So(err, ShouldBeNil)
 
-		So(h.Config.Port, ShouldEqual, 12345)
+		So(h.Config.DHTPort, ShouldEqual, 12345)
 		So(h.Config.EnableMDNS, ShouldBeTrue)
 		So(h.Config.Loggers.App.Format, ShouldEqual, "%{color:cyan}%{message}")
 		So(h.Config.Loggers.App.Prefix, ShouldEqual, "prefix:")

@@ -6,7 +6,6 @@ package holochain
 
 import (
 	"errors"
-	. "github.com/metacurrency/holochain/hash"
 )
 
 // Zome struct encapsulates logically related code, from a "chromosome"
@@ -17,8 +16,9 @@ type Zome struct {
 	Entries      []EntryDef
 	RibosomeType string
 	Functions    []FunctionDef
-	BridgeFuncs  []string // functions in zome that can be bridged to by fromApp
-	BridgeTo     Hash     // dna Hash of toApp that this zome is a client of
+	BridgeFuncs  []string // functions in zome that can be bridged to by callerApp
+	//	BridgeCallee Hash     // dna Hash of provider App that this zome will call
+	Config map[string]interface{}
 }
 
 // GetEntryDef returns the entry def structure
@@ -38,7 +38,7 @@ func (z *Zome) GetEntryDef(entryName string) (e *EntryDef, err error) {
 func (z *Zome) GetPrivateEntryDefs() (privateDefs []EntryDef) {
 	privateDefs = make([]EntryDef, 0)
 	for _, def := range z.Entries {
-		if def.Sharing == "private" {
+		if def.Sharing == Private {
 			privateDefs = append(privateDefs, def)
 		}
 	}

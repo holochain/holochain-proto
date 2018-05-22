@@ -3,7 +3,7 @@ package holochain
 import (
 	"encoding/json"
 	"fmt"
-	. "github.com/metacurrency/holochain/hash"
+	. "github.com/holochain/holochain-proto/hash"
 	. "github.com/smartystreets/goconvey/convey"
 	"testing"
 )
@@ -21,10 +21,10 @@ func TestBridgeCall(t *testing.T) {
 
 	fakeFromApp, _ := NewHash("QmVGtdTZdTFaLsaj2RwdVG8jcjNNcp1DE914DKZ2kHmXHx")
 	Convey("it should call the bridgeGenesis function when bridging on the to side", t, func() {
-		ShouldLog(h.nucleus.alog, `bridge genesis to-- other side is:`+fakeFromApp.String()+` bridging data:app data`, func() {
+		ShouldLog(h.nucleus.alog, func() {
 			token, err = h.AddBridgeAsCallee(fakeFromApp, "app data")
 			So(err, ShouldBeNil)
-		})
+		}, `bridge genesis to-- other side is:`+fakeFromApp.String()+` bridging data:app data`)
 		c := Capability{Token: token, db: h.bridgeDB}
 		bridgeSpecStr, err := c.Validate(nil)
 		So(err, ShouldBeNil)
@@ -32,14 +32,20 @@ func TestBridgeCall(t *testing.T) {
 	})
 
 	fakeToApp, _ := NewHash("QmVGtdTZdTFaLsaj2RwdVG8jcjNNcp1DE914DKZ2kHmXHy")
+	url := "http://localhost:31415"
+	Convey("it should fail on an unknown bridging zome", t, func() {
+		err := h.AddBridgeAsCaller("fooZome", fakeToApp, token, url, "app data")
+		So(err.Error(), ShouldEqual, "error getting bridging zome: unknown zome: fooZome")
+	})
+
 	Convey("it should call the bridgeGenesis function when bridging on the from side", t, func() {
-		h.nucleus.dna.Zomes[0].BridgeTo = fakeToApp
-		h.nucleus.dna.Zomes[0].BridgeTo = fakeToApp
-		ShouldLog(h.nucleus.alog, `bridge genesis from-- other side is:`+fakeToApp.String()+` bridging data:app data`, func() {
+
+		bridgeZome := h.nucleus.dna.Zomes[0].Name
+		ShouldLog(h.nucleus.alog, func() {
 			url := "http://localhost:31415"
-			err := h.AddBridgeAsCaller(fakeToApp, token, url, "app data")
+			err := h.AddBridgeAsCaller(bridgeZome, fakeToApp, token, url, "app data")
 			So(err, ShouldBeNil)
-		})
+		}, `bridge genesis from-- other side is:`+fakeToApp.String()+` bridging data:app data`)
 	})
 
 	Convey("it should call the bridged function", t, func() {
@@ -90,8 +96,8 @@ func TestBridgeStore(t *testing.T) {
 	hash, _ := NewHash("QmVGtdTZdTFaLsaj2RwdVG8jcjNNcp1DE914DKZ2kHmXHw")
 	token := "some token"
 	url := "http://localhost:31415"
-	Convey("it should add a token to the bridged apps list", t, func() {
-		err := h.AddBridgeAsCaller(hash, token, url, "")
+	Convey("it should add ba token to the bridged apps list", t, func() {
+		err := h.AddBridgeAsCaller("jsSampleZome", hash, token, url, "")
 		So(err, ShouldBeNil)
 		t, u, err := h.GetBridgeToken(hash)
 		So(err, ShouldBeNil)
@@ -113,7 +119,7 @@ func TestBridgeGetBridges(t *testing.T) {
 	fakeToApp, _ := NewHash("QmVGtdTZdTFaLsaj2RwdVG8jcjNNcp1DE914DKZ2kHmXHw")
 	token := "some token"
 	url := "http://localhost:31415"
-	err := h.AddBridgeAsCaller(fakeToApp, token, url, "")
+	err := h.AddBridgeAsCaller("jsSampleZome", fakeToApp, token, url, "")
 	if err != nil {
 		panic(err)
 	}
@@ -127,9 +133,9 @@ func TestBridgeGetBridges(t *testing.T) {
 	Convey("it should return the bridged apps", t, func() {
 		bridges, err := h.GetBridges()
 		So(err, ShouldBeNil)
-		So(bridges[0].Side, ShouldEqual, BridgeFrom)
+		So(bridges[0].Side, ShouldEqual, BridgeCaller)
 		So(bridges[0].ToApp.String(), ShouldEqual, "QmVGtdTZdTFaLsaj2RwdVG8jcjNNcp1DE914DKZ2kHmXHw")
-		So(bridges[1].Side, ShouldEqual, BridgeTo)
+		So(bridges[1].Side, ShouldEqual, BridgeCallee)
 		So(bridges[1].Token, ShouldNotEqual, 0)
 	})
 }

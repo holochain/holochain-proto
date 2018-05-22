@@ -8,9 +8,9 @@ package holochain
 
 import (
 	"errors"
+	. "github.com/holochain/holochain-proto/hash"
 	ic "github.com/libp2p/go-libp2p-crypto"
 	peer "github.com/libp2p/go-libp2p-peer"
-	. "github.com/metacurrency/holochain/hash"
 )
 
 const (
@@ -120,7 +120,7 @@ func (w *SelfRevocationWarrant) Verify(h *Holochain) (err error) {
 	}
 
 	var data []byte
-	data, _, _, _, err = h.dht.get(parties[0], StatusDefault, GetMaskDefault)
+	data, _, _, _, err = h.dht.Get(parties[0], StatusDefault, GetMaskDefault)
 	if err != ErrHashModified {
 		err = errors.New("expected old key to be modified on DHT")
 		return
@@ -146,11 +146,15 @@ func (w *SelfRevocationWarrant) Property(key string) (value interface{}, err err
 }
 
 func (w *SelfRevocationWarrant) Encode() (data []byte, err error) {
-	data, err = w.Revocation.Marshal()
+	var rev string
+	rev, err = w.Revocation.Marshal()
+	if err == nil {
+		data = []byte(rev)
+	}
 	return
 }
 
 func (w *SelfRevocationWarrant) Decode(data []byte) (err error) {
-	err = w.Revocation.Unmarshal(data)
+	err = w.Revocation.Unmarshal(string(data))
 	return
 }

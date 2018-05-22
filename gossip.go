@@ -1,4 +1,4 @@
-// Copyright (C) 2013-2017, The MetaCurrency Project (Eric Harris-Braun, Arthur Brock, et. al.)
+// Copyright (C) 2013-2018, The MetaCurrency Project (Eric Harris-Braun, Arthur Brock, et. al.)
 // Use of this source code is governed by GPLv3 found in the LICENSE file
 //----------------------------------------------------------------------------------------
 
@@ -9,8 +9,8 @@ package holochain
 import (
 	"errors"
 	"fmt"
+	. "github.com/holochain/holochain-proto/hash"
 	peer "github.com/libp2p/go-libp2p-peer"
-	. "github.com/metacurrency/holochain/hash"
 	"github.com/tidwall/buntdb"
 	"math/rand"
 	"sort"
@@ -57,106 +57,6 @@ var ErrDHTErrNoGossipersAvailable error = errors.New("no gossipers available")
 var ErrDHTExpectedGossipReqInBody error = errors.New("expected gossip request")
 var ErrNoSuchIdx error = errors.New("no such change index")
 
-// incIdx adds a new index record to dht for gossiping later
-func incIdx(tx *buntdb.Tx, m *Message) (index string, err error) {
-	// if message is nil we can't record this for gossiping
-	// this should only be the case for the DNA
-	if m == nil {
-		return
-	}
-
-	var idx int
-	idx, err = getIntVal("_idx", tx)
-	if err != nil {
-		return
-	}
-	idx++
-	index = fmt.Sprintf("%d", idx)
-	_, _, err = tx.Set("_idx", index, nil)
-	if err != nil {
-		return
-	}
-
-	var msg string
-
-	if m != nil {
-		var b []byte
-
-		b, err = ByteEncoder(m)
-		if err != nil {
-			return
-		}
-		msg = string(b)
-
-		var decodedMessage interface{}
-		err = ByteDecoder(b, decodedMessage)
-	}
-	_, _, err = tx.Set("idx:"+index, msg, nil)
-	if err != nil {
-		return
-	}
-
-	f, err := m.Fingerprint()
-	if err != nil {
-		return
-	}
-	_, _, err = tx.Set("f:"+f.String(), index, nil)
-	if err != nil {
-		return
-	}
-
-	return
-}
-
-// getIntVal returns an integer value at a given key, and assumes the value 0 if the key doesn't exist
-func getIntVal(key string, tx *buntdb.Tx) (idx int, err error) {
-	var val string
-	val, err = tx.Get(key)
-	if err == buntdb.ErrNotFound {
-		err = nil
-	} else if err != nil {
-		return
-	} else {
-		idx, err = strconv.Atoi(val)
-		if err != nil {
-			return
-		}
-	}
-	return
-}
-
-// GetIdx returns the current put index for gossip
-func (dht *DHT) GetIdx() (idx int, err error) {
-	err = dht.db.View(func(tx *buntdb.Tx) error {
-		var e error
-		idx, e = getIntVal("_idx", tx)
-		if e != nil {
-			return e
-		}
-		return nil
-	})
-	return
-}
-
-// GetIdxMessage returns the messages that causes the change at a given index
-func (dht *DHT) GetIdxMessage(idx int) (msg Message, err error) {
-	err = dht.db.View(func(tx *buntdb.Tx) error {
-		msgStr, e := tx.Get(fmt.Sprintf("idx:%d", idx))
-		if e == buntdb.ErrNotFound {
-			return ErrNoSuchIdx
-		}
-		if e != nil {
-			return e
-		}
-		e = ByteDecoder([]byte(msgStr), &msg)
-		if err != nil {
-			return e
-		}
-		return nil
-	})
-	return
-}
-
 //HaveFingerprint returns true if we have seen the given fingerprint
 func (dht *DHT) HaveFingerprint(f Hash) (result bool, err error) {
 	index, err := dht.GetFingerprint(f)
@@ -169,7 +69,8 @@ func (dht *DHT) HaveFingerprint(f Hash) (result bool, err error) {
 // GetFingerprint returns the index that of the message that made a change or -1 if we don't have it
 func (dht *DHT) GetFingerprint(f Hash) (index int, err error) {
 	index = -1
-	err = dht.db.View(func(tx *buntdb.Tx) error {
+	db := dht.ht.(*BuntHT).db
+	err = db.View(func(tx *buntdb.Tx) error {
 		idxStr, e := tx.Get("f:" + f.String())
 		if e == buntdb.ErrNotFound {
 			return nil
@@ -189,7 +90,8 @@ func (dht *DHT) GetFingerprint(f Hash) (index int, err error) {
 // GetPuts returns a list of puts after the given index
 func (dht *DHT) GetPuts(since int) (puts []Put, err error) {
 	puts = make([]Put, 0)
-	err = dht.db.View(func(tx *buntdb.Tx) error {
+	db := dht.ht.(*BuntHT).db
+	err = db.View(func(tx *buntdb.Tx) error {
 		err = tx.AscendGreaterOrEqual("idx", string(since), func(key, value string) bool {
 			x := strings.Split(key, ":")
 			idx, _ := strconv.Atoi(x[1])
@@ -214,7 +116,8 @@ func (dht *DHT) GetPuts(since int) (puts []Put, err error) {
 // GetGossiper loads returns last known index of the gossiper, and adds them if not didn't exist before
 func (dht *DHT) GetGossiper(id peer.ID) (idx int, err error) {
 	key := "peer:" + peer.IDB58Encode(id)
-	err = dht.db.View(func(tx *buntdb.Tx) error {
+	db := dht.ht.(*BuntHT).db
+	err = db.View(func(tx *buntdb.Tx) error {
 		var e error
 		idx, e = getIntVal(key, tx)
 		if e != nil {
@@ -227,8 +130,8 @@ func (dht *DHT) GetGossiper(id peer.ID) (idx int, err error) {
 
 func (dht *DHT) getGossipers() (glist []peer.ID, err error) {
 	glist = make([]peer.ID, 0)
-
-	err = dht.db.View(func(tx *buntdb.Tx) error {
+	db := dht.ht.(*BuntHT).db
+	err = db.View(func(tx *buntdb.Tx) error {
 		err = tx.Ascend("peer", func(key, value string) bool {
 			x := strings.Split(key, ":")
 			id, e := peer.IDB58Decode(x[1])
@@ -241,7 +144,7 @@ func (dht *DHT) getGossipers() (glist []peer.ID, err error) {
 		})
 		return nil
 	})
-	ns := dht.config.NeighborhoodSize
+	ns := dht.config.RedundancyFactor
 	if ns > 1 {
 		size := len(glist)
 		hlist := make([]Hash, size)
@@ -288,7 +191,8 @@ func (dht *DHT) AddGossiper(id peer.ID) (err error) {
 
 // internal update gossiper function, assumes all checks have been made
 func (dht *DHT) updateGossiper(id peer.ID, newIdx int) (err error) {
-	err = dht.db.Update(func(tx *buntdb.Tx) error {
+	db := dht.ht.(*BuntHT).db
+	err = db.Update(func(tx *buntdb.Tx) error {
 		key := "peer:" + peer.IDB58Encode(id)
 		idx, e := getIntVal(key, tx)
 		if e != nil {
@@ -322,7 +226,8 @@ func (dht *DHT) UpdateGossiper(id peer.ID, newIdx int) (err error) {
 // DeleteGossiper removes a gossiper from the database
 func (dht *DHT) DeleteGossiper(id peer.ID) (err error) {
 	dht.glog.Logf("deleting %v", id)
-	err = dht.db.Update(func(tx *buntdb.Tx) error {
+	db := dht.ht.(*BuntHT).db
+	err = db.Update(func(tx *buntdb.Tx) error {
 		key := "peer:" + peer.IDB58Encode(id)
 		_, e := tx.Delete(key)
 		return e
@@ -464,12 +369,8 @@ func (dht *DHT) gossipPut(p Put) (err error) {
 	return
 }
 
-func handleGossipPut(dht *DHT) (stop bool, err error) {
-	p, ok := <-dht.gossipPuts
-	if !ok {
-		stop = true
-		return
-	}
+func handleGossipPut(dht *DHT, x interface{}) (err error) {
+	p := x.(Put)
 	err = dht.gossipPut(p)
 	return
 }
@@ -488,48 +389,49 @@ func (dht *DHT) gossip() (err error) {
 
 // GossipTask runs a gossip and logs any errors
 func GossipTask(h *Holochain) {
-	if h.dht != nil {
-		if h.dht.gchan != nil {
-			err := h.dht.gossip()
-			if err != nil {
-				h.dht.glog.Logf("error: %v", err)
-			}
+	if h.dht != nil && h.dht.gchan != nil {
+		err := h.dht.gossip()
+		if err != nil {
+			h.dht.glog.Logf("error: %v", err)
 		}
 	}
+
 }
 
-func handleGossipWith(dht *DHT) (stop bool, err error) {
-	g, ok := <-dht.gchan
-	if !ok {
-		stop = true
-		return
-	}
+func handleGossipWith(dht *DHT, x interface{}) (err error) {
+	g := x.(gossipWithReq)
 	err = dht.gossipWith(g.id)
 	return
 }
 
-func (dht *DHT) handleTillDone(errtext string, fn func(*DHT) (bool, error)) (err error) {
+func (dht *DHT) handleTillDone(errtext string, channel Channel, handlerFn func(*DHT, interface{}) error) (err error) {
 	var done bool
 	for !done {
-		dht.glog.Logf("HandleGossip%s: waiting for request", errtext)
-		done, err = fn(dht)
-		if err != nil {
-			dht.glog.Logf("HandleGossip%s: got err: %v", errtext, err)
+		dht.glog.Logf("%s: waiting for request", errtext)
+		x, ok := <-channel
+		if !ok {
+			done = true
+			break
+		} else {
+			err = handlerFn(dht, x)
+			if err != nil {
+				dht.glog.Logf("%s: got err: %v", errtext, err)
+			}
 		}
 	}
-	dht.glog.Logf("HandleGossip%s: channel closed, stopping", errtext)
+	dht.glog.Logf("%s: channel closed, stopping", errtext)
 	return nil
 }
 
 // HandleGossipWiths waits on a channel for gossipWith requests
 func (dht *DHT) HandleGossipWiths() (err error) {
-	err = dht.handleTillDone("Withs", handleGossipWith)
+	err = dht.handleTillDone("HandleGossipWiths", dht.gchan, handleGossipWith)
 	return
 }
 
 // HandleGossipPuts waits on a channel for gossip changes
 func (dht *DHT) HandleGossipPuts() (err error) {
-	err = dht.handleTillDone("Puts", handleGossipPut)
+	err = dht.handleTillDone("HandleGossipPuts", dht.gossipPuts, handleGossipPut)
 	return nil
 }
 
@@ -537,7 +439,8 @@ func (dht *DHT) HandleGossipPuts() (err error) {
 func (dht *DHT) getList(listType PeerListType) (result PeerList, err error) {
 	result.Type = listType
 	result.Records = make([]PeerRecord, 0)
-	err = dht.db.View(func(tx *buntdb.Tx) error {
+	db := dht.ht.(*BuntHT).db
+	err = db.View(func(tx *buntdb.Tx) error {
 		err = tx.Ascend("list", func(key, value string) bool {
 			x := strings.Split(key, ":")
 
@@ -559,7 +462,8 @@ func (dht *DHT) getList(listType PeerListType) (result PeerList, err error) {
 // addToList adds the peers to a list
 func (dht *DHT) addToList(m *Message, list PeerList) (err error) {
 	dht.dlog.Logf("addToList %s=>%v", list.Type, list.Records)
-	err = dht.db.Update(func(tx *buntdb.Tx) error {
+	db := dht.ht.(*BuntHT).db
+	err = db.Update(func(tx *buntdb.Tx) error {
 		_, err = incIdx(tx, m)
 		if err != nil {
 			return err

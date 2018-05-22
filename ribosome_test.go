@@ -31,3 +31,18 @@ func TestValidExposure(t *testing.T) {
 		So(fn.ValidExposure(ZOME_EXPOSURE), ShouldBeTrue)
 	})
 }
+
+func TestValidationFailedErr(t *testing.T) {
+	Convey("it should build the default validation failed err", t, func() {
+		So(ValidationFailed(), ShouldEqual, ValidationFailedErr)
+	})
+	Convey("it should build the custom validation failed err", t, func() {
+		So(ValidationFailed("just because").Error(), ShouldEqual, ValidationFailedErrMsg+": just because")
+	})
+	Convey("it should test errors", t, func() {
+		So(IsValidationFailedErr(ValidationFailed("just because")), ShouldBeTrue)
+		So(IsValidationFailedErr(ValidationFailed()), ShouldBeTrue)
+		So(IsValidationFailedErr(ErrHashNotFound), ShouldBeFalse)
+	})
+
+}

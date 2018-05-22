@@ -1,4 +1,4 @@
-// Copyright (C) 2013-2017, The MetaCurrency Project (Eric Harris-Braun, Arthur Brock, et. al.)
+// Copyright (C) 2013-2018, The MetaCurrency Project (Eric Harris-Braun, Arthur Brock, et. al.)
 // Use of this source code is governed by GPLv3 found in the LICENSE file
 //----------------------------------------------------------------------------------------
 // Ribosome provides an interface for an execution environment interface for chains and their entries
@@ -9,7 +9,7 @@ package holochain
 import (
 	"errors"
 	"fmt"
-	. "github.com/metacurrency/holochain/hash"
+	. "github.com/holochain/holochain-proto/hash"
 	"sort"
 	"strings"
 )
@@ -39,13 +39,33 @@ const (
 	AGENT_ID_PROPERTY   = "_agent_id"
 	AGENT_NAME_PROPERTY = "_agent_name"
 
-	BridgeFrom    = 0
-	BridgeTo      = 1
-	BridgeFromStr = "0"
-	BridgeToStr   = "1"
+	BridgeCaller    = 0
+	BridgeCallee    = 1
+	BridgeCallerStr = "0"
+	BridgeCalleeStr = "1"
+
+	BundleCancelReasonUserCancel = "userCancel"
+	BundleCancelReasonTimeout    = "timeout"
+
+	BundleCancelResponseOK     = ""
+	BundleCancelResponseCommit = "commit"
+
+	ValidationFailedErrMsg = "Validation Failed"
 )
 
-var ValidationFailedErr = errors.New("Validation Failed")
+var ValidationFailedErr = errors.New(ValidationFailedErrMsg)
+
+// ValidationFailed creates a validation failed error message
+func ValidationFailed(msgs ...string) error {
+	if len(msgs) == 0 {
+		return ValidationFailedErr
+	}
+	return errors.New(ValidationFailedErrMsg + ": " + strings.Join(msgs, `, `))
+}
+
+func IsValidationFailedErr(err error) bool {
+	return strings.HasPrefix(err.Error(), ValidationFailedErrMsg)
+}
 
 // FunctionDef holds the name and calling type of an DNA exposed function
 type FunctionDef struct {
@@ -73,6 +93,7 @@ type Ribosome interface {
 	Call(fn *FunctionDef, params interface{}) (interface{}, error)
 	Run(code string) (result interface{}, err error)
 	RunAsyncSendResponse(response AppMsg, callback string, callbackID string) (result interface{}, err error)
+	BundleCanceled(reason string) (response string, err error)
 }
 
 var ribosomeFactories = make(map[string]RibosomeFactory)

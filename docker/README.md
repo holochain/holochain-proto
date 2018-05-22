@@ -10,7 +10,7 @@ TODO: This file and the hc-dev-tool scripts are out of data, and need to be upda
 	- [Development](#development)
 	- [Packaging Holochain Apps for End-Users](#packaging-holochain-apps-for-end-users)
 - [Images](#images)
-	- [metacurrency/holochain](#metacurrencyholochain)
+	- [Holochain/holochain-proto](#metacurrencyholochain)
 	- [hc-dev-tools](#hc-dev-tools)
 
 <!-- /TOC -->
@@ -26,19 +26,19 @@ For this use-case, one of the [hc-dev-tools](#hc-dev-tools) images should be bui
 ### Packaging Holochain Apps for End-Users
 Docker can also be used for distributing a Holochain application as an image.
 
-For this use-case one of the [metacurrency/holochain](#metacurrencyholochain) images should be used as the base of a custom image for your project.
+For this use-case one of the [Holochain/holochain-proto](#metacurrencyholochain) images should be used as the base of a custom image for your project.
 
 ## Images
 This is a list of Docker images [published by holochain](https://hub.docker.com/u/metacurrency/) as well as instructions on how to use them.
 
-### metacurrency/holochain
+### Holochain/holochain-proto
 These images are based on the official [`golang`](https://hub.docker.com/_/golang/) with the addition of installing the `hc` command.
 
 In order to use these images place their tag in the `FROM` statement of your Dockerfile.
 
 Example of an image which distributes a holochain app:
 ```Dockerfile
-FROM metacurrency/holochain
+FROM Holochain/holochain-proto
 
 RUN hcadmin init address@example.org
 
@@ -58,6 +58,6 @@ CMD ["hc", "web", "MYAPPNAMEHERE"]
 ### hc-dev-tools
 These images are basically the official `golang` images except with the `hc` command and a few other tools installed.
 
-In order to build the latest version of this image, run the following commands from the root of the [Holochain](https://github.com/metacurrency/holochain) repository:
+In order to build the latest version of this image, run the following commands from the root of the [Holochain](https://github.com/holochain/holochain-proto) repository:
 * Build it using the `docker/build`
 * Run it using the `docker/run`

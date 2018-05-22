@@ -1,11 +1,10 @@
 # Holochain
 
-[![Code Status](https://img.shields.io/badge/Code-Alpha-yellow.svg)](https://github.com/metacurrency/holochain/milestones?direction=asc&sort=completeness&state=all)
-[![Travis](https://img.shields.io/travis/metacurrency/holochain/master.svg)](https://travis-ci.org/metacurrency/holochain/branches)
-[![Codecov](https://img.shields.io/codecov/c/github/metacurrency/holochain.svg)](https://codecov.io/gh/metacurrency/holochain/branch/master)
-[![Go Report Card](https://goreportcard.com/badge/github.com/metacurrency/holochain)](https://goreportcard.com/report/github.com/metacurrency/holochain)
-[![Gitter](https://badges.gitter.im/metacurrency/holochain.svg)](https://gitter.im/metacurrency/holochain?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=body_badge)
-[![In Progress](https://img.shields.io/waffle/label/metacurrency/holochain/in%20progress.svg)](http://waffle.io/metacurrency/holochain)
+[![Code Status](https://img.shields.io/badge/Code-Alpha-yellow.svg)](https://github.com/holochain/holochain-proto/milestones?direction=asc&sort=completeness&state=all)
+[![Travis](https://img.shields.io/travis/holochain/holochain-proto/master.svg)](https://travis-ci.org/holochain/holochain-proto/branches)
+[![Codecov](https://img.shields.io/codecov/c/github/holochain/holochain-proto.svg)](https://codecov.io/gh/holochain/holochain-proto/branch/master)
+[![Go Report Card](https://goreportcard.com/badge/github.com/holochain/holochain-proto)](https://goreportcard.com/report/github.com/holochain/holochain-proto)
+[![In Progress](https://img.shields.io/waffle/label/holochain/holochain-proto/in%20progress.svg)](http://waffle.io/holochain/holochain-proto)
 [![License: GPL v3](https://img.shields.io/badge/License-GPL%20v3-blue.svg)](http://www.gnu.org/licenses/gpl-3.0)
 [![Twitter Follow](https://img.shields.io/twitter/follow/holochain.svg?style=social&label=Follow)](https://twitter.com/holochain)
 
@@ -13,10 +12,10 @@
 
 In other words, a holochain functions very much **like a blockchain without bottlenecks** when it comes to enforcing validation rules, but is designed to  be fully distributed with each node only needing to hold a small portion of the data instead of everything needing a full copy of a global ledger. This makes it feasible to run blockchain-like applications on devices as lightweight as mobile phones.
 
-**[Code Status:](https://github.com/metacurrency/holochain/milestones?direction=asc&sort=completeness&state=all)** Alpha. Not for production use. The code has not yet undergone a security audit. We expect to destructively restructure code APIs and data chains until Beta. Proof-of-concept was unveiled at our first hackathon (March 2017). Alpha 0 was released (October 2017).
+**[Code Status:](https://github.com/holochain/holochain-proto/milestones?direction=asc&sort=completeness&state=all)** Alpha. Not for production use. The code has not yet undergone a security audit. We expect to destructively restructure code APIs and data chains until Beta. Proof-of-concept was unveiled at our first hackathon (March 2017). Alpha 0 was released (October 2017).
 <br/>
 
-| Holochain Links: | [FAQ](https://github.com/metacurrency/holochain/wiki/FAQ) | [Developer Wiki](https://github.com/metacurrency/holochain/wiki) | [White Paper](https://github.com/metacurrency/holochain/blob/whitepaper/holochain.pdf) | [GoDocs](https://godoc.org/github.com/metacurrency/holochain) |
+| Holochain Links: | [FAQ](https://github.com/holochain/holochain-proto/wiki/FAQ) | [Developer Wiki](https://developer.holochain.org) | [White Paper](https://github.com/holochain/holochain-proto/blob/whitepaper/holochain.pdf) | [GoDocs](https://godoc.org/github.com/holochain/holochain-proto) |
 |---|---|---|---|---|
 
 **Table of Contents**
@@ -78,8 +77,8 @@ Which you choose depends on your preference and your purpose.  If you intend to 
 4. Install the command line tool suite with:
 
 ```bash
-$ go get -d -v github.com/metacurrency/holochain
-$ cd $GOPATH/src/github.com/metacurrency/holochain
+$ go get -d -v github.com/holochain/holochain-proto
+$ cd $GOPATH/src/github.com/holochain/holochain-proto
 $ make
 ```
 
@@ -104,42 +103,34 @@ Next, in your Control Panel, select *System>Advanced system settings>Environment
     - `C:\Program Files (x86)\GnuWin32\bin` (Or wherever you installed GnuWin32 make to+`\bin`).
 
 ### Docker Based Install
-Using docker, you don't have to install Go first. Our docker scripts manage installation of Go, holochain dependencies and holochain. The docker installation can run alongside Local ("Go") installation of holochain, sharing config directories.  See [docker usage](https://github.com/metacurrency/holochain/wiki/Docker-Usage) on our wiki for more on how this works.
+Using docker, you don't have to install Go first. Our docker scripts manage installation of Go, holochain dependencies and holochain. The docker installation can run alongside Local ("Go") installation of holochain, sharing config directories.  See [docker usage](https://github.com/holochain/holochain-proto/wiki/Docker-Usage) on our wiki for more on how this works.
 
 1. Install the latest version of Docker on your machine
     1. [Docker Installation](https://docs.docker.com/engine/installation/). The Community edition; stable is sufficient.
     2. See [Docker Getting Started](https://docs.docker.com/engine/getstarted/step_one/) for help.
     3. It is recommended to add your user to the `docker` group as in: [Post Installation Steps](https://docs.docker.com/engine/installation/linux/linux-postinstall/), rather than use `sudo` before all script commands. Holochain Apps cannot exploit the kinds of security concerns mentioned in the Post Installation Steps document.
 &nbsp;
-2. Confirm that docker installation and permissions are working by running:
-```bash
-$ docker info
-```
+1. Confirm that docker installation and permissions are working by running:
+	```bash
+		$ docker info
+	```
 
-3. Get our holochain repository from github:
-```bash
-$ git clone https://github.com/metacurrency/holochain.git holochain
-$ cd holochain
-```
-4. Build the holochain core with all dependencies
-```bash
-$ docker/build
-```
-  * the first time build is run on a machine, it will download Alpine unix, and install all holochain dependencies.
-  * During development cycles, docker/build will just compile changes made to the holochain go code, and run tests
-
-5. To run holochain in your new environment, suitable to continue the walkthrough below in [usage](#usage)
-```bash
-$ docker/run
-```
-6. This will put you into an new command shell that may behave differently than what you're used to. To exit this holochain (Alpine) shell, press `Ctrl-D` or type `exit`
+1. Pull our holochain image from docker hub:
+	```bash
+		$ docker pull holochain/holochain-proto:develop
+	```
+1. To run holochain in your new environment, suitable to continue the walkthrough below in [usage](#usage)
+	```bash
+		$ docker run --rm -it --name clutter -p 3141:3141 holochain/holochain-proto:develop
+	```
+1. This will put you into an new command shell that may behave differently than what you're used to. To exit this holochain (Alpine) shell, press `Ctrl-D` or type `exit`
 
 ## Usage
 These instructions are for using the holochain command line tool suite: `hcadmin`, `hcdev` and `hcd`.  They should work equally well for Go based or docker based installation.
 
 (Note that since Holochain is intended to be used behind distributed applications, end users should not have to do much through the command or may not have it installed at all, as the application will probably have wrapped up the holochain library internally.)
 
-Each of the tools includes a help command, e.g., run `hcadmin help` or for sub-commands run `hcadmin <COMMAND> help`. For more detailed information, see [the wiki page](https://github.com/metacurrency/holochain/wiki/command-line-tools)
+Each of the tools includes a help command, e.g., run `hcadmin help` or for sub-commands run `hcadmin <COMMAND> help`. For more detailed information, see [the wiki page](https://developer.holochain.org/Command_Line_Tools)
 
 The tool suite include these commands:
 
@@ -154,7 +145,7 @@ The instructions below walk you through the basic steps necessary to run a holoc
 #### Initializing the Holochain environment
 
 ```bash
-$ hcadmin init 'your@emailaddress.here'
+	$ hcadmin init 'your@emailaddress.here'
 ```
 This command creates a `~/.holochain` directory for storing all chain data, along with initial public/private key pairs based on the identity string provided as the second argument.
 
@@ -177,19 +168,19 @@ $ hcd <CHAIN_NAME> [PORT]
 
 The `hcdev` tool allows you to:
 
-1. generate new holochain application source files by cloning from an existing application, from the a [package file](https://github.com/metacurrency/hc-scaffold), or a simple empty template.
+1. generate new holochain application source files by cloning from an existing application, from a [package file](https://metacurrency.github.io/hc-scaffold), or a simple empty template.
 2. run stand-alone or multi-node scenario tests
 3. run a holochain and serve it's UI for testing purposes
 4. dump out chain and dht data for inspection
 
-Please see the wiki for more [detailed documentation](https://github.com/metacurrency/holochain/wiki/hcdev-Command).
+Please see the docs for more [detailed documentation](https://developer.holochain.org/Command_Line_Tools).
 
 Note that the `hcdev` command creates a separate ~/.holochaindev directory for serving and managing chains, so your dev work won't interfere with any running holochain apps you may be using.
 
 #### Test-driven Application Development
 We have designed Holochain around test-driven development, so the DNA should contain tests to confirm that the rest of the DNA is functional.  Our testing harness includes two types of testing, stand-alone and multi-instance scenarios.  Stand-alone tests allow you to tests the functions you create in your application.  However, testing a distributed application requires being able to spin up many instances of it and have them interact. Our docker cluster testing harness automates that process, and enables app developers to specify scenarios and roles and test instructions to run on multiple docker containers.
 
-Please see the [App-Testing](https://github.com/metacurrency/holochain/wiki/App-Testing) documentation for details.
+Please see the [App Testing](https://developer.holochain.org/Test_Driven_Development) documentation for details.
 
 
 #### File Locations
@@ -204,41 +195,74 @@ You can use the form: `hcadmin -path=/your/path/here` but you must use the absol
 All the commands take a `--debug` flag which will turn on a number of different kinds of debugging. For running chains, you can also control exactly which of these logging types you wish to see in the chain's config.json file. You can also set the DEBUG environment variable to 0 or 1 to temporarily override your settings to turn everything on or off.
 
 ## Architecture Overview and Documentation
-Architecture information and application developer documentation is in our [Holochain Wiki](https://github.com/metacurrency/holochain/wiki/).
+Architecture information and application developer documentation is in our [developer.holochain.org](https://developer.holochain.org).
 
-You can also look through auto-generated [reference API on GoDocs](https://godoc.org/github.com/metacurrency/holochain)
+You can also look through auto-generated [reference API on GoDocs](https://godoc.org/github.com/holochain/holochain-proto)
 
 ## Holochain Core Development
-We accept Pull Requests and welcome your participation.
+We accept Pull Requests and welcome your participation. Please make sure to
+include the issue number your branch names and use descriptive commit messages.
 
-Some helpful links: [![In Progress](https://img.shields.io/waffle/label/metacurrency/holochain/in%20progress.svg)](http://waffle.io/metacurrency/holochain)
-* Come [chat with us on gitter](https://gitter.im/metacurrency/holochain)
-* View our [Kanban on Waffle](https://waffle.io/metacurrency/holochain).
-* View our  [Milestone](https://github.com/metacurrency/holochain/milestones?direction=asc&sort=due_date&state=all) progress.
+[![In Progress](https://img.shields.io/waffle/label/holochain/holochain-proto/in%20progress.svg)](http://waffle.io/holochain/holochain-proto)
 
-If you'd like to get involved you can:
-* Contact us on [Gitter](https://gitter.im/metacurrency/holochain) to set up a **pair coding session** with one of our developers to learn the lay of the land.
-* **join our dev documentation calls** twice weekly on Tuesdays and Fridays.
+Some helpful links:
+
+* View our [Kanban on Waffle](https://waffle.io/holochain/holochain-proto).
+* View our current [Milestones](https://github.com/metacurrency/holochain/milestones?direction=asc&sort=due_date&state=all).
+* Chat with us on our [Chat Server](https://chat.holochain.org) or [Gitter](https://gitter.im/metacurrency/holochain)
 
 Current Throughput graph:
 
-[![Throughput Graph](http://graphs.waffle.io/metacurrency/holochain/throughput.svg)](https://waffle.io/metacurrency/holochain/metrics)
+[![Throughput Graph](http://graphs.waffle.io/holochain/holochain-proto/throughput.svg)](https://waffle.io/holochain/holochain-proto/metrics)
 
 ### Contribute
-Contributors to this project are expected to follow our [development protocols & practices](https://github.com/metacurrency/holochain/wiki/Development-Protocols).
+Contributors to this project are expected to follow our [development protocols & practices](https://github.com/holochain/holochain-proto/wiki/Development-Protocols).
+
+### Getting started
+Once you have followed the basic "getting started" guide above you will have the
+CLI tools installed locally.
+
+All the commands (`hcadmin`, `hcd`, `hcdev`, etc.) are built from the same repo:
+
+```bash
+$ cd $GOPATH/src/github.com/holochain/holochain-proto
+```
+
+Go will throw errors complaining about not being on the `$GOPATH` if you try to
+run `make` from a separate copy of the `holochain-proto` repository. If you want
+to contribute to Holochain core you must work in the repository created by Go.
+
+The `Makefile` contains all the build commands for Holochain. If you make an
+update to a command you will need to rebuild it before the changes take effect
+at the command line.
+
+E.g. After making an update to `cmd/hcdev/hcdev.go` run `$ make hcdev` then run
+`$ hcdev` as normal.
 
 ### Dependencies
-This project depends on various parts of [libp2p](https://github.com/libp2p/go-libp2p), which uses the [gx](https://github.com/whyrusleeping/gx) package manager. All of which will be automatically installed by make by following the [setup instructions](#installation) above.
+This project depends on various parts of [libp2p](https://github.com/libp2p/go-libp2p), which uses the [gx](https://github.com/whyrusleeping/gx) package manager. All of
+which will be automatically installed by make by following the [setup instructions](#installation) above.
+
+The package manager rewrites files that are tracked by git to configure imports.
+Be careful not to commit the generated imports to git!
+
+`make work` adds the imports to the repository and `make pub` reverts them.
+
+Every `make` command should automatically add and remove imports for you. If a
+`make` command is leaving mess behind in the repo, please open a bug report.
+
+If you want to use `go` commands directly (e.g. `go test`) then you need to run
+`make work` manually first and remember to `make pub` before committing any
+changes.
 
 ### Tests
 To compile and run all the tests:
 ```bash
-$ cd $GOPATH/github.com/metacurrency/holochain
+$ cd $GOPATH/src/github.com/holochain/holochain-proto
 $ make test
 ```
-If you want to use `go test` instead of `make test`, you'll need to do a couple extra things because of this project's dependency on `gx`:
-* Before running `go test` you need to run `make work` to configure the imports properly.
-* If you do this, before commiting you must also run `make pub` to revert the changes it makes.
+
+`go test` can be used instead of `make test`, but only after `make work`.
 
 The docker setup runs tests automatically during builds.
 

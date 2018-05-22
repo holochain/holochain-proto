@@ -7,7 +7,7 @@ package holochain
 import (
 	"fmt"
 	"github.com/google/uuid"
-	. "github.com/metacurrency/holochain/hash"
+	. "github.com/holochain/holochain-proto/hash"
 )
 
 type DNA struct {
@@ -91,16 +91,45 @@ func ActionReceiver(h *Holochain, msg *Message) (response interface{}, err error
 	return actionReceiver(h, msg, MaxRetries)
 }
 
+func isRelatedHoldMessage(msg *Message) bool {
+	return msg.Type == MOD_REQUEST || msg.Type == DEL_REQUEST || msg.Type == LINK_REQUEST
+}
+
 func actionReceiver(h *Holochain, msg *Message, retries int) (response interface{}, err error) {
 	dht := h.dht
+	// to protect against crashes from background routines after close
+	if dht == nil {
+		return
+	}
 	var a Action
 	a, err = MakeActionFromMessage(msg)
 	if err == nil {
 		dht.dlog.Logf("ActionReceiver got %s: %v", a.Name(), msg)
+
+		// If this is a Del/Mod/Link message then we need to check to see if we
+		// have the Related Hash and if not, queue for retry
+		if isRelatedHoldMessage(msg) {
+			t := msg.Body.(HoldReq)
+			err = dht.Exists(t.RelatedHash, StatusDefault)
+			if err != nil {
+				if err == ErrHashNotFound {
+					dht.dlog.Logf("don't yet have %s, trying again later", t.RelatedHash)
+					retry := &retry{msg: *msg, retries: retries}
+					dht.retryQueue <- retry
+					response = DHTChangeUnknownHashQueuedForRetry
+					err = nil
+				}
+			}
+
+			if response != nil || err != nil {
+				return
+			}
+		}
+
 		// N.B. a.Receive calls made to an Action whose values are NOT populated.
 		// The Receive functions understand this and use the values from the message body
 		// TODO, this indicates an architectural error, so fix!
-		response, err = a.Receive(dht, msg, retries)
+		response, err = a.Receive(dht, msg)
 	}
 	return
 }

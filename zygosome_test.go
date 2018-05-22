@@ -4,8 +4,8 @@ import (
 	"encoding/json"
 	"fmt"
 	zygo "github.com/glycerine/zygomys/zygo"
+	. "github.com/holochain/holochain-proto/hash"
 	peer "github.com/libp2p/go-libp2p-peer"
-	. "github.com/metacurrency/holochain/hash"
 	. "github.com/smartystreets/goconvey/convey"
 	"strings"
 	"testing"
@@ -72,6 +72,11 @@ func TestNewZygoRibosome(t *testing.T) {
 		So(err, ShouldBeNil)
 		z := v.(*ZygoRibosome)
 
+		_, err = z.Run("HC_HashNotFound")
+		So(err, ShouldBeNil)
+		x := z.lastResult
+		So(x, ShouldEqual, zygo.SexpNull)
+
 		_, err = z.Run("HC_Version")
 		So(err, ShouldBeNil)
 		s := z.lastResult.(*zygo.SexpStr).S
@@ -134,10 +139,10 @@ func TestNewZygoRibosome(t *testing.T) {
 			So(err, ShouldBeNil)
 			So(z.lastResult.(*zygo.SexpStr).S, ShouldEqual, "a bogus test holochain")
 
-			ShouldLog(&infoLog, "Warning: Getting special properties via property() is deprecated as of 3. Returning nil values.  Use App* instead\n", func() {
+			ShouldLog(&infoLog, func() {
 				_, err = z.Run(`(property "` + ID_PROPERTY + `")`)
 				So(err, ShouldBeNil)
-			})
+			}, "Warning: Getting special properties via property() is deprecated as of 3. Returning nil values.  Use App* instead\n")
 
 		})
 
@@ -175,15 +180,15 @@ func TestNewZygoRibosome(t *testing.T) {
 			}
 
 			hToHash, _ := NewHash("QmY8Mzg9F69e5P9AoQPYat655HEhc1TVGs11tmfNSzkqto")
-			err = h.AddBridgeAsCaller(hToHash, token, "fakeurl", "")
+			err = h.AddBridgeAsCaller("jsSampleZome", hToHash, token, "fakeurl", "")
 			if err != nil {
 				panic(err)
 			}
 
-			ShouldLog(h.nucleus.alog, fmt.Sprintf(`[ (hash Side:0 ToApp:"QmY8Mzg9F69e5P9AoQPYat655HEhc1TVGs11tmfNSzkqto")  (hash Side:1 Token:"%s")]`, token), func() {
+			ShouldLog(h.nucleus.alog, func() {
 				_, err := z.Run(`(testGetBridges)`)
 				So(err, ShouldBeNil)
-			})
+			}, fmt.Sprintf(`[ (hash Side:0 ToApp:"QmY8Mzg9F69e5P9AoQPYat655HEhc1TVGs11tmfNSzkqto")  (hash Side:1 Token:"%s")]`, token))
 
 		})
 
@@ -216,18 +221,18 @@ func TestNewZygoRibosome(t *testing.T) {
 		})
 
 		Convey("send", func() {
-			ShouldLog(h.nucleus.alog, `result was: "{\"pong\":\"foobar\"}"`, func() {
+			ShouldLog(h.nucleus.alog, func() {
 				_, err := z.Run(`(debug (concat "result was: " (str (hget (send App_Key_Hash (hash ping: "foobar")) %result))))`)
 				So(err, ShouldBeNil)
-			})
+			}, `result was: "{\"pong\":\"foobar\"}"`)
 		})
 		Convey("send async", func() {
-			ShouldLog(h.nucleus.alog, `async result of message with 123 was: (hash pong:"foobar")`, func() {
+			ShouldLog(h.nucleus.alog, func() {
 				_, err := z.Run(`(send App_Key_Hash (hash ping: "foobar") (hash Callback: (hash Function: "asyncPing" ID:"123")))`)
 				So(err, ShouldBeNil)
 				err = <-h.asyncSends
 				So(err, ShouldBeNil)
-			})
+			}, `async result of message with 123 was: (hash pong:"foobar")`)
 		})
 	})
 }
@@ -251,34 +256,34 @@ func TestZygoQuery(t *testing.T) {
 		commit(h, "secret", "bar")
 		commit(h, "profile", `{"firstName":"Zippy","lastName":"Pinhead"}`)
 
-		ShouldLog(h.nucleus.alog, `["2" "4"]`, func() {
+		ShouldLog(h.nucleus.alog, func() {
 			_, err := z.Run(`(debug (str (query (hash Constrain: (hash EntryTypes: ["evenNumbers"])))))`)
 			So(err, ShouldBeNil)
-		})
-		ShouldLog(h.nucleus.alog, `["QmQzp4h9pvLVJHUx6rFxxC4ViqgnznYqXvoa9HsJgACMmi" "QmS4bKx7zZt6qoX2om5M5ik3X2k4Fco2nFx82CDJ3iVKj2"]`, func() {
+		}, `["2" "4"]`)
+		ShouldLog(h.nucleus.alog, func() {
 			_, err := z.Run(`(debug (str (query (hash Return: (hash Hashes: true) Constrain: (hash EntryTypes:["evenNumbers"])))))`)
 			So(err, ShouldBeNil)
-		})
-		ShouldLog(h.nucleus.alog, `[ (hash Hash:"QmQzp4h9pvLVJHUx6rFxxC4ViqgnznYqXvoa9HsJgACMmi" Entry:"2")  (hash Hash:"QmS4bKx7zZt6qoX2om5M5ik3X2k4Fco2nFx82CDJ3iVKj2" Entry:"4")]`, func() {
+		}, `["QmQzp4h9pvLVJHUx6rFxxC4ViqgnznYqXvoa9HsJgACMmi" "QmS4bKx7zZt6qoX2om5M5ik3X2k4Fco2nFx82CDJ3iVKj2"]`)
+		ShouldLog(h.nucleus.alog, func() {
 			_, err := z.Run(`(debug (str (query ( hash Return: (hash Hashes:true Entries:true) Constrain: (hash EntryTypes: ["evenNumbers"])))))`)
 			So(err, ShouldBeNil)
-		})
-		ShouldLog(h.nucleus.alog, `"Type":"evenNumbers","EntryLink":"QmQzp4h9pvLVJHUx6rFxxC4ViqgnznYqXvoa9HsJgACMmi","HeaderLink":"Qm`, func() {
+		}, `[ (hash Hash:"QmQzp4h9pvLVJHUx6rFxxC4ViqgnznYqXvoa9HsJgACMmi" Entry:"2")  (hash Hash:"QmS4bKx7zZt6qoX2om5M5ik3X2k4Fco2nFx82CDJ3iVKj2" Entry:"4")]`)
+		ShouldLog(h.nucleus.alog, func() {
 			_, err := z.Run(`(debug (query (hash Return: (hash Headers:true Entries:true) Constrain: (hash EntryTypes: ["evenNumbers"]))))`)
 			So(err, ShouldBeNil)
-		})
-		ShouldLog(h.nucleus.alog, `["foo","bar"]`, func() {
+		}, `"Type":"evenNumbers","EntryLink":"QmQzp4h9pvLVJHUx6rFxxC4ViqgnznYqXvoa9HsJgACMmi","HeaderLink":"Qm`)
+		ShouldLog(h.nucleus.alog, func() {
 			_, err := z.Run(`(debug (query (hash Constrain: (hash EntryTypes: ["secret"]))))`)
 			So(err, ShouldBeNil)
-		})
-		ShouldLog(h.nucleus.alog, `["{\"firstName\":\"Zippy\",\"lastName\":\"Pinhead\"}"]`, func() {
+		}, `["foo","bar"]`)
+		ShouldLog(h.nucleus.alog, func() {
 			_, err := z.Run(`(debug (str (query (hash Constrain: (hash EntryTypes: ["profile"])))))`)
 			So(err, ShouldBeNil)
-		})
-		ShouldLog(h.nucleus.alog, `["{\"Identity\":\"Herbert \\u003ch@bert.com\\u003e\",\"Revocation\":null,\"PublicKey\":\"CAESIHLUfxjdoEfk8byjsBR+FXxYpYrFTviSBf2BbC0boylT\"}"]`, func() {
+		}, `["{\"firstName\":\"Zippy\",\"lastName\":\"Pinhead\"}"]`)
+		ShouldLog(h.nucleus.alog, func() {
 			_, err := z.Run(`(debug (str (query (hash Constrain: (hash EntryTypes: ["%agent"])))))`)
 			So(err, ShouldBeNil)
-		})
+		}, `["{\"Identity\":\"Herbert \\u003ch@bert.com\\u003e\",\"Revocation\":\"\",\"PublicKey\":\"4XTTM8sJEQD5zMLT1gtu2ogshwg5AdUPNhJRbLvs77gsVtQQi\"}"]`)
 	})
 }
 func TestZygoGenesis(t *testing.T) {
@@ -302,20 +307,20 @@ func TestZygoBridgeGenesis(t *testing.T) {
 
 	fakeToApp, _ := NewHash("QmVGtdTZdTFaLsaj2RwdVG8jcjNNcp1DE914DKZ2kHmXHx")
 	Convey("it should fail if the bridge genesis function returns false", t, func() {
-		ShouldLog(&h.Config.Loggers.App, h.dnaHash.String()+" test data", func() {
+		ShouldLog(&h.Config.Loggers.App, func() {
 			z, err := NewZygoRibosome(h, &Zome{RibosomeType: ZygoRibosomeType, Code: `(defn bridgeGenesis [side app data] (begin (debug (concat app " " data)) false))`})
 			So(err, ShouldBeNil)
-			err = z.BridgeGenesis(BridgeFrom, h.dnaHash, "test data")
+			err = z.BridgeGenesis(BridgeCaller, h.dnaHash, "test data")
 			So(err.Error(), ShouldEqual, "bridgeGenesis failed")
-		})
+		}, h.dnaHash.String()+" test data")
 	})
 	Convey("it should work if the bridge genesis function returns true", t, func() {
-		ShouldLog(&h.Config.Loggers.App, fakeToApp.String()+" test data", func() {
+		ShouldLog(&h.Config.Loggers.App, func() {
 			z, err := NewZygoRibosome(h, &Zome{RibosomeType: ZygoRibosomeType, Code: `(defn bridgeGenesis [side app data] (begin (debug (concat app " " data)) true))`})
 			So(err, ShouldBeNil)
-			err = z.BridgeGenesis(BridgeTo, fakeToApp, "test data")
+			err = z.BridgeGenesis(BridgeCallee, fakeToApp, "test data")
 			So(err, ShouldBeNil)
-		})
+		}, fakeToApp.String()+" test data")
 	})
 }
 
@@ -380,17 +385,17 @@ func TestZyValidateCommit(t *testing.T) {
 		v, err := NewZygoRibosome(&h, &Zome{RibosomeType: ZygoRibosomeType, Code: `(defn validateCommit [name entry header pkg sources] (debug name) (debug entry) (debug header) (debug sources) (debug pkg) true)`})
 		So(err, ShouldBeNil)
 		d := EntryDef{Name: "evenNumbers", DataFormat: DataFormatString}
-		ShouldLog(&h.Config.Loggers.App, `evenNumbers
-foo
-{"EntryLink":"QmNiCwBNA8MWDADTFVq1BonUEJbS2SvjAoNkZZrhEwcuU2","Type":"evenNumbers","Time":"1970-01-01T00:00:01Z"}
-["fakehashvalue"]
-{"Atype":"hash"}
-`, func() {
+		ShouldLog(&h.Config.Loggers.App, func() {
 			a := NewCommitAction("oddNumbers", &GobEntry{C: "foo"})
 			a.header = &hdr
 			err = v.ValidateAction(a, &d, nil, []string{"fakehashvalue"})
 			So(err, ShouldBeNil)
-		})
+		}, `evenNumbers
+foo
+{"EntryLink":"QmNiCwBNA8MWDADTFVq1BonUEJbS2SvjAoNkZZrhEwcuU2","Type":"evenNumbers","Time":"1970-01-01T00:00:01Z"}
+["fakehashvalue"]
+{"Atype":"hash"}
+`)
 	})
 	Convey("should run an entry value against the defined validator for string data", t, func() {
 		v, err := NewZygoRibosome(&h, &Zome{RibosomeType: ZygoRibosomeType, Code: `(defn validateCommit [name entry header pkg sources] (cond (== entry "fish") true false))`})
@@ -400,7 +405,7 @@ foo
 		a := NewCommitAction("oddNumbers", &GobEntry{C: "cow"})
 		a.header = &hdr
 		err = v.ValidateAction(a, &d, nil, nil)
-		So(err, ShouldEqual, ValidationFailedErr)
+		So(IsValidationFailedErr(err), ShouldBeTrue)
 
 		a = NewCommitAction("oddNumbers", &GobEntry{C: "fish"})
 		a.header = &hdr
@@ -414,7 +419,7 @@ foo
 		a := NewCommitAction("oddNumbers", &GobEntry{C: "\"cow\""})
 		a.header = &hdr
 		err = v.ValidateAction(a, &d, nil, nil)
-		So(err, ShouldEqual, ValidationFailedErr)
+		So(IsValidationFailedErr(err), ShouldBeTrue)
 
 		a = NewCommitAction("oddNumbers", &GobEntry{C: "\"fish\""})
 		a.header = &hdr
@@ -428,7 +433,7 @@ foo
 		a := NewCommitAction("evenNumbers", &GobEntry{C: `{"data":"cow"}`})
 		a.header = &hdr
 		err = v.ValidateAction(a, &d, nil, nil)
-		So(err, ShouldEqual, ValidationFailedErr)
+		So(IsValidationFailedErr(err), ShouldBeTrue)
 
 		a = NewCommitAction("evenNumbers", &GobEntry{C: `{"data":"fish"}`})
 		a.header = &hdr
@@ -471,7 +476,7 @@ func TestPrepareZyValidateArgs(t *testing.T) {
 	Convey("it should prepare args for del", t, func() {
 		hash, _ := NewHash("QmY8Mzg9F69e5P9AoQPYat6x5HEhc1TVGs11tmfNSzkqh2")
 		entry := DelEntry{Hash: hash, Message: "expired"}
-		a := NewDelAction("profile", entry)
+		a := NewDelAction(entry)
 		args, err := prepareZyValidateArgs(a, &d)
 		So(err, ShouldBeNil)
 		So(args, ShouldEqual, `"QmY8Mzg9F69e5P9AoQPYat6x5HEhc1TVGs11tmfNSzkqh2"`)
@@ -533,13 +538,13 @@ func TestZygoDHT(t *testing.T) {
 	defer CleanupTestChain(h, d)
 
 	hash, _ := NewHash("QmY8Mzg9F69e5P9AoQPYat6x5HEhc1TVGs11tmfNSzkqh2")
-	Convey("get should return hash not found if it doesn't exist", t, func() {
-		v, err := NewZygoRibosome(h, &Zome{RibosomeType: ZygoRibosomeType, Code: fmt.Sprintf(`(get "%s")`, hash.String())})
+	Convey("get should return HC_HashNotFound if it doesn't exist", t, func() {
+		v, err := NewZygoRibosome(h, &Zome{RibosomeType: ZygoRibosomeType, Code: fmt.Sprintf(`(== (get "%s") HC_HashNotFound)`, hash.String())})
 		So(err, ShouldBeNil)
 		z := v.(*ZygoRibosome)
-		r, err := z.lastResult.(*zygo.SexpHash).HashGet(z.env, z.env.MakeSymbol("error"))
+		r := z.lastResult.(*zygo.SexpBool)
 		So(err, ShouldBeNil)
-		So(r.(*zygo.SexpStr).S, ShouldEqual, "hash not found")
+		So(r.Val, ShouldEqual, true)
 	})
 	// add an entry onto the chain
 	hash = commit(h, "evenNumbers", "2")
@@ -554,10 +559,10 @@ func TestZygoDHT(t *testing.T) {
 	})
 
 	Convey("get should return entry of sys types", t, func() {
-		ShouldLog(h.nucleus.alog, `{"result":"{\"Identity\":\"Herbert \\u003ch@bert.com\\u003e\",\"Revocation\":null,\"PublicKey\":\"CAESIHLUfxjdoEfk8byjsBR+FXxYpYrFTviSBf2BbC0boylT\"}"}`, func() {
+		ShouldLog(h.nucleus.alog, func() {
 			_, err := NewZygoRibosome(h, &Zome{RibosomeType: ZygoRibosomeType, Code: fmt.Sprintf(`(debug (get "%s"))`, h.agentHash.String())})
 			So(err, ShouldBeNil)
-		})
+		}, `{"result":"\"{\\\"Identity\\\":\\\"Herbert \\\\u003ch@bert.com\\\\u003e\\\",\\\"Revocation\\\":\\\"\\\",\\\"PublicKey\\\":\\\"4XTTM8sJEQD5zMLT1gtu2ogshwg5AdUPNhJRbLvs77gsVtQQi\\\"}\""}`)
 	})
 
 	Convey("get should return entry type", t, func() {
@@ -625,9 +630,9 @@ func TestZygoDHT(t *testing.T) {
 		_, err = NewHash(z.lastResult.(*zygo.SexpStr).S)
 		So(err, ShouldBeNil)
 
-		links, _ := h.dht.getLinks(hash, "4stars", StatusLive)
+		links, _ := h.dht.GetLinks(hash, "4stars", StatusLive)
 		So(fmt.Sprintf("%v", links), ShouldEqual, "[]")
-		links, _ = h.dht.getLinks(hash, "4stars", StatusDeleted)
+		links, _ = h.dht.GetLinks(hash, "4stars", StatusDeleted)
 		So(fmt.Sprintf("%v", links), ShouldEqual, fmt.Sprintf("[{QmYeinX5vhuA91D3v24YbgyLofw9QAxY6PoATrBHnRwbtt    %s}]", h.nodeIDStr))
 	})
 
@@ -650,11 +655,10 @@ func TestZygoDHT(t *testing.T) {
 
 		header := h.chain.Top()
 		So(header.EntryLink.String(), ShouldEqual, profileHashStr2)
-		So(header.Change.Action, ShouldEqual, ModAction)
-		So(header.Change.Hash.String(), ShouldEqual, profileHash.String())
+		So(header.Change.String(), ShouldEqual, profileHash.String())
 
 		// the entry should be marked as Modifed
-		data, _, _, _, err := h.dht.get(profileHash, StatusDefault, GetMaskDefault)
+		data, _, _, _, err := h.dht.Get(profileHash, StatusDefault, GetMaskDefault)
 		So(err, ShouldEqual, ErrHashModified)
 		So(string(data), ShouldEqual, profileHashStr2)
 
@@ -699,7 +703,7 @@ func TestZygoDHT(t *testing.T) {
 	})
 
 	Convey("updateAgent function should commit a new agent entry", t, func() {
-		oldPubKey, _ := h.agent.PubKey().Bytes()
+		oldPubKey, _ := h.agent.EncodePubKey()
 		v, err := NewZygoRibosome(h, &Zome{RibosomeType: ZygoRibosomeType,
 			Code: fmt.Sprintf(`(updateAgent (hash Identity:"new identity"))`)})
 		So(err, ShouldBeNil)
@@ -710,15 +714,16 @@ func TestZygoDHT(t *testing.T) {
 		So(header.Type, ShouldEqual, AgentEntryType)
 		So(newAgentHash, ShouldEqual, header.EntryLink.String())
 		So(h.agent.Identity(), ShouldEqual, "new identity")
-		newPubKey, _ := h.agent.PubKey().Bytes()
+		newPubKey, _ := h.agent.EncodePubKey()
 		So(fmt.Sprintf("%v", newPubKey), ShouldEqual, fmt.Sprintf("%v", oldPubKey))
 		entry, _, _ := h.chain.GetEntry(header.EntryLink)
-		So(entry.Content().(AgentEntry).Identity, ShouldEqual, "new identity")
-		So(fmt.Sprintf("%v", entry.Content().(AgentEntry).PublicKey), ShouldEqual, fmt.Sprintf("%v", oldPubKey))
+		a, _ := AgentEntryFromJSON(entry.Content().(string))
+		So(a.Identity, ShouldEqual, "new identity")
+		So(fmt.Sprintf("%v", a.PublicKey), ShouldEqual, fmt.Sprintf("%v", oldPubKey))
 	})
 
 	Convey("updateAgent function with revoke option should commit a new agent entry and mark key as modified on DHT", t, func() {
-		oldPubKey, _ := h.agent.PubKey().Bytes()
+		oldPubKey, _ := h.agent.EncodePubKey()
 		oldPeer := h.nodeID
 		oldKey, _ := NewHash(h.nodeIDStr)
 		oldAgentHash := h.agentHash
@@ -735,26 +740,28 @@ func TestZygoDHT(t *testing.T) {
 		header := h.chain.Top()
 		So(header.Type, ShouldEqual, AgentEntryType)
 		So(newAgentHash, ShouldEqual, header.EntryLink.String())
-		newPubKey, _ := h.agent.PubKey().Bytes()
+		newPubKey, _ := h.agent.EncodePubKey()
 		So(fmt.Sprintf("%v", newPubKey), ShouldNotEqual, fmt.Sprintf("%v", oldPubKey))
 		entry, _, _ := h.chain.GetEntry(header.EntryLink)
 		revocation := &SelfRevocation{}
-		revocation.Unmarshal(entry.Content().(AgentEntry).Revocation)
+		a, _ := AgentEntryFromJSON(entry.Content().(string))
+		revocation.Unmarshal(a.Revocation)
 
 		w, _ := NewSelfRevocationWarrant(revocation)
 		payload, _ := w.Property("payload")
 
 		So(string(payload.([]byte)), ShouldEqual, "some revocation data")
-		So(fmt.Sprintf("%v", entry.Content().(AgentEntry).PublicKey), ShouldEqual, fmt.Sprintf("%v", newPubKey))
+		So(fmt.Sprintf("%v", a.PublicKey), ShouldEqual, fmt.Sprintf("%v", newPubKey))
 
 		// the new Key should be available on the DHT
 		newKey, _ := NewHash(h.nodeIDStr)
-		data, _, _, _, err := h.dht.get(newKey, StatusDefault, GetMaskDefault)
+		data, _, _, _, err := h.dht.Get(newKey, StatusDefault, GetMaskDefault)
 		So(err, ShouldBeNil)
-		So(string(data), ShouldEqual, string(newPubKey))
+		newpk, _ := h.agent.EncodePubKey()
+		So(string(data), ShouldEqual, newpk)
 
 		// the old key should be marked as Modifed and we should get the new hash as the data
-		data, _, _, _, err = h.dht.get(oldKey, StatusDefault, GetMaskDefault)
+		data, _, _, _, err = h.dht.Get(oldKey, StatusDefault, GetMaskDefault)
 		So(err, ShouldEqual, ErrHashModified)
 		So(string(data), ShouldEqual, h.nodeIDStr)
 

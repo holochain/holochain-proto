@@ -1,10 +1,10 @@
-#!/bin/bash
-holochainBinDir="$GOPATH/src/github.com/metacurrency/holochain/bin"
+#!/usr/bin/env bash
+holochainBinDir="$GOPATH/src/github.com/holochain/holochain-proto/bin"
 
 
 [ ! -f ./bin/holochain.system.checkInstalled ] && { echo "HC: not in a holochain core directory. exitting" && exit 1 ; }
 
-targetDir="$GOPATH/src/github.com/metacurrency/holochain"
+targetDir="$GOPATH/src/github.com/holochain/holochain-proto"
 myDir="."
 
 $holochainBinDir/holochain.tools.confirm "this will remove the existing content at $targetDir (y/N)" || { echo "exiting" && exit 1 ; }

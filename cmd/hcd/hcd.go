@@ -1,4 +1,4 @@
-// Copyright (C) 2013-2017, The MetaCurrency Project (Eric Harris-Braun, Arthur Brock, et. al.)
+// Copyright (C) 2013-2018, The MetaCurrency Project (Eric Harris-Braun, Arthur Brock, et. al.)
 // Use of this source code is governed by GPLv3 found in the LICENSE file
 //---------------------------------------------------------------------------------------
 // command line interface to running holochain applications
@@ -7,26 +7,25 @@ package main
 
 import (
 	"fmt"
-	holo "github.com/metacurrency/holochain"
-	"github.com/metacurrency/holochain/cmd"
-	"github.com/metacurrency/holochain/ui"
+	holo "github.com/holochain/holochain-proto"
+	"github.com/holochain/holochain-proto/cmd"
+	"github.com/holochain/holochain-proto/ui"
 	"github.com/urfave/cli"
 	"os"
 )
 
 const (
-	defaultPort = "3141"
+	defaultUIPort = "3141"
 )
 
 var debug bool
 var verbose bool
-var nonatupnp bool
 
 func setupApp() (app *cli.App) {
 	app = cli.NewApp()
 	app.Name = "hcd"
-	app.Usage = fmt.Sprintf("serve a chain to the web on localhost:<port> (defaults to %s)", defaultPort)
-	app.ArgsUsage = "holochain-name [port]"
+	app.Usage = fmt.Sprintf("serve a chain to the web on localhost:<ui-port> (defaults to %s)", defaultUIPort)
+	app.ArgsUsage = "holochain-name [ui-port]"
 
 	app.Version = fmt.Sprintf("0.0.3 (holochain %s)", holo.VersionStr)
 
@@ -84,7 +83,7 @@ func setupApp() (app *cli.App) {
 
 			var port string
 			if len(c.Args()) == 1 {
-				port = defaultPort
+				port = defaultUIPort
 			} else {
 				port = c.Args()[1]
 			}

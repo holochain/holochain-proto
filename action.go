@@ -407,26 +407,6 @@ func (a *ActionSend) Receive(dht *DHT, msg *Message) (response interface{}, err 
 	return
 }
 
-//------------------------------------------------------------
-// Query
-
-type APIFnQuery struct {
-	options *QueryOptions
-}
-
-func (a *APIFnQuery) Name() string {
-	return "query"
-}
-
-func (a *APIFnQuery) Args() []Arg {
-	return []Arg{{Name: "options", Type: MapArg, MapType: reflect.TypeOf(QueryOptions{}), Optional: true}}
-}
-
-func (a *APIFnQuery) Call(h *Holochain) (response interface{}, err error) {
-	response, err = h.Query(a.options)
-	return
-}
-
 // doCommit adds an entry to the local chain after validating the action it's part of
 func (h *Holochain) doCommit(a CommittingAction, change Hash) (d *EntryDef, err error) {
 

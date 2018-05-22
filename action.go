@@ -301,32 +301,6 @@ func (a *APIFnProperty) Call(h *Holochain) (response interface{}, err error) {
 }
 
 //------------------------------------------------------------
-// MakeHash
-
-type APIFnMakeHash struct {
-	entryType string
-	entry     Entry
-}
-
-func (a *APIFnMakeHash) Name() string {
-	return "makeHash"
-}
-
-func (a *APIFnMakeHash) Args() []Arg {
-	return []Arg{{Name: "entryType", Type: StringArg}, {Name: "entry", Type: EntryArg}}
-}
-
-func (a *APIFnMakeHash) Call(h *Holochain) (response interface{}, err error) {
-	var hash Hash
-	hash, err = a.entry.Sum(h.hashSpec)
-	if err != nil {
-		return
-	}
-	response = hash
-	return
-}
-
-//------------------------------------------------------------
 // Sign
 
 type APIFnSign struct {

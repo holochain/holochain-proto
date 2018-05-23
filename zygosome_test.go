@@ -180,7 +180,7 @@ func TestNewZygoRibosome(t *testing.T) {
 			}
 
 			hToHash, _ := NewHash("QmY8Mzg9F69e5P9AoQPYat655HEhc1TVGs11tmfNSzkqto")
-			err = h.AddBridgeAsCaller("jsSampleZome", hToHash, token, "fakeurl", "")
+			err = h.AddBridgeAsCaller("jsSampleZome", hToHash, "fakeAppName", token, "fakeurl", "")
 			if err != nil {
 				panic(err)
 			}
@@ -188,7 +188,7 @@ func TestNewZygoRibosome(t *testing.T) {
 			ShouldLog(h.nucleus.alog, func() {
 				_, err := z.Run(`(testGetBridges)`)
 				So(err, ShouldBeNil)
-			}, fmt.Sprintf(`[ (hash Side:0 ToApp:"QmY8Mzg9F69e5P9AoQPYat655HEhc1TVGs11tmfNSzkqto")  (hash Side:1 Token:"%s")]`, token))
+			}, fmt.Sprintf(`[ (hash Side:0 CalleeApp:"QmY8Mzg9F69e5P9AoQPYat655HEhc1TVGs11tmfNSzkqto" CalleeName:"fakeAppName")  (hash Side:1 Token:"%s")]`, token))
 
 		})
 

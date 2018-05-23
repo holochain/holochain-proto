@@ -32,9 +32,10 @@ type BridgeApp struct {
 
 // Bridge holds data returned by GetBridges
 type Bridge struct {
-	ToApp Hash
-	Token string
-	Side  int
+	CalleeApp  Hash
+	CalleeName string
+	Token      string
+	Side       int
 }
 
 type BridgeSpec map[string]map[string]bool
@@ -154,19 +155,15 @@ func (h *Holochain) BridgeCall(zomeType string, function string, arguments inter
 
 // AddBridgeAsCaller associates a token with an application DNA hash and url for accessing it
 // it also runs BridgeGenesis in the bridgeZome
-func (h *Holochain) AddBridgeAsCaller(bridgeZome string, toDNA Hash, token string, url string, appData string) (err error) {
-	h.Debugf("Adding bridge to caller %s for callee %v with appData: %s", h.Name(), toDNA, appData)
+func (h *Holochain) AddBridgeAsCaller(bridgeZome string, calleeDNA Hash, calleeName string, token string, url string, appData string) (err error) {
+	h.Debugf("Adding bridge to caller %s for callee %s (%v) with appData: %s", h.Name(), calleeName, calleeDNA, appData)
 	err = h.initBridgeDB()
 	if err != nil {
 		return
 	}
-	toDNAStr := toDNA.String()
+	toDNAStr := calleeDNA.String()
 	err = h.bridgeDB.Update(func(tx *buntdb.Tx) error {
-		_, _, err = tx.Set("app:"+toDNAStr, token, nil)
-		if err != nil {
-			return err
-		}
-		_, _, err = tx.Set("url:"+toDNAStr, url, nil)
+		_, _, err = tx.Set("app:"+toDNAStr, token+"%%"+url+"%%"+calleeName, nil)
 		if err != nil {
 			return err
 		}
@@ -191,10 +188,18 @@ func (h *Holochain) AddBridgeAsCaller(bridgeZome string, toDNA Hash, token strin
 	}
 
 	h.Debugf("Running BridgeCaller Genesis for %s", zome.Name)
-	err = r.BridgeGenesis(BridgeCaller, toDNA, appData)
+	err = r.BridgeGenesis(BridgeCaller, calleeDNA, appData)
 	if err != nil {
 		return
 	}
+	return
+}
+
+func getBridgeAppVals(value string) (token string, url string, name string) {
+	x := strings.Split(value, "%%")
+	token = x[0]
+	url = x[1]
+	name = x[2]
 	return
 }
 
@@ -205,13 +210,13 @@ func (h *Holochain) GetBridgeToken(hash Hash) (token string, url string, err err
 		return
 	}
 	err = h.bridgeDB.View(func(tx *buntdb.Tx) (e error) {
-		token, e = tx.Get("app:" + hash.String())
+		var value string
+		value, e = tx.Get("app:" + hash.String())
 		if e == buntdb.ErrNotFound {
 			e = BridgeAppNotFoundErr
 		}
-		url, e = tx.Get("url:" + hash.String())
-		if e == buntdb.ErrNotFound {
-			e = BridgeAppNotFoundErr
+		if e == nil {
+			token, url, _ = getBridgeAppVals(value)
 		}
 		return
 	})
@@ -287,7 +292,7 @@ func (h *Holochain) BuildBridgeToCallee(app *BridgeApp) (err error) {
 	h.Debugf("%s received token %s from %s\n", h.Name(), token, app.Name)
 
 	// the url is currently through the webserver
-	err = h.AddBridgeAsCaller(app.BridgeZome, app.DNA, token, fmt.Sprintf("http://localhost:%s", app.Port), app.BridgeGenesisCallerData)
+	err = h.AddBridgeAsCaller(app.BridgeZome, app.DNA, app.Name, token, fmt.Sprintf("http://localhost:%s", app.Port), app.BridgeGenesisCallerData)
 	if err != nil {
 		h.Debugf("adding bridge to callee %s from %s failed with %s\n", app.Name, h.Name(), err)
 		return
@@ -318,7 +323,8 @@ func (h *Holochain) GetBridges() (bridges []Bridge, err error) {
 					if err != nil {
 						return false
 					}
-					bridges = append(bridges, Bridge{ToApp: hash, Side: BridgeCaller})
+					_, _, name := getBridgeAppVals(value)
+					bridges = append(bridges, Bridge{CalleeApp: hash, CalleeName: name, Side: BridgeCaller})
 				case "tok":
 					bridges = append(bridges, Bridge{Token: x[1], Side: BridgeCallee})
 				}

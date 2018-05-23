@@ -159,7 +159,7 @@ func (ws *WebServer) Start() {
 				var DNAHash Hash
 				DNAHash, err = NewHash(data["DNA"])
 				if err == nil {
-					err = ws.h.AddBridgeAsCaller(data["Zome"], DNAHash, data["Token"], fmt.Sprintf("http://localhost:%s", data["Port"]), data["Data"])
+					err = ws.h.AddBridgeAsCaller(data["Zome"], DNAHash, data["Name"], data["Token"], fmt.Sprintf("http://localhost:%s", data["Port"]), data["Data"])
 				}
 			case "ToCallee":
 				var DNAHash Hash

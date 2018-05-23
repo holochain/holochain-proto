@@ -890,7 +890,7 @@ func (s *Service) ListChains() (list string) {
 			if bridges != nil {
 				for _, b := range bridges {
 					if b.Side == BridgeCaller {
-						list += fmt.Sprintf("        bridged to: %v\n", b.ToApp)
+						list += fmt.Sprintf("        bridged to: %s (%v)\n", b.CalleeName, b.CalleeApp)
 					} else {
 						list += fmt.Sprintf("        bridged from by token: %v\n", b.Token)
 					}

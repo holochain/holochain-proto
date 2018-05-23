@@ -654,7 +654,7 @@ func NewJSRibosome(h *Holochain, zome *Zome) (n Ribosome, err error) {
 					if b.Side == BridgeCallee {
 						code += fmt.Sprintf(`{Side:%d,Token:"%s"}`, b.Side, b.Token)
 					} else {
-						code += fmt.Sprintf(`{Side:%d,ToApp:"%s"}`, b.Side, b.ToApp.String())
+						code += fmt.Sprintf(`{Side:%d,CalleeApp:"%s",CalleeName:"%s"}`, b.Side, b.CalleeApp.String(), b.CalleeName)
 					}
 				}
 				code = "[" + code + "]"

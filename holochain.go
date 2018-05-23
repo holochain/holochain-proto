@@ -524,6 +524,7 @@ func (config *Config) Setup() (err error) {
 		if i > 0 {
 			config.EnableWorldModel = true
 			config.holdingCheckInterval = time.Duration(i) * time.Second
+			Debugf("using environment variable to enable world model and set holdingCheckInterval to: %d", i)
 		}
 	}
 
@@ -531,6 +532,7 @@ func (config *Config) Setup() (err error) {
 	if gi != "" {
 		i, _ := strconv.Atoi(gi)
 		config.gossipInterval = time.Duration(i) * time.Second
+		Debugf("using environment variable to set gossipInterval to: %d", i)
 	} else {
 		config.gossipInterval = DefaultGossipInterval
 	}

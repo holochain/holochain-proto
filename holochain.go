@@ -24,6 +24,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -513,14 +514,27 @@ func initLogger(l *Logger, envOverride string, writer io.Writer) (err error) {
 }
 
 func (config *Config) Setup() (err error) {
-	wm := os.Getenv("HC_ENABLE_WORLD_MODEL")
-	if wm == "1" || wm == "true" {
-		config.EnableWorldModel = true
-	}
 	if config.EnableWorldModel {
 		config.holdingCheckInterval = DefaultHoldingCheckInterval
 	}
-	config.gossipInterval = DefaultGossipInterval
+
+	hi := os.Getenv("HC_HOLDING_INTERVAL")
+	if hi != "" {
+		i, _ := strconv.Atoi(hi)
+		if i > 0 {
+			config.EnableWorldModel = true
+			config.holdingCheckInterval = time.Duration(i) * time.Second
+		}
+	}
+
+	gi := os.Getenv("HC_GOSSIP_INTERVAL")
+	if gi != "" {
+		i, _ := strconv.Atoi(gi)
+		config.gossipInterval = time.Duration(i) * time.Second
+	} else {
+		config.gossipInterval = DefaultGossipInterval
+	}
+
 	config.bootstrapRefreshInterval = BootstrapTTL
 	config.routingRefreshInterval = DefaultRoutingRefreshInterval
 	config.retryInterval = DefaultRetryInterval

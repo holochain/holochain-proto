@@ -220,7 +220,7 @@ func setupApp() (app *cli.App) {
 					return err
 				}
 
-				err = hCaller.AddBridgeAsCaller(bridgeZome, hCallee.DNAHash(), token, fmt.Sprintf("http://localhost:%d", hCallee.Config.DHTPort), bridgeCallerAppData)
+				err = hCaller.AddBridgeAsCaller(bridgeZome, hCallee.DNAHash(), hCallee.Name(), token, fmt.Sprintf("http://localhost:%d", hCallee.Config.DHTPort), bridgeCallerAppData)
 
 				if err == nil {
 					if verbose {

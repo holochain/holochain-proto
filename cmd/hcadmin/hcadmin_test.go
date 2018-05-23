@@ -186,7 +186,7 @@ func TestBridge(t *testing.T) {
 		app = setupApp()
 		out, err := runAppWithStdoutCapture(app, []string{"hcadmin", "-debug", "-path", d, "status"})
 		So(err, ShouldBeNil)
-		So(out, ShouldContainSubstring, "testApp1 "+testApp1DNA+"\n        bridged to: "+testApp2DNA)
+		So(out, ShouldContainSubstring, "testApp1 "+testApp1DNA+"\n        bridged to: test ("+testApp2DNA+")")
 		So(out, ShouldContainSubstring, "testApp2 "+testApp2DNA+"\n        bridged from by token:")
 	})
 }

@@ -22,7 +22,6 @@ const (
 	// System defined entry types
 
 	DNAEntryType     = SysEntryTypePrefix + "dna"
-	AgentEntryType   = SysEntryTypePrefix + "agent"
 	HeadersEntryType = SysEntryTypePrefix + "header"
 	DelEntryType     = SysEntryTypePrefix + "del"
 	KeyEntryType     = VirtualEntryTypePrefix + "key" // virtual entry type, not actually on the chain
@@ -43,13 +42,6 @@ const (
 	Partial = "partial"
 	Private = "private"
 )
-
-// AgentEntry structure for building AgentEntryType entries
-type AgentEntry struct {
-	Identity   AgentIdentity
-	Revocation string // marshaled revocation
-	PublicKey  string // marshaled public key
-}
 
 // LinksEntry holds one or more links
 type LinksEntry struct {
@@ -80,34 +72,6 @@ type EntryDef struct {
 }
 
 const (
-	AgentEntrySchema = `
-{
-  "$id": "http://example.com/example.json",
-  "type": "object",
-  "definitions": {},
-  "$schema": "http://json-schema.org/draft-07/schema#",
-  "properties": {
-    "Identity": {
-      "$id": "/properties/Identity",
-      "type": "string",
-      "title": "The Identity Schema ",
-      "default": ""
-    },
-    "Revocation": {
-      "$id": "/properties/Revocation",
-      "type": "string",
-      "title": "The Revocation Schema ",
-      "default": ""
-    },
-    "PublicKey": {
-      "$id": "/properties/PublicKey",
-      "type": "string",
-      "title": "The Publickey Schema ",
-      "default": ""
-    }
-  },
-  "required": ["Identity", "PublicKey"]
-}`
 	HeadersEntrySchema = `
 {
   "$id": "http://example.com/example.json",
@@ -227,7 +191,6 @@ const (
 )
 
 var DNAEntryDef = &EntryDef{Name: DNAEntryType, DataFormat: DataFormatSysDNA}
-var AgentEntryDef = &EntryDef{Name: AgentEntryType, DataFormat: DataFormatJSON, Sharing: Public, Schema: AgentEntrySchema}
 var KeyEntryDef = &EntryDef{Name: KeyEntryType, DataFormat: DataFormatSysKey}
 var HeadersEntryDef = &EntryDef{Name: HeadersEntryType, DataFormat: DataFormatJSON, Sharing: Public, Schema: HeadersEntrySchema}
 var DelEntryDef = &EntryDef{Name: DelEntryType, DataFormat: DataFormatJSON, Sharing: Public, Schema: DelEntrySchema}
@@ -387,18 +350,6 @@ func (ae *LinksEntry) ToJSON() (encodedEntry string, err error) {
 }
 
 func LinksEntryFromJSON(j string) (entry LinksEntry, err error) {
-	err = json.Unmarshal([]byte(j), &entry)
-	return
-}
-
-func (ae *AgentEntry) ToJSON() (encodedEntry string, err error) {
-	var j []byte
-	j, err = json.Marshal(ae)
-	encodedEntry = string(j)
-	return
-}
-
-func AgentEntryFromJSON(j string) (entry AgentEntry, err error) {
 	err = json.Unmarshal([]byte(j), &entry)
 	return
 }

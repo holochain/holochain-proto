@@ -21,7 +21,6 @@ const (
 
 	// System defined entry types
 
-	DNAEntryType     = SysEntryTypePrefix + "dna"
 	HeadersEntryType = SysEntryTypePrefix + "header"
 	KeyEntryType     = VirtualEntryTypePrefix + "key" // virtual entry type, not actually on the chain
 
@@ -32,7 +31,6 @@ const (
 	DataFormatString  = "string"
 	DataFormatRawJS   = "js"
 	DataFormatRawZygo = "zygo"
-	DataFormatSysDNA  = "_DNA"
 	DataFormatSysKey  = "_key"
 
 	// Entry sharing types
@@ -160,7 +158,6 @@ const (
 `
 )
 
-var DNAEntryDef = &EntryDef{Name: DNAEntryType, DataFormat: DataFormatSysDNA}
 var KeyEntryDef = &EntryDef{Name: KeyEntryType, DataFormat: DataFormatSysKey}
 var HeadersEntryDef = &EntryDef{Name: HeadersEntryType, DataFormat: DataFormatJSON, Sharing: Public, Schema: HeadersEntrySchema}
 

@@ -19,10 +19,6 @@ const (
 	SysEntryTypePrefix     = "%"
 	VirtualEntryTypePrefix = "%%"
 
-	// System defined entry types
-
-	KeyEntryType     = VirtualEntryTypePrefix + "key" // virtual entry type, not actually on the chain
-
 	// Entry type formats
 
 	DataFormatLinks   = "links"
@@ -30,7 +26,6 @@ const (
 	DataFormatString  = "string"
 	DataFormatRawJS   = "js"
 	DataFormatRawZygo = "zygo"
-	DataFormatSysKey  = "_key"
 
 	// Entry sharing types
 
@@ -60,8 +55,6 @@ type EntryDef struct {
 	Schema     string
 	validator  SchemaValidator
 }
-
-var KeyEntryDef = &EntryDef{Name: KeyEntryType, DataFormat: DataFormatSysKey}
 
 func (def EntryDef) isSharingPublic() bool {
 	return def.Sharing == Public || def.DataFormat == DataFormatLinks

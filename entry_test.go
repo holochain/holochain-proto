@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	. "github.com/holochain/holochain-proto/hash"
 	. "github.com/smartystreets/goconvey/convey"
 
 	"path/filepath"

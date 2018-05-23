@@ -43,7 +43,7 @@ type AgentEntry struct {
 	PublicKey  string // marshaled public key
 }
 
-var AgentEntryDef = &EntryDef{Name: AgentElntryType, DataFormat: DataFormatJSON, Sharing: Public, Schema: AgentEntrySchema}
+var AgentEntryDef = &EntryDef{Name: AgentEntryType, DataFormat: DataFormatJSON, Sharing: Public, Schema: AgentEntrySchema}
 
 func (ae *AgentEntry) ToJSON() (encodedEntry string, err error) {
 	var j []byte

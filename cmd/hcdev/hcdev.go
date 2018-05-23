@@ -1138,6 +1138,11 @@ func setupBridgeApp(service *holo.Service, agent holo.Agent, path string) (bridg
 		return
 	}
 
+	_, err = bridgeH.GenChain()
+	if err != nil {
+		return
+	}
+
 	// clear the log prefix for the next load.
 	os.Unsetenv("HCLOG_PREFIX")
 	return

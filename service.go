@@ -48,12 +48,6 @@ const (
 	DefaultDHTPort         = 6283
 	DefaultBootstrapServer = "bootstrap.holochain.net:10000"
 
-	DefaultBootstrapServerEnvVar = "HC_DEFAULT_BOOTSTRAPSERVER"
-	DefaultEnableMDNSEnvVar      = "HC_DEFAULT_ENABLEMDNS"
-	DefaultEnableNATUPnPEnvVar   = "HC_DEFAULT_ENABLENATUPNP"
-
-	//HC_BOOTSTRAPPORT						= "HC_BOOTSTRAPPORT"
-
 	CloneWithNewUUID  = true
 	CloneWithSameUUID = false
 	InitializeDB      = true
@@ -190,25 +184,30 @@ func Init(root string, identity AgentIdentity, seed io.Reader) (service *Service
 			DefaultPeerModeDHTNode: true,
 			DefaultPeerModeAuthor:  true,
 			DefaultBootstrapServer: DefaultBootstrapServer,
-			DefaultEnableMDNS:      false,
+			DefaultEnableMDNS:      true,
 			DefaultEnableNATUPnP:   true,
 		},
 		Path: root,
 	}
 
-	if os.Getenv(DefaultBootstrapServerEnvVar) != "" {
-		s.Settings.DefaultBootstrapServer = os.Getenv(DefaultBootstrapServerEnvVar)
-		Infof("Using %s--configuring default bootstrap server as: %s\n", DefaultBootstrapServerEnvVar, s.Settings.DefaultBootstrapServer)
+	var val string
+
+	val = os.Getenv("HC_DEFAULT_BOOTSTRAPSERVER")
+	if val != "" {
+		s.Settings.DefaultBootstrapServer = val
+		Infof("Using HC_DEFAULT_BOOTSTRAPSERVER--configuring default bootstrap server as: %s\n", s.Settings.DefaultBootstrapServer)
 	}
 
-	if os.Getenv(DefaultEnableMDNSEnvVar) != "" && os.Getenv(DefaultEnableMDNSEnvVar) != "false" {
-		s.Settings.DefaultEnableMDNS = true
-		Infof("Using %s--configuring default MDNS use as: %v.\n", DefaultEnableMDNSEnvVar, s.Settings.DefaultEnableMDNS)
+	val = os.Getenv("HC_DEFAULT_ENABLEMDNS")
+	if val != "" {
+		s.Settings.DefaultEnableMDNS = val == "true"
+		Infof("Using HC_DEFAULT_ENABLEMDNS--configuring default MDNS use as: %v.\n", s.Settings.DefaultEnableMDNS)
 	}
 
-	if os.Getenv(DefaultEnableNATUPnPEnvVar) != "" && os.Getenv(DefaultEnableNATUPnPEnvVar) != "false" {
-		s.Settings.DefaultEnableNATUPnP = true
-		Infof("Using %s--configuring default UPnP use as: %v.\n", DefaultEnableNATUPnPEnvVar, s.Settings.DefaultEnableNATUPnP)
+	val = os.Getenv("HC_DEFAULT_ENABLENATUPNP")
+	if val != "" {
+		s.Settings.DefaultEnableNATUPnP = val == "true"
+		Infof("Using HC_DEFAULT_ENABLENATUPNP--configuring default UPnP use as: %v.\n", s.Settings.DefaultEnableNATUPnP)
 	}
 
 	err = writeToml(root, SysFileName, s.Settings, false)
@@ -577,6 +576,7 @@ func _makeConfig(s *Service) (config Config, err error) {
 		PeerModeAuthor:  s.Settings.DefaultPeerModeAuthor,
 		BootstrapServer: s.Settings.DefaultBootstrapServer,
 		EnableNATUPnP:   s.Settings.DefaultEnableNATUPnP,
+		EnableMDNS:      s.Settings.DefaultEnableMDNS,
 		Loggers: Loggers{
 			Debug:      Logger{Name: "Debug", Format: "HC: %{file}.%{line}: %{message}", Enabled: false},
 			App:        Logger{Name: "App", Format: "%{color:cyan}%{message}", Enabled: false},

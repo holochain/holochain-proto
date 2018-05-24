@@ -26,11 +26,19 @@ func TestAPIFnMigrateName(t *testing.T) {
 }
 
 func TestMigrateEntry(t *testing.T) {
-  entry := MigrateEntry{}
-  var emptyJSONEntry, _ = entry.ToJSON()
-  Convey("migrate action Entry() should be retreive a serialized JSON of the entry in a GobEntry", t, func() {
+  Convey("empty migrate action Entry() should be retreive a serialized JSON of an empty entry in a GobEntry", t, func() {
     action := ActionMigrate{}
-    So(action.Entry(), ShouldResemble, &GobEntry{C: emptyJSONEntry})
+    So(action.Entry(), ShouldResemble, &GobEntry{C: "{\"Chain\":\"\",\"User\":\"\",\"Data\":\"\"}"})
+  })
+
+  Convey("entries with vals work with Entry()", t, func() {
+    var chain Hash
+    var user Hash
+    chain = "123"
+    user = "000"
+    entry := MigrateEntry{Chain: chain, User: user}
+    action := ActionMigrate{entry: entry}
+    So(action.Entry(), ShouldResemble, &GobEntry{C: "{\"Chain\":\"123\",\"User\":\"000\",\"Data\":\"\"}"})
   })
 }
 

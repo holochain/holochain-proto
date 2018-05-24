@@ -8,8 +8,8 @@ package hash
 
 import (
 	"encoding/binary"
-	peer "github.com/libp2p/go-libp2p-peer"
-	mh "github.com/multiformats/go-multihash"
+	mh "gx/ipfs/QmU9a9NV9RdPNwZQDYd5uKsm6N6LJLSvLbywDDYFbaaC6P/go-multihash"
+	peer "gx/ipfs/QmXYjuNuxVzXKJCfWasQk1RqkhVLDM9jtUKhqc2WPQmFSB/go-libp2p-peer"
 	"io"
 	"math/big"
 	"sort"

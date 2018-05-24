@@ -11,8 +11,8 @@ import (
 	"time"
 
 	. "github.com/holochain/holochain-proto/hash"
-	ic "github.com/libp2p/go-libp2p-crypto"
 	. "github.com/smartystreets/goconvey/convey"
+	ic "gx/ipfs/QmaPbCnUMBohSGo3KnxEa2bHqyJVVeEEcwtqJAYxerieBo/go-libp2p-crypto"
 )
 
 func TestChainNew(t *testing.T) {

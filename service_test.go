@@ -27,7 +27,7 @@ func TestInit(t *testing.T) {
 
 		Convey("it should return a service with default values", func() {
 			So(s.DefaultAgent.Identity(), ShouldEqual, AgentIdentity(agent))
-			So(fmt.Sprintf("%v", s.Settings), ShouldEqual, "{true true bootstrap.holochain.net:10000 false true}")
+			So(fmt.Sprintf("%v", s.Settings), ShouldEqual, "{true true bootstrap.holochain.net:10000 true true}")
 		})
 
 		p := filepath.Join(d, DefaultDirectoryName)
@@ -383,7 +383,7 @@ func TestMakeConfig(t *testing.T) {
 		err := makeConfig(h, s)
 		So(err, ShouldBeNil)
 		So(h.Config.DHTPort, ShouldEqual, DefaultDHTPort)
-		So(h.Config.EnableMDNS, ShouldBeFalse)
+		So(h.Config.EnableMDNS, ShouldBeTrue)
 		So(h.Config.BootstrapServer, ShouldNotEqual, "")
 		So(h.Config.Loggers.App.Format, ShouldEqual, "%{color:cyan}%{message}")
 
@@ -391,14 +391,14 @@ func TestMakeConfig(t *testing.T) {
 
 	Convey("make config should produce default config from OS env overridden values", t, func() {
 		os.Setenv("HOLOCHAINCONFIG_DHTPORT", "12345")
-		os.Setenv("HOLOCHAINCONFIG_ENABLEMDNS", "true")
+		os.Setenv("HOLOCHAINCONFIG_ENABLEMDNS", "false")
 		os.Setenv("HCLOG_PREFIX", "prefix:%{color:cyan}")
 		os.Setenv("HOLOCHAINCONFIG_BOOTSTRAP", "_")
 		err := makeConfig(h, s)
 		So(err, ShouldBeNil)
 
 		So(h.Config.DHTPort, ShouldEqual, 12345)
-		So(h.Config.EnableMDNS, ShouldBeTrue)
+		So(h.Config.EnableMDNS, ShouldBeFalse)
 		So(h.Config.Loggers.App.Format, ShouldEqual, "%{color:cyan}%{message}")
 		So(h.Config.Loggers.App.Prefix, ShouldEqual, "prefix:")
 		So(h.Config.Loggers.App.PrefixColor, ShouldEqual, h.Config.Loggers.App.GetColor("cyan"))

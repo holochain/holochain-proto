@@ -19,8 +19,6 @@ func TestMain(m *testing.M) {
 	// disable UPNP for tests
 	os.Setenv("HOLOCHAINCONFIG_ENABLENATUPNP", "false")
 
-	//os.Setenv("HC_ENABLE_WORLD_MODEL", "true")
-
 	InitializeHolochain()
 	os.Exit(m.Run())
 }
@@ -70,8 +68,8 @@ func TestNewHolochain(t *testing.T) {
 }
 
 func TestSetupConfig(t *testing.T) {
-	config := Config{}
 	Convey("it should set the intervals", t, func() {
+		config := Config{}
 		config.EnableWorldModel = false
 		config.Setup()
 		So(config.holdingCheckInterval, ShouldEqual, 0)
@@ -85,6 +83,20 @@ func TestSetupConfig(t *testing.T) {
 		config.Setup()
 		So(config.holdingCheckInterval, ShouldEqual, DefaultHoldingCheckInterval)
 	})
+
+	Convey("it should honor env variables", t, func() {
+		config := Config{}
+		So(config.EnableWorldModel, ShouldBeFalse)
+		os.Setenv("HC_GOSSIP_INTERVAL", "3")
+		os.Setenv("HC_HOLDING_INTERVAL", "2")
+		config.Setup()
+		So(config.gossipInterval, ShouldEqual, time.Second*3)
+		So(config.holdingCheckInterval, ShouldEqual, time.Second*2)
+		So(config.EnableWorldModel, ShouldBeTrue)
+	})
+	os.Unsetenv("HC_GOSSIP_INTERVAL")
+	os.Unsetenv("HC_HOLDING_INTERVAL")
+
 }
 
 func TestSetupLogging(t *testing.T) {

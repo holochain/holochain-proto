@@ -13,6 +13,7 @@ import (
 
 	holo "github.com/holochain/holochain-proto"
 	"github.com/holochain/holochain-proto/cmd"
+	. "github.com/holochain/holochain-proto/hash"
 	"github.com/urfave/cli"
 )
 
@@ -277,9 +278,21 @@ func setupApp() (app *cli.App) {
 					if err != nil {
 						return err
 					}
-					dna := h.Nucleus().DNA()
-					fmt.Printf("Status of %s\n", dna.Name)
-					fmt.Printf("   ---More status info here, not yet implemented---\n")
+					//					dna := h.Nucleus().DNA()
+					fmt.Printf("Status of %s\n", h.Name())
+					fmt.Printf("DNA Hash: %v\n", h.DNAHash())
+					fmt.Printf("ID Hash: %s\n", h.NodeIDStr())
+					idx, _ := h.DHT().GetIdx()
+					fmt.Printf("Current Put Index: %d\n", idx)
+					fmt.Printf("Gossipers:\n")
+					gossipers, err := h.DHT().GetGossipers()
+					if err != nil {
+						return err
+					}
+					for _, g := range gossipers {
+						h := HashFromPeerID(g.ID)
+						fmt.Printf("  %v idx: %d\n", h.String(), g.PutIdx)
+					}
 				} else {
 					return errors.New("status: expected 0 or 1 argument")
 				}

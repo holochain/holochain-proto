@@ -128,7 +128,39 @@ func (dht *DHT) GetGossiper(id peer.ID) (idx int, err error) {
 	return
 }
 
+type GossiperData struct {
+	ID     peer.ID
+	PutIdx int
+}
+
+func (dht *DHT) GetGossipers() (gossipers []GossiperData, err error) {
+	var glist []peer.ID
+	glist, err = dht._getGossipers()
+	if err != nil {
+		return
+	}
+	for _, id := range glist {
+		var idx int
+		idx, err = dht.GetGossiper(id)
+		if err != nil {
+			return
+		}
+		gossipers = append(gossipers, GossiperData{ID: id, PutIdx: idx})
+	}
+	return
+}
+
 func (dht *DHT) getGossipers() (glist []peer.ID, err error) {
+	glist, err = dht._getGossipers()
+	if err != nil {
+		return
+	}
+	ns := dht.config.RedundancyFactor
+	glist = dht.h.node.filterInactviePeers(glist, ns)
+	return
+}
+
+func (dht *DHT) _getGossipers() (glist []peer.ID, err error) {
 	glist = make([]peer.ID, 0)
 	db := dht.ht.(*BuntHT).db
 	err = db.View(func(tx *buntdb.Tx) error {
@@ -160,7 +192,6 @@ func (dht *DHT) getGossipers() (glist []peer.ID, err error) {
 			glist[i] = PeerIDFromHash(hlist[i])
 		}
 	}
-	glist = dht.h.node.filterInactviePeers(glist, ns)
 	return
 }
 

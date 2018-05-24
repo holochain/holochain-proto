@@ -92,6 +92,36 @@ func TestJoinFromSourceDir(t *testing.T) {
 	})
 }
 
+func TestStatus(t *testing.T) {
+	d := holo.SetupTestDir()
+	defer os.RemoveAll(d)
+	app := setupApp()
+	os.Args = []string{"hcadmin", "-path", d, "init", "test-identity"}
+	err := app.Run(os.Args)
+	if err != nil {
+		panic(err)
+	}
+	hcdev := filepath.Join(os.Getenv("GOPATH"), "/bin/hcdev")
+	err = cmd.OsExecSilent(hcdev, "-path", d, "init", "-test", "testAppSrc")
+	if err != nil {
+		panic(err)
+	}
+	app = setupApp()
+	_, err = runAppWithStdoutCapture(app, []string{"hcadmin", "-verbose", "-path", d, "join", filepath.Join(d, "testAppSrc"), "testApp"})
+	if err != nil {
+		panic(err)
+	}
+
+	app = setupApp()
+	Convey("status should show detailed info about an app", t, func() {
+		out, err := runAppWithStdoutCapture(app, []string{"hcadmin", "-path", d, "status", "testApp"})
+		So(err, ShouldBeNil)
+		So(out, ShouldContainSubstring, "Status of test")
+		So(out, ShouldContainSubstring, "DNA Hash: Qm")
+		So(out, ShouldContainSubstring, "ID Hash: Qm")
+	})
+}
+
 func TestJoinFromPackage(t *testing.T) {
 	d := holo.SetupTestDir()
 	//	defer os.RemoveAll(d)

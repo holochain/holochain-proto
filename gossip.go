@@ -151,7 +151,7 @@ func (dht *DHT) GetGossipers() (gossipers []GossiperData, err error) {
 }
 
 func (dht *DHT) getGossipers() (glist []peer.ID, err error) {
-	glist, err = dht.getGossipers()
+	glist, err = dht._getGossipers()
 	if err != nil {
 		return
 	}

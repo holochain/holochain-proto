@@ -248,12 +248,6 @@ func (dht *DHT) Put(m *Message, entryType string, key Hash, src peer.ID, value [
 	return
 }
 
-func (dht *DHT) Migrate(m *Message, key Hash) (err error) {
-	dht.dlog.Logf("migrate %v", key)
-	err = dht.ht.Migrate(m, key)
-	return
-}
-
 // Del moves the given hash to the StatusDeleted status
 // N.B. this functions assumes that the validity of this action has been confirmed
 func (dht *DHT) Del(m *Message, key Hash) (err error) {

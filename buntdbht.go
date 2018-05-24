@@ -88,11 +88,6 @@ func (ht *BuntHT) Del(m *Message, key Hash) (err error) {
 	return
 }
 
-func (ht *BuntHT) Migrate(m *Message, key Hash) (err error) {
-	// @TODO
-	return
-}
-
 func _setStatus(tx *buntdb.Tx, m *Message, key string, status int) (err error) {
 
 	_, err = tx.Get("entry:" + key)

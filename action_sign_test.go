@@ -1,8 +1,8 @@
 package holochain
 
 import (
+	b58 "github.com/jbenet/go-base58"
 	. "github.com/smartystreets/goconvey/convey"
-	b58 "gx/ipfs/QmT8rehPR3F6bmwL6zjUN8XpiDBFFpMP2myPdC6ApsWfJf/go-base58"
 	"testing"
 )
 

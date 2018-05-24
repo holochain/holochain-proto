@@ -32,19 +32,25 @@ func TestMigrateEntry(t *testing.T) {
   })
 
   Convey("entries with vals work with Entry()", t, func() {
-    var chain Hash
-    var user Hash
-    chain = "123"
-    user = "000"
+    chain := genTestHashString()
+    user := genTestHashString()
     entry := MigrateEntry{Chain: chain, User: user}
     action := ActionMigrate{entry: entry}
-    So(action.Entry(), ShouldResemble, &GobEntry{C: "{\"Chain\":\"123\",\"User\":\"000\",\"Data\":\"\"}"})
+
+    So(action.Entry(), ShouldResemble, &GobEntry{C: "{\"Chain\":\"" + string(chain) + "\",\"User\":\"" + string(user) + "\",\"Data\":\"\"}"})
   })
 }
 
-func TestEntryType(t *testing.T) {
+func TestMigrateEntryType(t *testing.T) {
   action := ActionMigrate{}
   Convey("migrate action EntryType() should return the correct type", t, func() {
     So(action.EntryType(), ShouldEqual, MigrateEntryType)
+  })
+}
+
+func TestMigrateHeaderSetGet(t *testing.T) {
+  Convey("empty migrate action should have empty header", t, func() {
+    action := ActionMigrate{}
+    So(action.GetHeader(), ShouldEqual, nil)
   })
 }

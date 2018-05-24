@@ -489,3 +489,19 @@ func sysValidateEntry(h *Holochain, def *EntryDef, entry Entry, pkg *Package) (e
 	}
 	return
 }
+
+func RunValidationPhase(h *Holochain, source peer.ID, msgType MsgType, query Hash, handler func(resp ValidateResponse) error) (err error) {
+	var r interface{}
+	msg := h.node.NewMessage(msgType, ValidateQuery{H: query})
+	r, err = h.Send(h.node.ctx, ValidateProtocol, source, msg, 0)
+	if err != nil {
+		return
+	}
+	switch resp := r.(type) {
+	case ValidateResponse:
+		err = handler(resp)
+	default:
+		err = fmt.Errorf("expected ValidateResponse from validator got %T", r)
+	}
+	return
+}

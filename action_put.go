@@ -1,8 +1,6 @@
 package holochain
 
 import (
-	"fmt"
-	. "github.com/holochain/holochain-proto/hash"
 	peer "github.com/libp2p/go-libp2p-peer"
 )
 
@@ -26,22 +24,6 @@ func (a *ActionPut) Name() string {
 
 func (a *ActionPut) SysValidation(h *Holochain, def *EntryDef, pkg *Package, sources []peer.ID) (err error) {
 	err = sysValidateEntry(h, def, a.entry, pkg)
-	return
-}
-
-func RunValidationPhase(h *Holochain, source peer.ID, msgType MsgType, query Hash, handler func(resp ValidateResponse) error) (err error) {
-	var r interface{}
-	msg := h.node.NewMessage(msgType, ValidateQuery{H: query})
-	r, err = h.Send(h.node.ctx, ValidateProtocol, source, msg, 0)
-	if err != nil {
-		return
-	}
-	switch resp := r.(type) {
-	case ValidateResponse:
-		err = handler(resp)
-	default:
-		err = fmt.Errorf("expected ValidateResponse from validator got %T", r)
-	}
 	return
 }
 

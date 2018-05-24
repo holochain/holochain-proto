@@ -296,6 +296,7 @@ func TestBuildBridgeToCallee(t *testing.T) {
 	Convey("you can build a bridge to a running callee", t, func() {
 		app := BridgeApp{
 			BridgeZome: "jsSampleZome",
+			Name:       hCallee.Name(),
 			DNA:        hCallee.DNAHash(),
 			Port:       calleePort,
 			BridgeGenesisCallerData: "caller Data",
@@ -305,6 +306,6 @@ func TestBuildBridgeToCallee(t *testing.T) {
 		ShouldLog(&hCaller.Config.Loggers.App, func() {
 			err := hCaller.BuildBridgeToCallee(&app)
 			So(err, ShouldBeNil)
-		}, fmt.Sprintf(`testGetBridges:[{"Side":0,"ToApp":"%s"`, hCaller.DNAHash().String()))
+		}, fmt.Sprintf(`testGetBridges:[{"CalleeApp":"%s"`, hCaller.DNAHash().String()), `"CalleeName":"test"`, `"Side":0`)
 	})
 }

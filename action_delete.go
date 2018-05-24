@@ -6,7 +6,25 @@ import (
 )
 
 //------------------------------------------------------------
-// Del Action
+// Del
+
+type APIFnDel struct {
+	action ActionDel
+}
+
+func (fn *APIFnDel) Name() string {
+	return fn.action.Name()
+}
+
+func (fn *APIFnDel) Args() []Arg {
+	return []Arg{{Name: "hash", Type: HashArg}, {Name: "message", Type: StringArg}}
+}
+
+func (fn *APIFnDel) Call(h *Holochain) (response interface{}, err error) {
+	a := &fn.action
+	response, err = h.commitAndShare(a, NullHash())
+	return
+}
 
 type ActionDel struct {
 	entry  DelEntry
@@ -89,26 +107,5 @@ func (a *ActionDel) Receive(dht *DHT, msg *Message) (response interface{}, err e
 }
 
 func (a *ActionDel) CheckValidationRequest(def *EntryDef) (err error) {
-	return
-}
-
-//------------------------------------------------------------
-// Del API fn
-
-type APIFnDel struct {
-	action ActionDel
-}
-
-func (fn *APIFnDel) Name() string {
-	return fn.action.Name()
-}
-
-func (fn *APIFnDel) Args() []Arg {
-	return []Arg{{Name: "hash", Type: HashArg}, {Name: "message", Type: StringArg}}
-}
-
-func (fn *APIFnDel) Call(h *Holochain) (response interface{}, err error) {
-	a := &fn.action
-	response, err = h.commitAndShare(a, NullHash())
 	return
 }

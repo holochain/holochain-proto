@@ -20,6 +20,7 @@ const (
 	VirtualEntryTypePrefix = "%%"
 
 	// Entry type formats
+
 	DataFormatJSON    = "json"
 	DataFormatString  = "string"
 	DataFormatRawJS   = "js"
@@ -31,8 +32,6 @@ const (
 	Partial = "partial"
 	Private = "private"
 )
-
-
 
 // EntryDef struct holds an entry definition
 type EntryDef struct {

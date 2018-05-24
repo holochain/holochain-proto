@@ -246,11 +246,11 @@ func TestNewJSRibosome(t *testing.T) {
 
 			ShouldLog(h.nucleus.alog, func() {
 				hToHash, _ := NewHash("QmY8Mzg9F69e5P9AoQPYat655HEhc1TVGs11tmfNSzkqto")
-				err = h.AddBridgeAsCaller("jsSampleZome", hToHash, token, "fakeurl", "")
+				err = h.AddBridgeAsCaller("jsSampleZome", hToHash, "fakeAppName", token, "fakeurl", "")
 				if err != nil {
 					panic(err)
 				}
-			}, fmt.Sprintf(`[{"Side":0,"ToApp":"QmY8Mzg9F69e5P9AoQPYat655HEhc1TVGs11tmfNSzkqto"},{"Side":1,"Token":"%s"}]`, token))
+			}, fmt.Sprintf(`[{"CalleeApp":"QmY8Mzg9F69e5P9AoQPYat655HEhc1TVGs11tmfNSzkqto","CalleeName":"fakeAppName","Side":0},{"Side":1,"Token":"%s"}]`, token))
 
 		})
 

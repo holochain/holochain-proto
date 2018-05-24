@@ -405,7 +405,7 @@ func TestGossipErrorCases(t *testing.T) {
 	})
 }
 
-func TestGossipPropigation(t *testing.T) {
+func TestGossipPropagation(t *testing.T) {
 	nodesCount := 10
 	mt := setupMultiNodeTesting(nodesCount)
 	defer mt.cleanupMultiNodeTesting()
@@ -429,7 +429,7 @@ func TestGossipPropigation(t *testing.T) {
 		}
 	})
 
-	Convey("each node should only have everybody's puts after enough propigation time", t, func() {
+	Convey("each node should only have everybody's puts after enough propagation time", t, func() {
 
 		for i := 0; i < nodesCount; i++ {
 			nodes[i].Config.gossipInterval = 200 * time.Millisecond
@@ -437,7 +437,7 @@ func TestGossipPropigation(t *testing.T) {
 		}
 
 		start := time.Now()
-		propigated := false
+		propagated := false
 		ticker := time.NewTicker(210 * time.Millisecond)
 		stop := make(chan bool, 1)
 
@@ -450,12 +450,12 @@ func TestGossipPropigation(t *testing.T) {
 					return
 				}
 
-				propigated = true
+				propagated = true
 				// check to see if the nodes have all gotten the puts yet.
 				for i := 0; i < nodesCount; i++ {
 					puts, _ := nodes[i].dht.GetPuts(0)
 					if len(puts) < nodesCount*2 {
-						propigated = false
+						propagated = false
 					}
 					/*					fmt.Printf("NODE%d(%s): %d:", i, nodes[i].nodeID.Pretty()[2:4], len(puts))
 										for j := 0; j < len(puts); j++ {
@@ -475,7 +475,7 @@ func TestGossipPropigation(t *testing.T) {
 										fmt.Printf("\n")
 					*/
 				}
-				if propigated {
+				if propagated {
 					stop <- true
 					return
 				}
@@ -484,7 +484,7 @@ func TestGossipPropigation(t *testing.T) {
 		}()
 		<-stop
 		ticker.Stop()
-		So(propigated, ShouldBeTrue)
+		So(propagated, ShouldBeTrue)
 	})
 }
 

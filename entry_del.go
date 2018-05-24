@@ -6,8 +6,8 @@ import (
 )
 
 const (
-	DelEntryType = SysEntryTypePrefix + "del"
-	DelEntrySchema = `
+  DelEntryType = SysEntryTypePrefix + "del"
+  DelEntrySchema = `
 {
   "$id": "http://example.com/example.json",
   "type": "object",

@@ -5,7 +5,7 @@ import (
 )
 
 const (
-	DataFormatLinks   = "links"
+  DataFormatLinks = "links"
 )
 
 // LinksEntry holds one or more links

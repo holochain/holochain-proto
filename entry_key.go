@@ -2,7 +2,7 @@ package holochain
 
 const (
   // virtual entry type, not actually on the chain
-  KeyEntryType     = VirtualEntryTypePrefix + "key"
+  KeyEntryType = VirtualEntryTypePrefix + "key"
 
   DataFormatSysKey  = "_key"
 )

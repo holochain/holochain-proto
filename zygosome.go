@@ -688,7 +688,11 @@ func NewZygoRibosome(h *Holochain, zome *Zome) (n Ribosome, err error) {
 					if err != nil {
 						return zygo.SexpNull, err
 					}
-					err = bridge.HashSet(env.MakeSymbol("ToApp"), &zygo.SexpStr{S: b.ToApp.String()})
+					err = bridge.HashSet(env.MakeSymbol("CalleeApp"), &zygo.SexpStr{S: b.CalleeApp.String()})
+					if err != nil {
+						return zygo.SexpNull, err
+					}
+					err = bridge.HashSet(env.MakeSymbol("CalleeName"), &zygo.SexpStr{S: b.CalleeName})
 					if err != nil {
 						return zygo.SexpNull, err
 					}

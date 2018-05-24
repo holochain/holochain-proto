@@ -84,7 +84,7 @@ func TestSetupConfig(t *testing.T) {
 		So(config.holdingCheckInterval, ShouldEqual, DefaultHoldingCheckInterval)
 	})
 
-	Convey("it should use honor env variables", t, func() {
+	Convey("it should honor env variables", t, func() {
 		config := Config{}
 		So(config.EnableWorldModel, ShouldBeFalse)
 		os.Setenv("HC_GOSSIP_INTERVAL", "3")

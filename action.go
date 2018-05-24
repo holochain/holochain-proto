@@ -65,6 +65,7 @@ type CommittingAction interface {
 	Receive(dht *DHT, msg *Message) (response interface{}, err error)
 	CheckValidationRequest(def *EntryDef) (err error)
 	EntryType() string
+	// returns a GobEntry containing the action's entry in a serialized format
 	Entry() Entry
 	SetHeader(header *Header)
 	GetHeader() (header *Header)

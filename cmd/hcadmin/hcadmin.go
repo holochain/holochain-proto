@@ -28,7 +28,7 @@ func setupApp() (app *cli.App) {
 	var dumpChain, dumpDHT, json bool
 	var root string
 	var service *holo.Service
-	var bridgeCalleeAppData, bridgeCallerAppData string
+	var bridgeCalleeAppData, bridgeCallerAppData, dumpFormat string
 	var start int
 
 	app.Flags = []cli.Flag{
@@ -97,6 +97,12 @@ func setupApp() (app *cli.App) {
 					Destination: &start,
 					Usage:       "starting index for dump (zero based)",
 				},
+				cli.StringFlag{
+					Name:        "format",
+					Destination: &dumpFormat,
+					Usage:       "Dump format (string, json, dot)",
+					Value:       "string",
+				},
 			},
 			Action: func(c *cli.Context) error {
 				h, err := cmd.GetHolochain(c.Args().First(), service, "dump")
@@ -108,23 +114,48 @@ func setupApp() (app *cli.App) {
 					return errors.New("No data to dump, chain not yet initialized.")
 				}
 				dnaHash := h.DNAHash()
+				var dump string
 				if dumpChain {
 					if json {
-						dump, _ := h.Chain().JSON(start)
-						fmt.Println(dump)
+						dump, err = h.Chain().JSON(start)
+					} else if dumpFormat != "" {
+						switch dumpFormat {
+						case "string":
+							dump = fmt.Sprintf("Chain for: %s\n%v", dnaHash, h.Chain().Dump(start))
+						case "dot":
+							dump, err = h.Chain().Dot(start)
+						case "json":
+							dump, err = h.Chain().JSON(start)
+						default:
+							err = cmd.MakeErr(c, "format for chain dump must be one of dot, json, string")
+						}
 					} else {
-						fmt.Printf("Chain for: %s\n%v", dnaHash, h.Chain().Dump(start))
+						dump = fmt.Sprintf("Chain for: %s\n%v", dnaHash, h.Chain().Dump(start))
 					}
+				}
+				if err != nil {
+					return err
 				}
 				if dumpDHT {
 					if json {
-						dump, _ := h.DHT().JSON()
-						fmt.Println(dump)
+						dump, err = h.DHT().JSON()
+					} else if dumpFormat != "" {
+						switch dumpFormat {
+						case "string":
+							dump = fmt.Sprintf("DHT for: %s\n%v", dnaHash, h.DHT())
+						case "json":
+							dump, err = h.DHT().JSON()
+						default:
+							err = cmd.MakeErr(c, "format for dht dump must be one of json, string")
+						}
 					} else {
-						fmt.Printf("DHT for: %s\n%v", dnaHash, h.DHT())
+						dump = fmt.Sprintf("DHT for: %s\n%v", dnaHash, h.DHT())
 					}
 				}
-
+				if err != nil {
+					return err
+				}
+				fmt.Println(dump)
 				return nil
 			},
 		},

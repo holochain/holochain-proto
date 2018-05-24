@@ -222,9 +222,35 @@ func TestDumpChainAsJSON(t *testing.T) {
 			So(out, ShouldContainSubstring, ",\n    \"%agent\": {")
 		})
 
+		Convey("dump --chain --format=json should show chain entries as a json string", func() {
+			app := setupApp()
+			out, err := cmd.RunAppWithStdoutCapture(app, []string{"hcadmin", "-path", d, "dump", "--chain", "--format=json", "testApp"}, 1*time.Second)
+
+			So(err, ShouldBeNil)
+			So(out, ShouldContainSubstring, "{\n    \"%dna\": {")
+			So(out, ShouldContainSubstring, ",\n    \"%agent\": {")
+		})
+
+		Convey("dump --chain --format=dot should show chain entries in dot format", func() {
+			app := setupApp()
+			out, err := cmd.RunAppWithStdoutCapture(app, []string{"hcadmin", "-path", d, "dump", "--chain", "--format=dot", "testApp"}, 1*time.Second)
+
+			So(err, ShouldBeNil)
+			So(out, ShouldContainSubstring, "digraph chain {")
+		})
+
 		Convey("dump --dht --json should show dht entries as a json string", func() {
 			app := setupApp()
 			out, err := cmd.RunAppWithStdoutCapture(app, []string{"hcadmin", "-path", d, "dump", "--dht", "--json", "testApp"}, 1*time.Second)
+
+			So(err, ShouldBeNil)
+			So(out, ShouldContainSubstring, "\"dht_changes\": [")
+			So(out, ShouldContainSubstring, "\"dht_entries\": [")
+		})
+
+		Convey("dump --dht --format=json should show dht entries as a json string", func() {
+			app := setupApp()
+			out, err := cmd.RunAppWithStdoutCapture(app, []string{"hcadmin", "-path", d, "dump", "--dht", "--format=json", "testApp"}, 1*time.Second)
 
 			So(err, ShouldBeNil)
 			So(out, ShouldContainSubstring, "\"dht_changes\": [")

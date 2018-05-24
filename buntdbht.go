@@ -579,7 +579,7 @@ func (ht *BuntHT) dumpIdxJSON(idx int) (str string, err error) {
 	switch msg.Type {
 	case PUT_REQUEST:
 		key := msg.Body.(HoldReq).EntryHash
-		entry, entryType, _, _, e := ht.Get(key, StatusDefault, GetMaskAll)
+		entry, entryType, _, _, e := ht.Get(key, StatusAny, GetMaskAll)
 		if e != nil {
 			err = fmt.Errorf("couldn't get %v err:%v ", key, e)
 			return

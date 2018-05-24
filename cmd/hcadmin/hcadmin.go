@@ -114,36 +114,48 @@ func setupApp() (app *cli.App) {
 					return errors.New("No data to dump, chain not yet initialized.")
 				}
 				dnaHash := h.DNAHash()
+				var dump string
 				if dumpChain {
 					if json {
-						dump, _ := h.Chain().JSON(start)
-						fmt.Println(dump)
+						dump, err = h.Chain().JSON(start)
 					} else if dumpFormat != "" {
 						switch dumpFormat {
 						case "string":
-							fmt.Printf("Chain for: %s\n%v", dnaHash, h.Chain().Dump(start))
+							dump = fmt.Sprintf("Chain for: %s\n%v", dnaHash, h.Chain().Dump(start))
 						case "dot":
-							dump, _ := h.Chain().Dot(start)
-							fmt.Println(dump)
+							dump, err = h.Chain().Dot(start)
 						case "json":
-							dump, _ := h.Chain().JSON(start)
-							fmt.Println(dump)
+							dump, err = h.Chain().JSON(start)
 						default:
-							return cmd.MakeErr(c, "format must be one of dot, json, string")
+							err = cmd.MakeErr(c, "format for chain dump must be one of dot, json, string")
 						}
 					} else {
-						fmt.Printf("Chain for: %s\n%v", dnaHash, h.Chain().Dump(start))
+						dump = fmt.Sprintf("Chain for: %s\n%v", dnaHash, h.Chain().Dump(start))
 					}
+				}
+				if err != nil {
+					return err
 				}
 				if dumpDHT {
 					if json {
-						dump, _ := h.DHT().JSON()
-						fmt.Println(dump)
+						dump, err = h.DHT().JSON()
+					} else if dumpFormat != "" {
+						switch dumpFormat {
+						case "string":
+							dump = fmt.Sprintf("DHT for: %s\n%v", dnaHash, h.DHT())
+						case "json":
+							dump, err = h.DHT().JSON()
+						default:
+							err = cmd.MakeErr(c, "format for dht dump must be one of json, string")
+						}
 					} else {
-						fmt.Printf("DHT for: %s\n%v", dnaHash, h.DHT())
+						dump = fmt.Sprintf("DHT for: %s\n%v", dnaHash, h.DHT())
 					}
 				}
-
+				if err != nil {
+					return err
+				}
+				fmt.Println(dump)
 				return nil
 			},
 		},

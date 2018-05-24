@@ -12,7 +12,7 @@
 
 In other words, a holochain functions very much **like a blockchain without bottlenecks** when it comes to enforcing validation rules, but is designed to  be fully distributed with each node only needing to hold a small portion of the data instead of everything needing a full copy of a global ledger. This makes it feasible to run blockchain-like applications on devices as lightweight as mobile phones.
 
-**[Code Status:](https://github.com/holochain/holochain-proto/milestones?direction=asc&sort=completeness&state=all)** Alpha. Not for production use. The code has not yet undergone a security audit. We expect to destructively restructure code APIs and data chains until Beta. Proof-of-concept was unveiled at our first hackathon (March 2017). Alpha 0 was released (October 2017).
+**[Code Status:](https://github.com/holochain/holochain-proto/milestones?direction=asc&sort=completeness&state=all)** Alpha. Not for production use. The code has not yet undergone a security audit. We expect to destructively restructure code APIs and data chains until Beta. Proof-of-concept was unveiled at our first hackathon (March 2017). Alpha 0 was released October 2017.  Alpha 1 was released May 2018.
 <br/>
 
 | Holochain Links: | [FAQ](https://github.com/holochain/holochain-proto/wiki/FAQ) | [Developer Wiki](https://developer.holochain.org) | [White Paper](https://github.com/holochain/holochain-proto/blob/whitepaper/holochain.pdf) | [GoDocs](https://godoc.org/github.com/holochain/holochain-proto) |
@@ -158,7 +158,7 @@ For example: `hcadmin join ./examples/chat chat`
 Note: this command will be replaced by a package management command still in development.
 
 #### Running a Holochain
-Holochains run and serve their UI via local web sockets. This let's interface developers have a lot of freedom to build HTML/JavaScript files and drop them in that chain's UI directory. You start a holochain and activate it's UI with the `hcd` command:
+Holochains run and serve their UI via local web sockets. This allows interface developers lots of freedom to build HTML/JavaScript files and drop them in that chain's UI directory. You start a holochain and activate it's UI with the `hcd` command:
 
 ```bash
 $ hcd <CHAIN_NAME> [PORT]
@@ -192,7 +192,7 @@ $ HOLOPATH=~/mychains hcadmin
 You can use the form: `hcadmin -path=/your/path/here` but you must use the absolute path, as shell substitutions will not happen.
 
 #### Logging
-All the commands take a `--debug` flag which will turn on a number of different kinds of debugging. For running chains, you can also control exactly which of these logging types you wish to see in the chain's config.json file. You can also set the DEBUG environment variable to 0 or 1 to temporarily override your settings to turn everything on or off.
+All the commands take a `--debug` flag which will turn on a number of different kinds of debugging. For running chains, you can also control exactly which of these logging types you wish to see in the chain's config.json file. You can also set the `HCDEBUG` environment variable to 0 or 1 to temporarily override your settings to turn everything on or off.  See also the [Environment Variable](https://developer.holochain.org/Environment_Variables) documentation for more granular logging control.
 
 ## Architecture Overview and Documentation
 Architecture information and application developer documentation is in our [developer.holochain.org](https://developer.holochain.org).

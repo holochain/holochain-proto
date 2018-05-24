@@ -246,9 +246,10 @@ func setupApp() (app *cli.App) {
 					if err != nil {
 						return err
 					}
-					dna := h.Nucleus().DNA()
-					fmt.Printf("Status of %s\n", dna.Name)
-					fmt.Printf("   ---More status info here, not yet implemented---\n")
+					//					dna := h.Nucleus().DNA()
+					fmt.Printf("Status of %s\n", h.Name())
+					fmt.Printf("DNA Hash: %v\n", h.DNAHash())
+					fmt.Printf("ID Hash: %s\n", h.NodeIDStr())
 				} else {
 					return errors.New("status: expected 0 or 1 argument")
 				}

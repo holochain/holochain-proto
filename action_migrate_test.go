@@ -26,12 +26,17 @@ func TestAPIFnMigrateName(t *testing.T) {
 }
 
 func TestMigrateEntry(t *testing.T) {
-  var chain Hash
-  var user Hash
-  entry := MigrateEntry{Chain: chain, User: user}
-  action := ActionMigrate{entry: entry}
+  entry := MigrateEntry{}
+  var emptyJSONEntry, _ = entry.ToJSON()
   Convey("migrate action Entry() should be retreive a serialized JSON of the entry in a GobEntry", t, func() {
-    var jsonEntry, _ = entry.ToJSON()
-    So(action.Entry(), ShouldResemble, &GobEntry{C: jsonEntry})
+    action := ActionMigrate{}
+    So(action.Entry(), ShouldResemble, &GobEntry{C: emptyJSONEntry})
+  })
+}
+
+func TestEntryType(t *testing.T) {
+  action := ActionMigrate{}
+  Convey("migrate action EntryType() should return the correct type", t, func() {
+    So(action.EntryType(), ShouldEqual, MigrateEntryType)
   })
 }

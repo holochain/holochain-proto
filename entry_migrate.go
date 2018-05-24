@@ -6,8 +6,7 @@ import (
 )
 
 const (
-	MigrateToEntryType = SysEntryTypePrefix + "migrate-to"
-	MigrateFromToEntryType = SysEntryTypePrefix + "migrate-from"
+	MigrateEntryType = SysEntryTypePrefix + "migrate"
   // currently both to/from have the same schema
 	MigrateEntrySchema = `
 {
@@ -17,21 +16,21 @@ const (
   "$schema": "http://json-schema.org/draft-07/schema#",
   "properties": {
     "Chain": {
-      "$id": "/properties/Hash",
+      "$id": "/properties/Chain",
       "type": "string",
-      "title": "The Hash Schema ",
+      "title": "The Chain Schema ",
       "default": ""
     },
     "User": {
-      "$id": "/properties/Hash",
+      "$id": "/properties/User",
       "type": "string",
-      "title": "The Hash Schema ",
+      "title": "The User Schema ",
       "default": ""
     },
     "Data": {
-      "$id": "/properties/message",
+      "$id": "/properties/Data",
       "type": "string",
-      "title": "The Message Schema ",
+      "title": "The Data Schema ",
       "default": ""
     }
   },
@@ -40,22 +39,32 @@ const (
 `
 )
 
-func MigrateEntryToJSON(e *interface{}) (encodedEntry string, err error) {
+// MigrateEntry struct is the record of a chain opening or closing
+type MigrateEntry struct {
+  Type string
+  Chain Hash
+  User Hash
+  Data string
+}
+
+var MigrateEntryDef = &EntryDef{Name: MigrateEntryType, DataFormat: DataFormatJSON, Sharing: Public, Schema: MigrateEntrySchema}
+
+func (e *MigrateEntry) ToJSON() (encodedEntry string, err error) {
   var x struct {
 		Chain Hash
 		User Hash
     Data string
 	}
-	x.Chain = e.Chain.String()
-  x.User = e.User.String()
-	x.Data = e.Data.String()
+	x.Chain = e.Chain
+  x.User = e.User
+	x.Data = e.Data
 	var j []byte
 	j, err = json.Marshal(x)
 	encodedEntry = string(j)
 	return
 }
 
-func MigrateEntryFromJSON(j string) (entry interface{}, err error) {
+func MigrateEntryFromJSON(j string) (entry MigrateEntry, err error) {
   var x struct {
 		Chain Hash
     User Hash
@@ -65,42 +74,8 @@ func MigrateEntryFromJSON(j string) (entry interface{}, err error) {
 	if err != nil {
 		return
 	}
-	entry.Chain, err = NewHash(x.Chain)
-	entry.User, err = NewHash(x.Hash)
+	entry.Chain = x.Chain
+	entry.User = x.User
   entry.Data = x.Data
 	return
-}
-
-// MigrateToEntry struct is the record of a chain closing
-type MigrateToEntry struct {
-  Chain Hash
-  User Hash
-  Data string
-}
-
-var MigrateToEntryDef = &EntryDef{Name: MigrateToEntryType, DataFormat: DataFormatJSON, Sharing: Public, Schema: MigrateEntrySchema}
-
-func (e *MigrateToEntry) ToJSON() (encodedEntry string, err error) {
-  return MigrateEntryToJSON(e)
-}
-
-func MigrateToEntryFromJSON(j string) (entry MigrateToEntry, err error) {
-  return MigrateEntryFromJSON(j)
-}
-
-// MigrateFromEntry struct is the record of a chain referencing a closed chain
-type MigrateFromEntry struct {
-  Chain Hash
-  User Hash
-  Data string
-}
-
-var MigrateFromEntryDef = &EntryDef{Name: MigrateFromEntryType, DataFormat: DataFormatJSON, Sharing: Public, Schema: MigrateEntrySchema}
-
-func (e *MigrateFromEntry) ToJSON() (encodedEntry string, err error) {
-  return MigrateEntryToJSON(e)
-}
-
-func MigrateFromEntryFromJSON(j string) (entry MigrateFromEntry, err error) {
-  return MigrateEntryFromJSON(j)
 }

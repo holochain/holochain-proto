@@ -250,6 +250,8 @@ func setupApp() (app *cli.App) {
 					fmt.Printf("Status of %s\n", h.Name())
 					fmt.Printf("DNA Hash: %v\n", h.DNAHash())
 					fmt.Printf("ID Hash: %s\n", h.NodeIDStr())
+					idx, _ := h.DHT().GetIdx()
+					fmt.Printf("Current Put Index: %d\n", idx)
 				} else {
 					return errors.New("status: expected 0 or 1 argument")
 				}

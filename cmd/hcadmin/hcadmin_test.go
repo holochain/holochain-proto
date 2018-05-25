@@ -2,16 +2,24 @@ package main
 
 import (
 	"fmt"
-	holo "github.com/metacurrency/holochain"
-	"github.com/metacurrency/holochain/cmd"
-	. "github.com/smartystreets/goconvey/convey"
-	"github.com/urfave/cli"
 	"os"
 	"path/filepath"
 	"regexp"
 	"testing"
 	"time"
+
+	holo "github.com/holochain/holochain-proto"
+	"github.com/holochain/holochain-proto/cmd"
+	. "github.com/smartystreets/goconvey/convey"
+	"github.com/urfave/cli"
 )
+
+func TestMain(m *testing.M) {
+	// disable UPNP for tests
+	os.Setenv("HOLOCHAINCONFIG_ENABLENATUPNP", "false")
+	holo.InitializeHolochain()
+	os.Exit(m.Run())
+}
 
 func TestSetupApp(t *testing.T) {
 	app := setupApp()
@@ -81,6 +89,36 @@ func TestJoinFromSourceDir(t *testing.T) {
 		So(err, ShouldBeNil)
 		So(out, ShouldContainSubstring, "DHT for: Qm")
 		So(out, ShouldContainSubstring, "DHT changes: 2")
+	})
+}
+
+func TestStatus(t *testing.T) {
+	d := holo.SetupTestDir()
+	defer os.RemoveAll(d)
+	app := setupApp()
+	os.Args = []string{"hcadmin", "-path", d, "init", "test-identity"}
+	err := app.Run(os.Args)
+	if err != nil {
+		panic(err)
+	}
+	hcdev := filepath.Join(os.Getenv("GOPATH"), "/bin/hcdev")
+	err = cmd.OsExecSilent(hcdev, "-path", d, "init", "-test", "testAppSrc")
+	if err != nil {
+		panic(err)
+	}
+	app = setupApp()
+	_, err = runAppWithStdoutCapture(app, []string{"hcadmin", "-verbose", "-path", d, "join", filepath.Join(d, "testAppSrc"), "testApp"})
+	if err != nil {
+		panic(err)
+	}
+
+	app = setupApp()
+	Convey("status should show detailed info about an app", t, func() {
+		out, err := runAppWithStdoutCapture(app, []string{"hcadmin", "-path", d, "status", "testApp"})
+		So(err, ShouldBeNil)
+		So(out, ShouldContainSubstring, "Status of test")
+		So(out, ShouldContainSubstring, "DNA Hash: Qm")
+		So(out, ShouldContainSubstring, "ID Hash: Qm")
 	})
 }
 
@@ -170,7 +208,7 @@ func TestBridge(t *testing.T) {
 
 	Convey("it should bridge chains", t, func() {
 		app = setupApp()
-		out, err := runAppWithStdoutCapture(app, []string{"hcadmin", "-debug", "-path", d, "bridge", "testApp1", "testApp2", "-bridgeToAppData", "some to app data"})
+		out, err := runAppWithStdoutCapture(app, []string{"hcadmin", "-debug", "-path", d, "bridge", "testApp1", "testApp2", "jsSampleZome", "-bridgeCalleeAppData", "some to app data"})
 		So(err, ShouldBeNil)
 		So(out, ShouldContainSubstring, "bridge genesis to-- other side is:"+testApp1DNA+" bridging data:some to app data\n")
 	})
@@ -178,8 +216,76 @@ func TestBridge(t *testing.T) {
 		app = setupApp()
 		out, err := runAppWithStdoutCapture(app, []string{"hcadmin", "-debug", "-path", d, "status"})
 		So(err, ShouldBeNil)
-		So(out, ShouldContainSubstring, "testApp1 "+testApp1DNA+"\n        bridged to: "+testApp2DNA)
+		So(out, ShouldContainSubstring, "testApp1 "+testApp1DNA+"\n        bridged to: test ("+testApp2DNA+")")
 		So(out, ShouldContainSubstring, "testApp2 "+testApp2DNA+"\n        bridged from by token:")
+	})
+}
+
+func TestDumpChainAsJSON(t *testing.T) {
+	Convey("Given a joined chain", t, func() {
+		d := holo.SetupTestDir()
+		defer os.RemoveAll(d)
+
+		app := setupApp()
+		_, err := runAppWithStdoutCapture(app, []string{"hcadmin", "-path", d, "init", "test-identity"})
+		if err != nil {
+			panic(err)
+		}
+
+		err = holo.WriteFile([]byte(holo.BasicTemplateAppPackage), d, "appPackage."+holo.BasicTemplateAppPackageFormat)
+		if err != nil {
+			panic(err)
+		}
+
+		app = setupApp()
+		_, err = runAppWithStdoutCapture(app, []string{"hcadmin", "-verbose", "-path", d, "join", filepath.Join(d, "appPackage."+holo.BasicTemplateAppPackageFormat), "testApp"})
+		if err != nil {
+			panic(err)
+		}
+
+		Convey("dump --chain --json should show chain entries as a json string", func() {
+			app := setupApp()
+			out, err := cmd.RunAppWithStdoutCapture(app, []string{"hcadmin", "-path", d, "dump", "--chain", "--json", "testApp"}, 1*time.Second)
+
+			So(err, ShouldBeNil)
+			So(out, ShouldContainSubstring, "{\n    \"%dna\": {")
+			So(out, ShouldContainSubstring, ",\n    \"%agent\": {")
+		})
+
+		Convey("dump --chain --format=json should show chain entries as a json string", func() {
+			app := setupApp()
+			out, err := cmd.RunAppWithStdoutCapture(app, []string{"hcadmin", "-path", d, "dump", "--chain", "--format=json", "testApp"}, 1*time.Second)
+
+			So(err, ShouldBeNil)
+			So(out, ShouldContainSubstring, "{\n    \"%dna\": {")
+			So(out, ShouldContainSubstring, ",\n    \"%agent\": {")
+		})
+
+		Convey("dump --chain --format=dot should show chain entries in dot format", func() {
+			app := setupApp()
+			out, err := cmd.RunAppWithStdoutCapture(app, []string{"hcadmin", "-path", d, "dump", "--chain", "--format=dot", "testApp"}, 1*time.Second)
+
+			So(err, ShouldBeNil)
+			So(out, ShouldContainSubstring, "digraph chain {")
+		})
+
+		Convey("dump --dht --json should show dht entries as a json string", func() {
+			app := setupApp()
+			out, err := cmd.RunAppWithStdoutCapture(app, []string{"hcadmin", "-path", d, "dump", "--dht", "--json", "testApp"}, 1*time.Second)
+
+			So(err, ShouldBeNil)
+			So(out, ShouldContainSubstring, "\"dht_changes\": [")
+			So(out, ShouldContainSubstring, "\"dht_entries\": [")
+		})
+
+		Convey("dump --dht --format=json should show dht entries as a json string", func() {
+			app := setupApp()
+			out, err := cmd.RunAppWithStdoutCapture(app, []string{"hcadmin", "-path", d, "dump", "--dht", "--format=json", "testApp"}, 1*time.Second)
+
+			So(err, ShouldBeNil)
+			So(out, ShouldContainSubstring, "\"dht_changes\": [")
+			So(out, ShouldContainSubstring, "\"dht_entries\": [")
+		})
 	})
 }
 

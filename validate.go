@@ -1,4 +1,4 @@
-// Copyright (C) 2013-2017, The MetaCurrency Project (Eric Harris-Braun, Arthur Brock, et. al.)
+// Copyright (C) 2013-2018, The MetaCurrency Project (Eric Harris-Braun, Arthur Brock, et. al.)
 // Use of this source code is governed by GPLv3 found in the LICENSE file
 //----------------------------------------------------------------------------------------
 
@@ -10,7 +10,7 @@ package holochain
 import (
 	"bytes"
 	"fmt"
-	. "github.com/metacurrency/holochain/hash"
+	. "github.com/holochain/holochain-proto/hash"
 )
 
 // Package holds app specified data needed for validation (wire package)

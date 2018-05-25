@@ -1,4 +1,4 @@
-// Copyright (C) 2013-2017, The MetaCurrency Project (Eric Harris-Braun, Arthur Brock, et. al.)
+// Copyright (C) 2013-2018, The MetaCurrency Project (Eric Harris-Braun, Arthur Brock, et. al.)
 // Use of this source code is governed by GPLv3 found in the LICENSE file
 //----------------------------------------------------------------------------------------
 
@@ -8,11 +8,12 @@ package ui
 
 import (
 	"context"
-	_ "encoding/json"
+	"encoding/json"
 	"errors"
 	"fmt"
 	websocket "github.com/gorilla/websocket"
-	holo "github.com/metacurrency/holochain"
+	holo "github.com/holochain/holochain-proto"
+	. "github.com/holochain/holochain-proto/hash"
 	"io/ioutil"
 	"net/http"
 	"os"
@@ -101,12 +102,8 @@ func (ws *WebServer) Start() {
 			}
 		}()
 
-		/*		if r.Method == "GET" {
-					fmt.Printf("processing Get:%s\n", r.URL.Path)
+		ws.log.Logf("REQUEST:%v", r)
 
-					http.Redirect(w, r, "/static", http.StatusSeeOther)
-				}
-		*/
 		body, err := ioutil.ReadAll(r.Body)
 		if err != nil {
 			errCode, err = mkErr("unable to read body", 500)
@@ -125,8 +122,6 @@ func (ws *WebServer) Start() {
 		result, err := ws.call(zome, function, args)
 		if err != nil {
 			ws.log.Logf("call of %s:%s resulted in error: %v\n", zome, function, err)
-			http.Error(w, err.Error(), 500)
-
 			return
 		}
 		ws.log.Logf(" result: %v\n", result)
@@ -137,6 +132,50 @@ func (ws *WebServer) Start() {
 			fmt.Fprint(w, string(t))
 		default:
 			err = fmt.Errorf("Unknown type from Call of %s:%s", zome, function)
+		}
+	})
+
+	mux.HandleFunc("/setup-bridge/", func(w http.ResponseWriter, r *http.Request) {
+		var err error
+		var errCode = 400
+		defer func() {
+			if err != nil {
+				ws.log.Logf("ERROR:%s,code:%d", err.Error(), errCode)
+				http.Error(w, err.Error(), errCode)
+			}
+		}()
+
+		body, err := ioutil.ReadAll(r.Body)
+		if err != nil {
+			errCode, err = mkErr("unable to read body", 500)
+			return
+		}
+		ws.log.Logf("processing req:%s\n  Body:%v\n", r.URL.Path, string(body))
+		data := make(map[string]string)
+		err = json.Unmarshal(body, &data)
+		if err == nil {
+			switch data["Type"] {
+			case "ToCaller":
+				var DNAHash Hash
+				DNAHash, err = NewHash(data["DNA"])
+				if err == nil {
+					err = ws.h.AddBridgeAsCaller(data["Zome"], DNAHash, data["Name"], data["Token"], fmt.Sprintf("http://localhost:%s", data["Port"]), data["Data"])
+				}
+			case "ToCallee":
+				var DNAHash Hash
+				DNAHash, err = NewHash(data["DNA"])
+				if err == nil {
+					var token string
+					token, err = ws.h.AddBridgeAsCallee(DNAHash, data["Data"])
+					if err == nil {
+						fmt.Fprint(w, token)
+					} else {
+						errCode, err = mkErr("unable to add bridge: "+err.Error(), 500)
+					}
+				}
+			default:
+				errCode, err = mkErr("bad bridging type", 500)
+			}
 		}
 	})
 

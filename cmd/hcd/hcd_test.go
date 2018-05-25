@@ -1,8 +1,8 @@
 package main
 
 import (
-	holo "github.com/metacurrency/holochain"
-	"github.com/metacurrency/holochain/cmd"
+	holo "github.com/holochain/holochain-proto"
+	"github.com/holochain/holochain-proto/cmd"
 	. "github.com/smartystreets/goconvey/convey"
 	"github.com/urfave/cli"
 	"io/ioutil"
@@ -13,6 +13,8 @@ import (
 )
 
 func TestMain(m *testing.M) {
+	// disable UPNP for tests
+	os.Setenv("HOLOCHAINCONFIG_ENABLENATUPNP", "false")
 	holo.InitializeHolochain()
 	os.Exit(m.Run())
 }

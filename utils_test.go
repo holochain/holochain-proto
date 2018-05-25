@@ -51,16 +51,60 @@ func TestUtilsEncodeDecode(t *testing.T) {
 	})
 }
 
+func TestUtilsDecodeFile(t *testing.T) {
+	var data, data1 struct {
+		A int
+		B string
+	}
+	data.A = 314
+	data.B = "fish"
+	var b bytes.Buffer
+	err := Encode(&b, "json", data)
+	if err != nil {
+		panic(err)
+	}
+
+	d := SetupTestDir()
+	defer CleanupTestDir(d)
+
+	if err := WriteFile(b.Bytes(), d, "testfile.json"); err != nil {
+		panic(err)
+	}
+
+	Convey("it should decode from a file", t, func() {
+		err = DecodeFile(&data1, d, "testfile.json")
+		So(err, ShouldBeNil)
+		So(data1.A, ShouldEqual, data.A)
+		So(data1.B, ShouldEqual, data.B)
+	})
+}
+
 func TestTicker(t *testing.T) {
-	counter := 0
+	counter := make(chan int)
+	i := 0
 	stopper := Ticker(10*time.Millisecond, func() {
-		counter += 1
+		counter <- i + 1
 	})
-	time.Sleep(25 * time.Millisecond)
-	stopper <- true
-	Convey("it should have ticked twice", t, func() {
-		So(counter, ShouldEqual, 2)
-	})
+
+	go func() {
+		c := <-counter
+
+		if c == 1 {
+			t.Log("it ticked once")
+		}
+
+		if c == 2 {
+			stopper <- true
+			t.Log("it ticked twice")
+			return
+		}
+
+		if c > 2 {
+			stopper <- true
+			t.Error("it ticked more than twice without ticking twice")
+			return
+		}
+	}()
 }
 
 func TestEncodingFormat(t *testing.T) {

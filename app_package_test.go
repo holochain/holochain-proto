@@ -22,13 +22,13 @@ func TestLoadAppPackage(t *testing.T) {
 		So(strings.Contains(dna.PropertiesSchema, `"properties"`), ShouldBeTrue)
 		So(strings.Contains(dna.Zomes[0].Code, "function genesis"), ShouldBeTrue)
 		So(dna.Zomes[0].Entries[0].Name, ShouldEqual, "sampleEntry")
-		So(dna.Zomes[0].Entries[0].Schema, ShouldEqual, "{\n	\"title\": \"sampleEntry Schema\",\n	\"type\": \"object\",\n	\"properties\": {\n		\"content\": {\n			\"type\": \"string\"\n		},\n		\"timestamp\": {\n			\"type\": \"integer\"\n		}\n	},\n    \"required\": [\"body\", \"timestamp\"]\n}")
+		So(dna.Zomes[0].Entries[0].Schema, ShouldEqual, "{\n	\"title\": \"sampleEntry Schema\",\n	\"type\": \"object\",\n	\"properties\": {\n		\"content\": {\n			\"type\": \"string\"\n		},\n		\"timestamp\": {\n			\"type\": \"integer\"\n		}\n	},\n    \"required\": [\"content\", \"timestamp\"]\n}")
 		So(dna.Zomes[0].Functions[0].Name, ShouldEqual, "sampleEntryCreate")
 	})
 
 	Convey("it should load tests from a appPackage blob", t, func() {
 		So(appPackage.TestSets[0].Name, ShouldEqual, "sample")
-		So(appPackage.TestSets[0].TestSet.Tests[0].Convey, ShouldEqual, "We can create a new sampleEntry")
+		So(appPackage.TestSets[0].TestSet.Tests[0].Convey, ShouldEndWith, "We can create a new sampleEntry")
 	})
 
 	Convey("it should load scenarios from a appPackage blob", t, func() {

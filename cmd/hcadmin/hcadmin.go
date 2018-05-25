@@ -1,4 +1,4 @@
-// Copyright (C) 2013-2017, The MetaCurrency Project (Eric Harris-Braun, Arthur Brock, et. al.)
+// Copyright (C) 2013-2018, The MetaCurrency Project (Eric Harris-Braun, Arthur Brock, et. al.)
 // Use of this source code is governed by GPLv3 found in the LICENSE file
 //---------------------------------------------------------------------------------------
 // command line interface to running holochain applications
@@ -8,11 +8,13 @@ package main
 import (
 	"errors"
 	"fmt"
-	holo "github.com/metacurrency/holochain"
-	"github.com/metacurrency/holochain/cmd"
-	"github.com/urfave/cli"
 	"os"
 	"path/filepath"
+
+	holo "github.com/holochain/holochain-proto"
+	"github.com/holochain/holochain-proto/cmd"
+	. "github.com/holochain/holochain-proto/hash"
+	"github.com/urfave/cli"
 )
 
 var debug bool
@@ -22,12 +24,13 @@ func setupApp() (app *cli.App) {
 	app = cli.NewApp()
 	app.Name = "hcadmin"
 	app.Usage = "holochain administration tool"
-	app.Version = fmt.Sprintf("0.0.3 (holochain %s)", holo.VersionStr)
+	app.Version = fmt.Sprintf("0.0.5 (holochain %s)", holo.VersionStr)
 
-	var dumpChain, dumpDHT bool
+	var dumpChain, dumpDHT, json bool
 	var root string
 	var service *holo.Service
-	var bridgeToAppData, bridgeFromAppData string
+	var bridgeCalleeAppData, bridgeCallerAppData, dumpFormat string
+	var start int
 
 	app.Flags = []cli.Flag{
 		cli.BoolFlag{
@@ -85,6 +88,22 @@ func setupApp() (app *cli.App) {
 					Name:        "dht",
 					Destination: &dumpDHT,
 				},
+				cli.BoolFlag{
+					Name:        "json",
+					Destination: &json,
+					Usage:       "Dump chain or dht as JSON string",
+				},
+				cli.IntFlag{
+					Name:        "index",
+					Destination: &start,
+					Usage:       "starting index for dump (zero based)",
+				},
+				cli.StringFlag{
+					Name:        "format",
+					Destination: &dumpFormat,
+					Usage:       "Dump format (string, json, dot)",
+					Value:       "string",
+				},
 			},
 			Action: func(c *cli.Context) error {
 				h, err := cmd.GetHolochain(c.Args().First(), service, "dump")
@@ -96,13 +115,48 @@ func setupApp() (app *cli.App) {
 					return errors.New("No data to dump, chain not yet initialized.")
 				}
 				dnaHash := h.DNAHash()
+				var dump string
 				if dumpChain {
-					fmt.Printf("Chain for: %s\n%v", dnaHash, h.Chain())
+					if json {
+						dump, err = h.Chain().JSON(start)
+					} else if dumpFormat != "" {
+						switch dumpFormat {
+						case "string":
+							dump = fmt.Sprintf("Chain for: %s\n%v", dnaHash, h.Chain().Dump(start))
+						case "dot":
+							dump, err = h.Chain().Dot(start)
+						case "json":
+							dump, err = h.Chain().JSON(start)
+						default:
+							err = cmd.MakeErr(c, "format for chain dump must be one of dot, json, string")
+						}
+					} else {
+						dump = fmt.Sprintf("Chain for: %s\n%v", dnaHash, h.Chain().Dump(start))
+					}
+				}
+				if err != nil {
+					return err
 				}
 				if dumpDHT {
-					fmt.Printf("DHT for: %s\n%v", dnaHash, h.DHT())
+					if json {
+						dump, err = h.DHT().JSON()
+					} else if dumpFormat != "" {
+						switch dumpFormat {
+						case "string":
+							dump = fmt.Sprintf("DHT for: %s\n%v", dnaHash, h.DHT())
+						case "json":
+							dump, err = h.DHT().JSON()
+						default:
+							err = cmd.MakeErr(c, "format for dht dump must be one of json, string")
+						}
+					} else {
+						dump = fmt.Sprintf("DHT for: %s\n%v", dnaHash, h.DHT())
+					}
 				}
-
+				if err != nil {
+					return err
+				}
+				fmt.Println(dump)
 				return nil
 			},
 		},
@@ -162,49 +216,47 @@ func setupApp() (app *cli.App) {
 		{
 			Name:      "bridge",
 			Aliases:   []string{"b"},
-			ArgsUsage: "from-chain to-chain",
-			Usage:     "allows to-chain to make calls to functions in from-chain",
+			ArgsUsage: "caller-chain callee-chain bridge-zome",
+			Usage:     "allows caller-chain to make calls to functions in callee-chain",
 			Flags: []cli.Flag{
 				cli.StringFlag{
-					Name:        "bridgeToAppData",
-					Usage:       "application data to pass to the bridged to app",
-					Destination: &bridgeToAppData,
+					Name:        "bridgeCalleeAppData",
+					Usage:       "application data to pass to the bridged callee app",
+					Destination: &bridgeCalleeAppData,
 				},
 				cli.StringFlag{
-					Name:        "bridgeFromAppData",
-					Usage:       "application data to pass to the bridging from app",
-					Destination: &bridgeFromAppData,
+					Name:        "bridgeCallerAppData",
+					Usage:       "application data to pass to the bridging caller app",
+					Destination: &bridgeCallerAppData,
 				},
 			},
 			Action: func(c *cli.Context) error {
-				fromChain := c.Args().First()
-				if fromChain == "" {
-					return errors.New("bridge: missing required from-chain argument")
+				if len(c.Args()) != 3 {
+					return errors.New("bridge: requires three arguments: from-chain to-chain bridge-zome")
 				}
-				if len(c.Args()) == 1 {
-					return errors.New("bridge: missing required to-chain argument")
-				}
-				toChain := c.Args()[1]
+				callerChain := c.Args()[0]
+				calleeChain := c.Args()[1]
+				bridgeZome := c.Args()[2]
 
-				hFrom, err := cmd.GetHolochain(fromChain, service, "bridge")
+				hCaller, err := cmd.GetHolochain(callerChain, service, "bridge")
 				if err != nil {
 					return err
 				}
-				hTo, err := cmd.GetHolochain(toChain, service, "bridge")
-				if err != nil {
-					return err
-				}
-
-				token, err := hTo.AddBridgeAsCallee(hFrom.DNAHash(), bridgeToAppData)
+				hCallee, err := cmd.GetHolochain(calleeChain, service, "bridge")
 				if err != nil {
 					return err
 				}
 
-				err = hFrom.AddBridgeAsCaller(hTo.DNAHash(), token, fmt.Sprintf("http://localhost:%d", hTo.Config.Port), bridgeFromAppData)
+				token, err := hCallee.AddBridgeAsCallee(hCaller.DNAHash(), bridgeCalleeAppData)
+				if err != nil {
+					return err
+				}
+
+				err = hCaller.AddBridgeAsCaller(bridgeZome, hCallee.DNAHash(), hCallee.Name(), token, fmt.Sprintf("http://localhost:%d", hCallee.Config.DHTPort), bridgeCallerAppData)
 
 				if err == nil {
 					if verbose {
-						fmt.Printf("bridge from %s to %s\n", fromChain, toChain)
+						fmt.Printf("bridge from %s to %s\n", callerChain, calleeChain)
 					}
 				}
 				return err
@@ -226,9 +278,21 @@ func setupApp() (app *cli.App) {
 					if err != nil {
 						return err
 					}
-					dna := h.Nucleus().DNA()
-					fmt.Printf("Status of %s\n", dna.Name)
-					fmt.Printf("   ---More status info here, no yet implmented---\n")
+					//					dna := h.Nucleus().DNA()
+					fmt.Printf("Status of %s\n", h.Name())
+					fmt.Printf("DNA Hash: %v\n", h.DNAHash())
+					fmt.Printf("ID Hash: %s\n", h.NodeIDStr())
+					idx, _ := h.DHT().GetIdx()
+					fmt.Printf("Current Put Index: %d\n", idx)
+					fmt.Printf("Gossipers:\n")
+					gossipers, err := h.DHT().GetGossipers()
+					if err != nil {
+						return err
+					}
+					for _, g := range gossipers {
+						h := HashFromPeerID(g.ID)
+						fmt.Printf("  %v idx: %d\n", h.String(), g.PutIdx)
+					}
 				} else {
 					return errors.New("status: expected 0 or 1 argument")
 				}

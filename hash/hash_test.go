@@ -15,8 +15,9 @@ func TestHash(t *testing.T) {
 	Convey("Hash string representation", t, func() {
 		var h Hash
 		var err error
-		h.H, err = mh.Sum([]byte("test data"), mh.SHA2_256, -1)
-		So(fmt.Sprintf("%v", h.H), ShouldEqual, "[18 32 145 111 0 39 165 117 7 76 231 42 51 23 119 195 71 141 101 19 247 134 165 145 189 137 45 161 165 119 191 35 53 249]")
+		multih, err := mh.Sum([]byte("test data"), mh.SHA2_256, -1)
+		h = Hash(multih)
+		So(fmt.Sprintf("%v", []byte(h)), ShouldEqual, "[18 32 145 111 0 39 165 117 7 76 231 42 51 23 119 195 71 141 101 19 247 134 165 145 189 137 45 161 165 119 191 35 53 249]")
 		So(h.String(), ShouldEqual, "QmY8Mzg9F69e5P9AoQPYat655HEhc1TVGs11tmfNSzkqh2")
 		h, err = NewHash("QmY8Mzg9F69e5P9AoQPYat655HEhc1TVGs11tmfNSzkqh2")
 		So(err, ShouldBeNil)
@@ -26,10 +27,20 @@ func TestHash(t *testing.T) {
 	})
 }
 
+func TestHashSum(t *testing.T) {
+	var hs = HashSpec{mh.SHA2_256, -1}
+	b := []byte("test data")
+	Convey("it should make a hash of binary data", t, func() {
+		h, err := Sum(hs, b)
+		So(err, ShouldBeNil)
+		So(h.String(), ShouldEqual, "QmY8Mzg9F69e5P9AoQPYat655HEhc1TVGs11tmfNSzkqh2")
+	})
+}
+
 func TestNullHash(t *testing.T) {
 	Convey("There should be a null hash", t, func() {
 		h := NullHash()
-		So(fmt.Sprintf("%v", h.H), ShouldEqual, "[0]")
+		So(fmt.Sprintf("%v", h), ShouldEqual, "")
 		So(h.IsNullHash(), ShouldBeTrue)
 	})
 
@@ -39,9 +50,9 @@ func TestHashFromBytes(t *testing.T) {
 	h1, _ := NewHash("QmY8Mzg9F69e5P9AoQPYat655HEhc1TVGs11tmfNSzkqh2")
 
 	Convey("it should make a hash from valid bytes", t, func() {
-		h, err := HashFromBytes([]byte(h1.H))
+		h, err := HashFromBytes([]byte(h1))
 		So(err, ShouldBeNil)
-		So(h.Equal(&h1), ShouldBeTrue)
+		So(h.Equal(h1), ShouldBeTrue)
 	})
 }
 
@@ -65,23 +76,23 @@ func TestHashFromPeerID(t *testing.T) {
 	})
 }
 
-func TestEqual(t *testing.T) {
+func TestHashEqual(t *testing.T) {
 	h1, _ := NewHash("QmY8Mzg9F69e5P9AoQPYat655HEhc1TVGs11tmfNSzkqh2")
 	h2, _ := NewHash("QmY8Mzg9F69e5P9AoQPYat655HEhc1TVGs11tmfNSzkqh2")
 
 	nh1 := NullHash()
 	nh2 := NullHash()
 	Convey("similar hashes should equal", t, func() {
-		So(h1.Equal(&h2), ShouldBeTrue)
+		So(h1.Equal(h2), ShouldBeTrue)
 
-		So(nh1.Equal(&nh2), ShouldBeTrue)
+		So(nh1.Equal(nh2), ShouldBeTrue)
 	})
 
 	h3, _ := NewHash("QmY8Mzg9F69e5P9AoQPYat655HEhc1TVGs11tmfNSzkqh3")
 
 	Convey("dissimilar hashes should not", t, func() {
-		So(h1.Equal(&h3), ShouldBeFalse)
-		So(h1.Equal(&nh2), ShouldBeFalse)
+		So(h1.Equal(h3), ShouldBeFalse)
+		So(h1.Equal(nh2), ShouldBeFalse)
 	})
 
 }
@@ -93,9 +104,9 @@ func TestMarshalHash(t *testing.T) {
 		err := hash.MarshalHash(&b)
 		So(err, ShouldBeNil)
 		var hash2 Hash
-		err = hash2.UnmarshalHash(&b)
+		hash2, err = UnmarshalHash(&b)
 		So(err, ShouldBeNil)
-		So(hash.Equal(&hash), ShouldBeTrue)
+		So(hash.Equal(hash2), ShouldBeTrue)
 	})
 	Convey("should be able to marshal and unmarshal a Null Hash", t, func() {
 		hash := NullHash()
@@ -103,17 +114,10 @@ func TestMarshalHash(t *testing.T) {
 		err := hash.MarshalHash(&b)
 		So(err, ShouldBeNil)
 		var hash2 Hash
-		err = hash2.UnmarshalHash(&b)
+		hash2, err = UnmarshalHash(&b)
 		So(err, ShouldBeNil)
-		So(hash.Equal(&hash), ShouldBeTrue)
+		So(hash.Equal(hash2), ShouldBeTrue)
 	})
-	Convey("should not be able to marshal and unmarshal a nil Hash", t, func() {
-		var hash Hash
-		var b bytes.Buffer
-		err := hash.MarshalHash(&b)
-		So(err.Error(), ShouldEqual, "can't marshal nil hash")
-	})
-
 }
 
 func TestZeroPrefixLen(t *testing.T) {
@@ -181,7 +185,7 @@ func TestHashDistancesAndCenterSorting(t *testing.T) {
 		hashes2 := SortByDistance(hashes[2], hashes)
 		order := []int{2, 3, 4, 5, 1, 0}
 		for i, o := range order {
-			So(bytes.Equal(hashes[o].H, hashes2[i].H), ShouldBeTrue)
+			So(hashes[o].Equal(hashes2[i]), ShouldBeTrue)
 		}
 	})
 }

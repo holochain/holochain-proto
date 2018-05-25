@@ -1,4 +1,4 @@
-// Copyright (C) 2013-2017, The MetaCurrency Project (Eric Harris-Braun, Arthur Brock, et. al.)
+// Copyright (C) 2013-2018, The MetaCurrency Project (Eric Harris-Braun, Arthur Brock, et. al.)
 // Use of this source code is governed by GPLv3 found in the LICENSE file
 //----------------------------------------------------------------------------------------
 
@@ -9,8 +9,8 @@ package holochain
 import (
 	"encoding/binary"
 	"encoding/json"
+	. "github.com/holochain/holochain-proto/hash"
 	"github.com/lestrrat/go-jsval"
-	. "github.com/metacurrency/holochain/hash"
 	"io"
 	"strings"
 )
@@ -19,22 +19,12 @@ const (
 	SysEntryTypePrefix     = "%"
 	VirtualEntryTypePrefix = "%%"
 
-	// System defined entry types
-
-	DNAEntryType   = SysEntryTypePrefix + "dna"
-	AgentEntryType = SysEntryTypePrefix + "agent"
-	KeyEntryType   = VirtualEntryTypePrefix + "key" // virtual entry type, not actually on the chain
-
 	// Entry type formats
 
-	DataFormatLinks    = "links"
-	DataFormatJSON     = "json"
-	DataFormatString   = "string"
-	DataFormatRawJS    = "js"
-	DataFormatRawZygo  = "zygo"
-	DataFormatSysDNA   = "_DNA"
-	DataFormatSysAgent = "_agent"
-	DataFormatSysKey   = "_key"
+	DataFormatJSON    = "json"
+	DataFormatString  = "string"
+	DataFormatRawJS   = "js"
+	DataFormatRawZygo = "zygo"
 
 	// Entry sharing types
 
@@ -42,32 +32,6 @@ const (
 	Partial = "partial"
 	Private = "private"
 )
-
-// AgentEntry structure for building AgentEntryType entries
-type AgentEntry struct {
-	Identity   AgentIdentity
-	Revocation []byte // marshaled revocation
-	PublicKey  []byte // marshaled public key
-}
-
-// LinksEntry holds one or more links
-type LinksEntry struct {
-	Links []Link
-}
-
-// Link structure for holding meta tagging of linking entry
-type Link struct {
-	LinkAction string // StatusAction (either AddAction or DelAction)
-	Base       string // hash of entry (perhaps elsewhere) to which we are attaching the link
-	Link       string // hash of entry being linked to
-	Tag        string // tag
-}
-
-// DelEntry struct holds the record of an entry's deletion
-type DelEntry struct {
-	Hash    Hash
-	Message string
-}
 
 // EntryDef struct holds an entry definition
 type EntryDef struct {
@@ -78,9 +42,9 @@ type EntryDef struct {
 	validator  SchemaValidator
 }
 
-var DNAEntryDef = &EntryDef{Name: DNAEntryType, DataFormat: DataFormatSysDNA}
-var AgentEntryDef = &EntryDef{Name: AgentEntryType, DataFormat: DataFormatSysAgent}
-var KeyEntryDef = &EntryDef{Name: KeyEntryType, DataFormat: DataFormatSysKey}
+func (def EntryDef) isSharingPublic() bool {
+	return def.Sharing == Public || def.DataFormat == DataFormatLinks
+}
 
 // Entry describes serialization and deserialziation of entry data
 type Entry interface {
@@ -169,7 +133,7 @@ func (e *GobEntry) Sum(s HashSpec) (h Hash, err error) {
 	}
 
 	// calculate the entry's hash and store it in the header
-	err = h.Sum(s, m)
+	h, err = Sum(s, m)
 	if err != nil {
 		return
 	}

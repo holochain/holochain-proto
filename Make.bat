@@ -1,4 +1,4 @@
-go get github.com\metacurrency\holochain\cmd\hcdev
-go get github.com\metacurrency\holochain\cmd\hcd
-go get github.com\metacurrency\holochain\cmd\hcadmin
-go get github.com\metacurrency\holochain\cmd\bs
+go get github.com\holochain\holochain-proto\cmd\hcdev
+go get github.com\holochain\holochain-proto\cmd\hcd
+go get github.com\holochain\holochain-proto\cmd\hcadmin
+go get github.com\holochain\holochain-proto\cmd\bs

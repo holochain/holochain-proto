@@ -3,9 +3,9 @@ package holochain
 import (
 	"context"
 	"fmt"
+	. "github.com/holochain/holochain-proto/hash"
+	peer "github.com/libp2p/go-libp2p-peer"
 	pstore "github.com/libp2p/go-libp2p-peerstore"
-	routing "github.com/libp2p/go-libp2p-routing"
-	. "github.com/metacurrency/holochain/hash"
 	. "github.com/smartystreets/goconvey/convey"
 	"testing"
 	"time"
@@ -73,7 +73,7 @@ func TestNodeFindPeer(t *testing.T) {
 	Convey("searching for unreachable node should fail with node not found", t, func() {
 		unknownPeer, _ := makePeer("unknown peer")
 		_, err := nodes[0].node.FindPeer(ctxT, unknownPeer)
-		So(err, ShouldEqual, routing.ErrNotFound)
+		So(err, ShouldEqual, ErrHashNotFound)
 	})
 
 	lastNode := nodes[nodesCount-1].node.HashAddr
@@ -89,5 +89,37 @@ func TestNodeFindPeer(t *testing.T) {
 		So(err, ShouldBeNil)
 		So(len(c), ShouldEqual, 1)
 		So(c[0].ID, ShouldEqual, nodes[2].node.HashAddr)
+	})
+}
+
+func TestNodeBetterPeers(t *testing.T) {
+	nodesCount := 6
+	mt := setupMultiNodeTesting(nodesCount)
+	defer mt.cleanupMultiNodeTesting()
+	nodes := mt.nodes
+
+	ctx, cancel := context.WithTimeout(mt.ctx, time.Second*5)
+	defer cancel()
+
+	hash, _ := NewHash("QmS4bKx7zZt6qoX2om5M5ik3X2k4Fco2nFx82CDJ3iVKj2")
+
+	fullConnect(t, ctx, nodes, nodesCount)
+	Convey("nodes should agree on who's the closest to a hash", t, func() {
+		var closest peer.ID
+		for i, h := range nodes {
+			out := h.node.betterPeersForHash(&hash, h.nodeID, true, 3)
+			if out == nil {
+				out = []peer.ID{h.nodeID}
+			}
+			//fmt.Printf("%v thinks %v is closest\n", h.nodeID.Pretty()[2:4], out[0].Pretty()[2:4])
+
+			if i != 0 {
+				So(closest.Pretty(), ShouldEqual, out[0].Pretty())
+			} else {
+				closest = out[0]
+			}
+
+		}
+		//		fmt.Printf("%v", closest)
 	})
 }

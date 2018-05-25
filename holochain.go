@@ -14,9 +14,9 @@ import (
 	"errors"
 	"fmt"
 	"github.com/google/uuid"
+	. "github.com/holochain/holochain-proto/hash"
 	ic "github.com/libp2p/go-libp2p-crypto"
 	peer "github.com/libp2p/go-libp2p-peer"
-	. "github.com/metacurrency/holochain/hash"
 	mh "github.com/multiformats/go-multihash"
 	"github.com/tidwall/buntdb"
 	"io"
@@ -24,16 +24,17 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 )
 
 const (
 	// Version is the numeric version number of the holochain library
-	Version int = 18
+	Version int = 25
 
 	// VersionStr is the textual version number of the holochain library
-	VersionStr string = "18"
+	VersionStr string = "25"
 
 	// DefaultSendTimeout a time.Duration to wait by default for send to complete
 	DefaultSendTimeout = 3000 * time.Millisecond
@@ -44,6 +45,7 @@ type Loggers struct {
 	App        Logger
 	Debug      Logger
 	DHT        Logger
+	World      Logger
 	Gossip     Logger
 	TestPassed Logger
 	TestFailed Logger
@@ -52,14 +54,16 @@ type Loggers struct {
 
 // Config holds the non-DNA configuration for a holo-chain, from config file or environment variables
 type Config struct {
-	Port            int
-	EnableMDNS      bool
-	PeerModeAuthor  bool
-	PeerModeDHTNode bool
-	EnableNATUPnP   bool
-	BootstrapServer string
-	Loggers         Loggers
+	DHTPort          int
+	EnableMDNS       bool
+	PeerModeAuthor   bool
+	PeerModeDHTNode  bool
+	EnableNATUPnP    bool
+	EnableWorldModel bool
+	BootstrapServer  string
+	Loggers          Loggers
 
+	holdingCheckInterval     time.Duration
 	gossipInterval           time.Duration
 	bootstrapRefreshInterval time.Duration
 	routingRefreshInterval   time.Duration
@@ -89,6 +93,7 @@ type Holochain struct {
 	nucleus          *Nucleus
 	node             *Node
 	chain            *Chain // This node's local source chain
+	world            *World
 	bridgeDB         *buntdb.DB
 	validateProtocol *Protocol
 	gossipProtocol   *Protocol
@@ -106,6 +111,10 @@ func (h *Holochain) Chain() (n *Chain) {
 
 func (h *Holochain) Name() string {
 	return h.nucleus.dna.Name
+}
+
+func (h *Holochain) World() *World {
+	return h.world
 }
 
 var debugLog Logger
@@ -164,13 +173,10 @@ func InitializeHolochain() {
 	if !_holochainInitialized {
 		gob.Register(Header{})
 		gob.Register(AgentEntry{})
-		gob.Register(Hash{})
-		gob.Register(PutReq{})
+		gob.Register(HoldReq{})
+		gob.Register(HoldResp{})
 		gob.Register(GetReq{})
 		gob.Register(GetResp{})
-		gob.Register(ModReq{})
-		gob.Register(DelReq{})
-		gob.Register(LinkReq{})
 		gob.Register(LinkQuery{})
 		gob.Register(GossipReq{})
 		gob.Register(Gossip{})
@@ -182,7 +188,6 @@ func InitializeHolochain() {
 		gob.Register(TaggedHash{})
 		gob.Register(ErrorResponse{})
 		gob.Register(DelEntry{})
-		gob.Register(StatusChange{})
 		gob.Register(Package{})
 		gob.Register(AppMsg{})
 		gob.Register(ListAddReq{})
@@ -281,7 +286,7 @@ func (h *Holochain) createNode() (err error) {
 	} else {
 		ip = "0.0.0.0"
 	}
-	listenaddr := fmt.Sprintf("/ip4/%s/tcp/%d", ip, h.Config.Port)
+	listenaddr := fmt.Sprintf("/ip4/%s/tcp/%d", ip, h.Config.DHTPort)
 	h.node, err = NewNode(listenaddr, h.dnaHash.String(), h.Agent().(*LibP2PAgent), h.Config.EnableNATUPnP, &h.Config.Loggers.Debug)
 	return
 }
@@ -309,6 +314,10 @@ func (h *Holochain) Prepare() (err error) {
 
 	h.dht = NewDHT(h)
 	h.nucleus.h = h
+
+	if h.Config.EnableWorldModel {
+		h.world = NewWorld(h.node.HashAddr, h.dht, &h.Config.Loggers.World)
+	}
 
 	var peerList PeerList
 	peerList, err = h.dht.getList(BlockedList)
@@ -405,7 +414,12 @@ func (h *Holochain) AddAgentEntry(revocation Revocation) (headerHash, agentHash 
 	if err != nil {
 		return
 	}
-	e := GobEntry{C: entry}
+	var j string
+	j, err = entry.ToJSON()
+	if err != nil {
+		return
+	}
+	e := GobEntry{C: j}
 
 	var agentHeader *Header
 	headerHash, agentHeader, err = h.NewEntry(time.Now(), AgentEntryType, &e)
@@ -500,7 +514,29 @@ func initLogger(l *Logger, envOverride string, writer io.Writer) (err error) {
 }
 
 func (config *Config) Setup() (err error) {
-	config.gossipInterval = DefaultGossipInterval
+	if config.EnableWorldModel {
+		config.holdingCheckInterval = DefaultHoldingCheckInterval
+	}
+
+	hi := os.Getenv("HC_HOLDING_INTERVAL")
+	if hi != "" {
+		i, _ := strconv.Atoi(hi)
+		if i > 0 {
+			config.EnableWorldModel = true
+			config.holdingCheckInterval = time.Duration(i) * time.Second
+			Debugf("using environment variable to enable world model and set holdingCheckInterval to: %d", i)
+		}
+	}
+
+	gi := os.Getenv("HC_GOSSIP_INTERVAL")
+	if gi != "" {
+		i, _ := strconv.Atoi(gi)
+		config.gossipInterval = time.Duration(i) * time.Second
+		Debugf("using environment variable to set gossipInterval to: %d", i)
+	} else {
+		config.gossipInterval = DefaultGossipInterval
+	}
+
 	config.bootstrapRefreshInterval = BootstrapTTL
 	config.routingRefreshInterval = DefaultRoutingRefreshInterval
 	config.retryInterval = DefaultRetryInterval
@@ -523,6 +559,9 @@ func (config *Config) SetupLogging() (err error) {
 	if err = initLogger(&config.Loggers.DHT, "HCLOG_DHT_ENABLE", nil); err != nil {
 		return
 	}
+	if err = initLogger(&config.Loggers.World, "HCLOG_WORLD_ENABLE", nil); err != nil {
+		return
+	}
 	if err = initLogger(&config.Loggers.Gossip, "HCLOG_GOSSIP_ENABLE", nil); err != nil {
 		return
 	}
@@ -541,6 +580,7 @@ func (config *Config) SetupLogging() (err error) {
 		config.Loggers.Debug.SetPrefix(val)
 		config.Loggers.App.SetPrefix(val)
 		config.Loggers.DHT.SetPrefix(val)
+		config.Loggers.World.SetPrefix(val)
 		config.Loggers.Gossip.SetPrefix(val)
 		config.Loggers.TestPassed.SetPrefix(val)
 		config.Loggers.TestFailed.SetPrefix(val)
@@ -561,7 +601,7 @@ func (h *Holochain) NewEntry(now time.Time, entryType string, entry Entry) (hash
 	h.chain.lk.Lock()
 	defer h.chain.lk.Unlock()
 	var l int
-	l, hash, header, err = h.chain.prepareHeader(now, entryType, entry, h.agent.PrivKey(), nil)
+	l, hash, header, err = h.chain.prepareHeader(now, entryType, entry, h.agent.PrivKey(), NullHash())
 	if err == nil {
 		err = h.chain.addEntry(l, hash, header, entry)
 	}
@@ -590,21 +630,24 @@ func (h *Holochain) Walk(fn WalkerFn, entriesToo bool) (err error) {
 // GetEntryDef returns an EntryDef of the given name
 // @TODO this makes the incorrect assumption that entry type strings are unique across zomes
 func (h *Holochain) GetEntryDef(t string) (zome *Zome, d *EntryDef, err error) {
-	if t == DNAEntryType {
+	switch t {
+	case DNAEntryType:
 		d = DNAEntryDef
-		return
-	} else if t == AgentEntryType {
+	case AgentEntryType:
 		d = AgentEntryDef
-		return
-	} else if t == KeyEntryType {
+	case KeyEntryType:
 		d = KeyEntryDef
-		return
-	}
-	for _, z := range h.nucleus.dna.Zomes {
-		d, err = z.GetEntryDef(t)
-		if err == nil {
-			zome = &z
-			return
+	case HeadersEntryType:
+		d = HeadersEntryDef
+	case DelEntryType:
+		d = DelEntryDef
+	default:
+		for _, z := range h.nucleus.dna.Zomes {
+			d, err = z.GetEntryDef(t)
+			if err == nil {
+				zome = &z
+				return
+			}
 		}
 	}
 	return
@@ -690,9 +733,9 @@ func (h *Holochain) Close() {
 // Reset deletes all chain and dht data and resets data structures
 func (h *Holochain) Reset() (err error) {
 
-	h.dnaHash = Hash{}
-	h.agentHash = Hash{}
-	h.agentTopHash = Hash{}
+	h.dnaHash = NullHash()
+	h.agentHash = NullHash()
+	h.agentTopHash = NullHash()
 
 	h.Close()
 
@@ -794,18 +837,25 @@ func (h *Holochain) StartBackgroundTasks() {
 	go h.DHT().HandleGossipPuts()
 	go h.DHT().HandleGossipWiths()
 	go h.HandleAsyncSends()
+	go h.DHT().HandleChangeRequests()
 
 	if h.Config.gossipInterval > 0 {
-		h.node.gossiping = h.TaskTicker(h.Config.gossipInterval, GossipTask)
+		h.node.stoppers[GossipingStopper] = h.TaskTicker(h.Config.gossipInterval, GossipTask)
 	} else {
 		h.Debug("Gossip disabled")
 	}
-	h.node.retrying = h.TaskTicker(h.Config.retryInterval, RetryTask)
+
+	if h.Config.holdingCheckInterval > 0 {
+		h.node.stoppers[HoldingStopper] = h.TaskTicker(h.Config.holdingCheckInterval, HoldingTask)
+	}
+
+	h.node.stoppers[RetryingStopper] = h.TaskTicker(h.Config.retryInterval, RetryTask)
 	if h.Config.BootstrapServer != "" {
 		go BootstrapRefreshTask(h)
-		h.node.retrying = h.TaskTicker(h.Config.bootstrapRefreshInterval, BootstrapRefreshTask)
+		h.node.stoppers[BootstrappingStopper] = h.TaskTicker(h.Config.bootstrapRefreshInterval, BootstrapRefreshTask)
 	}
-	h.node.refreshing = h.TaskTicker(h.Config.routingRefreshInterval, RoutingRefreshTask)
+
+	h.node.stoppers[RefreshingStopper] = h.TaskTicker(h.Config.routingRefreshInterval, RoutingRefreshTask)
 }
 
 // BootstrapRefreshTask refreshes our node and gets nodes from the bootstrap server
@@ -870,20 +920,17 @@ func (h *Holochain) Send(basectx context.Context, proto int, to peer.ID, message
 	return
 }
 
-//Sign uses the agent' private key to sign the contents of doc
-func (h *Holochain) Sign(doc []byte) (sig []byte, err error) {
+// Sign uses the agent's private key to sign the contents of data
+func (h *Holochain) Sign(data []byte) (signature Signature, err error) {
 	privKey := h.agent.PrivKey()
-	sig, err = privKey.Sign(doc)
-	if err != nil {
-		return
-	}
+	signature.S, err = privKey.Sign(data)
 	return
 }
 
-//VerifySignature uses the signature, data(doc) and signatory's public key to Verify the sign in contents of doc
-func (h *Holochain) VerifySignature(signature []byte, data string, pubKey ic.PubKey) (matches bool, err error) {
+// VerifySignature uses the signature, data and the given public key to Verify the data was signed by holder of that key
+func (h *Holochain) VerifySignature(signature Signature, data string, pubKey ic.PubKey) (matches bool, err error) {
 
-	matches, err = pubKey.Verify([]byte(data), signature)
+	matches, err = pubKey.Verify([]byte(data), signature.S)
 	if err != nil {
 		return
 	}
@@ -913,6 +960,7 @@ type QueryOptions struct {
 	Return    QueryReturn
 	Constrain QueryConstrain
 	Order     QueryOrder
+	Bundle    bool
 }
 
 type QueryResult struct {
@@ -932,11 +980,23 @@ func (h *Holochain) Query(options *QueryOptions) (results []QueryResult, err err
 			options.Return.Entries = true
 		}
 	}
+	var bundle *Bundle
+	var chain *Chain
+	if options.Bundle {
+		bundle = h.Chain().BundleStarted()
+		if bundle == nil {
+			err = ErrBundleNotStarted
+			return
+		}
+		chain = bundle.chain
+	} else {
+		chain = h.chain
+	}
 	var re *regexp.Regexp
 	var equalsMap, containsMap map[string]interface{}
 	var reMap map[string]*regexp.Regexp
 	defs := make(map[string]*EntryDef)
-	for i, header := range h.chain.Headers {
+	for i, header := range chain.Headers {
 
 		var def *EntryDef
 		var ok bool
@@ -964,12 +1024,12 @@ func (h *Holochain) Query(options *QueryOptions) (results []QueryResult, err err
 			var contentMap map[string]interface{}
 			if def.DataFormat == DataFormatJSON {
 				contentMap = make(map[string]interface{})
-				err = json.Unmarshal([]byte(h.chain.Entries[i].Content().(string)), &contentMap)
+				err = json.Unmarshal([]byte(chain.Entries[i].Content().(string)), &contentMap)
 				if err != nil {
 					return
 				}
 			} else {
-				content = h.chain.Entries[i].Content().(string)
+				content = chain.Entries[i].Content().(string)
 			}
 
 			if !skip && options.Constrain.Equals != "" {
@@ -1061,7 +1121,7 @@ func (h *Holochain) Query(options *QueryOptions) (results []QueryResult, err err
 			// Return values gets limited down to the actual info in the Ribosomes
 			qr := QueryResult{Header: header}
 			if options.Return.Entries {
-				qr.Entry = h.chain.Entries[i]
+				qr.Entry = chain.Entries[i]
 			}
 			if options.Order.Ascending {
 				results = append([]QueryResult{qr}, results...)
@@ -1083,4 +1143,9 @@ func (h *Holochain) Query(options *QueryOptions) (results []QueryResult, err err
 		}
 	}
 	return
+}
+
+// RedundancyFactor returns the redundancy that was set in the DNA
+func (h *Holochain) RedundancyFactor() int {
+	return h.nucleus.dna.DHTConfig.RedundancyFactor
 }

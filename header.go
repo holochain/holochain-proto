@@ -9,8 +9,10 @@ package holochain
 import (
 	"bytes"
 	"encoding/binary"
+	"fmt"
+	. "github.com/holochain/holochain-proto/hash"
+	b58 "github.com/jbenet/go-base58"
 	ic "github.com/libp2p/go-libp2p-crypto"
-	. "github.com/metacurrency/holochain/hash"
 	"io"
 	"time"
 )
@@ -19,36 +21,26 @@ type Signature struct {
 	S []byte
 }
 
-// StatusChange records change of status of an entry in the header
-type StatusChange struct {
-	Action string // either AddAction, ModAction, or DelAction
-	Hash   Hash
-}
-
 // Header holds chain links, type, timestamp and signature
 type Header struct {
 	Type       string
 	Time       time.Time
-	HeaderLink Hash // link to previous headerq
+	HeaderLink Hash // link to previous header
 	EntryLink  Hash // link to entry
 	TypeLink   Hash // link to header of previous header of this type
 	Sig        Signature
-	Change     StatusChange
+	Change     Hash
 }
 
 // newHeader makes Header object linked to a previous Header by hash
-func newHeader(hashSpec HashSpec, now time.Time, t string, entry Entry, privKey ic.PrivKey, prev Hash, prevType Hash, change *StatusChange) (hash Hash, header *Header, err error) {
+func newHeader(hashSpec HashSpec, now time.Time, t string, entry Entry, privKey ic.PrivKey, prev Hash, prevType Hash, change Hash) (hash Hash, header *Header, err error) {
 	var hd Header
 	hd.Type = t
 	now = now.Round(0)
 	hd.Time = now
 	hd.HeaderLink = prev
 	hd.TypeLink = prevType
-	if change != nil {
-		hd.Change = *change
-	} else {
-		hd.Change.Hash = NullHash()
-	}
+	hd.Change = change
 
 	hd.EntryLink, err = entry.Sum(hashSpec)
 	if err != nil {
@@ -56,7 +48,7 @@ func newHeader(hashSpec HashSpec, now time.Time, t string, entry Entry, privKey 
 	}
 
 	// sign the hash of the entry
-	sig, err := privKey.Sign(hd.EntryLink.H)
+	sig, err := privKey.Sign([]byte(hd.EntryLink))
 	if err != nil {
 		return
 	}
@@ -75,8 +67,38 @@ func newHeader(hashSpec HashSpec, now time.Time, t string, entry Entry, privKey 
 func (hd *Header) Sum(spec HashSpec) (hash Hash, b []byte, err error) {
 	b, err = hd.Marshal()
 	if err == nil {
-		err = hash.Sum(spec, b)
+		hash, err = Sum(spec, b)
 	}
+	return
+}
+
+// B58String encodes a signature as a b58string
+func (sig Signature) B58String() (result string) {
+	return b58.Encode(sig.S)
+}
+
+// Equal tests signature equality
+func (sig1 Signature) Equal(sig2 Signature) bool {
+	return bytes.Equal(sig1.S, sig2.S)
+}
+
+// SignatureFromB58String encodes a signature as a b58string
+func SignatureFromB58String(encoded string) (sig Signature) {
+	sig.S = b58.Decode(encoded)
+	return
+}
+
+// ToJSON serializes a header to JSON
+func (hd *Header) ToJSON() (result string, err error) {
+	result = fmt.Sprintf(
+		`{"Type":"%s","Time":"%v","EntryLink":"%s","HeaderLink":"%s","TypeLink":"%s","Signature":"%s"}`,
+		jsSanitizeString(hd.Type),
+		hd.Time,
+		hd.EntryLink.String(),
+		hd.HeaderLink.String(),
+		hd.TypeLink.String(),
+		hd.Sig.B58String(),
+	)
 	return
 }
 
@@ -135,12 +157,7 @@ func MarshalHeader(writer io.Writer, hd *Header) (err error) {
 		return
 	}
 
-	err = writeStr(writer, hd.Change.Action)
-	if err != nil {
-		return
-	}
-
-	err = hd.Change.Hash.MarshalHash(writer)
+	err = hd.Change.MarshalHash(writer)
 	if err != nil {
 		return
 	}
@@ -192,17 +209,17 @@ func UnmarshalHeader(reader io.Reader, hd *Header, hashSize int) (err error) {
 	}
 	hd.Time.UnmarshalBinary(b)
 
-	err = hd.HeaderLink.UnmarshalHash(reader)
+	hd.HeaderLink, err = UnmarshalHash(reader)
 	if err != nil {
 		return
 	}
 
-	err = hd.EntryLink.UnmarshalHash(reader)
+	hd.EntryLink, err = UnmarshalHash(reader)
 	if err != nil {
 		return
 	}
 
-	err = hd.TypeLink.UnmarshalHash(reader)
+	hd.TypeLink, err = UnmarshalHash(reader)
 	if err != nil {
 		return
 	}
@@ -212,12 +229,7 @@ func UnmarshalHeader(reader io.Reader, hd *Header, hashSize int) (err error) {
 		return
 	}
 
-	hd.Change.Action, err = readStr(reader)
-	if err != nil {
-		return
-	}
-
-	err = hd.Change.Hash.UnmarshalHash(reader)
+	hd.Change, err = UnmarshalHash(reader)
 	if err != nil {
 		return
 	}

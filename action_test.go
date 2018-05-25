@@ -1,11 +1,9 @@
 package holochain
 
 import (
-	// "fmt"
 	"fmt"
-	ic "github.com/libp2p/go-libp2p-crypto"
+	. "github.com/holochain/holochain-proto/hash"
 	peer "github.com/libp2p/go-libp2p-peer"
-	. "github.com/metacurrency/holochain/hash"
 	. "github.com/smartystreets/goconvey/convey"
 	"testing"
 )
@@ -35,7 +33,7 @@ func TestValidateAction(t *testing.T) {
 		entry := &GobEntry{C: "1"}
 		a := NewCommitAction("evenNumbers", entry)
 		_, err = h.ValidateAction(a, a.entryType, nil, []peer.ID{h.nodeID})
-		So(err, ShouldEqual, ValidationFailedErr)
+		So(IsValidationFailedErr(err), ShouldBeTrue)
 	})
 
 	// these test the sys type cases
@@ -52,16 +50,13 @@ func TestValidateAction(t *testing.T) {
 		So(err, ShouldEqual, ErrNotValidForDNAType)
 	})
 
-	Convey("deleting all sys entry types should fail", t, func() {
-		a := NewDelAction(DNAEntryType, DelEntry{})
-		_, err = h.ValidateAction(a, a.entryType, nil, []peer.ID{h.nodeID})
-		So(err, ShouldEqual, ErrNotValidForDNAType)
-		a.entryType = KeyEntryType
-		_, err = h.ValidateAction(a, a.entryType, nil, []peer.ID{h.nodeID})
-		So(err, ShouldEqual, ErrNotValidForKeyType)
-		a.entryType = AgentEntryType
-		_, err = h.ValidateAction(a, a.entryType, nil, []peer.ID{h.nodeID})
-		So(err, ShouldEqual, ErrNotValidForAgentType)
+	Convey("modifying a headers entry should fail", t, func() {
+		hd := h.Chain().Top()
+		j, _ := hd.ToJSON()
+		entryStr := fmt.Sprintf(`[{"Header":%s,"Role":"someRole","Source":"%s"}]`, j, h.nodeID.Pretty())
+		am := NewModAction(HeadersEntryType, &GobEntry{C: entryStr}, HashFromPeerID(h.nodeID))
+		_, err = h.ValidateAction(am, am.entryType, nil, []peer.ID{h.nodeID})
+		So(err, ShouldEqual, ErrNotValidForHeadersType)
 	})
 }
 
@@ -72,16 +67,16 @@ func TestSysValidateEntry(t *testing.T) {
 	Convey("key entry should be a public key", t, func() {
 		e := &GobEntry{}
 		err := sysValidateEntry(h, KeyEntryDef, e, nil)
-		So(err, ShouldEqual, ValidationFailedErr)
+		So(IsValidationFailedErr(err), ShouldBeTrue)
 		e.C = []byte{1, 2, 3}
 		err = sysValidateEntry(h, KeyEntryDef, e, nil)
-		So(err, ShouldEqual, ValidationFailedErr)
+		So(IsValidationFailedErr(err), ShouldBeTrue)
 
-		e.C = []byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 1, 2, 3, 4, 5, 6}
+		e.C = "not b58 encoded public key!"
 		err = sysValidateEntry(h, KeyEntryDef, e, nil)
-		So(err, ShouldEqual, ValidationFailedErr)
+		So(IsValidationFailedErr(err), ShouldBeTrue)
 
-		pk, _ := ic.MarshalPublicKey(h.agent.PubKey())
+		pk, _ := h.agent.EncodePubKey()
 		e.C = pk
 		err = sysValidateEntry(h, KeyEntryDef, e, nil)
 		So(err, ShouldBeNil)
@@ -90,36 +85,40 @@ func TestSysValidateEntry(t *testing.T) {
 	Convey("an agent entry should have the correct structure as defined", t, func() {
 		e := &GobEntry{}
 		err := sysValidateEntry(h, AgentEntryDef, e, nil)
-		So(err, ShouldEqual, ValidationFailedErr)
+		So(IsValidationFailedErr(err), ShouldBeTrue)
 
 		// bad agent entry (empty)
-		e.C = AgentEntry{}
+		e.C = ""
 		err = sysValidateEntry(h, AgentEntryDef, e, nil)
-		So(err, ShouldEqual, ValidationFailedErr)
+		So(IsValidationFailedErr(err), ShouldBeTrue)
 
 		ae, _ := h.agent.AgentEntry(nil)
 		// bad public key
-		ae.PublicKey = nil
-		e.C = ae
+		ae.PublicKey = ""
+		a, _ := ae.ToJSON()
+		e.C = a
 		err = sysValidateEntry(h, AgentEntryDef, e, nil)
-		So(err, ShouldEqual, ValidationFailedErr)
+		So(IsValidationFailedErr(err), ShouldBeTrue)
 
 		ae, _ = h.agent.AgentEntry(nil)
 		// bad public key
-		ae.PublicKey = []byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 1, 2, 3, 4, 5, 6}
-		e.C = ae
+		ae.PublicKey = "not b58 encoded public key!"
+		a, _ = ae.ToJSON()
+		e.C = a
 		err = sysValidateEntry(h, AgentEntryDef, e, nil)
-		So(err, ShouldEqual, ValidationFailedErr)
+		So(IsValidationFailedErr(err), ShouldBeTrue)
 
 		ae, _ = h.agent.AgentEntry(nil)
 		// bad revocation
-		ae.Revocation = []byte{1, 2, 3}
-		e.C = ae
+		ae.Revocation = string([]byte{1, 2, 3})
+		a, _ = ae.ToJSON()
+		e.C = a
 		err = sysValidateEntry(h, AgentEntryDef, e, nil)
-		So(err, ShouldEqual, ValidationFailedErr)
+		So(IsValidationFailedErr(err), ShouldBeTrue)
 
 		ae, _ = h.agent.AgentEntry(nil)
-		e.C = ae
+		a, _ = ae.ToJSON()
+		e.C = a
 		err = sysValidateEntry(h, AgentEntryDef, e, nil)
 		So(err, ShouldBeNil)
 	})
@@ -128,7 +127,8 @@ func TestSysValidateEntry(t *testing.T) {
 
 	Convey("a nil entry is invalid", t, func() {
 		err := sysValidateEntry(h, def, nil, nil)
-		So(err.Error(), ShouldEqual, "nil entry invalid")
+		So(IsValidationFailedErr(err), ShouldBeTrue)
+		So(err.Error(), ShouldEqual, "Validation Failed: nil entry invalid")
 	})
 
 	Convey("validate on a schema based entry should check entry against the schema", t, func() {
@@ -136,8 +136,8 @@ func TestSysValidateEntry(t *testing.T) {
 		_, def, _ := h.GetEntryDef("profile")
 
 		err := sysValidateEntry(h, def, &GobEntry{C: profile}, nil)
-		So(err, ShouldNotBeNil)
-		So(err.Error(), ShouldEqual, "validator profile failed: object property 'lastName' is required")
+		So(IsValidationFailedErr(err), ShouldBeTrue)
+		So(err.Error(), ShouldEqual, "Validation Failed: validator profile failed: object property 'lastName' is required")
 	})
 
 	Convey("validate on a links entry should fail if not formatted correctly", t, func() {
@@ -164,72 +164,24 @@ func TestSysValidateEntry(t *testing.T) {
 		So(err, ShouldNotBeNil)
 		So(err.Error(), ShouldEqual, "invalid links entry: missing Tag")
 	})
-}
 
-func TestSysValidateMod(t *testing.T) {
-	d, _, h := PrepareTestChain("test")
-	defer CleanupTestChain(h, d)
+	Convey("validate headers entry should fail if it doesn't match the headers entry schema", t, func() {
+		err := sysValidateEntry(h, HeadersEntryDef, &GobEntry{C: ""}, nil)
+		So(err, ShouldNotBeNil)
+		So(err.Error(), ShouldEqual, "unexpected end of JSON input")
 
-	hash := commit(h, "evenNumbers", "2")
-	_, def, _ := h.GetEntryDef("evenNumbers")
+		err = sysValidateEntry(h, HeadersEntryDef, &GobEntry{C: `{"Fish":2}`}, nil)
+		So(err, ShouldNotBeNil)
+		So(err.Error(), ShouldEqual, "Validation Failed: validator %header failed: value must be a slice (was: map[string]interface {})")
 
-	/* This is actually bogus because it assumes we have the entry type in our chain but
-	           might be in a different chain.
-		Convey("it should check that entry types match on mod", t, func() {
-			a := NewModAction("oddNumbers", &GobEntry{}, hash)
-			err := a.SysValidation(h, def, nil, []peer.ID{h.nodeID})
-			So(err, ShouldEqual, ErrEntryTypeMismatch)
-		})
-	*/
-
-	Convey("it should check that entry isn't linking ", t, func() {
-		a := NewModAction("rating", &GobEntry{}, hash)
-		_, ratingsDef, _ := h.GetEntryDef("rating")
-		err := a.SysValidation(h, ratingsDef, nil, []peer.ID{h.nodeID})
-		So(err.Error(), ShouldEqual, "Can't mod Links entry")
 	})
 
-	Convey("it should check that entry validates", t, func() {
-		a := NewModAction("evenNumbers", nil, hash)
-		err := a.SysValidation(h, def, nil, []peer.ID{h.nodeID})
-		So(err, ShouldEqual, ErrNilEntryInvalid)
-	})
-
-	Convey("it should check that header isn't missing", t, func() {
-		a := NewModAction("evenNumbers", &GobEntry{}, hash)
-		err := a.SysValidation(h, def, nil, []peer.ID{h.nodeID})
-		So(err, ShouldBeError)
-		So(err.Error(), ShouldEqual, "mod: missing header")
-	})
-
-	Convey("it should check that replaces is doesn't make a loop", t, func() {
-		a := NewModAction("evenNumbers", &GobEntry{}, hash)
-		a.header = &Header{EntryLink: hash}
-		err := a.SysValidation(h, def, nil, []peer.ID{h.nodeID})
-		So(err, ShouldBeError)
-		So(err.Error(), ShouldEqual, "mod: replaces must be different from original hash")
-	})
-
-}
-
-func TestSysValidateDel(t *testing.T) {
-	d, _, h := PrepareTestChain("test")
-	defer CleanupTestChain(h, d)
-
-	hash := commit(h, "evenNumbers", "2")
-	_, def, _ := h.GetEntryDef("evenNumbers")
-
-	Convey("it should check that entry types match on del", t, func() {
-		a := NewDelAction("oddNumbers", DelEntry{Hash: hash})
-		err := a.SysValidation(h, def, nil, []peer.ID{h.nodeID})
-		So(err, ShouldEqual, ErrEntryTypeMismatch)
-	})
-
-	Convey("it should check that entry isn't linking ", t, func() {
-		a := NewDelAction("rating", DelEntry{Hash: hash})
-		_, ratingsDef, _ := h.GetEntryDef("rating")
-		err := a.SysValidation(h, ratingsDef, nil, []peer.ID{h.nodeID})
-		So(err.Error(), ShouldEqual, "Can't del Links entry")
+	Convey("validate headers entry should succeed on valid entry", t, func() {
+		hd := h.Chain().Top()
+		j, _ := hd.ToJSON()
+		entryStr := fmt.Sprintf(`[{"Header":%s,"Role":"someRole","Source":"%s"}]`, j, h.nodeID.Pretty())
+		err := sysValidateEntry(h, HeadersEntryDef, &GobEntry{C: entryStr}, nil)
+		So(err, ShouldBeNil)
 	})
 }
 
@@ -252,69 +204,5 @@ func TestCheckArgCount(t *testing.T) {
 
 		err = checkArgCount(args, 4)
 		So(err, ShouldEqual, ErrWrongNargs)
-	})
-}
-
-func TestActionGet(t *testing.T) {
-	nodesCount := 3
-	mt := setupMultiNodeTesting(nodesCount)
-	defer mt.cleanupMultiNodeTesting()
-
-	h := mt.nodes[0]
-
-	e := GobEntry{C: "3"}
-	hash, _ := e.Sum(h.hashSpec)
-
-	Convey("receive should return not found if it doesn't exist", t, func() {
-		m := h.node.NewMessage(GET_REQUEST, GetReq{H: hash})
-		_, err := ActionReceiver(h, m)
-		So(err, ShouldEqual, ErrHashNotFound)
-	})
-
-	commit(h, "oddNumbers", "3")
-	m := h.node.NewMessage(GET_REQUEST, GetReq{H: hash})
-	Convey("receive should return value if it exists", t, func() {
-		r, err := ActionReceiver(h, m)
-		So(err, ShouldBeNil)
-		resp := r.(GetResp)
-		So(fmt.Sprintf("%v", resp.Entry), ShouldEqual, fmt.Sprintf("%v", e))
-	})
-
-	ringConnect(t, mt.ctx, mt.nodes, nodesCount)
-	Convey("receive should return closer peers if it can", t, func() {
-		h2 := mt.nodes[2]
-		r, err := ActionReceiver(h2, m)
-		So(err, ShouldBeNil)
-		resp := r.(CloserPeersResp)
-		So(len(resp.CloserPeers), ShouldEqual, 1)
-		So(peer.ID(resp.CloserPeers[0].ID).Pretty(), ShouldEqual, "QmUfY4WeqD3UUfczjdkoFQGEgCAVNf7rgFfjdeTbr7JF1C")
-	})
-}
-
-func TestActionGetLocal(t *testing.T) {
-	d, _, h := PrepareTestChain("test")
-	defer CleanupTestChain(h, d)
-
-	hash := commit(h, "secret", "31415")
-
-	Convey("non local get should fail for private entries", t, func() {
-		req := GetReq{H: hash, GetMask: GetMaskEntry}
-		_, err := NewGetAction(req, &GetOptions{GetMask: req.GetMask}).Do(h)
-		So(err.Error(), ShouldEqual, "hash not found")
-	})
-
-	Convey("it should fail to get non-existent private local values", t, func() {
-		badHash, _ := NewHash("QmY8Mzg9F69e5P9AoQPYat655HEhc1TVGs11tmfNSzkqh2")
-		req := GetReq{H: badHash, GetMask: GetMaskEntry}
-		_, err := NewGetAction(req, &GetOptions{GetMask: req.GetMask, Local: true}).Do(h)
-		So(err.Error(), ShouldEqual, "hash not found")
-	})
-
-	Convey("it should get private local values", t, func() {
-		req := GetReq{H: hash, GetMask: GetMaskEntry}
-		rsp, err := NewGetAction(req, &GetOptions{GetMask: req.GetMask, Local: true}).Do(h)
-		So(err, ShouldBeNil)
-		getResp := rsp.(GetResp)
-		So(getResp.Entry.Content().(string), ShouldEqual, "31415")
 	})
 }

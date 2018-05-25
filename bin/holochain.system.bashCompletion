@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 _holochain_app_testScenario() 
 {
     local cur prev opts

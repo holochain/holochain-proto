@@ -1,24 +1,39 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # run the tests of example apps using hcdev
+
+BRANCH=develop
+EXAMPLES=("HoloWorld" "fractal-wiki" "clutter" "cointoss") # "holodex" "dpki" "holochat"
+
+for i in "$@"
+do
+    case $i in
+        -b=*|--branch=*)
+            BRANCH="${i#*=}"
+            shift #past argument=value
+            ;;
+        -e=*|--example=*)
+            EXAMPLES=( ${i#*=} )
+            shift #past argument=value
+            ;;
+        *)
+            # unknown option
+            ;;
+    esac
+done
 
 cd /tmp
 testDir="holochain.test.examples"
+rm -rf $testDir
 mkdir $testDir
 cd $testDir
 
 declare -a RESULTS
 
-# list of examples to test use args if given default otherwise
-if [ "$#" -eq 0 ]; then
-   EXAMPLES=("holochat" "clutter" "cointoss" "holodex" "dpki")
-else
-   EXAMPLES=( "$@" )
-fi
-
 i=0
 for app in "${EXAMPLES[@]}"
 do
-    hcdev init -cloneExample $app $app
+    echo "hcdev init -fromBranch=$BRANCH -cloneExample $app $app"
+    hcdev init -fromBranch=$BRANCH -cloneExample $app $app
     cd $app
     hcdev test
     r=$?
@@ -44,7 +59,7 @@ do
         color="${RED}"
         exitValue=1
     else
-        color="${GREEN}"        
+        color="${GREEN}"
     fi
     printf "$app $color exit code: $result${NC}\n"
 

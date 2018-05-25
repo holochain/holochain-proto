@@ -1,5 +1,5 @@
-#!/bin/bash
-holochainBinDir="$GOPATH/src/github.com/metacurrency/holochain/bin"
+#!/usr/bin/env bash
+holochainBinDir="$GOPATH/src/github.com/holochain/holochain-proto/bin"
 
 
 # get holochain system environment

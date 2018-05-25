@@ -1,10 +1,10 @@
 {
   "author": "zippy",
   "bugs": {
-    "url": "https://github.com/metacurrency/holochain/issues"
+    "url": "https://github.com/holochain/holochain-proto/issues"
   },
   "gx": {
-    "dvcsimport": "github.com/metacurrency/holochain"
+    "dvcsimport": "github.com/holochain/holochain-proto"
   },
   "gxDependencies": [
     {
@@ -21,4 +21,3 @@
   "releaseCmd": "git commit -a -m \"gx publish $VERSION\"",
   "version": "0.0.0"
 }
-

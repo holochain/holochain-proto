@@ -5,10 +5,10 @@
 package holochain
 
 import (
+	. "github.com/holochain/holochain-proto/hash"
 	peer "github.com/libp2p/go-libp2p-peer"
 	pstore "github.com/libp2p/go-libp2p-peerstore"
 	tu "github.com/libp2p/go-testutil"
-	. "github.com/metacurrency/holochain/hash"
 	"math/rand"
 	"testing"
 	"time"

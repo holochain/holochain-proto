@@ -13,7 +13,7 @@ import (
 	"fmt"
 	"github.com/BurntSushi/toml"
 	"github.com/google/uuid"
-	. "github.com/metacurrency/holochain/hash"
+	. "github.com/holochain/holochain-proto/hash"
 	"io"
 	"io/ioutil"
 	"net/http"
@@ -45,14 +45,8 @@ const (
 
 	TestConfigFileName string = "_config.json"
 
-	DefaultPort            = 6283
+	DefaultDHTPort         = 6283
 	DefaultBootstrapServer = "bootstrap.holochain.net:10000"
-
-	DefaultBootstrapServerEnvVar = "HC_DEFAULT_BOOTSTRAPSERVER"
-	DefaultEnableMDNSEnvVar      = "HC_DEFAULT_ENABLEMDNS"
-	DefaultEnableNATUPnPEnvVar   = "HC_DEFAULT_ENABLENATUPNP"
-
-	//HC_BOOTSTRAPPORT						= "HC_BOOTSTRAPPORT"
 
 	CloneWithNewUUID  = true
 	CloneWithSameUUID = false
@@ -101,11 +95,11 @@ type ZomeFile struct {
 	Name         string
 	Description  string
 	CodeFile     string
-	Entries      []EntryDefFile
 	RibosomeType string
-	Functions    []FunctionDef
 	BridgeFuncs  []string // functions in zome that can be bridged to by fromApp
-	BridgeTo     string   // dna Hash of toApp that this zome is a client of
+	Config       map[string]interface{}
+	Entries      []EntryDefFile
+	Functions    []FunctionDef
 }
 
 type DNAFile struct {
@@ -115,10 +109,10 @@ type DNAFile struct {
 	Properties           map[string]string
 	PropertiesSchemaFile string
 	BasedOn              Hash // references hash of another holochain that these schemas and code are derived from
-	Zomes                []ZomeFile
 	RequiresVersion      int
 	DHTConfig            DHTConfig
 	Progenitor           Progenitor
+	Zomes                []ZomeFile
 }
 
 // AgentFixture defines an agent for the purposes of tests
@@ -134,32 +128,29 @@ type TestFixtures struct {
 
 // TestSet holds a set of tests plus configuration and fixture data for those tests
 type TestSet struct {
-	Tests    []TestData
-	Identity string
-	Fixtures TestFixtures
+	Tests     []TestData
+	Identity  string
+	Fixtures  TestFixtures
+	Benchmark bool // activate benchmarking for all tests
 }
 
 // TestData holds a test entry for a chain
 type TestData struct {
-	Convey   string        // a human readable description of the tests intent
-	Zome     string        // the zome in which to find the function
-	FnName   string        // the function to call
-	Input    interface{}   // the function's input
-	Output   interface{}   // the expected output to match against (full match)
-	Err      string        // the expected error to match against
-	Regexp   string        // the expected out to match again (regular expression)
-	Time     time.Duration // offset in milliseconds from the start of the test at which to run this test.
-	Wait     time.Duration // time in milliseconds to wait before running this test from when the previous ran
-	Exposure string        // the exposure context for the test call (defaults to ZOME_EXPOSURE)
-	Raw      bool          // set to true if we should ignore fnName and just call input as raw code in the zome, useful for testing helper functions and validation functions
-	Repeat   int           // number of times to repeat this test, useful for scenario testing
+	Convey    string        // a human readable description of the tests intent
+	Zome      string        // the zome in which to find the function
+	FnName    string        // the function to call
+	Input     interface{}   // the function's input
+	Output    interface{}   // the expected output to match against (full match)
+	Err       interface{}   // the expected error to match against
+	ErrMsg    string        // the expected error message to match against
+	Regexp    string        // the expected out to match again (regular expression)
+	Time      time.Duration // offset in milliseconds from the start of the test at which to run this test.
+	Wait      time.Duration // time in milliseconds to wait before running this test from when the previous ran
+	Exposure  string        // the exposure context for the test call (defaults to ZOME_EXPOSURE)
+	Raw       bool          // set to true if we should ignore fnName and just call input as raw code in the zome, useful for testing helper functions and validation functions
+	Repeat    int           // number of times to repeat this test, useful for scenario testing
+	Benchmark bool          // activate benchmarking for this test
 }
-
-// IsDevMode is used to enable certain functionality when developing holochains, for example,
-// in dev mode, you can put the name of an app in the BridgeTo of the DNA and it will get
-// resolved to DNA hash of the app in the DevDNAResolveMap[name] global variable.
-var IsDevMode bool = false
-var DevDNAResolveMap map[string]string
 
 // IsInitialized checks a path for a correctly set up .holochain directory
 func IsInitialized(root string) bool {
@@ -170,6 +161,20 @@ func IsInitialized(root string) bool {
 // and writes them out to configuration files in the root path (making the
 // directory if necessary)
 func Init(root string, identity AgentIdentity, seed io.Reader) (service *Service, err error) {
+	//TODO this is in the wrong place it should be where HeadersEntryDef gets initialized
+	if HeadersEntryDef.validator == nil {
+		err = HeadersEntryDef.BuildJSONSchemaValidatorFromString(HeadersEntryDef.Schema)
+	}
+	if AgentEntryDef.validator == nil {
+		err = AgentEntryDef.BuildJSONSchemaValidatorFromString(AgentEntryDef.Schema)
+	}
+	if DelEntryDef.validator == nil {
+		err = DelEntryDef.BuildJSONSchemaValidatorFromString(DelEntryDef.Schema)
+	}
+	if err != nil {
+		return
+	}
+
 	err = os.MkdirAll(root, os.ModePerm)
 	if err != nil {
 		return
@@ -179,25 +184,30 @@ func Init(root string, identity AgentIdentity, seed io.Reader) (service *Service
 			DefaultPeerModeDHTNode: true,
 			DefaultPeerModeAuthor:  true,
 			DefaultBootstrapServer: DefaultBootstrapServer,
-			DefaultEnableMDNS:      false,
-			DefaultEnableNATUPnP:   false,
+			DefaultEnableMDNS:      true,
+			DefaultEnableNATUPnP:   true,
 		},
 		Path: root,
 	}
 
-	if os.Getenv(DefaultBootstrapServerEnvVar) != "" {
-		s.Settings.DefaultBootstrapServer = os.Getenv(DefaultBootstrapServerEnvVar)
-		Infof("Using %s--configuring default bootstrap server as: %s\n", DefaultBootstrapServerEnvVar, s.Settings.DefaultBootstrapServer)
+	var val string
+
+	val = os.Getenv("HC_DEFAULT_BOOTSTRAPSERVER")
+	if val != "" {
+		s.Settings.DefaultBootstrapServer = val
+		Infof("Using HC_DEFAULT_BOOTSTRAPSERVER--configuring default bootstrap server as: %s\n", s.Settings.DefaultBootstrapServer)
 	}
 
-	if os.Getenv(DefaultEnableMDNSEnvVar) != "" && os.Getenv(DefaultEnableMDNSEnvVar) != "false" {
-		s.Settings.DefaultEnableMDNS = true
-		Infof("Using %s--configuring default MDNS use as: %v.\n", DefaultEnableMDNSEnvVar, s.Settings.DefaultEnableMDNS)
+	val = os.Getenv("HC_DEFAULT_ENABLEMDNS")
+	if val != "" {
+		s.Settings.DefaultEnableMDNS = val == "true"
+		Infof("Using HC_DEFAULT_ENABLEMDNS--configuring default MDNS use as: %v.\n", s.Settings.DefaultEnableMDNS)
 	}
 
-	if os.Getenv(DefaultEnableNATUPnPEnvVar) != "" && os.Getenv(DefaultEnableNATUPnPEnvVar) != "false" {
-		s.Settings.DefaultEnableNATUPnP = true
-		Infof("Using %s--configuring default MDNS use as: %v.\n", DefaultEnableNATUPnPEnvVar, s.Settings.DefaultEnableNATUPnP)
+	val = os.Getenv("HC_DEFAULT_ENABLENATUPNP")
+	if val != "" {
+		s.Settings.DefaultEnableNATUPnP = val == "true"
+		Infof("Using HC_DEFAULT_ENABLENATUPNP--configuring default UPnP use as: %v.\n", s.Settings.DefaultEnableNATUPnP)
 	}
 
 	err = writeToml(root, SysFileName, s.Settings, false)
@@ -390,33 +400,8 @@ func (s *Service) loadDNA(path string, filename string, format string) (dnaP *DN
 		dna.Zomes[i].Description = zome.Description
 		dna.Zomes[i].RibosomeType = zome.RibosomeType
 		dna.Zomes[i].Functions = zome.Functions
+		dna.Zomes[i].Config = zome.Config
 		dna.Zomes[i].BridgeFuncs = zome.BridgeFuncs
-		if zome.BridgeTo != "" {
-			dna.Zomes[i].BridgeTo, err = NewHash(zome.BridgeTo)
-			if err != nil {
-				// if in dev mode assume the bridgeTo was the app name
-				// and that hcdev put the actual DNA for us in the DevDNAResolveMap
-				if IsDevMode {
-					var dnaHashStr string
-					if DevDNAResolveMap != nil {
-						dnaHashStr, _ = DevDNAResolveMap[zome.BridgeTo]
-					}
-
-					dna.Zomes[i].BridgeTo, err = NewHash(dnaHashStr)
-					if err != nil {
-						// if that doesn't work, assume the testing is for
-						// a non bridged case, and just clear the bridgeTo value
-						// but issue a warning.
-						Infof("DEV MODE: WARNING, found BridgeTo value '%s' but unable to resolve, proceeding without BridgeTo", zome.BridgeTo)
-					} else {
-						Infof("DEV MODE: Found BridgeTo value '%s' and resolved to DNA Hash: %s", zome.BridgeTo, dnaHashStr)
-					}
-				} else {
-					err = fmt.Errorf("in zome: %s BridgeTo hash invalid", zome.Name)
-					return
-				}
-			}
-		}
 
 		var code []byte
 		code, err = ReadFile(zomePath, zome.CodeFile)
@@ -586,11 +571,12 @@ func suffixByRibosomeType(ribosomeType string) (suffix string) {
 
 func _makeConfig(s *Service) (config Config, err error) {
 	config = Config{
-		Port:            DefaultPort,
+		DHTPort:         DefaultDHTPort,
 		PeerModeDHTNode: s.Settings.DefaultPeerModeDHTNode,
 		PeerModeAuthor:  s.Settings.DefaultPeerModeAuthor,
 		BootstrapServer: s.Settings.DefaultBootstrapServer,
 		EnableNATUPnP:   s.Settings.DefaultEnableNATUPnP,
+		EnableMDNS:      s.Settings.DefaultEnableMDNS,
 		Loggers: Loggers{
 			Debug:      Logger{Name: "Debug", Format: "HC: %{file}.%{line}: %{message}", Enabled: false},
 			App:        Logger{Name: "App", Format: "%{color:cyan}%{message}", Enabled: false},
@@ -602,10 +588,10 @@ func _makeConfig(s *Service) (config Config, err error) {
 		},
 	}
 
-	val := os.Getenv("HOLOCHAINCONFIG_PORT")
+	val := os.Getenv("HOLOCHAINCONFIG_DHTPORT")
 	if val != "" {
 		Debugf("makeConfig: using environment variable to set port to: %s", val)
-		config.Port, err = strconv.Atoi(val)
+		config.DHTPort, err = strconv.Atoi(val)
 		if err != nil {
 			return
 		}
@@ -693,8 +679,13 @@ func (s *Service) MakeTestingApp(root string, encodingFormat string, initDB bool
 	if DirExists(root) {
 		return nil, mkErr(root + " already exists")
 	}
-
 	appPackageReader := bytes.NewBuffer([]byte(TestingAppAppPackage()))
+
+	if filepath.IsAbs(root) {
+		origPath := s.Path
+		s.Path = filepath.Dir(root)
+		defer func() { s.Path = origPath }()
+	}
 
 	name := filepath.Base(root)
 	_, err = s.SaveFromAppPackage(appPackageReader, root, "test", agent, TestingAppDecodingFormat, encodingFormat, newUUID)
@@ -736,7 +727,6 @@ func (s *Service) MakeTestingApp(root string, encodingFormat string, initDB bool
 		if err = h.Config.Setup(); err != nil {
 			return
 		}
-
 	}
 	return
 }
@@ -854,7 +844,7 @@ func DNAHashofUngenedChain(h *Holochain) (DNAHash Hash, err error) {
 	}
 
 	var dnaHeader *Header
-	_, dnaHeader, err = newHeader(h.hashSpec, time.Now(), DNAEntryType, &e, h.agent.PrivKey(), NullHash(), NullHash(), nil)
+	_, dnaHeader, err = newHeader(h.hashSpec, time.Now(), DNAEntryType, &e, h.agent.PrivKey(), NullHash(), NullHash(), NullHash())
 	if err != nil {
 		return
 	}
@@ -899,8 +889,8 @@ func (s *Service) ListChains() (list string) {
 			bridges, _ := chains[k].GetBridges()
 			if bridges != nil {
 				for _, b := range bridges {
-					if b.Side == BridgeFrom {
-						list += fmt.Sprintf("        bridged to: %v\n", b.ToApp)
+					if b.Side == BridgeCaller {
+						list += fmt.Sprintf("        bridged to: %s (%v)\n", b.CalleeName, b.CalleeApp)
 					} else {
 						list += fmt.Sprintf("        bridged from by token: %v\n", b.Token)
 					}
@@ -954,7 +944,7 @@ func (s *Service) saveDNAFile(root string, dna *DNA, encodingFormat string, over
 			RibosomeType: z.RibosomeType,
 			Functions:    z.Functions,
 			BridgeFuncs:  z.BridgeFuncs,
-			BridgeTo:     z.BridgeTo.String(),
+			Config:       z.Config,
 		}
 
 		for _, e := range z.Entries {
@@ -1298,14 +1288,14 @@ func GetAllTestRoles(path string) (roleNameList []string, err error) {
 		return nil, err
 	}
 
-	re := regexp.MustCompile(`(.*)\.json`)
+	// ignore all files that start with an underscore, these are either the config file or
+	// bridge specs
+	re := regexp.MustCompile(`^([^_].*)\.json`)
 	for _, f := range files {
 		if f.Mode().IsRegular() {
 			x := re.FindStringSubmatch(f.Name())
 			if len(x) > 0 {
-				if f.Name() != TestConfigFileName {
-					roleNameList = append(roleNameList, x[1])
-				}
+				roleNameList = append(roleNameList, x[1])
 			}
 		}
 	}
@@ -1481,6 +1471,11 @@ func TestingAppAppPackage() string {
                     "Name": "testJsonFn2",
                     "CallingType": "json",
                     "Exposure": ""
+                },
+                {
+                    "Name": "throwError",
+                    "CallingType": "string",
+                    "Exposure": "public"
                 }
             ],
       "Code": "` + jsSanitizeString(jsZomeCode) + `"
@@ -1505,7 +1500,7 @@ func TestingAppAppPackage() string {
         "Zome":   "zySampleZome",
         "FnName": "addEven",
         "Input":  "5",
-        "Err":    "Error calling 'commit': Validation Failed"
+        "Err":    "Error calling 'commit': Validation Failed: 5 is not even"
     },
     {
         "Zome":   "zySampleZome",
@@ -1560,7 +1555,13 @@ func TestingAppAppPackage() string {
 	"Zome":   "jsSampleZome",
 	"FnName": "addOdd",
 	"Input":  "2",
-	"Err":    "Validation Failed"
+	"Err":    {"errorMessage":"Validation Failed: 2 is not odd","function":"commit","name":"` + HolochainErrorPrefix + `","source":{"column":"28","functionName":"addOdd","line":"45"}}
+    },
+    {
+	"Zome":   "jsSampleZome",
+	"FnName": "addOdd",
+	"Input":  "2",
+	"ErrMsg":  "Validation Failed: 2 is not odd"
     },
     {
 	"Zome":   "zySampleZome",
@@ -1682,6 +1683,7 @@ function testJsonFn2(x){ return [{a:'b'}] };
 function getProperty(x) {return property(x)};
 function addOdd(x) {return commit("oddNumbers",x);}
 function addProfile(x) {return commit("profile",x);}
+function throwError(x) {throw new Error(x)}
 function validatePut(entry_type,entry,header,pkg,sources) {
   return validate(entry_type,entry,header,sources);
 }
@@ -1697,7 +1699,7 @@ function validateCommit(entry_type,entry,header,pkg,sources) {
 }
 function validate(entry_type,entry,header,sources) {
   if (entry_type=="oddNumbers") {
-    return entry%2 != 0
+    return (entry%2 != 0) ? true : entry+" is not odd"
   }
   if (entry_type=="profile") {
     return true
@@ -1706,6 +1708,9 @@ function validate(entry_type,entry,header,sources) {
     return true
   }
   if (entry_type=="secret") {
+    return true
+  }
+  if (entry_type=="rating") {
     return true
   }
   return false
@@ -1724,7 +1729,21 @@ function genesis() {
   debug("running jsZome genesis")
   return true
 }
-function bridgeGenesis(side,app,data) {return true}
+function bridgeGenesis(side,app,data) {
+testGetBridges();
+return true
+}
+
+function bundleCanceled(reason,userParam) {
+     debug(userParam+"debug message during bundleCanceled with reason: "+reason);
+  if (userParam == 'debugit') {
+     debug("debug message during bundleCanceled with reason: "+reason);
+  } else if (userParam == 'cancelit') {
+     debug("debug message during bundleCanceled: canceling cancel!");
+     return HC.BundleCancel.Response.Commit
+  }
+  return HC.BundleCancel.Response.OK
+}
 
 function receive(from,message) {
   // if the message requests blocking run an infinite loop
@@ -1739,7 +1758,7 @@ function receive(from,message) {
 }
 
 function testGetBridges() {
-  debug(JSON.stringify(getBridges()))
+  debug("testGetBridges:"+JSON.stringify(getBridges()))
 }
 
 function asyncPing(message,id) {
@@ -1756,7 +1775,7 @@ function asyncPing(message,id) {
 (defn confirmOdd [x]
   (letseq [h (makeHash "oddNumbers" x)
            r (get h)
-           err (hget r %error "")]
+           err (cond (hash? r) (hget r %error "") "found")]
      (cond (== err "") "true" "false")
   )
 )
@@ -1767,9 +1786,9 @@ function asyncPing(message,id) {
 (defn validateMod [entryType entry header replaces pkg sources] true)
 (defn validateDel [entryType hash pkg sources] true)
 (defn validate [entryType entry header sources]
-  (cond (== entryType "evenNumbers")  (cond (== (mod entry 2) 0) true false)
+  (cond (== entryType "evenNumbers")  (cond (== (mod entry 2) 0) true (concat (str entry) " is not even"))
         (== entryType "primes")  (isprime (hget entry %prime))
-        (== entryType "profile") true
+        (== entryType "profile") ""
         false)
 )
 (defn validateLink [linkEntryType baseHash links pkg sources] true)
@@ -1781,7 +1800,7 @@ function asyncPing(message,id) {
   (debug "running zyZome genesis")
   true
 )
-(defn bridgeGenesis [side app data] (begin (debug (concat "bridge genesis " (cond (== side HC_Bridge_From) "from" "to") "-- other side is:" app " bridging data:" data))  true))
+(defn bridgeGenesis [side app data] (begin (debug (concat "bridge genesis " (cond (== side HC_Bridge_Caller) "from" "to") "-- other side is:" app " bridging data:" data))  true))
 (defn receive [from message]
 	(hash pong: (hget message %ping)))
 

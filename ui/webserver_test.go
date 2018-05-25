@@ -2,8 +2,8 @@ package ui
 
 import (
 	"bytes"
-	. "github.com/metacurrency/holochain"
-	. "github.com/metacurrency/holochain/hash"
+	. "github.com/holochain/holochain-proto"
+	. "github.com/holochain/holochain-proto/hash"
 	. "github.com/smartystreets/goconvey/convey"
 	"io/ioutil"
 	"net/http"
@@ -13,6 +13,8 @@ import (
 )
 
 func TestMain(m *testing.M) {
+	// disable UPNP for tests
+	os.Setenv("HOLOCHAINCONFIG_ENABLENATUPNP", "false")
 	InitializeHolochain()
 	os.Exit(m.Run())
 }
@@ -41,6 +43,7 @@ func TestWebServer(t *testing.T) {
 		var b []byte
 		b, err = ioutil.ReadAll(resp.Body)
 		So(err, ShouldBeNil)
+		So(resp.StatusCode, ShouldEqual, 400)
 		So(string(b), ShouldEqual, "bad request\n")
 	})
 
@@ -52,7 +55,33 @@ func TestWebServer(t *testing.T) {
 		var b []byte
 		b, err = ioutil.ReadAll(resp.Body)
 		So(err, ShouldBeNil)
+		So(resp.StatusCode, ShouldEqual, 200)
 		So(string(b), ShouldEqual, "en")
+	})
+
+	Convey("it should return Holochain errors from call functions as 400", t, func() {
+		body := bytes.NewBuffer([]byte("2"))
+		resp, err := http.Post("http://0.0.0.0:31415/fn/jsSampleZome/addOdd", "", body)
+		So(err, ShouldBeNil)
+		defer resp.Body.Close()
+		var b []byte
+		b, err = ioutil.ReadAll(resp.Body)
+		So(err, ShouldBeNil)
+		So(resp.StatusCode, ShouldEqual, 400)
+		So(string(b), ShouldEqual, `{"errorMessage":"Validation Failed: 2 is not odd","function":"commit","name":"HolochainError","source":{"column":"28","functionName":"addOdd","line":"45"}}
+`)
+	})
+
+	Convey("it should return app thrown errors from call functions as 400", t, func() {
+		body := bytes.NewBuffer([]byte("myError"))
+		resp, err := http.Post("http://0.0.0.0:31415/fn/jsSampleZome/throwError", "", body)
+		So(err, ShouldBeNil)
+		defer resp.Body.Close()
+		var b []byte
+		b, err = ioutil.ReadAll(resp.Body)
+		So(err, ShouldBeNil)
+		So(resp.StatusCode, ShouldEqual, 400)
+		So(string(b), ShouldEqual, "Error: myError\n")
 	})
 
 	fakeFromApp, _ := NewHash("QmVGtdTZdTFaLsaj2RwdVG8jcjNNcp1DE914DKZ2kHmXHx")

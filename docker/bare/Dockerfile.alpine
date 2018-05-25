@@ -8,8 +8,8 @@ RUN apk add --no-cache \
   git \
   make
 
-RUN go get -v -d github.com/metacurrency/holochain \
-&& make -C "${GOPATH}/src/github.com/metacurrency/holochain" \
+RUN go get -v -d github.com/holochain/holochain-proto \
+&& make -C "${GOPATH}/src/github.com/holochain/holochain-proto" \
 && rm -rf ${GOPATH}/pkg ${GOPATH}/src/* ${GOPATH}/bin/gx* \
 && apk del build_deps
 

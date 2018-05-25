@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 pkill hcdev
 rm benchmark.out
 rm benchmark.error.out

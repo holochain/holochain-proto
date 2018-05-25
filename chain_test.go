@@ -3,16 +3,19 @@ package holochain
 import (
 	"bytes"
 	"fmt"
-	ic "github.com/libp2p/go-libp2p-crypto"
-	. "github.com/metacurrency/holochain/hash"
-	. "github.com/smartystreets/goconvey/convey"
 	"path/filepath"
 	"reflect"
+	"regexp"
+	"strings"
 	"testing"
 	"time"
+
+	. "github.com/holochain/holochain-proto/hash"
+	ic "github.com/libp2p/go-libp2p-crypto"
+	. "github.com/smartystreets/goconvey/convey"
 )
 
-func TestNewChain(t *testing.T) {
+func TestChainNew(t *testing.T) {
 	hashSpec, _, _ := chainTestSetup()
 	Convey("it should make an empty chain", t, func() {
 		c := NewChain(hashSpec)
@@ -22,7 +25,7 @@ func TestNewChain(t *testing.T) {
 
 }
 
-func TestNewChainFromFile(t *testing.T) {
+func TestChainNewChainFromFile(t *testing.T) {
 	d := SetupTestDir()
 	defer CleanupTestDir(d)
 	hashSpec, key, now := chainTestSetup()
@@ -61,7 +64,7 @@ func TestNewChainFromFile(t *testing.T) {
 	})
 }
 
-func TestTop(t *testing.T) {
+func TestChainTop(t *testing.T) {
 	hashSpec, key, now := chainTestSetup()
 	c := NewChain(hashSpec)
 	var hash *Hash
@@ -105,7 +108,7 @@ func TestTop(t *testing.T) {
 
 }
 
-func TestTopType(t *testing.T) {
+func TestChainTopType(t *testing.T) {
 	hashSpec, _, _ := chainTestSetup()
 	c := NewChain(hashSpec)
 	Convey("it should return nil for an empty chain", t, func() {
@@ -117,7 +120,7 @@ func TestTopType(t *testing.T) {
 	})
 }
 
-func TestAddEntry(t *testing.T) {
+func TestChainAddEntry(t *testing.T) {
 	hashSpec, key, now := chainTestSetup()
 	c := NewChain(hashSpec)
 
@@ -128,11 +131,11 @@ func TestAddEntry(t *testing.T) {
 		So(len(c.Headers), ShouldEqual, 1)
 		So(len(c.Entries), ShouldEqual, 1)
 		So(c.TypeTops["entryTypeFoo"], ShouldEqual, 0)
-		So(hash.Equal(&c.Hashes[0]), ShouldBeTrue)
+		So(hash.Equal(c.Hashes[0]), ShouldBeTrue)
 	})
 }
 
-func TestGet(t *testing.T) {
+func TestChainGet(t *testing.T) {
 	hashSpec, key, now := chainTestSetup()
 	c := NewChain(hashSpec)
 
@@ -179,7 +182,7 @@ func TestGet(t *testing.T) {
 	})
 }
 
-func TestMarshalChain(t *testing.T) {
+func TestChainMarshalChain(t *testing.T) {
 	hashSpec, key, now := chainTestSetup()
 	c := NewChain(hashSpec)
 	var emptyStringList []string
@@ -349,7 +352,7 @@ func TestWalkChain(t *testing.T) {
 	})
 }
 
-func TestValidateChain(t *testing.T) {
+func TestChainValidateChain(t *testing.T) {
 	hashSpec, key, now := chainTestSetup()
 	c := NewChain(hashSpec)
 	e := GobEntry{C: "some data"}
@@ -392,19 +395,21 @@ func TestValidateChain(t *testing.T) {
 		So(err.Error(), ShouldEqual, "header hash mismatch at link 0")
 
 		c.Headers[0].HeaderLink = NullHash() // restore
-		val := c.Headers[0].EntryLink.H[2]
-		c.Headers[0].EntryLink.H[2] = 3 // tweak
+		before := c.Headers[0].EntryLink
+		tweak := []byte(before)
+		tweak[5] = 3 // tweak
+		c.Headers[0].EntryLink = Hash(tweak)
 		err = c.Validate(false)
 		So(err.Error(), ShouldEqual, "header hash mismatch at link 0")
 
-		c.Headers[0].EntryLink.H[2] = val // restore
-		val = c.Headers[0].Sig.S[0]
+		c.Headers[0].EntryLink = before // restore
+		val := c.Headers[0].Sig.S[0]
 		c.Headers[0].Sig.S[0] = 99 // tweak
 		err = c.Validate(false)
 		So(err.Error(), ShouldEqual, "header hash mismatch at link 0")
 
-		c.Headers[0].Sig.S[0] = val        // restore
-		c.Headers[0].Change.Action = "foo" // tweak
+		c.Headers[0].Sig.S[0] = val // restore
+		c.Headers[0].Change = "foo" // tweak
 		err = c.Validate(false)
 		So(err.Error(), ShouldEqual, "header hash mismatch at link 0")
 
@@ -424,6 +429,328 @@ func TestChain2String(t *testing.T) {
 
 	Convey("it should dump a chain to text", t, func() {
 		So(c.String(), ShouldNotEqual, "")
+	})
+}
+
+func TestChain2JSON(t *testing.T) {
+	hashSpec, key, now := chainTestSetup()
+	c := NewChain(hashSpec)
+
+	Convey("it should dump empty JSON object for empty chain", t, func() {
+		json, err := c.JSON(0)
+		So(err, ShouldBeNil)
+		So(json, ShouldEqual, "{}")
+	})
+
+	e := GobEntry{C: "dna entry"}
+	c.AddEntry(now, DNAEntryType, &e, key)
+
+	Convey("it should dump a DNA entry as JSON", t, func() {
+		json, err := c.JSON(0)
+		So(err, ShouldBeNil)
+		json = NormaliseJSON(json)
+		matched, err := regexp.MatchString(`{"%dna":{"header":{.*},"content":"dna entry"}}`, json)
+		So(err, ShouldBeNil)
+		So(matched, ShouldBeTrue)
+	})
+
+	e = GobEntry{C: "agent entry"}
+	c.AddEntry(now, AgentEntryType, &e, key)
+
+	Convey("it should dump a Agent entry as JSON", t, func() {
+		json, err := c.JSON(0)
+		So(err, ShouldBeNil)
+		json = NormaliseJSON(json)
+		matched, err := regexp.MatchString(`{"%dna":{"header":{.*},"content":"dna entry"},"%agent":{"header":{.*},"content":"agent entry"}}`, json)
+		So(err, ShouldBeNil)
+		So(matched, ShouldBeTrue)
+	})
+
+	e = GobEntry{C: "chain entry"}
+	c.AddEntry(now, "handle", &e, key)
+
+	Convey("it should dump chain with entries as JSON", t, func() {
+		json, err := c.JSON(0)
+		So(err, ShouldBeNil)
+		json = NormaliseJSON(json)
+		matched, err := regexp.MatchString(`{"%dna":{.*},"%agent":{.*},"entries":\[{"header":{"type":"handle",.*"},"content":"chain entry"}\]}`, json)
+		So(err, ShouldBeNil)
+		So(matched, ShouldBeTrue)
+	})
+
+	e.C = "chain entry 2"
+	c.AddEntry(now, "handle", &e, key)
+	e.C = "chain entry 3"
+	c.AddEntry(now, "handle", &e, key)
+	Convey("it should dump chain from the given start index", t, func() {
+		json, err := c.JSON(2)
+		So(err, ShouldBeNil)
+		json = NormaliseJSON(json)
+		matched, err := regexp.MatchString(`{"entries":\[{"header":{"type":"handle",.*"},"content":"chain entry 2"},{"header":{"type":"handle",.*"},"content":"chain entry 3"}\]}`, json)
+		So(err, ShouldBeNil)
+		So(matched, ShouldBeTrue)
+	})
+}
+
+func TestChain2Dot(t *testing.T) {
+	hashSpec, key, now := chainTestSetup()
+	c := NewChain(hashSpec)
+
+	Convey("it should dump an empty 'dot' document for empty chain", t, func() {
+		dot, err := c.Dot(0)
+		So(err, ShouldBeNil)
+		matched, err := regexp.MatchString(`digraph chain {.*}`, strings.Replace(dot, "\n", "", -1))
+		So(err, ShouldBeNil)
+		So(matched, ShouldBeTrue)
+		So(dot, ShouldNotContainSubstring, "header")
+		So(dot, ShouldNotContainSubstring, "content")
+	})
+
+	e := GobEntry{C: "dna entry"}
+	c.AddEntry(now, DNAEntryType, &e, key)
+
+	Convey("after adding the dna, the dump should include the genesis entry in 'dot' format", t, func() {
+		dot, err := c.Dot(0)
+		So(err, ShouldBeNil)
+
+		hdr := c.Headers[0]
+		timestamp := fmt.Sprintf("%v", hdr.Time)
+		hdrType := fmt.Sprintf("%v", hdr.Type)
+		hdrEntry := fmt.Sprintf("%v", hdr.EntryLink)
+		nextHeader := fmt.Sprintf("%v", hdr.HeaderLink)
+		next := fmt.Sprintf("%s: %v", hdr.Type, hdr.TypeLink)
+		hash := fmt.Sprintf("%s", c.Hashes[0])
+
+		expectedDot := `header0 [label=<{HEADER 0: GENESIS|
+{Type|` + hdrType + `}|
+{Hash|` + hash + `}|
+{Timestamp|` + timestamp + `}|
+{Next Header|` + nextHeader + `}|
+{Next|` + next + `}|
+{Entry|` + hdrEntry + `}
+}>];
+content0 [label=<{HOLOCHAIN DNA|See dna.json}>];
+header0->content0;`
+
+		So(dot, ShouldContainSubstring, expectedDot)
+	})
+
+	e = GobEntry{C: `{"Identity":"lucy","Revocation":"","PublicKey":"XYZ"}`}
+	c.AddEntry(now, AgentEntryType, &e, key)
+
+	Convey("after adding the agent, the dump should include the agent entry in 'dot' format", t, func() {
+		dot, err := c.Dot(0)
+		So(err, ShouldBeNil)
+
+		hdr0 := c.Headers[0]
+		timestamp0 := fmt.Sprintf("%v", hdr0.Time)
+		hdrType0 := fmt.Sprintf("%v", hdr0.Type)
+		hdrEntry0 := fmt.Sprintf("%v", hdr0.EntryLink)
+		nextHeader0 := fmt.Sprintf("%v", hdr0.HeaderLink)
+		next0 := fmt.Sprintf("%s: %v", hdr0.Type, hdr0.TypeLink)
+		hash0 := fmt.Sprintf("%s", c.Hashes[0])
+
+		hdr1 := c.Headers[1]
+		timestamp1 := fmt.Sprintf("%v", hdr1.Time)
+		hdrType1 := fmt.Sprintf("%v", hdr1.Type)
+		hdrEntry1 := fmt.Sprintf("%v", hdr1.EntryLink)
+		nextHeader1 := fmt.Sprintf("%v", hdr1.HeaderLink)
+		next1 := fmt.Sprintf("%s: %v", hdr1.Type, hdr1.TypeLink)
+		hash1 := fmt.Sprintf("%s", c.Hashes[1])
+
+		expectedDot := `header0 [label=<{HEADER 0: GENESIS|
+{Type|` + hdrType0 + `}|
+{Hash|` + hash0 + `}|
+{Timestamp|` + timestamp0 + `}|
+{Next Header|` + nextHeader0 + `}|
+{Next|` + next0 + `}|
+{Entry|` + hdrEntry0 + `}
+}>];
+content0 [label=<{HOLOCHAIN DNA|See dna.json}>];
+header0->content0;
+header0->header1;
+header1 [label=<{HEADER 1|
+{Type|` + hdrType1 + `}|
+{Hash|` + hash1 + `}|
+{Timestamp|` + timestamp1 + `}|
+{Next Header|` + nextHeader1 + `}|
+{Next|` + next1 + `}|
+{Entry|` + hdrEntry1 + `}
+}>];
+content1 [label=<{AGENT ID|\{"Identity":"lucy",<br/>"Revocation":"",<br/>"PublicKey":"XYZ"\}}>];
+header1->content1;`
+
+		So(dot, ShouldContainSubstring, expectedDot)
+	})
+
+	e = GobEntry{C: `{"Links":[{"Base":"ABC","Link":"XYZ","Tag":"handle"}]}`}
+	c.AddEntry(now, "handle", &e, key)
+
+	Convey("after adding an entry, the dump should include the entry in 'dot' format", t, func() {
+		dot, err := c.Dot(0)
+		So(err, ShouldBeNil)
+
+		hdr0 := c.Headers[0]
+		timestamp0 := fmt.Sprintf("%v", hdr0.Time)
+		hdrType0 := fmt.Sprintf("%v", hdr0.Type)
+		hdrEntry0 := fmt.Sprintf("%v", hdr0.EntryLink)
+		nextHeader0 := fmt.Sprintf("%v", hdr0.HeaderLink)
+		next0 := fmt.Sprintf("%s: %v", hdr0.Type, hdr0.TypeLink)
+		hash0 := fmt.Sprintf("%s", c.Hashes[0])
+
+		hdr1 := c.Headers[1]
+		timestamp1 := fmt.Sprintf("%v", hdr1.Time)
+		hdrType1 := fmt.Sprintf("%v", hdr1.Type)
+		hdrEntry1 := fmt.Sprintf("%v", hdr1.EntryLink)
+		nextHeader1 := fmt.Sprintf("%v", hdr1.HeaderLink)
+		next1 := fmt.Sprintf("%s: %v", hdr1.Type, hdr1.TypeLink)
+		hash1 := fmt.Sprintf("%s", c.Hashes[1])
+
+		hdr2 := c.Headers[2]
+		timestamp2 := fmt.Sprintf("%v", hdr2.Time)
+		hdrType2 := fmt.Sprintf("%v", hdr2.Type)
+		hdrEntry2 := fmt.Sprintf("%v", hdr2.EntryLink)
+		nextHeader2 := fmt.Sprintf("%v", hdr2.HeaderLink)
+		next2 := fmt.Sprintf("%s: %v", hdr2.Type, hdr2.TypeLink)
+		hash2 := fmt.Sprintf("%s", c.Hashes[2])
+
+		expectedDot := `header0 [label=<{HEADER 0: GENESIS|
+{Type|` + hdrType0 + `}|
+{Hash|` + hash0 + `}|
+{Timestamp|` + timestamp0 + `}|
+{Next Header|` + nextHeader0 + `}|
+{Next|` + next0 + `}|
+{Entry|` + hdrEntry0 + `}
+}>];
+content0 [label=<{HOLOCHAIN DNA|See dna.json}>];
+header0->content0;
+header0->header1;
+header1 [label=<{HEADER 1|
+{Type|` + hdrType1 + `}|
+{Hash|` + hash1 + `}|
+{Timestamp|` + timestamp1 + `}|
+{Next Header|` + nextHeader1 + `}|
+{Next|` + next1 + `}|
+{Entry|` + hdrEntry1 + `}
+}>];
+content1 [label=<{AGENT ID|\{"Identity":"lucy",<br/>"Revocation":"",<br/>"PublicKey":"XYZ"\}}>];
+header1->content1;
+header1->header2;
+header2 [label=<{HEADER 2|
+{Type|` + hdrType2 + `}|
+{Hash|` + hash2 + `}|
+{Timestamp|` + timestamp2 + `}|
+{Next Header|` + nextHeader2 + `}|
+{Next|` + next2 + `}|
+{Entry|` + hdrEntry2 + `}
+}>];
+content2 [label=<{ENTRY 2|\{"Links":[<br/>\{"Base":"ABC",<br/>"Link":"XYZ",<br/>"Tag":"handle"\}]\}}>];
+header2->content2;`
+
+		So(dot, ShouldContainSubstring, expectedDot)
+	})
+
+	Convey("only entries starting from the specified index should be dumped", t, func() {
+		dot, err := c.Dot(2)
+		So(err, ShouldBeNil)
+
+		hdr2 := c.Headers[2]
+		timestamp2 := fmt.Sprintf("%v", hdr2.Time)
+		hdrType2 := fmt.Sprintf("%v", hdr2.Type)
+		hdrEntry2 := fmt.Sprintf("%v", hdr2.EntryLink)
+		nextHeader2 := fmt.Sprintf("%v", hdr2.HeaderLink)
+		next2 := fmt.Sprintf("%s: %v", hdr2.Type, hdr2.TypeLink)
+		hash2 := fmt.Sprintf("%s", c.Hashes[2])
+
+		expectedDot := `header2 [label=<{HEADER 2|
+{Type|` + hdrType2 + `}|
+{Hash|` + hash2 + `}|
+{Timestamp|` + timestamp2 + `}|
+{Next Header|` + nextHeader2 + `}|
+{Next|` + next2 + `}|
+{Entry|` + hdrEntry2 + `}
+}>];
+content2 [label=<{ENTRY 2|\{"Links":[<br/>\{"Base":"ABC",<br/>"Link":"XYZ",<br/>"Tag":"handle"\}]\}}>];
+header2->content2;`
+
+		So(dot, ShouldContainSubstring, expectedDot)
+	})
+}
+
+func TestChainBundle(t *testing.T) {
+	hashSpec, key, now := chainTestSetup()
+	c := NewChain(hashSpec)
+	e := GobEntry{C: "fake DNA"}
+	c.AddEntry(now, DNAEntryType, &e, key)
+	e = GobEntry{C: "foo data"}
+	c.AddEntry(now, "entryTypeFoo2", &e, key)
+
+	Convey("starting a bundle should set the bundle start point", t, func() {
+		So(c.BundleStarted(), ShouldBeNil)
+		err := c.StartBundle("myBundle")
+		So(err, ShouldBeNil)
+		bundle := c.BundleStarted()
+		So(bundle, ShouldNotBeNil)
+		So(bundle.idx, ShouldEqual, c.Length()-1)
+		So(bundle.userParam, ShouldEqual, `"myBundle"`) // should convert user param to json
+		So(bundle.chain.bundleOf, ShouldEqual, c)
+	})
+
+	Convey("it should add entries to the bundle chain", t, func() {
+
+		e := GobEntry{C: "some data"}
+
+		bundle := c.BundleStarted()
+		So(bundle.chain.Length(), ShouldEqual, 0)
+
+		now := now.Round(0)
+		l, hash, header, err := bundle.chain.prepareHeader(now, "entryTypeFoo1", &e, key, NullHash())
+		So(err, ShouldBeNil)
+		So(l, ShouldEqual, 0)
+
+		err = bundle.chain.addEntry(l, hash, header, &e)
+		So(err, ShouldBeNil)
+		So(bundle.chain.Length(), ShouldEqual, 1)
+
+		e = GobEntry{C: "another entry"}
+		_, err = bundle.chain.AddEntry(now, "entryTypeFoo2", &e, key)
+		So(err, ShouldBeNil)
+		So(bundle.chain.Length(), ShouldEqual, 2)
+	})
+
+	Convey("you shouldn't be able to work on a chain when bundle opened", t, func() {
+		l, hash, header, err := c.prepareHeader(now, "entryTypeFoo1", &e, key, NullHash())
+		So(err, ShouldEqual, ErrChainLockedForBundle)
+
+		err = c.addEntry(l, hash, header, &e)
+		So(err, ShouldEqual, ErrChainLockedForBundle)
+	})
+
+	Convey("it should add entries to the main chain when bundle closed and validate!", t, func() {
+		So(c.Length(), ShouldEqual, 2)
+		err := c.CloseBundle(true)
+		So(err, ShouldBeNil)
+		So(c.BundleStarted(), ShouldBeNil)
+		So(c.Length(), ShouldEqual, 4)
+		So(c.Validate(false), ShouldBeNil)
+
+		// makes sure type linking worked too
+		hash, _ := c.TopType("entryTypeFoo1")
+		So(hash.String(), ShouldEqual, c.Hashes[2].String())
+		hash, _ = c.TopType("entryTypeFoo2")
+		So(hash.String(), ShouldEqual, c.Hashes[3].String())
+
+	})
+
+	Convey("it should not add entries to the main chain when bundle closed without commit!", t, func() {
+		So(c.Length(), ShouldEqual, 4)
+		err := c.StartBundle("myBundle")
+		e = GobEntry{C: "another entry"}
+		_, err = c.bundle.chain.AddEntry(now, "entryTypeFoo2", &e, key)
+		So(c.bundle.chain.Length(), ShouldEqual, 1)
+		err = c.CloseBundle(false)
+		So(err, ShouldBeNil)
+		So(c.Length(), ShouldEqual, 4)
 	})
 }
 

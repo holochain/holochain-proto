@@ -5,8 +5,8 @@ import (
 	"encoding/gob"
 	"fmt"
 	"github.com/google/uuid"
+	. "github.com/holochain/holochain-proto/hash"
 	peer "github.com/libp2p/go-libp2p-peer"
-	. "github.com/metacurrency/holochain/hash"
 	. "github.com/smartystreets/goconvey/convey"
 	"os"
 	"path/filepath"
@@ -16,6 +16,9 @@ import (
 
 func TestMain(m *testing.M) {
 	os.Setenv("_HCTEST", "1")
+	// disable UPNP for tests
+	os.Setenv("HOLOCHAINCONFIG_ENABLENATUPNP", "false")
+
 	InitializeHolochain()
 	os.Exit(m.Run())
 }
@@ -65,14 +68,35 @@ func TestNewHolochain(t *testing.T) {
 }
 
 func TestSetupConfig(t *testing.T) {
-	config := Config{}
 	Convey("it should set the intervals", t, func() {
+		config := Config{}
+		config.EnableWorldModel = false
 		config.Setup()
+		So(config.holdingCheckInterval, ShouldEqual, 0)
+
 		So(config.gossipInterval, ShouldEqual, DefaultGossipInterval)
 		So(config.bootstrapRefreshInterval, ShouldEqual, BootstrapTTL)
 		So(config.routingRefreshInterval, ShouldEqual, DefaultRoutingRefreshInterval)
 		So(config.retryInterval, ShouldEqual, DefaultRetryInterval)
+
+		config.EnableWorldModel = true
+		config.Setup()
+		So(config.holdingCheckInterval, ShouldEqual, DefaultHoldingCheckInterval)
 	})
+
+	Convey("it should honor env variables", t, func() {
+		config := Config{}
+		So(config.EnableWorldModel, ShouldBeFalse)
+		os.Setenv("HC_GOSSIP_INTERVAL", "3")
+		os.Setenv("HC_HOLDING_INTERVAL", "2")
+		config.Setup()
+		So(config.gossipInterval, ShouldEqual, time.Second*3)
+		So(config.holdingCheckInterval, ShouldEqual, time.Second*2)
+		So(config.EnableWorldModel, ShouldBeTrue)
+	})
+	os.Unsetenv("HC_GOSSIP_INTERVAL")
+	os.Unsetenv("HC_HOLDING_INTERVAL")
+
 }
 
 func TestSetupLogging(t *testing.T) {
@@ -84,6 +108,7 @@ func TestSetupLogging(t *testing.T) {
 		// test some default configurations
 		So(h.Config.Loggers.App.Enabled, ShouldBeFalse)
 		So(h.Config.Loggers.DHT.Enabled, ShouldBeFalse)
+		So(h.Config.Loggers.World.Enabled, ShouldBeFalse)
 		So(h.Config.Loggers.Gossip.Enabled, ShouldBeFalse)
 		So(h.Config.Loggers.TestFailed.w, ShouldEqual, os.Stderr)
 		// test that a sample color got initialized
@@ -92,6 +117,7 @@ func TestSetupLogging(t *testing.T) {
 	Convey("it should initialize the loggers with env vars", t, func() {
 		os.Setenv("HCLOG_APP_ENABLE", "0")
 		os.Setenv("HCLOG_DHT_ENABLE", "1")
+		os.Setenv("HCLOG_WORLD_ENABLE", "1")
 		os.Setenv("HCLOG_GOSSIP_ENABLE", "true")
 		os.Setenv("HCLOG_PREFIX", "a prefix:")
 		h.Config.Loggers.DHT.Format = "%{message}"
@@ -99,6 +125,7 @@ func TestSetupLogging(t *testing.T) {
 		So(err, ShouldBeNil)
 		So(h.Config.Loggers.App.Enabled, ShouldBeFalse)
 		So(h.Config.Loggers.DHT.Enabled, ShouldBeTrue)
+		So(h.Config.Loggers.World.Enabled, ShouldBeTrue)
 		So(h.Config.Loggers.Gossip.Enabled, ShouldBeTrue)
 		var buf bytes.Buffer
 		h.Config.Loggers.DHT.w = &buf
@@ -108,6 +135,7 @@ func TestSetupLogging(t *testing.T) {
 		// restore env
 		os.Unsetenv("HCLOG_APP_ENABLE")
 		os.Unsetenv("HCLOG_DHT_ENABLE")
+		os.Unsetenv("HCLOG_WORLD_ENABLE")
 		os.Unsetenv("HCLOG_GOSSIP_ENABLE")
 		os.Unsetenv("HCLOG_PREFIX")
 		debugLog.SetPrefix("")
@@ -156,7 +184,8 @@ func TestDebuggingSetup(t *testing.T) {
 		log.Enabled = true
 
 		h.Debug("test")
-		So(string(buf.Bytes()), ShouldEqual, "HC: holochain_test.go.158: test\n")
+		So(string(buf.Bytes()), ShouldContainSubstring, "HC: holochain_test.go.")
+		So(string(buf.Bytes()), ShouldContainSubstring, ": test\n")
 
 		// restore state of debug log
 		log.w = os.Stdout
@@ -202,14 +231,14 @@ func TestPrepareHashType(t *testing.T) {
 		err := h.PrepareHashType()
 		So(err, ShouldBeNil)
 		var hash Hash
-		err = hash.Sum(h.hashSpec, []byte("test data"))
+		hash, err = Sum(h.hashSpec, []byte("test data"))
 		So(err, ShouldBeNil)
 		So(hash.String(), ShouldEqual, "5duC28CW416wX42vses7TeTeRYwku9")
 
 		h.nucleus.dna.DHTConfig.HashType = "blake2b-256"
 		err = h.PrepareHashType()
 		So(err, ShouldBeNil)
-		err = hash.Sum(h.hashSpec, []byte("test data"))
+		hash, err = Sum(h.hashSpec, []byte("test data"))
 		So(err, ShouldBeNil)
 		So(hash.String(), ShouldEqual, "2DrjgbL49zKmX4P7UgdopSCC7MhfVUySNbRHBQzdDuXgaJSNEg")
 	})
@@ -247,15 +276,15 @@ func TestNewEntry(t *testing.T) {
 	Convey("the returned header hash is the SHA256 of the byte encoded header", t, func() {
 		b, _ := header.Marshal()
 		var hh Hash
-		err = hh.Sum(h.hashSpec, b)
+		hh, err = Sum(h.hashSpec, b)
 		So(err, ShouldBeNil)
 		So(headerHash.String(), ShouldEqual, hh.String())
 	})
 
 	Convey("it should have signed the entry with my key", t, func() {
 		sig := header.Sig
-		hash := header.EntryLink.H
-		valid, err := h.agent.PrivKey().GetPublic().Verify(hash, sig.S)
+		hash := header.EntryLink
+		valid, err := h.agent.PrivKey().GetPublic().Verify([]byte(hash), sig.S)
 		So(err, ShouldBeNil)
 		So(valid, ShouldBeTrue)
 	})
@@ -272,7 +301,7 @@ func TestNewEntry(t *testing.T) {
 		Convey("and the returned header should hash to the same value", func() {
 			b, _ := (h2).Marshal()
 			var hh Hash
-			err = hh.Sum(h.hashSpec, b)
+			hh, err = Sum(h.hashSpec, b)
 			So(err, ShouldBeNil)
 			So(headerHash.String(), ShouldEqual, hh.String())
 		})
@@ -290,7 +319,7 @@ func TestNewEntry(t *testing.T) {
 	Convey("Top should still work", t, func() {
 		hash, err := h.Top()
 		So(err, ShouldBeNil)
-		So(hash.Equal(&headerHash), ShouldBeTrue)
+		So(hash.Equal(headerHash), ShouldBeTrue)
 	})
 
 	e = GobEntry{C: "more data"}
@@ -340,9 +369,11 @@ func TestAddAgentEntry(t *testing.T) {
 		entry, _, err := h.chain.GetEntry(agentHash)
 		So(err, ShouldBeNil)
 
-		var a = entry.Content().(AgentEntry)
+		a, err := AgentEntryFromJSON(entry.Content().(string))
+		So(err, ShouldBeNil)
+
 		So(a.Identity, ShouldEqual, h.agent.Identity())
-		pk, _ := h.agent.PubKey().Bytes()
+		pk, _ := h.agent.EncodePubKey()
 		So(string(a.PublicKey), ShouldEqual, string(pk))
 		So(string(a.Revocation), ShouldEqual, "some revocation data")
 	})
@@ -371,9 +402,9 @@ func TestGenChain(t *testing.T) {
 		entry, _, err := h.chain.GetEntry(hdr.EntryLink)
 		So(err, ShouldBeNil)
 		header = *hdr
-		var a = entry.Content().(AgentEntry)
+		a, _ := AgentEntryFromJSON(entry.Content().(string))
 		So(a.Identity, ShouldEqual, h.agent.Identity())
-		pk, _ := h.agent.PubKey().Bytes()
+		pk, _ := h.agent.EncodePubKey()
 		So(string(a.PublicKey), ShouldEqual, string(pk))
 		So(string(a.Revocation), ShouldEqual, "")
 	})
@@ -483,7 +514,7 @@ func TestCall(t *testing.T) {
 		So(result.(string), ShouldEqual, ph.String())
 
 		_, err = h.Call("zySampleZome", "addEven", "41", ZOME_EXPOSURE)
-		So(err.Error(), ShouldEqual, "Error calling 'commit': Validation Failed")
+		So(err.Error(), ShouldEqual, "Error calling 'commit': Validation Failed: 41 is not even")
 	})
 	Convey("it should fail calls to functions not exposed to the given context", t, func() {
 		_, err := h.Call("zySampleZome", "testStrFn1", "arg1 arg2", PUBLIC_EXPOSURE)
@@ -499,7 +530,7 @@ func TestCommit(t *testing.T) {
 	hash := commit(h, "oddNumbers", "7")
 
 	Convey("publicly shared entries should generate a put", t, func() {
-		err := h.dht.exists(hash, StatusLive)
+		err := h.dht.Exists(hash, StatusLive)
 		So(err, ShouldBeNil)
 	})
 
@@ -508,7 +539,7 @@ func TestCommit(t *testing.T) {
 	Convey("it should attach links after commit of Links entry", t, func() {
 		commit(h, "rating", fmt.Sprintf(`{"Links":[{"Base":"%s","Link":"%s","Tag":"4stars"}]}`, hash.String(), profileHash.String()))
 
-		results, err := h.dht.getLinks(hash, "4stars", StatusLive)
+		results, err := h.dht.GetLinks(hash, "4stars", StatusLive)
 		So(err, ShouldBeNil)
 		So(fmt.Sprintf("%v", results), ShouldEqual, fmt.Sprintf("[{QmYeinX5vhuA91D3v24YbgyLofw9QAxY6PoATrBHnRwbtt    %s}]", h.nodeIDStr))
 	})
@@ -689,6 +720,19 @@ func TestQuery(t *testing.T) {
 		So(results[0].Entry.Content(), ShouldEqual, `{"firstName":"Pebbles","lastName":"Flintstone"}`)
 		So(results[1].Entry.Content(), ShouldEqual, `{"firstName":"Zerbina","lastName":"Pinhead"}`)
 	})
+	Convey("query from bundle", t, func() {
+		q := &QueryOptions{Bundle: true}
+		_, err := h.Query(q)
+		So(err, ShouldEqual, ErrBundleNotStarted)
+		h.Chain().StartBundle(0)
+		results, err := h.Query(q)
+		So(err, ShouldBeNil)
+		So(len(results), ShouldEqual, 0)
+		commit(h, "secret", "flam")
+		results, err = h.Query(q)
+		So(err, ShouldBeNil)
+		So(len(results), ShouldEqual, 1)
+	})
 }
 
 func TestGetEntryDef(t *testing.T) {
@@ -718,6 +762,14 @@ func TestGetEntryDef(t *testing.T) {
 		So(err, ShouldBeNil)
 		So(zome, ShouldBeNil)
 		So(def, ShouldEqual, KeyEntryDef)
+		zome, def, err = h.GetEntryDef(HeadersEntryType)
+		So(err, ShouldBeNil)
+		So(zome, ShouldBeNil)
+		So(def, ShouldEqual, HeadersEntryDef)
+		zome, def, err = h.GetEntryDef(DelEntryType)
+		So(err, ShouldBeNil)
+		So(zome, ShouldBeNil)
+		So(def, ShouldEqual, DelEntryDef)
 	})
 	Convey("it should get private entry definition", t, func() {
 		zome, def, err := h.GetEntryDef("privateData")
@@ -738,6 +790,29 @@ func TestGetPrivateEntryDefs(t *testing.T) {
 	})
 }
 
+func TestSigning(t *testing.T) {
+	d, _, h := SetupTestChain("test")
+	defer CleanupTestDir(d)
+	Convey("a user should be able to sign and verify data", t, func() {
+		privKey := h.agent.PrivKey()
+		sig, err := privKey.Sign([]byte("3"))
+		if err != nil {
+			panic(err)
+		}
+		signature, err := h.Sign([]byte("3"))
+		So(err, ShouldBeNil)
+		So(string(signature.S), ShouldEqual, string(sig))
+
+		matched, err := h.VerifySignature(signature, string([]byte("3")), h.agent.PubKey())
+		So(err, ShouldBeNil)
+		So(matched, ShouldBeTrue)
+
+		matched, err = h.VerifySignature(signature, string([]byte("32")), h.agent.PubKey())
+		So(err, ShouldBeNil)
+		So(matched, ShouldBeFalse)
+	})
+}
+
 //func TestDNADefaults(t *testing.T) {
 //	h, err := DecodeDNA(strings.NewReader( [[Zomes]]`
 //Name = "test"
@@ -753,8 +828,10 @@ func TestGetPrivateEntryDefs(t *testing.T) {
 
 func commit(h *Holochain, entryType, entryStr string) (entryHash Hash) {
 	entry := GobEntry{C: entryStr}
-
-	r, err := NewCommitAction(entryType, &entry).Do(h)
+	a := NewCommitAction(entryType, &entry)
+	fn := &APIFnCommit{}
+	fn.SetAction(a)
+	r, err := fn.Call(h)
 	if err != nil {
 		panic(err)
 	}

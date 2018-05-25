@@ -5,11 +5,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	. "github.com/holochain/holochain-proto/hash"
 	ic "github.com/libp2p/go-libp2p-crypto"
 	net "github.com/libp2p/go-libp2p-net"
 	peer "github.com/libp2p/go-libp2p-peer"
 	pstore "github.com/libp2p/go-libp2p-peerstore"
-	. "github.com/metacurrency/holochain/hash"
 	ma "github.com/multiformats/go-multiaddr"
 	. "github.com/smartystreets/goconvey/convey"
 	"io/ioutil"
@@ -211,7 +211,7 @@ func TestNodeSend(t *testing.T) {
 	Convey("It should respond with err on bad request on invalid PUT_REQUESTS", t, func() {
 		hash, _ := NewHash("QmY8Mzg9F69e5P9AoQPYat6x5HEhc1TVGs11tmfNSzkqh2")
 
-		m := node2.NewMessage(PUT_REQUEST, PutReq{H: hash})
+		m := node2.NewMessage(PUT_REQUEST, HoldReq{EntryHash: hash})
 		r, err := node2.Send(context.Background(), ActionProtocol, node1.HashAddr, m)
 		So(err, ShouldBeNil)
 		So(r.Type, ShouldEqual, ERROR_RESPONSE)
@@ -372,9 +372,12 @@ func TestAddPeer(t *testing.T) {
 	h := nodes[0]
 	somePeer := nodes[1].node.HashAddr
 	pi := pstore.PeerInfo{ID: somePeer, Addrs: []ma.Multiaddr{nodes[1].node.NetAddr}}
-	Convey("it should add a peer to the peer store and the gossip list", t, func() {
+	Convey("it should add a peer to the peer store and the gossip list with public key", t, func() {
 		So(h.node.routingTable.Size(), ShouldEqual, 0)
 		So(len(h.node.peerstore.Peers()), ShouldEqual, 1)
+		if h.Config.EnableWorldModel {
+			So(len(h.world.nodes), ShouldEqual, 0)
+		}
 		err := h.AddPeer(pi)
 		So(err, ShouldBeNil)
 		So(len(h.node.peerstore.Peers()), ShouldEqual, 2)
@@ -383,6 +386,13 @@ func TestAddPeer(t *testing.T) {
 		So(len(glist), ShouldEqual, 1)
 		So(glist[0], ShouldEqual, somePeer)
 		So(h.node.routingTable.Size(), ShouldEqual, 1)
+
+		if h.Config.EnableWorldModel {
+			So(len(h.world.nodes), ShouldEqual, 1)
+			node1ID, _, _ := nodes[1].agent.NodeID()
+			So(h.world.nodes[node1ID].PubKey.Equals(nodes[1].agent.PubKey()), ShouldBeTrue)
+		}
+
 	})
 
 	Convey("it should not add a blocked peer", t, func() {
@@ -437,7 +447,9 @@ func TestNodeRouting(t *testing.T) {
 }
 
 func TestNodeAppSendResolution(t *testing.T) {
-	nodesCount := 50
+	// if this is too high we can face `dial backoff` errors
+	// https://github.com/holochain/holochain-proto/issues/706
+	nodesCount := 20
 	mt := setupMultiNodeTesting(nodesCount)
 	defer mt.cleanupMultiNodeTesting()
 	ringConnect(t, mt.ctx, mt.nodes, nodesCount)
@@ -518,7 +530,7 @@ func TestNodeStress(t *testing.T) {
 		s2 := make(chan bool, count)
 		for i = 0; i < count; i++ {
 			hash := commit(h1, "evenNumbers", fmt.Sprintf("%d", i*2))
-			m := node1.NewMessage(PUT_REQUEST, PutReq{H: hash})
+			m := node1.NewMessage(PUT_REQUEST, HoldReq{EntryHash: hash})
 			r, err = node1.Send(mt.ctx, ActionProtocol, node2.HashAddr, m)
 			if err != nil || r.Type != OK_RESPONSE {
 				break
@@ -605,6 +617,16 @@ func addTestPeers(h *Holochain, peers []peer.ID, start int, count int) []peer.ID
 		}
 	}
 	return peers
+}
+
+func fullConnect(t *testing.T, ctx context.Context, nodes []*Holochain, nodesCount int) {
+	for i := 0; i < nodesCount; i++ {
+		for j := 0; j < nodesCount; j++ {
+			if j != i {
+				connect(t, ctx, nodes[i], nodes[j])
+			}
+		}
+	}
 }
 
 func ringConnect(t *testing.T, ctx context.Context, nodes []*Holochain, nodesCount int) {

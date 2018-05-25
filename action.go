@@ -195,6 +195,9 @@ func (h *Holochain) GetValidationResponse(a ValidatingAction, hash Hash) (resp V
 		// so that sys validation can confirm this agent entry in the chain
 		req := PackagingReq{PkgReqChain: int64(PkgReqChainOptFull), PkgReqEntryTypes: []string{AgentEntryType}}
 		resp.Package, err = MakePackage(h, req)
+	case MigrateEntryType:
+		// if migrate entry there no extra info to return in the package so do nothing
+		// TODO: later this might not be true, could return whole chain?
 	default:
 		// app defined entry types
 		var def *EntryDef

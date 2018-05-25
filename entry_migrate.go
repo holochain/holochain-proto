@@ -1,13 +1,13 @@
 package holochain
 
 import (
-  "encoding/json"
-  . "github.com/holochain/holochain-proto/hash"
+	"encoding/json"
+	. "github.com/holochain/holochain-proto/hash"
 )
 
 const (
 	MigrateEntryType = SysEntryTypePrefix + "migrate"
-  // currently both to/from have the same schema
+	// currently both to/from have the same schema
 	MigrateEntrySchema = `
 {
   "$id": "http://example.com/example.json",
@@ -41,22 +41,22 @@ const (
 
 // MigrateEntry struct is the record of a chain opening or closing
 type MigrateEntry struct {
-  Type string
-  Chain Hash
-  User Hash
-  Data string
+	Type  string
+	Chain Hash
+	User  Hash
+	Data  string
 }
 
 var MigrateEntryDef = &EntryDef{Name: MigrateEntryType, DataFormat: DataFormatJSON, Sharing: Public, Schema: MigrateEntrySchema}
 
 func (e *MigrateEntry) ToJSON() (encodedEntry string, err error) {
-  var x struct {
+	var x struct {
 		Chain Hash
-		User Hash
-    Data string
+		User  Hash
+		Data  string
 	}
 	x.Chain = e.Chain
-  x.User = e.User
+	x.User = e.User
 	x.Data = e.Data
 	var j []byte
 	j, err = json.Marshal(x)
@@ -65,10 +65,10 @@ func (e *MigrateEntry) ToJSON() (encodedEntry string, err error) {
 }
 
 func MigrateEntryFromJSON(j string) (entry MigrateEntry, err error) {
-  var x struct {
+	var x struct {
 		Chain Hash
-    User Hash
-		Data string
+		User  Hash
+		Data  string
 	}
 	err = json.Unmarshal([]byte(j), &x)
 	if err != nil {
@@ -76,6 +76,6 @@ func MigrateEntryFromJSON(j string) (entry MigrateEntry, err error) {
 	}
 	entry.Chain = x.Chain
 	entry.User = x.User
-  entry.Data = x.Data
+	entry.Data = x.Data
 	return
 }

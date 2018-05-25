@@ -102,7 +102,7 @@ func (fn *APIFnMigrate) Name() string {
 }
 
 func (fn *APIFnMigrate) Args() []Arg {
-	return []Arg{{Name: "message", Type: StringArg}}
+	return []Arg{{Name: "migrationType", Type: StringArg}, {Name: "DNA", Type: HashArg}, {Name: "ID", Type: HashArg}, {Name: "data", Type: StringArg}}
 }
 
 func (fn *APIFnMigrate) Call(h *Holochain) (response interface{}, err error) {

@@ -53,4 +53,14 @@ func TestMigrateHeaderSetGet(t *testing.T) {
     action := ActionMigrate{}
     So(action.GetHeader(), ShouldEqual, nil)
   })
+
+  Convey("migrate action should be able to set and get header", t, func() {
+    action := ActionMigrate{}
+    header := genTestHeader()
+    So(action.GetHeader(), ShouldEqual, nil)
+    action.SetHeader(header)
+    So(action.GetHeader(), ShouldEqual, header)
+    action.SetHeader(nil)
+    So(action.GetHeader(), ShouldEqual, nil)
+  })
 }

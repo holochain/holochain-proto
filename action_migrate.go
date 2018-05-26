@@ -106,7 +106,8 @@ func (fn *APIFnMigrate) Args() []Arg {
 }
 
 func (fn *APIFnMigrate) Call(h *Holochain) (response interface{}, err error) {
-	a := &fn.action
-	response, err = h.commitAndShare(a, NullHash())
+	action := &fn.action
+	var hash Hash
+	response, err = h.commitAndShare(action, hash)
 	return
 }

@@ -6,22 +6,14 @@ import (
   . "github.com/holochain/holochain-proto/hash"
 )
 
+// ActionMigrate
+
 func TestMigrateName(t *testing.T) {
   var chain Hash
   var user Hash
   Convey("migrate action should have the right name", t, func() {
     a := ActionMigrate{entry: MigrateEntry{Chain: chain, User: user}}
     So(a.Name(), ShouldEqual, "migrate")
-  })
-}
-
-func TestAPIFnMigrateName(t *testing.T) {
-  var chain Hash
-  var user Hash
-  Convey("migrate action function should have the right name", t, func() {
-    a := ActionMigrate{entry: MigrateEntry{Chain: chain, User: user}}
-    fn := &APIFnMigrate{action: a}
-    So(fn.Name(), ShouldEqual, "migrate")
   })
 }
 
@@ -66,4 +58,40 @@ func TestMigrateHeaderSetGet(t *testing.T) {
     action.SetHeader(nil)
     So(action.GetHeader(), ShouldEqual, nil)
   })
+}
+
+func TestMigrateShare(t *testing.T) {
+  // @TODO
+}
+
+func TestSysValidation(t *testing.T) {
+  // @TODO
+}
+
+func TestCheckValidationRequest(t *testing.T) {
+  // @TODO
+}
+
+func TestReceive(t *testing.T) {
+  // @TODO
+}
+
+// APIFnMigrate
+
+func TestAPIFnMigrateName(t *testing.T) {
+  var chain Hash
+  var user Hash
+  Convey("migrate action function should have the right name", t, func() {
+    a := ActionMigrate{entry: MigrateEntry{Chain: chain, User: user}}
+    fn := &APIFnMigrate{action: a}
+    So(fn.Name(), ShouldEqual, "migrate")
+  })
+}
+
+func TestAPIFnMigrateArgs(t *testing.T) {
+  // @TODO
+}
+
+func TestAPIFnMigrateCall(t *testing.T) {
+  // @TODO
 }

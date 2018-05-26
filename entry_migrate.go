@@ -55,6 +55,10 @@ type MigrateEntry struct {
 
 var MigrateEntryDef = &EntryDef{Name: MigrateEntryType, DataFormat: DataFormatJSON, Sharing: Public, Schema: MigrateEntrySchema}
 
+func (e *MigrateEntry) Def() *EntryDef {
+	return MigrateEntryDef
+}
+
 func (e *MigrateEntry) ToJSON() (encodedEntry string, err error) {
 	var x struct {
 		Type string

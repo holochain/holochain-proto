@@ -7,6 +7,18 @@ import (
   "fmt"
 )
 
+func TestMigrateEntrySysValidation(t *testing.T) {
+  d, _, h := PrepareTestChain("test")
+	defer CleanupTestChain(h, d)
+
+  Convey("it should validate against JSON", t, func() {
+		entry := MigrateEntry{}
+    action := ActionMigrate{entry: entry}
+		err := sysValidateEntry(h, entry.Def(), action.Entry(), nil)
+		So(err, ShouldBeNil)
+	})
+}
+
 func TestMigrateEntryFromJSON(t *testing.T) {
   jsonString := "{\"Type\":\"open\",\"Chain\":\"1AarHJii5CkF6waPp4e3VgniqYB5byyyb5sWzewxvBUsPN\",\"User\":\"1AeVYmanHKEJP36WjvV7ZBzhBR9F8euDd2ejJLTdxbAtD2\",\"Data\":\"1AiydpQZ57G8LAamezKFySyy2DKghX3q83ZDMnqnSp5Vyi\"}"
   entry, err := MigrateEntryFromJSON(jsonString)

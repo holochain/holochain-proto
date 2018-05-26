@@ -39,8 +39,6 @@ func TestConsts(t *testing.T) {
 		So(APP_MESSAGE, ShouldEqual, 14)
 		So(LISTADD_REQUEST, ShouldEqual, 15)
 		So(FIND_NODE_REQUEST, ShouldEqual, 16)
-		So(MIGRATE_REQUEST, ShouldEqual, 17)
-		So(VALIDATE_MIGRATE_REQUEST, ShouldEqual, 18)
 	})
 }
 

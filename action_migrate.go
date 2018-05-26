@@ -60,33 +60,7 @@ func (a *ActionMigrate) CheckValidationRequest(def *EntryDef) (err error) {
 }
 
 func (a *ActionMigrate) Receive(dht *DHT, msg *Message) (response interface{}, err error) {
-	// t := msg.Body.(HoldReq)
-	// var holdResp *HoldResp
-	//
-	// err = RunValidationPhase(dht.h, msg.From, VALIDATE_MIGRATE_REQUEST, t.EntryHash, func(resp ValidateResponse) error {
-	//
-	// 	var migrateEntry MigrateEntry
-	// 	migrateEntry, err = MigrateEntryFromJSON(resp.Entry.Content().(string))
-	//
-	// 	a := &ActionMigrate{entry: migrateEntry}
-	// 	// @TODO what comes back from Validate Migrate
-	// 	// https://github.com/holochain/holochain-proto/issues/710
-	// 	_, err = dht.h.ValidateAction(a, resp.Type, &resp.Package, []peer.ID{msg.From})
-	// 	if err != nil {
-	// 		// how do we record an invalid MIGRATE?
-	// 		// @TODO store as REJECTED
-	// 		// https://github.com/holochain/holochain-proto/issues/711
-	// 	} else {
-	// 		err = dht.Put(msg, migrateEntry.Hash)
-	// 		if err == nil {
-	// 			holdResp, err = dht.MakeHoldResp(msg, StatusLive)
-	// 		}
-	// 	}
-	// 	return err
-	// })
-	// if holdResp != nil {
-	// 	response = *holdResp
-	// }
+	// @TODO
 	return
 }
 

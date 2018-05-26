@@ -235,9 +235,6 @@ func MakeActionFromMessage(msg *Message) (a Action, err error) {
 	case APP_MESSAGE:
 		a = &ActionSend{}
 		t = reflect.TypeOf(AppMsg{})
-	case MIGRATE_REQUEST:
-		a = &ActionMigrate{}
-		t = reflect.TypeOf(HoldReq{})
 	case PUT_REQUEST:
 		a = &ActionPut{}
 		t = reflect.TypeOf(HoldReq{})

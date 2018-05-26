@@ -83,11 +83,6 @@ const (
 	// Kademlia messages
 
 	FIND_NODE_REQUEST
-
-	// Migrate DHT and validation messages
-
-	MIGRATE_REQUEST
-	VALIDATE_MIGRATE_REQUEST
 )
 
 func (msgType MsgType) String() string {
@@ -107,9 +102,7 @@ func (msgType MsgType) String() string {
 		"VALIDATE_MOD_REQUEST",
 		"APP_MESSAGE",
 		"LISTADD_REQUEST",
-		"FIND_NODE_REQUEST",
-		"MIGRATE_REQUEST",
-		"VALIDATE_MIGRATE_REQUEST"}[msgType]
+		"FIND_NODE_REQUEST"}[msgType]
 }
 
 var ErrBlockedListed = errors.New("node blockedlisted")

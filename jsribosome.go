@@ -346,7 +346,7 @@ const (
 		`"},Response:{OK:"` + BundleCancelResponseOK +
 		`",Commit:"` + BundleCancelResponseCommit +
 		`"}}` +
-		`Migrate:{Close:"` + MigrateTypeClose + `",Open:"` + MigrateTypeOpen + `"}` +
+		`Migrate:{Close:"` + MigrateEntryTypeClose + `",Open:"` + MigrateEntryTypeOpen + `"}` +
 		`};`
 )
 

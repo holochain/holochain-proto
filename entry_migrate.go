@@ -18,9 +18,9 @@ const (
 		"Type": {
 			"$id": "/properties/Type",
 			"type": "string",
-			"title": The Type Schema ",
+			"title": "The Type Schema ",
 			"default": ""
-		}
+		},
     "Chain": {
       "$id": "/properties/Chain",
       "type": "string",
@@ -40,9 +40,13 @@ const (
       "default": ""
     }
   },
-  "required": ["Type" "Chain" "User"]
+  "required": ["Type", "Chain", "User"]
 }
 `
+
+	// Type can only be one of two things... open or close
+	MigrateEntryTypeClose = "close"
+	MigrateEntryTypeOpen  = "open"
 )
 
 // MigrateEntry struct is the record of a chain opening or closing

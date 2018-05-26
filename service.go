@@ -177,6 +177,9 @@ func Init(root string, identity AgentIdentity, seed io.Reader) (service *Service
 	if DelEntryDef.validator == nil {
 		err = DelEntryDef.BuildJSONSchemaValidatorFromString(DelEntryDef.Schema)
 	}
+	if MigrateEntryDef.validator == nil {
+		err = MigrateEntryDef.BuildJSONSchemaValidatorFromString(MigrateEntryDef.Schema)
+	}
 	if err != nil {
 		return
 	}

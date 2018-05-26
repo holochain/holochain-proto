@@ -11,32 +11,69 @@ func TestMigrateEntrySysValidation(t *testing.T) {
   d, _, h := PrepareTestChain("test")
 	defer CleanupTestChain(h, d)
 
-  Convey("valid MigrateEntry should validate against JSON", t, func() {
+  Convey("validate MigrateEntry against JSON", t, func() {
+    toEntry := func (entry MigrateEntry) (e Entry) {
+      action := ActionMigrate{entry: entry}
+      return action.Entry()
+    }
+    var err error
 		entry := MigrateEntry{}
-    action := ActionMigrate{entry: entry}
-		So(sysValidateEntry(h, entry.Def(), action.Entry(), nil), ShouldBeNil)
+
+    err = sysValidateEntry(h, entry.Def(), toEntry(entry), nil)
+		So(err, ShouldNotBeNil)
+    So(err.Error(), ShouldEqual, "Validation Failed: Error (input isn't valid multihash) when decoding Chain value ''")
 
     chain, err := genTestStringHash()
     user, err := genTestStringHash()
+    migrateType := randomSliceItem([]string{MigrateEntryTypeOpen, MigrateEntryTypeClose})
     data, err := genTestString()
-    migrateType, err := genTestString()
-
-    if err != nil {
-      panic(err)
-    }
-
-    entry.Type = migrateType
-    So(sysValidateEntry(h, entry.Def(), action.Entry(), nil), ShouldBeNil)
 
     entry.Chain = chain
-    So(sysValidateEntry(h, entry.Def(), action.Entry(), nil), ShouldBeNil)
+    err = sysValidateEntry(h, entry.Def(), toEntry(entry), nil)
+    So(err, ShouldNotBeNil)
+    So(err.Error(), ShouldEqual, "Validation Failed: Error (input isn't valid multihash) when decoding User value ''")
 
     entry.User = user
-    So(sysValidateEntry(h, entry.Def(), action.Entry(), nil), ShouldBeNil)
+    err = sysValidateEntry(h, entry.Def(), toEntry(entry), nil)
+    So(err, ShouldNotBeNil)
+    So(err.Error(), ShouldEqual, "Validation Failed: Type value '' must be either 'open' or 'close'")
+
+    entry.Type = migrateType
+    So(sysValidateEntry(h, entry.Def(), toEntry(entry), nil), ShouldBeNil)
 
     entry.Data = data
-    So(sysValidateEntry(h, entry.Def(), action.Entry(), nil), ShouldBeNil)
-	})
+    So(sysValidateEntry(h, entry.Def(), toEntry(entry), nil), ShouldBeNil)
+
+    emptyString := &GobEntry{C: ""}
+    err = sysValidateEntry(h, MigrateEntryDef, emptyString, nil)
+		So(err, ShouldNotBeNil)
+		So(err.Error(), ShouldEqual, "unexpected end of JSON input")
+
+    missingType := &GobEntry{C: "{\"Chain\":\"1AaJq9cCYEBEZEbfmwupdb51gG8yZr9LTBxhBeXSZJtJbA\",\"User\":\"1AnJDazAvUmNH6rzxQxGho1fBhd1kxfWjJJ8rkrbbDarb1\",\"Data\":\"1Akcx6p98n5FaSgxF8h7s8mdiua6JkctjLtLsEsSaSHVZn\"}"}
+    err = sysValidateEntry(h, MigrateEntryDef, missingType, nil)
+    So(err, ShouldNotBeNil)
+    So(err.Error(), ShouldEqual, "Validation Failed: validator %migrate failed: object property 'Type' is required")
+
+    missingChain := &GobEntry{C: "{\"Type\":\"1AZJizDv7dKiSm5umS2muVoK4GCVm9jPCGidSndczyE64b\",\"User\":\"1AncHr4PvHbkYNW4jdgmqJWfMArcAndLRrVGwVW18dtUN1\",\"Data\":\"1AjaEHtBfb9vLEsivCsPHH5NyBuEwrbkzzK8w54ufCFXw5\"}"}
+    err = sysValidateEntry(h, MigrateEntryDef, missingChain, nil)
+    So(err, ShouldNotBeNil)
+    So(err.Error(), ShouldEqual, "Validation Failed: validator %migrate failed: object property 'Chain' is required")
+
+    missingUser := &GobEntry{C: "{\"Type\":\"1AoLAq5VA5rT5tPBKsmSksGc7b4avtF2gjhGxCwrJV4hpi\",\"Chain\":\"1AWteDFmYMHHyZ3BRM4ndTLXaeoKiuwTyNkCVHVv4KTZ3p\",\"Data\":\"1AmDjukyX7B5Kh57DDKE8MzNfLUUF5n7nBpuGBi61njRPr\"}"}
+    err = sysValidateEntry(h, MigrateEntryDef, missingUser, nil)
+    So(err, ShouldNotBeNil)
+    So(err.Error(), ShouldEqual, "Validation Failed: validator %migrate failed: object property 'User' is required")
+
+    brokenChain := &GobEntry{C: "{\"Type\":\"1AgHrybioSgRuMGVvkD6NjqBiCmpap3gAKgGcgzaBodXE9\",\"Chain\":\"not-a-hash\",\"User\":\"1AYFPBzgLWVGEy2MFSY9ZyLw7c224fWykZKy3HWx32SJrC\",\"Data\":\"1AmXqXdBCVcraVaWB3sk7HemHWq5wkCZX1GW3fPDgj3Htz\"}"}
+    err = sysValidateEntry(h, MigrateEntryDef, brokenChain, nil)
+		So(err, ShouldNotBeNil)
+		So(err.Error(), ShouldEqual, "Validation Failed: Error (input isn't valid multihash) when decoding Chain value 'not-a-hash'")
+
+    brokenUser := &GobEntry{C: "{\"Type\":\"1AgHrybioSgRuMGVvkD6NjqBiCmpap3gAKgGcgzaBodXE9\",\"User\":\"not-a-hash\",\"Chain\":\"1AYFPBzgLWVGEy2MFSY9ZyLw7c224fWykZKy3HWx32SJrC\",\"Data\":\"1AmXqXdBCVcraVaWB3sk7HemHWq5wkCZX1GW3fPDgj3Htz\"}"}
+    err = sysValidateEntry(h, MigrateEntryDef, brokenUser, nil)
+		So(err, ShouldNotBeNil)
+		So(err.Error(), ShouldEqual, "Validation Failed: Error (input isn't valid multihash) when decoding User value 'not-a-hash'")
+  })
 }
 
 func TestMigrateEntryFromJSON(t *testing.T) {

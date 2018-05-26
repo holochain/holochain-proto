@@ -51,9 +51,6 @@ const (
 	BundleCancelResponseCommit = "commit"
 
 	ValidationFailedErrMsg = "Validation Failed"
-
-	MigrateTypeClose = "close"
-	MigrateTypeOpen  = "open"
 )
 
 var ValidationFailedErr = errors.New(ValidationFailedErrMsg)

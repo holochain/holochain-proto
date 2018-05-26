@@ -5,6 +5,8 @@ import (
 	"encoding/base64"
 	. "github.com/holochain/holochain-proto/hash"
 	"github.com/multiformats/go-multihash"
+	mrand "math/rand"
+	"time"
 )
 
 // GenerateRandomBytes returns securely generated random bytes.
@@ -65,4 +67,10 @@ func genTestHeader() (header *Header, err error) {
 	_, header, err = newHeader(hashSpec, now, headerType, entry, privKey, prevHash, prevType, change)
 
 	return
+}
+
+func randomSliceItem(slice []string) string {
+	s := mrand.NewSource(time.Now().Unix())
+	r := mrand.New(s)
+	return slice[r.Intn(len(slice))]
 }

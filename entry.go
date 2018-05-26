@@ -259,7 +259,8 @@ func sysValidateEntry(h *Holochain, def *EntryDef, entry Entry, pkg *Package) (e
 			return
 		}
 		if def == DelEntryDef {
-			// TODO refactor and use in other sys types
+			// @TODO refactor and use in other sys types
+			// @see https://github.com/holochain/holochain-proto/issues/733
 			hashValue, ok := input.(map[string]interface{})["Hash"].(string)
 			if !ok {
 				err = ValidationFailed("expected string!")
@@ -268,6 +269,41 @@ func sysValidateEntry(h *Holochain, def *EntryDef, entry Entry, pkg *Package) (e
 			_, err = NewHash(hashValue)
 			if err != nil {
 				err = ValidationFailed(fmt.Sprintf("Error (%s) when decoding Hash value '%s'", err.Error(), hashValue))
+				return
+			}
+		}
+		if def == MigrateEntryDef {
+			// @TODO refactor with above
+			// @see https://github.com/holochain/holochain-proto/issues/733
+			chainValue, ok := input.(map[string]interface{})["Chain"].(string)
+			if !ok {
+				err = ValidationFailed("expected string!")
+				return
+			}
+			_, err = NewHash(chainValue)
+			if err != nil {
+				err = ValidationFailed(fmt.Sprintf("Error (%s) when decoding Chain value '%s'", err.Error(), chainValue))
+				return
+			}
+
+			userValue, ok := input.(map[string]interface{})["User"].(string)
+			if !ok {
+				err = ValidationFailed("expected string!")
+				return
+			}
+			_, err = NewHash(userValue)
+			if err != nil {
+				err = ValidationFailed(fmt.Sprintf("Error (%s) when decoding User value '%s'", err.Error(), userValue))
+				return
+			}
+
+			typeValue, ok := input.(map[string]interface{})["Type"].(string)
+			if !ok {
+				err = ValidationFailed("expected string!")
+				return
+			}
+			if !(typeValue == MigrateEntryTypeClose || typeValue == MigrateEntryTypeOpen) {
+				err = ValidationFailed(fmt.Sprintf("Type value '%s' must be either '%s' or '%s'", typeValue, MigrateEntryTypeOpen, MigrateEntryTypeClose))
 				return
 			}
 		}

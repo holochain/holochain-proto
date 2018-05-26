@@ -7,11 +7,19 @@ import (
   "fmt"
 )
 
+func TestMigrateConstants(t *testing.T) {
+  Convey("migrate constants should have the right values", t, func() {
+		So(MigrateEntryType, ShouldEqual, "%migrate")
+		So(MigrateEntryTypeClose, ShouldEqual, "close")
+		So(MigrateEntryTypeOpen, ShouldEqual, "open")
+	})
+}
+
 func TestMigrateEntryDef(t *testing.T) {
   entry := MigrateEntry{}
   Convey("validate MigrateEntryDef properties", t, func() {
-    So(entry.Def().Name, ShouldEqual, "%migrate")
-    So(entry.Def().DataFormat, ShouldEqual, "json")
+    So(entry.Def().Name, ShouldEqual, MigrateEntryType)
+    So(entry.Def().DataFormat, ShouldEqual, DataFormatJSON)
     So(entry.Def().Sharing, ShouldEqual, Public)
   })
 }

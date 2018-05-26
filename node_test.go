@@ -20,8 +20,8 @@ import (
 	"time"
 )
 
-func TestConsts(t *testing.T) {
-	Convey("consts should have the right values", t, func() {
+func TestNodeConstants(t *testing.T) {
+	Convey("node constants should have the right values", t, func() {
 		So(ERROR_RESPONSE, ShouldEqual, 0)
 		So(OK_RESPONSE, ShouldEqual, 1)
 		So(PUT_REQUEST, ShouldEqual, 2)

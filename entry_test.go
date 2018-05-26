@@ -10,6 +10,20 @@ import (
 	"testing"
 )
 
+func TestEntryConstants(t *testing.T) {
+	Convey("entry constants should have the right values", t, func() {
+		So(SysEntryTypePrefix, ShouldEqual, "%")
+		So(VirtualEntryTypePrefix, ShouldEqual, "%%")
+		So(DataFormatJSON, ShouldEqual, "json")
+		So(DataFormatString, ShouldEqual, "string")
+		So(DataFormatRawJS, ShouldEqual, "js")
+		So(DataFormatRawZygo, ShouldEqual, "zygo")
+		So(Public, ShouldEqual, "public")
+		So(Partial, ShouldEqual, "partial")
+		So(Private, ShouldEqual, "private")
+	})
+}
+
 func TestGob(t *testing.T) {
 	g := GobEntry{C: mkTestHeader("evenNumbers")}
 	v, err := g.Marshal()

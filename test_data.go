@@ -35,36 +35,33 @@ func generateRandomString(s int) (string, error) {
 }
 
 // Generate a random Hash string for testing
-func genTestStringHash() Hash {
+func genTestStringHash() (hash Hash, err error) {
 	randBytes, err := generateRandomBytes(32)
-	if err != nil {
-		panic(err)
-	}
 	mhash, err := multihash.EncodeName(randBytes, "sha256")
-	if err != nil {
-		panic(err)
-	}
-	hash, err := HashFromBytes(mhash)
-	if err != nil {
-		panic(err)
-	}
+	rawHash, err := HashFromBytes(mhash)
 
-	return Hash(hash.String())
+	hash, err = NewHash(rawHash.String())
+
+	return
 }
 
 // Generate a random string for testing
-func genTestString() string {
-	return genTestStringHash().String()
+func genTestString() (s string, err error) {
+	h, err := genTestStringHash()
+	s = h.String()
+	return
 }
 
 // Generate a random Header for testing
 func genTestHeader() (header *Header, err error) {
 	hashSpec, privKey, now := chainTestSetup()
-	headerType := genTestString()
-	entry := &GobEntry{C: genTestString()}
-	prevHash := genTestStringHash()
-	prevType := genTestStringHash()
-	change := genTestStringHash()
+	headerType, err := genTestString()
+	entryString, err := genTestString()
+	entry := &GobEntry{C: entryString}
+	prevHash, err := genTestStringHash()
+	prevType, err := genTestStringHash()
+	change, err := genTestStringHash()
+
 	_, header, err = newHeader(hashSpec, now, headerType, entry, privKey, prevHash, prevType, change)
 
 	return

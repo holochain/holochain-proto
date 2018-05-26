@@ -24,8 +24,14 @@ func TestMigrateEntry(t *testing.T) {
   })
 
   Convey("entries with vals work with Entry()", t, func() {
-    chain := genTestStringHash()
-    user := genTestStringHash()
+    chain, err := genTestStringHash()
+		if err != nil {
+			panic(err)
+		}
+    user, err := genTestStringHash()
+		if err != nil {
+			panic(err)
+		}
     entry := MigrateEntry{Chain: chain, User: user}
     action := ActionMigrate{entry: entry}
 

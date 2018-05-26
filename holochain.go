@@ -625,6 +625,8 @@ func (h *Holochain) GetEntryDef(t string) (zome *Zome, d *EntryDef, err error) {
 		d = HeadersEntryDef
 	case DelEntryType:
 		d = DelEntryDef
+	case MigrateEntryType:
+		d = MigrateEntryDef
 	default:
 		for _, z := range h.nucleus.dna.Zomes {
 			d, err = z.GetEntryDef(t)

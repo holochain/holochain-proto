@@ -1,20 +1,20 @@
 package holochain
 
 import (
-  . "github.com/smartystreets/goconvey/convey"
-  "testing"
-  . "github.com/holochain/holochain-proto/hash"
+	. "github.com/holochain/holochain-proto/hash"
+	. "github.com/smartystreets/goconvey/convey"
+	"testing"
 )
 
 // ActionMigrate
 
 func TestMigrateName(t *testing.T) {
-  var chain Hash
-  var user Hash
-  Convey("migrate action should have the right name", t, func() {
-    a := ActionMigrate{entry: MigrateEntry{Chain: chain, User: user}}
-    So(a.Name(), ShouldEqual, "migrate")
-  })
+	var chain Hash
+	var user Hash
+	Convey("migrate action should have the right name", t, func() {
+		a := ActionMigrate{entry: MigrateEntry{Chain: chain, User: user}}
+		So(a.Name(), ShouldEqual, "migrate")
+	})
 }
 
 func TestMigrateEntry(t *testing.T) {
@@ -34,10 +34,10 @@ func TestMigrateEntry(t *testing.T) {
 }
 
 func TestMigrateEntryType(t *testing.T) {
-  action := ActionMigrate{}
-  Convey("migrate action EntryType() should return the correct type", t, func() {
-    So(action.EntryType(), ShouldEqual, MigrateEntryType)
-  })
+	action := ActionMigrate{}
+	Convey("migrate action EntryType() should return the correct type", t, func() {
+		So(action.EntryType(), ShouldEqual, MigrateEntryType)
+	})
 }
 
 func TestMigrateHeaderSetGet(t *testing.T) {

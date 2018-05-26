@@ -405,6 +405,13 @@ func TestNewJSRibosome(t *testing.T) {
 			entry, _, _ = h.chain.GetEntry(bundleCommitHash)
 			So(entry.Content(), ShouldEqual, "7")
 		})
+		Convey("migrate", func() {
+			_, err := z.Run(`migrate(HC.Migrate.Close,"QmfMPAEdN1BB9imcz97NsaYYaWEN3baC5aSDXqJSiWt4e6","QmSwMfay3iCynzBFeq9rPzTMTnnuQSMUSe84whjcC9JPAo","some migration data")`)
+			So(err, ShouldBeNil)
+			migrationEntryHash, _ := NewHash(z.lastResult.String())
+			entry, _, _ := h.chain.GetEntry(migrationEntryHash)
+			So(entry.Content(), ShouldEqual, "the hashes aren't get encoded into the JSON correctly!!")
+		})
 	})
 }
 

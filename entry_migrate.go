@@ -15,6 +15,12 @@ const (
   "definitions": {},
   "$schema": "http://json-schema.org/draft-07/schema#",
   "properties": {
+		"Type": {
+			"$id": "/properties/Type",
+			"type": "string",
+			"title": The Type Schema ",
+			"default": ""
+		}
     "Chain": {
       "$id": "/properties/Chain",
       "type": "string",
@@ -34,7 +40,7 @@ const (
       "default": ""
     }
   },
-  "required": ["Chain" "User"]
+  "required": ["Type" "Chain" "User"]
 }
 `
 )
@@ -51,12 +57,14 @@ var MigrateEntryDef = &EntryDef{Name: MigrateEntryType, DataFormat: DataFormatJS
 
 func (e *MigrateEntry) ToJSON() (encodedEntry string, err error) {
 	var x struct {
-		Chain Hash
-		User  Hash
+		Type string
+		Chain string
+		User  string
 		Data  string
 	}
-	x.Chain = e.Chain
-	x.User = e.User
+	x.Type = e.Type
+	x.Chain = e.Chain.String()
+	x.User = e.User.String()
 	x.Data = e.Data
 	var j []byte
 	j, err = json.Marshal(x)

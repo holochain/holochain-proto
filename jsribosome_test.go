@@ -410,7 +410,7 @@ func TestNewJSRibosome(t *testing.T) {
 			So(err, ShouldBeNil)
 			migrationEntryHash, _ := NewHash(z.lastResult.String())
 			entry, _, _ := h.chain.GetEntry(migrationEntryHash)
-			So(entry.Content(), ShouldEqual, "the hashes aren't get encoded into the JSON correctly!!")
+			So(entry.Content(), ShouldEqual, "{\"Type\":\"close\",\"Chain\":\"QmfMPAEdN1BB9imcz97NsaYYaWEN3baC5aSDXqJSiWt4e6\",\"User\":\"QmSwMfay3iCynzBFeq9rPzTMTnnuQSMUSe84whjcC9JPAo\",\"Data\":\"\"}")
 		})
 	})
 }

@@ -20,7 +20,7 @@ func TestMigrateName(t *testing.T) {
 func TestMigrateEntry(t *testing.T) {
   Convey("empty migrate action Entry() should be retreive a serialized JSON of an empty entry in a GobEntry", t, func() {
     action := ActionMigrate{}
-    So(action.Entry(), ShouldResemble, &GobEntry{C: "{\"Chain\":\"\",\"User\":\"\",\"Data\":\"\"}"})
+    So(action.Entry(), ShouldResemble, &GobEntry{C: "{\"Type\":\"\",\"Chain\":\"\",\"User\":\"\",\"Data\":\"\"}"})
   })
 
   Convey("entries with vals work with Entry()", t, func() {
@@ -29,7 +29,7 @@ func TestMigrateEntry(t *testing.T) {
     entry := MigrateEntry{Chain: chain, User: user}
     action := ActionMigrate{entry: entry}
 
-    So(action.Entry(), ShouldResemble, &GobEntry{C: "{\"Chain\":\"" + string(chain) + "\",\"User\":\"" + string(user) + "\",\"Data\":\"\"}"})
+    So(action.Entry(), ShouldResemble, &GobEntry{C: "{\"Type\":\"\",\"Chain\":\"" + chain.String() + "\",\"User\":\"" + user.String() + "\",\"Data\":\"\"}"})
   })
 }
 

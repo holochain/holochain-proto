@@ -7,6 +7,15 @@ import (
   "fmt"
 )
 
+func TestMigrateEntryDef(t *testing.T) {
+  entry := MigrateEntry{}
+  Convey("validate MigrateEntryDef properties", t, func() {
+    So(entry.Def().Name, ShouldEqual, "%migrate")
+    So(entry.Def().DataFormat, ShouldEqual, "json")
+    So(entry.Def().Sharing, ShouldEqual, Public)
+  })
+}
+
 func TestMigrateEntrySysValidation(t *testing.T) {
   d, _, h := PrepareTestChain("test")
 	defer CleanupTestChain(h, d)

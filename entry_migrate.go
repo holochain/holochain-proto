@@ -3,7 +3,6 @@ package holochain
 import (
 	"encoding/json"
 	. "github.com/holochain/holochain-proto/hash"
-	"log"
 )
 
 const (
@@ -84,9 +83,7 @@ func MigrateEntryFromJSON(j string) (entry MigrateEntry, err error) {
 	if err != nil {
 		return
 	}
-	log.Println("MigrateEntryFromJSON")
-	log.Println(j)
-	log.Println(x)
+
 	entry.Type = x.Type
 	entry.Chain, err = NewHash(x.Chain)
 	entry.User, err = NewHash(x.User)

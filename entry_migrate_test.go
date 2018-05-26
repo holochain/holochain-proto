@@ -2,20 +2,31 @@ package holochain
 
 import (
   "testing"
+  . "github.com/holochain/holochain-proto/hash"
   . "github.com/smartystreets/goconvey/convey"
   "fmt"
-  // "log"
 )
 
-// func TestMigrateEntryFromJSON(t *testing.T) {
-//   jsonString := "{\"Type\":\"close\",\"Chain\":\"6NzcqKNXBw8UCNaKeMvoQd3xyCwkuwCvw4B6pgZ334nhVyyjDE3tH3BTLsrLnvA\",\"User\":\"6Nzcp9ELoTyHB2auSE1Pj3uNepPnqWbf2bU4RBsXZi35XZB4uGkdweeNPeCRwnA\",\"Data\":\"6NzYZjEtV8c9Axz5k8XrWfMqGzDL5Wi8nV7qMczo4aU3FhZTfKhDxGgCmDs7hfd\"}"
-//   entry, err := MigrateEntryFromJSON(jsonString)
-//   if err != nil {
-//     panic(err)
-//   }
-//   j, _ := entry.ToJSON()
-//   log.Print(j)
-// }
+func TestMigrateEntryFromJSON(t *testing.T) {
+  jsonString := "{\"Type\":\"open\",\"Chain\":\"1AarHJii5CkF6waPp4e3VgniqYB5byyyb5sWzewxvBUsPN\",\"User\":\"1AeVYmanHKEJP36WjvV7ZBzhBR9F8euDd2ejJLTdxbAtD2\",\"Data\":\"1AiydpQZ57G8LAamezKFySyy2DKghX3q83ZDMnqnSp5Vyi\"}"
+  entry, err := MigrateEntryFromJSON(jsonString)
+  if err != nil {
+    panic(err)
+  }
+
+  Convey("MigrateEntry should be unserializable from JSON", t, func() {
+    unserializedChain, err := NewHash("1AarHJii5CkF6waPp4e3VgniqYB5byyyb5sWzewxvBUsPN")
+    unserializedUser, err := NewHash("1AeVYmanHKEJP36WjvV7ZBzhBR9F8euDd2ejJLTdxbAtD2")
+    if err != nil {
+      panic(err)
+    }
+
+    So(entry.Chain, ShouldEqual, unserializedChain)
+    So(entry.User, ShouldEqual, unserializedUser)
+    So(entry.Data, ShouldEqual, "1AiydpQZ57G8LAamezKFySyy2DKghX3q83ZDMnqnSp5Vyi")
+    So(entry.Type, ShouldEqual, "open")
+  })
+}
 
 func TestMigrateEntryToJSON(t *testing.T) {
   chain, err := genTestStringHash()

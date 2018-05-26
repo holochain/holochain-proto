@@ -26,18 +26,19 @@ func genTestStringHash() Hash {
 }
 
 // Generate a random string for testing
-func genTestString() String {
-	return string(genTestHashString())
+func genTestString() string {
+	return string(genTestStringHash())
 }
 
 // Generate a random Header for testing
-func genTestHeader() (header Header) {
+func genTestHeader() (header *Header, err error) {
 	hashSpec, privKey, now := chainTestSetup()
 	headerType := genTestString()
 	entry := &GobEntry{C: genTestString()}
 	prevHash := genTestStringHash()
 	prevType := genTestStringHash()
 	change := genTestStringHash()
-	header = newHeader(hashSpec, now, headerType, entry, privKey, prevHash, prevType, change)
+	_, header, err = newHeader(hashSpec, now, headerType, entry, privKey, prevHash, prevType, change)
+
 	return
 }

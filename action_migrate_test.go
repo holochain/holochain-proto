@@ -32,8 +32,8 @@ func TestMigrateEntry(t *testing.T) {
   })
 
   Convey("entries with vals work with Entry()", t, func() {
-    chain := genTestHashString()
-    user := genTestHashString()
+    chain := genTestStringHash()
+    user := genTestStringHash()
     entry := MigrateEntry{Chain: chain, User: user}
     action := ActionMigrate{entry: entry}
 
@@ -56,7 +56,10 @@ func TestMigrateHeaderSetGet(t *testing.T) {
 
   Convey("migrate action should be able to set and get header", t, func() {
     action := ActionMigrate{}
-    header := genTestHeader()
+    header, err := genTestHeader()
+    if err != nil {
+      panic(err)
+    }
     So(action.GetHeader(), ShouldEqual, nil)
     action.SetHeader(header)
     So(action.GetHeader(), ShouldEqual, header)

@@ -10,10 +10,8 @@ import (
 // ActionMigrate
 
 func TestMigrateName(t *testing.T) {
-	var chain Hash
-	var user Hash
 	Convey("migrate action should have the right name", t, func() {
-		a := ActionMigrate{entry: MigrateEntry{Chain: chain, User: user}}
+		a := ActionMigrate{}
 		So(a.Name(), ShouldEqual, "migrate")
 	})
 }

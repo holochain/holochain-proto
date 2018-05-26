@@ -1,7 +1,6 @@
 package holochain
 
 import (
-	. "github.com/holochain/holochain-proto/hash"
 	peer "github.com/libp2p/go-libp2p-peer"
 	. "github.com/smartystreets/goconvey/convey"
 	"testing"
@@ -91,11 +90,8 @@ func TestMigrateReceive(t *testing.T) {
 // APIFnMigrate
 
 func TestAPIFnMigrateName(t *testing.T) {
-	var chain Hash
-	var user Hash
 	Convey("migrate action function should have the right name", t, func() {
-		a := ActionMigrate{entry: MigrateEntry{Chain: chain, User: user}}
-		fn := &APIFnMigrate{action: a}
+		fn := &APIFnMigrate{}
 		So(fn.Name(), ShouldEqual, "migrate")
 	})
 }

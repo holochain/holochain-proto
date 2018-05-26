@@ -103,7 +103,10 @@ func TestAPIFnMigrateName(t *testing.T) {
 }
 
 func TestAPIFnMigrateArgs(t *testing.T) {
-	// @TODO
+	Convey("APIFnMigrate should have the correct args", t, func() {
+		fn := &APIFnMigrate{}
+		So(fn.Args(), ShouldResemble, []Arg{{Name: "migrationType", Type: StringArg}, {Name: "DNA", Type: HashArg}, {Name: "ID", Type: HashArg}, {Name: "data", Type: StringArg}})
+	})
 }
 
 func TestAPIFnMigrateCall(t *testing.T) {

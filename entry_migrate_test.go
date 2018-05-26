@@ -11,11 +11,31 @@ func TestMigrateEntrySysValidation(t *testing.T) {
   d, _, h := PrepareTestChain("test")
 	defer CleanupTestChain(h, d)
 
-  Convey("it should validate against JSON", t, func() {
+  Convey("valid MigrateEntry should validate against JSON", t, func() {
 		entry := MigrateEntry{}
     action := ActionMigrate{entry: entry}
-		err := sysValidateEntry(h, entry.Def(), action.Entry(), nil)
-		So(err, ShouldBeNil)
+		So(sysValidateEntry(h, entry.Def(), action.Entry(), nil), ShouldBeNil)
+
+    chain, err := genTestStringHash()
+    user, err := genTestStringHash()
+    data, err := genTestString()
+    migrateType, err := genTestString()
+
+    if err != nil {
+      panic(err)
+    }
+
+    entry.Type = migrateType
+    So(sysValidateEntry(h, entry.Def(), action.Entry(), nil), ShouldBeNil)
+
+    entry.Chain = chain
+    So(sysValidateEntry(h, entry.Def(), action.Entry(), nil), ShouldBeNil)
+
+    entry.User = user
+    So(sysValidateEntry(h, entry.Def(), action.Entry(), nil), ShouldBeNil)
+
+    entry.Data = data
+    So(sysValidateEntry(h, entry.Def(), action.Entry(), nil), ShouldBeNil)
 	})
 }
 

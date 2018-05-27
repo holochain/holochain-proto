@@ -234,6 +234,13 @@ func TestNewZygoRibosome(t *testing.T) {
 				So(err, ShouldBeNil)
 			}, `async result of message with 123 was: (hash pong:"foobar")`)
 		})
+		Convey("migrate", func() {
+			_, err := z.Run(`(migrate HC_Migrate_Close "QmfMPAEdN1BB9imcz97NsaYYaWEN3baC5aSDXqJSiWt4e6" "QmSwMfay3iCynzBFeq9rPzTMTnnuQSMUSe84whjcC9JPAo" "some migration data")`)
+			So(err, ShouldBeNil)
+			migrationEntryHash, _ := NewHash(z.lastResult.(*zygo.SexpStr).S)
+			entry, _, _ := h.chain.GetEntry(migrationEntryHash)
+			So(entry.Content(), ShouldEqual, "{\"Type\":\"close\",\"Chain\":\"QmfMPAEdN1BB9imcz97NsaYYaWEN3baC5aSDXqJSiWt4e6\",\"User\":\"QmSwMfay3iCynzBFeq9rPzTMTnnuQSMUSe84whjcC9JPAo\",\"Data\":\"\"}")
+		})
 	})
 }
 

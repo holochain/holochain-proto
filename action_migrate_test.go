@@ -65,13 +65,13 @@ func TestMigrateHeaderSetGet(t *testing.T) {
 }
 
 func TestMigrateShare(t *testing.T) {
-	mt := setupMultiNodeTesting(1)
+	mt := setupMultiNodeTesting(3)
 	defer mt.cleanupMultiNodeTesting()
-	h := mt.nodes[0]
+	h1 := mt.nodes[0]
 
 	Convey("ActionMigrate should return an ErrActionMissingHeader error if header is missing", t, func() {
 		action := ActionMigrate{}
-		err := action.Share(h, action.entry.Def())
+		err := action.Share(h1, action.entry.Def())
 		So(err, ShouldEqual, ErrActionMissingHeader)
 	})
 
@@ -82,14 +82,22 @@ func TestMigrateShare(t *testing.T) {
 		}
 		action := ActionMigrate{header: header}
 
-		err = action.Share(h, action.entry.Def())
+		// Can share from some node
+		err = action.Share(h1, action.entry.Def())
 		So(err, ShouldBeNil)
 
 		entryJSON, _ := action.entry.ToJSON()
-		roundtrip, _, _, _, err := h.dht.Get(action.header.EntryLink, StatusAny, GetMaskAll)
-
+		// Can get the PUT MigrateEntry from the same node
+		roundtrip, _, _, _, err := h1.dht.Get(action.header.EntryLink, StatusAny, GetMaskAll)
 		So(err, ShouldBeNil)
 		So(entryJSON, ShouldEqual, string(roundtrip))
+
+		// Can get the PUT MigrateEntry from a different node
+		// @TODO does not work...
+		// h2 := mt.nodes[2]
+		// roundtrip2, _, _, _, err := h2.dht.Get(action.header.EntryLink, StatusAny, GetMaskAll)
+		// So(err, ShouldBeNil)
+		// So(entryJSON, ShouldEqual, string(roundtrip2))
 	})
 }
 

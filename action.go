@@ -60,6 +60,7 @@ type Action interface {
 // CommittingAction provides an abstraction for grouping actions which carry Entry data
 type CommittingAction interface {
 	Name() string
+	// Performs all validation logic, including sysValidation (must be called explicitly)
 	SysValidation(h *Holochain, def *EntryDef, pkg *Package, sources []peer.ID) (err error)
 	Receive(dht *DHT, msg *Message) (response interface{}, err error)
 	CheckValidationRequest(def *EntryDef) (err error)
@@ -68,6 +69,7 @@ type CommittingAction interface {
 	Entry() Entry
 	SetHeader(header *Header)
 	GetHeader() (header *Header)
+	// Low level implementation of putting to DHT (assumes validation has been done)
 	Share(h *Holochain, def *EntryDef) (err error)
 }
 

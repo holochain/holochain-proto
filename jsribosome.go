@@ -846,6 +846,7 @@ func NewJSRibosome(h *Holochain, zome *Zome) (n Ribosome, err error) {
 				f.action.entry.Type = migrationType
 				f.action.entry.Chain = Chain
 				f.action.entry.User = User
+				// @TODO handle data
 				r, err = f.Call(h)
 				if err != nil {
 					return

@@ -42,7 +42,6 @@ func (a *ActionMigrate) GetHeader() (header *Header) {
 }
 
 func (a *ActionMigrate) Share(h *Holochain, def *EntryDef) (err error) {
-	// @TODO private migrate should be an error
 	h.dht.Change(a.header.EntryLink, PUT_REQUEST, HoldReq{EntryHash: a.header.EntryLink})
 	return
 }
@@ -52,15 +51,17 @@ func (a *ActionMigrate) SysValidation(h *Holochain, def *EntryDef, pkg *Package,
 		err = ErrEntryDefInvalid
 		return
 	}
+	// @TODO call sysValidation for entry
 	return
 }
 
 func (a *ActionMigrate) CheckValidationRequest(def *EntryDef) (err error) {
+	// intentionally left blank ;)
 	return
 }
 
 func (a *ActionMigrate) Receive(dht *DHT, msg *Message) (response interface{}, err error) {
-	// @TODO
+	// @TODO this is an error because there is no action message, so return some error
 	return
 }
 
@@ -76,6 +77,9 @@ func (fn *APIFnMigrate) Name() string {
 }
 
 func (fn *APIFnMigrate) Args() []Arg {
+	// @TODO name of args
+	// ID -> Key
+	// DNA -> DNAHash
 	return []Arg{{Name: "migrationType", Type: StringArg}, {Name: "DNA", Type: HashArg}, {Name: "ID", Type: HashArg}, {Name: "data", Type: StringArg}}
 }
 

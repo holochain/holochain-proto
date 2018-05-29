@@ -879,7 +879,7 @@ func NewZygoRibosome(h *Holochain, zome *Zome) (n Ribosome, err error) {
 			fn.action.entry.Type = migrationType
 			fn.action.entry.Chain = Chain
 			fn.action.entry.User = User
-
+			// @TODO handle data
 			r, err = fn.Call(h)
 			if err != nil {
 				return zygo.SexpNull, err

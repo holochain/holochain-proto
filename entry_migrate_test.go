@@ -71,23 +71,23 @@ func TestMigrateEntrySysValidation(t *testing.T) {
     So(err, ShouldNotBeNil)
     So(err.Error(), ShouldEqual, "Validation Failed: validator %migrate failed: object property 'Type' is required")
 
-    missingChain := &GobEntry{C: "{\"Type\":\"1AZJizDv7dKiSm5umS2muVoK4GCVm9jPCGidSndczyE64b\",\"Key\":\"1AncHr4PvHbkYNW4jdgmqJWfMArcAndLRrVGwVW18dtUN1\",\"Data\":\"1AjaEHtBfb9vLEsivCsPHH5NyBuEwrbkzzK8w54ufCFXw5\"}"}
-    err = sysValidateEntry(h, MigrateEntryDef, missingChain, nil)
+    missingDNAHash := &GobEntry{C: "{\"Type\":\"1AZJizDv7dKiSm5umS2muVoK4GCVm9jPCGidSndczyE64b\",\"Key\":\"1AncHr4PvHbkYNW4jdgmqJWfMArcAndLRrVGwVW18dtUN1\",\"Data\":\"1AjaEHtBfb9vLEsivCsPHH5NyBuEwrbkzzK8w54ufCFXw5\"}"}
+    err = sysValidateEntry(h, MigrateEntryDef, missingDNAHash, nil)
     So(err, ShouldNotBeNil)
     So(err.Error(), ShouldEqual, "Validation Failed: validator %migrate failed: object property 'DNAHash' is required")
 
-    missingUser := &GobEntry{C: "{\"Type\":\"1AoLAq5VA5rT5tPBKsmSksGc7b4avtF2gjhGxCwrJV4hpi\",\"DNAHash\":\"1AWteDFmYMHHyZ3BRM4ndTLXaeoKiuwTyNkCVHVv4KTZ3p\",\"Data\":\"1AmDjukyX7B5Kh57DDKE8MzNfLUUF5n7nBpuGBi61njRPr\"}"}
-    err = sysValidateEntry(h, MigrateEntryDef, missingUser, nil)
+    missingKey := &GobEntry{C: "{\"Type\":\"1AoLAq5VA5rT5tPBKsmSksGc7b4avtF2gjhGxCwrJV4hpi\",\"DNAHash\":\"1AWteDFmYMHHyZ3BRM4ndTLXaeoKiuwTyNkCVHVv4KTZ3p\",\"Data\":\"1AmDjukyX7B5Kh57DDKE8MzNfLUUF5n7nBpuGBi61njRPr\"}"}
+    err = sysValidateEntry(h, MigrateEntryDef, missingKey, nil)
     So(err, ShouldNotBeNil)
     So(err.Error(), ShouldEqual, "Validation Failed: validator %migrate failed: object property 'Key' is required")
 
-    brokenChain := &GobEntry{C: "{\"Type\":\"1AgHrybioSgRuMGVvkD6NjqBiCmpap3gAKgGcgzaBodXE9\",\"DNAHash\":\"not-a-hash\",\"Key\":\"1AYFPBzgLWVGEy2MFSY9ZyLw7c224fWykZKy3HWx32SJrC\",\"Data\":\"1AmXqXdBCVcraVaWB3sk7HemHWq5wkCZX1GW3fPDgj3Htz\"}"}
-    err = sysValidateEntry(h, MigrateEntryDef, brokenChain, nil)
+    brokenDNAHash := &GobEntry{C: "{\"Type\":\"1AgHrybioSgRuMGVvkD6NjqBiCmpap3gAKgGcgzaBodXE9\",\"DNAHash\":\"not-a-hash\",\"Key\":\"1AYFPBzgLWVGEy2MFSY9ZyLw7c224fWykZKy3HWx32SJrC\",\"Data\":\"1AmXqXdBCVcraVaWB3sk7HemHWq5wkCZX1GW3fPDgj3Htz\"}"}
+    err = sysValidateEntry(h, MigrateEntryDef, brokenDNAHash, nil)
 		So(err, ShouldNotBeNil)
 		So(err.Error(), ShouldEqual, "Validation Failed: Error (input isn't valid multihash) when decoding DNAHash value 'not-a-hash'")
 
-    brokenUser := &GobEntry{C: "{\"Type\":\"1AgHrybioSgRuMGVvkD6NjqBiCmpap3gAKgGcgzaBodXE9\",\"Key\":\"not-a-hash\",\"DNAHash\":\"1AYFPBzgLWVGEy2MFSY9ZyLw7c224fWykZKy3HWx32SJrC\",\"Data\":\"1AmXqXdBCVcraVaWB3sk7HemHWq5wkCZX1GW3fPDgj3Htz\"}"}
-    err = sysValidateEntry(h, MigrateEntryDef, brokenUser, nil)
+    brokenKey := &GobEntry{C: "{\"Type\":\"1AgHrybioSgRuMGVvkD6NjqBiCmpap3gAKgGcgzaBodXE9\",\"Key\":\"not-a-hash\",\"DNAHash\":\"1AYFPBzgLWVGEy2MFSY9ZyLw7c224fWykZKy3HWx32SJrC\",\"Data\":\"1AmXqXdBCVcraVaWB3sk7HemHWq5wkCZX1GW3fPDgj3Htz\"}"}
+    err = sysValidateEntry(h, MigrateEntryDef, brokenKey, nil)
 		So(err, ShouldNotBeNil)
 		So(err.Error(), ShouldEqual, "Validation Failed: Error (input isn't valid multihash) when decoding Key value 'not-a-hash'")
   })

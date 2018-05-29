@@ -131,7 +131,10 @@ func TestMigrateActionSysValidation(t *testing.T) {
 }
 
 func TestMigrateCheckValidationRequest(t *testing.T) {
-	// @TODO
+	Convey("MigrateAction CheckValidationRequest should always pass", t, func() {
+		action := ActionMigrate{}
+		So(action.CheckValidationRequest(action.entry.Def()), ShouldBeNil)
+	})
 }
 
 func TestMigrateReceive(t *testing.T) {

@@ -138,7 +138,17 @@ func TestMigrateCheckValidationRequest(t *testing.T) {
 }
 
 func TestMigrateReceive(t *testing.T) {
-	// @TODO
+	mt := setupMultiNodeTesting(1)
+	defer mt.cleanupMultiNodeTesting()
+	h := mt.nodes[0]
+
+	Convey("MigrateAction Receive is always an error", t, func() {
+		action := ActionMigrate{}
+		msg := h.node.NewMessage(PUT_REQUEST, HoldReq{})
+		response, err := action.Receive(h.dht, msg)
+		So(err.Error(), ShouldEqual, "Action receive is invalid")
+		So(response, ShouldBeNil)
+	})
 }
 
 // APIFnMigrate

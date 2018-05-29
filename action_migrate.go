@@ -75,7 +75,8 @@ func (a *ActionMigrate) CheckValidationRequest(def *EntryDef) (err error) {
 }
 
 func (a *ActionMigrate) Receive(dht *DHT, msg *Message) (response interface{}, err error) {
-	// @TODO this is an error because there is no action message, so return some error
+	// this is always an error because there is no action message for migrate
+	err = ErrActionReceiveInvalid
 	return
 }
 

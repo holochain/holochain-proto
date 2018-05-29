@@ -80,7 +80,7 @@ func genTestMigrateEntry() (entry MigrateEntry, err error) {
 	entry = MigrateEntry{
 		Key:     key,
 		DNAHash: dnaHash,
-		Type:    "open",
+		Type:    MigrateEntryTypeOpen,
 		Data:    data,
 	}
 	return

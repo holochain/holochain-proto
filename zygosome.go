@@ -881,7 +881,7 @@ func NewZygoRibosome(h *Holochain, zome *Zome) (n Ribosome, err error) {
 			fn.action.entry.DNAHash = DNAHash
 			fn.action.entry.Key = Key
 			fn.action.entry.Data = Data
-			// @TODO handle data
+
 			r, err = fn.Call(h)
 			if err != nil {
 				return zygo.SexpNull, err
@@ -891,7 +891,6 @@ func NewZygoRibosome(h *Holochain, zome *Zome) (n Ribosome, err error) {
 				entryHash = r.(Hash)
 			}
 
-			// @TODO test this
 			var result = zygo.SexpStr{S: entryHash.String()}
 			return &result, nil
 		})

@@ -108,7 +108,7 @@ func TestMigrateEntryFromJSON(t *testing.T) {
     So(entry.DNAHash, ShouldEqual, unserializedDNAHash)
     So(entry.Key, ShouldEqual, unserializedKey)
     So(entry.Data, ShouldEqual, "1AiydpQZ57G8LAamezKFySyy2DKghX3q83ZDMnqnSp5Vyi")
-    So(entry.Type, ShouldEqual, "open")
+    So(entry.Type, ShouldEqual, MigrateEntryTypeOpen)
   })
 }
 

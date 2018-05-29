@@ -70,18 +70,18 @@ func genTestHeader() (header *Header, err error) {
 }
 
 func genTestMigrateEntry() (entry MigrateEntry, err error) {
-	chain, err := genTestStringHash()
-	user, err := genTestStringHash()
+	dnaHash, err := genTestStringHash()
+	key, err := genTestStringHash()
 	data, err := genTestString()
 
 	// Note that the k/v order here is different from the resulting JSON.
 	// This is deliberate to test that k/v order in code does not influence data
 	// output at runtime.
 	entry = MigrateEntry{
-		User:  user,
-		Chain: chain,
-		Type:  "open",
-		Data:  data,
+		Key:     key,
+		DNAHash: dnaHash,
+		Type:    "open",
+		Data:    data,
 	}
 	return
 }

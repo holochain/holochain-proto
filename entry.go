@@ -275,25 +275,25 @@ func sysValidateEntry(h *Holochain, def *EntryDef, entry Entry, pkg *Package) (e
 		if def == MigrateEntryDef {
 			// @TODO refactor with above
 			// @see https://github.com/holochain/holochain-proto/issues/733
-			chainValue, ok := input.(map[string]interface{})["Chain"].(string)
+			chainValue, ok := input.(map[string]interface{})["DNAHash"].(string)
 			if !ok {
 				err = ValidationFailed("expected string!")
 				return
 			}
 			_, err = NewHash(chainValue)
 			if err != nil {
-				err = ValidationFailed(fmt.Sprintf("Error (%s) when decoding Chain value '%s'", err.Error(), chainValue))
+				err = ValidationFailed(fmt.Sprintf("Error (%s) when decoding DNAHash value '%s'", err.Error(), chainValue))
 				return
 			}
 
-			userValue, ok := input.(map[string]interface{})["User"].(string)
+			userValue, ok := input.(map[string]interface{})["Key"].(string)
 			if !ok {
 				err = ValidationFailed("expected string!")
 				return
 			}
 			_, err = NewHash(userValue)
 			if err != nil {
-				err = ValidationFailed(fmt.Sprintf("Error (%s) when decoding User value '%s'", err.Error(), userValue))
+				err = ValidationFailed(fmt.Sprintf("Error (%s) when decoding Key value '%s'", err.Error(), userValue))
 				return
 			}
 

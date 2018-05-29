@@ -21,16 +21,16 @@ const (
 			"title": "The Type Schema ",
 			"default": ""
 		},
-    "Chain": {
-      "$id": "/properties/Chain",
+    "DNAHash": {
+      "$id": "/properties/DNAHash",
       "type": "string",
-      "title": "The Chain Schema ",
+      "title": "The DNAHash Schema ",
       "default": ""
     },
-    "User": {
-      "$id": "/properties/User",
+    "Key": {
+      "$id": "/properties/Key",
       "type": "string",
-      "title": "The User Schema ",
+      "title": "The Key Schema ",
       "default": ""
     },
     "Data": {
@@ -40,7 +40,7 @@ const (
       "default": ""
     }
   },
-  "required": ["Type", "Chain", "User"]
+  "required": ["Type", "DNAHash", "Key"]
 }
 `
 
@@ -52,8 +52,8 @@ const (
 // MigrateEntry struct is the record of a chain opening or closing
 type MigrateEntry struct {
 	Type  string
-	Chain Hash
-	User  Hash
+	DNAHash Hash
+	Key  Hash
 	Data  string
 }
 
@@ -67,13 +67,13 @@ func (e *MigrateEntry) Def() *EntryDef {
 func (e *MigrateEntry) ToJSON() (encodedEntry string, err error) {
 	var x struct {
 		Type string
-		Chain string
-		User  string
+		DNAHash string
+		Key  string
 		Data  string
 	}
 	x.Type = e.Type
-	x.Chain = e.Chain.String()
-	x.User = e.User.String()
+	x.DNAHash = e.DNAHash.String()
+	x.Key = e.Key.String()
 	x.Data = e.Data
 	var j []byte
 	j, err = json.Marshal(x)
@@ -84,8 +84,8 @@ func (e *MigrateEntry) ToJSON() (encodedEntry string, err error) {
 func MigrateEntryFromJSON(j string) (entry MigrateEntry, err error) {
 	var x struct {
 		Type  string
-		Chain string
-		User  string
+		DNAHash string
+		Key  string
 		Data  string
 	}
 	err = json.Unmarshal([]byte(j), &x)
@@ -94,8 +94,8 @@ func MigrateEntryFromJSON(j string) (entry MigrateEntry, err error) {
 	}
 
 	entry.Type = x.Type
-	entry.Chain, err = NewHash(x.Chain)
-	entry.User, err = NewHash(x.User)
+	entry.DNAHash, err = NewHash(x.DNAHash)
+	entry.Key, err = NewHash(x.Key)
 	entry.Data = x.Data
 	return
 }

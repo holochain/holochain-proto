@@ -873,12 +873,14 @@ func NewZygoRibosome(h *Holochain, zome *Zome) (n Ribosome, err error) {
 			}
 
 			migrationType := args[0].value.(string)
-			Chain := args[1].value.(Hash)
-			User := args[2].value.(Hash)
+			DNAHash := args[1].value.(Hash)
+			Key := args[2].value.(Hash)
+			Data := args[3].value.(string)
 			var r interface{}
 			fn.action.entry.Type = migrationType
-			fn.action.entry.Chain = Chain
-			fn.action.entry.User = User
+			fn.action.entry.DNAHash = DNAHash
+			fn.action.entry.Key = Key
+			fn.action.entry.Data = Data
 			// @TODO handle data
 			r, err = fn.Call(h)
 			if err != nil {
@@ -889,6 +891,7 @@ func NewZygoRibosome(h *Holochain, zome *Zome) (n Ribosome, err error) {
 				entryHash = r.(Hash)
 			}
 
+			// @TODO test this
 			var result = zygo.SexpStr{S: entryHash.String()}
 			return &result, nil
 		})

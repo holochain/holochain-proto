@@ -67,8 +67,8 @@ func TestGenTestMigrateEntry(t *testing.T) {
   }
 
   Convey("generated test data in migrate entry should be unique", t, func() {
-    So(entry.User, ShouldNotEqual, entry.Chain)
-    So(entry.User, ShouldNotEqual, entry.Data)
-    So(entry.Chain, ShouldNotEqual, entry.Data)
+    So(entry.Key, ShouldNotEqual, entry.DNAHash)
+    So(entry.Key, ShouldNotEqual, entry.Data)
+    So(entry.DNAHash, ShouldNotEqual, entry.Data)
   })
 }

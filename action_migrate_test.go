@@ -18,22 +18,22 @@ func TestMigrateName(t *testing.T) {
 func TestMigrateEntry(t *testing.T) {
 	Convey("empty migrate action Entry() should be retreive a serialized JSON of an empty entry in a GobEntry", t, func() {
 		action := ActionMigrate{}
-		So(action.Entry(), ShouldResemble, &GobEntry{C: "{\"Type\":\"\",\"Chain\":\"\",\"User\":\"\",\"Data\":\"\"}"})
+		So(action.Entry(), ShouldResemble, &GobEntry{C: "{\"Type\":\"\",\"DNAHash\":\"\",\"Key\":\"\",\"Data\":\"\"}"})
 	})
 
 	Convey("entries with vals work with Entry()", t, func() {
-		chain, err := genTestStringHash()
+		dnaHash, err := genTestStringHash()
 		if err != nil {
 			panic(err)
 		}
-		user, err := genTestStringHash()
+		key, err := genTestStringHash()
 		if err != nil {
 			panic(err)
 		}
-		entry := MigrateEntry{Chain: chain, User: user}
+		entry := MigrateEntry{DNAHash: dnaHash, Key: key}
 		action := ActionMigrate{entry: entry}
 
-		So(action.Entry(), ShouldResemble, &GobEntry{C: "{\"Type\":\"\",\"Chain\":\"" + chain.String() + "\",\"User\":\"" + user.String() + "\",\"Data\":\"\"}"})
+		So(action.Entry(), ShouldResemble, &GobEntry{C: "{\"Type\":\"\",\"DNAHash\":\"" + dnaHash.String() + "\",\"Key\":\"" + key.String() + "\",\"Data\":\"\"}"})
 	})
 }
 
@@ -119,7 +119,7 @@ func TestMigrateActionSysValidation(t *testing.T) {
 		action := ActionMigrate{header: header}
 		err = action.SysValidation(h, action.entry.Def(), nil, []peer.ID{h.nodeID})
 		// the entry is empty so there should be validation complaints
-		So(err.Error(), ShouldEqual, "Validation Failed: Error (input isn't valid multihash) when decoding Chain value ''")
+		So(err.Error(), ShouldEqual, "Validation Failed: Error (input isn't valid multihash) when decoding DNAHash value ''")
 
 		action.entry, err = genTestMigrateEntry()
 		if err != nil {
@@ -163,7 +163,15 @@ func TestAPIFnMigrateName(t *testing.T) {
 func TestAPIFnMigrateArgs(t *testing.T) {
 	Convey("APIFnMigrate should have the correct args", t, func() {
 		fn := &APIFnMigrate{}
-		So(fn.Args(), ShouldResemble, []Arg{{Name: "migrationType", Type: StringArg}, {Name: "DNA", Type: HashArg}, {Name: "ID", Type: HashArg}, {Name: "data", Type: StringArg}})
+		expected := []Arg{{Name: "migrationType",
+			Type: StringArg},
+			{Name: "DNAHash",
+				Type: HashArg},
+			{Name: "Key",
+				Type: HashArg},
+			{Name: "data",
+				Type: StringArg}}
+		So(fn.Args(), ShouldResemble, expected)
 	})
 }
 

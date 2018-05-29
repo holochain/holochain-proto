@@ -59,3 +59,16 @@ func TestGenTestStringHash(t *testing.T) {
     So(a, ShouldEqual, roundtrip)
   })
 }
+
+func TestGenTestMigrateEntry(t *testing.T) {
+  entry, err := genTestMigrateEntry()
+  if err != nil {
+    panic(err)
+  }
+
+  Convey("generated test data in migrate entry should be unique", t, func() {
+    So(entry.User, ShouldNotEqual, entry.Chain)
+    So(entry.User, ShouldNotEqual, entry.Data)
+    So(entry.Chain, ShouldNotEqual, entry.Data)
+  })
+}

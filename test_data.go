@@ -69,6 +69,23 @@ func genTestHeader() (header *Header, err error) {
 	return
 }
 
+func genTestMigrateEntry() (entry MigrateEntry, err error) {
+	chain, err := genTestStringHash()
+	user, err := genTestStringHash()
+	data, err := genTestString()
+
+	// Note that the k/v order here is different from the resulting JSON.
+	// This is deliberate to test that k/v order in code does not influence data
+	// output at runtime.
+	entry = MigrateEntry{
+		User:  user,
+		Chain: chain,
+		Type:  "open",
+		Data:  data,
+	}
+	return
+}
+
 func randomSliceItem(slice []string) string {
 	s := mrand.NewSource(time.Now().Unix())
 	r := mrand.New(s)

@@ -115,26 +115,9 @@ func TestMigrateEntryFromJSON(t *testing.T) {
 }
 
 func TestMigrateEntryToJSON(t *testing.T) {
-  chain, err := genTestStringHash()
+  entry, err := genTestMigrateEntry()
   if err != nil {
     panic(err)
-  }
-  user, err := genTestStringHash()
-  if err != nil {
-    panic(err)
-  }
-  data, err := genTestString()
-  if err != nil {
-    panic(err)
-  }
-  // Note that the k/v order here is different from the resulting JSON.
-  // This is deliberate to test that k/v order in code does not influence data
-  // output at runtime.
-  entry := MigrateEntry{
-    User: user,
-    Chain: chain,
-    Type: "open",
-    Data: data,
   }
 
   Convey("MigrateEntry should convert to JSON and roundtrip safely", t, func() {
@@ -146,17 +129,13 @@ func TestMigrateEntryToJSON(t *testing.T) {
       panic(err)
     }
 
-    So(user, ShouldNotEqual, chain)
-    So(user, ShouldNotEqual, data)
-    So(chain, ShouldNotEqual, data)
 		So(err, ShouldBeNil)
-		So(j, ShouldEqual, fmt.Sprintf(`{"Type":"open","Chain":"%s","User":"%s","Data":"%s"}`, chain, user, data))
+		So(j, ShouldEqual, fmt.Sprintf(`{"Type":"open","Chain":"%s","User":"%s","Data":"%s"}`, entry.Chain, entry.User, entry.Data))
 
     roundtrip, err := MigrateEntryFromJSON(j)
     if err != nil {
       panic(err)
     }
-    So(roundtrip.User, ShouldEqual, user)
     So(roundtrip, ShouldResemble, entry)
 	})
 }

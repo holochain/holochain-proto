@@ -42,10 +42,6 @@ func (a *ActionMigrate) GetHeader() (header *Header) {
 }
 
 func (action *ActionMigrate) Share(h *Holochain, def *EntryDef) (err error) {
-	if action.header == nil {
-		err = ErrActionMissingHeader
-		return
-	}
 	// @TODO is this correct? hash comes from header and value is JSON of entry?
 	hash := action.header.EntryLink
 	entryJSON, err := action.entry.ToJSON()
@@ -56,12 +52,20 @@ func (action *ActionMigrate) Share(h *Holochain, def *EntryDef) (err error) {
 	return
 }
 
-func (a *ActionMigrate) SysValidation(h *Holochain, def *EntryDef, pkg *Package, sources []peer.ID) (err error) {
+func (action *ActionMigrate) SysValidation(h *Holochain, def *EntryDef, pkg *Package, sources []peer.ID) (err error) {
+	// correct entry def
 	if def != MigrateEntryDef {
 		err = ErrEntryDefInvalid
 		return
 	}
-	// @TODO call sysValidation for entry
+	// has a header
+	if action.header == nil {
+		err = ErrActionMissingHeader
+		return
+	}
+	// entry is valid
+	err = sysValidateEntry(h, def, action.Entry(), pkg)
+	// @TODO should migration only be valid if peer ID is node owner?
 	return
 }
 

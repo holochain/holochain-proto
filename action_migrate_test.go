@@ -69,12 +69,6 @@ func TestMigrateShare(t *testing.T) {
 	defer mt.cleanupMultiNodeTesting()
 	h1 := mt.nodes[0]
 
-	Convey("ActionMigrate should return an ErrActionMissingHeader error if header is missing", t, func() {
-		action := ActionMigrate{}
-		err := action.Share(h1, action.entry.Def())
-		So(err, ShouldEqual, ErrActionMissingHeader)
-	})
-
 	Convey("ActionMigrate should share as a PUT on the DHT and roundtrip as JSON", t, func() {
 		header, err := genTestHeader()
 		if err != nil {
@@ -109,6 +103,23 @@ func TestMigrateActionSysValidation(t *testing.T) {
 		action := ActionMigrate{}
 		err := action.SysValidation(h, DNAEntryDef, nil, []peer.ID{h.nodeID})
 		So(err, ShouldEqual, ErrEntryDefInvalid)
+	})
+
+	Convey("ActionMigrate SysValidation should return an ErrActionMissingHeader error if header is missing", t, func() {
+		action := ActionMigrate{}
+		err := action.SysValidation(h, action.entry.Def(), nil, []peer.ID{h.nodeID})
+		So(err, ShouldEqual, ErrActionMissingHeader)
+	})
+
+	Convey("ActionMigrate SysValidation should validate the entry", t, func() {
+		header, err := genTestHeader()
+		if err != nil {
+			panic(err)
+		}
+		action := ActionMigrate{header: header}
+		err = action.SysValidation(h, action.entry.Def(), nil, []peer.ID{h.nodeID})
+		// the entry is empty so there should be validation complaints
+		So(err.Error(), ShouldEqual, "Validation Failed: Error (input isn't valid multihash) when decoding Chain value ''")
 	})
 }
 

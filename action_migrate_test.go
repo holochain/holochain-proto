@@ -120,6 +120,13 @@ func TestMigrateActionSysValidation(t *testing.T) {
 		err = action.SysValidation(h, action.entry.Def(), nil, []peer.ID{h.nodeID})
 		// the entry is empty so there should be validation complaints
 		So(err.Error(), ShouldEqual, "Validation Failed: Error (input isn't valid multihash) when decoding Chain value ''")
+
+		action.entry, err = genTestMigrateEntry()
+		if err != nil {
+			panic(err)
+		}
+		err = action.SysValidation(h, action.entry.Def(), nil, []peer.ID{h.nodeID})
+		So(err, ShouldBeNil)
 	})
 }
 

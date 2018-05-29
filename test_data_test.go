@@ -58,6 +58,10 @@ func TestGenTestStringHash(t *testing.T) {
     roundtrip, err := NewHash(s)
     So(a, ShouldEqual, roundtrip)
   })
+
+  Convey("random hash should start with Q", t, func() {
+    // @TODO all hashes should start with Qm (see test examples)
+  })
 }
 
 func TestGenTestMigrateEntry(t *testing.T) {

@@ -65,7 +65,32 @@ func TestMigrateHeaderSetGet(t *testing.T) {
 }
 
 func TestMigrateShare(t *testing.T) {
-	// @TODO
+	mt := setupMultiNodeTesting(1)
+	defer mt.cleanupMultiNodeTesting()
+	h := mt.nodes[0]
+
+	Convey("ActionMigrate should return an ErrActionMissingHeader error if header is missing", t, func() {
+		action := ActionMigrate{}
+		err := action.Share(h, action.entry.Def())
+		So(err, ShouldEqual, ErrActionMissingHeader)
+	})
+
+	Convey("ActionMigrate should share as a PUT on the DHT and roundtrip as JSON", t, func() {
+		header, err := genTestHeader()
+		if err != nil {
+			panic(err)
+		}
+		action := ActionMigrate{header: header}
+
+		err = action.Share(h, action.entry.Def())
+		So(err, ShouldBeNil)
+
+		entryJSON, _ := action.entry.ToJSON()
+		roundtrip, _, _, _, err := h.dht.Get(action.header.EntryLink, StatusAny, GetMaskAll)
+
+		So(err, ShouldBeNil)
+		So(entryJSON, ShouldEqual, string(roundtrip))
+	})
 }
 
 func TestMigrateActionSysValidation(t *testing.T) {

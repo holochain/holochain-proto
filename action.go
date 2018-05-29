@@ -96,6 +96,7 @@ var ErrModInvalidForLinks error = errors.New("mod: invalid for Links entry")
 var ErrModMissingHeader error = errors.New("mod: missing header")
 var ErrModReplacesHashNotDifferent error = errors.New("mod: replaces must be different from original hash")
 var ErrEntryDefInvalid = errors.New("Invalid Entry Defintion")
+var ErrActionMissingHeader error = errors.New("Action is missing header")
 
 var ErrNilEntryInvalid error = errors.New("nil entry invalid")
 

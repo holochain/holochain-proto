@@ -41,8 +41,18 @@ func (a *ActionMigrate) GetHeader() (header *Header) {
 	return a.header
 }
 
-func (a *ActionMigrate) Share(h *Holochain, def *EntryDef) (err error) {
-	h.dht.Change(a.header.EntryLink, PUT_REQUEST, HoldReq{EntryHash: a.header.EntryLink})
+func (action *ActionMigrate) Share(h *Holochain, def *EntryDef) (err error) {
+	if action.header == nil {
+		err = ErrActionMissingHeader
+		return
+	}
+	// @TODO is this correct? hash comes from header and value is JSON of entry?
+	hash := action.header.EntryLink
+	entryJSON, err := action.entry.ToJSON()
+	if err != nil {
+		return
+	}
+	h.dht.Put(h.node.NewMessage(PUT_REQUEST, HoldReq{EntryHash: hash}), MigrateEntryType, hash, h.nodeID, []byte(entryJSON), StatusLive)
 	return
 }
 

@@ -259,7 +259,7 @@ func TestMakeTestingApp(t *testing.T) {
 	Convey("we detected unconfigured holochains", t, func() {
 		f, err := s.IsConfigured(name)
 		So(f, ShouldEqual, "")
-		So(err.Error(), ShouldEqual, "No DNA file in "+filepath.Join(root, ChainDNADir)+"/")
+		So(err.Error(), ShouldEqual, fmt.Sprintf("No DNA file in %s%s", filepath.Join(root, ChainDNADir), string(os.PathSeparator)))
 		_, err = s.load("test", "json")
 		So(err.Error(), ShouldEqual, "open "+filepath.Join(root, ConfigFileName+".json")+": no such file or directory")
 

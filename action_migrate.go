@@ -97,7 +97,6 @@ func (fn *APIFnMigrate) Args() []Arg {
 }
 
 func (fn *APIFnMigrate) Call(h *Holochain) (response interface{}, err error) {
-	// @TODO is this OK as the empty hash?
 	var hash Hash
 	response, err = h.commitAndShare(&fn.action, hash)
 	return

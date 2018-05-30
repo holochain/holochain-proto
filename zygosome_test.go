@@ -246,7 +246,7 @@ func TestNewZygoRibosome(t *testing.T) {
 			So(err, ShouldBeNil)
 			migrationEntryHash, _ := NewHash(z.lastResult.(*zygo.SexpStr).S)
 			entry, _, _ := h.chain.GetEntry(migrationEntryHash)
-			So(entry.Content(), ShouldEqual, "{\"Type\":\"close\",\"DNAHash\":\""+dnaHash.String()+"\",\"Key\":\""+key.String()+"\",\"Data\":\""+data+"\"}")
+			So(entry.Content(), ShouldEqual, "{\"Type\":\"close\",\"DNAHash\":\"" + dnaHash.String() + "\",\"Key\":\"" + key.String() + "\",\"Data\":\"" + data + "\"}")
 		})
 	})
 }

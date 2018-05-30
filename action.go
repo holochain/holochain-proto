@@ -334,7 +334,7 @@ func (h *Holochain) doCommit(a CommittingAction, change Hash) (d *EntryDef, err 
 	return
 }
 
-func (h *Holochain) commitAndShare(a CommittingAction, change Hash) (response interface{}, err error) {
+func (h *Holochain) commitAndShare(a CommittingAction, change Hash) (response Hash, err error) {
 	var def *EntryDef
 	def, err = h.doCommit(a, change)
 	if err != nil {

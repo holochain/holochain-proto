@@ -37,11 +37,11 @@ func TestActionDelete(t *testing.T) {
 	profileHash := commit(h, "profile", `{"firstName":"Zippy","lastName":"Pinhead"}`)
 	entry := DelEntry{Hash: profileHash, Message: "expired"}
 	a := &ActionDel{entry: entry}
-	response, err := h.commitAndShare(a, NullHash())
+	var hash Hash
+	deleteHash, err := h.commitAndShare(a, hash)
 	if err != nil {
 		panic(err)
 	}
-	deleteHash := response.(Hash)
 
 	Convey("when deleting a hash the del entry itself should be published to the DHT", t, func() {
 		req := GetReq{H: deleteHash, GetMask: GetMaskEntry}

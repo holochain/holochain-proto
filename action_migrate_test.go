@@ -71,20 +71,25 @@ func TestMigrateShare(t *testing.T) {
 
 	Convey("ActionMigrate should share as a PUT on the DHT and roundtrip as JSON", t, func() {
 		header, err := genTestHeader()
+		entry, err := genTestMigrateEntry()
 		if err != nil {
 			panic(err)
 		}
-		action := ActionMigrate{header: header}
+		action := ActionMigrate{header: header, entry: entry}
 
 		// Can share from some node
-		err = action.Share(h1, action.entry.Def())
+		response, err := h1.commitAndShare(&action, action.header.EntryLink)
 		So(err, ShouldBeNil)
 
-		entryJSON, _ := action.entry.ToJSON()
 		// Can get the PUT MigrateEntry from the same node
-		roundtrip, _, _, _, err := h1.dht.Get(action.header.EntryLink, StatusAny, GetMaskAll)
+		resp, _, _, _, err := h1.dht.Get(response, StatusLive, GetMaskEntry)
 		So(err, ShouldBeNil)
-		So(entryJSON, ShouldEqual, string(roundtrip))
+
+		var gob = &GobEntry{}
+		err = gob.Unmarshal(resp)
+		So(err, ShouldBeNil)
+
+		So(gob, ShouldResemble, action.Entry())
 
 		// Can get the PUT MigrateEntry from a different node
 		// @TODO does not work...

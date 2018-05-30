@@ -122,27 +122,20 @@ func TestMigrateEntryFromJSON(t *testing.T) {
 }
 
 func TestMigrateEntryToJSON(t *testing.T) {
-  entry, err := genTestMigrateEntry()
-  if err != nil {
-    panic(err)
-  }
-
   Convey("MigrateEntry should convert to JSON and roundtrip safely", t, func() {
     var j string
     var err error
-		j, err = entry.ToJSON()
+    entry, err := genTestMigrateEntry()
+    So(err, ShouldBeNil)
 
-    if err != nil {
-      panic(err)
-    }
+		j, err = entry.ToJSON()
+    So(err, ShouldBeNil)
 
 		So(err, ShouldBeNil)
 		So(j, ShouldEqual, fmt.Sprintf(`{"Type":"open","DNAHash":"%s","Key":"%s","Data":"%s"}`, entry.DNAHash, entry.Key, entry.Data))
 
     roundtrip, err := MigrateEntryFromJSON(j)
-    if err != nil {
-      panic(err)
-    }
+    So(err, ShouldBeNil)
     So(roundtrip, ShouldResemble, entry)
 	})
 }

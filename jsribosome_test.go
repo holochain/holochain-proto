@@ -406,11 +406,17 @@ func TestNewJSRibosome(t *testing.T) {
 			So(entry.Content(), ShouldEqual, "7")
 		})
 		Convey("migrate", func() {
-			_, err := z.Run(`migrate(HC.Migrate.Close,"QmfMPAEdN1BB9imcz97NsaYYaWEN3baC5aSDXqJSiWt4e6","QmSwMfay3iCynzBFeq9rPzTMTnnuQSMUSe84whjcC9JPAo","some migration data")`)
+			dnaHash, err := genTestStringHash()
+			So(err, ShouldBeNil)
+			key, err := genTestStringHash()
+			So(err, ShouldBeNil)
+			data, err := genTestString()
+
+			_, err = z.Run(`migrate(HC.Migrate.Close,"` + dnaHash.String() + `","` + key.String() + `","` + data + `")`)
 			So(err, ShouldBeNil)
 			migrationEntryHash, _ := NewHash(z.lastResult.String())
 			entry, _, _ := h.chain.GetEntry(migrationEntryHash)
-			So(entry.Content(), ShouldEqual, "{\"Type\":\"close\",\"DNAHash\":\"QmfMPAEdN1BB9imcz97NsaYYaWEN3baC5aSDXqJSiWt4e6\",\"Key\":\"QmSwMfay3iCynzBFeq9rPzTMTnnuQSMUSe84whjcC9JPAo\",\"Data\":\"some migration data\"}")
+			So(entry.Content(), ShouldEqual, "{\"Type\":\"close\",\"DNAHash\":\""+dnaHash.String()+"\",\"Key\":\""+key.String()+"\",\"Data\":\""+data+"\"}")
 		})
 	})
 }

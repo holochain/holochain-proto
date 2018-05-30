@@ -235,11 +235,18 @@ func TestNewZygoRibosome(t *testing.T) {
 			}, `async result of message with 123 was: (hash pong:"foobar")`)
 		})
 		Convey("migrate", func() {
-			_, err := z.Run(`(migrate HC_Migrate_Close "QmfMPAEdN1BB9imcz97NsaYYaWEN3baC5aSDXqJSiWt4e6" "QmSwMfay3iCynzBFeq9rPzTMTnnuQSMUSe84whjcC9JPAo" "some migration data")`)
+			dnaHash, err := genTestStringHash()
+			So(err, ShouldBeNil)
+			key, err := genTestStringHash()
+			So(err, ShouldBeNil)
+			data, err := genTestString()
+			So(err, ShouldBeNil)
+
+			_, err = z.Run(`(migrate HC_Migrate_Close "` + dnaHash.String() + `" "` + key.String() + `" "` + data + `")`)
 			So(err, ShouldBeNil)
 			migrationEntryHash, _ := NewHash(z.lastResult.(*zygo.SexpStr).S)
 			entry, _, _ := h.chain.GetEntry(migrationEntryHash)
-			So(entry.Content(), ShouldEqual, "{\"Type\":\"close\",\"DNAHash\":\"QmfMPAEdN1BB9imcz97NsaYYaWEN3baC5aSDXqJSiWt4e6\",\"Key\":\"QmSwMfay3iCynzBFeq9rPzTMTnnuQSMUSe84whjcC9JPAo\",\"Data\":\"some migration data\"}")
+			So(entry.Content(), ShouldEqual, "{\"Type\":\"close\",\"DNAHash\":\""+dnaHash.String()+"\",\"Key\":\""+key.String()+"\",\"Data\":\""+data+"\"}")
 		})
 	})
 }

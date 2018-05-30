@@ -1,9 +1,12 @@
 package holochain
 
 import (
+	"fmt"
+	. "github.com/holochain/holochain-proto/hash"
 	peer "github.com/libp2p/go-libp2p-peer"
 	. "github.com/smartystreets/goconvey/convey"
 	"testing"
+	"time"
 )
 
 // ActionMigrate
@@ -67,9 +70,9 @@ func TestMigrateHeaderSetGet(t *testing.T) {
 func TestMigrateShare(t *testing.T) {
 	mt := setupMultiNodeTesting(3)
 	defer mt.cleanupMultiNodeTesting()
-	h1 := mt.nodes[0]
 
 	Convey("ActionMigrate should share as a PUT on the DHT and roundtrip as JSON", t, func() {
+		var err error
 		header, err := genTestHeader()
 		entry, err := genTestMigrateEntry()
 		if err != nil {
@@ -78,25 +81,23 @@ func TestMigrateShare(t *testing.T) {
 		action := ActionMigrate{header: header, entry: entry}
 
 		// Can share from some node
-		response, err := h1.commitAndShare(&action, action.header.EntryLink)
+		var dhtHash Hash
+		dhtHash, err = mt.nodes[0].commitAndShare(&action, action.header.EntryLink)
 		So(err, ShouldBeNil)
+		time.Sleep(1000)
 
-		// Can get the PUT MigrateEntry from the same node
-		resp, _, _, _, err := h1.dht.Get(response, StatusLive, GetMaskEntry)
-		So(err, ShouldBeNil)
+		// Can get the PUT MigrateEntry from any node
+		for i, hx := range mt.nodes {
+			fmt.Printf("\nTesting retrieval of MigrateEntry PUT from node %d\n", i)
+			resp, _, _, _, err := hx.dht.Get(dhtHash, StatusLive, GetMaskEntry)
+			So(err, ShouldBeNil)
 
-		var gob = &GobEntry{}
-		err = gob.Unmarshal(resp)
-		So(err, ShouldBeNil)
+			var gob = &GobEntry{}
+			err = gob.Unmarshal(resp)
+			So(err, ShouldBeNil)
 
-		So(gob, ShouldResemble, action.Entry())
-
-		// Can get the PUT MigrateEntry from a different node
-		// @TODO does not work...
-		// h2 := mt.nodes[2]
-		// roundtrip2, _, _, _, err := h2.dht.Get(action.header.EntryLink, StatusAny, GetMaskAll)
-		// So(err, ShouldBeNil)
-		// So(entryJSON, ShouldEqual, string(roundtrip2))
+			So(gob, ShouldResemble, action.Entry())
+		}
 	})
 }
 

@@ -42,7 +42,7 @@ func (a *ActionMigrate) GetHeader() (header *Header) {
 }
 
 func (action *ActionMigrate) Share(h *Holochain, def *EntryDef) (err error) {
-	h.dht.Change(action.header.EntryLink, PUT_REQUEST, HoldReq{EntryHash: action.header.EntryLink})
+	err = h.dht.Change(action.header.EntryLink, PUT_REQUEST, HoldReq{EntryHash: action.header.EntryLink})
 	return
 }
 

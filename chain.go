@@ -588,6 +588,8 @@ func (c *Chain) Dump(start int) string {
 			r += fmt.Sprintf("       %s\n", e.(*GobEntry).C)
 		case AgentEntryType:
 			r += fmt.Sprintf("       %v\n", e.(*GobEntry).C)
+		case MigrateEntryType:
+			r += fmt.Sprintf("       %v\n", e.(*GobEntry).C)
 		default:
 			r += fmt.Sprintf("       %v\n", e)
 		}

@@ -403,7 +403,10 @@ const (
 		`(def HC_PkgReq_ChainOpt_None "` + PkgReqChainOptNoneStr + "\")" +
 		`(def HC_PkgReq_ChainOpt_Headers "` + PkgReqChainOptHeadersStr + "\")" +
 		`(def HC_PkgReq_ChainOpt_Entries "` + PkgReqChainOptEntriesStr + "\")" +
-		`(def HC_PkgReq_ChainOpt_Full "` + PkgReqChainOptFullStr + "\")"
+		`(def HC_PkgReq_ChainOpt_Full "` + PkgReqChainOptFullStr + "\")" +
+
+		`(def HC_Migrate_Close "` + MigrateEntryTypeClose + "\")" +
+		`(def HC_Migrate_Open "` + MigrateEntryTypeOpen + "\")"
 )
 
 func makeResult(env *zygo.Zlisp, resultValue zygo.Sexp, resultError error) (zygo.Sexp, error) {
@@ -856,6 +859,38 @@ func NewZygoRibosome(h *Holochain, zome *Zome) (n Ribosome, err error) {
 			if r != nil {
 				entryHash = r.(Hash)
 			}
+			var result = zygo.SexpStr{S: entryHash.String()}
+			return &result, nil
+		})
+
+	z.env.AddFunction("migrate",
+		func(env *zygo.Zlisp, name string, zyargs []zygo.Sexp) (zygo.Sexp, error) {
+			fn := &APIFnMigrate{}
+			args := fn.Args()
+			err := zyProcessArgs(&z, args, zyargs)
+			if err != nil {
+				return zygo.SexpNull, err
+			}
+
+			migrationType := args[0].value.(string)
+			DNAHash := args[1].value.(Hash)
+			Key := args[2].value.(Hash)
+			Data := args[3].value.(string)
+			var r interface{}
+			fn.action.entry.Type = migrationType
+			fn.action.entry.DNAHash = DNAHash
+			fn.action.entry.Key = Key
+			fn.action.entry.Data = Data
+
+			r, err = fn.Call(h)
+			if err != nil {
+				return zygo.SexpNull, err
+			}
+			var entryHash Hash
+			if r != nil {
+				entryHash = r.(Hash)
+			}
+
 			var result = zygo.SexpStr{S: entryHash.String()}
 			return &result, nil
 		})

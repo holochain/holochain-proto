@@ -6,7 +6,7 @@ import (
 )
 
 const (
-  DelEntryType     = SysEntryTypePrefix + "del"
+  DelEntryType = SysEntryTypePrefix + "del"
   DelEntrySchema = `
 {
   "$id": "http://example.com/example.json",
@@ -34,7 +34,7 @@ const (
 
 // DelEntry struct holds the record of an entry's deletion
 type DelEntry struct {
-	Hash    Hash
+	Hash Hash
 	Message string
 }
 
@@ -42,7 +42,7 @@ var DelEntryDef = &EntryDef{Name: DelEntryType, DataFormat: DataFormatJSON, Shar
 
 func (e *DelEntry) ToJSON() (encodedEntry string, err error) {
 	var x struct {
-		Hash    string
+		Hash string
 		Message string
 	}
 	x.Hash = e.Hash.String()

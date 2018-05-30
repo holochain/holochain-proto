@@ -405,6 +405,19 @@ func TestNewJSRibosome(t *testing.T) {
 			entry, _, _ = h.chain.GetEntry(bundleCommitHash)
 			So(entry.Content(), ShouldEqual, "7")
 		})
+		Convey("migrate", func() {
+			dnaHash, err := genTestStringHash()
+			So(err, ShouldBeNil)
+			key, err := genTestStringHash()
+			So(err, ShouldBeNil)
+			data, err := genTestString()
+
+			_, err = z.Run(`migrate(HC.Migrate.Close,"` + dnaHash.String() + `","` + key.String() + `","` + data + `")`)
+			So(err, ShouldBeNil)
+			migrationEntryHash, _ := NewHash(z.lastResult.String())
+			entry, _, _ := h.chain.GetEntry(migrationEntryHash)
+			So(entry.Content(), ShouldEqual, "{\"Type\":\"close\",\"DNAHash\":\""+dnaHash.String()+"\",\"Key\":\""+key.String()+"\",\"Data\":\""+data+"\"}")
+		})
 	})
 }
 

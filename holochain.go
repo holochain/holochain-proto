@@ -629,6 +629,7 @@ func (h *Holochain) Walk(fn WalkerFn, entriesToo bool) (err error) {
 
 // GetEntryDef returns an EntryDef of the given name
 // @TODO this makes the incorrect assumption that entry type strings are unique across zomes
+// @see https://github.com/holochain/holochain-proto/issues/730
 func (h *Holochain) GetEntryDef(t string) (zome *Zome, d *EntryDef, err error) {
 	switch t {
 	case DNAEntryType:
@@ -641,6 +642,8 @@ func (h *Holochain) GetEntryDef(t string) (zome *Zome, d *EntryDef, err error) {
 		d = HeadersEntryDef
 	case DelEntryType:
 		d = DelEntryDef
+	case MigrateEntryType:
+		d = MigrateEntryDef
 	default:
 		for _, z := range h.nucleus.dna.Zomes {
 			d, err = z.GetEntryDef(t)

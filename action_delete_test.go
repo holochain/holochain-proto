@@ -1,6 +1,7 @@
 package holochain
 
 import (
+	"fmt"
 	. "github.com/holochain/holochain-proto/hash"
 	peer "github.com/libp2p/go-libp2p-peer"
 	. "github.com/smartystreets/goconvey/convey"
@@ -36,21 +37,26 @@ func TestActionDelete(t *testing.T) {
 
 	profileHash := commit(h, "profile", `{"firstName":"Zippy","lastName":"Pinhead"}`)
 	entry := DelEntry{Hash: profileHash, Message: "expired"}
-	a := &ActionDel{entry: entry}
+	action := &ActionDel{entry: entry}
 	var hash Hash
-	deleteHash, err := h.commitAndShare(a, hash)
+	deleteHash, err := h.commitAndShare(action, hash)
 	if err != nil {
 		panic(err)
 	}
 
 	Convey("when deleting a hash the del entry itself should be published to the DHT", t, func() {
-		req := GetReq{H: deleteHash, GetMask: GetMaskEntry}
-		_, err := callGet(h, req, &GetOptions{GetMask: req.GetMask})
-		So(err, ShouldBeNil)
+		for i := 0; i < nodesCount; i++ {
+			fmt.Printf("\nTesting retrieval of DelEntry from node %d\n", i)
 
-		h2 := mt.nodes[2]
-		_, err = callGet(h2, req, &GetOptions{GetMask: req.GetMask})
-		So(err, ShouldBeNil)
+			request := GetReq{H: deleteHash, GetMask: GetMaskEntry}
+			response, err := callGet(mt.nodes[i], request, &GetOptions{GetMask: request.GetMask})
+			r, ok := response.(GetResp)
+
+			So(ok, ShouldBeTrue)
+			So(err, ShouldBeNil)
+
+			So(&r.Entry, ShouldResemble, action.Entry())
+		}
 	})
 }
 

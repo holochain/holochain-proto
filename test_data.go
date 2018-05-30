@@ -4,7 +4,6 @@ import (
 	"crypto/rand"
 	"encoding/base64"
 	. "github.com/holochain/holochain-proto/hash"
-	"github.com/multiformats/go-multihash"
 	mrand "math/rand"
 	"time"
 )
@@ -38,11 +37,13 @@ func generateRandomString(s int) (string, error) {
 
 // Generate a random Hash string for testing
 func genTestStringHash() (hash Hash, err error) {
-	randBytes, err := generateRandomBytes(32)
-	mhash, err := multihash.EncodeName(randBytes, "sha256")
-	rawHash, err := HashFromBytes(mhash)
+	mt := setupMultiNodeTesting(1)
+	defer mt.cleanupMultiNodeTesting()
 
-	hash, err = NewHash(rawHash.String())
+	h := mt.nodes[0]
+
+	randBytes, err := generateRandomBytes(32)
+	hash, err = Sum(h.hashSpec, randBytes)
 
 	return
 }

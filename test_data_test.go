@@ -39,14 +39,19 @@ func TestGenerateRandomString(t *testing.T) {
 func TestGenTestStringHash(t *testing.T) {
   Convey("random hash should be unique", t, func() {
     a, err := genTestStringHash()
-    if err != nil {
-      panic(err)
-    }
+    So(err, ShouldBeNil)
+
     b, err := genTestStringHash()
-    if err != nil {
-      panic(err)
-    }
+    So(err, ShouldBeNil)
+
     So(a, ShouldNotEqual, b)
+  })
+
+  Convey("random hash should start with Qm", t, func() {
+    a, err := genTestStringHash()
+
+    So(err, ShouldBeNil)
+    So(a.String()[0:2], ShouldEqual, "Qm")
   })
 
   Convey("random hash should roundtrip safely through strings", t, func() {
@@ -57,10 +62,6 @@ func TestGenTestStringHash(t *testing.T) {
     s := a.String()
     roundtrip, err := NewHash(s)
     So(a, ShouldEqual, roundtrip)
-  })
-
-  Convey("random hash should start with Q", t, func() {
-    // @TODO all hashes should start with Qm (see test examples)
   })
 }
 

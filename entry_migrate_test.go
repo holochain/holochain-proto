@@ -2,7 +2,6 @@ package holochain
 
 import (
   "testing"
-  . "github.com/holochain/holochain-proto/hash"
   . "github.com/smartystreets/goconvey/convey"
   "fmt"
 )
@@ -42,10 +41,14 @@ func TestMigrateEntrySysValidation(t *testing.T) {
 
     dnaHash, err := genTestStringHash()
     key, err := genTestStringHash()
+    So(err, ShouldBeNil)
+
     migrateType := randomSliceItem([]string{MigrateEntryTypeOpen, MigrateEntryTypeClose})
     data, err := genTestString()
+    So(err, ShouldBeNil)
 
     entry.DNAHash = dnaHash
+
     err = sysValidateEntry(h, entry.Def(), toEntry(entry), nil)
     So(err, ShouldNotBeNil)
     So(err.Error(), ShouldEqual, "Validation Failed: Error (input isn't valid multihash) when decoding Key value ''")
@@ -66,27 +69,27 @@ func TestMigrateEntrySysValidation(t *testing.T) {
 		So(err, ShouldNotBeNil)
 		So(err.Error(), ShouldEqual, "unexpected end of JSON input")
 
-    missingType := &GobEntry{C: "{\"DNAHash\":\"1AaJq9cCYEBEZEbfmwupdb51gG8yZr9LTBxhBeXSZJtJbA\",\"Key\":\"1AnJDazAvUmNH6rzxQxGho1fBhd1kxfWjJJ8rkrbbDarb1\",\"Data\":\"1Akcx6p98n5FaSgxF8h7s8mdiua6JkctjLtLsEsSaSHVZn\"}"}
+    missingType := &GobEntry{C: "{\"DNAHash\":\"" + dnaHash.String() + "\",\"Key\":\"" + key.String() + "\",\"Data\":\"" + data + "\"}"}
     err = sysValidateEntry(h, MigrateEntryDef, missingType, nil)
     So(err, ShouldNotBeNil)
     So(err.Error(), ShouldEqual, "Validation Failed: validator %migrate failed: object property 'Type' is required")
 
-    missingDNAHash := &GobEntry{C: "{\"Type\":\"1AZJizDv7dKiSm5umS2muVoK4GCVm9jPCGidSndczyE64b\",\"Key\":\"1AncHr4PvHbkYNW4jdgmqJWfMArcAndLRrVGwVW18dtUN1\",\"Data\":\"1AjaEHtBfb9vLEsivCsPHH5NyBuEwrbkzzK8w54ufCFXw5\"}"}
+    missingDNAHash := &GobEntry{C: "{\"Type\":\"" + migrateType + "\",\"Key\":\"" + key.String() + "\",\"Data\":\"" + data + "\"}"}
     err = sysValidateEntry(h, MigrateEntryDef, missingDNAHash, nil)
     So(err, ShouldNotBeNil)
     So(err.Error(), ShouldEqual, "Validation Failed: validator %migrate failed: object property 'DNAHash' is required")
 
-    missingKey := &GobEntry{C: "{\"Type\":\"1AoLAq5VA5rT5tPBKsmSksGc7b4avtF2gjhGxCwrJV4hpi\",\"DNAHash\":\"1AWteDFmYMHHyZ3BRM4ndTLXaeoKiuwTyNkCVHVv4KTZ3p\",\"Data\":\"1AmDjukyX7B5Kh57DDKE8MzNfLUUF5n7nBpuGBi61njRPr\"}"}
+    missingKey := &GobEntry{C: "{\"Type\":\"" + migrateType + "\",\"DNAHash\":\"" + dnaHash.String() + "\",\"Data\":\"" + data + "\"}"}
     err = sysValidateEntry(h, MigrateEntryDef, missingKey, nil)
     So(err, ShouldNotBeNil)
     So(err.Error(), ShouldEqual, "Validation Failed: validator %migrate failed: object property 'Key' is required")
 
-    brokenDNAHash := &GobEntry{C: "{\"Type\":\"1AgHrybioSgRuMGVvkD6NjqBiCmpap3gAKgGcgzaBodXE9\",\"DNAHash\":\"not-a-hash\",\"Key\":\"1AYFPBzgLWVGEy2MFSY9ZyLw7c224fWykZKy3HWx32SJrC\",\"Data\":\"1AmXqXdBCVcraVaWB3sk7HemHWq5wkCZX1GW3fPDgj3Htz\"}"}
+    brokenDNAHash := &GobEntry{C: "{\"Type\":\"" + migrateType + "\",\"DNAHash\":\"not-a-hash\",\"Key\":\"" + key.String() + "\",\"Data\":\"" + data + "\"}"}
     err = sysValidateEntry(h, MigrateEntryDef, brokenDNAHash, nil)
 		So(err, ShouldNotBeNil)
 		So(err.Error(), ShouldEqual, "Validation Failed: Error (input isn't valid multihash) when decoding DNAHash value 'not-a-hash'")
 
-    brokenKey := &GobEntry{C: "{\"Type\":\"1AgHrybioSgRuMGVvkD6NjqBiCmpap3gAKgGcgzaBodXE9\",\"Key\":\"not-a-hash\",\"DNAHash\":\"1AYFPBzgLWVGEy2MFSY9ZyLw7c224fWykZKy3HWx32SJrC\",\"Data\":\"1AmXqXdBCVcraVaWB3sk7HemHWq5wkCZX1GW3fPDgj3Htz\"}"}
+    brokenKey := &GobEntry{C: "{\"Type\":\"" + migrateType + "\",\"Key\":\"not-a-hash\",\"DNAHash\":\"" + dnaHash.String() + "\",\"Data\":\"" + data + "\"}"}
     err = sysValidateEntry(h, MigrateEntryDef, brokenKey, nil)
 		So(err, ShouldNotBeNil)
 		So(err.Error(), ShouldEqual, "Validation Failed: Error (input isn't valid multihash) when decoding Key value 'not-a-hash'")
@@ -94,21 +97,27 @@ func TestMigrateEntrySysValidation(t *testing.T) {
 }
 
 func TestMigrateEntryFromJSON(t *testing.T) {
-  jsonString := "{\"Type\":\"open\",\"DNAHash\":\"1AarHJii5CkF6waPp4e3VgniqYB5byyyb5sWzewxvBUsPN\",\"Key\":\"1AeVYmanHKEJP36WjvV7ZBzhBR9F8euDd2ejJLTdxbAtD2\",\"Data\":\"1AiydpQZ57G8LAamezKFySyy2DKghX3q83ZDMnqnSp5Vyi\"}"
-  entry, err := MigrateEntryFromJSON(jsonString)
-  if err != nil {
-    panic(err)
-  }
-
   Convey("MigrateEntry should be unserializable from JSON", t, func() {
-    unserializedDNAHash, err := NewHash("1AarHJii5CkF6waPp4e3VgniqYB5byyyb5sWzewxvBUsPN")
-    unserializedKey, err := NewHash("1AeVYmanHKEJP36WjvV7ZBzhBR9F8euDd2ejJLTdxbAtD2")
+    dnaHash, err := genTestStringHash()
+    So(err, ShouldBeNil)
+
+    key, err := genTestStringHash()
+    So(err, ShouldBeNil)
+
+    data, err := genTestString()
+    So(err, ShouldBeNil)
+
+    migrateType := randomSliceItem([]string{MigrateEntryTypeOpen, MigrateEntryTypeClose})
+
+    jsonString := "{\"Type\":\"" + migrateType + "\",\"DNAHash\":\"" + dnaHash.String() + "\",\"Key\":\"" + key.String() + "\",\"Data\":\"" + data + "\"}"
+    entry, err := MigrateEntryFromJSON(jsonString)
+    So(err, ShouldBeNil)
 
     So(err, ShouldBeNil)
-    So(entry.DNAHash, ShouldEqual, unserializedDNAHash)
-    So(entry.Key, ShouldEqual, unserializedKey)
-    So(entry.Data, ShouldEqual, "1AiydpQZ57G8LAamezKFySyy2DKghX3q83ZDMnqnSp5Vyi")
-    So(entry.Type, ShouldEqual, MigrateEntryTypeOpen)
+    So(entry.DNAHash, ShouldEqual, dnaHash)
+    So(entry.Key, ShouldEqual, key)
+    So(entry.Data, ShouldEqual, data)
+    So(entry.Type, ShouldEqual, migrateType)
   })
 }
 

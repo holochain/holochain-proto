@@ -66,7 +66,7 @@ func TestMigrateHeaderSetGet(t *testing.T) {
 	})
 }
 
-func TestMigrateShare(t *testing.T) {
+func TestMigrateCallShare(t *testing.T) {
 	n := 3
 	mt := setupMultiNodeTesting(n)
 	ringConnect(t, mt.ctx, mt.nodes, n)
@@ -83,7 +83,10 @@ func TestMigrateShare(t *testing.T) {
 
 		// Can share from some node
 		var dhtHash Hash
-		dhtHash, err = mt.nodes[0].commitAndShare(&action, action.header.EntryLink)
+		fn := &APIFnMigrate{action: action}
+		callResponse, err := fn.Call(mt.nodes[0])
+		dhtHash, ok := callResponse.(Hash)
+		So(ok, ShouldBeTrue)
 		So(err, ShouldBeNil)
 
 		// Can get the PUT MigrateEntry from any node
@@ -180,8 +183,4 @@ func TestAPIFnMigrateArgs(t *testing.T) {
 				Type: StringArg}}
 		So(fn.Args(), ShouldResemble, expected)
 	})
-}
-
-func TestAPIFnMigrateCall(t *testing.T) {
-	// @TODO
 }

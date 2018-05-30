@@ -25,13 +25,11 @@ func TestMigrateEntry(t *testing.T) {
 
 	Convey("entries with vals work with Entry()", t, func() {
 		dnaHash, err := genTestStringHash()
-		if err != nil {
-			panic(err)
-		}
+		So(err, ShouldBeNil)
+
 		key, err := genTestStringHash()
-		if err != nil {
-			panic(err)
-		}
+		So(err, ShouldBeNil)
+
 		entry := MigrateEntry{DNAHash: dnaHash, Key: key}
 		action := ActionMigrate{entry: entry}
 
@@ -55,9 +53,8 @@ func TestMigrateHeaderSetGet(t *testing.T) {
 	Convey("migrate action should be able to set and get header", t, func() {
 		action := ActionMigrate{}
 		header, err := genTestHeader()
-		if err != nil {
-			panic(err)
-		}
+		So(err, ShouldBeNil)
+
 		So(action.GetHeader(), ShouldEqual, nil)
 		action.SetHeader(header)
 		So(action.GetHeader(), ShouldEqual, header)
@@ -76,9 +73,8 @@ func TestMigrateCallShare(t *testing.T) {
 		var err error
 		header, err := genTestHeader()
 		entry, err := genTestMigrateEntry()
-		if err != nil {
-			panic(err)
-		}
+		So(err, ShouldBeNil)
+
 		action := ActionMigrate{header: header, entry: entry}
 
 		// Can share from some node
@@ -123,18 +119,16 @@ func TestMigrateActionSysValidation(t *testing.T) {
 
 	Convey("ActionMigrate SysValidation should validate the entry", t, func() {
 		header, err := genTestHeader()
-		if err != nil {
-			panic(err)
-		}
+		So(err, ShouldBeNil)
+
 		action := ActionMigrate{header: header}
 		err = action.SysValidation(h, action.entry.Def(), nil, []peer.ID{h.nodeID})
 		// the entry is empty so there should be validation complaints
 		So(err.Error(), ShouldEqual, "Validation Failed: Error (input isn't valid multihash) when decoding DNAHash value ''")
 
 		action.entry, err = genTestMigrateEntry()
-		if err != nil {
-			panic(err)
-		}
+		So(err, ShouldBeNil)
+
 		err = action.SysValidation(h, action.entry.Def(), nil, []peer.ID{h.nodeID})
 		So(err, ShouldBeNil)
 	})

@@ -6,7 +6,6 @@ import (
 	peer "github.com/libp2p/go-libp2p-peer"
 	. "github.com/smartystreets/goconvey/convey"
 	"testing"
-	"time"
 )
 
 // ActionMigrate
@@ -68,7 +67,9 @@ func TestMigrateHeaderSetGet(t *testing.T) {
 }
 
 func TestMigrateShare(t *testing.T) {
-	mt := setupMultiNodeTesting(3)
+	n := 3
+	mt := setupMultiNodeTesting(n)
+	ringConnect(t, mt.ctx, mt.nodes, n)
 	defer mt.cleanupMultiNodeTesting()
 
 	Convey("ActionMigrate should share as a PUT on the DHT and roundtrip as JSON", t, func() {
@@ -84,19 +85,19 @@ func TestMigrateShare(t *testing.T) {
 		var dhtHash Hash
 		dhtHash, err = mt.nodes[0].commitAndShare(&action, action.header.EntryLink)
 		So(err, ShouldBeNil)
-		time.Sleep(1000)
 
 		// Can get the PUT MigrateEntry from any node
-		for i, hx := range mt.nodes {
+		for i := 0; i < n; i++ {
 			fmt.Printf("\nTesting retrieval of MigrateEntry PUT from node %d\n", i)
-			resp, _, _, _, err := hx.dht.Get(dhtHash, StatusLive, GetMaskEntry)
+
+			request := GetReq{H: dhtHash, StatusMask: StatusLive, GetMask: GetMaskEntry}
+			response, err := callGet(mt.nodes[i], request, &GetOptions{GetMask: request.GetMask})
+			r, ok := response.(GetResp)
+
+			So(ok, ShouldBeTrue)
 			So(err, ShouldBeNil)
 
-			var gob = &GobEntry{}
-			err = gob.Unmarshal(resp)
-			So(err, ShouldBeNil)
-
-			So(gob, ShouldResemble, action.Entry())
+			So(&r.Entry, ShouldResemble, action.Entry())
 		}
 	})
 }

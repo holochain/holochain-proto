@@ -37,6 +37,12 @@ func NewWebServer(h *holo.Holochain, port string) *WebServer {
 	return &w
 }
 
+// Helper for managing CORS responses
+func AddCors(w http.ResponseWriter) {
+	headers := w.Header()
+	headers.Set("Access-Control-Allow-Origin", "*")
+}
+
 //Start starts up a web server and returns a channel which will shutdown
 func (ws *WebServer) Start() {
 
@@ -103,6 +109,8 @@ func (ws *WebServer) Start() {
 		}()
 
 		ws.log.Logf("REQUEST:%v", r)
+
+		AddCors(w)
 
 		body, err := ioutil.ReadAll(r.Body)
 		if err != nil {

@@ -59,6 +59,15 @@ func TestWebServer(t *testing.T) {
 		So(string(b), ShouldEqual, "en")
 	})
 
+	Convey("it should return CORS headers when calling functions", t, func() {
+		body := bytes.NewBuffer([]byte("language"))
+		resp, err := http.Post("http://0.0.0.0:31415/fn/jsSampleZome/getProperty", "", body)
+		So(err, ShouldBeNil)
+		defer resp.Body.Close()
+		_, corsPresent := resp.Header["Access-Control-Allow-Origin"]
+		So(corsPresent, ShouldEqual, true)
+	})
+
 	Convey("it should return Holochain errors from call functions as 400", t, func() {
 		body := bytes.NewBuffer([]byte("2"))
 		resp, err := http.Post("http://0.0.0.0:31415/fn/jsSampleZome/addOdd", "", body)

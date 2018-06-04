@@ -84,7 +84,7 @@ func TestGetHolochain(t *testing.T) {
 	service, _ := GetService(d)
 	Convey("it should fail to get an non-existent holochain", t, func() {
 		h, err := GetHolochain("foobar", service, "some-cmd")
-		So(err.Error(), ShouldEqual, fmt.Sprintf("No DNA file in %s/foobar/dna/", d))
+		So(err.Error(), ShouldEqual, fmt.Sprintf("No DNA file in %s%sfoobar%sdna%s", d, string(os.PathSeparator), string(os.PathSeparator), string(os.PathSeparator)))
 		So(h, ShouldBeNil)
 	})
 

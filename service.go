@@ -300,7 +300,7 @@ func findDNA(path string) (f string, err error) {
 	}
 
 	if f == "" {
-		err = fmt.Errorf("No DNA file in %s/", path)
+		err = fmt.Errorf("No DNA file in %s%s", path, string(os.PathSeparator))
 		return
 	}
 	return

@@ -5,7 +5,6 @@
 package holochain
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	. "github.com/holochain/holochain-proto/hash"
@@ -61,13 +60,16 @@ type Action interface {
 // CommittingAction provides an abstraction for grouping actions which carry Entry data
 type CommittingAction interface {
 	Name() string
+	// Performs all validation logic, including sysValidation (must be called explicitly)
 	SysValidation(h *Holochain, def *EntryDef, pkg *Package, sources []peer.ID) (err error)
 	Receive(dht *DHT, msg *Message) (response interface{}, err error)
 	CheckValidationRequest(def *EntryDef) (err error)
 	EntryType() string
+	// returns a GobEntry containing the action's entry in a serialized format
 	Entry() Entry
 	SetHeader(header *Header)
 	GetHeader() (header *Header)
+	// Low level implementation of putting to DHT (assumes validation has been done)
 	Share(h *Holochain, def *EntryDef) (err error)
 }
 
@@ -94,6 +96,8 @@ var ErrModInvalidForLinks error = errors.New("mod: invalid for Links entry")
 var ErrModMissingHeader error = errors.New("mod: missing header")
 var ErrModReplacesHashNotDifferent error = errors.New("mod: replaces must be different from original hash")
 var ErrEntryDefInvalid = errors.New("Invalid Entry Defintion")
+var ErrActionMissingHeader error = errors.New("Action is missing header")
+var ErrActionReceiveInvalid error = errors.New("Action receive is invalid")
 
 var ErrNilEntryInvalid error = errors.New("nil entry invalid")
 
@@ -194,6 +198,9 @@ func (h *Holochain) GetValidationResponse(a ValidatingAction, hash Hash) (resp V
 		// so that sys validation can confirm this agent entry in the chain
 		req := PackagingReq{PkgReqChain: int64(PkgReqChainOptFull), PkgReqEntryTypes: []string{AgentEntryType}}
 		resp.Package, err = MakePackage(h, req)
+	case MigrateEntryType:
+		// if migrate entry there no extra info to return in the package so do nothing
+		// TODO: later this might not be true, could return whole chain?
 	default:
 		// app defined entry types
 		var def *EntryDef
@@ -327,7 +334,7 @@ func (h *Holochain) doCommit(a CommittingAction, change Hash) (d *EntryDef, err 
 	return
 }
 
-func (h *Holochain) commitAndShare(a CommittingAction, change Hash) (response interface{}, err error) {
+func (h *Holochain) commitAndShare(a CommittingAction, change Hash) (response Hash, err error) {
 	var def *EntryDef
 	def, err = h.doCommit(a, change)
 	if err != nil {
@@ -363,129 +370,6 @@ const (
 	ValidationFailureBadPublicKeyFormat  = "bad public key format"
 	ValidationFailureBadRevocationFormat = "bad revocation format"
 )
-
-// sysValidateEntry does system level validation for adding an entry (put or commit)
-// It checks that entry is not nil, and that it conforms to the entry schema in the definition
-// if it's a Links entry that the contents are correctly structured
-// if it's a new agent entry, that identity matches the defined identity structure
-// if it's a key that the structure is actually a public key
-func sysValidateEntry(h *Holochain, def *EntryDef, entry Entry, pkg *Package) (err error) {
-	switch def.Name {
-	case DNAEntryType:
-		err = ErrNotValidForDNAType
-		return
-	case KeyEntryType:
-		b58pk, ok := entry.Content().(string)
-		if !ok || !isValidPubKey(b58pk) {
-			err = ValidationFailed(ValidationFailureBadPublicKeyFormat)
-			return
-		}
-	case AgentEntryType:
-		j, ok := entry.Content().(string)
-		if !ok {
-			err = ValidationFailedErr
-			return
-		}
-		ae, _ := AgentEntryFromJSON(j)
-
-		// check that the public key is unmarshalable
-		if !isValidPubKey(ae.PublicKey) {
-			err = ValidationFailed(ValidationFailureBadPublicKeyFormat)
-			return err
-		}
-
-		// if there's a revocation, confirm that has a reasonable format
-		if ae.Revocation != "" {
-			revocation := &SelfRevocation{}
-			err := revocation.Unmarshal(ae.Revocation)
-			if err != nil {
-				err = ValidationFailed(ValidationFailureBadRevocationFormat)
-				return err
-			}
-		}
-
-		// TODO check anything in the package
-	case HeadersEntryType:
-		// TODO check signatures!
-	case DelEntryType:
-		// TODO checks according to CRDT configuration?
-	}
-
-	if entry == nil {
-		err = ValidationFailed(ErrNilEntryInvalid.Error())
-		return
-	}
-
-	// see if there is a schema validator for the entry type and validate it if so
-	if def.validator != nil {
-		var input interface{}
-		if def.DataFormat == DataFormatJSON {
-			if err = json.Unmarshal([]byte(entry.Content().(string)), &input); err != nil {
-				return
-			}
-		} else {
-			input = entry
-		}
-		h.Debugf("Validating %v against schema", input)
-		if err = def.validator.Validate(input); err != nil {
-			err = ValidationFailed(err.Error())
-			return
-		}
-		if def == DelEntryDef {
-			// TODO refactor and use in other sys types
-			hashValue, ok := input.(map[string]interface{})["Hash"].(string)
-			if !ok {
-				err = ValidationFailed("expected string!")
-				return
-			}
-			_, err = NewHash(hashValue)
-			if err != nil {
-				err = ValidationFailed(fmt.Sprintf("Error (%s) when decoding Hash value '%s'", err.Error(), hashValue))
-				return
-			}
-		}
-	} else if def.DataFormat == DataFormatLinks {
-		// Perform base validation on links entries, i.e. that all items exist and are of the right types
-		// so first unmarshall the json, and then check that the hashes are real.
-		var l struct{ Links []map[string]string }
-		err = json.Unmarshal([]byte(entry.Content().(string)), &l)
-		if err != nil {
-			err = fmt.Errorf("invalid links entry, invalid json: %v", err)
-			return
-		}
-		if len(l.Links) == 0 {
-			err = errors.New("invalid links entry: you must specify at least one link")
-			return
-		}
-		for _, link := range l.Links {
-			h, ok := link["Base"]
-			if !ok {
-				err = errors.New("invalid links entry: missing Base")
-				return
-			}
-			if _, err = NewHash(h); err != nil {
-				err = fmt.Errorf("invalid links entry: Base %v", err)
-				return
-			}
-			h, ok = link["Link"]
-			if !ok {
-				err = errors.New("invalid links entry: missing Link")
-				return
-			}
-			if _, err = NewHash(h); err != nil {
-				err = fmt.Errorf("invalid links entry: Link %v", err)
-				return
-			}
-			_, ok = link["Tag"]
-			if !ok {
-				err = errors.New("invalid links entry: missing Tag")
-				return
-			}
-		}
-
-	}
-	return
-}
 
 func RunValidationPhase(h *Holochain, source peer.ID, msgType MsgType, query Hash, handler func(resp ValidateResponse) error) (err error) {
 	var r interface{}

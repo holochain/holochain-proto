@@ -43,6 +43,8 @@ type ReceiverFn func(h *Holochain, m *Message) (response interface{}, err error)
 
 type MsgType int8
 
+// @TODO don't have order dependant constants
+// https://github.com/holochain/holochain-proto/issues/713
 const (
 	// common messages
 

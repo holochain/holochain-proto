@@ -171,6 +171,9 @@ func Init(root string, identity AgentIdentity, seed io.Reader) (service *Service
 	if DelEntryDef.validator == nil {
 		err = DelEntryDef.BuildJSONSchemaValidatorFromString(DelEntryDef.Schema)
 	}
+	if MigrateEntryDef.validator == nil {
+		err = MigrateEntryDef.BuildJSONSchemaValidatorFromString(MigrateEntryDef.Schema)
+	}
 	if err != nil {
 		return
 	}
@@ -297,7 +300,7 @@ func findDNA(path string) (f string, err error) {
 	}
 
 	if f == "" {
-		err = fmt.Errorf("No DNA file in %s/", path)
+		err = fmt.Errorf("No DNA file in %s%s", path, string(os.PathSeparator))
 		return
 	}
 	return

@@ -346,6 +346,7 @@ const (
 		`"},Response:{OK:"` + BundleCancelResponseOK +
 		`",Commit:"` + BundleCancelResponseCommit +
 		`"}}` +
+		`Migrate:{Close:"` + MigrateEntryTypeClose + `",Open:"` + MigrateEntryTypeOpen + `"}` +
 		`};`
 )
 
@@ -834,6 +835,33 @@ func NewJSRibosome(h *Holochain, zome *Zome) (n Ribosome, err error) {
 				return
 			},
 		},
+		"migrate": fnData{
+			apiFn: &APIFnMigrate{},
+			f: func(args []Arg, _f APIFunction, call otto.FunctionCall) (result otto.Value, err error) {
+				f := _f.(*APIFnMigrate)
+				migrationType := args[0].value.(string)
+				DNAHash := args[1].value.(Hash)
+				Key := args[2].value.(Hash)
+				Data := args[3].value.(string)
+				var r interface{}
+				f.action.entry.Type = migrationType
+				f.action.entry.DNAHash = DNAHash
+				f.action.entry.Key = Key
+				f.action.entry.Data = Data
+				r, err = f.Call(h)
+				if err != nil {
+					return
+				}
+				var entryHash Hash
+				if r != nil {
+					entryHash = r.(Hash)
+				}
+
+				result, err = jsr.vm.ToValue(entryHash.String())
+				return
+			},
+		},
+
 		"query": fnData{
 			apiFn: &APIFnQuery{},
 			f: func(args []Arg, _f APIFunction, call otto.FunctionCall) (result otto.Value, err error) {

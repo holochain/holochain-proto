@@ -31,10 +31,10 @@ import (
 
 const (
 	// Version is the numeric version number of the holochain library
-	Version int = 25
+	Version int = 26
 
 	// VersionStr is the textual version number of the holochain library
-	VersionStr string = "25"
+	VersionStr string = "26"
 
 	// DefaultSendTimeout a time.Duration to wait by default for send to complete
 	DefaultSendTimeout = 3000 * time.Millisecond
@@ -629,6 +629,7 @@ func (h *Holochain) Walk(fn WalkerFn, entriesToo bool) (err error) {
 
 // GetEntryDef returns an EntryDef of the given name
 // @TODO this makes the incorrect assumption that entry type strings are unique across zomes
+// @see https://github.com/holochain/holochain-proto/issues/730
 func (h *Holochain) GetEntryDef(t string) (zome *Zome, d *EntryDef, err error) {
 	switch t {
 	case DNAEntryType:
@@ -641,6 +642,8 @@ func (h *Holochain) GetEntryDef(t string) (zome *Zome, d *EntryDef, err error) {
 		d = HeadersEntryDef
 	case DelEntryType:
 		d = DelEntryDef
+	case MigrateEntryType:
+		d = MigrateEntryDef
 	default:
 		for _, z := range h.nucleus.dna.Zomes {
 			d, err = z.GetEntryDef(t)

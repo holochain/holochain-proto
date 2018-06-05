@@ -1,11 +1,31 @@
 package holochain
 
 import (
+	"fmt"
 	. "github.com/holochain/holochain-proto/hash"
 	peer "github.com/libp2p/go-libp2p-peer"
 	. "github.com/smartystreets/goconvey/convey"
 	"testing"
 )
+
+func TestDelName(t *testing.T) {
+	Convey("delete action should have the right name", t, func() {
+		// https://github.com/holochain/holochain-proto/issues/715
+		// a := NewDelAction(DelEntry{Hash: ""})
+		a := ActionDel{entry: DelEntry{Hash: ""}}
+		So(a.Name(), ShouldEqual, "del")
+	})
+}
+
+func TestAPIFnDelName(t *testing.T) {
+	Convey("delete action function should have the right name", t, func() {
+		// https://github.com/holochain/holochain-proto/issues/715
+		// a := NewDelAction(DelEntry{Hash: ""})
+		a := ActionDel{entry: DelEntry{Hash: ""}}
+		fn := &APIFnDel{action: a}
+		So(fn.Name(), ShouldEqual, "del")
+	})
+}
 
 func TestActionDelete(t *testing.T) {
 	nodesCount := 3
@@ -17,25 +37,30 @@ func TestActionDelete(t *testing.T) {
 
 	profileHash := commit(h, "profile", `{"firstName":"Zippy","lastName":"Pinhead"}`)
 	entry := DelEntry{Hash: profileHash, Message: "expired"}
-	a := &ActionDel{entry: entry}
-	response, err := h.commitAndShare(a, NullHash())
+	action := &ActionDel{entry: entry}
+	var hash Hash
+	deleteHash, err := h.commitAndShare(action, hash)
 	if err != nil {
 		panic(err)
 	}
-	deleteHash := response.(Hash)
 
 	Convey("when deleting a hash the del entry itself should be published to the DHT", t, func() {
-		req := GetReq{H: deleteHash, GetMask: GetMaskEntry}
-		_, err := callGet(h, req, &GetOptions{GetMask: req.GetMask})
-		So(err, ShouldBeNil)
+		for i := 0; i < nodesCount; i++ {
+			fmt.Printf("\nTesting retrieval of DelEntry from node %d\n", i)
 
-		h2 := mt.nodes[2]
-		_, err = callGet(h2, req, &GetOptions{GetMask: req.GetMask})
-		So(err, ShouldBeNil)
+			request := GetReq{H: deleteHash, GetMask: GetMaskEntry}
+			response, err := callGet(mt.nodes[i], request, &GetOptions{GetMask: request.GetMask})
+			r, ok := response.(GetResp)
+
+			So(ok, ShouldBeTrue)
+			So(err, ShouldBeNil)
+
+			So(&r.Entry, ShouldResemble, action.Entry())
+		}
 	})
 }
 
-func TestSysValidateDel(t *testing.T) {
+func TestDelActionSysValidate(t *testing.T) {
 	d, _, h := PrepareTestChain("test")
 	defer CleanupTestChain(h, d)
 
@@ -48,36 +73,13 @@ func TestSysValidateDel(t *testing.T) {
 		err := a.SysValidation(h, ratingsDef, nil, []peer.ID{h.nodeID})
 		So(err, ShouldBeError)
 	})
-
-	Convey("validate del entry should fail if it doesn't match the del entry schema", t, func() {
-		err := sysValidateEntry(h, DelEntryDef, &GobEntry{C: ""}, nil)
-		So(err, ShouldNotBeNil)
-		So(err.Error(), ShouldEqual, "unexpected end of JSON input")
-
-		err = sysValidateEntry(h, DelEntryDef, &GobEntry{C: `{"Fish":2}`}, nil)
-		So(err, ShouldNotBeNil)
-		So(err.Error(), ShouldEqual, "Validation Failed: validator %del failed: object property 'Hash' is required")
-
-		err = sysValidateEntry(h, DelEntryDef, &GobEntry{C: `{"Hash": "not-a-hash"}`}, nil)
-		So(err, ShouldNotBeNil)
-		So(err.Error(), ShouldEqual, "Validation Failed: Error (input isn't valid multihash) when decoding Hash value 'not-a-hash'")
-
-		err = sysValidateEntry(h, DelEntryDef, &GobEntry{C: `{"Hash": 1}`}, nil)
-		So(err, ShouldNotBeNil)
-		So(err.Error(), ShouldEqual, "Validation Failed: validator %del failed: object property 'Hash' validation failed: value is not a string (Kind: float64)")
-
-	})
-
-	Convey("validate del entry should succeed on valid entry", t, func() {
-		err := sysValidateEntry(h, DelEntryDef, &GobEntry{C: `{"Hash": "QmUfY4WeqD3UUfczjdkoFQGEgCAVNf7rgFfjdeTbr7JF1C","Message": "obsolete"}`}, nil)
-		So(err, ShouldBeNil)
-	})
 }
 
 func TestSysDel(t *testing.T) {
 	d, _, h := PrepareTestChain("test")
 	defer CleanupTestChain(h, d)
 	var err error
+
 	Convey("deleting should fail for all sys entry types except delete", t, func() {
 		a := NewDelAction(DelEntry{})
 		_, err = h.ValidateAction(a, DNAEntryType, nil, []peer.ID{h.nodeID})

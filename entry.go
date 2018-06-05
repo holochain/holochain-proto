@@ -13,6 +13,8 @@ import (
 	"github.com/lestrrat/go-jsval"
 	"io"
 	"strings"
+	"fmt"
+	"errors"
 )
 
 const (
@@ -186,5 +188,164 @@ func (d *EntryDef) BuildJSONSchemaValidatorFromString(schema string) (err error)
 	}
 	validator.v.SetName(d.Name)
 	d.validator = validator
+	return
+}
+
+// sysValidateEntry does system level validation for adding an entry (put or commit)
+// It checks that entry is not nil, and that it conforms to the entry schema in the definition
+// if it's a Links entry that the contents are correctly structured
+// if it's a new agent entry, that identity matches the defined identity structure
+// if it's a key that the structure is actually a public key
+func sysValidateEntry(h *Holochain, def *EntryDef, entry Entry, pkg *Package) (err error) {
+	switch def.Name {
+	case DNAEntryType:
+		err = ErrNotValidForDNAType
+		return
+	case KeyEntryType:
+		b58pk, ok := entry.Content().(string)
+		if !ok || !isValidPubKey(b58pk) {
+			err = ValidationFailed(ValidationFailureBadPublicKeyFormat)
+			return
+		}
+	case AgentEntryType:
+		j, ok := entry.Content().(string)
+		if !ok {
+			err = ValidationFailedErr
+			return
+		}
+		ae, _ := AgentEntryFromJSON(j)
+
+		// check that the public key is unmarshalable
+		if !isValidPubKey(ae.PublicKey) {
+			err = ValidationFailed(ValidationFailureBadPublicKeyFormat)
+			return err
+		}
+
+		// if there's a revocation, confirm that has a reasonable format
+		if ae.Revocation != "" {
+			revocation := &SelfRevocation{}
+			err := revocation.Unmarshal(ae.Revocation)
+			if err != nil {
+				err = ValidationFailed(ValidationFailureBadRevocationFormat)
+				return err
+			}
+		}
+
+		// TODO check anything in the package
+	case HeadersEntryType:
+		// TODO check signatures!
+	case DelEntryType:
+		// TODO checks according to CRDT configuration?
+	}
+
+	if entry == nil {
+		err = ValidationFailed(ErrNilEntryInvalid.Error())
+		return
+	}
+
+	// see if there is a schema validator for the entry type and validate it if so
+	if def.validator != nil {
+		var input interface{}
+		if def.DataFormat == DataFormatJSON {
+			if err = json.Unmarshal([]byte(entry.Content().(string)), &input); err != nil {
+				return
+			}
+		} else {
+			input = entry
+		}
+		h.Debugf("Validating %v against schema", input)
+		if err = def.validator.Validate(input); err != nil {
+			err = ValidationFailed(err.Error())
+			return
+		}
+		if def == DelEntryDef {
+			// @TODO refactor and use in other sys types
+			// @see https://github.com/holochain/holochain-proto/issues/733
+			hashValue, ok := input.(map[string]interface{})["Hash"].(string)
+			if !ok {
+				err = ValidationFailed("expected string!")
+				return
+			}
+			_, err = NewHash(hashValue)
+			if err != nil {
+				err = ValidationFailed(fmt.Sprintf("Error (%s) when decoding Hash value '%s'", err.Error(), hashValue))
+				return
+			}
+		}
+		if def == MigrateEntryDef {
+			// @TODO refactor with above
+			// @see https://github.com/holochain/holochain-proto/issues/733
+			dnaHashValue, ok := input.(map[string]interface{})["DNAHash"].(string)
+			if !ok {
+				err = ValidationFailed("expected string!")
+				return
+			}
+			_, err = NewHash(dnaHashValue)
+			if err != nil {
+				err = ValidationFailed(fmt.Sprintf("Error (%s) when decoding DNAHash value '%s'", err.Error(), dnaHashValue))
+				return
+			}
+
+			keyValue, ok := input.(map[string]interface{})["Key"].(string)
+			if !ok {
+				err = ValidationFailed("expected string!")
+				return
+			}
+			_, err = NewHash(keyValue)
+			if err != nil {
+				err = ValidationFailed(fmt.Sprintf("Error (%s) when decoding Key value '%s'", err.Error(), keyValue))
+				return
+			}
+
+			typeValue, ok := input.(map[string]interface{})["Type"].(string)
+			if !ok {
+				err = ValidationFailed("expected string!")
+				return
+			}
+			if !(typeValue == MigrateEntryTypeClose || typeValue == MigrateEntryTypeOpen) {
+				err = ValidationFailed(fmt.Sprintf("Type value '%s' must be either '%s' or '%s'", typeValue, MigrateEntryTypeOpen, MigrateEntryTypeClose))
+				return
+			}
+		}
+	} else if def.DataFormat == DataFormatLinks {
+		// Perform base validation on links entries, i.e. that all items exist and are of the right types
+		// so first unmarshall the json, and then check that the hashes are real.
+		var l struct{ Links []map[string]string }
+		err = json.Unmarshal([]byte(entry.Content().(string)), &l)
+		if err != nil {
+			err = fmt.Errorf("invalid links entry, invalid json: %v", err)
+			return
+		}
+		if len(l.Links) == 0 {
+			err = errors.New("invalid links entry: you must specify at least one link")
+			return
+		}
+		for _, link := range l.Links {
+			h, ok := link["Base"]
+			if !ok {
+				err = errors.New("invalid links entry: missing Base")
+				return
+			}
+			if _, err = NewHash(h); err != nil {
+				err = fmt.Errorf("invalid links entry: Base %v", err)
+				return
+			}
+			h, ok = link["Link"]
+			if !ok {
+				err = errors.New("invalid links entry: missing Link")
+				return
+			}
+			if _, err = NewHash(h); err != nil {
+				err = fmt.Errorf("invalid links entry: Link %v", err)
+				return
+			}
+			_, ok = link["Tag"]
+			if !ok {
+				err = errors.New("invalid links entry: missing Tag")
+				return
+			}
+		}
+
+	}
 	return
 }

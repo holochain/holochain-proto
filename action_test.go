@@ -13,7 +13,8 @@ func TestValidateAction(t *testing.T) {
 	defer CleanupTestChain(h, d)
 	var err error
 
-	// these test the generic properties of ValidateAction using a commit action as an example
+	// these test the generic properties of ValidateAction using a commit action
+	// as an example
 	Convey("it should fail if a validator doesn't exist for the entry type", t, func() {
 		entry := &GobEntry{C: "foo"}
 		a := NewCommitAction("bogusType", entry)
@@ -183,6 +184,7 @@ func TestSysValidateEntry(t *testing.T) {
 		err := sysValidateEntry(h, HeadersEntryDef, &GobEntry{C: entryStr}, nil)
 		So(err, ShouldBeNil)
 	})
+
 }
 
 func TestCheckArgCount(t *testing.T) {

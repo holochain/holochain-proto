@@ -109,12 +109,12 @@ func TestNewZygoRibosome(t *testing.T) {
 
 		_, err = z.Run("HC_Migrate_Close")
 		So(err, ShouldBeNil)
-		i = z.lastResult.(*zygo.SexpStr).S
+		s = z.lastResult.(*zygo.SexpStr).S
 		So(i, ShouldEqual, MigrateEntryTypeClose)
 
 		_, err = z.Run("HC_Migrate_Open")
 		So(err, ShouldBeNil)
-		i = z.lastResult.(*zygo.SexpStr).S
+		s = z.lastResult.(*zygo.SexpStr).S
 		So(i, ShouldEqual, MigrateEntryTypeOpen)
 
 	})

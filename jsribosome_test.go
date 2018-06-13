@@ -124,6 +124,11 @@ func TestNewJSRibosome(t *testing.T) {
 		s, _ = z.lastResult.ToString()
 		So(s, ShouldEqual, DelEntryType)
 
+		_, err = z.Run("HC.SysEntryType.Migrate")
+		So(err, ShouldBeNil)
+		s, _ = z.lastResult.ToString()
+		So(s, ShouldEqual, MigrateEntryType)
+
 		_, err = z.Run("HC.Version")
 		So(err, ShouldBeNil)
 		s, _ = z.lastResult.ToString()
@@ -183,6 +188,16 @@ func TestNewJSRibosome(t *testing.T) {
 		So(err, ShouldBeNil)
 		s, _ = z.lastResult.ToString()
 		So(s, ShouldEqual, BundleCancelResponseCommit)
+
+		_, err = z.Run("HC.Migrate.Close")
+		So(err, ShouldBeNil)
+		s, _ = z.lastResult.ToString()
+		So(s, ShouldEqual, MigrateEntryTypeClose)
+
+		_, err = z.Run("HC.Migrate.Open")
+		So(err, ShouldBeNil)
+		s, _ = z.lastResult.ToString()
+		So(s, ShouldEqual, MigrateEntryTypeOpen)
 
 	})
 

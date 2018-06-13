@@ -315,6 +315,7 @@ const (
 		`Key:"` + KeyEntryType + `",` +
 		`Headers:"` + HeadersEntryType + `"` +
 		`Del:"` + DelEntryType + `"` +
+		`Migrate:"` + MigrateEntryType + `"` +
 		`}` +
 		`HashNotFound:null` +
 		`,Status:{Live:` + StatusLiveVal +

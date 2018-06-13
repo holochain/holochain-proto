@@ -405,8 +405,8 @@ const (
 		`(def HC_PkgReq_ChainOpt_Entries "` + PkgReqChainOptEntriesStr + "\")" +
 		`(def HC_PkgReq_ChainOpt_Full "` + PkgReqChainOptFullStr + "\")" +
 
-		`(def HC_Migrate_Close "` + MigrateEntryTypeClose + "\")" +
-		`(def HC_Migrate_Open "` + MigrateEntryTypeOpen + "\")"
+		`(def HC_Migrate_Close "` + MigrateEntryTypeClose + `")` +
+		`(def HC_Migrate_Open "` + MigrateEntryTypeOpen + `")`
 )
 
 func makeResult(env *zygo.Zlisp, resultValue zygo.Sexp, resultError error) (zygo.Sexp, error) {

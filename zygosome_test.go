@@ -106,6 +106,17 @@ func TestNewZygoRibosome(t *testing.T) {
 		So(err, ShouldBeNil)
 		i = z.lastResult.(*zygo.SexpInt).Val
 		So(i, ShouldEqual, StatusAny)
+
+		_, err = z.Run("HC_Migrate_Close")
+		So(err, ShouldBeNil)
+		s = z.lastResult.(*zygo.SexpStr).S
+		So(s, ShouldEqual, MigrateEntryTypeClose)
+
+		_, err = z.Run("HC_Migrate_Open")
+		So(err, ShouldBeNil)
+		s = z.lastResult.(*zygo.SexpStr).S
+		So(s, ShouldEqual, MigrateEntryTypeOpen)
+
 	})
 
 	Convey("should have the built in functions:", t, func() {

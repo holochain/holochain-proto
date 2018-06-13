@@ -269,7 +269,7 @@ func (h *Holochain) NodeIDStr() string {
 // PrepareHashType makes sure the given string is a correct multi-hash and stores
 // the code and length to the Holochain struct
 func (h *Holochain) PrepareHashType() (err error) {
-	c, ok := mh.Names[h.nucleus.dna.DHTConfig.HashType]
+	c, ok := mh.Names[string(h.nucleus.dna.DHTConfig.HashType)]
 	if !ok {
 		return fmt.Errorf("Unknown hash type: %s", h.nucleus.dna.DHTConfig.HashType)
 	}

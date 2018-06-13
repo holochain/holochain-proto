@@ -18,10 +18,12 @@ import (
 	peer "github.com/libp2p/go-libp2p-peer"
 )
 
+type HashType string
+
 // Holds the dht configuration options
 type DHTConfig struct {
 	// HashType : (string) Identifies hash type to be used for this application. Should be from the list of hash types from the multihash library
-	HashType string
+	HashType HashType
 
 	//RedundancyFactor(integer) Establishes minimum online redundancy targets for data, and size of peer sets for sync gossip. A redundancy factor ZERO means no sharding (every node syncs all data with every other node). ONE means you are running this as a centralized application and gossip is turned OFF. For most applications we recommend neighborhoods no smaller than 8 for nearness or 32 for hashmask sharding.
 	RedundancyFactor int

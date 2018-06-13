@@ -48,6 +48,8 @@ const (
 	DefaultDHTPort         = 6283
 	DefaultBootstrapServer = "bootstrap.holochain.net:10000"
 
+	DefaultHashType HashType = HashType("sha2-256") // default hashing algo if not provided in DNA
+
 	CloneWithNewUUID  = true
 	CloneWithSameUUID = false
 	InitializeDB      = true
@@ -373,6 +375,12 @@ func (s *Service) loadDNA(path string, filename string, format string) (dnaP *DN
 	dna.Properties = dnaFile.Properties
 	dna.PropertiesSchema = string(propertiesSchema)
 	dna.propertiesSchemaValidator = validator
+
+	// Fallback to the default hash type
+	var emptyHashType HashType
+	if dna.DHTConfig.HashType == emptyHashType {
+		dna.DHTConfig.HashType = DefaultHashType
+	}
 
 	err = dna.check()
 	if err != nil {

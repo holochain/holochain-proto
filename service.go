@@ -934,7 +934,7 @@ func (s *Service) saveDNAFile(root string, dna *DNA, encodingFormat string, over
 		UUID:                 dna.UUID,
 		Name:                 dna.Name,
 		Properties:           dna.Properties,
-		PropertiesSchemaFile: "properties_schema.json",
+		PropertiesSchemaFile: dna.PropertiesSchemaFile,
 		BasedOn:              dna.BasedOn,
 		RequiresVersion:      dna.RequiresVersion,
 		DHTConfig:            dna.DHTConfig,

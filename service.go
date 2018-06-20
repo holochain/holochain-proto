@@ -513,7 +513,7 @@ func (s *Service) load(name string, format string) (hP *Holochain, err error) {
 	// we can load to check against the actual hash of the DNA entry
 	if len(h.chain.Headers) > 0 {
 		h.dnaHash = h.chain.Headers[0].EntryLink.Clone()
-
+		fmt.Printf("xxxTHE DNA: %v\n", h.chain.Entries[0])
 		var b []byte
 		b, err = ReadFile(h.rootPath, DNAHashFileName)
 		if err == nil {

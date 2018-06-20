@@ -457,7 +457,7 @@ func (h *Holochain) GenChain() (headerHash Hash, err error) {
 		return
 	}
 
-	fmt.Printf("xxxTHE DNA: %v\n", buf.Bytes())
+	fmt.Printf("xxxTHE DNA: %v\n", string(buf.Bytes()))
 
 	h.dnaHash = dnaHeader.EntryLink.Clone()
 

@@ -512,7 +512,7 @@ func DoTest(h *Holochain, name string, i int, fixtures TestFixtures, t TestData,
 			if err != nil {
 				actualError = err
 			} else {
-				actualResult, actualError  =  n.Run(input)
+				actualResult, actualError = n.Run(input)
 			}
 		} else {
 			actualResult, actualError = h.Call(t.Zome, t.FnName, input, t.Exposure)
@@ -643,6 +643,29 @@ func InitChainForRaw(h *Holochain, reset bool) (err error) {
 	}
 	return
 }
+
+
+// TestScenario runs the tests of a single role in a scenario
+func SetupForPureJSTest(h *Holochain, benchmarks bool, bridgeApps []BridgeApp) (err error) {
+	// SetIdentity(h, identity)
+	err = initChainForTest(h, true)
+	if err != nil {
+		err = fmt.Errorf("Error initializing chain for pure JS: %v", err)
+		return
+	}
+
+	err = buildBridges(h, "", bridgeApps)
+	if err != nil {
+		err = fmt.Errorf("couldn't build bridges for scenario. err: %v", err)
+		return
+	}
+
+	h.Config.SetGossipInterval(0)
+	h.StartBackgroundTasks()
+
+	return
+}
+
 
 func initChainForTest(h *Holochain, reset bool) (err error) {
 	if reset {

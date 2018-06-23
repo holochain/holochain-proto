@@ -1422,8 +1422,7 @@ func (jsr *JSRibosome) RunAsyncSendResponse(response AppMsg, callback string, ca
 }
 
 //////////////////////////////
-///
-
+//
 // from https://github.com/robertkrimen/natto/blob/master/natto.go
 
 type _timer struct {
@@ -1433,7 +1432,9 @@ type _timer struct {
 	call     otto.FunctionCall
 }
 
-// Run will execute the given JavaScript, continuing to run until all timers have finished executing (if any).
+// RunWithTimers will execute the given JavaScript in the usual Ribosome runtime,
+// but including implementations of some timer-related JS functions.
+// The Otto VM will continue to run until all timers have finished executing (if any).
 // The VM has the following functions available:
 //
 //      <timer> = setTimeout(<function>, <delay>, [<arguments...>])
@@ -1441,7 +1442,7 @@ type _timer struct {
 //      clearTimeout(<timer>)
 //      clearInterval(<timer>)
 //
-func (jsr *JSRibosome) RunAsTest(src string) (result interface{}, err error) {
+func (jsr *JSRibosome) RunWithTimers(src string) (result interface{}, err error) {
 	vm := jsr.vm
 	registry := map[*_timer]*_timer{}
 	ready := make(chan *_timer)

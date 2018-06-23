@@ -1310,7 +1310,7 @@ func (z *ZygoRibosome) Run(code string) (result interface{}, err error) {
 	return
 }
 
-func (z *ZygoRibosome) RunAsTest(code string) (result interface{}, err error) {
+func (z *ZygoRibosome) RunWithTimers(code string) (result interface{}, err error) {
 	result, err = z.Run(code)
 	return
 }

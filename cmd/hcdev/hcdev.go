@@ -360,46 +360,50 @@ func setupApp() (app *cli.App) {
 			},
 		},
 		{
-			Name:      "run",
-			Aliases:   []string{"r"},
-			ArgsUsage: "TODO",
-			Usage:     "TODO",
+			Name:      "run-js",
+			Aliases:   []string{},
+			ArgsUsage: "[zome] | [zome] [filename.js]",
+			Usage:     "Run arbitrary code within the JavaScript ribosome (useful for testing)",
 			Flags: []cli.Flag{
 
 			},
 			Action: func(c *cli.Context) error {
-				holo.Debug("run: start")
-
 				args := c.Args()
-				// var errs []error
 
 				var h *holo.Holochain
-				h, _ = getHolochain(c, service, identity)
+				var js string
 
-				_ = InitChainForRaw(h, true)  // TODO: clean up
+				if len(args) < 1 || len(args) > 2 {
+					return cmd.MakeErr(c, "Must run with one or two arguments. See usage.")
+				}
+
+				h, _ = getHolochain(c, service, identity)
+				SetupForPureJSTest(h, false, []holo.BridgeApp{})
+
 				zomeName := args[0]
 				n, _, _ := h.MakeRibosome(zomeName)
 
 				if len(args) == 1 {
-					fmt.Println("TODO: read from stdin\n")
 					reader := bufio.NewReader(os.Stdin)
 					buf := new(bytes.Buffer)
 					buf.ReadFrom(reader)
-					js := buf.String()
-					result, err := n.RunAsTest(js)
-					fmt.Println("result: ", result)
-					fmt.Println("error: ", err)
-					return nil
+					js = buf.String()
 				} else if len(args) == 2 {
-					// zomeName := args[0]
-					// fileName := args[1]
-					// data, err := ReadFile('.', zomeName, fileName)
-					// n.Run("debug('one small step')")
+					fileName := args[1]
+					buf, err := holo.ReadFile(".", fileName)
+					if err != nil {
+						return cmd.MakeErrFromErr(c, err)
+					}
+					js = string(buf[:])
 				}
-				// }
 
-				// holo.SetIdentity(h, identity)
+				_, err := n.RunWithTimers(js)
 
+				if err == nil {
+					return cmd.MakeErrFromErr(c, err)
+				} else {
+					fmt.Println("done.")
+				}
 
 				return nil
 			},

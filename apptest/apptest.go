@@ -512,7 +512,7 @@ func DoTest(h *Holochain, name string, i int, fixtures TestFixtures, t TestData,
 			if err != nil {
 				actualError = err
 			} else {
-				actualResult, actualError = n.Run(input)
+				actualResult, actualError  =  n.Run(input)
 			}
 		} else {
 			actualResult, actualError = h.Call(t.Zome, t.FnName, input, t.Exposure)
@@ -624,6 +624,24 @@ func Test(h *Holochain, bridgeApps []BridgeAppForTests, forceBenchmark bool) []e
 // an error if the chain has already been started (i.e. has genesis entries)
 func TestOne(h *Holochain, one string, bridgeApps []BridgeAppForTests, forceBenchmark bool) []error {
 	return test(h, one, bridgeApps, forceBenchmark)
+}
+
+func InitChainForRaw(h *Holochain, reset bool) (err error) {
+	if reset {
+		err = h.Reset()
+		if err != nil {
+			return
+		}
+	}
+	_, err = h.GenChain()
+	if err != nil {
+		return
+	}
+	err = h.Activate()
+	if err != nil {
+		return
+	}
+	return
 }
 
 func initChainForTest(h *Holochain, reset bool) (err error) {

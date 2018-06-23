@@ -6,6 +6,7 @@
 package main
 
 import (
+	"bufio"
 	"bytes"
 	"fmt"
 	"io/ioutil"
@@ -354,6 +355,51 @@ func setupApp() (app *cli.App) {
 				if err != nil {
 					return cmd.MakeErrFromErr(c, err)
 				}
+
+				return nil
+			},
+		},
+		{
+			Name:      "run",
+			Aliases:   []string{"r"},
+			ArgsUsage: "TODO",
+			Usage:     "TODO",
+			Flags: []cli.Flag{
+
+			},
+			Action: func(c *cli.Context) error {
+				holo.Debug("run: start")
+
+				args := c.Args()
+				// var errs []error
+
+				var h *holo.Holochain
+				h, _ = getHolochain(c, service, identity)
+
+				_ = InitChainForRaw(h, true)  // TODO: clean up
+				zomeName := args[0]
+				n, _, _ := h.MakeRibosome(zomeName)
+
+				if len(args) == 1 {
+					fmt.Println("TODO: read from stdin\n")
+					reader := bufio.NewReader(os.Stdin)
+					buf := new(bytes.Buffer)
+					buf.ReadFrom(reader)
+					js := buf.String()
+					result, err := n.RunAsTest(js)
+					fmt.Println("result: ", result)
+					fmt.Println("error: ", err)
+					return nil
+				} else if len(args) == 2 {
+					// zomeName := args[0]
+					// fileName := args[1]
+					// data, err := ReadFile('.', zomeName, fileName)
+					// n.Run("debug('one small step')")
+				}
+				// }
+
+				// holo.SetIdentity(h, identity)
+
 
 				return nil
 			},

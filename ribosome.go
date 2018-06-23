@@ -92,6 +92,7 @@ type Ribosome interface {
 	Receive(from string, msg string) (response string, err error)
 	Call(fn *FunctionDef, params interface{}) (interface{}, error)
 	Run(code string) (result interface{}, err error)
+	RunAsTest(code string) (result interface{}, err error)
 	RunAsyncSendResponse(response AppMsg, callback string, callbackID string) (result interface{}, err error)
 	BundleCanceled(reason string) (response string, err error)
 }

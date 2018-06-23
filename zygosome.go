@@ -1310,6 +1310,11 @@ func (z *ZygoRibosome) Run(code string) (result interface{}, err error) {
 	return
 }
 
+func (z *ZygoRibosome) RunAsTest(code string) (result interface{}, err error) {
+	result, err = z.Run(code)
+	return
+}
+
 // extra functions we want to have available for app developers in zygo
 
 func isPrime(t int64) bool {

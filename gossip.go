@@ -9,8 +9,8 @@ package holochain
 import (
 	"errors"
 	"fmt"
+	. "github.com/HC-Interns/holochain-proto/hash"
 	peer "github.com/libp2p/go-libp2p-peer"
-	. "github.com/maackle/holochain-proto/hash"
 	"github.com/tidwall/buntdb"
 	"math/rand"
 	"sort"

@@ -11,9 +11,9 @@ package holochain
 import (
 	"container/list"
 	"fmt"
+	. "github.com/HC-Interns/holochain-proto/hash"
 	peer "github.com/libp2p/go-libp2p-peer"
 	pstore "github.com/libp2p/go-libp2p-peerstore"
-	. "github.com/maackle/holochain-proto/hash"
 	"sort"
 	"sync"
 	"time"

@@ -11,9 +11,9 @@ import (
 	"os"
 	"path/filepath"
 
-	holo "github.com/maackle/holochain-proto"
-	"github.com/maackle/holochain-proto/cmd"
-	. "github.com/maackle/holochain-proto/hash"
+	holo "github.com/HC-Interns/holochain-proto"
+	"github.com/HC-Interns/holochain-proto/cmd"
+	. "github.com/HC-Interns/holochain-proto/hash"
 	"github.com/urfave/cli"
 )
 

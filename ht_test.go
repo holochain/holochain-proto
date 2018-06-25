@@ -1,7 +1,7 @@
 package holochain
 
 import (
-	//	. "github.com/maackle/holochain-proto/hash"
+	//	. "github.com/HC-Interns/holochain-proto/hash"
 	. "github.com/smartystreets/goconvey/convey"
 	"testing"
 )

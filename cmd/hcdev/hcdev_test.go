@@ -11,10 +11,10 @@ import (
 	"time"
 
 	"github.com/davecgh/go-spew/spew"
-	holo "github.com/maackle/holochain-proto"
-	. "github.com/maackle/holochain-proto/apptest"
-	"github.com/maackle/holochain-proto/cmd"
-	. "github.com/maackle/holochain-proto/hash"
+	holo "github.com/HC-Interns/holochain-proto"
+	. "github.com/HC-Interns/holochain-proto/apptest"
+	"github.com/HC-Interns/holochain-proto/cmd"
+	. "github.com/HC-Interns/holochain-proto/hash"
 	. "github.com/smartystreets/goconvey/convey"
 	"github.com/urfave/cli"
 )

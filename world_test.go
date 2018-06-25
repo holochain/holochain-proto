@@ -2,9 +2,9 @@ package holochain
 
 import (
 	"fmt"
+	. "github.com/HC-Interns/holochain-proto/hash"
 	peer "github.com/libp2p/go-libp2p-peer"
 	pstore "github.com/libp2p/go-libp2p-peerstore"
-	. "github.com/maackle/holochain-proto/hash"
 	ma "github.com/multiformats/go-multiaddr"
 	. "github.com/smartystreets/goconvey/convey"
 	"testing"

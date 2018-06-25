@@ -9,8 +9,8 @@ import (
 	"testing"
 	"time"
 
+	. "github.com/HC-Interns/holochain-proto/hash"
 	peer "github.com/libp2p/go-libp2p-peer"
-	. "github.com/maackle/holochain-proto/hash"
 	mh "github.com/multiformats/go-multihash"
 )
 

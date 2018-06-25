@@ -399,7 +399,7 @@ func setupApp() (app *cli.App) {
 
 				_, err := n.RunWithTimers(js)
 
-				if err == nil {
+				if err != nil {
 					return cmd.MakeErrFromErr(c, err)
 				} else {
 					fmt.Println("done.")

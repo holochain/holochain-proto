@@ -169,7 +169,7 @@ func (dht *DHT) Open(options interface{}) (err error) {
 	dht.ht = &BuntHT{}
 	dht.ht.Open(filepath.Join(h.DBPath(), DHTStoreFileName))
 	dht.retryQueue = make(chan *retry, 100)
-	dht.changeQueue = make(Channel, 100)
+	dht.changeQueue = make(Channel, 1000)
 	//go dht.HandleChangeRequests()
 
 	//	dht.sources = make(map[peer.ID]bool)

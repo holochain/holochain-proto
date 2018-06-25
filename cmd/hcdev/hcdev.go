@@ -6,6 +6,7 @@
 package main
 
 import (
+	"bufio"
 	"bytes"
 	"fmt"
 	"io/ioutil"
@@ -353,6 +354,55 @@ func setupApp() (app *cli.App) {
 				err = os.Chdir(devPath)
 				if err != nil {
 					return cmd.MakeErrFromErr(c, err)
+				}
+
+				return nil
+			},
+		},
+		{
+			Name:      "run-js",
+			Aliases:   []string{},
+			ArgsUsage: "[zome] | [zome] [filename.js]",
+			Usage:     "Run arbitrary code within the JavaScript ribosome (useful for testing)",
+			Flags: []cli.Flag{
+
+			},
+			Action: func(c *cli.Context) error {
+				args := c.Args()
+
+				var h *holo.Holochain
+				var js string
+
+				if len(args) < 1 || len(args) > 2 {
+					return cmd.MakeErr(c, "Must run with one or two arguments. See usage.")
+				}
+
+				h, _ = getHolochain(c, service, identity)
+				SetupForPureJSTest(h, false, []holo.BridgeApp{})
+
+				zomeName := args[0]
+				n, _, _ := h.MakeRibosome(zomeName)
+
+				if len(args) == 1 {
+					reader := bufio.NewReader(os.Stdin)
+					buf := new(bytes.Buffer)
+					buf.ReadFrom(reader)
+					js = buf.String()
+				} else if len(args) == 2 {
+					fileName := args[1]
+					buf, err := holo.ReadFile(".", fileName)
+					if err != nil {
+						return cmd.MakeErrFromErr(c, err)
+					}
+					js = string(buf[:])
+				}
+
+				_, err := n.RunWithTimers(js)
+
+				if err == nil {
+					return cmd.MakeErrFromErr(c, err)
+				} else {
+					fmt.Println("done.")
 				}
 
 				return nil

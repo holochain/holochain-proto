@@ -10,9 +10,9 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
-	. "github.com/holochain/holochain-proto/hash"
 	b58 "github.com/jbenet/go-base58"
 	ic "github.com/libp2p/go-libp2p-crypto"
+	. "github.com/maackle/holochain-proto/hash"
 	"io"
 	"time"
 )

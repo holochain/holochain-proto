@@ -3,7 +3,7 @@ package holochain
 import (
 	"crypto/rand"
 	"encoding/base64"
-	. "github.com/holochain/holochain-proto/hash"
+	. "github.com/maackle/holochain-proto/hash"
 	mrand "math/rand"
 	"time"
 )

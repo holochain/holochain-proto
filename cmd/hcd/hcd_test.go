@@ -1,8 +1,8 @@
 package main
 
 import (
-	holo "github.com/holochain/holochain-proto"
-	"github.com/holochain/holochain-proto/cmd"
+	holo "github.com/maackle/holochain-proto"
+	"github.com/maackle/holochain-proto/cmd"
 	. "github.com/smartystreets/goconvey/convey"
 	"github.com/urfave/cli"
 	"io/ioutil"

@@ -2,7 +2,7 @@ package holochain
 
 import (
 	"encoding/json"
-	. "github.com/holochain/holochain-proto/hash"
+	. "github.com/maackle/holochain-proto/hash"
 )
 
 const (

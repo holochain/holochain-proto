@@ -14,14 +14,14 @@ import (
 
 	todoctr "github.com/ipfs/go-todocounter"
 	//notif "github.com/libp2p/go-libp2p-routing/notifications"
-	. "github.com/holochain/holochain-proto/hash"
-	queue "github.com/holochain/holochain-proto/peerqueue"
 	u "github.com/ipfs/go-ipfs-util"
 	process "github.com/jbenet/goprocess"
 	ctxproc "github.com/jbenet/goprocess/context"
 	peer "github.com/libp2p/go-libp2p-peer"
 	pset "github.com/libp2p/go-libp2p-peer/peerset"
 	pstore "github.com/libp2p/go-libp2p-peerstore"
+	. "github.com/maackle/holochain-proto/hash"
+	queue "github.com/maackle/holochain-proto/peerqueue"
 )
 
 var maxQueryConcurrency = AlphaValue

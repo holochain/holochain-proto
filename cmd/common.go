@@ -20,7 +20,7 @@ import (
 	"syscall"
 	"time"
 
-	holo "github.com/holochain/holochain-proto"
+	holo "github.com/maackle/holochain-proto"
 )
 
 var ErrServiceUninitialized = errors.New("service not initialized, run 'hcadmin init'")

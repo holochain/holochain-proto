@@ -4,7 +4,7 @@
     "url": "https://github.com/holochain/holochain-proto/issues"
   },
   "gx": {
-    "dvcsimport": "github.com/holochain/holochain-proto"
+    "dvcsimport": "github.com/maackle/holochain-proto"
   },
   "gxDependencies": [
     {

@@ -3,8 +3,8 @@ package holochain
 import (
 	"bytes"
 	"fmt"
-	. "github.com/holochain/holochain-proto/hash"
 	ic "github.com/libp2p/go-libp2p-crypto"
+	. "github.com/maackle/holochain-proto/hash"
 	. "github.com/smartystreets/goconvey/convey"
 	"io"
 	"io/ioutil"

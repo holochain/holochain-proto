@@ -2,8 +2,8 @@ package holochain
 
 import (
 	"errors"
-	. "github.com/holochain/holochain-proto/hash"
 	peer "github.com/libp2p/go-libp2p-peer"
+	. "github.com/maackle/holochain-proto/hash"
 	"reflect"
 )
 

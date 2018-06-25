@@ -9,9 +9,9 @@ import (
 	"testing"
 	"time"
 
-	. "github.com/holochain/holochain-proto/hash"
 	b58 "github.com/jbenet/go-base58"
 	peer "github.com/libp2p/go-libp2p-peer"
+	. "github.com/maackle/holochain-proto/hash"
 	. "github.com/smartystreets/goconvey/convey"
 )
 

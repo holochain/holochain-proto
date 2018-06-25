@@ -3,7 +3,7 @@ package holochain
 import(
   "testing"
   . "github.com/smartystreets/goconvey/convey"
-  . "github.com/holochain/holochain-proto/hash"
+  . "github.com/maackle/holochain-proto/hash"
 )
 
 func TestGenerateRandomBytes(t *testing.T) {

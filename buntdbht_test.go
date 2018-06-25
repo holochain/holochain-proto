@@ -2,7 +2,7 @@ package holochain
 
 import (
 	"fmt"
-	. "github.com/holochain/holochain-proto/hash"
+	. "github.com/maackle/holochain-proto/hash"
 	. "github.com/smartystreets/goconvey/convey"
 	"github.com/tidwall/buntdb"
 	"path/filepath"

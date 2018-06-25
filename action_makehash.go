@@ -5,7 +5,7 @@
 package holochain
 
 import (
-	. "github.com/holochain/holochain-proto/hash"
+	. "github.com/maackle/holochain-proto/hash"
 )
 
 //------------------------------------------------------------

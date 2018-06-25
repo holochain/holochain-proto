@@ -9,7 +9,7 @@ package holochain
 import (
 	"errors"
 	"fmt"
-	. "github.com/holochain/holochain-proto/hash"
+	. "github.com/maackle/holochain-proto/hash"
 	"sort"
 	"strings"
 )

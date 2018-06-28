@@ -574,11 +574,6 @@ func zyProcessArgs(z *ZygoRibosome, args []Arg, zyArgs []zygo.Sexp) (err error) 
 	return
 }
 
-func (z *ZygoRibosome) Setup(h *Holochain, zome *Zome) (err error) {
-	// NB: this is a stub, only implemented for JSRibosome
-	return nil
-}
-
 // NewZygoRibosome factory function to build a zygo execution environment for a zome
 func NewZygoRibosome(h *Holochain, zome *Zome) (n Ribosome, err error) {
 	z := ZygoRibosome{

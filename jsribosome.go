@@ -588,8 +588,8 @@ func makeOttoObjectFromGetResp(h *Holochain, vm *otto.Otto, getResp *GetResp) (r
 
 
 // NewJSRibosome factory function to build a javascript execution environment for a zome
-func (jsr *JSRibosome) Setup(h *Holochain, zome *Zome) (err error) {
-
+func Setup(jsr *JSRibosome, h *Holochain, zome *Zome) (err error) {
+	jsr.h = h
 	funcs := JSRibosomeFuncs(h, zome, jsr.vm)
 
 	var fnPrefix string
@@ -696,14 +696,17 @@ function isErr(result) {
 	return
 }
 
-func NewJSRibosome(h *Holochain, zome *Zome) (jsr Ribosome, err error) {
-  jsr = BareJSRibosome(zome)
-  err = jsr.Setup(h, zome)
-  return
+func NewJSRibosome(h *Holochain, zome *Zome) (Ribosome, error) {
+  jsr := BareJSRibosome(zome)
+  err := Setup(&jsr, h, zome)
+  if err != nil {
+  	return nil, err
+  }
+  return &jsr, err
 }
 
-func BareJSRibosome(zome *Zome) (jsr Ribosome) {
-  jsr = &JSRibosome{
+func BareJSRibosome(zome *Zome) (jsr JSRibosome) {
+  jsr = JSRibosome{
     h:    nil,
     zome: zome,
     vm:   otto.New(),

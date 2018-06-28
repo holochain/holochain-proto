@@ -145,7 +145,6 @@ func (h *Holochain) ValidateAction(a ValidatingAction, entryType string, pkg *Pa
 		if err != nil {
 			return
 		}
-
 		err = n.ValidateAction(a, def, vpkg, prepareSources(sources))
 		if err != nil {
 			h.Debugf("Ribosome ValidateAction(%T) err:%v\n", a, err)

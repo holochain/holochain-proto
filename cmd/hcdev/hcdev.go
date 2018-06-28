@@ -370,15 +370,11 @@ func setupApp() (app *cli.App) {
 			Action: func(c *cli.Context) error {
 				args := c.Args()
 
-				var h *holo.Holochain
 				var js string
 
 				if len(args) < 1 || len(args) > 2 {
 					return cmd.MakeErr(c, "Must run with one or two arguments. See usage.")
 				}
-
-				h, _ = getHolochain(c, service, identity)
-				SetupForPureJSTest(h, false, []holo.BridgeApp{})
 
 				zomeName := args[0]
 
@@ -396,9 +392,10 @@ func setupApp() (app *cli.App) {
 					js = string(buf[:])
 				}
 
-				n, _, _ := holo.BareJSRibosome(zomeName)
-				vm.Set("scenario", ScenarioJS(vm, service, zomeName, rootPath, devPath, name))
-				_, err := n.RunWithTimers(js)
+				n := holo.BareJSRibosome()
+				vm := holo.GetVM(&n)
+				vm.Set("scenario", ScenarioJS(&n, service, zomeName, rootPath, devPath, name))
+				_, err := holo.RunWithTimers(vm, js)
 
 				if err != nil {
 					return cmd.MakeErrFromErr(c, err)

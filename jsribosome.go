@@ -590,6 +590,7 @@ func makeOttoObjectFromGetResp(h *Holochain, vm *otto.Otto, getResp *GetResp) (r
 // NewJSRibosome factory function to build a javascript execution environment for a zome
 func Setup(jsr *JSRibosome, h *Holochain, zome *Zome) (err error) {
 	jsr.h = h
+	jsr.zome = zome
 	funcs := JSRibosomeFuncs(h, zome, jsr.vm)
 
 	var fnPrefix string
@@ -697,7 +698,7 @@ function isErr(result) {
 }
 
 func NewJSRibosome(h *Holochain, zome *Zome) (Ribosome, error) {
-  jsr := BareJSRibosome(zome)
+  jsr := BareJSRibosome()
   err := Setup(&jsr, h, zome)
   if err != nil {
   	return nil, err
@@ -705,10 +706,10 @@ func NewJSRibosome(h *Holochain, zome *Zome) (Ribosome, error) {
   return &jsr, err
 }
 
-func BareJSRibosome(zome *Zome) (jsr JSRibosome) {
+func BareJSRibosome() (jsr JSRibosome) {
   jsr = JSRibosome{
     h:    nil,
-    zome: zome,
+    zome: nil,
     vm:   otto.New(),
   }
   return
@@ -729,6 +730,10 @@ func makeJSFN(jsr *JSRibosome, name string, data fnData) func(call otto.Function
 		}
 		return result
 	}
+}
+
+func GetVM(jsr *JSRibosome) *otto.Otto {
+	return jsr.vm
 }
 
 // Run executes javascript code
@@ -776,8 +781,7 @@ type _timer struct {
 //      clearTimeout(<timer>)
 //      clearInterval(<timer>)
 //
-func (jsr *JSRibosome) RunWithTimers(src string) (result interface{}, err error) {
-	vm := jsr.vm
+func RunWithTimers(vm *otto.Otto, src string) (result interface{}, err error) {
 	registry := map[*_timer]*_timer{}
 	ready := make(chan *_timer)
 
@@ -829,7 +833,7 @@ func (jsr *JSRibosome) RunWithTimers(src string) (result interface{}, err error)
 	vm.Set("clearTimeout", clearTimeout)
 	vm.Set("clearInterval", clearTimeout)
 
-	result, err = jsr.Run(src)
+	result, err = vm.Run(src)
 	if err != nil {
 		return result, err
 	}

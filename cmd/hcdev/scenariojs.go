@@ -8,10 +8,11 @@ import (
 
   "github.com/robertkrimen/otto"
   holo "github.com/HC-Interns/holochain-proto"
+  apptest "github.com/HC-Interns/holochain-proto/apptest"
 )
 
 
-func ScenarioJS(jsr *JSRibosome, service *holo.Service, zomeName string, rootPath string, devPath string, name string) func(otto.FunctionCall) otto.Value {
+func ScenarioJS(jsr *holo.JSRibosome, service *holo.Service, zomeName string, rootPath string, devPath string, name string) func(otto.FunctionCall) otto.Value {
   return func(call otto.FunctionCall) otto.Value {
     n, _ := call.Argument(0).ToInteger()
     fn := call.Argument(1)
@@ -19,14 +20,15 @@ func ScenarioJS(jsr *JSRibosome, service *holo.Service, zomeName string, rootPat
     for i := 0; i < int(n); i++ {
       identity := "tester-" + string(i)
       val := func (call otto.FunctionCall) otto.Value {
-        h, _ := getHolochain(service, identity, rootPath, devPath, name, false)
-        SetupForPureJSTest(h, false, []holo.BridgeApp{})
+        h, _ := getHolochain2(service, identity, rootPath, devPath, name, false)
+        apptest.SetupForPureJSTest(h, false, []holo.BridgeApp{})
         agentFn := call.Argument(0)
         code, _ := agentFn.ToString()
-        zome := h.GetZome(zomeName)
-        jsr.Setup(h, zome)
+        zome, err := h.GetZome(zomeName)
+        vm := holo.GetVM(jsr)
+        holo.Setup(jsr, h, zome)
         code = "(" + code + ")()"
-        result, err := holo.RunWithTimers(jsr.vm, code)
+        result, err := holo.RunWithTimers(vm, code)
         fmt.Println("code: " + code)
         fmt.Printf("result: %v", result)
         fmt.Println("err: ", err)
@@ -42,7 +44,7 @@ func ScenarioJS(jsr *JSRibosome, service *holo.Service, zomeName string, rootPat
 
 // FIXME: this is copied from hcdev.go!!
 
-func getHolochain(service *holo.Service, identity string, rootPath string, devPath string, name string, verbose bool) (h *holo.Holochain, err error) {
+func getHolochain2(service *holo.Service, identity string, rootPath string, devPath string, name string, verbose bool) (h *holo.Holochain, err error) {
   // clear out the previous chain data that was copied from the last test/run
   err = os.RemoveAll(filepath.Join(rootPath, name))
   if err != nil {

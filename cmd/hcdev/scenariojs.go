@@ -26,7 +26,11 @@ func ScenarioJS(jsr *holo.JSRibosome, service *holo.Service, zomeName string, ro
     for i := 0; i < int(n); i++ {
       identity := "tester-" + string(i)
       h, _ := getHolochain2(service, identity, rootPath, devPath, name, false)
-      apptest.SetupForPureJSTest(h, false, []holo.BridgeApp{})
+      // TODO: pass config through func call
+      err := apptest.SetupForPureJSTest(h, 500, false, []holo.BridgeApp{})
+      if err != nil {
+        panic("cannot set up chain for pure test")
+      }
       ctxFn := func (call otto.FunctionCall) otto.Value {
         agentFn := call.Argument(0)
         zome, err := h.GetZome(zomeName)

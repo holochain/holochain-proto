@@ -646,7 +646,7 @@ func InitChainForRaw(h *Holochain, reset bool) (err error) {
 
 
 // TestScenario runs the tests of a single role in a scenario
-func SetupForPureJSTest(h *Holochain, benchmarks bool, bridgeApps []BridgeApp) (err error) {
+func SetupForPureJSTest(h *Holochain, gossipInterval time.Duration, benchmarks bool, bridgeApps []BridgeApp) (err error) {
 	// SetIdentity(h, identity)
 	err = initChainForTest(h, true)
 	if err != nil {
@@ -660,7 +660,7 @@ func SetupForPureJSTest(h *Holochain, benchmarks bool, bridgeApps []BridgeApp) (
 		return
 	}
 
-	h.Config.SetGossipInterval(0)
+	h.Config.SetGossipInterval(gossipInterval)
 	h.StartBackgroundTasks()
 
 	return

@@ -19,22 +19,23 @@ func ScenarioJS(jsr *holo.JSRibosome, service *holo.Service, zomeName string, ro
     var args []interface{}
     for i := 0; i < int(n); i++ {
       identity := "tester-" + string(i)
-      val := func (call otto.FunctionCall) otto.Value {
+      ctxFn := func (call otto.FunctionCall) otto.Value {
         h, _ := getHolochain2(service, identity, rootPath, devPath, name, false)
         apptest.SetupForPureJSTest(h, false, []holo.BridgeApp{})
         agentFn := call.Argument(0)
         code, _ := agentFn.ToString()
         zome, err := h.GetZome(zomeName)
-        vm := holo.GetVM(jsr)
         holo.Setup(jsr, h, zome)
-        code = "(" + code + ")()"
-        result, err := holo.RunWithTimers(vm, code)
+        result, err := agentFn.Call(otto.UndefinedValue())
+        // vm := holo.GetVM(jsr)
+        // code = "(" + code + ")()"
+        // result, err := holo.RunWithTimers(vm, code)
         fmt.Println("code: " + code)
         fmt.Printf("result: %v", result)
         fmt.Println("err: ", err)
-        return result.(otto.Value)
+        return result
       }
-      args = append(args, val)
+      args = append(args, ctxFn)
     }
     fn.Call(otto.UndefinedValue(), args...)
     return otto.UndefinedValue()

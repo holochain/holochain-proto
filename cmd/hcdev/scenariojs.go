@@ -11,34 +11,39 @@ import (
   apptest "github.com/HC-Interns/holochain-proto/apptest"
 )
 
+func Throw(vm *otto.Otto, str string) {
+  value, _ := vm.Call("new Error", nil, str)
+  panic(value)
+}
 
 func ScenarioJS(jsr *holo.JSRibosome, service *holo.Service, zomeName string, rootPath string, devPath string, name string) func(otto.FunctionCall) otto.Value {
+  vm := holo.GetVM(jsr)
+  undef := otto.UndefinedValue()
   return func(call otto.FunctionCall) otto.Value {
     n, _ := call.Argument(0).ToInteger()
     fn := call.Argument(1)
     var args []interface{}
     for i := 0; i < int(n); i++ {
       identity := "tester-" + string(i)
+      h, _ := getHolochain2(service, identity, rootPath, devPath, name, false)
+      apptest.SetupForPureJSTest(h, false, []holo.BridgeApp{})
       ctxFn := func (call otto.FunctionCall) otto.Value {
-        h, _ := getHolochain2(service, identity, rootPath, devPath, name, false)
-        apptest.SetupForPureJSTest(h, false, []holo.BridgeApp{})
         agentFn := call.Argument(0)
-        code, _ := agentFn.ToString()
         zome, err := h.GetZome(zomeName)
         holo.Setup(jsr, h, zome)
-        result, err := agentFn.Call(otto.UndefinedValue())
-        // vm := holo.GetVM(jsr)
-        // code = "(" + code + ")()"
-        // result, err := holo.RunWithTimers(vm, code)
-        fmt.Println("code: " + code)
-        fmt.Printf("result: %v", result)
-        fmt.Println("err: ", err)
+        result, err := agentFn.Call(undef)
+        if err != nil {
+          Throw(vm, err.Error())
+        }
         return result
       }
       args = append(args, ctxFn)
     }
-    fn.Call(otto.UndefinedValue(), args...)
-    return otto.UndefinedValue()
+    result, err := fn.Call(undef, args...)
+    if err != nil {
+      Throw(vm, err.Error())
+    }
+    return result
   }
 }
 

@@ -26,6 +26,8 @@ func ScenarioJS(jsr *holo.JSRibosome, service *holo.Service, zomeName string, ro
     for i := 0; i < int(n); i++ {
       identity := "tester-" + string(i)
       h, _ := getHolochain2(service, identity, rootPath, devPath, name, false)
+      h.Config.DHTPort = 8800 + i
+      h.Config.EnableMDNS = true
       // TODO: pass config through func call
       err := apptest.SetupForPureJSTest(h, 500, false, []holo.BridgeApp{})
       if err != nil {

@@ -586,13 +586,21 @@ func makeOttoObjectFromGetResp(h *Holochain, jsr *JSRibosome, getResp *GetResp) 
 	return
 }
 
+func NewJSRibosome(h *Holochain, zome *Zome) (jsr Ribosome) {
+  jsr := BareJSRibosome(h, zome)  
+  jsr.Setup(h, zome)
+}
+
+func BareJSRibosome(zome *Zome) (jsr Ribosome) {
+  jsr := JSRibosome{
+    h:    nil,
+    zome: zome,
+    vm:   otto.New(),
+  }
+}
+
 // NewJSRibosome factory function to build a javascript execution environment for a zome
-func NewJSRibosome(h *Holochain, zome *Zome) (n Ribosome, err error) {
-	jsr := JSRibosome{
-		h:    h,
-		zome: zome,
-		vm:   otto.New(),
-	}
+func (jsr *JSRibosome) Setup(h *Holochain, zome *Zome) (err error) {
 
 	funcs := JSRibosomeFuncs(h, zome, jsr)
 

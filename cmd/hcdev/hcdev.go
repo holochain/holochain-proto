@@ -381,7 +381,6 @@ func setupApp() (app *cli.App) {
 				SetupForPureJSTest(h, false, []holo.BridgeApp{})
 
 				zomeName := args[0]
-				n, _, _ := h.MakeRibosome(zomeName)
 
 				if len(args) == 1 {
 					reader := bufio.NewReader(os.Stdin)
@@ -397,6 +396,8 @@ func setupApp() (app *cli.App) {
 					js = string(buf[:])
 				}
 
+				n, _, _ := holo.BareJSRibosome(zomeName)
+				vm.Set("scenario", ScenarioJS(service, zomeName, rootPath, devPath, name))
 				_, err := n.RunWithTimers(js)
 
 				if err != nil {

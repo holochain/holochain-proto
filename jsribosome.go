@@ -571,7 +571,7 @@ type fnData struct {
 	f     func([]Arg, APIFunction, otto.FunctionCall) (otto.Value, error)
 }
 
-func makeOttoObjectFromGetResp(h *Holochain, jsr *JSRibosome, getResp *GetResp) (result interface{}, err error) {
+func makeOttoObjectFromGetResp(h *Holochain, vm *otto.Otto, getResp *GetResp) (result interface{}, err error) {
 	_, def, err := h.GetEntryDef(getResp.EntryType)
 	if err != nil {
 		return
@@ -579,30 +579,18 @@ func makeOttoObjectFromGetResp(h *Holochain, jsr *JSRibosome, getResp *GetResp) 
 	if def.DataFormat == DataFormatJSON {
 		json := getResp.Entry.Content().(string)
 		code := `(` + json + `)`
-		result, err = jsr.vm.Object(code)
+		result, err = vm.Object(code)
 	} else {
 		result = getResp.Entry.Content().(string)
 	}
 	return
 }
 
-func NewJSRibosome(h *Holochain, zome *Zome) (jsr Ribosome) {
-  jsr := BareJSRibosome(h, zome)  
-  jsr.Setup(h, zome)
-}
-
-func BareJSRibosome(zome *Zome) (jsr Ribosome) {
-  jsr := JSRibosome{
-    h:    nil,
-    zome: zome,
-    vm:   otto.New(),
-  }
-}
 
 // NewJSRibosome factory function to build a javascript execution environment for a zome
 func (jsr *JSRibosome) Setup(h *Holochain, zome *Zome) (err error) {
 
-	funcs := JSRibosomeFuncs(h, zome, jsr)
+	funcs := JSRibosomeFuncs(h, zome, jsr.vm)
 
 	var fnPrefix string
 	var returnErrors bool
@@ -612,7 +600,7 @@ func (jsr *JSRibosome) Setup(h *Holochain, zome *Zome) (err error) {
 		errHandling, ok = val.(string)
 		if !ok {
 			err = errors.New("Expected ErrorHandling config value to be string")
-			return nil, err
+			return err
 		}
 		switch errHandling {
 		case ErrHandlingThrowErrorsStr:
@@ -620,7 +608,7 @@ func (jsr *JSRibosome) Setup(h *Holochain, zome *Zome) (err error) {
 			returnErrors = true
 		default:
 			err = fmt.Errorf("Expected ErrorHandling config value to be '%s' or '%s', was: '%s'", ErrHandlingThrowErrorsStr, ErrHandlingReturnErrorsStr, errHandling)
-			return nil, err
+			return err
 		}
 
 	}
@@ -629,10 +617,10 @@ func (jsr *JSRibosome) Setup(h *Holochain, zome *Zome) (err error) {
 	}
 
 	for name, data := range funcs {
-		wfn := makeJSFN(&jsr, name, data)
+		wfn := makeJSFN(jsr, name, data)
 		err = jsr.vm.Set(fnPrefix+name, wfn)
 		if err != nil {
-			return nil, err
+			return err
 		}
 	}
 
@@ -705,8 +693,22 @@ function isErr(result) {
 	if err != nil {
 		return
 	}
-	n = &jsr
 	return
+}
+
+func NewJSRibosome(h *Holochain, zome *Zome) (jsr Ribosome, err error) {
+  jsr = BareJSRibosome(zome)
+  err = jsr.Setup(h, zome)
+  return
+}
+
+func BareJSRibosome(zome *Zome) (jsr Ribosome) {
+  jsr = &JSRibosome{
+    h:    nil,
+    zome: zome,
+    vm:   otto.New(),
+  }
+  return
 }
 
 func makeJSFN(jsr *JSRibosome, name string, data fnData) func(call otto.FunctionCall) (result otto.Value) {

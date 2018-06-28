@@ -91,6 +91,7 @@ type Ribosome interface {
 	BridgeGenesis(side int, dnaHash Hash, data string) error
 	Receive(from string, msg string) (response string, err error)
 	Call(fn *FunctionDef, params interface{}) (interface{}, error)
+	Setup(h *Holochain, zome *Zome) (err error)
 	Run(code string) (result interface{}, err error)
 	RunWithTimers(code string) (result interface{}, err error)
 	RunAsyncSendResponse(response AppMsg, callback string, callbackID string) (result interface{}, err error)

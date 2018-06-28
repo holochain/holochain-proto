@@ -397,7 +397,7 @@ func setupApp() (app *cli.App) {
 				}
 
 				n, _, _ := holo.BareJSRibosome(zomeName)
-				vm.Set("scenario", ScenarioJS(service, zomeName, rootPath, devPath, name))
+				vm.Set("scenario", ScenarioJS(vm, service, zomeName, rootPath, devPath, name))
 				_, err := n.RunWithTimers(js)
 
 				if err != nil {

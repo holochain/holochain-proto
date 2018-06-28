@@ -14,7 +14,7 @@ import (
 	"github.com/robertkrimen/otto"
 )
 
-func JSRibosomeFuncs(h *Holochain, zome *Zome, jsr JSRibosome) map[string]fnData {
+func JSRibosomeFuncs(h *Holochain, zome *Zome, vm *otto.Otto) map[string]fnData {
 	return map[string]fnData{
 		"property": fnData{
 			apiFn: &APIFnProperty{},
@@ -27,7 +27,7 @@ func JSRibosomeFuncs(h *Holochain, zome *Zome, jsr JSRibosome) map[string]fnData
 				if err != nil {
 					return otto.UndefinedValue(), nil
 				}
-				result, err = jsr.vm.ToValue(p)
+				result, err = vm.ToValue(p)
 				return
 			},
 		},
@@ -55,7 +55,7 @@ func JSRibosomeFuncs(h *Holochain, zome *Zome, jsr JSRibosome) map[string]fnData
 				if r != nil {
 					entryHash = r.(Hash)
 				}
-				result, _ = jsr.vm.ToValue(entryHash.String())
+				result, _ = vm.ToValue(entryHash.String())
 				return result, nil
 			},
 		},
@@ -80,8 +80,8 @@ func JSRibosomeFuncs(h *Holochain, zome *Zome, jsr JSRibosome) map[string]fnData
 					}
 				}
 				code = "[" + code + "]"
-				object, _ := jsr.vm.Object(code)
-				result, _ = jsr.vm.ToValue(object)
+				object, _ := vm.Object(code)
+				result, _ = vm.ToValue(object)
 				return
 			},
 		},
@@ -99,7 +99,7 @@ func JSRibosomeFuncs(h *Holochain, zome *Zome, jsr JSRibosome) map[string]fnData
 				if r != nil {
 					b58sig = r.(string)
 				}
-				result, _ = jsr.vm.ToValue(b58sig)
+				result, _ = vm.ToValue(b58sig)
 				return
 			},
 		},
@@ -115,7 +115,7 @@ func JSRibosomeFuncs(h *Holochain, zome *Zome, jsr JSRibosome) map[string]fnData
 				if err != nil {
 					return
 				}
-				result, err = jsr.vm.ToValue(r)
+				result, err = vm.ToValue(r)
 				if err != nil {
 					return
 				}
@@ -138,7 +138,7 @@ func JSRibosomeFuncs(h *Holochain, zome *Zome, jsr JSRibosome) map[string]fnData
 					return
 				}
 
-				a.msg.ZomeType = jsr.zome.Name
+				a.msg.ZomeType = zome.Name
 				a.msg.Body = string(j)
 
 				if args[2].value != nil {
@@ -172,7 +172,7 @@ func JSRibosomeFuncs(h *Holochain, zome *Zome, jsr JSRibosome) map[string]fnData
 				if err != nil {
 					return
 				}
-				result, err = jsr.vm.ToValue(r)
+				result, err = vm.ToValue(r)
 				return
 			},
 		},
@@ -195,7 +195,7 @@ func JSRibosomeFuncs(h *Holochain, zome *Zome, jsr JSRibosome) map[string]fnData
 				if fn.CallingType == JSON_CALLING {
 					/* this is a mistake.
 					if !call.ArgumentList[2].IsObject() {
-								return mkOttoErr(&jsr, "function calling type requires object argument type")
+								return mkOttoErr(&vm, "function calling type requires object argument type")
 							}*/
 				}
 				f.args = args[2].value.(string)
@@ -206,7 +206,7 @@ func JSRibosomeFuncs(h *Holochain, zome *Zome, jsr JSRibosome) map[string]fnData
 					return
 				}
 
-				result, err = jsr.vm.ToValue(r)
+				result, err = vm.ToValue(r)
 				return
 			},
 		},
@@ -229,7 +229,7 @@ func JSRibosomeFuncs(h *Holochain, zome *Zome, jsr JSRibosome) map[string]fnData
 				if err != nil {
 					return
 				}
-				result, err = jsr.vm.ToValue(r)
+				result, err = vm.ToValue(r)
 				return
 			},
 		},
@@ -252,7 +252,7 @@ func JSRibosomeFuncs(h *Holochain, zome *Zome, jsr JSRibosome) map[string]fnData
 					entryHash = r.(Hash)
 				}
 
-				result, err = jsr.vm.ToValue(entryHash.String())
+				result, err = vm.ToValue(entryHash.String())
 				return
 			},
 		},
@@ -278,7 +278,7 @@ func JSRibosomeFuncs(h *Holochain, zome *Zome, jsr JSRibosome) map[string]fnData
 					entryHash = r.(Hash)
 				}
 
-				result, err = jsr.vm.ToValue(entryHash.String())
+				result, err = vm.ToValue(entryHash.String())
 				return
 			},
 		},
@@ -294,7 +294,7 @@ func JSRibosomeFuncs(h *Holochain, zome *Zome, jsr JSRibosome) map[string]fnData
 					if err != nil {
 						return
 					}
-					jsr.h.Debugf("Query options: %s", string(j))
+					h.Debugf("Query options: %s", string(j))
 					err = json.Unmarshal(j, &options)
 					if err != nil {
 						return
@@ -379,9 +379,9 @@ func JSRibosomeFuncs(h *Holochain, zome *Zome, jsr JSRibosome) map[string]fnData
 
 				}
 				code = "[" + code + "]"
-				jsr.h.Debugf("Query Code:%s\n", code)
-				object, _ := jsr.vm.Object(code)
-				result, err = jsr.vm.ToValue(object)
+				h.Debugf("Query Code:%s\n", code)
+				object, _ := vm.Object(code)
+				result, err = vm.ToValue(object)
 				return
 			},
 		},
@@ -439,30 +439,30 @@ func JSRibosomeFuncs(h *Holochain, zome *Zome, jsr JSRibosome) map[string]fnData
 						if GetMaskEntry == mask {
 							singleValueReturn = true
 							var entry interface{}
-							entry, err = makeOttoObjectFromGetResp(h, &jsr, &getResp)
+							entry, err = makeOttoObjectFromGetResp(h, vm, &getResp)
 							if err != nil {
 								return
 							}
-							result, err = jsr.vm.ToValue(entry)
+							result, err = vm.ToValue(entry)
 						}
 					}
 					if mask&GetMaskEntryType != 0 {
 						if GetMaskEntryType == mask {
 							singleValueReturn = true
-							result, err = jsr.vm.ToValue(getResp.EntryType)
+							result, err = vm.ToValue(getResp.EntryType)
 						}
 					}
 					if mask&GetMaskSources != 0 {
 						if GetMaskSources == mask {
 							singleValueReturn = true
-							result, err = jsr.vm.ToValue(getResp.Sources)
+							result, err = vm.ToValue(getResp.Sources)
 						}
 					}
 					if err == nil && !singleValueReturn {
 						respObj := make(map[string]interface{})
 						if mask&GetMaskEntry != 0 {
 							var entry interface{}
-							entry, err = makeOttoObjectFromGetResp(h, &jsr, &getResp)
+							entry, err = makeOttoObjectFromGetResp(h, vm, &getResp)
 							if err != nil {
 								return
 							}
@@ -474,7 +474,7 @@ func JSRibosomeFuncs(h *Holochain, zome *Zome, jsr JSRibosome) map[string]fnData
 						if mask&GetMaskSources != 0 {
 							respObj["Sources"] = getResp.Sources
 						}
-						result, err = jsr.vm.ToValue(respObj)
+						result, err = vm.ToValue(respObj)
 					}
 
 				}
@@ -502,7 +502,7 @@ func JSRibosomeFuncs(h *Holochain, zome *Zome, jsr JSRibosome) map[string]fnData
 				if resp != nil {
 					entryHash = resp.(Hash)
 				}
-				result, err = jsr.vm.ToValue(entryHash.String())
+				result, err = vm.ToValue(entryHash.String())
 				return
 			},
 		},
@@ -531,27 +531,27 @@ func JSRibosomeFuncs(h *Holochain, zome *Zome, jsr JSRibosome) map[string]fnData
 				if revok {
 					// TODO there should be a better way to set a variable inside that vm.
 					// also worried about the re-entrancy here...
-					_, err = jsr.vm.Run(`App.Key.Hash="` + h.nodeIDStr + `"`)
+					_, err = vm.Run(`App.Key.Hash="` + h.nodeIDStr + `"`)
 					if err != nil {
 						return
 					}
 				}
 
 				// there's always a new agent entry
-				_, err = jsr.vm.Run(`App.Agent.TopHash="` + h.agentTopHash.String() + `"`)
+				_, err = vm.Run(`App.Agent.TopHash="` + h.agentTopHash.String() + `"`)
 				if err != nil {
 					return
 				}
 
 				// but not always a new identity to update
 				if idok {
-					_, err = jsr.vm.Run(`App.Agent.String="` + jsSanitizeString(id.(string)) + `"`)
+					_, err = vm.Run(`App.Agent.String="` + jsSanitizeString(id.(string)) + `"`)
 					if err != nil {
 						return
 					}
 				}
 
-				result, err = jsr.vm.ToValue(agentEntryHash.String())
+				result, err = vm.ToValue(agentEntryHash.String())
 
 				return
 			},
@@ -572,7 +572,7 @@ func JSRibosomeFuncs(h *Holochain, zome *Zome, jsr JSRibosome) map[string]fnData
 					if resp != nil {
 						entryHash = resp.(Hash)
 					}
-					result, err = jsr.vm.ToValue(entryHash.String())
+					result, err = vm.ToValue(entryHash.String())
 				}
 
 				return
@@ -664,8 +664,8 @@ func JSRibosomeFuncs(h *Holochain, zome *Zome, jsr JSRibosome) map[string]fnData
 					if err == nil {
 						js = `[` + js + `]`
 						var obj *otto.Object
-						jsr.h.Debugf("getLinks code:\n%s", js)
-						obj, err = jsr.vm.Object(js)
+						h.Debugf("getLinks code:\n%s", js)
+						obj, err = vm.Object(js)
 						if err == nil {
 							result = obj.Value()
 						}

@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	holo "github.com/holochain/holochain-proto"
+	holo "github.com/HC-Interns/holochain-proto"
 	"github.com/op/go-logging"
 	"github.com/tidwall/buntdb"
 	"github.com/urfave/cli"

@@ -8,8 +8,8 @@ import (
 	"testing"
 	"time"
 
-	holo "github.com/holochain/holochain-proto"
-	"github.com/holochain/holochain-proto/cmd"
+	holo "github.com/HC-Interns/holochain-proto"
+	"github.com/HC-Interns/holochain-proto/cmd"
 	. "github.com/smartystreets/goconvey/convey"
 	"github.com/urfave/cli"
 )

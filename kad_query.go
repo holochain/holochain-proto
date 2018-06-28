@@ -14,8 +14,8 @@ import (
 
 	todoctr "github.com/ipfs/go-todocounter"
 	//notif "github.com/libp2p/go-libp2p-routing/notifications"
-	. "github.com/holochain/holochain-proto/hash"
-	queue "github.com/holochain/holochain-proto/peerqueue"
+	. "github.com/HC-Interns/holochain-proto/hash"
+	queue "github.com/HC-Interns/holochain-proto/peerqueue"
 	u "github.com/ipfs/go-ipfs-util"
 	process "github.com/jbenet/goprocess"
 	ctxproc "github.com/jbenet/goprocess/context"

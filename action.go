@@ -7,7 +7,7 @@ package holochain
 import (
 	"errors"
 	"fmt"
-	. "github.com/holochain/holochain-proto/hash"
+	. "github.com/HC-Interns/holochain-proto/hash"
 	b58 "github.com/jbenet/go-base58"
 	ic "github.com/libp2p/go-libp2p-crypto"
 	peer "github.com/libp2p/go-libp2p-peer"
@@ -145,7 +145,6 @@ func (h *Holochain) ValidateAction(a ValidatingAction, entryType string, pkg *Pa
 		if err != nil {
 			return
 		}
-
 		err = n.ValidateAction(a, def, vpkg, prepareSources(sources))
 		if err != nil {
 			h.Debugf("Ribosome ValidateAction(%T) err:%v\n", a, err)

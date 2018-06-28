@@ -2,9 +2,9 @@ package apptest
 
 import (
 	"fmt"
-	. "github.com/holochain/holochain-proto"
-	. "github.com/holochain/holochain-proto/hash"
-	"github.com/holochain/holochain-proto/ui"
+	. "github.com/HC-Interns/holochain-proto"
+	. "github.com/HC-Interns/holochain-proto/hash"
+	"github.com/HC-Interns/holochain-proto/ui"
 	. "github.com/smartystreets/goconvey/convey"
 	"os"
 	"path/filepath"

@@ -9,7 +9,7 @@ package holochain
 import (
 	"encoding/binary"
 	"encoding/json"
-	. "github.com/holochain/holochain-proto/hash"
+	. "github.com/HC-Interns/holochain-proto/hash"
 	"github.com/lestrrat/go-jsval"
 	"io"
 	"strings"

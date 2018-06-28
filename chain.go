@@ -21,7 +21,7 @@ import (
 
 	ic "github.com/libp2p/go-libp2p-crypto"
 
-	. "github.com/holochain/holochain-proto/hash"
+	. "github.com/HC-Interns/holochain-proto/hash"
 )
 
 // WalkerFn a function type for call Walk

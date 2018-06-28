@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	. "github.com/holochain/holochain-proto/hash"
+	. "github.com/HC-Interns/holochain-proto/hash"
 	. "github.com/smartystreets/goconvey/convey"
 )
 

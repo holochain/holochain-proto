@@ -9,8 +9,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	. "github.com/holochain/holochain-proto"
-	"github.com/holochain/holochain-proto/ui"
+	. "github.com/HC-Interns/holochain-proto"
+	"github.com/HC-Interns/holochain-proto/ui"
 	"github.com/shirou/gopsutil/process"
 	"os"
 	"path/filepath"
@@ -625,6 +625,47 @@ func Test(h *Holochain, bridgeApps []BridgeAppForTests, forceBenchmark bool) []e
 func TestOne(h *Holochain, one string, bridgeApps []BridgeAppForTests, forceBenchmark bool) []error {
 	return test(h, one, bridgeApps, forceBenchmark)
 }
+
+func InitChainForRaw(h *Holochain, reset bool) (err error) {
+	if reset {
+		err = h.Reset()
+		if err != nil {
+			return
+		}
+	}
+	_, err = h.GenChain()
+	if err != nil {
+		return
+	}
+	err = h.Activate()
+	if err != nil {
+		return
+	}
+	return
+}
+
+
+// TestScenario runs the tests of a single role in a scenario
+func SetupForPureJSTest(h *Holochain, gossipInterval time.Duration, benchmarks bool, bridgeApps []BridgeApp) (err error) {
+	// SetIdentity(h, identity)
+	err = initChainForTest(h, true)
+	if err != nil {
+		err = fmt.Errorf("Error initializing chain for pure JS: %v", err)
+		return
+	}
+
+	err = buildBridges(h, "", bridgeApps)
+	if err != nil {
+		err = fmt.Errorf("couldn't build bridges for scenario. err: %v", err)
+		return
+	}
+
+	h.Config.SetGossipInterval(gossipInterval)
+	h.StartBackgroundTasks()
+
+	return
+}
+
 
 func initChainForTest(h *Holochain, reset bool) (err error) {
 	if reset {

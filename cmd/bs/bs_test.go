@@ -3,7 +3,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	holo "github.com/holochain/holochain-proto"
+	holo "github.com/HC-Interns/holochain-proto"
 	. "github.com/smartystreets/goconvey/convey"
 	_ "github.com/urfave/cli"
 	"testing"

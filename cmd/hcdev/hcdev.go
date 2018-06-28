@@ -6,6 +6,7 @@
 package main
 
 import (
+	"bufio"
 	"bytes"
 	"fmt"
 	"io/ioutil"
@@ -17,10 +18,10 @@ import (
 	"strconv"
 	"time"
 
-	holo "github.com/holochain/holochain-proto"
-	. "github.com/holochain/holochain-proto/apptest"
-	"github.com/holochain/holochain-proto/cmd"
-	"github.com/holochain/holochain-proto/ui"
+	holo "github.com/HC-Interns/holochain-proto"
+	. "github.com/HC-Interns/holochain-proto/apptest"
+	"github.com/HC-Interns/holochain-proto/cmd"
+	"github.com/HC-Interns/holochain-proto/ui"
 	"github.com/urfave/cli"
 	// fsnotify	"github.com/fsnotify/fsnotify"
 	//spew "github.com/davecgh/go-spew/spew"
@@ -353,6 +354,53 @@ func setupApp() (app *cli.App) {
 				err = os.Chdir(devPath)
 				if err != nil {
 					return cmd.MakeErrFromErr(c, err)
+				}
+
+				return nil
+			},
+		},
+		{
+			Name:      "run-js",
+			Aliases:   []string{},
+			ArgsUsage: "[zome] | [zome] [filename.js]",
+			Usage:     "Run arbitrary code within the JavaScript ribosome (useful for testing)",
+			Flags: []cli.Flag{
+
+			},
+			Action: func(c *cli.Context) error {
+				args := c.Args()
+
+				var js string
+
+				if len(args) < 1 || len(args) > 2 {
+					return cmd.MakeErr(c, "Must run with one or two arguments. See usage.")
+				}
+
+				zomeName := args[0]
+
+				if len(args) == 1 {
+					reader := bufio.NewReader(os.Stdin)
+					buf := new(bytes.Buffer)
+					buf.ReadFrom(reader)
+					js = buf.String()
+				} else if len(args) == 2 {
+					fileName := args[1]
+					buf, err := holo.ReadFile(".", fileName)
+					if err != nil {
+						return cmd.MakeErrFromErr(c, err)
+					}
+					js = string(buf[:])
+				}
+
+				n := holo.BareJSRibosome()
+				vm := holo.GetVM(&n)
+				vm.Set("scenario", ScenarioJS(&n, service, zomeName, rootPath, devPath, name))
+				_, err := holo.RunWithTimers(vm, js)
+
+				if err != nil {
+					return cmd.MakeErrFromErr(c, err)
+				} else {
+					fmt.Println("done.")
 				}
 
 				return nil

@@ -13,7 +13,7 @@ import (
 	"errors"
 	"fmt"
 
-	. "github.com/holochain/holochain-proto/hash"
+	. "github.com/HC-Interns/holochain-proto/hash"
 	goprocess "github.com/jbenet/goprocess"
 	goprocessctx "github.com/jbenet/goprocess/context"
 	ic "github.com/libp2p/go-libp2p-crypto"

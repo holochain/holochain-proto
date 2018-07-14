@@ -13,6 +13,7 @@ import (
 	"os/user"
 	"strings"
 	"time"
+	"github.com/whyrusleeping/go-logging"
 )
 
 const (
@@ -136,6 +137,7 @@ func h(w http.ResponseWriter, r *http.Request) {
 	var err error
 	log.Infof("%s: processing req:%s\n", r.Method, r.URL.Path)
 	path := strings.Split(r.URL.Path, "/")
+	r.RemoteAddr = strings.Replace(r.RemoteAddr, "[::1]", "127.0.0.1", -1)
 	if r.Method == "GET" {
 		if len(path) != 2 {
 			http.Error(w, "expecting path /<holochainid>", 400)

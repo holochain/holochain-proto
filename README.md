@@ -23,6 +23,7 @@ In other words, a holochain functions very much **like a blockchain without bott
 <!-- TOC depthFrom:2 depthTo:4 withLinks:1 updateOnSave:1 orderedList:0 -->
 
 - [Installation](#installation)
+	- [Quick Install](#quick-install)
 	- [Go Based Install](#go-based-install)
 		- [Unix](#unix)
 		- [Windows](#windows)
@@ -55,6 +56,12 @@ There are two approaches to installing holochain:
 2. using [docker](https://www.docker.com/) for execution in a container.
 
 Which you choose depends on your preference and your purpose.  If you intend to develop holochain applications, then you should almost certainly use the docker approach as we provide a testing harness for running multiple holochain instances in a docker cluster.  If you will be developing in Go on holochain itself then you will probably end up doing both.
+
+### Quick Install
+1. Download the most recent release (https://github.com/holochain/holochain-proto/releases/) for your OS.
+2. Unzip it to your directory of choice (or compile it from source).
+3. Add that directory to your PATH if you want to call holochain-proto commands outside of that directory (this step differs by OS).
+4. The commands listed in the 'Usage' section should now be available.
 
 ### Go Based Install
 

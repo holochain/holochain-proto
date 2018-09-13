@@ -12,6 +12,8 @@
 
 In other words, a holochain functions very much **like a blockchain without bottlenecks** when it comes to enforcing validation rules, but is designed to  be fully distributed with each node only needing to hold a small portion of the data instead of everything needing a full copy of a global ledger. This makes it feasible to run blockchain-like applications on devices as lightweight as mobile phones.
 
+**NOT CURRENT REPOSITORY** Holochain has been rebuilt in Rust, and the Go codebase is not currently being actively maintained. Please see the [NEW REPOSITORY](https://github.com/holochain/holochain-rust) for the Rust version for updates. To see  the tons of activity on Holochain, Holo, and various hApps visit our [git updates dashboard](https://holochain.org/coding).
+
 **[Code Status:](https://github.com/holochain/holochain-proto/milestones?direction=asc&sort=completeness&state=all)** Alpha. Not for production use. The code has not yet undergone a security audit. We expect to destructively restructure code APIs and data chains until Beta. Proof-of-concept was unveiled at our first hackathon (March 2017). Alpha 0 was released October 2017.  Alpha 1 was released May 2018.
 <br/>
 

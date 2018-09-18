@@ -4,17 +4,21 @@
 [![Travis](https://img.shields.io/travis/holochain/holochain-proto/master.svg)](https://travis-ci.org/holochain/holochain-proto/branches)
 [![Codecov](https://img.shields.io/codecov/c/github/holochain/holochain-proto.svg)](https://codecov.io/gh/holochain/holochain-proto/branch/master)
 [![Go Report Card](https://goreportcard.com/badge/github.com/holochain/holochain-proto)](https://goreportcard.com/report/github.com/holochain/holochain-proto)
-[![In Progress](https://img.shields.io/waffle/label/holochain/holochain-proto/in%20progress.svg)](http://waffle.io/holochain/holochain-proto)
 [![License: GPL v3](https://img.shields.io/badge/License-GPL%20v3-blue.svg)](http://www.gnu.org/licenses/gpl-3.0)
 [![Twitter Follow](https://img.shields.io/twitter/follow/holochain.svg?style=social&label=Follow)](https://twitter.com/holochain)
 
-**Holographic storage for distributed applications.** A holochain is a monotonic distributed hash table (DHT) where every node enforces validation rules on data before publishing that data against the signed chains where the data originated.
+### Code Status
+Alpha. Not for production use. The code has not yet undergone a security audit. We expect to destructively restructure code APIs and data chains until Beta. 
 
-In other words, a holochain functions very much **like a blockchain without bottlenecks** when it comes to enforcing validation rules, but is designed to  be fully distributed with each node only needing to hold a small portion of the data instead of everything needing a full copy of a global ledger. This makes it feasible to run blockchain-like applications on devices as lightweight as mobile phones.
+**NOT CURRENT REPOSITORY** Holochain is being rebuilt in Rust, and this Go codebase has minimal maintenance while that process is underway. Please see the [NEW REPOSITORY](https://github.com/holochain/holochain-rust) with the Rust version for updates.
 
-**NOT CURRENT REPOSITORY** Holochain has been rebuilt in Rust, and the Go codebase is not currently being actively maintained. Please see the [NEW REPOSITORY](https://github.com/holochain/holochain-rust) for the Rust version for updates. To see  the tons of activity on Holochain, Holo, and various hApps visit our [git updates dashboard](https://holochain.org/coding).
+### Holographic storage for distributed applications
+Holochain uses a monotonic distributed hash table (DHT) where every node enforces validation rules on data before publishing that data against the signed chains where the data originated.
 
-**[Code Status:](https://github.com/holochain/holochain-proto/milestones?direction=asc&sort=completeness&state=all)** Alpha. Not for production use. The code has not yet undergone a security audit. We expect to destructively restructure code APIs and data chains until Beta. Proof-of-concept was unveiled at our first hackathon (March 2017). Alpha 0 was released October 2017.  Alpha 1 was released May 2018.
+In other words, Holochain apps function very much **like a blockchain without bottlenecks** when it comes to enforcing validation rules, but is designed to  be fully distributed with each node only needing to hold a small portion of the data instead of everything needing a full copy of a global ledger. This makes it feasible to run blockchain-like applications on devices as lightweight as mobile phones.
+
+#### History
+Proof-of-concept was unveiled at our first hackathon (March 2017). Alpha 0 was released October 2017.  Alpha 1 was released May 2018.
 <br/>
 
 | Holochain Links: | [FAQ](https://github.com/holochain/holochain-proto/wiki/FAQ) | [Developer Wiki](https://developer.holochain.org) | [White Paper](https://github.com/holochain/holochain-proto/blob/whitepaper/holochain.pdf) | [GoDocs](https://godoc.org/github.com/holochain/holochain-proto) |
@@ -212,17 +216,7 @@ You can also look through auto-generated [reference API on GoDocs](https://godoc
 We accept Pull Requests and welcome your participation. Please make sure to
 include the issue number your branch names and use descriptive commit messages.
 
-[![In Progress](https://img.shields.io/waffle/label/holochain/holochain-proto/in%20progress.svg)](http://waffle.io/holochain/holochain-proto)
-
-Some helpful links:
-
-* View our [Kanban on Waffle](https://waffle.io/holochain/holochain-proto).
-* View our current [Milestones](https://github.com/metacurrency/holochain/milestones?direction=asc&sort=due_date&state=all).
 * Chat with us on our [Chat Server](https://chat.holochain.org) or [Gitter](https://gitter.im/metacurrency/holochain)
-
-Current Throughput graph:
-
-[![Throughput Graph](http://graphs.waffle.io/holochain/holochain-proto/throughput.svg)](https://waffle.io/holochain/holochain-proto/metrics)
 
 ### Contribute
 Contributors to this project are expected to follow our [development protocols & practices](https://github.com/holochain/holochain-proto/wiki/Development-Protocols).
@@ -278,7 +272,7 @@ The docker setup runs tests automatically during builds.
 ## License
 [![License: GPL v3](https://img.shields.io/badge/License-GPL%20v3-blue.svg)](http://www.gnu.org/licenses/gpl-3.0)
 
-Copyright (C) 2017, The MetaCurrency Project (Eric Harris-Braun, Arthur Brock, et. al.)
+Copyright (C) 2018, The MetaCurrency Project (Eric Harris-Braun, Arthur Brock, et. al.)
 
 This program is free software: you can redistribute it and/or modify it under the terms of the license provided in the LICENSE file (GPLv3).  This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
 

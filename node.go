@@ -21,6 +21,7 @@ import (
 	net "github.com/libp2p/go-libp2p-net"
 	peer "github.com/libp2p/go-libp2p-peer"
 	pstore "github.com/libp2p/go-libp2p-peerstore"
+	pstoremem "github.com/libp2p/go-libp2p-peerstore/pstoremem"
 	protocol "github.com/libp2p/go-libp2p-protocol"
 	swarm "github.com/libp2p/go-libp2p-swarm"
 	discovery "github.com/libp2p/go-libp2p/p2p/discovery"
@@ -406,7 +407,7 @@ func NewNode(listenAddr string, protoMux string, agent *LibP2PAgent, enableNATUP
 		n.discoverAndHandleNat(listenPort)
 	}
 
-	ps := pstore.NewPeerstore()
+	ps := pstoremem.NewPeerstore()
 	n.peerstore = ps
 	ps.AddAddrs(nodeID, []ma.Multiaddr{n.NetAddr}, pstore.PermanentAddrTTL)
 
@@ -436,13 +437,11 @@ func NewNode(listenAddr string, protoMux string, agent *LibP2PAgent, enableNATUP
 	n.ctx = ctx
 
 	// create a new swarm to be used by the service host
-	netw, err := swarm.NewNetwork(ctx, []ma.Multiaddr{n.NetAddr}, nodeID, ps, nil)
-	if err != nil {
-		return nil, err
-	}
+	netw := swarm.NewSwarm(ctx, nodeID, ps, nil)
+	maddr := func([]ma.Multiaddr) []ma.Multiaddr { return []ma.Multiaddr{n.NetAddr} }
 
 	var bh *bhost.BasicHost
-	bh, err = bhost.New(netw), nil
+	bh, err = bhost.New(netw, maddr), nil
 	if err != nil {
 		return
 	}

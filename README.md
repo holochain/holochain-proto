@@ -87,6 +87,15 @@ Which you choose depends on your preference and your purpose.  If you intend to 
         export PATH="$GOPATH/bin:$PATH"
 ````
 
+If you are Installing both the rust and go versions of Holochain you will need to indicate which version of the command line tools you want to give priority to.  Here is one way of doing that. 
+
+```bash
+# Making available the go version of terminal commands. Comment out to enable the rust terminal commands. 
+export PATH="$GOPATH/bin:$PATH"
+# the Rust version of terminal commands.  Uncomment to initialize rust terminal commands:
+# export PATH="$HOME/.cargo/bin:$PATH"
+``` 
+
 4. Install the command line tool suite with:
 
 ```bash

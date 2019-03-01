@@ -3,15 +3,14 @@
 %
 % Source: http://www.writelatex.com
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-\documentclass[twocolumn,showpacs,%
-  nofootinbib,aps,superscriptaddress,%
+\documentclass[twocolumn,showpacs,
+  nofootinbib,aps,superscriptaddress,
   eqsecnum,prd,notitlepage,showkeys,10pt]{revtex4-1}
 
 \usepackage{amssymb}
 \usepackage{amsmath}
 \usepackage{graphicx}
 \usepackage{dcolumn}
-\usepackage{hyperref}
 \usepackage{draftwatermark}
 \usepackage{enumitem}
 \usepackage{setspace} % for \onehalfspacing and \singlespacing macros
@@ -23,6 +22,62 @@
 \SetWatermarkColor[gray]{0.9}
 \SetWatermarkScale{5}
 
+
+%This should be the last package before \input{Version.tex}
+\PassOptionsToPackage{hyphens}{url}\usepackage{hyperref}
+\usepackage{xurl} % doesn't work: https://i.imgur.com/FwBWCLg.png
+% "hyperref loads the url package internally. Use \PassOptionsToPackage
+% {hyphens}{url}\usepackage{hyperref} to pass the option to the url
+% package when it is loaded by hyperref. This avoids any package option
+% clashes." Source: 
+% <https://tex.stackexchange.com/questions/3033/forcing-linebreaks-in-url/3034#comment44478_3034>.
+% Note also this: "If the \PassOptionsToPackage{hyphens}{url} approach
+% does not work, maybe it's "because you're trying to load the url
+% package with a specific option, but it's being loaded by one of your
+% packages before that with a different set of options. Try loading the
+% url package earlier than the package that requires it. If it's loaded
+% by the document class, try using \RequirePackage[hyphens]{url} before
+% the document class." Source: 
+% <https://tex.stackexchange.com/questions/3033/forcing-linebreaks-in-url/3034#comment555944_3034>.
+% For more information on using the hyperref package, refer to e.g.
+% https://en.wikibooks.org/w/index.php?title=LaTeX/Hyperlinks&stable=0#Hyperlink_and_Hypertarget.
+% Not sure how to fix URLs breaking over o
+\hypersetup{breaklinks=true,
+            bookmarks=true,
+            pdfauthor={Eric Harris-Braun, Nicolas Luck, Arthur Brock},
+            pdftitle={Holochain: scalable agent-centric distributed 
+              computing},
+            colorlinks=true,
+            citecolor=blue,
+            urlcolor=blue,
+            unicode=true,
+            pdfkeywords={cryptography, distributed computing platform,
+              agent-centric,
+              scalable, distributed hash table, multi-agent systems},
+            %linkcolor=magenta,
+            pdfborder={0 0 0.5 [1 3]},
+	    	    pagebackref=true}
+
+%Put after \PassOptionsToPackage PR
+% info on the above command: <https://tex.stackexchange.com/posts/10419/revisions>. Note that the three preceding lines, as well as \PassOptionsToPackage{hyphens}{url}\usepackage{hyperref} did not fix the error where if a URL breaks over a page, it shows a snippet in the header as shown here: <https://i.stack.imgur.com/tYUe2.png>. 
+% This doesn't help either:
+\makeatletter
+\g@addto@macro{\UrlBreaks}{\UrlOrds}
+\makeatother
+
+
+%The following command did fix this error, however only because it happened to compact the text, preventing a URL from breaking over a page. If you force a URL to break over a page, the error still occurs.
+% Doesn't work.
+% Unless someone can think of another solution, avoid manually breaking over pages.
+\expandafter\def\expandafter\UrlBreaks\expandafter{\UrlBreaks%  save the current one
+  \do\a\do\b\do\c\do\d\do\e\do\f\do\g\do\h\do\i\do\j%
+  \do\k\do\l\do\m\do\n\do\o\do\p\do\q\do\r\do\s\do\t%
+  \do\u\do\v\do\w\do\x\do\y\do\z\do\A\do\B\do\C\do\D%
+  \do\E\do\F\do\G\do\H\do\I\do\J\do\K\do\L\do\M\do\N%
+  \do\O\do\P\do\Q\do\R\do\S\do\T\do\U\do\V\do\W\do\X%
+  \do\Y\do\Z}
+
+\urlstyle{same} % don't use monospace font for urls
 
 \newtheorem{itemlet}{}
 
@@ -70,7 +125,7 @@ Though hash-chains help solve the problem of independently acting agents reliabl
 \item Bitcoin\footnote{https://bitcoin.org/bitcoin.pdf}: In Bitcoin (and blockchain in general), the ``problem" is understood to be that of figuring out how to choose one block of transactions among the many variants being experienced by the mining nodes (as they collect transactions from clients in different orders), and committing that single variant to the single globally shared chain. We call this approach \term{data-centric} because of its focus on creating a single shared data reality among all nodes.
 \end{enumerate}
 
-We claim that this fundamental original stance results directly in the most significant limitation of the blockchain: scalability.  This limitation is widely known \footnote{add various sources} and many solutions have been offered \footnote{more footnotes here}.  Holochain offers a way forward by directly addressing the root data-centric assumptions of the blockchain approach.
+We claim that this fundamental original stance results directly in the most significant limitation of the blockchain: scalability.  This limitation is widely known and many solutions have been offered\footnote{https://github.com/ethereum/wiki/wiki/Scaling-projects-and-proposals-and-other-crypto-infrastructure-projects}.  Holochain offers a way forward by directly addressing the root data-centric assumptions of the blockchain approach.
 
 \section{Prior Work}
 This paper builds largely on recent work in cryptographic distributed systems and distributed hash tables and multi-agent systems.
@@ -721,18 +776,18 @@ We thank Steve Sawin for his review of this paper, \LaTeXe support and so much m
 
 \end{acknowledgments}
 
-\bibliographystyle{alpha}
+\bibliographystyle{alpha} \todo{should change to natbib}
 \begin{thebibliography}{9}
 
-\bibitem[DUPONT]{dupont}
+\bibitem[Dupont]{dupont}
 Quinn DuPont.
 \textit{Experiments in Algorithmic Governance: A history and ethnography of “The DAO,” a failed Decentralized Autonomous Organization}
 \\\url{http://www.iqdupont.com/assets/documents/DUPONT-2017-Preprint-Algorithmic-Governance.pdf}
 
-\bibitem[EIP-150]{yellowpaper}
+\bibitem[WoodYP]{yellowpaper}
 Gavin Wood.
 \textit{Ethereum: A Secure Decentralised Generalised Transaction Ledger}.
-\\\url{http://yellowpaper.io/}
+\\\url{https://ethereum.github.io/yellowpaper/paper.pdf}
 
 \bibitem[Kademlia]{kademlia}
 Petar Maymounkov and David Mazieres
@@ -778,7 +833,9 @@ Bitcoin Wiki
 \bibitem[IPFS]{ipfs}
 Juan Benet
 \textit{IPFS - Content Addressed, Versioned, P2P File System (DRAFT 3)}
+\begin{sloppypar}
 \\\url{https://ipfs.io/ipfs/QmR7GSQM93Cx5eAg6a6yRzNde1FQv7uL6X1o4k7zrJa3LX/ipfs.draft3.pdf}
+\end{sloppypar}
 
 \bibitem[LibP2P]{libp2p}
 Juan Benet, David Dias

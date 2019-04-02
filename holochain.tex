@@ -292,7 +292,7 @@ Using our formalism, a Holochain based application \shc is defined as:
 \end{enumerate}
 \item \label{routable} Assume $x,y \in N$ and $\delta_i \in \dhtstate_x$ but $\delta_i \notin \dhtstate_y$. Allow that when $y$ calls $dht_\text{get}(key)$, $\delta_i$ will be retrieved from $x$ over channel $X$ and added to $\dhtstate_y$.
 \end{enumerate}
-DHT are sufficiently mature that there are a number of ways to ensure property \ref{routable}.  For our current alpha version we use a modified version of \cite{kademlia} as implemented in \cite{libp2p}.
+DHTs are sufficiently mature that there are a number of ways to ensure property \ref{routable}.  For our current alpha version we use a modified version of \cite{kademlia} as implemented in \cite{libp2p}.
 
 \item Let $\hcdht$ augment $DHT$ as follows:
 \begin{enumerate}

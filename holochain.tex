@@ -247,7 +247,7 @@ DHT are sufficiently mature that there are a number of ways to ensure property \
 
 \item Allow the sets $\delta \in \dhtstate$ to also include more elements as defined in  \ref{apdx:dhtfn}.
 
-\item Let $d(x,y)$ be a \textit{symmetric} and \textit{unidirectional} distance metric within the hash space defined by $H$, as for example the XOR metric defined in \cite{kademlia}. Note that this metric can be applied between entries and nodes alike since the addresses of both are values of the same hash function $H$ (i.e. $\delta_{key}=H(\delta_{value})$ and $A_n=H(pk_n)$).
+\item Let $d(x,y)$ be a \textit{symmetric} and \textit{unidirectional} distance metric within the hash space defined by $H$, as for example the XOR metric defined in \cite{kademlia}. Note that this metric can be applied between entries and nodes alike since the addresses of both are values of the same hash function $H$ (i.e.\ $\delta_{key}=H(\delta_{value})$ and $A_n=H(pk_n)$).
 
 \item Let $r$ be a parameter of $\hcdht$ to be set dependent on the characteristics deemed beneficial for maintaining multiple copies of entries in the $DHT$ for the given application.
 Call $r$ the \term{resilience factor}.
@@ -264,7 +264,7 @@ whith $uptime(n) \in [0,1]$.
 Call the union of such sets $V_\delta$, from a given node's perspective, the \term{overlap list} and also note that $q\geq r$.
 
 \item \label{hc:shards} Allow every node $n$ to discard every $\delta_x \in \dhtstate_n$ if the number of closer (with regards to $d(x,y)$) nodes is greater than $q$
-(i.e. if other nodes are able to construct their $V_\delta$ sets without including $n$, which in turn means there are enough other nodes responsible for holding $\delta$ in their $\Delta_m$ to have the system meet the resilience set by $r$ even without $n$ participating in storing $\delta$).
+(i.e.\ if other nodes are able to construct their $V_\delta$ sets without including $n$, which in turn means there are enough other nodes responsible for holding $\delta$ in their $\Delta_m$ to have the system meet the resilience set by $r$ even without $n$ participating in storing $\delta$).
 Note that this results in the network adapting to changes in topology and DHT state migrations by regulating the number of network-wide redundant copies of all $\delta_i\in\dhtstate$ to match $r$ according to node uptime.
 
 \end{enumerate}
@@ -283,7 +283,7 @@ Call $\hcdht$ a \term{validating}, \term{monotonic}, \term{sharded} DHT.
 \item Allow the functions in $\appfns$ defined in the \hcdna\ to call the functions in $\sysfns$.
 \item Let $m$ be an arbitrary message. Include in $\sysfns$ the function $sys_\text{send}(A_\text{to},m)$ which when called on $n_\text{from}$ will trigger the function $app_\text{receive}(A_\text{from},m)$ in the \hcdna\ on the node $n_\text{to}$. Call this mechanism \term{node-to-node messaging}.
 \item \label{private} Allow that the definition of entries in \hcdna\ can mark entry types as \term{private}. Enforce that if an entry $\sigma_x$ is of such a type then $\sigma_x \notin \dhtstate$. Note however that entries of such type can be sent as node-to-node messages.
-\item Let the system processing function $P(i)$ be a set of functions in $\appfns$ to be registered in the system as callbacks based on various criteria, e.g. notification of rejected puts to the DHT, passage of time, etc.
+\item Let the system processing function $P(i)$ be a set of functions in $\appfns$ to be registered in the system as callbacks based on various criteria, e.g.\ notification of rejected puts to the DHT, passage of time, etc.
 \end{enumerate}
 
 \subsection{Systemic Integrity Through Validation}
@@ -370,7 +370,7 @@ This data type conveys the assumption that the three elements $body$, $signature
 as constrained by the cryptographic algorithm that is assumed to be determined through the definition of this type.
 The intrinsic data integrity of a given instance can be validated just by looking at the data itself and checking the signature by
 applying the cryptographic algorithm that constitutes the central part of the type's a priori model.
-The validation yields a result $\in \{true,false\}$ which means that the confidence in the intrinsic data integrity is absolute, i.e. $\Psi_{intrinsic}=1$.
+The validation yields a result $\in \{true,false\}$ which means that the confidence in the intrinsic data integrity is absolute, i.e.\ $\Psi_{intrinsic}=1$.
 
 Generally, \textbf{we define the intrinsic data integrity} of a transaction type $\phi$ as an aspect
 $\alpha_{\phi,intrinsic}\in R_A$, expressed through the existence of a deterministic and local
@@ -480,8 +480,8 @@ More formally:
 \item $\forall m \in M$ let the function $G_\text{about}(m)$ return a set of nodes important for a node to gossip \textbf{about} defined by the properties of $m$.
 \item Define subsets of $G_\text{with}(m)$ according to a correlation with what it means to have low vs. high confidence value $c$:
 \begin{enumerate}
-\item \textbf{Pull}: consisting of nodes about which a low confidence means a need for more frequent gossip to raise a node's confidence.  Such nodes would include those for which, with respect to the given node, hold its published entries, hold entries it is also responsible for holding, are close the then node (i.e. in its lowest k-bucket), and which it relies on for routing (i.e. a subset of each k-bucket)
-\item \textbf{Push}: consisting of nodes about which a high confidence implies a need for more frequent gossip to spread the information about that node.  Such nodes would include ones for which a given node has high confidence is a bad actor, i.e. it has directly experienced bad acting, or has recevied bad actor gossipe from nodes that it has high confidence in being able to make that bad actor evaluation.
+\item \textbf{Pull}: consisting of nodes about which a low confidence means a need for more frequent gossip to raise a node's confidence.  Such nodes would include those for which, with respect to the given node, hold its published entries, hold entries it is also responsible for holding, are close the then node (i.e.\ in its lowest k-bucket), and which it relies on for routing (i.e.\ a subset of each k-bucket)
+\item \textbf{Push}: consisting of nodes about which a high confidence implies a need for more frequent gossip to spread the information about that node.  Such nodes would include ones for which a given node has high confidence is a bad actor, i.e.\ it has directly experienced bad acting, or has recevied bad actor gossipe from nodes that it has high confidence in being able to make that bad actor evaluation.
 \end{enumerate}
 \item \todo{TODO: describe a gossip trigger function based on the pull vs. pull distinction that demostrates when gossip happens}
 \end{enumerate}
@@ -658,9 +658,9 @@ Tools in Holochain available to app developers for use in Considered Requirement
 \begin{enumerate}
 \item Countersigning \todo{TODO}
 \item Notaries \todo{TODO -- ``The network is the notary."}
-\item Publish Headers  \todo{e.g. for chain-rollback detection}
+\item Publish Headers  \todo{e.g.\ for chain-rollback detection}
 \item Source-chain examination.  \todo{TODO}
-\item Blocked-lists. \todo{e.g. DDOS, spam, etc}
+\item Blocked-lists. \todo{e.g.\ DDOS, spam, etc}
 \item ... \todo{more here...}
 \end {enumerate}
 

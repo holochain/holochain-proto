@@ -500,7 +500,7 @@ In this section we discuss the complexity of our proposed architecture for decen
 Formally describing the complexity of decentralized multi-agent systems is a non-trivial task for which more complex approaches have been suggested (\cite{multi-agent-complex}).
 This might be the reason why there happens to be unclarity and misunderstandings within communities discussing complexity and scalability of Bitcoin for example {\cite{bitcoin-complex}}.
 
-In order to be able to have a ball-park comparison between our approach and the current status quo in decentralized application architecture, we proceed by modeling the worst-case time complexity both for a single node $\Omega_{SystemNode}$ as well as for the whole system $\Omega_{System}$ and both as functions of the number of state transitions (i.e., transactions) $n$ and the number of nodes in the system $m$.
+In order to be able to have a ball-park comparison between our approach and the current status quo in decentralized application architecture, we proceed by modeling the worst-case time complexity both for a single node $\Omega_{SystemNode}$ as well as for the whole system $\Omega_{System}$ and both as functions of the number of state transitions (i.e., transactions), $n$ and the number of nodes in the system, $m$.
 
 \subsection{Bitcoin}
 Let $\Omega_{Bitcoin}$ be the Bitcoin network, $n$ be the number of transactions and $m$ be the number full validating nodes (i.e., \textit{miners}\footnote{For the sake of simplicity and focusing on a lower bound of the system's complexity, we are neglecting all nodes that are not crucial for the operation of the network, such as light-clients and clients not involved in the process of validation}) within $\Omega_{Bitcoin}$.
@@ -513,7 +513,7 @@ per transaction. The time complexity in big-O notation per node as a function of
 \begin{equation}
 \Omega_{BitcoinNode}\in O(n^2)
 \end{equation}
-The complexity handled by one Bitcoin node does not \footnote{not inherently - that is more participants will result in more transactions but we model both values as separate parameters} depend on $m$ the number of total nodes of the system. But since every node has to validate exactly the same set of transactions, the system's time complexity as a function of number of transactions and number of nodes results as
+The complexity handled by one Bitcoin node does not depend on $m$, the number of total nodes of the system.\footnote{One node does not depend inherently on $m$---that is more participants will result in more transactions but we model both values as separate parameters.} But since every node has to validate exactly the same set of transactions, the system's time complexity as a function of number of transactions and number of nodes results as
 \begin{equation}
 \Omega_{Bitcoin}\in O(n^2m)
 \end{equation}

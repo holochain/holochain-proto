@@ -166,7 +166,7 @@ Through the lens of the formalism some other aspects of \sgit can be understood 
 
 We leave a more in depth application of the formalism to \sgit\ as an excercise for the reader, however we underscore that the core difference between  \sbtc\ and \sgit\ lies in the formers constraint of $\forall n,m \in N: \chain_n\eqbang\chain_m$.  One direct consequence of this for \sbtc\ is that as the size of $\mathcal{X}_n$ grows, necessarily all nodes of \sbtc\ must grow in size, whereas this is not necessarily the case for \sgit\, and in it lies the core of Bitcoin's scalability issues.
 
-It's not surprising that a data-centric approach was used for Bitcoin.  This comes from the fact that its stated intent was to create digitally transferable ``coins," i.e., to model in a distributed digital system that property of matter known as location. On centralized computer systems this doesn't even appear as a problem because centralized systems have been designed to allow us to think from a data-centric perspective.  They allow us to believe in a kind of data objectivity, as if data exists, like a physical object sitting someplace having a location. They allow us to think in terms of an absolute frame - as if there \textit{is} a correct truth about data and/or time sequence, and suggests that ``consensus" should converge on this truth. In fact, this is not a property of information.  Data exists always from the vantage point of an observer.  It is this fact that makes digitally transferable ``coins" a \textit{hard problem} in distributed systems which consist entirely of multiple vantage points by definition.
+It's not surprising that a data-centric approach was used for Bitcoin.  This comes from the fact that its stated intent was to create digitally transferable ``coins," i.e., to model in a distributed digital system that property of matter known as location. On centralized computer systems this doesn't even appear as a problem because centralized systems have been designed to allow us to think from a data-centric perspective.  They allow us to believe in a kind of data objectivity, as if data exists, like a physical object sitting someplace having a location. They allow us to think in terms of an absolute frame---as if there \textit{is} a correct truth about data and/or time sequence, and suggests that ``consensus" should converge on this truth. In fact, this is not a property of information.  Data exists always from the vantage point of an observer.  It is this fact that makes digitally transferable ``coins" a \textit{hard problem} in distributed systems which consist entirely of multiple vantage points by definition.
 
 In the distributed world, events don't happen in the same sequence for all observers.  For Blockchain specifically, this is the heart of the matter: choosing which block, from all the nodes receiving transactions in different orders, to use for the ``consensus," i.e., what single vantage point to enforce on all nodes.  Blockchains don't record a universal ordering of events -- they manufacture a single authoritative ordering of events -- by stringing together a tiny fragment of local vantage points into one global record that has passed validation rules.
 
@@ -335,7 +335,7 @@ But, the confidence in this aspect of a certain cryptographic system depends on 
 
 If we constrain the context to remove the possibility of an adversary gaining access to an agent's private key and also exclude the possible (future) existence of computing devices or algorithms that could easily calculate or brute force the key, we might then assign a (constructed) confidence level of 1, i.e., ``absolute confidence". Without such constraints on $\mathcal{C}$, we must admit that $\Psi_{signature}<1$, which real world events, for instance the Mt.Gox hack from 2014\footnote{"Most or all of the missing bitcoins were stolen straight out of the Mt. Gox hot wallet over time, beginning in late 2011" \cite{mt-gox}}, make clear.
 
-We aim to describe these relationships in such detail in order to point out that any set $R_A$ of \textit{absolute requirements} can't reach beyond trivial statements - statements about the content and integrity of the local state of the agent itself. Following Descarte's way of questioning the confidence in every thought, we project his famous statement \textit{cogito ergo sum} into the reference frame of multi-agent systems by stating: \textbf{Agents can only have honest confidence in the fact that they perceive a certain stimulus to be present and whether any particular abstract a priori model matches that stimulus without contradiction,} i.e., that an agent sees a certain piece of data and that it \textit{is possible to interpret it in a certain way}. Every conclusion being drawn a posteriori through the application of sophisticated models of the context is dependent on assumptions about the context that are inherent to the model. This is the heart of the agent-centric outlook, and what we claim must always be taken into account in the design of decentralized multi-agent systems, as it shows that any aspect of the system as a whole that includes assumptions about other agents and non-local events must be in $R_C$, i.e., have an a priori confidence of $\Psi<1$. Facing this truth about multi-agent systems, we find little value in trying to force an absolute truth $\forall n,m \in N: \chain_n\eqbang\chain_m$ and we instead frame the problem as:
+We aim to describe these relationships in such detail in order to point out that any set $R_A$ of \textit{absolute requirements} can't reach beyond trivial statements---statements about the content and integrity of the local state of the agent itself. Following Descarte's way of questioning the confidence in every thought, we project his famous statement \textit{cogito ergo sum} into the reference frame of multi-agent systems by stating: \textbf{Agents can only have honest confidence in the fact that they perceive a certain stimulus to be present and whether any particular abstract a priori model matches that stimulus without contradiction,} i.e., that an agent sees a certain piece of data and that it \textit{is possible to interpret it in a certain way}. Every conclusion being drawn a posteriori through the application of sophisticated models of the context is dependent on assumptions about the context that are inherent to the model. This is the heart of the agent-centric outlook, and what we claim must always be taken into account in the design of decentralized multi-agent systems, as it shows that any aspect of the system as a whole that includes assumptions about other agents and non-local events must be in $R_C$, i.e., have an a priori confidence of $\Psi<1$. Facing this truth about multi-agent systems, we find little value in trying to force an absolute truth $\forall n,m \in N: \chain_n\eqbang\chain_m$ and we instead frame the problem as:
 \\
 \begin{quote}
 We wish to provide generalized means by which decentralized multi-agent systems can be built so that:
@@ -346,7 +346,7 @@ We wish to provide generalized means by which decentralized multi-agent systems 
 \end{enumerate}
 \end{quote}
 
-We perceive the agent-centric solution to these requirements to be the holographic management of system-integrity within every agent/node of the system through application specific validation routines. These sets of validation rules lie at the heart of every decentralized application, and they vary across applications according to context. Every agent carefully keeps track of their representation of that portion of reality that is of importance to them - within the context of a given application that has to manage the trade-off between having high confidence thresholds $\varepsilon(\alpha)$ and a low need for resources and complexity.
+We perceive the agent-centric solution to these requirements to be the holographic management of system-integrity within every agent/node of the system through application specific validation routines. These sets of validation rules lie at the heart of every decentralized application, and they vary across applications according to context. Every agent carefully keeps track of their representation of that portion of reality that is of importance to them---within the context of a given application that has to manage the trade-off between having high confidence thresholds $\varepsilon(\alpha)$ and a low need for resources and complexity.
 
 For example, consider two different use cases of transactions:
 \begin{enumerate}
@@ -408,7 +408,7 @@ Agent-centric distributed systems instead must rely on two central facts about d
 For this reason, \shc\ splits the system state data into two parts:
 \begin{enumerate}
 \item each node is responsible to maintain its own entire $\chain_n$ or \term{source chain} and be ready to confirm that state to other nodes when asked and
-\item all nodes are responsible to share portions of other nodes' transactions and those transactions' meta data in their \textbf{DHT shard} - meta data includes validity status, source, and optionally the source's chain headers which provide historical sequence.
+\item all nodes are responsible to share portions of other nodes' transactions and those transactions' meta data in their \textbf{DHT shard}---meta data includes validity status, source, and optionally the source's chain headers which provide historical sequence.
 \end{enumerate}
 
 Thus, the DHT provides distributed access to others' transactions and their evaluations of the validity of those transactions.
@@ -432,7 +432,7 @@ The randomization of the hash function $H$ ensures that those viewpoints represe
 an unbiased sample.
 $r$ can be adjusted depending on the application's constraints and the chosen trade-off between costs and system integrity.
 These properties provide sufficient infrastructure to create system integrity
-by detecting nodes that don't play by the rules - like changing the history or
+by detecting nodes that don't play by the rules---like changing the history or
 content of their source chain.
 In appendix \ref{apdx:trust} we detail tooling appropriate for different contexts,
 including ones where detailed analysis of source chain history is required -
@@ -513,7 +513,7 @@ per transaction. The time complexity in big-O notation per node as a function of
 \begin{equation}
 \Omega_{BitcoinNode}\in O(n^2)
 \end{equation}
-The complexity handled by one Bitcoin node does not \footnote{not inherently - that is more participants will result in more transactions but we model both values as separate parameters} depend on $m$ the number of total nodes of the system. But since every node has to validate exactly the same set of transactions, the system's time complexity as a function of number of transactions and number of nodes results as
+The complexity handled by one Bitcoin node does not \footnote{not inherently---that is more participants will result in more transactions but we model both values as separate parameters} depend on $m$ the number of total nodes of the system. But since every node has to validate exactly the same set of transactions, the system's time complexity as a function of number of transactions and number of nodes results as
 \begin{equation}
 \Omega_{Bitcoin}\in O(n^2m)
 \end{equation}
@@ -568,7 +568,7 @@ Let $\Omega_{HC}$ be a given Holochain system, let $n$ be the sum of all public\
 Putting a new entry to the DHT involves finding a node that is responsible for holding that specific entry, which in our case according to \cite{kademlia} has a time complexity of \begin{equation}
 c+\lceil{log(m)}\rceil.
 \end{equation}
-After receiving the state transition data, this node will gossip with its $q$ neighbors which will result in $r$ copies of this state transition entry being stored throughout the system - on $r$ different nodes. Each of these nodes has to validate this entry which is an application specific logic of which the complexity we shall call $v(n, m)$.
+After receiving the state transition data, this node will gossip with its $q$ neighbors which will result in $r$ copies of this state transition entry being stored throughout the system---on $r$ different nodes. Each of these nodes has to validate this entry which is an application specific logic of which the complexity we shall call $v(n, m)$.
 
 Combined, this results in a system-wide complexity per state transition as given with
 \begin{equation}
@@ -590,7 +590,7 @@ Note that the factor $\frac{n}{m}$ represents the average number of state transa
 
 The only overhead that is added by the architecture of this decentralized system is the node look-up with its complexity of $log(m)$.
 
-The unknown and also application specific complexity $v(n,m)$ of the validation routines is what could drive up the whole system's complexity still. And indeed it is conceivable to think of Holochain applications with a lot of complexity within their validation routines. It is basically possible to mimic Blockchain's consensus validation requirement by enforcing that a validating node communicates with all other nodes before adding an entry to the DHT. It could as well only be half of all nodes. And there surely is a host of applications with only little complexity - or specific state transitions within an application that involve only little complexity. \textit{In a Holochain app one can put the complexity where it is needed and keep the rest of the system fast and scalable.}
+The unknown and also application specific complexity $v(n,m)$ of the validation routines is what could drive up the whole system's complexity still. And indeed it is conceivable to think of Holochain applications with a lot of complexity within their validation routines. It is basically possible to mimic Blockchain's consensus validation requirement by enforcing that a validating node communicates with all other nodes before adding an entry to the DHT. It could as well only be half of all nodes. And there surely is a host of applications with only little complexity---or specific state transitions within an application that involve only little complexity. \textit{In a Holochain app one can put the complexity where it is needed and keep the rest of the system fast and scalable.}
 
 In section \ref{sec:usecases} we proceed by providing real-world use cases and showing how non-trivial Holochain applications can be built that get along with a validation complexity of $O(1)$, resulting in a total time complexity per node in $O(log(m))$ and a high enough confidence in integrity without introducing proof-of-work at all.
 
@@ -675,7 +675,7 @@ Tools in Holochain available to app developers for use in Considered Requirement
   \begin{itemize}
     \item by anyone
     \item by an admin (that could either be set in the application's DNA or a
-    variable shared within the DHT - both could be mutable or constant)
+    variable shared within the DHT---both could be mutable or constant)
     \item by multiple users (applying social triangulation)
   \end{itemize}
   \item \textit{Proof-of-Identity / Reputation}\\
@@ -777,7 +777,7 @@ Bitcoin Wiki
 
 \bibitem[IPFS]{ipfs}
 Juan Benet
-\textit{IPFS - Content Addressed, Versioned, P2P File System (DRAFT 3)}
+\textit{IPFS---Content Addressed, Versioned, P2P File System (DRAFT 3)}
 \\\url{https://ipfs.io/ipfs/QmR7GSQM93Cx5eAg6a6yRzNde1FQv7uL6X1o4k7zrJa3LX/ipfs.draft3.pdf}
 
 \bibitem[LibP2P]{libp2p}

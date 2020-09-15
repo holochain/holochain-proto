@@ -8,9 +8,9 @@
 [![Twitter Follow](https://img.shields.io/twitter/follow/holochain.svg?style=social&label=Follow)](https://twitter.com/holochain)
 
 ### Code Status
-Alpha. Not for production use. The code has not yet undergone a security audit. We expect to destructively restructure code APIs and data chains until Beta. 
+Alpha. Not for production use. The code has not yet undergone a security audit. You should expect unstable APIs and data chains. 
 
-**NOT CURRENT REPOSITORY** Holochain is being rebuilt in Rust, and this Go codebase has minimal maintenance while that process is underway. Please see the [NEW REPOSITORY](https://github.com/holochain/holochain-rust) with the Rust version for updates.
+**NOT CURRENT REPOSITORY** Holochain has been rebuilt in Rust, and this Go codebase is not maintained. Please see the [NEW REPOSITORY](https://github.com/holochain/holochain) for an updated and supported version.
 
 ### Holographic storage for distributed applications
 Holochain uses a monotonic distributed hash table (DHT) where every node enforces validation rules on data before publishing that data against the signed chains where the data originated.

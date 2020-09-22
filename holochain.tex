@@ -3,15 +3,15 @@
 %
 % Source: http://www.writelatex.com
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-\documentclass[twocolumn,showpacs,%
-  nofootinbib,aps,superscriptaddress,%
+\RequirePackage[hyphens]{url}
+\documentclass[twocolumn,showpacs,
+  nofootinbib,aps,superscriptaddress,
   eqsecnum,prd,notitlepage,showkeys,10pt]{revtex4-1}
 
 \usepackage{amssymb}
 \usepackage{amsmath}
 \usepackage{graphicx}
 \usepackage{dcolumn}
-\usepackage{hyperref}
 \usepackage{draftwatermark}
 \usepackage{enumitem}
 \usepackage{setspace} % for \onehalfspacing and \singlespacing macros
@@ -23,6 +23,64 @@
 \SetWatermarkColor[gray]{0.9}
 \SetWatermarkScale{5}
 
+
+%This should be the last package before \input{Version.tex}
+\PassOptionsToPackage{hyphens}{url}\usepackage{hyperref}
+\usepackage{xurl} % doesn't work: https://i.imgur.com/FwBWCLg.png
+% "hyperref loads the url package internally. Use \PassOptionsToPackage
+% {hyphens}{url}\usepackage{hyperref} to pass the option to the url
+% package when it is loaded by hyperref. This avoids any package option
+% clashes." Source: 
+% <https://tex.stackexchange.com/questions/3033/forcing-linebreaks-in-url/3034#comment44478_3034>.
+% Note also this: "If the \PassOptionsToPackage{hyphens}{url} approach
+% does not work, maybe it's "because you're trying to load the url
+% package with a specific option, but it's being loaded by one of your
+% packages before that with a different set of options. Try loading the
+% url package earlier than the package that requires it. If it's loaded
+% by the document class, try using \RequirePackage[hyphens]{url} before
+% the document class." Source: 
+% <https://tex.stackexchange.com/questions/3033/forcing-linebreaks-in-url/3034#comment555944_3034>.
+% For more information on using the hyperref package, refer to e.g.
+% https://en.wikibooks.org/w/index.php?title=LaTeX/Hyperlinks&stable=0#Hyperlink_and_Hypertarget.
+% Not sure how to fix URLs breaking over o
+\hypersetup{breaklinks=true,
+            bookmarks=true,
+            pdfauthor={Eric Harris-Braun, Nicolas Luck, Arthur Brock},
+            pdftitle={Holochain: scalable agent-centric distributed 
+              computing},
+            colorlinks=true,
+            citecolor=blue,
+            urlcolor=blue,
+            unicode=true,
+            pdfkeywords={cryptography, distributed computing platform,
+              agent-centric,
+              scalable, distributed hash table, multi-agent systems},
+            %linkcolor=magenta,
+            pdfborder={0 0 0.5 [1 3]},
+	    	    pagebackref=true}
+
+%Put after \PassOptionsToPackage PR
+% info on the above command: <https://tex.stackexchange.com/posts/10419/revisions>. Note that the three preceding lines, as well as \PassOptionsToPackage{hyphens}{url}\usepackage{hyperref} did not fix the error where if a URL breaks over a page, it shows a snippet in the header as shown here: <https://i.stack.imgur.com/tYUe2.png>. 
+% This doesn't help either:
+\makeatletter
+\g@addto@macro{\UrlBreaks}{\UrlOrds}
+\makeatother
+
+
+%The following command did fix this error, however only because it happened to compact the text, preventing a URL from breaking over a page. If you force a URL to break over a page, the error still occurs.
+% Doesn't work.
+% Unless someone can think of another solution, avoid manually breaking over pages.
+\expandafter\def\expandafter\UrlBreaks\expandafter{\UrlBreaks%  save the current one
+  \do\a\do\b\do\c\do\d\do\e\do\f\do\g\do\h\do\i\do\j%
+  \do\k\do\l\do\m\do\n\do\o\do\p\do\q\do\r\do\s\do\t%
+  \do\u\do\v\do\w\do\x\do\y\do\z\do\A\do\B\do\C\do\D%
+  \do\E\do\F\do\G\do\H\do\I\do\J\do\K\do\L\do\M\do\N%
+  \do\O\do\P\do\Q\do\R\do\S\do\T\do\U\do\V\do\W\do\X%
+  \do\Y\do\Z}
+
+\def\UrlBigBreaks{\do\/\do-\do:}
+
+\urlstyle{same} % don't use monospace font for urls
 
 \newtheorem{itemlet}{}
 
@@ -54,7 +112,7 @@
 \affiliation{Ceptr, LLC}
 
 \begin{abstract}
-ABSTRACT : We present a scalable, agent-centric distributed computing platform.  We use a  formalism to characterize distributed systems, show how it applies to some existing distributed systems, and demonstrate the benefits of shifting from a data-centric to an agent-centric model. We present a detailed formal specification of the Holochain system, along with an analysis of its systemic integrity, capacity for evolution, total system computational complexity, implications for use-cases, and current implementation status.
+ABSTRACT: We present a scalable, agent-centric distributed computing platform.  We use a  formalism to characterize distributed systems, show how it applies to some existing distributed systems, and demonstrate the benefits of shifting from a data-centric to an agent-centric model. We present a detailed formal specification of the Holochain system, along with an analysis of its systemic integrity, capacity for evolution, total system computational complexity, implications for use-cases, and current implementation status.
 
 \end{abstract}
 
@@ -70,7 +128,7 @@ Though hash-chains help solve the problem of independently acting agents reliabl
 \item Bitcoin\footnote{https://bitcoin.org/bitcoin.pdf}: In Bitcoin (and blockchain in general), the ``problem" is understood to be that of figuring out how to choose one block of transactions among the many variants being experienced by the mining nodes (as they collect transactions from clients in different orders), and committing that single variant to the single globally shared chain. We call this approach \term{data-centric} because of its focus on creating a single shared data reality among all nodes.
 \end{enumerate}
 
-We claim that this fundamental original stance results directly in the most significant limitation of the blockchain: scalability.  This limitation is widely known \footnote{add various sources} and many solutions have been offered \footnote{more footnotes here}.  Holochain offers a way forward by directly addressing the root data-centric assumptions of the blockchain approach.
+We claim that this fundamental original stance results directly in the most significant limitation of the blockchain: scalability.  This limitation is widely known and many solutions have been offered.\footnote{https://github.com/ethereum/wiki/wiki/Scaling-projects-and-proposals-and-other-crypto-infrastructure-projects}  Holochain offers a way forward by directly addressing the root data-centric assumptions of the blockchain approach.
 
 \section{Prior Work}
 This paper builds largely on recent work in cryptographic distributed systems and distributed hash tables and multi-agent systems.
@@ -168,7 +226,7 @@ We leave a more in depth application of the formalism to \sgit\ as an excercise 
 
 It's not surprising that a data-centric approach was used for Bitcoin.  This comes from the fact that its stated intent was to create digitally transferable ``coins," i.e., to model in a distributed digital system that property of matter known as location. On centralized computer systems this doesn't even appear as a problem because centralized systems have been designed to allow us to think from a data-centric perspective.  They allow us to believe in a kind of data objectivity, as if data exists, like a physical object sitting someplace having a location. They allow us to think in terms of an absolute frame - as if there \textit{is} a correct truth about data and/or time sequence, and suggests that ``consensus" should converge on this truth. In fact, this is not a property of information.  Data exists always from the vantage point of an observer.  It is this fact that makes digitally transferable ``coins" a \textit{hard problem} in distributed systems which consist entirely of multiple vantage points by definition.
 
-In the distributed world, events don't happen in the same sequence for all observers.  For Blockchain specifically, this is the heart of the matter: choosing which block, from all the nodes receiving transactions in different orders, to use for the ``consensus," i.e., what single vantage point to enforce on all nodes.  Blockchains don't record a universal ordering of events -- they manufacture a single authoritative ordering of events -- by stringing together a tiny fragment of local vantage points into one global record that has passed validation rules.
+In the distributed world, events don't happen in the same sequence for all observers.  For Blockchain specifically, this is the heart of the matter: choosing which block, from all the nodes receiving transactions in different orders, to use for the ``consensus," i.e., what single vantage point to enforce on all nodes.  Blockchains don't record a universal ordering of events---they manufacture a single authoritative ordering of events---by stringing together a tiny fragment of local vantage points into one global record that has passed validation rules.
 
 The use of the word consensus seems at best dubious as a description of a systemic requirement that all nodes carry identical values of $\chain_n$.  Especially when the algorithm for ensuring that sameness is essentially a digital lottery powered by expensive computation of which the primary design feature is to randomize which node gets to run $V_n$ such that no node has preference to which $e$ gets added to $\chain_n$.
 
@@ -191,7 +249,7 @@ Ethereum\footnote{https://github.com/ethereum/wiki/wiki/White-Paper} provides th
 
 This approach does live up to the constraints listed above as described by Wood \cite{yellowpaper} where the bulk of that paper can be understood as a specification of a validation function $V_n()$ and the described state transition function $\sigma_\text{t+1} \equiv \Upsilon(\sigma,T)$ as a specification of how constraints above are met.
 
-Unfortunately the data-centric legacy inherited by Ethereum from the blockchain model, is immediately observable in its high compute cost\footnote{link to our benchmarkng} and difficulty in scaling\footnote{find a scholarly article }.
+Unfortunately the data-centric legacy inherited by Ethereum from the blockchain model, is immediately observable in its high compute cost\footnote{See \href{https://github.com/holochain/benchmarks}{our benchmarks against Ethereum} and difficulty in scaling.\footnote{see e.g. {this Coindesk article}(https://www.coindesk.com/information/will-ethereum-scale}, \href(here}{https://github.com/ethereum/eth2.0-specs/blob/master/specs/core/0_beacon-chain.md} for the latest spec, \href{https://www.coinlearningclub.com/zcash-technology-to-help-solve-ethereums-scaling-problem}{here} for an intermediate SNARK-based scaling proposal noting scaling issues, \href{https://twitter.com/search?q=ethereum%20scaling%20problem&src=typd}{here} for Twitter search results and \href{https://duckduckgo.com/?q=Ethereum%27s+difficulty+in+scaling&t=ffab&ia=web}{here} for DuckDuckGo results.}
 
 
 \subsection{Holochain}
@@ -208,7 +266,7 @@ Using our formalism, a Holochain based application \shc is defined as:
 
 \item Let $M$ be a virtual machine used to execute code.
 
-\item Let the initial entry of all $\chain_n$ in $N$ be identical and consist in the set \hcdna $\{e_1,e_2,\dots,f_1,f_2,\dots,p_1,p_2,\dots\}$ where $e_x$ are definitions of entry types that can be added to the chain, $f_x$ are functions defined as executable on $M$ (which we also refer to as the set $\appfns = \{app_1,app_2,\dots\}$), and $p_x$ are  system properties which among other things declare the expected operating parameters of the application being specificed.  For example the resilience factor as defined below is set as one such property.
+\item Let the initial entry of all $\chain_n$ in $N$ be identical and consist in the set \hcdna $\{e_1,e_2,\dots,f_1,f_2,\dots,p_1,p_2,\dots\}$ where $e_x$ are definitions of entry types that can be added to the chain, $f_x$ are functions defined as executable on $M$ (which we also refer to as the set $\appfns = \{app_1,app_2,\dots\}$), and $p_x$ are  system properties which among other things declare the expected operating parameters of the application being specified.  For example the resilience factor as defined below is set as one such property.
 
 \item Let $\hcid_n$ be the second entry of all $\chain_n$ and be a set of the form $\{p,i\}$ where $p$ is the public key and $i$ is identifying information appropriate to the use of this particular \shc. Note that though this entry is of the same format for all $\chain_n$ it's content is not the same. Call this entry the \term{agent identity} entry.
 
@@ -234,7 +292,7 @@ Using our formalism, a Holochain based application \shc is defined as:
 \end{enumerate}
 \item \label{routable} Assume $x,y \in N$ and $\delta_i \in \dhtstate_x$ but $\delta_i \notin \dhtstate_y$. Allow that when $y$ calls $dht_\text{get}(key)$, $\delta_i$ will be retrieved from $x$ over channel $X$ and added to $\dhtstate_y$.
 \end{enumerate}
-DHT are sufficiently mature that there are a number of ways to ensure property \ref{routable}.  For our current alpha version we use a modified version of \cite{kademlia} as implemented in \cite{libp2p}.
+DHTs are sufficiently mature that there are a number of ways to ensure property \ref{routable}.  For our current alpha version we use a modified version of \cite{kademlia} as implemented in \cite{libp2p}.
 
 \item Let $\hcdht$ augment $DHT$ as follows:
 \begin{enumerate}
@@ -289,11 +347,11 @@ Call $\hcdht$ a \term{validating}, \term{monotonic}, \term{sharded} DHT.
 \subsection{Systemic Integrity Through Validation}
 \label{sec:integrity}
 
-The appeal of the data-centric approach to distributed computing comes from the fact that if you can prove that all nodes reliably have the same data then that provides strong general basis from which to prove the integrity of the system as a whole.  In the case of Bitcoin, the $\chain$ holds the transactions and the unspent transaction outputs, which allows nodes to verify future transactions against double-spend. In the case of Ethereum, $\chain$ holds what ammounts to pointers to machine state. Proving the consistency across all nodes of those data sets is fundamental to the integrity of those systems.
+The appeal of the data-centric approach to distributed computing comes from the fact that if you can prove that all nodes reliably have the same data then that provides strong general basis from which to prove the integrity of the system as a whole.  In the case of Bitcoin, the $\chain$ holds the transactions and the unspent transaction outputs, which allows nodes to verify future transactions against double-spend. In the case of Ethereum, $\chain$ holds what amounts to pointers to machine state. Proving the consistency across all nodes of those data sets is fundamental to the integrity of those systems.
 
 However, because we have started with the assumption (see \ref{sec:formalism}) of distributed systems of independently acting agents, any \textit{proof} of  $\forall n,m \in N: \chain_n\eqbang\chain_m$ in a blockchain based system is better understood as a \textit{choice} (hence our use of the $\eqbang$),  in that nodes use their agency to decide when to stop interacting with other nodes based on detecting that the $\chain$ state no longer matches.  This might also be called  ``proof by enforcement," and is also appropriately known as a \term{fork} because essentially it results in partitioning of the network.
 
-The heart of the matter has to do with the trust any single agent has is in the system.  In \cite{yellowpaper} Section 1.1 (Driving Factors) we read:
+The heart of the matter has to do with the trust any single agent has is in the system.  In \cite{yellowpaper} \hyperref{https://ethereum.github.io/yellowpaper/paper.pdf#subsection.1.1}{Section 1.1 (Driving Factors)} we read:
 \begin{quote}
 Overall, I wish to provide a system such that users can be guaranteed that no matter with which other individuals, systems or organizations they interact, they can do so with absolute confidence in the possible outcomes and how those outcomes might come about.
 \end{quote}
@@ -305,7 +363,7 @@ The idea of ``absolute confidence" here seems important, and we attempt to under
 \item Let $R_n = \{\alpha_1,\alpha_2,...\dots\}$ define a set of aspects about the system with which an agent $n \in N$ measures confidence.  Call $R_n$ the \term{requirements} of $n$ with respect to $\Omega$.
 \item Let $\varepsilon_n(\alpha)$ be a thresholding function for node $n \in N$ with respect to $\alpha$ such that when $\Psi_\alpha < \varepsilon(\alpha)$ then $n$ will either stop participating in the system, or reject the participation of others (resulting in a fork).
 
-\item  Let $R_\mathrm{A}$ and Let $R_\mathrm{C}$ be partitions of $R$ where
+\item  Let $R_\mathrm{A}$ and let $R_\mathrm{C}$ be partitions of $R$ where
 \begin{equation}
 \begin{split}
 \forall \alpha \in R_A:\varepsilon(\alpha)=1\\
@@ -333,9 +391,9 @@ But, the confidence in this aspect of a certain cryptographic system depends on 
 \Psi_{signature} = \mathcal{P}(Author_{real} = Author_{local} | \mathcal{C})
 \end{equation}
 
-If we constrain the context to remove the possibility of an adversary gaining access to an agent's private key and also exclude the possible (future) existence of computing devices or algorithms that could easily calculate or brute force the key, we might then assign a (constructed) confidence level of 1, i.e., ``absolute confidence". Without such constraints on $\mathcal{C}$, we must admit that $\Psi_{signature}<1$, which real world events, for instance the Mt.Gox hack from 2014\footnote{"Most or all of the missing bitcoins were stolen straight out of the Mt. Gox hot wallet over time, beginning in late 2011" \cite{mt-gox}}, make clear.
+If we constrain the context to remove the possibility of an adversary gaining access to an agent's private key and also exclude the possible (future) existence of computing devices or algorithms that could easily calculate or brute force the key, we might then assign a (constructed) confidence level of 1, i.e., ``absolute confidence". Without such constraints on $\mathcal{C}$, we must admit that $\Psi_{signature}<1$, which real world events, for instance the Mt. Gox hack from 2014\footnote{"Most or all of the missing bitcoins were stolen straight out of the Mt. Gox hot wallet over time, beginning in late 2011" \cite{mt-gox}}, make clear.
 
-We aim to describe these relationships in such detail in order to point out that any set $R_A$ of \textit{absolute requirements} can't reach beyond trivial statements - statements about the content and integrity of the local state of the agent itself. Following Descarte's way of questioning the confidence in every thought, we project his famous statement \textit{cogito ergo sum} into the reference frame of multi-agent systems by stating: \textbf{Agents can only have honest confidence in the fact that they perceive a certain stimulus to be present and whether any particular abstract a priori model matches that stimulus without contradiction,} i.e., that an agent sees a certain piece of data and that it \textit{is possible to interpret it in a certain way}. Every conclusion being drawn a posteriori through the application of sophisticated models of the context is dependent on assumptions about the context that are inherent to the model. This is the heart of the agent-centric outlook, and what we claim must always be taken into account in the design of decentralized multi-agent systems, as it shows that any aspect of the system as a whole that includes assumptions about other agents and non-local events must be in $R_C$, i.e., have an a priori confidence of $\Psi<1$. Facing this truth about multi-agent systems, we find little value in trying to force an absolute truth $\forall n,m \in N: \chain_n\eqbang\chain_m$ and we instead frame the problem as:
+We aim to describe these relationships in such detail in order to point out that any set $R_A$ of \textit{absolute requirements} can't reach beyond trivial statements---statements about the content and integrity of the local state of the agent itself. Following Descarte's way of questioning the confidence in every thought, we project his famous statement \textit{cogito ergo sum} into the reference frame of multi-agent systems by stating: \textbf{Agents can only have honest confidence in the fact that they perceive a certain stimulus to be present and whether any particular abstract a priori model matches that stimulus without contradiction,} i.e., that an agent sees a certain piece of data and that it \textit{is possible to interpret it in a certain way}. Every conclusion being drawn a posteriori through the application of sophisticated models of the context is dependent on assumptions about the context that are inherent to the model. This is the heart of the agent-centric outlook, and what we claim must always be taken into account in the design of decentralized multi-agent systems, as it shows that any aspect of the system as a whole that includes assumptions about other agents and non-local events must be in $R_C$, i.e., have an a priori confidence of $\Psi<1$. Facing this truth about multi-agent systems, we find little value in trying to force an absolute truth $\forall n,m \in N: \chain_n\eqbang\chain_m$ and we instead frame the problem as:
 \\
 \begin{quote}
 We wish to provide generalized means by which decentralized multi-agent systems can be built so that:
@@ -384,7 +442,7 @@ With this definition, we focus on aspects that don't make any claims about syste
 \label{sec:membandprov}
 
 Distributed systems must rely on mechanisms to restrict participation by nodes in processes that without such restriction would compromise systemic integrity.
-Systems where the restrictions are based on the nodes' identity, whether that be as declared by type or  authority, or collected from the history of the nodes' behaviors, are know as \term{permissioned} \cite{CaaS}.
+Systems where the restrictions are based on the nodes' identity, whether that be as declared by type or  authority, or collected from the history of the nodes' behaviors, are known as \term{permissioned} \cite{CaaS}.
 Systems where these restrictions are not based on properties of the nodes themselves are known as \term{permissionless}.
 In permissionless multi-agent systems, a principle threat to systemic integrity comes from \textit{Sybil-Attacks} \cite{sybil}, where an adversary tries to
 overcome the system's validation rules by spawning a large number of compromised
@@ -632,6 +690,10 @@ Additionally we have created a benchmarking suite to examine the processing, ban
 
 We have yet to implement scalability tests for large scale applications, but it is in our roadmap.\todo{TODO}
 
+\section{Availability}
+The source of this paper is maintained at \url{https://github.com/holochain/holochain-proto/blob/develop/holochain.tex}.
+It is available to view online at \url{https://raw.githubusercontent.com/holochain/holochain-proto/whitepaper/holochain.pdf}. 
+
 \appendix
 
 \section{$DHT_\text{hc}$}
@@ -721,18 +783,18 @@ We thank Steve Sawin for his review of this paper, \LaTeXe support and so much m
 
 \end{acknowledgments}
 
-\bibliographystyle{alpha}
+\bibliographystyle{alpha} \todo{should change to natbib}
 \begin{thebibliography}{9}
 
-\bibitem[DUPONT]{dupont}
+\bibitem[Dupont]{dupont}
 Quinn DuPont.
 \textit{Experiments in Algorithmic Governance: A history and ethnography of “The DAO,” a failed Decentralized Autonomous Organization}
 \\\url{http://www.iqdupont.com/assets/documents/DUPONT-2017-Preprint-Algorithmic-Governance.pdf}
 
-\bibitem[EIP-150]{yellowpaper}
+\bibitem[WoodYP]{yellowpaper}
 Gavin Wood.
 \textit{Ethereum: A Secure Decentralised Generalised Transaction Ledger}.
-\\\url{http://yellowpaper.io/}
+\\\url{https://ethereum.github.io/yellowpaper/paper.pdf}
 
 \bibitem[Kademlia]{kademlia}
 Petar Maymounkov and David Mazieres
@@ -778,7 +840,9 @@ Bitcoin Wiki
 \bibitem[IPFS]{ipfs}
 Juan Benet
 \textit{IPFS - Content Addressed, Versioned, P2P File System (DRAFT 3)}
+\begin{sloppypar}
 \\\url{https://ipfs.io/ipfs/QmR7GSQM93Cx5eAg6a6yRzNde1FQv7uL6X1o4k7zrJa3LX/ipfs.draft3.pdf}
+\end{sloppypar}
 
 \bibitem[LibP2P]{libp2p}
 Juan Benet, David Dias

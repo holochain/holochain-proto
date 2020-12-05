@@ -179,7 +179,7 @@ Perhaps a more accurate term for the hash-crack algorithm applied in \sbtc\ woul
 \section{Generalized Distributed Computation}
 \label{sec:dist-comp}
 
-The previous section described a general formalism for distributed systems and compared git to Bitcoin as an example of an agent-centric vs. a data-centric distributed system.  Neither of these systems, however, provides generalized computation in the sense of being a framework for writing computer programs or creating applications. So, lets add the following constraints to formalism~\ref{sec:formalism} as follows:
+The previous section described a general formalism for distributed systems and compared git to Bitcoin as an example of an agent-centric vs.\ a data-centric distributed system.  Neither of these systems, however, provides generalized computation in the sense of being a framework for writing computer programs or creating applications. So, lets add the following constraints to formalism~\ref{sec:formalism} as follows:
 
 \begin{enumerate}
 \item With respect to a machine $M$, some values of $S_n$ can be interpreted as: executable code and the results of code execution, and they may be accessible to $M$ and the code.  Call such values the \term{machine state}.
@@ -478,12 +478,12 @@ More formally:
 \item Allow a class of entries stored in $\chain_n$ be used also as a metric $m_w$ which act as a signed declaration of the experience of $n$ regarding some other node.  Call such entries \term{warrants}.  These warrants allow us to use the standard tooling of Holochain to make provenance based, verifyable claims about other nodes in the network, which propagate orthogonally from the usual DHT methods, via gossip to nodes that need to "hear" about these claims so as to make decisions about interacting with nodes.
 \item $\forall m \in M$ let the function $G_\text{with}(m)$ return a set of nodes important for a node to gossip \textbf{with} defined by a probabilistc weighting that information recieved from those nodes will result in changing $m_\text{other}$.
 \item $\forall m \in M$ let the function $G_\text{about}(m)$ return a set of nodes important for a node to gossip \textbf{about} defined by the properties of $m$.
-\item Define subsets of $G_\text{with}(m)$ according to a correlation with what it means to have low vs. high confidence value $c$:
+\item Define subsets of $G_\text{with}(m)$ according to a correlation with what it means to have low vs.\ high confidence value $c$:
 \begin{enumerate}
 \item \textbf{Pull}: consisting of nodes about which a low confidence means a need for more frequent gossip to raise a node's confidence.  Such nodes would include those for which, with respect to the given node, hold its published entries, hold entries it is also responsible for holding, are close the then node (i.e. in its lowest k-bucket), and which it relies on for routing (i.e. a subset of each k-bucket)
 \item \textbf{Push}: consisting of nodes about which a high confidence implies a need for more frequent gossip to spread the information about that node.  Such nodes would include ones for which a given node has high confidence is a bad actor, i.e. it has directly experienced bad acting, or has recevied bad actor gossipe from nodes that it has high confidence in being able to make that bad actor evaluation.
 \end{enumerate}
-\item \todo{TODO: describe a gossip trigger function based on the pull vs. pull distinction that demostrates when gossip happens}
+\item \todo{TODO: describe a gossip trigger function based on the pull vs.\ pull distinction that demostrates when gossip happens}
 \end{enumerate}
 
 The computational costs of gossip depend on the set of metrics that a particular application needs to keep track of to maintain system integrity.  For an application with a very strong membership membrane perhaps only $uptime$ metrics are necessary to gossip about to balance resillience.  But this too may depend on apriori knowledge of the nodes involved in the application.  Applications with very loose membership membranes may have a substantial number of metrics and complex membrane functions using those metrics which may require substantial compute effort.  The Holochain design intentionally leaves these parameters only loosly specificed so that applications can be built fit for purpose.
@@ -611,7 +611,7 @@ Consider a simple implementation of micro-blogging using Holochain where:
 \subsection{Identity}
 \todo{DPKI}
 \subsection{Money}
-\todo{mutual-credit vs. coins}
+\todo{mutual-credit vs.\ coins}
 where the complexity of the transaction is higher, complexity may be $O(n^2)$ or $O(log(n))$ see holo currency white paper: \cite{holocurrency}
 
 

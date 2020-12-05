@@ -480,7 +480,7 @@ More formally:
 \item $\forall m \in M$ let the function $G_\text{about}(m)$ return a set of nodes important for a node to gossip \textbf{about} defined by the properties of $m$.
 \item Define subsets of $G_\text{with}(m)$ according to a correlation with what it means to have low vs. high confidence value $c$:
 \begin{enumerate}
-\item \textbf{Pull}: consisting of nodes about which a low confidence means a need for more frequent gossip to raise a node's confidence.  Such nodes would include those for which, with respect to the given node, hold its published entries, hold entries it is also responsible for holding, are close the then node (i.e. in its lowest k-bucket), and which it relies on for routing (i.e. a subset of each k-bucket)
+\item \textbf{Pull}: consisting of nodes about which a low confidence means a need for more frequent gossip to raise a node's confidence.  Such nodes would include those for which, with respect to the given node, hold its published entries, hold entries it is also responsible for holding, are closer than the node (i.e. in its lowest k-bucket), and which it relies on for routing (i.e. a subset of each k-bucket)
 \item \textbf{Push}: consisting of nodes about which a high confidence implies a need for more frequent gossip to spread the information about that node.  Such nodes would include ones for which a given node has high confidence is a bad actor, i.e. it has directly experienced bad acting, or has recevied bad actor gossipe from nodes that it has high confidence in being able to make that bad actor evaluation.
 \end{enumerate}
 \item \todo{TODO: describe a gossip trigger function based on the pull vs. pull distinction that demostrates when gossip happens}

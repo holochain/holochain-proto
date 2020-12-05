@@ -124,6 +124,7 @@ Call $h$ a \term{header} and note how the sequence of headers creates a chain (t
 \item Let $P(x)$ be a function that can create transactions $t$ and trigger functions $V$ and $\tau$, and $P$ itself is triggered by state changes or the passage of time.  Call $P$ the \term{processing} function.
 \item Let $C$ be a channel that allows all nodes in $N$ to communicate and over which each node has a unique address $A_n$. Call $C$ and the nodes that communicate on it the \term{network}.
 \item Let $E(i)$ be a function that changes functions $V,I,P$.  Call $E$ the \term{evolution} function.
+\label{formalism:evolution}
 \end{enumerate}
 
 Explanation: this formalism allows us to model separately key aspects of agents.
@@ -342,7 +343,7 @@ We wish to provide generalized means by which decentralized multi-agent systems 
 \begin{enumerate}
 \item fit-for-purpose solutions can be applied in order to optimize for application contextualized confidences $\Psi_\alpha$,
 \item violation of any threshold $\varepsilon(\alpha)$ through the actions of other agents can be detected and managed by any agent, such that
-\item the system integrity is maintained at any point in time or, when not, there is a path to regain it (see \ref{sec:evo}).
+\item the system integrity is maintained at any point in time or, when not, there is a path to regain it with the evolution function \ref{formalism:evolution}.
 \end{enumerate}
 \end{quote}
 

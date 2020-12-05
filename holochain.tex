@@ -638,7 +638,7 @@ We have yet to implement scalability tests for large scale applications, but it 
 \label{apdx:dhtfn}
 \begin{enumerate}
 
-\item $dht_\text{putLink}(base,link,tag)$ where $base$ and $link$ are keys and where $tag$ is an arbitrary string, which associates the tuple \{link,tag\} with the key $base$.
+\item $dht_\text{putLink}(base,link,tag)$ where $base$ and $link$ are keys and where $tag$ is an arbitrary string, which associates the tuple $(link,tag)$ with the key $base$.
 \item $dht_\text{getLinks}(base,tag)$ where $base$ is a key keys and where $tag$ is an arbitrary string, which returns the set of links on $base$ identified by $tag$.
 \item $dht_\text{mod}(key,newkey)$ where $key$ and $newkey$ are keys, which adds $newkey$ as a modifier of $\sigma_\text{key} \in \dhtstate$ and calls $dht_\text{putLink}(key,newkey,``replacedby")$.
 \item $dht_\text{del}(key)$ where $key$ is a key, and marks $\sigma_\text{key} \in \dhtstate$ as deleted.

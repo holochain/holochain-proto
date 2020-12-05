@@ -521,7 +521,7 @@ The complexity handled by one Bitcoin node does not \footnote{not inherently - t
 Note that this quadratic time complexity of Bitcoin's transaction validation process is what creates its main bottleneck as this reduces the network's gossip bandwidth since every node has to validate every transaction before passing it along. In order to still have an average transaction at least flood through $90\%$ of the network, block size and time can't be pushed beyond 4MB and 12s respectively, according to \cite{scaling}.
 
 \subsection{Ethereum}
-Let $\Omega_{Ethereum}$ be the Ethereum main network, $n$ be the number of transactions and $m$ the number of full-clients within in the network.
+Let $\Omega_{Ethereum}$ be the Ethereum main network, $n$ be the number of transactions and $m$ the number of full-clients within the network.
 
 The time complexity of processing a single transaction on a single node is a function of the code that has its execution being triggered by the given transaction plus a constant:
 \begin{equation}

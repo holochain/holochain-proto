@@ -503,7 +503,7 @@ This might be the reason why there happens to be unclarity and misunderstandings
 In order to be able to have a ball-park comparison between our approach and the current status quo in decentralized application architecture, we proceed by modeling the worst-case time complexity both for a single node $\Omega_{SystemNode}$ as well as for the whole system $\Omega_{System}$ and both as functions of the number of state transitions (i.e., transactions) $n$ and the number of nodes in the system $m$.
 
 \subsection{Bitcoin}
-Let $\Omega_{Bitcoin}$ be the Bitcoin network, $n$ be the number of transactions and $m$ be the number full validating nodes (i.e., \textit{miners}\footnote{For the sake of simplicity and focusing on a lower bound of the system's complexity, we are neglecting all nodes that are not crucial for the operation of the network, such as light-clients and clients not involved in the process of validation}) within $\Omega_{Bitcoin}$.
+Let $\Omega_{Bitcoin}$ be the Bitcoin network, $n$ be the number of transactions and $m$ be the number of full validating nodes (i.e., \textit{miners}\footnote{For the sake of simplicity and focusing on a lower bound of the system's complexity, we are neglecting all nodes that are not crucial for the operation of the network, such as light-clients and clients not involved in the process of validation}) within $\Omega_{Bitcoin}$.
 
 For every new transaction being issued, any given node will have to check the transaction's signature (among other checks, see. \cite{bitcoin-protocol}) and especially check if this transaction's output is not used in any other transaction to reject double-spendings, resulting in a time complexity of
 \begin{equation}
